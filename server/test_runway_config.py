@@ -30,6 +30,12 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 EXPECTED_CHECK_COUNT = 14
+# 19-12-PLAN.md Task 1 (D-11/A-29): 14 -> 15, +1 (no check in this file
+# pinned a runway LABEL literally, so one was added asserting
+# runway_label() returns an English "Runway N (...)" string with no
+# French "Piste" vocabulary for every RUNWAY_IDS member - re-derived by
+# running the harness, not by arithmetic)
+EXPECTED_CHECK_COUNT = 15
 
 
 def load_fixture(name):
@@ -214,6 +220,25 @@ def main():
             return False, "infer_from_flight did not read vertical_rate_fpm correctly: got %r" % (state,)
         return True, ""
     check("infer_from_flight() delegates on the flight dict's vertical_rate_fpm key", _infer_from_flight_delegates)
+
+    # 15. D-11 (19-12-PLAN.md Task 1, A-29): no check in this file pins a
+    #     runway LABEL literally (this harness tests
+    #     server/plane/runway_config.py's inference state machine, not
+    #     server/device_config.py's registry) - added here so the French
+    #     "Piste" vocabulary can never come back unnoticed.
+    def _runway_labels_are_english_with_no_piste_vocabulary():
+        import server.device_config as device_config
+        for runway_id in device_config.RUNWAY_IDS:
+            label = device_config.runway_label(runway_id)
+            if "Runway " not in label:
+                return False, "runway_label(%r) = %r does not contain 'Runway '" % (runway_id, label)
+            if "Piste" in label:
+                return False, "runway_label(%r) = %r still carries French 'Piste' vocabulary" % (runway_id, label)
+        return True, ""
+    check(
+        "device_config.runway_label() returns an English label containing 'Runway ' and no 'Piste' for every RUNWAY_IDS member (D-11/A-29)",
+        _runway_labels_are_english_with_no_piste_vocabulary,
+    )
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

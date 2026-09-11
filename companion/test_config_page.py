@@ -41,6 +41,7 @@ if REPO_ROOT not in sys.path:
 
 from companion import app as companion_app  # noqa: E402
 from companion import auth  # noqa: E402
+import companion.layout as layout  # noqa: E402
 from companion.layout import escape_html  # noqa: E402
 from companion.pages import config_page  # noqa: E402
 from server import device_config  # noqa: E402
@@ -270,6 +271,92 @@ EXPECTED_CHECK_COUNT = 127
 # call count at execution time (138/138 pass), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 142  # 138 + 4 (phase 18: page scopes / screens registry)
+EXPECTED_CHECK_COUNT = 147  # 19-07-PLAN.md Task 1 (D-07/A-25): +5 (the
+# no-errors-arg-byte-identical-flash-keys check, the errors-dict-filled-
+# per-field check across six real-user-error cases, the errors-dict-
+# stays-empty-on-success check, the empty-quiet_hours_start-writes-
+# nothing all-or-nothing pin, and the local HH:MM regex/
+# save_device_config() agreement check over the plan's own input table).
+# 142 + 5 = 147, recomputed directly against the real on-disk check(...)
+# call count at execution time (147/147 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 153  # 19-07-PLAN.md Task 2 (D-07/A-25/T-19-12):
+# +6 (render()-with-no-new-args byte-identical/no-field-error-markup
+# check, the wake_interval_s message/value/aria-invalid/aria-describedby
+# check, the submitted-theme-id-checked-even-when-differs check, the
+# both-time-inputs-carry-required check, the calendar_url error-without-
+# secret-echo check, and the cross-file style.css .field-error guard).
+# 147 + 6 = 153, recomputed directly against the real on-disk check(...)
+# call count at execution time (153/153 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 154  # 19-07-PLAN.md Task 3 (D-07/A-25): +1 (the
+# rejected-save-without-errors-arg-still-returns-save-failed legacy-
+# contract pin). 153 + 1 = 154, recomputed directly against the real
+# on-disk check(...) call count at execution time (154/154 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 155  # 19-10-PLAN.md Task 1 (D-09/A-27): +1 (the
+# dirty-ready-set-only-after-bar-guard source-ordering check; the other
+# two edits this task made were in-place retargets, not additions).
+# 154 + 1 = 155, recomputed directly against the real on-disk check(...)
+# call count at execution time (155/155 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 156  # 19-10-PLAN.md Task 2 (D-10/A-28): +1 (the
+# beforeunload-guard-reuses-countDifferences check). 155 + 1 = 156,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (156/156 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 163  # 19-10-PLAN.md Task 3 (D-14/S-04): +7 (the
+# exactly-three-button-presets check, the Night-preset-matches-
+# device_config-defaults check, the Work day preset check, the
+# Always-on preset check, the preset-row-position check, the
+# handle_post()-treats-a-preset-shaped-submission-identically check
+# (T-19-38), and the dirty-state.js/config_page.py cross-file
+# data-preset-* attribute-agreement check). 156 + 7 = 163, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (163/163 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 167  # 19-11-PLAN.md Task 1 (D-08/A-26): +4 net
+# (the calendar_disconnect checkbox check was retargeted in place from
+# "appears only when expected and unchecked" to "never appears at all",
+# a net-zero rename; four checks were added:
+# calendar_disconnect_section()'s own presence/absence-plus-shape check,
+# calendar_disconnect_confirm_page()'s post-back-with-confirm-preset
+# check, the disconnect form's sibling-not-descendant position check on
+# the Device scope, and the disconnect form's absence when not
+# configured/on the Display scope). 163 + 4 = 167, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (167/167 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 170  # 19-11-PLAN.md Task 3 (D-12/A-30): +3 (the
+# Display-has-two/Device-has-one role="radiogroup" check, the
+# every-aria-reference-resolves-and-none-is-empty check across all three
+# scopes, and the hint-plus-error-both-ids-in-order check). Several
+# existing checks were also retargeted in place to tolerate the new
+# id="..."/aria-*="..." attributes now present (a net-zero rename, not
+# a new premise): the wake-interval/display caption literals, the
+# runway-row opening-tag literal, the "every settings group named
+# exactly once" heading literals, the wake-interval aria-describedby
+# check, and the calendar-theme select's required-attribute regex.
+# 167 + 3 = 170, recomputed directly against the real on-disk check(...)
+# call count at execution time (170/170 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 176  # 19-12-PLAN.md Task 2 (D-23/D-22): +6 (the
+# empty-string-for-the-real-registry check, the monkeypatched
+# multi-member-registry <select>/<option>/selected/accessible-name check,
+# the render()-carries-no-selector-today check, the crafted-screen_id
+# rejection check, the valid-screen_id round-trip check, and the
+# Device-has-one/Display-has-none Edit-artwork-anchor check). 170 + 6 =
+# 176, recomputed directly against the real on-disk check(...) call count
+# at execution time (176/176 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 180  # 19-12-PLAN.md Task 3 (D-13/S-02): +4 (the
+# _with_next_wake() helper contract, each affected caption gaining the
+# suffix only when known, DISPLAY_SECTION_CAPTION never gaining one, and
+# the Device header's own Next-wake line rendering only when known).
+# 176 + 4 = 180, recomputed directly against the real on-disk check(...)
+# call count at execution time (180/180 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 181  # 19-REVIEW.md WR-01 fix: +1 (the
+# _screen_selector_html() field-level error message check). 180 + 1 =
+# 181, recomputed directly against the real on-disk check(...) call
+# count at execution time (181/181 pass), not trusted from arithmetic
+# alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -488,7 +575,13 @@ def main():
         expected_checked = 'name="led_enabled" value="%s" checked' % led_value
         if expected_checked not in checked_html:
             return False, "expected led_group(True) to carry %r" % (expected_checked,)
-        expected_unchecked = 'name="led_enabled" value="%s">' % led_value
+        # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - with no
+        # error, the input now carries a bare aria-describedby pointing
+        # at LED_SECTION_CAPTION_ID (via _field_error_attrs()'s hint_id)
+        # before the closing '>', not a bare closing '>' any more.
+        expected_unchecked = (
+            'name="led_enabled" value="%s" aria-describedby="%s">'
+            % (led_value, escape_html(config_page.LED_SECTION_CAPTION_ID)))
         if expected_unchecked not in unchecked_html:
             return False, "expected led_group(False) to carry %r with no checked flag" % (expected_unchecked,)
         if "checked" in unchecked_html:
@@ -555,6 +648,113 @@ def main():
         "quiet_hours_group() escapes a crafted current_start value — no raw <script> substring reaches the markup",
         _quiet_hours_group_escapes_crafted_current_values)
 
+    # ------------------------------------------------------------------
+    # 19-10-PLAN.md Task 3 (D-14/S-04): the three Quiet hours presets -
+    # markup shape/values, document position, and the T-19-38 mitigation
+    # that handle_post() treats a preset-filled submission identically to
+    # a hand-typed one (no new server code path).
+    # ------------------------------------------------------------------
+
+    def _quiet_hours_group_renders_exactly_three_button_presets():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        if rendered.count(config_page.QUIET_HOURS_PRESET_ATTR) != 3:
+            return False, (
+                "expected exactly three data-quiet-preset occurrences, got %d"
+                % rendered.count(config_page.QUIET_HOURS_PRESET_ATTR))
+        preset_buttons = re.findall(
+            r'<button\b[^>]*%s[^>]*>' % re.escape(config_page.QUIET_HOURS_PRESET_ATTR), rendered)
+        if len(preset_buttons) != 3:
+            return False, "expected exactly three preset <button> elements, got %d" % len(preset_buttons)
+        for button_html in preset_buttons:
+            if 'type="button"' not in button_html:
+                return False, "expected every preset button to carry type=\"button\", got %r" % (button_html,)
+        return True, ""
+    check(
+        "quiet_hours_group() renders exactly three data-quiet-preset <button type=\"button\"> elements",
+        _quiet_hours_group_renders_exactly_three_button_presets)
+
+    def _quiet_hours_group_night_preset_matches_device_config_defaults():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        expected = 'data-preset-start="%s" data-preset-end="%s"' % (
+            device_config.DEFAULT_QUIET_HOURS_START, device_config.DEFAULT_QUIET_HOURS_END)
+        if expected not in rendered:
+            return False, "expected the Night preset's start/end to equal device_config's own shipped defaults"
+        return True, ""
+    check(
+        "the Night preset's data-preset-start/data-preset-end equal server.device_config's "
+        "DEFAULT_QUIET_HOURS_START/DEFAULT_QUIET_HOURS_END",
+        _quiet_hours_group_night_preset_matches_device_config_defaults)
+
+    def _quiet_hours_group_workday_preset_carries_expected_times():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        if 'data-preset-start="08:00" data-preset-end="18:00"' not in rendered:
+            return False, "expected the Work day preset to carry data-preset-start=08:00/data-preset-end=18:00"
+        return True, ""
+    check(
+        "the Work day preset carries data-preset-start=\"08:00\" data-preset-end=\"18:00\"",
+        _quiet_hours_group_workday_preset_carries_expected_times)
+
+    def _quiet_hours_group_always_on_preset_disables_with_no_time_attrs():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        always_on_match = re.search(
+            r'<button\b[^>]*data-preset-enabled="0"[^>]*>', rendered)
+        if not always_on_match:
+            return False, "expected exactly one button carrying data-preset-enabled=\"0\""
+        button_html = always_on_match.group(0)
+        if "data-preset-start" in button_html or "data-preset-end" in button_html:
+            return False, "expected the Always-on preset to carry no time attributes, got %r" % (button_html,)
+        return True, ""
+    check(
+        "the Always-on preset carries data-preset-enabled=\"0\" and no data-preset-start/data-preset-end attributes",
+        _quiet_hours_group_always_on_preset_disables_with_no_time_attrs)
+
+    def _quiet_hours_group_preset_row_between_checkbox_and_time_inputs():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        checkbox_pos = rendered.index("settings-checkbox")
+        preset_pos = rendered.index(config_page.QUIET_HOURS_PRESET_ATTR)
+        time_pos = rendered.index('type="time"')
+        if not (checkbox_pos < preset_pos < time_pos):
+            return False, (
+                "expected the preset row to fall after the settings-checkbox label and before the first "
+                "type=\"time\" input, got positions %r" % ((checkbox_pos, preset_pos, time_pos),))
+        return True, ""
+    check(
+        "the preset button row appears after the .settings-checkbox label and before the first "
+        "type=\"time\" input (D-14's locked position)",
+        _quiet_hours_group_preset_row_between_checkbox_and_time_inputs)
+
+    def _handle_post_preset_filled_submission_treated_identically_to_hand_typed():
+        # T-19-38: the presets write into the SAME two fields a hand-typed
+        # submission already posts through - this proves handle_post()
+        # needs no new code path by driving it with exactly the values
+        # the Night preset would write, then confirming the persisted
+        # result is identical to the pre-existing hand-typed test above
+        # (_handle_post_quiet_hours_checkbox_on_persists_all_three).
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {
+                    "quiet_hours_enabled": config_page.QUIET_HOURS_CHECKBOX_VALUE,
+                    "quiet_hours_start": config_page.QUIET_HOURS_PRESET_NIGHT_START,
+                    "quiet_hours_end": config_page.QUIET_HOURS_PRESET_NIGHT_END,
+                },
+                ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["quiet_hours_start"] != config_page.QUIET_HOURS_PRESET_NIGHT_START:
+                return False, "expected the Night preset's start to persist unchanged"
+            if on_disk["quiet_hours_end"] != config_page.QUIET_HOURS_PRESET_NIGHT_END:
+                return False, "expected the Night preset's end to persist unchanged"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post() persists a Night-preset-shaped submission (quiet_hours_start/end equal to "
+        "device_config's own defaults) exactly as it would a hand-typed value - no new server code path (T-19-38)",
+        _handle_post_preset_filled_submission_treated_identically_to_hand_typed)
+
     def _render_wires_quiet_hours_group_after_led_before_save_button():
         rendered = config_page.render({
             "device_config": {
@@ -594,9 +794,14 @@ def main():
             % escape_html(config_page.WAKE_INTERVAL_SECTION_HEADING))
         if rendered.count(expected_heading) != 1:
             return False, "expected exactly one heading %r" % (expected_heading,)
+        # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - the
+        # caption now carries WAKE_INTERVAL_SECTION_CAPTION_ID (the
+        # number input's own aria-describedby target).
         expected_caption = (
-            '<p class="text-label section-caption">%s</p>'
-            % escape_html(config_page.WAKE_INTERVAL_SECTION_CAPTION))
+            '<p class="text-label section-caption" id="%s">%s</p>'
+            % (
+                escape_html(config_page.WAKE_INTERVAL_SECTION_CAPTION_ID),
+                escape_html(config_page.WAKE_INTERVAL_SECTION_CAPTION)))
         if rendered.count(expected_caption) != 1:
             return False, "expected exactly one caption %r" % (expected_caption,)
         if rendered.count('<input type="number" name="wake_interval_s"') != 1:
@@ -700,9 +905,14 @@ def main():
                 % escape_html(config_page.DISPLAY_SECTION_HEADING))
             if rendered.count(expected_heading) != 1:
                 return False, "expected exactly one heading %r" % (expected_heading,)
+            # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - the
+            # caption now carries DISPLAY_SECTION_CAPTION_ID (the
+            # checkbox's own aria-describedby target).
             expected_caption = (
-                '<p class="text-label section-caption">%s</p>'
-                % escape_html(config_page.DISPLAY_SECTION_CAPTION))
+                '<p class="text-label section-caption" id="%s">%s</p>'
+                % (
+                    escape_html(config_page.DISPLAY_SECTION_CAPTION_ID),
+                    escape_html(config_page.DISPLAY_SECTION_CAPTION)))
             if rendered.count(expected_caption) != 1:
                 return False, "expected exactly one caption %r" % (expected_caption,)
             if rendered.count('<label class="settings-checkbox">') != 1:
@@ -841,8 +1051,21 @@ def main():
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
+        # 19-11-PLAN.md Task 3 (D-12/A-30): Theme's and Runway's own <h2>
+        # now carry an id (the two chip grids'/runway row's own
+        # aria-labelledby target) - retargeted in place, not a rename of
+        # this check's own premise (each group is still named exactly once).
+        heading_ids = {
+            "Theme": config_page.THEME_GROUP_HEADING_ID,
+            "Runway": config_page.RUNWAY_GROUP_HEADING_ID,
+        }
         for name in ("Theme", "Runway", "Diagnostic LED", config_page.POLL_SECTION_HEADING):
-            heading = '<h2 class="text-heading">%s</h2>' % name
+            heading_id = heading_ids.get(name)
+            if heading_id:
+                heading = '<h2 class="text-heading" id="%s">%s</h2>' % (
+                    escape_html(heading_id), name)
+            else:
+                heading = '<h2 class="text-heading">%s</h2>' % name
             if rendered.count(heading) != 1:
                 return False, (
                     "expected exactly one %r group heading, got %d"
@@ -1234,9 +1457,14 @@ def main():
         # actual proof the second paragraph is gone, not merely moved.
         rendered = config_page.runway_fieldset("3")
         caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
-        row_open = '<div class="runway-row">'
+        # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - the row
+        # now also carries role="radiogroup"/aria-labelledby/
+        # aria-describedby, so the opening tag itself is no longer a
+        # bare literal; the match still proves there is exactly one
+        # .runway-row element.
+        row_open = '<div class="runway-row" role="radiogroup"'
         if rendered.count(row_open) != 1:
-            return False, "expected exactly one <div class=\"runway-row\"> opening tag, got %d" % rendered.count(row_open)
+            return False, "expected exactly one <div class=\"runway-row\" role=\"radiogroup\"...> opening tag, got %d" % rendered.count(row_open)
         caption_pos = rendered.index(caption)
         row_start = rendered.index(row_open)
         if caption_pos >= row_start:
@@ -1485,27 +1713,24 @@ def main():
         _poll_section_caption_renders_on_both_branches_under_the_heading)
 
     def _poll_trigger_live_countdown_seeded_from_server_value():
-        # D-01: the disabled branch must ship exactly one inline <script>,
-        # carrying id="poll-trigger-btn"/id="poll-cooldown-text", the
-        # unchanged server-rendered no-JS copy, and every value the
-        # script needs emitted through config_page._js_literal() — never
-        # a hardcoded quoted string, so this check stays correct if the
-        # id/token constants are ever changed deliberately.
+        # D-18/A-35 (19-04-PLAN.md): RETARGETED — the disabled branch no
+        # longer ships an inline <script> at all (that behaviour moved to
+        # companion/static/poll-cooldown.js, D-01/UXA-15 externalized).
+        # This check now pins the data-* attribute contract the script
+        # reads instead: id="poll-trigger-btn"/id="poll-cooldown-text",
+        # the unchanged server-rendered no-JS copy, and every value the
+        # script needs exposed as an escape_html()-gated data attribute
+        # on the button — never a hardcoded quoted string, so this check
+        # stays correct if the id/token constants are ever changed
+        # deliberately.
         d17 = config_page.poll_trigger_section(17)
         d5 = config_page.poll_trigger_section(5)
         z = config_page.poll_trigger_section(0)
 
-        if d17.count("<script") != 1:
-            return False, "expected exactly one <script occurrence at cooldown=17, got %d" % d17.count("<script")
-        # UXA-15 (06.6.2-02): the zero-cooldown branch now legitimately
-        # ships its own, different <script> (the submit-affordance
-        # script, _poll_submit_script()) — no longer zero. Distinguish
-        # it from the countdown script by absence of countdown-only
-        # markers.
-        if z.count("<script") != 1:
-            return False, "expected exactly one <script occurrence at cooldown=0 (the submit-affordance script), got %d" % z.count("<script")
-        if "setInterval" in z or "removeAttribute" in z:
-            return False, "expected the zero-cooldown script to be the submit-affordance script, not the countdown script"
+        if "<script" in d17:
+            return False, "expected zero <script occurrences at cooldown=17 (D-18: externalized to poll-cooldown.js)"
+        if "<script" in z:
+            return False, "expected zero <script occurrences at cooldown=0 (D-18: externalized to poll-cooldown.js)"
         if ('id="%s"' % config_page.POLL_TRIGGER_BUTTON_ID) not in d17:
             return False, "expected the button's id attribute"
         if ('id="%s"' % config_page.POLL_COOLDOWN_TEXT_ID) not in d17:
@@ -1516,56 +1741,46 @@ def main():
         if visible_copy not in d17:
             return False, "expected the unchanged, server-rendered no-JS copy"
 
-        body17_match = re.search(r"<script>(.*?)</script>", d17, re.S)
-        if not body17_match:
-            return False, "expected a <script>...</script> body to extract"
-        body17 = body17_match.group(1)
-
-        expected_literals = [
-            config_page._js_literal(17),
-            config_page._js_literal(config_page.POLL_TRIGGER_BUTTON_ID),
-            config_page._js_literal(config_page.POLL_COOLDOWN_TEXT_ID),
-            config_page._js_literal(config_page.POLL_COOLDOWN_TEMPLATE_TOKEN),
-            config_page._js_literal(
-                config_page.POLL_COOLDOWN_HELPER_TEXT.format(
-                    n=config_page.POLL_COOLDOWN_TEMPLATE_TOKEN)),
+        template = escape_html(config_page.POLL_COOLDOWN_HELPER_TEXT.format(
+            n=config_page.POLL_COOLDOWN_TEMPLATE_TOKEN))
+        token = escape_html(config_page.POLL_COOLDOWN_TEMPLATE_TOKEN)
+        expected_attrs = [
+            'data-cooldown="17"',
+            'data-cooldown-text-id="%s"' % escape_html(config_page.POLL_COOLDOWN_TEXT_ID),
+            'data-cooldown-template="%s"' % template,
+            'data-cooldown-token="%s"' % token,
         ]
-        for literal in expected_literals:
-            if literal not in body17:
-                return False, "expected seeded literal %r in the script body" % (literal,)
+        for attr in expected_attrs:
+            if attr not in d17:
+                return False, "expected data attribute %r on the disabled branch" % (attr,)
 
-        body5_match = re.search(r"<script>(.*?)</script>", d5, re.S)
-        if not body5_match:
-            return False, "expected a <script>...</script> body to extract at cooldown=5"
-        body5 = body5_match.group(1)
-        if body5 == body17:
-            return False, "expected a different seed to produce a different script body"
-        if config_page._js_literal(5) not in body5:
+        if 'data-cooldown="5"' not in d5:
             return False, "expected the seed to come from the argument (5), not a hardcoded value"
-
-        if "</" in config_page._js_literal("</script>"):
-            return False, "expected _js_literal() to break the script-closing sequence"
 
         return True, ""
     check(
-        "poll_trigger_section() ships a live countdown script on the disabled branch, seeded exclusively via _js_literal(), and a different submit-affordance script on the zero-cooldown branch (D-01, UXA-15)",
+        "poll_trigger_section() emits zero <script> elements and ships the D-01/UXA-15 data-* "
+        "attribute contract companion/static/poll-cooldown.js reads instead, on both the "
+        "disabled and zero-cooldown branches (D-18/A-35, 19-04-PLAN.md)",
         _poll_trigger_live_countdown_seeded_from_server_value)
 
     def _poll_trigger_zero_cooldown_ships_submit_affordance_script():
-        # UXA-15 (06.6.2-02): supersedes the pre-existing "no script at
-        # zero cooldown" regression guard this check used to assert —
-        # that invariant is no longer true by design. Pins the new one
-        # instead: poll_trigger_section(0) carries id="poll-trigger-btn"
-        # and exactly one <script> (the submit-affordance script, not
-        # the countdown script), while poll_trigger_section(30)'s own
-        # pre-existing _poll_cooldown_script() output stays unchanged.
+        # D-18/A-35 (19-04-PLAN.md): RETARGETED — supersedes the
+        # pre-existing "ships its own inline <script>" assertion, no
+        # longer true by design now that the UXA-15 disable-on-submit
+        # affordance lives in companion/static/poll-cooldown.js. Pins
+        # the new contract instead: poll_trigger_section(0) carries
+        # id="poll-trigger-btn" and a data-submit-pending attribute, no
+        # <script> anywhere, while poll_trigger_section(30) carries the
+        # disabled-branch data-cooldown attribute set instead.
         rendered = config_page.poll_trigger_section(0)
         if "Trigger poll now" not in rendered:
             return False, "expected the Trigger poll now button copy"
         # Scoped to the <button ...> tag, not a bare substring search —
         # see _poll_trigger_enabled_at_zero_cooldown()'s own comment on
-        # why (_poll_submit_script()'s body legitimately contains
-        # "disabled" as a JS property name).
+        # why (poll-cooldown.js's own body legitimately contains
+        # "disabled" as a JS property name, though that no longer
+        # reaches this render() output at all post-externalization).
         button_tag = re.search(r"<button\b[^>]*>", rendered)
         if not button_tag:
             return False, "expected a <button> tag to extract"
@@ -1573,19 +1788,21 @@ def main():
             return False, "expected no disabled attribute at zero cooldown"
         if ('id="%s"' % config_page.POLL_TRIGGER_BUTTON_ID) not in rendered:
             return False, "expected the button's id attribute"
-        if rendered.count("<script") != 1:
-            return False, "expected exactly one <script occurrence at zero cooldown"
-        if "setInterval" in rendered or "removeAttribute" in rendered:
-            return False, "expected the zero-cooldown script to be the submit-affordance script, not the countdown script"
+        if "<script" in rendered:
+            return False, "expected zero <script occurrences at zero cooldown (D-18: externalized to poll-cooldown.js)"
+        if 'data-submit-pending="%s"' % escape_html(config_page.POLL_SUBMIT_PENDING_TEXT) not in rendered:
+            return False, "expected the data-submit-pending attribute carrying the pending label"
 
         nonzero = config_page.poll_trigger_section(30)
-        if config_page._poll_cooldown_script(30) not in nonzero:
+        if 'data-cooldown="30"' not in nonzero:
             return False, (
-                "expected poll_trigger_section(30) to still carry its own "
-                "pre-existing _poll_cooldown_script() output unchanged")
+                "expected poll_trigger_section(30) to carry the disabled-branch "
+                "data-cooldown attribute")
         return True, ""
     check(
-        "poll_trigger_section(0) ships id=\"poll-trigger-btn\" and exactly one <script> (the UXA-15 submit-affordance script), while poll_trigger_section(30) still carries its unchanged countdown script",
+        "poll_trigger_section(0) ships id=\"poll-trigger-btn\" and a data-submit-pending "
+        "attribute with zero <script> elements, while poll_trigger_section(30) carries the "
+        "disabled-branch data-cooldown attribute instead (D-18/A-35, 19-04-PLAN.md)",
         _poll_trigger_zero_cooldown_ships_submit_affordance_script)
 
     # The whole forbidden-sink family in one place, so a future reader
@@ -1599,44 +1816,68 @@ def main():
         "use strict", "textContent", "removeAttribute",
         "setInterval", "clearInterval",
     )
+    _POLL_COOLDOWN_JS_PATH = os.path.join(HERE, "static", "poll-cooldown.js")
 
     def _poll_cooldown_script_has_no_forbidden_sink():
+        # D-18/A-35 (19-04-PLAN.md): RETARGETED IN PLACE — the countdown
+        # no longer renders as an inline <script>, so this check now
+        # asserts poll_trigger_section(17) contains NO <script substring
+        # at all plus the required data attributes, and moves the
+        # forbidden-sink/required-operation coverage this check used to
+        # provide onto companion/static/poll-cooldown.js's own source
+        # (read from disk) instead of dropping it.
         rendered = config_page.poll_trigger_section(17)
-        body_match = re.search(r"<script>(.*?)</script>", rendered, re.S)
-        if not body_match:
-            return False, "expected a <script>...</script> body to extract"
-        body = body_match.group(1)
+        if "<script" in rendered:
+            return False, "expected zero <script occurrences at cooldown=17 (D-18: externalized to poll-cooldown.js)"
+        for attr in (
+                'data-cooldown="17"',
+                'data-cooldown-text-id="%s"' % escape_html(config_page.POLL_COOLDOWN_TEXT_ID)):
+            if attr not in rendered:
+                return False, "expected data attribute %r on the disabled branch" % (attr,)
+        with open(_POLL_COOLDOWN_JS_PATH) as fh:
+            src = fh.read()
         for forbidden in _FORBIDDEN_SCRIPT_SINKS:
-            if forbidden in body:
-                return False, "forbidden sink found in the inline script: %r" % (forbidden,)
+            if forbidden in src:
+                return False, "forbidden sink found in poll-cooldown.js: %r" % (forbidden,)
         for required in _REQUIRED_SCRIPT_OPERATIONS:
-            if required not in body:
-                return False, "expected required operation %r in the inline script" % (required,)
+            if required not in src:
+                return False, "expected required operation %r in poll-cooldown.js" % (required,)
         return True, ""
     check(
-        "the inline countdown script contains none of the forbidden HTML-writing/eval/network sinks and does contain strict mode plus the permitted DOM/timer operations",
+        "poll_trigger_section(17) carries no <script substring and ships the countdown's "
+        "required data attributes; companion/static/poll-cooldown.js's own source contains "
+        "none of the forbidden HTML-writing/eval/network sinks and does contain strict mode "
+        "plus the permitted DOM/timer operations (retargeted, D-18/A-35)",
         _poll_cooldown_script_has_no_forbidden_sink)
 
     def _poll_submit_script_has_no_forbidden_sink():
+        # D-18/A-35 (19-04-PLAN.md): RETARGETED IN PLACE — the
+        # disable-on-submit affordance no longer renders as an inline
+        # <script>, so this check now asserts poll_trigger_section(0)
+        # contains NO <script substring at all plus the
+        # data-submit-pending attribute, and moves the forbidden-sink
+        # coverage onto companion/static/poll-cooldown.js's own source
+        # (read from disk) instead of dropping it.
         rendered = config_page.poll_trigger_section(0)
-        body_match = re.search(r"<script>(.*?)</script>", rendered, re.S)
-        if not body_match:
-            return False, "expected a <script>...</script> body to extract"
-        body = body_match.group(1)
+        if "<script" in rendered:
+            return False, "expected zero <script occurrences at cooldown=0 (D-18: externalized to poll-cooldown.js)"
+        if 'data-submit-pending="%s"' % escape_html(config_page.POLL_SUBMIT_PENDING_TEXT) not in rendered:
+            return False, "expected the data-submit-pending attribute carrying the pending label"
+        with open(_POLL_COOLDOWN_JS_PATH) as fh:
+            src = fh.read()
         for forbidden in _FORBIDDEN_SCRIPT_SINKS:
-            if forbidden in body:
-                return False, "forbidden sink found in the inline script: %r" % (forbidden,)
-        if config_page._js_literal(config_page.POLL_TRIGGER_BUTTON_ID) not in body:
-            return False, "expected the button id to be seeded via _js_literal(), not hardcoded"
-        if config_page._js_literal(config_page.POLL_SUBMIT_PENDING_TEXT) not in body:
-            return False, "expected the pending-label text to be seeded via _js_literal(), not hardcoded"
-        if "use strict" not in body:
+            if forbidden in src:
+                return False, "forbidden sink found in poll-cooldown.js: %r" % (forbidden,)
+        if "use strict" not in src:
             return False, "expected strict mode"
-        if "addEventListener" not in body:
+        if "addEventListener" not in src:
             return False, "expected a submit event listener"
         return True, ""
     check(
-        "the inline submit-affordance script contains none of the forbidden HTML-writing/eval/network sinks, seeds every interpolated value via _js_literal(), and attaches a submit listener (UXA-15)",
+        "poll_trigger_section(0) carries no <script substring and ships the data-submit-pending "
+        "attribute; companion/static/poll-cooldown.js's own source contains none of the "
+        "forbidden HTML-writing/eval/network sinks and attaches a submit listener (retargeted, "
+        "D-18/A-35, UXA-15)",
         _poll_submit_script_has_no_forbidden_sink)
 
     def _valid_save_writes_both_and_returns_saved_key():
@@ -1672,7 +1913,11 @@ def main():
             # and for the same reason — a new always-returned key changes what
             # this exact-dict comparison must expect. Still an exact-dict
             # comparison, deliberately not loosened to a subset check.
-            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None}:
+            # 19-12-PLAN.md Task 1 (D-23): load_device_config() now always
+            # returns screen_id too, "plane-frame" (DEFAULT_SCREEN_ID) here
+            # because this post carries no screen_id field. Same mechanical
+            # update as the two lines above.
+            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None, "screen_id": "plane-frame"}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -2119,6 +2364,288 @@ def main():
         _handle_post_wake_interval_empty_or_absent_leaves_unchanged)
 
     # ------------------------------------------------------------------
+    # 19-07-PLAN.md Task 1 (D-07/A-25): handle_post()'s new optional
+    # `errors` dict parameter — the legacy no-errors callers stay
+    # byte-identical, and each new field-level pre-check fills exactly
+    # one keyed message without changing the returned flash-key string.
+    # ------------------------------------------------------------------
+
+    def _handle_post_no_errors_arg_returns_identical_flash_keys():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            valid_flash = config_page.handle_post({"theme": "white"}, ctx)
+            if valid_flash != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED for a representative valid save, got %r" % (valid_flash,)
+            invalid_flash = config_page.handle_post({"theme": "not-a-real-theme"}, ctx)
+            if invalid_flash != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for a representative invalid save, got %r" % (invalid_flash,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post(form, ctx) with no errors argument still returns exactly the same flash keys it did "
+        "before this plan, for both a representative valid save and a representative invalid save",
+        _handle_post_no_errors_arg_returns_identical_flash_keys)
+
+    def _handle_post_errors_dict_filled_for_each_real_user_error_field():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            cases = (
+                ({"wake_interval_s": "7"}, "wake_interval_s", config_page.ERROR_WAKE_INTERVAL_RANGE),
+                ({"wake_interval_s": "abc"}, "wake_interval_s", config_page.ERROR_WAKE_INTERVAL_RANGE),
+                ({"quiet_hours_start": "24:00"}, "quiet_hours_start", config_page.ERROR_QUIET_HOURS_TIME_SHAPE),
+                ({"quiet_hours_start": ""}, "quiet_hours_start", config_page.ERROR_QUIET_HOURS_TIME_SHAPE),
+                ({"quiet_hours_end": "not-a-time"}, "quiet_hours_end", config_page.ERROR_QUIET_HOURS_TIME_SHAPE),
+                (
+                    {
+                        "calendar_url": "https://example.com/feed.ics",
+                        "calendar_disconnect": config_page.CALENDAR_DISCONNECT_CHECKBOX_VALUE,
+                    },
+                    "calendar_url", config_page.ERROR_CALENDAR_URL_INVALID,
+                ),
+            )
+            for form, field, expected_message in cases:
+                errors = {}
+                flash_key = config_page.handle_post(form, ctx, errors=errors)
+                if flash_key != config_page.FLASH_SAVE_FAILED:
+                    return False, "expected FLASH_SAVE_FAILED for form=%r, got %r" % (form, flash_key)
+                if errors != {field: expected_message}:
+                    return False, "expected errors == {%r: %r} for form=%r, got %r" % (
+                        field, expected_message, form, errors)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post(form, ctx, errors=d) fills d with exactly one field-keyed message for each real-user-error "
+        "case (wake_interval_s non-numeric/out-of-range, quiet_hours_start/quiet_hours_end malformed including "
+        "empty, and a contradictory calendar_url+calendar_disconnect submission)",
+        _handle_post_errors_dict_filled_for_each_real_user_error_field)
+
+    def _handle_post_errors_dict_stays_empty_on_a_valid_save():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            errors = {}
+            flash_key = config_page.handle_post(
+                {
+                    "theme": "white", "quiet_hours_start": "22:30",
+                    "quiet_hours_end": "06:15", "wake_interval_s": "120",
+                },
+                ctx, errors=errors)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            if errors != {}:
+                return False, "expected errors to stay empty on a valid save, got %r" % (errors,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post(form, ctx, errors=d) leaves d empty when the save succeeds",
+        _handle_post_errors_dict_stays_empty_on_a_valid_save)
+
+    def _handle_post_empty_quiet_hours_start_writes_nothing():
+        # The all-or-nothing contract's own direct pin for the NEW
+        # pre-check: an empty quiet_hours_start must reject before
+        # save_device_config() is ever called, leaving a pre-existing
+        # config byte-identical - not merely returning the right flash
+        # key.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            errors = {}
+            flash_key = config_page.handle_post(
+                {"theme": "white", "quiet_hours_start": ""}, ctx, errors=errors)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for an empty quiet_hours_start, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to stay byte-identical, it changed"
+            if errors != {"quiet_hours_start": config_page.ERROR_QUIET_HOURS_TIME_SHAPE}:
+                return False, "expected exactly one quiet_hours_start error, got %r" % (errors,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"theme\": \"white\", \"quiet_hours_start\": \"\"}, ctx, errors=d) rejects the whole save, "
+        "writes nothing (the theme must not persist either), and reports the error on quiet_hours_start alone",
+        _handle_post_empty_quiet_hours_start_writes_nothing)
+
+    def _local_quiet_hours_regex_agrees_with_save_device_config():
+        # 19-07-PLAN.md Task 1: this module's own local HH:MM shape gate
+        # (_QUIET_HOURS_TIME_RE) is a UX pre-check only -
+        # save_device_config()'s identical gate stays authoritative. This
+        # pins the two never silently drifting apart, over the exact
+        # table of inputs the plan names.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            for candidate in ("", "7:00", "07:00", "24:00", "abc", "23:59", "00:00"):
+                pre_check_says_ok = bool(config_page._QUIET_HOURS_TIME_RE.match(candidate))
+                try:
+                    device_config.save_device_config(
+                        tmpdir, quiet_hours_start=candidate)
+                    save_device_config_says_ok = True
+                except ValueError:
+                    save_device_config_says_ok = False
+                if pre_check_says_ok != save_device_config_says_ok:
+                    return False, (
+                        "disagreement for %r: pre-check says ok=%r, save_device_config() says ok=%r"
+                        % (candidate, pre_check_says_ok, save_device_config_says_ok))
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "config_page._QUIET_HOURS_TIME_RE agrees with server.device_config.save_device_config()'s own HH:MM "
+        "shape gate over the table \"\"/\"7:00\"/\"07:00\"/\"24:00\"/\"abc\"/\"23:59\"/\"00:00\"",
+        _local_quiet_hours_regex_agrees_with_save_device_config)
+
+    # ------------------------------------------------------------------
+    # 19-07-PLAN.md Task 2 (D-07/A-25): render() repopulates every
+    # control from a rejected save's own submission and renders each
+    # field's error message and aria wiring — while staying byte-
+    # identical to today whenever errors/submitted are not passed.
+    # ------------------------------------------------------------------
+
+    _TASK2_BASE_CTX = {
+        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "poll_cooldown_remaining": 0,
+        "now": "2026-09-07T09:12:04+00:00",
+    }
+
+    def _render_no_new_args_byte_identical_and_no_field_error_markup():
+        plain = config_page.render(_TASK2_BASE_CTX)
+        explicit_none = config_page.render(_TASK2_BASE_CTX, errors=None, submitted=None)
+        if plain != explicit_none:
+            return False, "expected render(ctx) to be byte-identical to render(ctx, errors=None, submitted=None)"
+        if "field-error" in plain:
+            return False, "expected no field-error markup when no errors are passed"
+        return True, ""
+    check(
+        "render(ctx) with no new arguments is byte-identical to render(ctx, errors=None, submitted=None) and "
+        "contains no field-error markup",
+        _render_no_new_args_byte_identical_and_no_field_error_markup)
+
+    def _render_wake_interval_error_shows_message_value_and_aria():
+        rendered = config_page.render(
+            _TASK2_BASE_CTX, errors={"wake_interval_s": "msg"},
+            submitted={"wake_interval_s": "7"})
+        if rendered.count("msg") != 1:
+            return False, "expected the error message to render exactly once, got %d" % rendered.count("msg")
+        if 'value="7"' not in rendered:
+            return False, "expected the submitted value 7 to be echoed back into the input"
+        input_match = re.search(r'<input type="number" name="wake_interval_s"[^>]*>', rendered)
+        if not input_match:
+            return False, "expected the wake_interval_s input to still be present"
+        if 'aria-invalid="true"' not in input_match.group(0):
+            return False, "expected aria-invalid=\"true\" on the errored input"
+        describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
+        if not describedby_match:
+            return False, "expected an aria-describedby attribute on the errored input"
+        # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - the
+        # value is now a SPACE-SEPARATED list (the hint id first, then
+        # the error id), not a single id, so each token must be checked
+        # individually against the rendered page's own ids.
+        ids = describedby_match.group(1).split(" ")
+        if len(ids) != 2:
+            return False, "expected exactly two space-separated ids (hint, then error), got %r" % (ids,)
+        if ids[0] != config_page.WAKE_INTERVAL_SECTION_CAPTION_ID:
+            return False, "expected the hint id to come first, got %r" % (ids,)
+        for token in ids:
+            if ('id="%s"' % token) not in rendered:
+                return False, "expected an element carrying id=%r matching aria-describedby" % (token,)
+        return True, ""
+    check(
+        "render(ctx, errors={\"wake_interval_s\": \"msg\"}, submitted={\"wake_interval_s\": \"7\"}) renders the "
+        "message once, echoes value=\"7\" back into the input, and sets aria-invalid plus a matching "
+        "aria-describedby",
+        _render_wake_interval_error_shows_message_value_and_aria)
+
+    def _render_submitted_theme_id_checked_even_when_differs_from_stored():
+        rendered = config_page.render(
+            dict(_TASK2_BASE_CTX, device_config={"theme": "white", "tracked_runway": "3"}),
+            submitted={"theme": "black"})
+        if not re.search(r'name="theme" value="black"[^>]*checked', rendered):
+            return False, "expected the submitted theme (black) to render checked even though the stored theme is white"
+        if re.search(r'name="theme" value="white"[^>]*checked', rendered):
+            return False, "expected the stored theme (white) to NOT render checked once a different submission is being repopulated"
+        return True, ""
+    check(
+        "a submitted theme id is rendered as the CHECKED radio even when it differs from the stored theme "
+        "(D-07 repopulation)",
+        _render_submitted_theme_id_checked_even_when_differs_from_stored)
+
+    def _render_both_quiet_hours_time_inputs_carry_required():
+        rendered = config_page.render(_TASK2_BASE_CTX)
+        start_match = re.search(r'<input type="time" name="quiet_hours_start"[^>]*>', rendered)
+        end_match = re.search(r'<input type="time" name="quiet_hours_end"[^>]*>', rendered)
+        if not start_match or "required" not in start_match.group(0):
+            return False, "expected the quiet_hours_start input to carry required"
+        if not end_match or "required" not in end_match.group(0):
+            return False, "expected the quiet_hours_end input to carry required"
+        return True, ""
+    check(
+        "both quiet-hours time inputs carry required in the rendered Settings page",
+        _render_both_quiet_hours_time_inputs_carry_required)
+
+    def _render_calendar_url_error_never_echoes_the_submitted_secret():
+        rendered = config_page.render(
+            _TASK2_BASE_CTX, errors={"calendar_url": "msg"},
+            submitted={"calendar_url": "https://secret.example/abc?token=xyz"})
+        if "msg" not in rendered:
+            return False, "expected the calendar_url error message to render"
+        for needle in ("secret.example", "abc", "token", "xyz"):
+            if needle in rendered:
+                return False, "expected %r never to appear in the re-rendered page (T-19-12/T-16-SECRET)" % (needle,)
+        return True, ""
+    check(
+        "render(ctx, errors={\"calendar_url\": \"msg\"}, submitted={\"calendar_url\": \"https://secret.example/"
+        "abc?token=xyz\"}) renders the message but contains none of the submitted URL's host, path, query-"
+        "parameter name, or token — the write-only field is never repopulated (D-07/T-19-12)",
+        _render_calendar_url_error_never_echoes_the_submitted_secret)
+
+    def _style_css_styles_field_error():
+        style_path = os.path.join(REPO_ROOT, "companion", "static", "style.css")
+        with open(style_path, encoding="utf-8") as fh:
+            css = fh.read()
+        idx = css.find(".field-error")
+        if idx == -1:
+            return False, "expected a .field-error rule in companion/static/style.css"
+        window = css[idx:idx + 400]
+        if "--color-status-error" not in window:
+            return False, "expected .field-error to read the existing --color-status-error token"
+        return True, ""
+    check(
+        "companion/static/style.css styles .field-error using the existing --color-status-error token "
+        "(cross-file DOM contract guard)",
+        _style_css_styles_field_error)
+
+    # ------------------------------------------------------------------
+    # 19-07-PLAN.md Task 3 (D-07/A-25): the legacy no-errors-arg contract
+    # is intact even for a rejected save — companion/app.py's own
+    # errors-branch (which now ALSO fires whenever errors is non-empty)
+    # depends on handle_post() still returning FLASH_SAVE_FAILED, not
+    # some new sentinel, when no errors dict is passed at all.
+    # ------------------------------------------------------------------
+
+    def _handle_post_rejected_save_without_errors_arg_still_returns_save_failed():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({"theme": "not-a-real-theme"}, ctx)
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED with no errors argument, got %r" % (flash_key,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "a rejected save still returns FLASH_SAVE_FAILED from handle_post() when no errors dict is passed "
+        "(the legacy contract is intact)",
+        _handle_post_rejected_save_without_errors_arg_still_returns_save_failed)
+
+    # ------------------------------------------------------------------
     # 06.6.4.1-07 (D-05): led_fieldset()/led_section()/handle_led_post()
     # and the separate POST /config-led route were retired outright —
     # the eight checks that used to exercise them directly were deleted
@@ -2321,13 +2848,91 @@ def main():
         source = _read_static("dirty-state.js")
         if config_page.DIRTY_SECTION_ATTR not in source:
             return False, "expected dirty-state.js to reference the literal value of DIRTY_SECTION_ATTR"
+        # 19-10-PLAN.md (D-09/A-27): also pins the dirty-ready marker
+        # literal, keeping this script and style.css's retargeted
+        # fallback-hide selector from drifting apart.
+        if "dirty-ready" not in source:
+            return False, "expected dirty-state.js to reference the literal string dirty-ready"
         for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
             if forbidden in source:
                 return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
         return True, ""
     check(
-        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and contains none of innerHTML/let /const /=>/backtick",
+        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and the dirty-ready marker, and "
+        "contains none of innerHTML/let /const /=>/backtick",
         _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax)
+
+    def _dirty_state_js_sets_dirty_ready_only_after_bar_guard():
+        # 19-10-PLAN.md (D-09/A-27): the same source-ordering technique
+        # test_companion_app.py's _panel_lookup_optional_replace_lookup_
+        # stays_outside_mandatory_guard check already uses - dirty-ready
+        # must only ever be set once the bar's existence is proven (the
+        # [data-dirty-bar] guard clause), never before it.
+        source = _read_static("dirty-state.js")
+        if "dirty-ready" not in source or "data-dirty-bar" not in source:
+            return False, "expected both dirty-ready and data-dirty-bar to be present in dirty-state.js"
+        if source.index("dirty-ready") <= source.index("data-dirty-bar"):
+            return False, "expected the first dirty-ready occurrence to come after the first data-dirty-bar occurrence"
+        return True, ""
+    check(
+        "dirty-state.js's first dirty-ready occurrence comes after its first data-dirty-bar occurrence (D-09: set "
+        "only after the bar guard passes)",
+        _dirty_state_js_sets_dirty_ready_only_after_bar_guard)
+
+    # ------------------------------------------------------------------
+    # 19-10-PLAN.md Task 2 (D-10/A-28): a beforeunload guard, keyed on
+    # the existing countDifferences() predicate, warns before a real
+    # navigation discards unsaved settings edits.
+    # ------------------------------------------------------------------
+
+    def _dirty_state_js_beforeunload_guard_reuses_count_differences():
+        source = _read_static("dirty-state.js")
+        if "beforeunload" not in source:
+            return False, "expected dirty-state.js to register a beforeunload listener"
+        if "returnValue" not in source:
+            return False, "expected dirty-state.js's beforeunload guard to set evt.returnValue"
+        if "preventDefault" not in source:
+            return False, "expected dirty-state.js's beforeunload guard to call evt.preventDefault()"
+        beforeunload_idx = source.index("beforeunload")
+        # The guard's own listener body must reference countDifferences -
+        # reused, never reimplemented as a separate flag that can drift
+        # from the bar's own dirty state.
+        listener_body = source[beforeunload_idx:beforeunload_idx + 400]
+        if "countDifferences" not in listener_body:
+            return False, "expected the beforeunload listener's body to reference countDifferences"
+        if 'addEventListener("submit"' not in source:
+            return False, "expected dirty-state.js to register a submit listener on the form"
+        for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
+            if forbidden in source:
+                return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
+        return True, ""
+    check(
+        "dirty-state.js registers a beforeunload listener whose body references countDifferences and sets "
+        "returnValue/calls preventDefault, and a submit listener clears the guard; contains none of "
+        "innerHTML/let /const /=>/backtick",
+        _dirty_state_js_beforeunload_guard_reuses_count_differences)
+
+    # ------------------------------------------------------------------
+    # 19-10-PLAN.md Task 3 (D-14/S-04): cross-file guard keeping
+    # dirty-state.js's preset reader in agreement with config_page.py's
+    # QUIET_HOURS_PRESET_ATTR/data-preset-* markup.
+    # ------------------------------------------------------------------
+
+    def _dirty_state_js_references_quiet_preset_attrs():
+        source = _read_static("dirty-state.js")
+        for literal in (
+                config_page.QUIET_HOURS_PRESET_ATTR, "data-preset-start",
+                "data-preset-end", "data-preset-enabled"):
+            if literal not in source:
+                return False, "expected dirty-state.js to reference the literal %r" % (literal,)
+        for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
+            if forbidden in source:
+                return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
+        return True, ""
+    check(
+        "dirty-state.js references config_page.QUIET_HOURS_PRESET_ATTR's literal value and the three "
+        "data-preset-* attribute names, and contains none of innerHTML/let /const /=>/backtick",
+        _dirty_state_js_references_quiet_preset_attrs)
 
     def _style_css_references_static_save_fallback_attr():
         source = _read_static("style.css")
@@ -2337,9 +2942,22 @@ def main():
         window = source[idx:idx + 120]
         if "display: none" not in window and "display:none" not in window:
             return False, "expected the fallback-hide rule to set display: none near the attribute reference"
+        # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready -
+        # the fallback now hides only once dirty-state.js has proven the
+        # bar exists, not merely because nav-dropdown.js's unconditional
+        # .js class is present. The selector prefix sits BEFORE the
+        # attribute reference (".dirty-ready [data-static-save-fallback]"),
+        # so widen the window backwards too rather than only forwards.
+        selector_window = source[max(0, idx - 40):idx + 120]
+        if "dirty-ready" not in selector_window:
+            return False, "expected the fallback-hide rule's selector to reference dirty-ready"
+        old_selector = ".js [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
+        if old_selector in source:
+            return False, "expected the old .js-gated selector to be gone entirely"
         return True, ""
     check(
-        "style.css contains the .js-gated fallback-hide rule referencing config_page.STATIC_SAVE_FALLBACK_ATTR's literal value",
+        "style.css contains the .dirty-ready-gated fallback-hide rule referencing "
+        "config_page.STATIC_SAVE_FALLBACK_ATTR's literal value, and no longer the old .js-gated selector",
         _style_css_references_static_save_fallback_attr)
 
     def _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors():
@@ -3701,8 +4319,11 @@ def main():
             return False, (
                 "expected exactly one calendar_theme_id field, got %d"
                 % rendered.count('name="calendar_theme_id"'))
+        # 19-11-PLAN.md Task 3 (D-12/A-30): the select may now also carry
+        # an aria-describedby attribute after required - [^>]* tolerates
+        # it without weakening the "required is present" assertion.
         select_match = re.search(
-            r'<select id="calendar-theme" name="calendar_theme_id" required>(.*?)</select>',
+            r'<select id="calendar-theme" name="calendar_theme_id" required[^>]*>(.*?)</select>',
             rendered, re.S)
         if not select_match:
             return False, "expected a calendar-theme select carrying the required attribute"
@@ -3924,26 +4545,107 @@ def main():
         "leak caught at the function that introduces it)",
         _calendar_containment_at_the_renderer_five_needles)
 
-    def _calendar_disconnect_checkbox_appears_only_when_expected_and_unchecked():
+    def _calendar_disconnect_checkbox_never_appears_in_calendar_group():
+        # 19-11-PLAN.md Task 1 (D-08/A-26): the in-form disconnect
+        # checkbox is retired outright from calendar_group() in EVERY
+        # one of its four distinguishable states — disconnecting is now
+        # calendar_disconnect_section()'s own standalone, confirmed form,
+        # checked separately below.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
             html = config_page.calendar_group(
                 configured, drift, last_synced_at, "2026-09-07T09:12:04+00:00",
                 None, "white")
-            has_box = 'name="calendar_disconnect"' in html
-            expected = configured or drift
-            if has_box != expected:
+            if 'name="calendar_disconnect"' in html:
                 return False, (
-                    "state %r: expected checkbox presence %r, got %r"
-                    % ((configured, drift), expected, has_box))
-            if has_box:
-                after = html.split('name="calendar_disconnect"', 1)[1]
-                if " checked" in after[:200]:
-                    return False, "expected the checkbox to render unchecked in state %r" % ((configured, drift),)
+                    "state %r: expected calendar_group() to render no calendar_disconnect "
+                    "checkbox at all (D-08 retires it)" % ((configured, drift),))
         return True, ""
     check(
-        "the disconnect checkbox appears only when the calendar is connected or drifted, and renders "
-        "unchecked in every state it appears in (D-07 - the safe default is doing nothing)",
-        _calendar_disconnect_checkbox_appears_only_when_expected_and_unchecked)
+        "calendar_group() renders no calendar_disconnect checkbox in any of its four states "
+        "(D-08/A-26: disconnecting is now its own standalone form, not an in-form checkbox)",
+        _calendar_disconnect_checkbox_never_appears_in_calendar_group)
+
+    def _calendar_disconnect_section_appears_only_when_expected():
+        for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
+            html = config_page.calendar_disconnect_section(configured, drift)
+            expected = configured or drift
+            has_form = bool(html)
+            if has_form != expected:
+                return False, (
+                    "state %r: expected disconnect-form presence %r, got %r"
+                    % ((configured, drift), expected, has_form))
+            if has_form:
+                if '<form method="post" action="%s"' % config_page.CALENDAR_DISCONNECT_ROUTE not in html:
+                    return False, "expected the form to post to CALENDAR_DISCONNECT_ROUTE"
+                if 'data-confirm-field' not in html:
+                    return False, "expected the hidden confirm field to carry data-confirm-field"
+                if 'name="%s" value=""' % config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD not in html:
+                    return False, "expected the hidden confirm field to render with an EMPTY value"
+                if "data-confirm=" not in html:
+                    return False, "expected a data-confirm attribute carrying the confirm question"
+        return True, ""
+    check(
+        "calendar_disconnect_section() renders only when the calendar is connected or drifted, posting "
+        "to CALENDAR_DISCONNECT_ROUTE with a hidden, empty, data-confirm-field-carrying confirm field "
+        "(D-08/A-26)",
+        _calendar_disconnect_section_appears_only_when_expected)
+
+    def _calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
+        rendered = config_page.calendar_disconnect_confirm_page({})
+        expected_form = (
+            '<form method="post" action="%s">'
+            '<input type="hidden" name="%s" value="%s">'
+        ) % (
+            config_page.CALENDAR_DISCONNECT_ROUTE,
+            config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD,
+            html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE, quote=True),
+        )
+        if expected_form not in rendered:
+            return False, "expected the confirm page's form to post to the same route with the confirm field pre-set"
+        if 'href="%s"' % layout.DEVICE_ROUTE not in rendered:
+            return False, "expected a cancel link back to the Device page"
+        if "<fieldset" in rendered or "<legend" in rendered:
+            return False, "expected no <fieldset>/<legend> on the confirm page"
+        return True, ""
+    check(
+        "calendar_disconnect_confirm_page() renders a form posting to CALENDAR_DISCONNECT_ROUTE with the "
+        "confirm field pre-set to the accepted value, plus a plain cancel link to Device (D-08/A-26)",
+        _calendar_disconnect_confirm_page_posts_back_with_confirm_preset)
+
+    def _calendar_disconnect_form_is_not_inside_settings_form_on_device_scope():
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        settings_form_close = rendered.find("</form>")
+        disconnect_form_open = rendered.find(
+            '<form method="post" action="%s"' % config_page.CALENDAR_DISCONNECT_ROUTE)
+        if settings_form_close == -1:
+            return False, "expected the settings form to be present"
+        if disconnect_form_open == -1:
+            return False, "expected the disconnect form to be present on the Device scope"
+        if disconnect_form_open < settings_form_close:
+            return False, "expected the disconnect form's opening tag to appear AFTER the settings form's closing tag"
+        return True, ""
+    check(
+        "on the Device scope, the calendar disconnect form's opening tag appears after the settings "
+        "form's own closing tag — it is a sibling, never a descendant (D-08/A-26)",
+        _calendar_disconnect_form_is_not_inside_settings_form_on_device_scope)
+
+    def _calendar_disconnect_form_absent_when_not_configured_or_on_display_scope():
+        not_connected_ctx = dict(
+            _CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
+        device_rendered = config_page.render(not_connected_ctx, scope=config_page.SCOPE_DEVICE)
+        if config_page.CALENDAR_DISCONNECT_ROUTE in device_rendered:
+            return False, "expected no disconnect form when the calendar is not configured or drifted"
+        connected_ctx = dict(
+            _CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        display_rendered = config_page.render(connected_ctx, scope=config_page.SCOPE_DISPLAY)
+        if config_page.CALENDAR_DISCONNECT_ROUTE in display_rendered:
+            return False, "expected no disconnect form on the Display scope, which never renders Calendar"
+        return True, ""
+    check(
+        "the disconnect form is absent when the calendar is neither configured nor drifted, and absent "
+        "from the Display scope, which never renders the Calendar group at all (D-08/A-26)",
+        _calendar_disconnect_form_absent_when_not_configured_or_on_display_scope)
 
     def _calendar_status_drift_is_exclusive_and_precedes_not_configured():
         ctx = dict(
@@ -4289,6 +4991,238 @@ def main():
         "scoped submission without the Calendar group always carries the calendar forward",
         _handle_post_scope_carries_out_of_scope_checkboxes_forward)
 
+    # --- 19-12-PLAN.md Task 2 (D-23/D-22): the conditional screen selector
+    # and the Device-page Edit artwork link -------------------------------
+
+    def _screen_selector_empty_for_the_real_single_member_registry():
+        html = config_page._screen_selector_html("plane-frame")
+        if html != "":
+            return False, "expected the empty string for today's single-member registry, got %r" % (html,)
+        return True, ""
+    check(
+        "_screen_selector_html() returns the empty string for the real single-member screens registry",
+        _screen_selector_empty_for_the_real_single_member_registry)
+
+    def _screen_selector_renders_for_a_multi_member_registry():
+        from companion import screens
+        saved_types, saved_ids = dict(screens.SCREEN_TYPES), screens.SCREEN_IDS
+        try:
+            screens.SCREEN_TYPES["rer-board"] = {
+                "label": "RER board", "description": "d",
+                "everyday_groups": (), "advanced_groups": (),
+                "has_colour_rules": False, "has_manual_poll": False,
+            }
+            screens.SCREEN_IDS = tuple(screens.SCREEN_TYPES)
+            html = config_page._screen_selector_html("plane-frame")
+            if '<select name="screen_id"' not in html:
+                return False, "expected a <select name=\"screen_id\"> once a second screen type is registered"
+            if html.count("<option") != 2:
+                return False, "expected exactly one <option> per registered screen type, got %r" % (html,)
+            if 'value="plane-frame" selected' not in html:
+                return False, "expected the current screen id's option to carry the selected attribute"
+            if 'value="rer-board" selected' in html:
+                return False, "expected only the current screen id's option to carry selected"
+            if "<label" not in html or 'for="screen-id-selector"' not in html:
+                return False, "expected a <label for=...> supplying the control's accessible name"
+            return True, ""
+        finally:
+            screens.SCREEN_TYPES.clear()
+            screens.SCREEN_TYPES.update(saved_types)
+            screens.SCREEN_IDS = saved_ids
+    check(
+        "_screen_selector_html() emits exactly one <select name=\"screen_id\"> with one <option> per "
+        "registered screen type, the current one selected, and a non-empty accessible name once a "
+        "second screen type is registered",
+        _screen_selector_renders_for_a_multi_member_registry)
+
+    def _render_carries_no_screen_selector_today():
+        ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        if '<select name="screen_id"' in display or '<select name="screen_id"' in device:
+            return False, "expected no screen selector with today's single-member registry"
+        return True, ""
+    check(
+        "render() at Display and Device scope contains no <select name=\"screen_id\"> today (a "
+        "single-member registry has no real choice to offer)",
+        _render_carries_no_screen_selector_today)
+
+    def _handle_post_rejects_a_crafted_screen_id():
+        tmp = tempfile.mkdtemp(prefix="skypane-config-screen-id-")
+        try:
+            device_config.save_device_config(tmp, theme="white")
+            errors = {}
+            key = config_page.handle_post(
+                {"theme": "black", "screen_id": "not-a-real-screen"}, {"state_dir": tmp}, errors=errors)
+            if key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for a crafted screen_id, got %r" % (key,)
+            if "screen_id" not in errors:
+                return False, "expected a field error noted for screen_id"
+            cfg = device_config.load_device_config(tmp)
+            if cfg["theme"] != "white":
+                return False, "expected the whole save rejected — theme must not have changed to 'black'"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "handle_post() rejects a crafted screen_id with FLASH_SAVE_FAILED, notes a field error, and "
+        "writes nothing (all-or-nothing)",
+        _handle_post_rejects_a_crafted_screen_id)
+
+    def _valid_screen_id_round_trips():
+        tmp = tempfile.mkdtemp(prefix="skypane-config-screen-id-")
+        try:
+            key = config_page.handle_post({"screen_id": "plane-frame"}, {"state_dir": tmp})
+            if key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED for a valid screen_id, got %r" % (key,)
+            cfg = device_config.load_device_config(tmp)
+            if cfg["screen_id"] != "plane-frame":
+                return False, "expected screen_id='plane-frame' to round-trip, got %r" % (cfg["screen_id"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a valid screen_id round-trips through save_device_config()",
+        _valid_screen_id_round_trips)
+
+    def _screen_selector_renders_the_field_error_message():
+        # WR-01 (19-REVIEW.md): _screen_selector_html() is the only
+        # render call site for screen_id and, unlike every sibling field
+        # this plan touches, never rendered its own _field_error_html()
+        # message. Only reachable through a multi-member registry, same
+        # as the sibling checks above.
+        from companion import screens
+        saved_types, saved_ids = dict(screens.SCREEN_TYPES), screens.SCREEN_IDS
+        try:
+            screens.SCREEN_TYPES["rer-board"] = {
+                "label": "RER board", "description": "d",
+                "everyday_groups": (), "advanced_groups": (),
+                "has_colour_rules": False, "has_manual_poll": False,
+            }
+            screens.SCREEN_IDS = tuple(screens.SCREEN_TYPES)
+            errors = {"screen_id": config_page.ERROR_INVALID_CHOICE}
+            html_out = config_page._screen_selector_html("plane-frame", errors=errors)
+            expected = escape_html(config_page.ERROR_INVALID_CHOICE)
+            if html_out.count(expected) != 1:
+                return False, (
+                    "expected the screen_id field-error message to appear exactly once, got %r"
+                    % (html_out,))
+            return True, ""
+        finally:
+            screens.SCREEN_TYPES.clear()
+            screens.SCREEN_TYPES.update(saved_types)
+            screens.SCREEN_IDS = saved_ids
+    check(
+        "_screen_selector_html() renders the screen_id field-level error message exactly once when "
+        "errors carries one",
+        _screen_selector_renders_the_field_error_message)
+
+    def _device_scope_has_one_edit_artwork_link_display_has_none():
+        ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        href_fragment = "/airlines?edit=1"
+        if href_fragment in display:
+            return False, "expected no Edit-artwork link on the Display page"
+        if device.count(href_fragment) != 1:
+            return False, "expected exactly one Edit-artwork anchor on the Device page, got %d" % device.count(href_fragment)
+        return True, ""
+    check(
+        "the Device scope renders exactly one Edit-artwork anchor whose href contains edit=1, while the "
+        "Display scope renders none (D-22, Device-page half)",
+        _device_scope_has_one_edit_artwork_link_display_has_none)
+
+    # --- 19-12-PLAN.md Task 3 (D-13/S-02): "next wake ≈ HH:MM" caption
+    # suffixes on Display/Device -------------------------------------------
+
+    def _with_next_wake_helper_contract():
+        if config_page._with_next_wake("caption.", None) != "caption.":
+            return False, "expected the caption unchanged for a falsy next_wake_clock"
+        if config_page._with_next_wake("caption.", "") != "caption.":
+            return False, "expected the caption unchanged for an empty-string next_wake_clock"
+        got = config_page._with_next_wake("caption.", "14:10")
+        if got != "caption. (next wake ≈ 14:10)":
+            return False, "expected the suffix appended when next_wake_clock is known, got %r" % (got,)
+        return True, ""
+    check(
+        "_with_next_wake() returns the caption byte-identical for a falsy clock and appends "
+        "'(next wake ≈ HH:MM)' when the clock is known",
+        _with_next_wake_helper_contract)
+
+    def _affected_captions_gain_the_suffix_only_when_known():
+        known_ctx = {
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        unknown_ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        known_display = config_page.render(known_ctx, scope=config_page.SCOPE_DISPLAY)
+        known_device = config_page.render(known_ctx, scope=config_page.SCOPE_DEVICE)
+        unknown_display = config_page.render(unknown_ctx, scope=config_page.SCOPE_DISPLAY)
+        unknown_device = config_page.render(unknown_ctx, scope=config_page.SCOPE_DEVICE)
+        for caption in (
+                config_page.THEME_SECTION_CAPTION, config_page.RUNWAY_SECTION_CAPTION,
+                config_page.LED_SECTION_CAPTION, config_page.QUIET_HOURS_SECTION_CAPTION,
+                config_page.WAKE_INTERVAL_SECTION_CAPTION):
+            # escape_html() is what the render pipeline actually applies —
+            # several of these captions carry an apostrophe (e.g. "the
+            # device's"), so the RAW constant never appears verbatim in the
+            # rendered HTML; every comparison below must go through the
+            # same escaping the render call site itself uses.
+            escaped_caption = escape_html(caption)
+            escaped_suffix = config_page.NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE % "14:10"
+            if (escaped_caption + escaped_suffix) not in known_display and (escaped_caption + escaped_suffix) not in known_device:
+                return False, "expected %r to gain the suffix when the next-wake value is known" % (caption,)
+            if escaped_caption not in (unknown_display + unknown_device):
+                return False, "expected %r to render byte-identical to its own constant when unknown" % (caption,)
+            if (escaped_caption + " (next wake") in (unknown_display + unknown_device):
+                return False, "expected %r to carry no suffix when the next-wake value is unknown" % (caption,)
+        return True, ""
+    check(
+        "each of Theme/Runway/LED/Quiet-hours/Wake-interval's own caption gains the '(next wake ≈ "
+        "HH:MM)' suffix when the value is known, and is byte-identical to its own constant when it "
+        "is not (D-13)",
+        _affected_captions_gain_the_suffix_only_when_known)
+
+    def _display_section_caption_never_gains_a_suffix():
+        known_ctx = {
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        # GROUP_DISPLAY is an everyday group (companion/screens.py) — it
+        # renders on the Display scope, not Device.
+        rendered = config_page.render(known_ctx, scope=config_page.SCOPE_DISPLAY)
+        escaped_caption = escape_html(config_page.DISPLAY_SECTION_CAPTION)
+        if escaped_caption not in rendered:
+            return False, "expected DISPLAY_SECTION_CAPTION to render unchanged"
+        if (escaped_caption + " (next wake") in rendered:
+            return False, "expected DISPLAY_SECTION_CAPTION to never gain a next-wake suffix (D-01/D-13)"
+        return True, ""
+    check(
+        "DISPLAY_SECTION_CAPTION never gains a next-wake suffix, even when the value is known "
+        "(12-CONTEXT.md D-01's own honest ~5-minute-latency exception)",
+        _display_section_caption_never_gains_a_suffix)
+
+    def _device_header_shows_next_wake_line_when_known():
+        known_ctx = {
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        unknown_ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        known_device = config_page.render(known_ctx, scope=config_page.SCOPE_DEVICE)
+        if "Next wake" not in known_device or "≈ 14:10" not in known_device:
+            return False, "expected the Device header to carry a Next wake ≈ HH:MM line when known"
+        unknown_device = config_page.render(unknown_ctx, scope=config_page.SCOPE_DEVICE)
+        if "Next wake" in unknown_device:
+            return False, "expected no Next wake line in the Device header when the value is unknown"
+        return True, ""
+    check(
+        "the Device page header carries a 'Next wake ≈ HH:MM' line when the value is known and "
+        "none at all when it is not (D-13's 'Home and Device show' wording)",
+        _device_header_shows_next_wake_line_when_known)
+
     harness = Harness()
     try:
         harness.start()
@@ -4588,6 +5522,88 @@ def main():
     finally:
         calendar_harness.stop()
         calendar_harness.cleanup()
+
+    # ==================================================================
+    # 19-11-PLAN.md Task 3 (D-12/A-30): the two chip grids and the
+    # runway row as named radiogroups, and every hint linked to its
+    # control via aria-describedby - no dangling ARIA reference, no
+    # empty aria-describedby, and hint+error ids coexisting in order.
+    # ==================================================================
+
+    _TASK3_BASE_CTX = {
+        "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+        "poll_cooldown_remaining": 0,
+    }
+
+    def _display_scope_has_two_radiogroups_device_has_one():
+        display_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        device_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
+        display_count = display_rendered.count('role="radiogroup"')
+        if display_count < 2:
+            return False, (
+                "expected at least two role=\"radiogroup\" occurrences on the Display "
+                "scope (Theme's two chip grids), got %d" % display_count)
+        device_count = device_rendered.count('role="radiogroup"')
+        if device_count < 1:
+            return False, (
+                "expected at least one role=\"radiogroup\" occurrence on the Device "
+                "scope (the Runway row), got %d" % device_count)
+        return True, ""
+    check(
+        "the Display scope renders at least two role=\"radiogroup\" elements (Theme's departures and "
+        "arrivals chip grids) and the Device scope renders at least one (the Runway row) (D-12/A-30)",
+        _display_scope_has_two_radiogroups_device_has_one)
+
+    _ID_RE = re.compile(r'\bid="([^"]*)"')
+    _LABELLEDBY_RE = re.compile(r'aria-labelledby="([^"]*)"')
+    _DESCRIBEDBY_RE = re.compile(r'aria-describedby="([^"]*)"')
+
+    def _every_aria_reference_resolves_and_none_is_empty():
+        for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
+            rendered = config_page.render(_TASK3_BASE_CTX, scope=scope)
+            existing_ids = set(_ID_RE.findall(rendered))
+            for value in _DESCRIBEDBY_RE.findall(rendered):
+                if not value:
+                    return False, "scope %r: expected no empty aria-describedby, found one" % (scope,)
+                for token in value.split(" "):
+                    if token not in existing_ids:
+                        return False, (
+                            "scope %r: aria-describedby token %r does not match any id "
+                            "the same output emits" % (scope, token))
+            for value in _LABELLEDBY_RE.findall(rendered):
+                if not value:
+                    return False, "scope %r: expected no empty aria-labelledby, found one" % (scope,)
+                for token in value.split(" "):
+                    if token not in existing_ids:
+                        return False, (
+                            "scope %r: aria-labelledby token %r does not match any id "
+                            "the same output emits" % (scope, token))
+        return True, ""
+    check(
+        "every aria-labelledby and aria-describedby value render() emits, at every scope, resolves to "
+        "an id the same output actually carries, and no element emits an empty aria-describedby or "
+        "aria-labelledby (D-12/A-30)",
+        _every_aria_reference_resolves_and_none_is_empty)
+
+    def _control_with_both_hint_and_error_carries_both_ids_in_order():
+        rendered = config_page.render(
+            _TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE,
+            errors={"led_enabled": "msg"}, submitted={})
+        input_match = re.search(r'<input type="checkbox" name="led_enabled"[^>]*>', rendered)
+        if not input_match:
+            return False, "expected the led_enabled checkbox to still render"
+        describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
+        if not describedby_match:
+            return False, "expected an aria-describedby on the errored led_enabled checkbox"
+        ids = describedby_match.group(1).split(" ")
+        if ids != [config_page.LED_SECTION_CAPTION_ID, "led-enabled-error"]:
+            return False, "expected the hint id first, then the error id, got %r" % (ids,)
+        return True, ""
+    check(
+        "a control carrying both a hint and an error (led_enabled, rendered with an errors dict) has "
+        "BOTH ids in its aria-describedby, hint first then error, never one overwriting the other "
+        "(D-12/A-30)",
+        _control_with_both_hint_and_error_carries_both_ids_in_order)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

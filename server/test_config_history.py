@@ -50,6 +50,15 @@ if REPO_ROOT not in sys.path:
 # sibling field, and independence from theme_arriving under CLEAR_THEME_
 # ARRIVING - re-derived by running the harness, not by arithmetic)
 EXPECTED_CHECK_COUNT = 60
+# 19-12-PLAN.md Task 1 (D-23): 60 -> 64, +4 (normalise_screen_id() degrades
+# every hostile/unknown/None/non-string shape to DEFAULT_SCREEN_ID and
+# passes a real member through unchanged; save_device_config(screen_id=
+# "nope") raises ValueError and leaves a pre-existing file byte-identical;
+# a device_config.json with no screen_id key loads with DEFAULT_SCREEN_ID
+# and is never rewritten; device_config.SCREEN_IDS/DEFAULT_SCREEN_ID stay
+# pinned equal to companion.screens's own values - re-derived by running
+# the harness, not by arithmetic)
+EXPECTED_CHECK_COUNT = 64
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -97,7 +106,7 @@ def main():
         try:
             missing = os.path.join(tmpdir, "does-not-exist")
             config = device_config.load_device_config(missing)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
@@ -113,7 +122,7 @@ def main():
                 with open(path, "w") as fh:
                     fh.write(bad_content)
                 config = device_config.load_device_config(tmpdir)
-                if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+                if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
@@ -128,7 +137,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -141,7 +150,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+            if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -190,7 +199,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
                 return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -222,7 +231,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, led_enabled=False)
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -620,7 +629,7 @@ def main():
             if config != {
                 "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
-                "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None,
+                "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame",
             }:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
@@ -818,7 +827,7 @@ def main():
             if config != {
                 "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-                "wake_interval_s": 120, "display_enabled": True, "calendar_theme_id": None,
+                "wake_interval_s": 120, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame",
             }:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
@@ -1095,7 +1104,7 @@ def main():
             if config != {
                 "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-                "wake_interval_s": None, "display_enabled": False, "calendar_theme_id": None,
+                "wake_interval_s": None, "display_enabled": False, "calendar_theme_id": None, "screen_id": "plane-frame",
             }:
                 return False, "round-trip produced %r" % (config,)
             device_config.save_device_config(tmpdir, theme="black")
@@ -1321,6 +1330,99 @@ def main():
     check(
         "clearing theme_arriving through CLEAR_THEME_ARRIVING leaves a separately-set calendar_theme_id untouched - the two override keys are not coupled by the shared write path",
         _calendar_theme_id_independent_of_theme_arriving,
+    )
+
+    # --- screen_id (D-23, 19-12-PLAN.md Task 1) ------------------------------
+
+    def _normalise_screen_id_degrades_hostile_values_to_default():
+        for value in ("nope", "../../etc/passwd", 7, None, True, [], {}):
+            got = device_config.normalise_screen_id(value)
+            if got != device_config.DEFAULT_SCREEN_ID:
+                return False, "normalise_screen_id(%r) returned %r, expected %r" % (
+                    value, got, device_config.DEFAULT_SCREEN_ID)
+        if device_config.normalise_screen_id("plane-frame") != "plane-frame":
+            return False, "normalise_screen_id() did not pass through a real member unchanged"
+        return True, ""
+
+    check(
+        "normalise_screen_id() degrades a hostile/unknown/None/non-string value to DEFAULT_SCREEN_ID and passes a real member through unchanged",
+        _normalise_screen_id_degrades_hostile_values_to_default,
+    )
+
+    def _save_device_config_rejects_unknown_screen_id_without_touching_file():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme="black")
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            try:
+                device_config.save_device_config(tmpdir, screen_id="nope")
+            except ValueError:
+                pass
+            else:
+                return False, "save_device_config(screen_id='nope') did not raise ValueError"
+            with open(path, "rb") as fh:
+                after = fh.read()
+            if before != after:
+                return False, "a rejected screen_id write disturbed the pre-existing file on disk"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(screen_id='nope') raises ValueError naming SCREEN_IDS and leaves a pre-existing file byte-identical",
+        _save_device_config_rejects_unknown_screen_id_without_touching_file,
+    )
+
+    def _screen_id_absent_from_disk_resolves_to_default_with_no_migration():
+        # The no-migration proof, mirroring theme_arriving's own precedent
+        # above: a device_config.json written before D-23 - one that has
+        # never carried screen_id at all - resolves that key to
+        # DEFAULT_SCREEN_ID and load_device_config() never rewrites the
+        # file to add the new key.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            pre_d23_doc = {
+                "theme": "white", "tracked_runway": "3", "led_enabled": True,
+                "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+                "wake_interval_s": None, "display_enabled": True,
+            }
+            with open(path, "w") as fh:
+                json.dump(pre_d23_doc, fh)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            config = device_config.load_device_config(tmpdir)
+            if config["screen_id"] != device_config.DEFAULT_SCREEN_ID:
+                return False, "a file with no screen_id key produced %r, expected %r" % (
+                    config["screen_id"], device_config.DEFAULT_SCREEN_ID)
+            with open(path, "rb") as fh:
+                after = fh.read()
+            if before != after:
+                return False, "load_device_config() rewrote a pre-D-23 file on disk - no migration is permitted"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a device_config.json written with no screen_id key loads with DEFAULT_SCREEN_ID and is never rewritten on read",
+        _screen_id_absent_from_disk_resolves_to_default_with_no_migration,
+    )
+
+    def _screen_id_registry_agrees_with_companion_screens():
+        import companion.screens as screens
+        if device_config.SCREEN_IDS != screens.SCREEN_IDS:
+            return False, "device_config.SCREEN_IDS %r != companion.screens.SCREEN_IDS %r" % (
+                device_config.SCREEN_IDS, screens.SCREEN_IDS)
+        if device_config.DEFAULT_SCREEN_ID != screens.DEFAULT_SCREEN_ID:
+            return False, "device_config.DEFAULT_SCREEN_ID %r != companion.screens.DEFAULT_SCREEN_ID %r" % (
+                device_config.DEFAULT_SCREEN_ID, screens.DEFAULT_SCREEN_ID)
+        return True, ""
+
+    check(
+        "device_config.SCREEN_IDS/DEFAULT_SCREEN_ID stay pinned equal to companion.screens's own duplicated-not-imported values",
+        _screen_id_registry_agrees_with_companion_screens,
     )
 
     # --- history_db.py ------------------------------------------------------

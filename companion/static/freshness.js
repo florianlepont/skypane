@@ -39,61 +39,64 @@
  * return below) — lose the attribute and Health silently stops
  * refreshing; loosen the guard and every page starts.
  *
- * --- The mechanism decision, with the losing option's real advantages
- * --- named ------------------------------------------------------------
+ * --- SUPERSEDED (19-09-PLAN.md, D-02/A-20): the mechanism decision,
+ * --- reversed a second time ------------------------------------------
  *
- * Two mechanisms were weighed against this codebase. Mechanism (b), a
- * network-fetch-based soft refresh that patches content in place,
- * genuinely wins on two things, and they are real: it can show a pill for the
- * actual duration of the fetch, and it preserves scroll, disclosure and
- * focus state by construction. It loses on four things this specific
- * codebase makes decisive, which is why mechanism (a) — a
- * Page-Visibility-gated location.reload(), implemented below — was
- * chosen instead:
- *   1. companion/pages/health_page.py's health_severity() docstring
- *      claims it is "structurally impossible for the nav dot and the
- *      banner to disagree" — but the nav dot is emitted outside
- *      render()'s own output, by companion/layout.py's page_shell(),
- *      so any in-page patch would leave a stale nav dot beside a
- *      freshly-patched banner. Only a whole-page regeneration keeps
- *      the two in step.
- *   2. companion/static/battery-trend.js and companion/static/
- *      list-filter.js each capture their DOM once inside an IIFE, with
- *      no re-init hook and no MutationObserver — replacing either
- *      region under a patch would leave a permanently dead chart (no
- *      hover, no tap, no arrow keys) or a permanently dead filter (and
- *      would additionally discard the user's in-progress filter
- *      query), a silent regression worse than a stale view.
- *   3. A patch needs an HTML-writing DOM sink and a network-call sink —
- *      the whole markup-writing/document-mutation/network-request
- *      family this repo's own forbidden-sink guards already ban
- *      (test_config_page.py's _FORBIDDEN_SCRIPT_SINKS, and the
- *      nav-dropdown.js/panel-lookup.js guards in
- *      test_companion_app.py) — mechanism (b) means writing a
- *      repo-first exception to a discipline that is currently absolute.
- *      (Deliberately not spelling those sink names here: this file's
- *      own harness check bans them from appearing anywhere in this
- *      file, comments included, so naming them would trip the very
- *      check that explains why they are absent.)
- *   4. Mechanism (b) is roughly 100 lines of new machinery, against
- *      roughly 40 for (a), in a codebase whose every other script is
- *      DOM-toggling only, never fetch-based.
+ * 260902-chc weighed two mechanisms and chose (a) — a
+ * Page-Visibility-gated whole-page reload (the window-level navigation
+ * method, invoked with no arguments) — over (b), a network-fetch-
+ * based soft refresh that patches content in place, for four named
+ * reasons. Living with mechanism (a) in real use surfaced its own real
+ * cost (A-20): it destroys keyboard focus and silently closes every
+ * open disclosure on EVERY cycle, with no opt-out, and the freshness
+ * line beside it read "(0s ago)", which was structurally always zero
+ * (see companion/pages/health_page.py's own FRESHNESS_PREFIX_TEXT
+ * comment). This rewrite reverses that choice — mechanism (b),
+ * implemented below — and answers each of the four reasons mechanism
+ * (a) was chosen for, in order, rather than pretending they were never
+ * real:
+ *   1. The nav-dot-outside-render()'s-own-output problem stands, and is
+ *      solved directly rather than avoided: the whole nav link
+ *      (the anchor whose href is "/health", in BOTH nav renderings) is
+ *      one of this file's own SWAP targets, taken verbatim from the fetched
+ *      document — never recomputed client-side.
+ *      health_page.REFRESH_SWAP_SELECTORS is the single, pinned,
+ *      greppable agreement between the two files' target lists (a dot-
+ *      only selector would have nothing to replace on the far more
+ *      common transition where severity newly clears — see that
+ *      tuple's own comment for why the WHOLE link is the target).
+ *   2. battery-trend.js's/list-filter.js's own no-re-init-hook contract
+ *      also stands, and is accepted as a real constraint rather than
+ *      argued away: the sparkline <svg>, every .sparkline-hit, the
+ *      registry card and the filter bar are deliberately EXCLUDED from
+ *      the swap target list — pinned absent from this file's own
+ *      source by name (companion/test_status_pages.py's excluded-
+ *      selectors check). The battery readout's two text spans are
+ *      updated via textContent on the EXISTING nodes only, and only
+ *      when no .sparkline-hit--active point exists, so a hovered
+ *      reading is never stomped.
+ *   3. The "needs an HTML-writing DOM sink and a network-call sink"
+ *      objection is answered by construction, not overridden:
+ *      DOMParser.parseFromString() plus document.importNode()/
+ *      parentNode.replaceChild() are the load-bearing choice here — none
+ *      of them is an HTML-writing DOM sink, so the standing markup-
+ *      writing-sink ban (the same one nav-dropdown.js/panel-lookup.js
+ *      carry) stays absolute in this file too. companion/
+ *      test_companion_app.py's own named guard
+ *      for this file states, in its body, that fetch( is a single,
+ *      deliberate, reviewed exception to the sibling scripts' ban list
+ *      — never a silent exemption, and never a second exception without
+ *      a new decision.
+ *   4. The line-count objection is accepted outright: this file is
+ *      meaningfully larger than the reload-based version it replaces.
+ *      That cost was weighed against A-20's real, reported harm, and
+ *      lost.
  *
- * --- The accepted costs of (a), named rather than glossed ------------
- *
- * Open disclosures do not survive a reload, and keyboard focus is
- * destroyed by one — both mitigated by the interaction-skip guard
- * below, which suppresses a tick entirely rather than trying to restore
- * state afterwards. Browsers restore scroll position on a reload
- * through session-history scroll restoration, unlike a fresh
- * navigation — recorded here as the expectation a live-browser pass
- * must confirm per browser, not asserted as an established fact. And
- * the one cost nothing here mitigates: a reload that fires while a
- * screen-reader user is reading, with focus on the document body,
- * returns their virtual cursor to the top of the document — the
- * interaction-skip guard below cannot detect that state. The lever if
- * this bites is AUTO_REFRESH_INTERVAL_MS below, not an announcement,
- * and a live screen-reader pass is named in this task's SUMMARY.
+ * The accepted cost this rewrite adds on top of reason 2 above, stated
+ * rather than glossed: the sparkline and the registry only ever update
+ * on a real navigation — a deliberate trade, not an oversight, and not
+ * new (260902-chc's own text already named the identical trade for the
+ * mechanism it chose not to build).
  *
  * --- The corrected page list -------------------------------------------
  *
@@ -120,25 +123,14 @@
   // seconds, so this cadence notices a newly-warn pipeline well inside a
   // quarter of the threshold that defines it. The resulting steady-state
   // cost, spelled out rather than left for a reader to compute: at most
-  // one authenticated page render per interval per open, visible Health
-  // tab, and exactly zero from a backgrounded or closed one — the number
-  // D-12 was written to protect.
+  // one authenticated page render per interval per open, visible,
+  // UNPAUSED Health tab, and exactly zero from a backgrounded, closed or
+  // paused one — the number D-12 was written to protect, now reduced
+  // further by 19-09-PLAN.md's own Pause control.
   var AUTO_REFRESH_INTERVAL_MS = 45000;
 
-  // Small and load-bearing, not cosmetic: revealing the pill and calling
-  // reload() synchronously can begin navigation before the reveal is
-  // ever painted, so without this deferral the pill may never appear at
-  // all. What this delivers is honest about its own limits: a
-  // pre-navigation indicator, not a fetch-duration indicator — the old
-  // document stays painted for the length of the request, so on a fast
-  // local response the pill's total visible time is short. The
-  // dwell-time version (a pill visible for the actual duration of a
-  // fetch) is mechanism (b), not this file.
-  var PILL_REVEAL_DELAY_MS = 80;
-
   var loadedAtEl = document.querySelector("[data-loaded-at]");
-  var pill = document.querySelector("[data-refresh-pill]");
-  if (!loadedAtEl || !pill) {
+  if (!loadedAtEl) {
     return;
   }
 
@@ -150,34 +142,52 @@
   // This file has no access to companion/layout.py's parse_iso() — it
   // must do its own defensive parse-or-noop rather than assuming the
   // attribute is always well-formed.
-  var parsed = new Date(raw);
-  if (isNaN(parsed.getTime())) {
+  var initialParsed = new Date(raw);
+  if (isNaN(initialParsed.getTime())) {
     return;
   }
-  var loadedAtMs = parsed.getTime();
+  // Reassigned after every successful swap (see updateLoadedAt() below)
+  // — never re-read from loadedAtEl itself, since that element sits
+  // inside .page-header__freshness, one of this file's own swap
+  // targets, and is a stale/detached node the moment a swap replaces
+  // it.
+  var loadedAtMs = initialParsed.getTime();
+
+  // 19-09-PLAN.md (D-02): true while the visible Pause/Resume control
+  // (optional — see wireToggle() below) has the loop paused. Distinct
+  // from the tab-visibility gate below (intervalHandle/startLoop/
+  // stopLoop): visibility answers "is this tab in front of the user at
+  // all", this answers "did the user ask this tab specifically to stop
+  // polling". Both gates independently prevent a tick from doing
+  // anything.
+  var paused = false;
 
   // Interaction check: true when the user is mid-interaction with
-  // something a reload would destroy. Its failure mode is silence —
+  // something a swap would disrupt. Its failure mode is silence —
   // nothing errors when it stops matching, the page simply starts
-  // reloading out from under a user mid-interaction, and only
+  // swapping content out from under a user mid-interaction, and only
   // companion/test_status_pages.py's cross-file DOM-contract check
   // would notice.
+  //
+  // 19-09-PLAN.md (D-02): the original open-disclosure clause — "any
+  // open disclosure anywhere on the page" — is DELETED here on purpose.
+  // That clause existed to protect a disclosure from being slammed shut
+  // by a whole-page reload; a targeted swap never touches any
+  // disclosure element at all (registry/readings disclosures are
+  // excluded from the swap target list, see health_page.
+  // REFRESH_SWAP_SELECTORS' own comment), so an open disclosure now
+  // survives a swap unconditionally, with no guard needed to protect
+  // it. D-02's own text names this removal directly: "an open <details>
+  // no longer silently suspends the polling".
   function userIsInteracting() {
-    // First: any open disclosure anywhere on the page. A reader with
-    // the readings history or Corroboration's "More details" open is
-    // reading, and a reload would slam it shut.
-    if (document.querySelector("details[open]")) {
-      return true;
-    }
-    // Second: the active element is a form field, a disclosure summary,
-    // or a battery-chart hit target — covering a half-typed registry
-    // filter query, keyboard disclosure use, and arrow-key traversal of
-    // the chart. Read the active element's class through
-    // getAttribute("class"), never the property form: an SVG element's
-    // className property is an SVGAnimatedString, not a plain string —
-    // the same class of reason companion/static/battery-trend.js's own
-    // comment gives for preferring getAttribute() over dataset on SVG
-    // elements.
+    // The active element is a form field, a disclosure summary, or a
+    // battery-chart hit target — covering a half-typed registry filter
+    // query, keyboard disclosure use, and arrow-key traversal of the
+    // chart. Read the active element's class through getAttribute(),
+    // never the property form: an SVG element's className property is
+    // an SVGAnimatedString, not a plain string — the same class of
+    // reason companion/static/battery-trend.js's own comment gives for
+    // preferring getAttribute() over dataset on SVG elements.
     var active = document.activeElement;
     if (!active) {
       return false;
@@ -193,25 +203,217 @@
     return false;
   }
 
+  // 19-09-PLAN.md (D-02): looked up fresh on every call, never cached
+  // in a module-level variable. The pill lives inside
+  // .page-header__freshness, one of this file's own swap targets — a
+  // cached reference would go stale (detached from the document) the
+  // moment the very first successful swap replaces that wrapper, and
+  // every reveal/hide after that would silently do nothing.
   function revealPill() {
-    pill.hidden = false;
+    var pill = document.querySelector("[data-refresh-pill]");
+    if (pill) {
+      pill.hidden = false;
+    }
+  }
+
+  function hidePill() {
+    var pill = document.querySelector("[data-refresh-pill]");
+    if (pill) {
+      pill.hidden = true;
+    }
+  }
+
+  // 19-09-PLAN.md (D-02): the single, greppable swap-target list. Must
+  // stay in agreement, selector for selector, with health_page.
+  // REFRESH_SWAP_SELECTORS — companion/test_status_pages.py's own
+  // cross-file check pins the two lists equal. Comma-grouped selectors
+  // (one array entry, several comma-separated clauses) are valid
+  // querySelectorAll() input and count as one entry each, matching the
+  // Python tuple's own shape.
+  var SWAP_SELECTORS = [
+    ".dashboard-grid",
+    "div.banner--anomaly, div.banner--warn",
+    "section.banner",
+    ".page-header__freshness",
+    'a[href="/health"]'
+  ];
+
+  // 19-09-PLAN.md (D-02): for each swap selector, look up matching
+  // nodes in both the live document and the freshly-fetched one, and
+  // replace each live node at a given index with document.importNode()
+  // of its fetched counterpart at the same index — using replaceChild(),
+  // not the newer replaceWith(), for ES5-era reach. An index present on
+  // only one side (a banner that just appeared, or just cleared) is
+  // never touched: the newly-appearing/disappearing region simply waits
+  // for the next real navigation, exactly the same accepted cost this
+  // file's own header already names for the sparkline/registry.
+  function swapNodes(fromDoc) {
+    for (var s = 0; s < SWAP_SELECTORS.length; s++) {
+      var existingNodes = document.querySelectorAll(SWAP_SELECTORS[s]);
+      var fetchedNodes = fromDoc.querySelectorAll(SWAP_SELECTORS[s]);
+      var count = Math.min(existingNodes.length, fetchedNodes.length);
+      for (var i = 0; i < count; i++) {
+        var existing = existingNodes[i];
+        var replacement = document.importNode(fetchedNodes[i], true);
+        existing.parentNode.replaceChild(replacement, existing);
+      }
+    }
+  }
+
+  // 19-09-PLAN.md (D-02): battery-trend.js's own two readout spans are
+  // written through textContent on the EXISTING nodes, never replaced —
+  // contract 2 in this file's own SUPERSEDED section above. Skipped
+  // entirely while a chart point is actively revealed
+  // (.sparkline-hit--active), so a hovered/focused reading is never
+  // stomped by a background refresh.
+  function swapBatteryReadout(fromDoc) {
+    if (document.querySelector(".sparkline-hit--active")) {
+      return;
+    }
+    var value = document.querySelector(".battery-readout__value");
+    var detail = document.querySelector(".battery-readout__detail");
+    var fetchedValue = fromDoc.querySelector(".battery-readout__value");
+    var fetchedDetail = fromDoc.querySelector(".battery-readout__detail");
+    if (value && fetchedValue) {
+      value.textContent = fetchedValue.textContent;
+    }
+    if (detail && fetchedDetail) {
+      detail.textContent = fetchedDetail.textContent;
+      var title = fetchedDetail.getAttribute("title");
+      if (title !== null) {
+        detail.setAttribute("title", title);
+      }
+    }
+  }
+
+  // 19-09-PLAN.md (D-02): the freshness wrapper (one of SWAP_SELECTORS'
+  // own entries) carries the live data-loaded-at marker, so reading it
+  // straight off the just-fetched document is the honest "when was this
+  // content actually generated" value — never Date.now(), which would
+  // only say "when did this browser finish parsing", a different and
+  // less useful instant.
+  function updateLoadedAt(fromDoc) {
+    var fetchedMarker = fromDoc.querySelector("[data-loaded-at]");
+    var rawValue = fetchedMarker ? fetchedMarker.getAttribute("data-loaded-at") : null;
+    var nextParsed = rawValue ? new Date(rawValue) : null;
+    loadedAtMs = (nextParsed && !isNaN(nextParsed.getTime()))
+      ? nextParsed.getTime() : Date.now();
+  }
+
+  // 19-09-PLAN.md (D-02): the Pause/Resume button lives inside
+  // .page-header__freshness — one of SWAP_SELECTORS' own entries — so
+  // every successful swap replaces it with a brand-new node from the
+  // fetched document, carrying none of this file's own event listeners.
+  // wireToggle() is therefore called once at startup AND again after
+  // every successful swap; it is always a fresh, guarded, optional
+  // lookup (absent is a legitimate state — not every page renders this
+  // button, and a stale cached shell might not yet either).
+  //
+  // The swapped-in button's own aria-pressed/label always already read
+  // "not paused" (health_page.py's render() has no way to know about
+  // this file's own paused flag and always emits the not-paused
+  // state) — which is exactly correct, since a swap only ever runs
+  // while paused is false (see tick()/doRefresh() below): while
+  // paused, no fetch happens, .page-header__freshness is never
+  // replaced, and the button's listener and visual state both survive
+  // untouched.
+  function setToggleVisual(button, isPaused) {
+    var pauseText = button.getAttribute("data-pause-text") || "";
+    var resumeText = button.getAttribute("data-resume-text") || "";
+    button.setAttribute("aria-pressed", isPaused ? "true" : "false");
+    button.textContent = isPaused ? resumeText : pauseText;
+  }
+
+  function wireToggle() {
+    var button = document.querySelector("[data-refresh-toggle]");
+    if (!button) {
+      return;
+    }
+    button.addEventListener("click", function () {
+      paused = !paused;
+      setToggleVisual(button, paused);
+      if (paused) {
+        stopLoop();
+      } else {
+        startLoop();
+      }
+    });
+  }
+
+  function applySwap(fromDoc) {
+    swapNodes(fromDoc);
+    swapBatteryReadout(fromDoc);
+    updateLoadedAt(fromDoc);
+    // The freshly swapped-in toggle button (if any) carries no
+    // listener of its own yet — re-wire it every time, immediately
+    // after the swap that just replaced it.
+    wireToggle();
   }
 
   function doRefresh() {
     revealPill();
-    window.setTimeout(function () {
-      // The no-argument form only. This is a security property, not a
-      // style preference: the navigation target must never be readable
-      // from the DOM, so no URL-taking navigation form appears anywhere
-      // in this file.
-      window.location.reload();
-    }, PILL_REVEAL_DELAY_MS);
+    // 19-09-PLAN.md (D-02/T-19-33): window.location.href — the same-
+    // document URL — and NEVER a URL read out of the DOM. This is a
+    // security property, not a style preference: the fetch target must
+    // never be readable from, or influenced by, injected markup. No
+    // URL-taking navigation form (an assignment to the page's own
+    // location, or a call to assign/replace/open) appears anywhere in
+    // this file, preserving the exact property the retired reload-only
+    // file's own comment protected.
+    //
+    // redirect: "manual" (T-19-34): fetch()'s default behaviour silently
+    // FOLLOWS a same-origin redirect and reports the FINAL response's
+    // status — so a session that expired between page loads would make
+    // this fetch transparently land on the login page and report status
+    // 200, which is indistinguishable from a genuine Health refresh
+    // without this option. With redirect: "manual", a redirect response
+    // (the 303 an expired session produces) instead resolves to an
+    // opaque response whose ok is false — caught by the same "non-OK
+    // status" branch below, with no separate code path needed.
+    fetch(window.location.href, {
+      credentials: "same-origin",
+      redirect: "manual",
+      headers: {"X-Requested-With": "freshness"}
+    }).then(function (response) {
+      if (!response.ok) {
+        // A non-OK status (including the opaque redirect above) means
+        // do NOT swap anything and do NOT navigate — hide the pill,
+        // stop the loop, and leave the stale page visible. Silent
+        // failure is better than a partial swap, and a redirect must
+        // never be mistaken for fresh data.
+        hidePill();
+        stopLoop();
+        return null;
+      }
+      return response.text();
+    }).then(function (text) {
+      if (text === null || typeof text === "undefined") {
+        return;
+      }
+      // The load-bearing choice: DOMParser.parseFromString() is NOT an
+      // HTML-writing sink on the LIVE document — it builds an inert,
+      // detached document with no script execution and no external
+      // resource loading — so the standing markup-writing-sink ban
+      // stays absolute for this file too, and this rewrite introduces
+      // no markup-writing surface on the page the user is actually
+      // looking at.
+      var fetchedDoc = new DOMParser().parseFromString(text, "text/html");
+      applySwap(fetchedDoc);
+      hidePill();
+    }).catch(function () {
+      // A network-level failure (offline, DNS, aborted) gets the exact
+      // same treatment as a non-OK status, for the same reason: no
+      // partial swap, no guess, just a visibly stale page and a stopped
+      // loop.
+      hidePill();
+      stopLoop();
+    });
   }
 
   // Single interval handle, one null-ish sentinel. Starting is a no-op
   // when a handle already exists — what stops repeated visibility
   // toggles from stacking two or three intervals onto one page, which
-  // would show up as multiple reloads per cycle rather than as an
+  // would show up as multiple refreshes per cycle rather than as an
   // error.
   var intervalHandle = null;
 
@@ -221,6 +423,9 @@
     // fire in a background tab.
     if (document.hidden) {
       stopLoop();
+      return;
+    }
+    if (paused) {
       return;
     }
     if (userIsInteracting()) {
@@ -250,6 +455,12 @@
       stopLoop();
       return;
     }
+    if (paused) {
+      // 19-09-PLAN.md (D-02): the user's own pause choice must survive
+      // a visibility round-trip too — a tab hidden while paused, then
+      // shown again, stays paused, never silently resumed.
+      return;
+    }
     startLoop();
     // Catch-up on return: a tab returning after a long hidden stretch
     // would otherwise sit showing minutes-old data for a full interval
@@ -262,7 +473,11 @@
     }
   });
 
-  // A page that loads in a background tab starts fully paused.
+  wireToggle();
+
+  // A page that loads in a background tab starts fully paused (tab
+  // visibility, not the user-facing Pause control above — see the
+  // paused variable's own comment for the distinction).
   if (!document.hidden) {
     startLoop();
   }

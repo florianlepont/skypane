@@ -19,7 +19,9 @@ fields than the Flights page.
 Everything dynamic passes through `layout.escape_html()`.
 """
 
+import companion.battery as battery
 import companion.layout as layout
+import companion.wake as wake
 from companion.layout import escape_html
 from server import device_config, history_db
 
@@ -85,6 +87,14 @@ BATTERY_TILE_LABEL = "Battery"
 LAST_FLIGHT_TILE_LABEL = "Last flight"
 DATA_TILE_LABEL = "Flight data"
 HEALTH_LINK_TEXT = "See details on Health"
+# 19-12-PLAN.md Task 3 (D-13/S-02): the Frame tile's second detail line —
+# a module constant for the label and one for the "≈ %s" template,
+# rather than inlining either string at the one render call site.
+# Rendered ONLY when wake.next_wake_at_iso() resolves to a real value
+# (D-13: "where the value is known") — no placeholder, no "unknown", no
+# dangling label when it does not.
+NEXT_WAKE_LABEL = "Next wake"
+NEXT_WAKE_VALUE_TEMPLATE = "≈ %s"
 
 FRAME_STATE_TEXT = {
     "ok": "Checking in normally",
@@ -102,26 +112,6 @@ BATTERY_STATE_TEXT = {
     "error": "Dropping quickly",
 }
 NO_READING_TEXT = "No reading yet"
-
-# A rough state-of-charge estimate for a single-cell LiPo: 4.2V full,
-# 3.3V empty, linear in between. It is an estimate, and labelled as one
-# ("≈") — the frame's own low-battery warning still uses the exact
-# millivolt thresholds in server/poll_loop.py.
-BATTERY_FULL_MV = 4200
-BATTERY_EMPTY_MV = 3300
-
-
-def battery_percent(mv):
-    """A clamped 0-100 estimate for `mv`, or None for a non-numeric or
-    non-positive reading. Never raises."""
-    try:
-        value = float(mv)
-    except (TypeError, ValueError):
-        return None
-    if value <= 0:
-        return None
-    ratio = (value - BATTERY_EMPTY_MV) / float(BATTERY_FULL_MV - BATTERY_EMPTY_MV)
-    return int(round(max(0.0, min(1.0, ratio)) * 100))
 
 
 def _safe_query(state_dir, fn):
@@ -186,9 +176,24 @@ def _status_tiles_html(ctx):
         '<p class="text-label widget-detail">%s</p>' % health["device_html"]
         if health.get("device_html") else "")
 
+    # 19-12-PLAN.md Task 3 (D-13/S-02): a second detail line on the same
+    # Frame tile, omitted ENTIRELY (no placeholder, no "unknown") when
+    # either the last check-in or the effective wake interval is
+    # unknown — wake.next_wake_at_iso() already returns None for both
+    # cases without raising.
+    next_wake_iso = wake.next_wake_at_iso(
+        ctx.get("last_checkin_ts"), ctx.get("device_config"))
+    if next_wake_iso:
+        next_wake_parsed = layout.parse_iso(next_wake_iso)
+        if next_wake_parsed is not None:
+            next_wake_clock = layout.local_clock_text(
+                next_wake_parsed, now_parsed=layout.parse_iso(now))
+            frame_html += '<p class="text-label widget-detail">%s</p>' % escape_html(
+                "%s %s" % (NEXT_WAKE_LABEL, NEXT_WAKE_VALUE_TEMPLATE % next_wake_clock))
+
     reading = _safe_query(ctx.get("state_dir"), _latest_battery)
     if reading and reading.get("battery_mv"):
-        pct = battery_percent(reading["battery_mv"])
+        pct = battery.battery_percent(reading["battery_mv"])
         pct_text = ("≈ %d%%" % pct) if pct is not None else ""
         battery_html = (
             '<p class="text-body widget-verdict">%s</p>'

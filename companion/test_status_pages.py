@@ -55,6 +55,8 @@ if REPO_ROOT not in sys.path:
 import companion.app as app  # noqa: E402
 from companion import auth, illustration_normalize, layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
+import companion.wake as wake  # noqa: E402
+from server import device_config  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import illustrations  # noqa: E402
 from server.plane import manual_resolutions  # noqa: E402
@@ -64,6 +66,13 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
+# 19-05-PLAN.md Task 3 (D-05/A-23): the retired STALE_DEVICE_WARN_S/
+# STALE_DEVICE_ERROR_S module constants are gone from health_page — every
+# fixture below that seeds a device-staleness boundary now ages against
+# these two, the same bare floors wake.device_staleness_thresholds(None)
+# returns for a fixture that seeds no device_config.json and no
+# SKYPANE_SLEEP_S (which is every fixture in this file).
+_DEFAULT_DEVICE_WARN_S, _DEFAULT_DEVICE_ERROR_S = wake.device_staleness_thresholds(None)
 # 44 (pre-06.6-01) + 2 (06.6-01 Task 1: layout timestamp-helper promotion
 # checks) + 1 (06.6-01 Task 2: Battery Trend absolute+relative timestamp check)
 # 49 (pre-06.6.3-04) + 5 (06.6.3-04 Task 1: readings-disclosure ordering, D-10
@@ -282,7 +291,67 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 163  # 158 + 5 (phase 14 plan 14-06 Task 1: the
+EXPECTED_CHECK_COUNT = 185  # 180 + 5 (19-05-PLAN.md Task 3: D-05/A-23's
+# widened overall_severity() precedence-table check (including the
+# plan's own acceptance-criteria triple), source_fault-alone/
+# registry-alone/fully-healthy compute_health_state() severity check,
+# collect_anomalies()'s two new items check, and the device-staleness-
+# pinned-from-both-directions-by-cadence check. Three pre-existing checks
+# (battery_status()'s error->warn demotion, the seven-to-nine-keys
+# _read_health_inputs() check, and the battery-trend-section status
+# modifier check) were retargeted in place, not counted as new.
+EXPECTED_CHECK_COUNT = 190  # 189 + 1 (19-06-PLAN.md Task 3, D-06: the
+# combined no-adsbdb/no-requirement-id full-render check, seeded with a
+# non-empty unresolved registry AND stats rows so every branch renders.
+# The pre-existing _read_only_note_reworded_to_point_at_airlines_not_
+# the_runbook() check was retargeted in place, not counted as new).
+# 189 = 188 + 1 (19-06-PLAN.md Task 2, D-06: the
+# combined plain-language/tooltip check — Health's stat tiles and
+# corroboration rows carry no banned jargon in visible text, and the
+# Pipeline/Corroboration/Resolution-rate tiles' caption elements each
+# carry a title attribute equal to their matching technical constant.
+# The pre-existing Corroboration-tile lookup in the D-01-reversal
+# dot-removal-scoped check was retargeted in place, not counted as new).
+# 188 = 185 + 3 (19-06-PLAN.md Task 1, D-06:
+# layout.stat_tile()'s new caption_title parameter — the byte-identical-
+# when-unused check, the renders-as-a-title-on-the-caption-only check,
+# and the escaped-when-hostile check).
+# Re-derived by RUNNING the harness (187/188), not by arithmetic.
+# 180 = 176 + 4 (19-05-PLAN.md Task 2: D-04/A-22's fixed
+# sparkline range and width-derived density checks — a flat series draws
+# at one consistent y level, a 15mV wiggle stays under a tenth of the
+# full canvas excursion, an out-of-range value clamps to the canvas edge
+# without rescaling the fixed axis labels, and _sparkline_dense_
+# threshold() derives two different thresholds for two different canvas
+# widths. The pre-existing axis-label check was retargeted in place (not
+# counted as new) to assert the FIXED SPARKLINE_Y_MIN_MV/MAX_MV labels
+# instead of the fixture's own real min/max. Re-derived by RUNNING the
+# harness (179/180 — the one documented pre-existing root-sandbox
+# anomaly_active() failure), not by arithmetic.
+# 176 = 171 + 5 (19-05-PLAN.md Task 1: companion/wake.py's
+# floors-and-multipliers check, the warn_s < error_s guarantee across six
+# inputs, env_sleep_s()'s unclamped-read-and-degrade check, effective_wake_
+# interval_s()'s screen-off/screen-on/None precedence check, and the
+# source-scan boundary check asserting wake.py never mentions the pages
+# package or app.py). Re-derived by RUNNING the harness (175/176 — the one
+# documented pre-existing root-sandbox anomaly_active() failure), not by
+# arithmetic.
+# 171 = 166 + 5 (19-01-PLAN.md Task 3: D-03/A-21's
+# text-verdict checks — the Device tile's widget-verdict paragraph at
+# each of its three severities, the Pipeline tile's at each of its three
+# severities, the Corroboration tile's at both the agreement and
+# disagreement states, the Resolution-rate tile's deliberate absence of
+# any widget-verdict paragraph, and the three state-text dicts' exact key
+# sets). Re-derived by RUNNING the harness, not by arithmetic.
+# 166 = 163 + 3 (19-01-PLAN.md Task 2: D-01/A-19's
+# percentage-estimate checks — _battery_reading_parts()'s value text
+# leading with the '≈ NN%' estimate for a numeric reading, falling back
+# to the bare millivolt figure with no stray '≈' when
+# battery.battery_percent() returns None, and a real seeded
+# health_page.render() call's readout value span carrying both the
+# estimate and the millivolt figure). Re-derived by RUNNING the harness,
+# not by arithmetic.
+# 163 = 158 + 5 (phase 14 plan 14-06 Task 1: the
 # manual_info=None byte-compat/plain-card check, the active-manual-states
 # (art + needs-artwork) attribute check, the needs-artwork sighting-
 # context conditional-on-live-gap check, the superseded-card
@@ -355,6 +424,20 @@ EXPECTED_CHECK_COUNT = 163  # 158 + 5 (phase 14 plan 14-06 Task 1: the
 # already fully covered UIR-14's "unedited" requirement with no change
 # needed — neither counted as new)
 # 130 = 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) + 2 (quick 260903-ghy Task 1: the Resolution-statistics table's mobile .data-cards completeness check, and the .data-cards toggle-contract/untouched-rules check; the pre-existing nested-card heading-rhythm check's own allowlist was extended in place for the new `<ul class="data-cards">` element, no count change from it) + 2 (quick 260903-ghy Task 2: the registry's mobile-card/table filter-pairing check, and the no-chrome-with-no-data/no-cross-page-leak check; the pre-existing anomaly-detail-list-markup check was retargeted in place from a page-wide <ul>/<li> ban onto the anomaly banner's own element slice, no count change from it) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
+
+
+EXPECTED_CHECK_COUNT = 191  # 190 + 1 (19-09-PLAN.md Task 3, D-02: the new
+# both-directions swap-selector-contract check - every health_page.
+# REFRESH_SWAP_SELECTORS entry appears verbatim in freshness.js, and
+# freshness.js never carries a .sparkline-hit selector literal, a
+# [data-filter-input] reference, or a details[...] selector. Three other
+# checks (the loop's own contract, the interaction-skip guard's
+# cross-file contract, and the persistent-freshness-note structural-
+# contract check) and the served-freshness-script half of the real-
+# running-service end-to-end check were all retargeted in place for the
+# same plan's Tasks 1/2/3, not counted as new. Re-derived by RUNNING the
+# harness (190/191 - the one documented pre-existing root-sandbox
+# anomaly_active() failure), not by arithmetic.
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -614,6 +697,85 @@ def main():
         "staleness_status() returns ok/warn/error at the right boundaries, warn for a never-seen signal",
         _staleness_status_boundaries)
 
+    # --- 19-05-PLAN.md Task 1: companion/wake.py -----------------------
+
+    def _device_staleness_thresholds_floors_and_multipliers():
+        if wake.device_staleness_thresholds(30) != (300, 1200):
+            return False, "expected the floors to bind at the shipped 30s cadence"
+        if wake.device_staleness_thresholds(300) != (900, 3600):
+            return False, "expected the multipliers to bind at a 5-minute cadence"
+        if wake.device_staleness_thresholds(None) != (300, 1200):
+            return False, "expected the bare floors for an undetermined cadence"
+        return True, ""
+    check(
+        "wake.device_staleness_thresholds() floors at (300, 1200), multiplies at a 5-minute cadence, "
+        "and falls back to the floors for None (19-05-PLAN.md D-05/A-23)",
+        _device_staleness_thresholds_floors_and_multipliers)
+
+    def _device_staleness_thresholds_warn_always_under_error():
+        for candidate in (None, 1, 30, 60, 300, 3600):
+            warn_s, error_s = wake.device_staleness_thresholds(candidate)
+            if warn_s >= error_s:
+                return False, (
+                    "expected warn_s < error_s for wake_interval_s=%r, got (%r, %r)"
+                    % (candidate, warn_s, error_s))
+        return True, ""
+    check(
+        "wake.device_staleness_thresholds() guarantees warn_s < error_s for every input",
+        _device_staleness_thresholds_warn_always_under_error)
+
+    def _env_sleep_s_reads_unclamped_and_degrades():
+        original = os.environ.get(wake.SLEEP_ENV_VAR)
+        try:
+            os.environ[wake.SLEEP_ENV_VAR] = "30"
+            if wake.env_sleep_s() != 30:
+                return False, "expected env_sleep_s() to read SKYPANE_SLEEP_S=30 unclamped"
+            for bad in ("", "abc", "0"):
+                os.environ[wake.SLEEP_ENV_VAR] = bad
+                if wake.env_sleep_s() is not None:
+                    return False, "expected env_sleep_s() to degrade to None for %r" % bad
+            del os.environ[wake.SLEEP_ENV_VAR]
+            if wake.env_sleep_s() is not None:
+                return False, "expected env_sleep_s() to degrade to None when unset"
+            return True, ""
+        finally:
+            if original is None:
+                os.environ.pop(wake.SLEEP_ENV_VAR, None)
+            else:
+                os.environ[wake.SLEEP_ENV_VAR] = original
+    check(
+        "wake.env_sleep_s() reads SKYPANE_SLEEP_S unclamped (no [60, 3600] range check) and degrades to "
+        "None for unset/empty/non-numeric/non-positive values",
+        _env_sleep_s_reads_unclamped_and_degrades)
+
+    def _effective_wake_interval_s_precedence():
+        off_cfg = {"display_enabled": False, "wake_interval_s": 900}
+        if wake.effective_wake_interval_s(off_cfg) != device_config.DISPLAY_OFF_SLEEP_S:
+            return False, "expected the screen-off cadence to win over a configured wake_interval_s"
+        on_cfg = {"display_enabled": True, "wake_interval_s": 120}
+        if wake.effective_wake_interval_s(on_cfg) != 120:
+            return False, "expected a screen-on config to return its own wake_interval_s"
+        if wake.effective_wake_interval_s(None) is not None:
+            return False, "expected effective_wake_interval_s(None) to degrade to None without raising"
+        return True, ""
+    check(
+        "wake.effective_wake_interval_s() prefers the screen-off cadence, otherwise a configured "
+        "wake_interval_s, and degrades to None for a missing config",
+        _effective_wake_interval_s_precedence)
+
+    def _wake_module_never_imports_pages_or_app():
+        wake_path = os.path.join(HERE, "wake.py")
+        with open(wake_path) as fh:
+            source = fh.read()
+        if "companion.pages" in source or "companion/pages" in source:
+            return False, "companion/wake.py must never import the pages package"
+        if "companion.app" in source or "companion/app" in source:
+            return False, "companion/wake.py must never import app.py (import cycle)"
+        return True, ""
+    check(
+        "companion/wake.py's source never mentions the pages package or app.py",
+        _wake_module_never_imports_pages_or_app)
+
     def _layout_absolute_and_relative_covers_every_documented_case():
         if layout.absolute_and_relative(
                 "2026-08-28T13:58:02+00:00", "2026-08-28T14:01:02+00:00") != (
@@ -672,7 +834,7 @@ def main():
         tmp = _mkstate("h-independent")
         try:
             now = _now()
-            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_device_health(tmp, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
 
@@ -682,7 +844,7 @@ def main():
             if "stat-tile--error" not in device_tile_tag:
                 return False, (
                     "expected the Device tile's wrapper to carry the error modifier "
-                    "(STALE_DEVICE_ERROR_S + 60 is past the error threshold), got %r" % device_tile_tag)
+                    "(_DEFAULT_DEVICE_ERROR_S + 60 is past the error threshold), got %r" % device_tile_tag)
 
             pipeline_at = rendered.index(health_page.PIPELINE_FRESHNESS_LABEL)
             pipeline_tile_open = rendered.rindex('<div class="stat-tile ', 0, pipeline_at)
@@ -1056,7 +1218,7 @@ def main():
             _seed_runway_events(tmp, [
                 {"ts": _iso(now), "hex": "abc123", "corroborated": False}])
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-            if "ADS-B sources disagreed" not in rendered:
+            if "Data sources disagreed" not in rendered:
                 return False, "expected the anomaly banner to name the real failing category"
             if health_page.ANOMALY_BANNER_TEXT not in rendered:
                 return False, "expected ANOMALY_BANNER_TEXT to remain present as the banner's fallback tail"
@@ -1082,18 +1244,26 @@ def main():
         # Driven through the real collect_anomalies() strings, in the
         # real order, rather than hand-written fixtures — so the check
         # cannot drift away from the copy it is protecting.
+        # 19-06 (D-06) later rewrote every collect_anomalies() literal
+        # into plain language, so none of the real strings begins with
+        # an acronym any more; the real strings now prove the ordinary
+        # mid-sentence lower-casing, and a hand-written acronym-led
+        # fixture keeps the guard itself under test.
         anomalies = health_page.collect_anomalies(
             device_state="warn", pipeline_state="warn",
             battery_state="ok", disagreement_warn=True)
         text = health_page._anomaly_category_text(anomalies)
-        if "aDS-B" in text:
+        if "flight data is stale" not in text or "data sources disagreed" not in text:
+            return False, (
+                "expected the real non-first phrases to be lower-cased "
+                "mid-sentence, got %r" % (text,))
+        acronym = health_page._anomaly_category_text(
+            ["Device check-in is stale.",
+             "ADS-B sources disagreed on the selected aircraft recently."])
+        if "aDS-B" in acronym or "ADS-B sources" not in acronym:
             return False, (
                 "a leading acronym was lower-cased for mid-sentence "
-                "joining, producing %r" % (text,))
-        if text.count("ADS-B") != 2:
-            return False, (
-                "expected both ADS-B categories to survive intact, got %r"
-                % (text,))
+                "joining, producing %r" % (acronym,))
         # The guard must be narrow: an ordinary sentence-initial word in
         # a non-first position still lower-cases, or the joined clause
         # reads as a run of sentences again.
@@ -1156,7 +1326,7 @@ def main():
         tmp = _mkstate("h-banner-pills-page")
         try:
             now = _now()
-            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_device_health(tmp, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{
                 history_db.META_LAST_PIPELINE_RUN: _ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
@@ -1407,13 +1577,16 @@ def main():
             # card's own error modifier — the "dot--error" badge this
             # check used to look for is retired outright; this is the
             # BREAKS-LOUDLY retarget the plan calls for, not a silent
-            # pass-through.
+            # pass-through. 19-05-PLAN.md Task 3 (D-05): retargeted AGAIN
+            # — a >= BATTERY_DROP_WARN_MV drop is now a "warn" modifier,
+            # demoted from "error".
             battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
             battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
-            if "battery-trend-section--error" not in battery_tag:
+            if "battery-trend-section--warn" not in battery_tag:
                 return False, (
-                    "expected the battery-trend section's own tag to carry the error status "
-                    "modifier for a drop >= BATTERY_DROP_WARN_MV, got %r" % battery_tag)
+                    "expected the battery-trend section's own tag to carry the warn status "
+                    "modifier for a drop >= BATTERY_DROP_WARN_MV (demoted from error, D-05), got %r"
+                    % battery_tag)
             count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
             if count != 1:
                 return False, "expected the anomaly banner copy exactly once, found %d" % count
@@ -1445,7 +1618,7 @@ def main():
         tmp = _mkstate("h-no-list-markup")
         try:
             now = _now()
-            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_device_health(tmp, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
             banner_at = rendered.index('<div class="banner ')
@@ -1475,8 +1648,8 @@ def main():
             # pipeline, an abnormal battery drop, and a disagreement
             # recorded within the corroboration window.
             _seed_device_health(tmp, [
-                (_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4200),
-                (_ago(health_page.STALE_DEVICE_ERROR_S + 30),
+                (_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4200),
+                (_ago(_DEFAULT_DEVICE_ERROR_S + 30),
                  4200 - health_page.BATTERY_DROP_WARN_MV),
             ])
             _seed_meta(tmp, **{
@@ -1576,16 +1749,18 @@ def main():
         "chronological order, with roving tabindex on the latest point only",
         _sparkline_svg_has_per_point_interactive_markup)
 
-    def _sparkline_axis_labels_present_with_real_min_max():
-        # 06.6.4.1-04 (D-09/§5.3): four aria-hidden axis-label elements,
-        # two carrying the fixture's real min/max mV values. quick task
-        # 260902-ep7 (BUG 4): retargeted in place from SVG `<text
-        # class="sparkline-axis-label"` onto HTML `<span
+    def _sparkline_axis_labels_present_with_fixed_range():
+        # 06.6.4.1-04 (D-09/§5.3): four aria-hidden axis-label elements.
+        # quick task 260902-ep7 (BUG 4): retargeted in place from SVG
+        # `<text class="sparkline-axis-label"` onto HTML `<span
         # class="sparkline-axis-label"` — the labels moved out of the
         # SVG's scaled coordinate space entirely, into an HTML grid
         # column/row sized by the browser's own real text measurement.
-        # The per-tag aria-hidden assertion, the four-label count and the
-        # real-min/max-value assertions are otherwise unchanged.
+        # 19-05-PLAN.md Task 2 (D-04/A-22): retargeted again — the two Y
+        # labels used to print this fixture's own real min/max mV values
+        # (4200/3850); they now print the fixed SPARKLINE_Y_MIN_MV/
+        # SPARKLINE_Y_MAX_MV constants regardless of what the fixture's
+        # readings actually were, since the axis no longer auto-scales.
         rows = [
             {"ts": "2024-01-01T08:00:00", "battery_mv": 4200},
             {"ts": "2024-01-01T09:00:00", "battery_mv": 3850},
@@ -1593,7 +1768,7 @@ def main():
         ]
         svg = health_page.battery_sparkline_svg(rows)
         tag_start = 0
-        label_count = 0
+        label_texts = []
         while True:
             idx = svg.find('<span class="sparkline-axis-label"', tag_start)
             if idx == -1:
@@ -1602,14 +1777,24 @@ def main():
             tag = svg[idx:tag_end + 1]
             if 'aria-hidden="true"' not in tag:
                 return False, "expected every sparkline-axis-label <span> to carry aria-hidden=\"true\" on its own tag"
-            label_count += 1
+            text_end = svg.index("</span>", tag_end)
+            label_texts.append(svg[tag_end + 1:text_end])
             tag_start = tag_end
-        if label_count != 4:
-            return False, "expected exactly four sparkline-axis-label elements, got %d" % label_count
-        if "4200 mV" not in svg:
-            return False, "expected the real maximum mV value in an axis label"
-        if "3850 mV" not in svg:
-            return False, "expected the real minimum mV value in an axis label"
+        if len(label_texts) != 4:
+            return False, "expected exactly four sparkline-axis-label elements, got %d" % len(label_texts)
+        # Document order: max label first, min label second (see the Y-axis
+        # pair's own emission comment above) — asserted against each
+        # label's own isolated text, not a page-wide substring search,
+        # because a per-point tooltip legitimately contains this
+        # fixture's own real mV values elsewhere on the same markup.
+        expected_max_label = "%d mV" % health_page.SPARKLINE_Y_MAX_MV
+        expected_min_label = "%d mV" % health_page.SPARKLINE_Y_MIN_MV
+        if label_texts[0] != expected_max_label:
+            return False, "expected the first Y axis label to be the fixed %r, got %r" % (
+                expected_max_label, label_texts[0])
+        if label_texts[1] != expected_min_label:
+            return False, "expected the second Y axis label to be the fixed %r, got %r" % (
+                expected_min_label, label_texts[1])
         # quick task 260902-ep7 (BUG 4): retargeted in place from the
         # retired single-<polyline> marker onto SPARKLINE_LINE_CLASS — 2
         # trend-line segments (n - 1) for this 3-row fixture.
@@ -1622,9 +1807,133 @@ def main():
                 return False, "found forbidden %r in the axis-labeled sparkline SVG" % forbidden
         return True, ""
     check(
-        "battery_sparkline_svg() emits exactly four aria-hidden axis-label text nodes carrying the fixture's real "
-        "min/max mV values, with every prior no-external-reference guarantee intact (D-09)",
-        _sparkline_axis_labels_present_with_real_min_max)
+        "battery_sparkline_svg() emits exactly four aria-hidden axis-label text nodes carrying the FIXED "
+        "SPARKLINE_Y_MIN_MV/SPARKLINE_Y_MAX_MV values (not the fixture's own real min/max), with every prior "
+        "no-external-reference guarantee intact (D-09, retargeted by 19-05-PLAN.md Task 2/D-04)",
+        _sparkline_axis_labels_present_with_fixed_range)
+
+    def _extract_point_ys(svg):
+        """The cy="%.2f%%" value off every sparkline-hit circle, in
+        document order — the exact y coordinate _point_y() computed for
+        each plotted point, read back out of the rendered markup rather
+        than recomputed independently."""
+        ys = []
+        for match in re.finditer(
+                r'<circle class="%s"[^>]*cy="([0-9.]+)%%"' % health_page.SPARKLINE_HIT_CLASS, svg):
+            ys.append(float(match.group(1)))
+        return ys
+
+    def _sparkline_flat_series_draws_flat_not_pinned_to_bottom():
+        # 19-05-PLAN.md Task 2 (D-04/A-22): the defect this pins — before
+        # the fixed range, a flat series (every value identical) computed
+        # lo == hi, so the retired `span = (hi - lo) or 1` guard forced
+        # span to 1 and every point pinned to the SAME edge of the
+        # canvas, indistinguishable from "no data" rather than reading as
+        # a flat, healthy line at its own real level.
+        rows = [{"ts": "t%d" % i, "battery_mv": 3800} for i in range(4)]
+        svg = health_page.battery_sparkline_svg(rows)
+        ys = _extract_point_ys(svg)
+        if len(ys) != 4:
+            return False, "expected four plotted points for a four-row flat fixture, got %d" % len(ys)
+        if len(set(ys)) != 1:
+            return False, "expected every point of a flat series to share the same y coordinate, got %r" % ys
+        return True, ""
+    check(
+        "battery_sparkline_svg() draws a flat series (every value identical) at one consistent y level, "
+        "never pinned to the canvas edge by a collapsed min==max range (19-05-PLAN.md Task 2/D-04, A-22)",
+        _sparkline_flat_series_draws_flat_not_pinned_to_bottom)
+
+    def _sparkline_small_wiggle_stays_small_not_a_cliff():
+        # 19-05-PLAN.md Task 2 (D-04/A-22): the defect's other half — a
+        # real but tiny 15mV wiggle used to stretch across the WHOLE
+        # auto-scaled range (min==3785, max==3800 => the entire canvas),
+        # reading as a cliff. Against the fixed 1200mV span, a 15mV
+        # wiggle must move the plotted y by a small, bounded fraction of
+        # the canvas height — asserted as a fraction of the full
+        # min-to-max y excursion the fixed range allows end to end.
+        rows = [
+            {"ts": "t0", "battery_mv": 3800},
+            {"ts": "t1", "battery_mv": 3785},
+            {"ts": "t2", "battery_mv": 3800},
+            {"ts": "t3", "battery_mv": 3785},
+        ]
+        svg = health_page.battery_sparkline_svg(rows)
+        ys = _extract_point_ys(svg)
+        if len(ys) != 4:
+            return False, "expected four plotted points for this wiggle fixture, got %d" % len(ys)
+        wiggle_span_percent = max(ys) - min(ys)
+        full_span_percent = (
+            100 - 2 * health_page._SPARKLINE_VERTICAL_INSET_PERCENT)
+        if wiggle_span_percent >= full_span_percent * 0.10:
+            return False, (
+                "expected a 15mV wiggle to move the plotted y by well under 10%% of the full "
+                "min-to-max canvas excursion (%.2f%% of %.2f%%), got %.2f%%"
+                % (10.0, full_span_percent, wiggle_span_percent))
+        return True, ""
+    check(
+        "battery_sparkline_svg() draws a small (15mV) wiggle as a small y movement, well under a tenth of "
+        "the fixed range's full excursion — not a cliff spanning the whole canvas (19-05-PLAN.md Task 2/D-04, A-22)",
+        _sparkline_small_wiggle_stays_small_not_a_cliff)
+
+    def _sparkline_out_of_range_values_clamp_not_rescale():
+        # 19-05-PLAN.md Task 2 (D-04): an out-of-range reading (below
+        # SPARKLINE_Y_MIN_MV or above SPARKLINE_Y_MAX_MV) must draw pinned
+        # at the canvas edge, and the axis labels must stay the fixed
+        # constants — neither escaping the canvas nor rescaling the axis
+        # to accommodate the outlier.
+        # `rows` is newest-first (battery_trend_rows()'s own ordering);
+        # battery_sparkline_svg() plots chronologically (oldest first), so
+        # the 2500mV reading (oldest here) becomes the LEFTMOST point.
+        rows = [
+            {"ts": "t2", "battery_mv": 4500},
+            {"ts": "t1", "battery_mv": 3800},
+            {"ts": "t0", "battery_mv": 2500},
+        ]
+        svg = health_page.battery_sparkline_svg(rows)
+        ys = _extract_point_ys(svg)
+        if len(ys) != 3:
+            return False, "expected three plotted points for this out-of-range fixture, got %d" % len(ys)
+        inset = health_page._SPARKLINE_VERTICAL_INSET_PERCENT
+        clamped_low_y = ys[0]  # 2500mV (oldest, leftmost), below SPARKLINE_Y_MIN_MV -> clamped to the min edge
+        clamped_high_y = ys[2]  # 4500mV (newest, rightmost), above SPARKLINE_Y_MAX_MV -> clamped to the max edge
+        if abs(clamped_low_y - (100 - inset)) > 0.01:
+            return False, "expected the below-range point to clamp to the bottom inset edge, got %r" % clamped_low_y
+        if abs(clamped_high_y - inset) > 0.01:
+            return False, "expected the above-range point to clamp to the top inset edge, got %r" % clamped_high_y
+        if ("%d mV" % health_page.SPARKLINE_Y_MAX_MV) not in svg:
+            return False, "expected the axis max label to stay the fixed constant, not rescale to 4500"
+        if ("%d mV" % health_page.SPARKLINE_Y_MIN_MV) not in svg:
+            return False, "expected the axis min label to stay the fixed constant, not rescale to 2500"
+        if "4500 mV" in svg.split('class="sparkline__y"')[1].split("</div>")[0]:
+            return False, "expected the Y axis label column NOT to rescale to the out-of-range 4500 value"
+        return True, ""
+    check(
+        "battery_sparkline_svg() clamps out-of-range values (2500mV, 4500mV) to the canvas edge rather than "
+        "escaping it or rescaling the fixed axis labels (19-05-PLAN.md Task 2/D-04)",
+        _sparkline_out_of_range_values_clamp_not_rescale)
+
+    def _sparkline_dense_threshold_is_width_derived():
+        # 19-05-PLAN.md Task 2 (D-04): the retired typed constant
+        # (_SPARKLINE_DENSE_POINT_THRESHOLD = 39) is now
+        # _sparkline_dense_threshold(_SPARKLINE_NARROWEST_CANVAS_PX) — two
+        # different widths must produce two different thresholds, both
+        # greater than 1 (never a degenerate "every series is dense" or
+        # "no series is ever dense" constant).
+        narrow = health_page._sparkline_dense_threshold(226)
+        wide = health_page._sparkline_dense_threshold(900)
+        if narrow == wide:
+            return False, "expected two different canvas widths to derive two different thresholds"
+        if narrow <= 1 or wide <= 1:
+            return False, "expected both derived thresholds to be well above 1"
+        if health_page._SPARKLINE_DENSE_POINT_THRESHOLD != narrow:
+            return False, (
+                "expected the module-level _SPARKLINE_DENSE_POINT_THRESHOLD to equal "
+                "_sparkline_dense_threshold(_SPARKLINE_NARROWEST_CANVAS_PX)")
+        return True, ""
+    check(
+        "_sparkline_dense_threshold() derives a different threshold for different canvas widths, proving the "
+        "density rule is width-derived rather than a typed constant (19-05-PLAN.md Task 2/D-04)",
+        _sparkline_dense_threshold_is_width_derived)
 
     def _sparkline_scale_bounded_at_one_across_real_container_widths():
         # quick task 260902-dng (bug 1) wrote this check to prove a
@@ -1956,6 +2265,201 @@ def main():
         "appears (D-09, quick task 260901-uzi finding 3)",
         _battery_readout_seeded_with_latest_reading_not_placeholder)
 
+    def _battery_reading_parts_value_carries_the_percentage_estimate():
+        # D-01/A-19, 19-01-PLAN.md: the value half of the (value, when)
+        # pair now leads with a percentage estimate, still followed by
+        # the exact millivolt figure every existing pinned check keys on.
+        value_text, _when_text = health_page._battery_reading_parts(
+            3750, "2026-09-11T10:00:00+00:00", "2026-09-11T10:05:00+00:00")
+        if not value_text.startswith("≈"):
+            return False, "expected the value text to start with the estimate's ≈ marker, got %r" % value_text
+        if "%" not in value_text:
+            return False, "expected a percentage sign in the value text, got %r" % value_text
+        if "3750 mV" not in value_text:
+            return False, "expected the exact millivolt figure to survive as a substring, got %r" % value_text
+        return True, ""
+    check(
+        "_battery_reading_parts()'s value text leads with a '≈ NN%' estimate ahead of the exact millivolt "
+        "figure, for a numeric reading battery.battery_percent() can estimate (D-01/A-19)",
+        _battery_reading_parts_value_carries_the_percentage_estimate)
+
+    def _battery_reading_parts_value_has_no_estimate_when_percent_is_none():
+        # battery.battery_percent(0) returns None (the non-positive
+        # guard) — the value text must fall back to the bare millivolt
+        # figure, with no stray "≈", rather than raising on a reading
+        # the estimate cannot be computed for.
+        value_text, _when_text = health_page._battery_reading_parts(
+            0, "2026-09-11T10:00:00+00:00", "2026-09-11T10:05:00+00:00")
+        if "≈" in value_text:
+            return False, "expected no ≈ marker when battery.battery_percent() returns None, got %r" % value_text
+        if value_text != "0 mV":
+            return False, "expected the bare millivolt figure with no estimate, got %r" % value_text
+        return True, ""
+    check(
+        "_battery_reading_parts()'s value text stays a bare millivolt figure, with no ≈ marker, when "
+        "battery.battery_percent() cannot estimate the reading (D-01/A-19)",
+        _battery_reading_parts_value_has_no_estimate_when_percent_is_none)
+
+    def _seeded_render_shows_both_the_estimate_and_the_millivolt_figure():
+        tmp = _mkstate("h-readout-percentage")
+        try:
+            base = _now()
+            _seed_device_health(tmp, [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 3750),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
+            value_start = rendered.index('class="battery-readout__value mono"', readout_start)
+            value_tag_end = rendered.index(">", value_start) + 1
+            value_end = rendered.index("</span>", value_tag_end)
+            value_html = rendered[value_tag_end:value_end]
+            if "≈" not in value_html:
+                return False, "expected the ≈ estimate marker inside the readout's value span"
+            if " mV" not in value_html:
+                return False, "expected the millivolt figure inside the readout's value span"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a seeded health_page.render() call's battery-readout__value span carries both the '≈' estimate "
+        "and the ' mV' millivolt figure (D-01/A-19)",
+        _seeded_render_shows_both_the_estimate_and_the_millivolt_figure)
+
+    # --- D-03/A-21 (19-01-PLAN.md Task 3): text verdicts on the Device/ -----
+    # Pipeline/Corroboration stat tiles (WCAG 1.4.1) --------------------------
+
+    def _tile_slice_by_caption(rendered, caption):
+        at = rendered.index(caption)
+        tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
+        tile_close = rendered.index("</div>", tile_open) + len("</div>")
+        return rendered[tile_open:tile_close]
+
+    def _device_tile_verdict_matches_state_at_each_severity():
+        cases = (
+            (0, "ok"),
+            (_DEFAULT_DEVICE_WARN_S + 60, "warn"),
+            (_DEFAULT_DEVICE_ERROR_S + 60, "error"),
+        )
+        for age_s, expected_state in cases:
+            tmp = _mkstate("h-device-verdict-%s" % expected_state)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now - timedelta(seconds=age_s)), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+                    health_page.DEVICE_STATE_TEXT[expected_state])
+                tile_slice = _tile_slice_by_caption(rendered, health_page.DEVICE_FRESHNESS_LABEL)
+                if expected_verdict_html not in tile_slice:
+                    return False, (
+                        "expected the Device tile's verdict paragraph for state %r, got tile %r"
+                        % (expected_state, tile_slice))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the Device tile's widget-verdict paragraph matches DEVICE_STATE_TEXT at each of the three "
+        "severities a real health_page.render() call can produce (D-03/A-21)",
+        _device_tile_verdict_matches_state_at_each_severity)
+
+    def _pipeline_tile_verdict_matches_state_at_each_severity():
+        cases = (
+            (0, "ok"),
+            (health_page.STALE_PIPELINE_WARN_S + 30, "warn"),
+            (health_page.STALE_PIPELINE_ERROR_S + 30, "error"),
+        )
+        for age_s, expected_state in cases:
+            tmp = _mkstate("h-pipeline-verdict-%s" % expected_state)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now), 4200)])
+                _seed_meta(tmp, **{
+                    history_db.META_LAST_PIPELINE_RUN: _iso(now - timedelta(seconds=age_s))})
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+                    health_page.PIPELINE_STATE_TEXT[expected_state])
+                tile_slice = _tile_slice_by_caption(rendered, health_page.PIPELINE_FRESHNESS_LABEL)
+                if expected_verdict_html not in tile_slice:
+                    return False, (
+                        "expected the Pipeline tile's verdict paragraph for state %r, got tile %r"
+                        % (expected_state, tile_slice))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the Pipeline tile's widget-verdict paragraph matches PIPELINE_STATE_TEXT at each of the three "
+        "severities a real health_page.render() call can produce (D-03/A-21)",
+        _pipeline_tile_verdict_matches_state_at_each_severity)
+
+    def _corroboration_tile_verdict_matches_disagreement_state():
+        cases = (
+            (True, "ok"),
+            (False, "warn"),
+        )
+        for corroborated, expected_state in cases:
+            tmp = _mkstate("h-corrob-verdict-%s" % expected_state)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                _seed_runway_events(tmp, [
+                    {"ts": _iso(now), "hex": "abc123", "corroborated": corroborated}])
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+                    health_page.CORROBORATION_STATE_TEXT[expected_state])
+                tile_slice = _tile_slice_by_caption(rendered, "Corroboration")
+                if expected_verdict_html not in tile_slice:
+                    return False, (
+                        "expected the Corroboration tile's verdict paragraph for state %r, got tile %r"
+                        % (expected_state, tile_slice))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the Corroboration tile's widget-verdict paragraph matches CORROBORATION_STATE_TEXT for both the "
+        "agreement and disagreement states a real health_page.render() call can produce (D-03/A-21)",
+        _corroboration_tile_verdict_matches_disagreement_state)
+
+    def _resolution_rate_tile_carries_no_verdict():
+        # The Resolution-rate tile is the one deliberate exception: it is
+        # passed status=None and has no status function of its own, so
+        # inventing a verdict word for it would assert a judgement this
+        # page does not make.
+        tmp = _mkstate("h-resolution-rate-no-verdict")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tile_slice = _tile_slice_by_caption(rendered, health_page.RESOLUTION_RATE_LABEL)
+            if "widget-verdict" in tile_slice:
+                return False, (
+                    "expected the Resolution-rate tile to carry no widget-verdict paragraph, got tile %r"
+                    % (tile_slice,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Resolution-rate tile deliberately carries no widget-verdict paragraph (D-03/A-21)",
+        _resolution_rate_tile_carries_no_verdict)
+
+    def _state_text_dicts_have_expected_key_sets():
+        if set(health_page.DEVICE_STATE_TEXT) != {"ok", "warn", "error"}:
+            return False, "expected DEVICE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
+                set(health_page.DEVICE_STATE_TEXT),)
+        if set(health_page.PIPELINE_STATE_TEXT) != {"ok", "warn", "error"}:
+            return False, "expected PIPELINE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
+                set(health_page.PIPELINE_STATE_TEXT),)
+        if set(health_page.CORROBORATION_STATE_TEXT) != {"ok", "warn"}:
+            return False, "expected CORROBORATION_STATE_TEXT's keys to be exactly ok/warn, got %r" % (
+                set(health_page.CORROBORATION_STATE_TEXT),)
+        return True, ""
+    check(
+        "DEVICE_STATE_TEXT/PIPELINE_STATE_TEXT each have exactly the ok/warn/error key set and "
+        "CORROBORATION_STATE_TEXT has exactly ok/warn (it has no error state) (D-03/A-21)",
+        _state_text_dicts_have_expected_key_sets)
+
     def _single_reading_still_no_chart_no_readout_no_script():
         if health_page.battery_sparkline_svg(
                 [{"ts": "t1", "battery_mv": 4200}]) != "":
@@ -2093,12 +2597,17 @@ def main():
         # battery_status() takes newest-first rows (matching
         # battery_trend_rows()'s/recent_device_health()'s own ordering) —
         # t2 (newer) sorts before t1 (older) in both fixtures below.
+        #
+        # 19-05-PLAN.md Task 3 (D-05/A-23): retargeted in place — a
+        # >= BATTERY_DROP_WARN_MV drop is now a "warn", demoted from
+        # "error" (a single sampling artefact must not paint the whole
+        # page as an outage).
         drop_rows = [
             {"ts": "t2", "battery_mv": 4200 - health_page.BATTERY_DROP_WARN_MV},
             {"ts": "t1", "battery_mv": 4200},
         ]
-        if health_page.battery_status(drop_rows) != "error":
-            return False, "expected a drop >= BATTERY_DROP_WARN_MV to flag the battery anomaly"
+        if health_page.battery_status(drop_rows) != "warn":
+            return False, "expected a drop >= BATTERY_DROP_WARN_MV to flag a battery warning"
         gentle_rows = [
             {"ts": "t3", "battery_mv": 4190},
             {"ts": "t2", "battery_mv": 4195},
@@ -2108,8 +2617,178 @@ def main():
             return False, "expected a gentle monotonic decline to not flag the battery anomaly"
         return True, ""
     check(
-        "a large consecutive-reading drop flags the battery anomaly; a gentle monotonic decline does not",
+        "a large consecutive-reading drop flags a battery warning (demoted from error, D-05); a gentle "
+        "monotonic decline does not",
         _battery_drop_flags_anomaly_gentle_decline_does_not)
+
+    # --- 19-05-PLAN.md Task 3 (D-05/A-23): overall_severity()'s widened -----
+    # precedence table, and collect_anomalies()'s two matching new items ------
+
+    def _overall_severity_widened_precedence_table():
+        # The full 6-input precedence table, including the 4-argument
+        # backward-compatible call (the two new keyword parameters both
+        # default, so an existing 4-argument caller's behaviour is
+        # byte-for-byte unchanged).
+        if health_page.overall_severity("ok", "ok", "ok", False) != "ok":
+            return False, "expected the healthy 4-argument call to stay ok (backward compatible)"
+        if health_page.overall_severity("warn", "ok", "ok", False) != "warn":
+            return False, "expected any warn state to produce warn"
+        if health_page.overall_severity("error", "ok", "ok", False) != "error":
+            return False, "expected any error state to produce error"
+        if health_page.overall_severity("ok", "ok", "ok", True) != "warn":
+            return False, "expected disagreement_warn alone to produce warn"
+        if health_page.overall_severity("ok", "ok", "ok", False, coverage_state="warn") != "warn":
+            return False, "expected coverage_state='warn' alone to produce warn"
+        if health_page.overall_severity("ok", "ok", "ok", False, source_fault=True) != "error":
+            return False, "expected source_fault=True alone to produce error"
+        if health_page.overall_severity(
+                "error", "ok", "ok", False, coverage_state="warn", source_fault=True) != "error":
+            return False, "expected source_fault to win outright over every other signal"
+        if health_page.overall_severity(
+                "warn", "ok", "ok", False, coverage_state="ok", source_fault=False) != "warn":
+            return False, "expected a warn state with no coverage/source_fault input to stay warn"
+        return True, ""
+    check(
+        "overall_severity()'s widened 6-input precedence table: source_fault wins outright, error states "
+        "win next, then warn states/disagreement_warn/coverage_state=='warn', with the 4-argument call "
+        "staying byte-for-byte backward compatible (19-05-PLAN.md Task 3/D-05)",
+        _overall_severity_widened_precedence_table)
+
+    def _overall_severity_acceptance_criteria_literal():
+        # The plan's own acceptance-criteria one-liner, run as a check
+        # rather than only a shell command.
+        results = (
+            health_page.overall_severity("ok", "ok", "ok", False),
+            health_page.overall_severity("ok", "ok", "ok", False, source_fault=True),
+            health_page.overall_severity("ok", "ok", "ok", False, coverage_state="warn"),
+        )
+        if results != ("ok", "error", "warn"):
+            return False, "expected ('ok', 'error', 'warn'), got %r" % (results,)
+        return True, ""
+    check(
+        "overall_severity()'s plan-cited acceptance triple: ('ok', 'error', 'warn') (19-05-PLAN.md Task 3)",
+        _overall_severity_acceptance_criteria_literal)
+
+    def _source_fault_alone_produces_error_registry_alone_produces_warn():
+        tmp = _mkstate("h-source-fault-alone")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{
+                history_db.META_LAST_PIPELINE_RUN: _iso(now),
+                history_db.META_SOURCE_FAULT: "True",
+            })
+            state = health_page.compute_health_state(tmp, now=_iso(now))
+            if state["severity"] != "error":
+                return False, "expected an active source_fault_raw alone to produce error severity, got %r" % (
+                    state["severity"],)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        tmp2 = _mkstate("h-registry-alone")
+        try:
+            now = _now()
+            _seed_device_health(tmp2, [(_iso(now), 4200)])
+            _seed_meta(tmp2, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_unresolved_prefixes(tmp2, {
+                "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            state = health_page.compute_health_state(tmp2, now=_iso(now))
+            if state["severity"] != "warn":
+                return False, "expected a non-empty registry alone to produce warn severity, got %r" % (
+                    state["severity"],)
+        finally:
+            shutil.rmtree(tmp2, ignore_errors=True)
+
+        tmp3 = _mkstate("h-fully-healthy")
+        try:
+            now = _now()
+            _seed_device_health(tmp3, [(_iso(now), 4200)])
+            _seed_meta(tmp3, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            state = health_page.compute_health_state(tmp3, now=_iso(now))
+            if state["severity"] != "ok":
+                return False, "expected an empty registry with everything else healthy to stay ok, got %r" % (
+                    state["severity"],)
+        finally:
+            shutil.rmtree(tmp3, ignore_errors=True)
+        return True, ""
+    check(
+        "compute_health_state() folds an active source_fault_raw alone into error severity, a non-empty "
+        "registry alone into warn severity, and stays ok when both are clear (19-05-PLAN.md Task 3/D-05)",
+        _source_fault_alone_produces_error_registry_alone_produces_warn)
+
+    def _collect_anomalies_two_new_items():
+        if "All data sources failed." not in health_page.collect_anomalies(
+                "ok", "ok", "ok", False, source_fault=True):
+            return False, "expected the source_fault item to appear when source_fault=True"
+        if "Some airlines are unidentified." not in health_page.collect_anomalies(
+                "ok", "ok", "ok", False, coverage_state="warn"):
+            return False, "expected the coverage item to appear when coverage_state='warn'"
+        if health_page.collect_anomalies("ok", "ok", "ok", False) != []:
+            return False, "expected a fully healthy 4-argument call to still return no anomalies"
+        return True, ""
+    check(
+        "collect_anomalies()'s two new items (source_fault, coverage_state) appear only when their own "
+        "input is unhealthy, and a fully healthy 4-argument call still returns none (19-05-PLAN.md Task 3)",
+        _collect_anomalies_two_new_items)
+
+    def _device_staleness_pinned_from_both_directions_by_cadence():
+        # A device last seen 400 seconds ago is "warn" at a 30s cadence
+        # (400 > the 300s floor: 3 * 30 = 90, floored up to 300) but "ok"
+        # at a 3600s cadence (400 < 3 * 3600 = 10800) — the A-23 defect,
+        # pinned from both directions against the real
+        # compute_health_state() pipeline. The 30s cadence is deployed via
+        # SKYPANE_SLEEP_S (device_config.save_device_config()'s own
+        # wake_interval_s validation enforces [60, 3600] — 30 can only
+        # reach effective_wake_interval_s() via the env fallback, exactly
+        # like the real shipped SKYPANE_SLEEP_S=30 deployment); the 3600s
+        # cadence is deployed via a seeded device_config.json, at the top
+        # of that same valid range.
+        original_sleep_s = os.environ.get(wake.SLEEP_ENV_VAR)
+        try:
+            tmp = _mkstate("h-cadence-env-30")
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now - timedelta(seconds=400)), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                os.environ[wake.SLEEP_ENV_VAR] = "30"
+                state = health_page.compute_health_state(tmp, now=_iso(now))
+                if state["device_state"] != "warn":
+                    return False, (
+                        "expected device_state='warn' for a 400s-old reading at a 30s cadence, got %r"
+                        % (state["device_state"],))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+
+            tmp2 = _mkstate("h-cadence-cfg-3600")
+            try:
+                now = _now()
+                _seed_device_health(tmp2, [(_iso(now - timedelta(seconds=400)), 4200)])
+                _seed_meta(tmp2, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                if original_sleep_s is None:
+                    os.environ.pop(wake.SLEEP_ENV_VAR, None)
+                else:
+                    os.environ[wake.SLEEP_ENV_VAR] = original_sleep_s
+                device_config.save_device_config(tmp2, wake_interval_s=3600)
+                state = health_page.compute_health_state(tmp2, now=_iso(now))
+                if state["device_state"] != "ok":
+                    return False, (
+                        "expected device_state='ok' for a 400s-old reading at a 3600s cadence, got %r"
+                        % (state["device_state"],))
+            finally:
+                shutil.rmtree(tmp2, ignore_errors=True)
+            return True, ""
+        finally:
+            if original_sleep_s is None:
+                os.environ.pop(wake.SLEEP_ENV_VAR, None)
+            else:
+                os.environ[wake.SLEEP_ENV_VAR] = original_sleep_s
+    check(
+        "a device last seen 400 seconds ago is 'warn' at a 30s wake cadence but 'ok' at a 3600s cadence, "
+        "pinned from both directions through the real compute_health_state() pipeline (19-05-PLAN.md "
+        "Task 3/D-05, A-23)",
+        _device_staleness_pinned_from_both_directions_by_cadence)
 
     def _corroboration_unknown_only_no_error_or_warn():
         tmp = _mkstate("h-corrob-unknown")
@@ -2548,10 +3227,12 @@ def main():
             for marker in ("data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty"):
                 if marker not in rendered:
                     return False, "expected the migrated filter bar's %r marker to survive the move" % marker
-            # phase 13 (D-10) reworded this note to include two
-            # apostrophes ("row's", "prefix's"), which escape_html()'s
-            # quote=True mode renders as &#x27; — compare against the
-            # escaped form, matching this module's own single-escaping-
+            # phase 13 (D-10) reworded this note to include an
+            # apostrophe ("row's" — 19-06-PLAN.md Task 3, D-06 dropped
+            # the note's second apostrophe, "prefix's", along with the
+            # word "prefix" itself), which escape_html()'s quote=True
+            # mode renders as &#x27; — compare against the escaped
+            # form, matching this module's own single-escaping-
             # choke-point discipline, not the raw Python literal.
             if layout.escape_html(health_page._READ_ONLY_NOTE) not in rendered:
                 return False, "expected the read-only note to survive the move verbatim (escaped)"
@@ -2576,20 +3257,26 @@ def main():
         # history, belongs only here — never back in health_page.py,
         # since the acceptance gate greps the page module for its
         # absence.
+        #
+        # 19-06-PLAN.md Task 3 (D-06): retargeted in place — "that
+        # prefix's airline" reworded to "that airline", dropping the
+        # word "prefix" from this visible sentence entirely.
         old_note_closing_phrase = "following the existing coverage-gap runbook."
         expected_note = (
             "This list is read-only here — each row's Resolve link opens "
-            "the Airlines page to name that prefix's airline (and add "
+            "the Airlines page to name that airline (and add "
             "artwork, if it needs one).")
         if health_page._READ_ONLY_NOTE != expected_note:
             return False, (
-                "expected _READ_ONLY_NOTE to equal the UI-SPEC's exact new "
+                "expected _READ_ONLY_NOTE to equal the D-06 plain-language "
                 "string, got %r" % (health_page._READ_ONLY_NOTE,))
+        if "prefix" in health_page._READ_ONLY_NOTE.lower():
+            return False, "expected _READ_ONLY_NOTE to contain no occurrence of 'prefix'"
         tmp = _mkstate("h-read-only-note-reworded")
         try:
             rendered = health_page.render(_ctx(tmp))
-            # The note contains two apostrophes ("row's", "prefix's"),
-            # which escape_html()'s quote=True mode renders as &#x27; —
+            # The note contains an apostrophe ("row's"), which
+            # escape_html()'s quote=True mode renders as &#x27; —
             # compare against the escaped form, the module's own single
             # escaping choke-point discipline.
             if layout.escape_html(expected_note) not in rendered:
@@ -2600,8 +3287,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the read-only note is reworded to name Airlines as the resolution surface and no longer points at "
-        "the manual runbook (phase 13 D-10)",
+        "the read-only note is reworded to name Airlines as the resolution surface, no longer points at "
+        "the manual runbook (phase 13 D-10), and (19-06-PLAN.md Task 3, D-06) no longer says 'prefix' in "
+        "its visible sentence",
         _read_only_note_reworded_to_point_at_airlines_not_the_runbook)
 
     def _source_rows_gains_fifth_manual_entry():
@@ -2704,6 +3392,15 @@ def main():
         # 06.6.4.1-04's D-11/D-12 — Health gains no state-changing
         # control. Reads the module source directly, filters out
         # nothing.
+        #
+        # 19-09-PLAN.md (D-02): retargeted in place — button_count grew
+        # from 1 to 2 when the Pause/Resume control (a real
+        # <button type="button" data-refresh-toggle>) joined the
+        # pre-existing D-16 docstring mention. The zero-<form> half of
+        # this check is exactly why that new button is still compatible
+        # with T-13-13's own promise: it is a bare, formless, GET-free
+        # client-side toggle — it submits nothing anywhere, so it is not
+        # a "state-changing control" in the sense this check polices.
         source_path = os.path.join(HERE, "pages", "health_page.py")
         with open(source_path, encoding="utf-8") as fh:
             source = fh.read()
@@ -2711,15 +3408,16 @@ def main():
         button_count = source.count("<button")
         if form_count != 0:
             return False, "expected zero '<form' occurrences in health_page.py, got %d" % form_count
-        if button_count != 1:
+        if button_count != 2:
             return False, (
-                "expected exactly one '<button' occurrence (the pre-existing D-16 docstring mention), "
-                "got %d" % button_count)
+                "expected exactly two '<button' occurrences (the pre-existing D-16 docstring "
+                "mention plus the 19-09-PLAN.md Pause/Resume control), got %d" % button_count)
         return True, ""
     check(
-        "companion/pages/health_page.py still contains zero HTML form elements and exactly one '<button' "
-        "literal (the pre-existing D-16 docstring mention) — Health gains no state-changing control "
-        "(phase 13 D-10, T-13-13)",
+        "companion/pages/health_page.py still contains zero HTML form elements and exactly two "
+        "'<button' literals (the pre-existing D-16 docstring mention and the formless Pause/Resume "
+        "toggle) — Health still gains no state-changing (form-submitting) control (phase 13 D-10, "
+        "T-13-13; retargeted in place by 19-09-PLAN.md Task 1, D-02)",
         _health_still_has_no_form_and_exactly_one_button_literal)
 
     def _quick_260902_gjj_muted_captions_compose_section_caption():
@@ -2817,40 +3515,48 @@ def main():
         "vice versa (D-11)",
         _migrated_cards_have_independent_failure_isolation)
 
-    def _read_health_inputs_keeps_registry_stats_separate():
+    def _read_health_inputs_keeps_stats_separate():
         # 260902-l0b: renamed from _read_health_inputs_gained_no_new_key()
         # — that name stopped being true the moment daily_rows joined
         # trend_rows in this dict (a battery-health read, same table, same
         # section builder, same request). Quick task 260903-peo (UIR-14)
-        # retargets this check in place again, six keys to seven:
+        # retargeted this check in place again, six keys to seven:
         # last_detection joins pipeline_ts for the identical reason (same
-        # section builder, same table, same request). D-11's real intent
-        # survives, restated explicitly: the migrated registry/stats
-        # reads must stay their own independent calls in render(), never
-        # folded into _read_health_inputs()'s single dict — that is what
-        # the negative assertion below checks directly, not just the key
-        # count.
+        # section builder, same table, same request).
+        #
+        # 19-05-PLAN.md Task 3 (D-05/A-23): retargeted AGAIN, seven keys
+        # to nine — device_config (for the device's own staleness
+        # thresholds) and registry_rows (for coverage_status(), now an
+        # overall_severity()/collect_anomalies() input) both join this
+        # dict. This is a DELIBERATE partial reopening of D-11's original
+        # "registry stays separate" boundary — see _read_health_inputs()'s
+        # own docstring for why — so the negative assertion below is
+        # retargeted to check only the STATS read (resolution_stats(),
+        # via render()'s own _safe_query() call), which is genuinely
+        # unchanged: still its own independent SQLite call in render(),
+        # never folded into this dict.
         tmp = _mkstate("h-inputs-keys")
         try:
             inputs = health_page._read_health_inputs(tmp, _iso(_now()))
             expected_keys = {
                 "device_health", "pipeline_ts", "last_detection", "source_fault_raw",
                 "trend_rows", "daily_rows", "corroboration_counts",
+                "device_config", "registry_rows",
             }
             if set(inputs.keys()) != expected_keys:
                 return False, (
-                    "expected _read_health_inputs() to carry exactly these seven keys, got %r"
+                    "expected _read_health_inputs() to carry exactly these nine keys, got %r"
                     % (set(inputs.keys()),))
-            if any("registr" in k or "stat" in k for k in inputs.keys()):
-                return False, "D-11: the registry/stats reads must stay separate calls in render(), not join this dict"
+            if any("stat" in k for k in inputs.keys()):
+                return False, "D-11: the stats read must stay a separate call in render(), not join this dict"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "_read_health_inputs() carries exactly seven keys — last_detection joins pipeline_ts in the one "
-        "atomic snapshot (quick task 260903-peo, UIR-14) — while the migrated registry/stats reads stay "
-        "separate calls in render() (D-11)",
-        _read_health_inputs_keeps_registry_stats_separate)
+        "_read_health_inputs() carries exactly nine keys — device_config and registry_rows now join it for "
+        "severity's sake (19-05-PLAN.md Task 3/D-05) — while the stats read alone stays a separate call in "
+        "render() (D-11)",
+        _read_health_inputs_keeps_stats_separate)
 
     def _battery_section_keeps_everything_after_the_move():
         tmp = _mkstate("h-battery-section-intact")
@@ -2985,8 +3691,9 @@ def main():
 
     def _quick_260902_gjj_card_status_borders_render_correct_modifiers():
         # quick task 260902-gjj (ISSUE 2): a real rendered page, with a
-        # seeded battery drop (battery_status() -> "error") and a seeded
-        # non-empty registry (coverage_status() -> "warn"), proves the
+        # seeded battery drop (battery_status() -> "warn", demoted from
+        # "error" by 19-05-PLAN.md Task 3/D-05) and a seeded non-empty
+        # registry (coverage_status() -> "warn"), proves the
         # battery-trend and Unresolved-prefixes cards each carry the
         # modifier layout.card_status_class() derives from the SAME
         # function that used to drive their now-retired status_dot()
@@ -3011,8 +3718,8 @@ def main():
                 {"ts": _iso(now), "battery_mv": readings[1][1]},
                 {"ts": _iso(now - timedelta(minutes=1)), "battery_mv": readings[0][1]},
             ])
-            if battery_state != "error":
-                return False, "expected the seeded battery fixture to compute an error verdict"
+            if battery_state != "warn":
+                return False, "expected the seeded battery fixture to compute a warn verdict (D-05 demotion)"
             battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
             battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
             expected_battery_modifier = layout.card_status_class(
@@ -3149,7 +3856,12 @@ def main():
             if "dot-label" in registry_slice:
                 return False, "the Unresolved-prefixes card must render no dot-label — its own dot is retired"
 
-            corrob_at = rendered.index(">Corroboration<")
+            # 19-06-PLAN.md Task 2 (D-06): retargeted in place — the tile's
+            # visible caption is now the plain-language CORROBORATION_TILE_LABEL,
+            # not the literal "Corroboration" (which now only survives as this
+            # tile's caption_title tooltip).
+            corrob_at = rendered.index(
+                ">%s<" % layout.escape_html(health_page.CORROBORATION_TILE_LABEL))
             corrob_open = rendered.rindex('<div class="stat-tile ', 0, corrob_at)
             corrob_close = rendered.index("</div>", corrob_open) + len("</div>")
             corrob_slice = rendered[corrob_open:corrob_close]
@@ -4342,7 +5054,7 @@ def main():
 
         stale_device = _mkstate("h-agree-stale-device")
         _seed_device_health(
-            stale_device, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            stale_device, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
         _seed_meta(stale_device, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
         fixtures.append((stale_device, _iso(now)))
 
@@ -4593,6 +5305,20 @@ def main():
     def _quick_260902_chc_loop_contract_guard():
         # Check 2: the loop's own contract, pinned against freshness.js's
         # shipped source rather than this plan's own prose.
+        #
+        # 19-09-PLAN.md (D-02): retargeted in place (same check name/
+        # function) for the fetch-and-swap rewrite. The tab-visibility
+        # loop machinery below is UNCHANGED from the reload-based version
+        # this superseded — same interval constant, same pause/visibility
+        # halves, same double-start guard. What changed is the ONE thing
+        # this task's own name is about: the no-argument reload form is
+        # now REQUIRED ABSENT (D-02 deletes it outright), fetch( moves
+        # from the forbidden list to the required list (companion/
+        # test_companion_app.py's own new named guard for this file
+        # states, in its body, that this is a single, deliberate,
+        # reviewed exception — not re-asserted here to avoid duplicating
+        # that guard's own reasoning), and the required-safe-primitives
+        # list grows by the swap mechanism's own three load-bearing calls.
         js_path = os.path.join(HERE, "static", "freshness.js")
         with open(js_path) as fh:
             js = fh.read()
@@ -4610,22 +5336,23 @@ def main():
             return False, "expected both a visibilitychange listener and a document.hidden read"
         if "intervalHandle !== null" not in js:
             return False, "expected the double-start guard (a no-op start when a handle already exists)"
-        if "location.reload()" not in js:
-            return False, "expected the no-argument location.reload() form"
+        if "location.reload" in js:
+            return False, "expected the retired reload form to be gone entirely (D-02)"
 
-        # test_config_page.py's own _FORBIDDEN_SCRIPT_SINKS tuple,
-        # copied here (not imported — it is a function-local inside that
-        # harness's main()) from the real source read at plan time. If
-        # that tuple's membership ever changes, this copy needs updating
-        # too.
+        # test_config_page.py's own _FORBIDDEN_SCRIPT_SINKS tuple, minus
+        # fetch( (this file's own single, reviewed exception — see the
+        # comment above), copied here (not imported — it is a
+        # function-local inside that harness's main()) from the real
+        # source read at plan time. If that tuple's membership ever
+        # changes, this copy needs updating too.
         forbidden_sinks = (
             "innerHTML", "outerHTML", "insertAdjacentHTML",
-            "document.write", "eval(", "fetch(", "XMLHttpRequest",
+            "document.write", "eval(", "XMLHttpRequest",
         )
         for sink in forbidden_sinks:
             if sink in js:
                 return False, "forbidden sink discipline broken: %r found in freshness.js" % sink
-        for nav in ("location.href =", "location.assign", "location.replace"):
+        for nav in ("location.href =", "location.assign", "location.replace", "window.open"):
             if nav in js:
                 return False, "URL-taking navigation form found in freshness.js: %r" % nav
 
@@ -4637,24 +5364,22 @@ def main():
             if token in js:
                 return False, "ES5-safe subset broken: %r found in freshness.js" % token
 
-        # Deliberate asymmetry, and the whole point of this task: unlike
-        # the sibling nav-dropdown.js/panel-lookup.js guards, setTimeout
-        # and setInterval must NOT be banned here — the timer ban is the
-        # ONLY discipline this task lifts on this file, and both timers
-        # must actually be present for the loop to exist at all.
-        for timer in ("setTimeout", "setInterval"):
-            if timer not in js:
-                return False, (
-                    "expected %r to be present — this task deliberately lifts the timer ban this "
-                    "file used to carry, the only discipline it lifts" % timer)
+        # setTimeout/setInterval must be present (the loop needs
+        # setInterval to exist at all); fetch(/DOMParser/replaceChild/
+        # importNode are the swap mechanism's own required-present
+        # primitives (19-09-PLAN.md Task 2).
+        for required in (
+                "setInterval", "fetch(", "DOMParser", "replaceChild", "importNode"):
+            if required not in js:
+                return False, "expected %r to be present in freshness.js" % required
         return True, ""
     check(
         "freshness.js's shipped source carries the loop's own contract — a named interval constant "
         "inside the 30-60s band, both halves of pause (setInterval+clearInterval) and visibility "
-        "(visibilitychange+document.hidden), the double-start guard, and the no-argument reload form — "
-        "while every pre-existing discipline except the timer ban (forbidden sinks, no URL-taking "
-        "navigation form, the ES5-safe subset) still holds; the timer ban is the ONLY thing this task "
-        "lifted",
+        "(visibilitychange+document.hidden), the double-start guard, and (19-09-PLAN.md, D-02) the "
+        "retired reload form gone entirely while fetch(/DOMParser/replaceChild/importNode are now "
+        "required present as this file's own reviewed exception to the forbidden-sink/no-URL-taking-"
+        "navigation-form/ES5-safe-subset disciplines, which otherwise still hold unchanged",
         _quick_260902_chc_loop_contract_guard)
 
     def _quick_260902_chc_pill_markup_contract():
@@ -4864,25 +5589,28 @@ def main():
         _quick_260903_peo_pipeline_second_line_absent_detection_fallback)
 
     def _quick_260903_peo_persistent_freshness_note():
-        # UIR-18: a persistent, server-rendered liveness note joins the
-        # existing hidden refresh pill inside ONE block-level wrapper —
-        # the anonymous-block-box guard from 260902-ep7 (BUG 1). Pins the
-        # structural contract (the wrapper is the .page-header's next
-        # child right after the <h1>, and the pill's own markup is
-        # untouched inside it), not just the note's text.
+        # 19-09-PLAN.md (D-02, A-20): retargeted in place (same check
+        # name/function, same structural-contract shape) for the honest
+        # "Updated HH:MM" rewrite. UIR-18's original structural contract
+        # survives — a persistent, server-rendered note joins the hidden
+        # refresh pill inside ONE block-level wrapper (260902-ep7's
+        # anonymous-block-box guard) that is .page-header's next child
+        # right after the <h1> — and gains three more assertions this
+        # task adds: the note carries no relative-age suffix at all, a
+        # single data-refresh-clock span holds the full ISO in its
+        # title, and a single data-refresh-toggle button renders inside
+        # the same wrapper with both label attributes and a starting
+        # aria-pressed="false".
         tmp = _mkstate("h-persistent-freshness")
         try:
             now_iso = _iso(_now())
             rendered = health_page.render(_ctx(tmp, now=now_iso))
 
-            expected_note = layout.concise_timestamp_html(now_iso, now_iso)
-            if expected_note not in rendered:
-                return False, (
-                    "expected the persistent note to render "
-                    "concise_timestamp_html(now, now) byte-identically")
-            prefix = layout.escape_html(health_page.PERSISTENT_FRESHNESS_PREFIX_TEXT)
+            prefix = layout.escape_html(health_page.FRESHNESS_PREFIX_TEXT)
             if prefix not in rendered:
-                return False, "expected the persistent note's prefix text in the rendered page"
+                return False, "expected the honest 'Updated ' prefix text in the rendered page"
+            if health_page.FRESHNESS_PREFIX_TEXT != "Updated ":
+                return False, "expected FRESHNESS_PREFIX_TEXT to read 'Updated '"
 
             if '<p class="page-header__freshness' not in rendered:
                 return False, "expected a block-level .page-header__freshness wrapper"
@@ -4891,8 +5619,46 @@ def main():
             wrapper_slice = rendered[wrapper_start:wrapper_end]
             if "data-refresh-pill" not in wrapper_slice:
                 return False, "expected the hidden refresh pill inside the freshness wrapper"
-            if expected_note not in wrapper_slice:
-                return False, "expected the persistent note inside the same freshness wrapper as the pill"
+            if " ago" in wrapper_slice:
+                return False, (
+                    "expected no relative-age suffix inside .page-header__freshness — "
+                    "'(0s ago)' was structurally always zero (A-20)")
+
+            if wrapper_slice.count("data-refresh-clock") != 1:
+                return False, (
+                    "expected exactly one data-refresh-clock span, got %d"
+                    % wrapper_slice.count("data-refresh-clock"))
+            clock_at = wrapper_slice.index("data-refresh-clock")
+            clock_tag = wrapper_slice[
+                wrapper_slice.rindex("<", 0, clock_at):wrapper_slice.index(">", clock_at) + 1]
+            if ('title="%s"' % now_iso) not in clock_tag:
+                return False, "expected the clock span's title to carry the full ISO instant"
+
+            if wrapper_slice.count("data-refresh-toggle") != 1:
+                return False, (
+                    "expected exactly one data-refresh-toggle button, got %d"
+                    % wrapper_slice.count("data-refresh-toggle"))
+            toggle_at = wrapper_slice.index("data-refresh-toggle")
+            toggle_end = wrapper_slice.index("</button>", toggle_at) + len("</button>")
+            toggle_tag_end = wrapper_slice.index(">", toggle_at) + 1
+            toggle_open_tag = wrapper_slice[
+                wrapper_slice.rindex("<", 0, toggle_at):toggle_tag_end]
+            if 'aria-pressed="false"' not in toggle_open_tag:
+                return False, "expected the toggle to start aria-pressed=\"false\""
+            if "data-pause-text=" not in toggle_open_tag:
+                return False, "expected the toggle to carry data-pause-text"
+            if "data-resume-text=" not in toggle_open_tag:
+                return False, "expected the toggle to carry data-resume-text"
+            toggle_label = wrapper_slice[toggle_tag_end:toggle_end - len("</button>")]
+            if not toggle_label.strip():
+                return False, "expected the toggle to have a non-empty accessible label (its own text)"
+
+            # Substring ordering, the same way this guard has always
+            # pinned the anonymous-block-box fix: prefix, then clock,
+            # then pill, then toggle, all inside the one wrapper.
+            prefix_at = wrapper_slice.index(prefix)
+            if not (prefix_at < clock_at < wrapper_slice.index("data-refresh-pill") < toggle_at):
+                return False, "expected prefix, clock, pill and toggle in that source order"
 
             header_start = rendered.index('<div class="page-header">')
             header_end = rendered.index("</div>", header_start) + len("</div>")
@@ -4924,10 +5690,12 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health's header renders a persistent server-rendered liveness note beside the "
-        "unchanged hidden refresh pill, both inside one block-level .page-header__freshness "
-        "wrapper that is the .page-header's next child right after the <h1> (quick task "
-        "260903-peo, UIR-18)",
+        "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, full ISO "
+        "in the clock span's title) beside the unchanged hidden refresh pill and a new Pause/Resume "
+        "toggle (aria-pressed=\"false\", both label attributes, a non-empty accessible label), all "
+        "inside one block-level .page-header__freshness wrapper that is the .page-header's next "
+        "child right after the <h1>, in prefix/clock/pill/toggle source order (19-09-PLAN.md Task 1, "
+        "D-02/A-20; supersedes quick task 260903-peo/UIR-18's 'Live — refreshed (Ns ago)' contract)",
         _quick_260903_peo_persistent_freshness_note)
 
     def _quick_260902_v2v_uir_03_07_12_13_fixes():
@@ -5188,8 +5956,18 @@ def main():
         # Check 5: the cross-file contract the interaction-skip guard
         # depends on. This guard's failure mode is silence — when it
         # stops matching, nothing errors and no other check moves, the
-        # page simply begins reloading out from under a user
+        # page simply begins swapping content out from under a user
         # mid-interaction — so this is the only thing that would notice.
+        #
+        # 19-09-PLAN.md (D-02): retargeted in place (same check name/
+        # function). The open-disclosure clause is GONE from
+        # freshness.js on purpose (D-02 removes the silent-suspension
+        # behaviour it caused) — this check's own assertion flips from
+        # "still present" to "still absent" for that one clause, while
+        # the fixture and the INPUT/SUMMARY/SPARKLINE_HIT_CLASS halves
+        # are unchanged: a targeted swap never touches a <details>
+        # element, so no interaction-skip clause is needed to protect
+        # one any more.
         tmp = _mkstate("h-skip-guard-contract")
         try:
             now = _now()
@@ -5218,8 +5996,10 @@ def main():
         js_path = os.path.join(HERE, "static", "freshness.js")
         with open(js_path) as fh:
             js = fh.read()
-        if "details[open]" not in js:
-            return False, "freshness.js no longer checks for an open <details> disclosure"
+        if "details[open]" in js:
+            return False, (
+                "freshness.js still checks for an open <details> disclosure — D-02 removes that "
+                "silent-suspension clause entirely")
         for tag_literal in ("INPUT", "SUMMARY"):
             if tag_literal not in js:
                 return False, (
@@ -5231,10 +6011,194 @@ def main():
     check(
         "the interaction-skip guard's cross-file contract: a fixture rich enough to actually render a "
         "disclosure, a filter input and a chart hit target, and freshness.js's shipped source still "
-        "checks for an open <details>, a focused INPUT/SUMMARY, and health_page.SPARKLINE_HIT_CLASS's "
-        "own literal value — this guard's failure mode is silence, so this check is the only thing "
-        "that would notice a drift",
+        "checks for a focused INPUT/SUMMARY and health_page.SPARKLINE_HIT_CLASS's own literal value "
+        "but no longer checks for an open <details> at all (19-09-PLAN.md, D-02: a targeted swap never "
+        "touches one, so the silent-suspension clause is gone, not merely unused) — this guard's "
+        "failure mode is silence, so this check is the only thing that would notice a drift",
         _quick_260902_chc_skip_guard_cross_file_contract)
+
+    # --- 19-09-PLAN.md Task 3: pin the new freshness contract ------------
+
+    def _19_09_freshness_swap_selectors_pinned_both_directions():
+        # The duplicated-not-imported agreement between health_page.
+        # REFRESH_SWAP_SELECTORS and freshness.js's own SWAP_SELECTORS
+        # array, pinned from both directions: every declared target must
+        # actually appear in the script, AND the script's excluded
+        # regions (the sparkline hit class, the filter-input attribute,
+        # a <details> selector) must never sneak into a future edit's
+        # swap list — a future editor who widens the swap to "just
+        # replace the whole main content" would silently kill
+        # battery-trend.js's chart and list-filter.js's filter, exactly
+        # the regression D-02's own interfaces section names by number
+        # (Pitfall 5).
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        for selector in health_page.REFRESH_SWAP_SELECTORS:
+            if selector not in js:
+                return False, (
+                    "expected health_page.REFRESH_SWAP_SELECTORS entry %r verbatim in "
+                    "freshness.js" % (selector,))
+        # A dot-prefixed class selector, as it would appear inside a
+        # querySelector(All) call targeting the sparkline hit points for
+        # REPLACEMENT — never confused with the space-padded substring
+        # test userIsInteracting() legitimately runs, or with the
+        # "sparkline-hit--active" swap-guard used by the battery-readout
+        # text update, neither of which is a swap-target selector.
+        if ".sparkline-hit\"" in js or ".sparkline-hit'" in js:
+            return False, (
+                "freshness.js must never carry a .sparkline-hit selector literal — swapping the "
+                "sparkline would leave battery-trend.js permanently dead (contract 2)")
+        if "[data-filter-input]" in js:
+            return False, (
+                "freshness.js must never reference [data-filter-input] — swapping the registry "
+                "filter would leave list-filter.js permanently dead and discard an in-progress "
+                "query (contract 3)")
+        if "details[" in js:
+            return False, (
+                "freshness.js must never carry a details[...] selector literal as a swap target — "
+                "the registry/readings disclosures are excluded from the swap list")
+        return True, ""
+    check(
+        "health_page.REFRESH_SWAP_SELECTORS' own entries all appear verbatim in freshness.js, and "
+        "freshness.js never carries a .sparkline-hit selector literal, a [data-filter-input] "
+        "reference, or a details[...] selector — the three regions Pitfall 5 names as fatal to swap "
+        "(19-09-PLAN.md Task 3)",
+        _19_09_freshness_swap_selectors_pinned_both_directions)
+
+    # --- 19-06-PLAN.md Task 1: layout.stat_tile()'s caption_title tooltip
+    # (D-06) ------------------------------------------------------------
+
+    def _stat_tile_caption_title_byte_identical_when_unused():
+        default_call = layout.stat_tile("C", "<p>x</p>", "ok", None)
+        explicit_none = layout.stat_tile("C", "<p>x</p>", "ok", None, caption_title=None)
+        explicit_empty = layout.stat_tile("C", "<p>x</p>", "ok", None, caption_title="")
+        if default_call != explicit_none or default_call != explicit_empty:
+            return False, (
+                "expected stat_tile()'s output to be byte-identical whether caption_title is "
+                "omitted, None, or the empty string")
+        if "title=" in default_call:
+            return False, "expected no title attribute anywhere in the unused-caption_title output"
+        return True, ""
+    check(
+        "layout.stat_tile()'s new caption_title parameter is byte-identical to the pre-existing output "
+        "when omitted, None, or '' (19-06-PLAN.md Task 1, D-06)",
+        _stat_tile_caption_title_byte_identical_when_unused)
+
+    def _stat_tile_caption_title_renders_as_tooltip_on_caption_only():
+        markup = layout.stat_tile("Cap", "<p>y</p>", "ok", None, caption_title="Tech Term")
+        if markup.count('title="Tech Term"') != 1:
+            return False, (
+                "expected exactly one title=\"Tech Term\" attribute in the output, got %d"
+                % markup.count('title="Tech Term"'))
+        caption_open = markup.index('<p class="text-label stat-tile__caption"')
+        caption_close = markup.index(">", caption_open)
+        caption_tag = markup[caption_open:caption_close]
+        if 'title="Tech Term"' not in caption_tag:
+            return False, "expected the title attribute on the caption <p> element itself, got %r" % caption_tag
+        return True, ""
+    check(
+        "layout.stat_tile()'s caption_title renders as a title attribute on the caption <p> element, and "
+        "nowhere else (19-06-PLAN.md Task 1, D-06)",
+        _stat_tile_caption_title_renders_as_tooltip_on_caption_only)
+
+    def _stat_tile_caption_title_is_escaped():
+        hostile = 'a<b"c'
+        markup = layout.stat_tile("Cap", "<p>y</p>", "ok", None, caption_title=hostile)
+        if hostile in markup:
+            return False, "expected the hostile caption_title to be escaped, not interpolated raw"
+        if "&lt;" not in markup or "&quot;" not in markup:
+            return False, "expected the escaped caption_title to carry &lt; and &quot;"
+        return True, ""
+    check(
+        "layout.stat_tile()'s caption_title is escaped through escape_html(), matching every other "
+        "attribute value this module emits (19-06-PLAN.md Task 1, D-06/T-19-08)",
+        _stat_tile_caption_title_is_escaped)
+
+    # --- 19-06-PLAN.md Task 2: Health's stat tiles and corroboration rows
+    # read in plain language (D-06) --------------------------------------
+
+    def _visible_text_outside_title_attributes(markup):
+        # A title="..." attribute IS the sanctioned home for a technical
+        # term under D-06 — strip every such attribute's value before
+        # scanning for banned jargon, so this guard only ever fires on a
+        # real leak into visible text.
+        return re.sub(r'\btitle="[^"]*"', "", markup)
+
+    def _health_tiles_and_rows_read_in_plain_language():
+        tmp = _mkstate("h-plain-language-tiles")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_runway_events(tmp, [{"ts": _iso(now), "hex": "abc123", "corroborated": True}])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        visible = _visible_text_outside_title_attributes(rendered)
+        for banned in ("Corroboration", "Single-source (uncorroborated)", "pipeline last ran"):
+            if banned in visible:
+                return False, "expected %r to be absent from visible text (outside a title attribute)" % banned
+
+        for label, expected_title in (
+                (health_page.PIPELINE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_TITLE),
+                (health_page.CORROBORATION_TILE_LABEL, health_page.CORROBORATION_TILE_TITLE),
+                (health_page.RESOLUTION_RATE_LABEL, health_page.RESOLUTION_RATE_TITLE)):
+            needle = ">%s<" % layout.escape_html(label)
+            at = rendered.index(needle)
+            caption_open = rendered.rindex('<p class="text-label stat-tile__caption"', 0, at)
+            caption_close = rendered.index(">", caption_open)
+            caption_tag = rendered[caption_open:caption_close]
+            expected_attr = 'title="%s"' % layout.escape_html(expected_title)
+            if expected_attr not in caption_tag:
+                return False, (
+                    "expected the %r tile's caption element to carry %s, got %r"
+                    % (label, expected_attr, caption_tag))
+        return True, ""
+    check(
+        "Health's stat tiles and corroboration rows read in plain language: 'Corroboration', "
+        "'Single-source (uncorroborated)' and 'pipeline last ran' are all absent from visible text, and the "
+        "Pipeline/Corroboration/Resolution-rate tiles' caption elements each carry a title attribute equal "
+        "to their matching technical constant (19-06-PLAN.md Task 2, D-06)",
+        _health_tiles_and_rows_read_in_plain_language)
+
+    # --- 19-06-PLAN.md Task 3: registry/statistics prose de-jargoned
+    # (D-06, CFG-04/CFG-08 surfaces) --------------------------------------
+
+    def _health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id():
+        tmp = _mkstate("h-no-jargon-full-render")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {"count": 3, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            events = []
+            for source in ("fresh_hit", "cache_hit", "airline_only", "miss", "manual"):
+                events.append({"ts": _iso(now), "hex": "abc123", "route_source": source})
+            _seed_runway_events(tmp, events)
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        if health_page.UNRESOLVED_SECTION_HEADING not in rendered or "data-filter-input" not in rendered:
+            return False, "fixture gap: expected the registry card to actually render"
+        if health_page.STATS_SECTION_HEADING not in rendered or "% resolved" not in rendered:
+            return False, "fixture gap: expected the resolution-statistics card to actually render"
+        if "adsbdb" in rendered:
+            return False, "expected no occurrence of 'adsbdb' anywhere in a full render"
+        visible = _visible_text_outside_title_attributes(rendered)
+        if re.search(r"CFG-\d", visible):
+            return False, "expected no requirement id (CFG-\\d) in visible text"
+        return True, ""
+    check(
+        "a full Health render with a non-empty unresolved registry and stats rows (every branch rendered) "
+        "contains no 'adsbdb' and no CFG-\\d requirement id outside a title attribute "
+        "(19-06-PLAN.md Task 3, D-06/T-19-24)",
+        _health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id)
 
     # ======================================================================
     # Section 1.5: companion/illustration_normalize.py — the shared
@@ -5918,7 +6882,8 @@ def main():
         # exactly once.
         tmp = _mkstate("a-replace-action-membership")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
             # quick task 260903-df3: LIGHTBOX_REPLACE_ZONE_CLASS
             # ("lightbox__replace-zone") shares a prefix with
             # LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace"), but the
@@ -5957,7 +6922,8 @@ def main():
         # contract: now singular, since the form itself is singular.
         tmp = _mkstate("a-replace-method-enctype")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
             forms = re.findall(r'<form class="%s"[^>]*>' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS, rendered)
             if len(forms) != 1:
                 return False, "expected exactly one replace form, got %d" % len(forms)
@@ -6000,7 +6966,8 @@ def main():
         # ids is.
         tmp = _mkstate("a-replace-input-ids")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
             input_ids = re.findall(r'<input type="file" id="([^"]+)"', rendered)
             replace_ids = [i for i in input_ids if i == airlines_page.REPLACE_INPUT_ID]
             if len(replace_ids) != 1:
@@ -6107,7 +7074,8 @@ def main():
         hostile_name = '<script>alert(1)</script>"'
         illustrations.target_variants_by_airline = lambda: [(hostile_name, [])]
         try:
-            rendered = airlines_page.render({})
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render({"edit_mode": True})
         finally:
             illustrations.target_variants_by_airline = original_target_variants_by_airline
         if hostile_name in rendered:
@@ -6169,7 +7137,8 @@ def main():
         # constant.
         tmp = _mkstate("a-no-revert-control")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         form_match = re.search(
@@ -6242,7 +7211,8 @@ def main():
             return False, "expected 'icon-upload' to be a member of layout.ICON_IDS"
         tmp = _mkstate("a-replace-zone-icon-sprite")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         # Phase 14 (14-02-PLAN.md Task 3) retargeted this count in place
@@ -6284,7 +7254,8 @@ def main():
         # in the stylesheet, plus the first ::file-selector-button rule).
         tmp = _mkstate("a-replace-zone-contract")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         zone_open_tag = '<div class="%s">' % airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS
@@ -6806,6 +7777,8 @@ def main():
                 return False, "expected add_entry() to accept a fresh, valid name, got %r" % (add_result,)
             ctx = _ctx(tmp, now=now)
             ctx["resolve_prefix"] = "XYZ"
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
             section = _resolve_slice(rendered)
             expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Brand New Air"
@@ -6981,6 +7954,8 @@ def main():
 
             ctx = _ctx(tmp, now=now)
             ctx["resolve_prefix"] = "XYZ"
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
             section = _resolve_slice(rendered)
             if airlines_page.RESOLVE_STALE_BODY in section:
@@ -7279,6 +8254,8 @@ def main():
             manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
             ctx = _ctx(tmp)
             ctx["resolve_prefix"] = "ZZZ"
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
 
             dialog_open_index = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID)
@@ -7648,6 +8625,17 @@ def main():
                     retired_token = "airline-card__" + "replace"
                     if retired_token in body_text:
                         return False, "expected zero occurrences of the retired per-card class token in the real /airlines HTTP response body"
+                    # 19-08 (D-22): edit-only forms need edit_mode=True.
+                    # The replace/resolve-upload/delete forms only render
+                    # under an exact ?edit=1, so the assertions below that
+                    # depend on those forms existing need a second, real
+                    # fetch of the edit-mode page rather than the plain
+                    # /airlines response already captured in body_text.
+                    edit_status, _edit_headers, edit_body = http_request(
+                        base + path + "?edit=1", cookie=session_cookie)
+                    if edit_status != 200:
+                        return False, "expected 200 for %s?edit=1, got %d" % (path, edit_status)
+                    edit_body_text = edit_body.decode("utf-8", errors="replace")
                     # quick task 260903-df3: a bare substring count of
                     # LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
                     # is no longer unambiguous — it is now also a prefix
@@ -7659,7 +8647,7 @@ def main():
                     # itself is counted, the same trailing-quote
                     # technique _replace_form_action_matches_trigger_attribute_membership()
                     # already uses.
-                    replace_form_count = body_text.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
+                    replace_form_count = edit_body_text.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
                     if replace_form_count != 1:
                         return False, (
                             "expected airlines_page.LIGHTBOX_REPLACE_FORM_CLASS exactly once in the real "
@@ -7695,20 +8683,20 @@ def main():
                     # resolve-name form's own action is never empty (it
                     # always posts to RESOLVE_ROUTE, in both the dialog
                     # and the no-JS fallback).
-                    if body_text.count(' action=""') != 3:
+                    if edit_body_text.count(' action=""') != 3:
                         return False, (
                             "expected ' action=\"\"' exactly 3 times (replace/resolve-upload/delete "
                             "forms) in the real /airlines HTTP response body, "
-                            "got %d" % body_text.count(' action=""'))
+                            "got %d" % edit_body_text.count(' action=""'))
                     # Phase 14 (14-02-PLAN.md Task 3) retargeted: the
                     # dialog now also carries the resolve-upload form's
                     # own file input, alongside the pre-existing replace
                     # form's, so the expected count is 2, not 1.
-                    if body_text.count('<input type="file"') != 2:
+                    if edit_body_text.count('<input type="file"') != 2:
                         return False, (
                             "expected <input type=\"file\" exactly twice (replace form, resolve-upload "
                             "form) in the real /airlines HTTP response "
-                            "body, got %d" % body_text.count('<input type="file"'))
+                            "body, got %d" % edit_body_text.count('<input type="file"'))
 
                 elif path == "/flights":
                     # quick task 260903-btu Task 5a: the served-HTML twin
@@ -7749,6 +8737,18 @@ def main():
             # freshness-script route from this same running service,
             # proving the process hands a browser the new loop, not only
             # that the on-disk file says so.
+            #
+            # 19-09-PLAN.md (D-02): retargeted in place (same check name/
+            # function, same "real served bytes" pattern) — three more
+            # required needles for the fetch-and-swap DOM contract
+            # (the [data-loaded-at]/[data-refresh-pill]/
+            # [data-refresh-toggle] attribute hooks), plus a fourth pass
+            # asserting every one of health_page.REFRESH_SWAP_SELECTORS'
+            # own selector strings appears verbatim in the real served
+            # bytes — the duplicated-not-imported agreement between the
+            # page module's declared swap targets and the script's own,
+            # pinned against the process actually serving them, not only
+            # the two on-disk files agreeing with each other.
             js_status, _js_headers, js_body = http_request(
                 base + app.FRESHNESS_SCRIPT_ROUTE, cookie=session_cookie)
             if js_status != 200:
@@ -7756,11 +8756,19 @@ def main():
             js_text = js_body.decode("utf-8", errors="replace")
             for needle, label in (
                     ("AUTO_REFRESH_INTERVAL_MS", "the named interval constant"),
-                    ("visibilitychange", "the visibility-change listener registration")):
+                    ("visibilitychange", "the visibility-change listener registration"),
+                    ("[data-loaded-at]", "the loaded-at attribute hook"),
+                    ("[data-refresh-pill]", "the refresh-pill attribute hook"),
+                    ("[data-refresh-toggle]", "the refresh-toggle attribute hook")):
                 if needle not in js_text:
                     return False, (
                         "expected %s (%r) in the real %s response body"
                         % (label, needle, app.FRESHNESS_SCRIPT_ROUTE))
+            for selector in health_page.REFRESH_SWAP_SELECTORS:
+                if selector not in js_text:
+                    return False, (
+                        "expected health_page.REFRESH_SWAP_SELECTORS entry %r verbatim in the "
+                        "real %s response body" % (selector, app.FRESHNESS_SCRIPT_ROUTE))
             return True, ""
         check(
             "GET /health, GET /airlines and GET /history all return 200 with their own page heading against a "
@@ -7775,9 +8783,11 @@ def main():
             "enctype or file input (quick task 260903-btu Task 5a), and the real served stylesheet "
             "(STYLE_ROUTE) carries the description-column rule, the demotion rule's new bottom margin and the "
             "prose rhythm rule's selector, and the real served freshness script (FRESHNESS_SCRIPT_ROUTE) "
-            "carries the interval constant and the visibility-change listener (quick task 260901-tsa; "
-            "extended in place by quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick "
-            "task 260902-chc, and quick task 260903-btu Task 5a)",
+            "carries the interval constant, the visibility-change listener, the [data-loaded-at]/"
+            "[data-refresh-pill]/[data-refresh-toggle] attribute hooks, and every "
+            "health_page.REFRESH_SWAP_SELECTORS entry verbatim (quick task 260901-tsa; extended in place by "
+            "quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick task 260902-chc, "
+            "quick task 260903-btu Task 5a, and 19-09-PLAN.md Task 3)",
             _both_tabs_ok_end_to_end)
 
         def _illustration_route_serves_normalized_bytes_end_to_end():

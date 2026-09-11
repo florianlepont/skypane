@@ -267,6 +267,26 @@ EXPECTED_CHECK_COUNT = 159  # 157 + 2 (13-REVIEW.md WR-11 fix: end-to-end
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 165
 EXPECTED_CHECK_COUNT = 192  # 177 + 15 (phase 18: two more tabs in the per-tab loops (+4), legacy-route redirects (+4), Home/quick-action/scoped-save/split-page/no-store checks (+7)) — was 177 # 165 + 12 (phase 17 plan 04 Task 3, D-06/D-09:
+EXPECTED_CHECK_COUNT = 194  # 192 + 2 (phase 19 plan 02 Task 1, D-15/A-32:
+# the zero-length-window and real-lockout_s self-releasing-lockout checks
+# for LoginThrottle.record_failure()).
+EXPECTED_CHECK_COUNT = 198  # 194 + 4 (phase 19 plan 02 Task 2, D-16/A-33:
+# the derived-signing-key check, the revoke()/is_revoked() round-trip and
+# pruning-on-expiry checks, and the real-HTTP replay-after-logout check).
+EXPECTED_CHECK_COUNT = 201  # 198 + 3 (phase 19 plan 02 Task 3, D-17/A-34:
+# the insecure-cookies-drops-Secure check, the fails-closed-on-"true"
+# check, and the deploy/skypane.env.example documentation check).
+EXPECTED_CHECK_COUNT = 204  # 201 + 3 (19-04-PLAN.md Task 1, D-18/A-35:
+# poll-cooldown.js's public-serving/ES5-safe/route-src-agreement checks;
+# the eight-deferred-scripts check is retargeted in place from the
+# seven-deferred-scripts check, not counted as new).
+EXPECTED_CHECK_COUNT = 208  # 204 + 4 (19-04-PLAN.md Task 2, D-18/T-19-05:
+# the exact-CSP-equality check, the strict-script-src-no-unsafe-inline
+# check, the redirect-carries-four-hardening-headers check, and the
+# static-CSS-response-carries-CSP check).
+EXPECTED_CHECK_COUNT = 210  # 208 + 2 (19-04-PLAN.md Task 3, D-18/T-19-04:
+# unauthenticated POST /ui-theme and POST /logout both redirect to
+# /login checks).
 # the save-triggered immediate calendar sync's real-HTTP-round-trip
 # outcomes — plural/singular flight count, a zero-entry feed's distinct
 # success, the single generic failure message with the URL still saved,
@@ -281,6 +301,48 @@ EXPECTED_CHECK_COUNT = 192  # 177 + 15 (phase 18: two more tabs in the per-tab l
 # could never observe. Recomputed directly against the real on-disk
 # check(...) call count at execution time (177/177 pass), not trusted
 # from arithmetic alone, per this file's own established discipline.
+EXPECTED_CHECK_COUNT = 211  # 19-07-PLAN.md Task 3 (D-07/A-25): +1 (the
+# real end-to-end check: a POST /settings with a valid theme change and
+# an empty quiet_hours_start returns 200, shows the newly-picked theme
+# still selected, shows the quiet-hours field error, carries no flash
+# banner, and persists nothing on disk). 210 + 1 = 211, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (211/211 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 213  # 19-09-PLAN.md Task 3 (D-02): +2 (freshness.js's
+# own named ES5/sink guard — the sibling nav-dropdown.js/panel-lookup.js
+# ban list minus location.reload plus fetch(/setTimeout/setInterval as its
+# one reviewed exception, plus DOMParser/replaceChild/credentials/fetch(
+# required present — and the no-URL-taking-navigation-form check). 211 + 2
+# = 213, recomputed directly against the real on-disk check(...) call
+# count at execution time (211/213 pass — the two documented WR-11
+# root-sandbox failures, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 217  # 19-11-PLAN.md Task 1 (D-08/A-26): +4 (the
+# dedicated POST /settings/calendar/disconnect route's own real-HTTP
+# checks: a bare POST renders the confirmation page and leaves the
+# calendar connected, confirm=maybe does the same, confirm=yes actually
+# disconnects and redirects with the disconnected flash key, and an
+# unauthenticated POST redirects to /login and writes nothing). 213 + 4
+# = 217, recomputed directly against the real on-disk check(...) call
+# count at execution time (215/217 pass — the two documented WR-11
+# root-sandbox failures, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 220  # 19-11-PLAN.md Task 2 (D-08/A-26): +3 (the
+# ninth static script, confirm-submit.js: its own public-serving check,
+# its ES5-safe/no-HTML-writing-sink guard, and its route/src agreement
+# check). The eight-deferred-scripts check was retargeted in place to
+# nine, a net-zero rename. 217 + 3 = 220, recomputed directly against
+# the real on-disk check(...) call count at execution time (218/220
+# pass — the two documented WR-11 root-sandbox failures, unrelated to
+# this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 221  # 19-12-PLAN.md Task 2 (D-22, Device-page
+# half): +1 (a real authenticated GET of the Device page contains the
+# Edit-artwork href, and following it returns 200 with the
+# artwork-editing forms present — the end-to-end link between plan
+# 19-08's ?edit=1 gate and this plan's link). 220 + 1 = 221, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (219/221 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -770,6 +832,66 @@ def main():
             "session_set_cookie_header() carries HttpOnly/Secure/SameSite=Strict/Path",
             _session_cookie_header_carries_security_flags)
 
+        def _insecure_cookies_flag_drops_secure_but_keeps_other_flags():
+            # A-34/D-17: the exact opt-out value "1" drops Secure from
+            # both cookie builders while every other flag survives.
+            saved = os.environ.get(auth.INSECURE_COOKIES_ENV_VAR)
+            os.environ[auth.INSECURE_COOKIES_ENV_VAR] = "1"
+            try:
+                session_header = auth.session_set_cookie_header(auth.issue_session_token())
+                logout_header = auth.logout_set_cookie_header()
+                for header in (session_header, logout_header):
+                    if "Secure" in header:
+                        return False, "expected Secure to be absent, got %r" % (header,)
+                    for needle in ("HttpOnly", "SameSite=Strict", "Path=/"):
+                        if needle not in header:
+                            return False, "missing %r in %r" % (needle, header)
+                return True, ""
+            finally:
+                if saved is None:
+                    os.environ.pop(auth.INSECURE_COOKIES_ENV_VAR, None)
+                else:
+                    os.environ[auth.INSECURE_COOKIES_ENV_VAR] = saved
+        check(
+            "SKYPANE_COMPANION_INSECURE_COOKIES=1 drops Secure from both cookie builders "
+            "while HttpOnly/SameSite=Strict/Path survive (A-34/D-17)",
+            _insecure_cookies_flag_drops_secure_but_keeps_other_flags)
+
+        def _insecure_cookies_flag_fails_closed_on_other_values():
+            # Any value other than exactly "1" — including a
+            # truthy-looking "true" — must leave Secure on.
+            saved = os.environ.get(auth.INSECURE_COOKIES_ENV_VAR)
+            os.environ[auth.INSECURE_COOKIES_ENV_VAR] = "true"
+            try:
+                header = auth.session_set_cookie_header(auth.issue_session_token())
+                if "Secure" not in header:
+                    return False, "expected Secure to remain on for a non-'1' value, got %r" % (header,)
+                return True, ""
+            finally:
+                if saved is None:
+                    os.environ.pop(auth.INSECURE_COOKIES_ENV_VAR, None)
+                else:
+                    os.environ[auth.INSECURE_COOKIES_ENV_VAR] = saved
+        check(
+            "SKYPANE_COMPANION_INSECURE_COOKIES=\"true\" fails closed - Secure stays on "
+            "(A-34/D-17)",
+            _insecure_cookies_flag_fails_closed_on_other_values)
+
+        def _env_example_documents_insecure_cookies_flag():
+            env_example_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "..", "deploy", "skypane.env.example")
+            with open(env_example_path, "r") as fh:
+                contents = fh.read()
+            if auth.INSECURE_COOKIES_ENV_VAR not in contents:
+                return False, (
+                    "expected %r to be documented in deploy/skypane.env.example"
+                    % (auth.INSECURE_COOKIES_ENV_VAR,))
+            return True, ""
+        check(
+            "deploy/skypane.env.example documents SKYPANE_COMPANION_INSECURE_COOKIES (A-34/D-17)",
+            _env_example_documents_insecure_cookies_flag)
+
         def _logout_cookie_expires_immediately():
             header = auth.logout_set_cookie_header()
             if "Max-Age=0" not in header:
@@ -814,6 +936,55 @@ def main():
             "LoginThrottle allows attempts up to its limit, locks out, then resets on success",
             _login_throttle_allows_locks_and_resets)
 
+        def _login_throttle_self_releases_with_zero_length_window():
+            # A-32/D-15: with lockout_s=0 the window elapses immediately,
+            # so no real sleep is needed to exercise "a lockout releases
+            # itself." The regression this pins: a naive fix that only
+            # checks the failure count (not the elapsed window) would
+            # re-arm the lockout on this 4th failure instead of starting
+            # a fresh count.
+            throttle = auth.LoginThrottle(limit=3, lockout_s=0)
+            for _ in range(3):
+                throttle.record_failure()
+            if throttle.locked_out():
+                return False, "expected locked_out() False once the zero-length window has passed"
+            throttle.record_failure()
+            if throttle.locked_out():
+                return False, (
+                    "one post-window failure should count as 1 of 3 toward a fresh "
+                    "lockout, not immediately re-arm it")
+            return True, ""
+        check(
+            "LoginThrottle with a zero-length window releases itself and a post-window "
+            "failure starts a fresh count (A-32/D-15)",
+            _login_throttle_self_releases_with_zero_length_window)
+
+        def _login_throttle_self_releases_with_real_window():
+            # Same property as above, but with a real non-zero lockout_s,
+            # proven by rewinding _locked_until into the past (mirroring
+            # how _login_throttle_allows_locks_and_resets already drives
+            # this class purely through its public methods plus direct
+            # attribute access for time-travel, since there is no clock
+            # injection point on LoginThrottle).
+            throttle = auth.LoginThrottle(limit=3, lockout_s=60)
+            for _ in range(3):
+                throttle.record_failure()
+            if not throttle.locked_out():
+                return False, "expected locked_out() True immediately after the 3rd failure"
+            throttle._locked_until = time.time() - 1  # simulate the window elapsing
+            if throttle.locked_out():
+                return False, "expected locked_out() False once the window has elapsed"
+            throttle.record_failure()
+            if throttle.locked_out():
+                return False, (
+                    "one post-window failure should count as 1 of 3 toward a fresh "
+                    "lockout, not immediately re-arm it")
+            return True, ""
+        check(
+            "LoginThrottle with a real lockout_s releases itself once the window elapses "
+            "and a post-window failure starts a fresh count (A-32/D-15)",
+            _login_throttle_self_releases_with_real_window)
+
         def _forged_token_different_secret_rejected():
             forged = _sign_with_secret(
                 str(int(time.time()) + 3600), "attacker-controlled-secret")
@@ -833,6 +1004,74 @@ def main():
         check(
             "a hand-built token expired by one second is rejected despite a correct signature",
             _hand_built_expired_token_rejected)
+
+        def _tokens_signed_with_derived_key_not_raw_password():
+            # A-33/D-16: two tokens issued in this process both verify -
+            # the derived signing key is stable within a process.
+            token_a = auth.issue_session_token()
+            token_b = auth.issue_session_token()
+            if not auth.verify_session_token(token_a) or not auth.verify_session_token(token_b):
+                return False, "expected both freshly-issued tokens to verify"
+            # But a signature computed with the OLD scheme (the raw
+            # shared password as the HMAC key, no per-process salt) must
+            # NOT verify - that is the actual behaviour being fixed.
+            expiry = str(int(time.time()) + 3600)
+            raw_password_token = _sign_with_secret(expiry, TEST_PASSWORD)
+            if auth.verify_session_token(raw_password_token) is not False:
+                return False, (
+                    "a signature computed with the raw password (the pre-D-16 scheme) "
+                    "must not verify - the signing key must be genuinely derived")
+            return True, ""
+        check(
+            "issued tokens verify within this process, but a raw-password-keyed signature "
+            "(the old scheme) does not - the signing key is genuinely derived (A-33/D-16)",
+            _tokens_signed_with_derived_key_not_raw_password)
+
+        def _revoke_then_is_revoked_round_trip():
+            token = auth.issue_session_token()
+            # A different token string, not a second real session (which
+            # issue_session_token()'s nanosecond-resolution expiry already
+            # makes vanishingly unlikely to collide with `token` anyway) -
+            # is_revoked() only ever does a plain membership test.
+            never_issued = token + "0"
+            if auth.is_revoked(token):
+                return False, "a never-revoked token must not be reported as revoked"
+            auth.revoke(token)
+            if not auth.is_revoked(token):
+                return False, "expected is_revoked() True immediately after revoke()"
+            if auth.is_revoked(never_issued):
+                return False, "revoking one token must not affect a different, never-revoked token"
+            try:
+                auth.revoke("not-a-valid-token-shape")
+                auth.revoke(None)
+                auth.revoke("")
+            except Exception as exc:
+                return False, "revoke() must never raise on a malformed token, got %r" % (exc,)
+            return True, ""
+        check(
+            "revoke(token) then is_revoked(token) is True, a never-issued token is False, and "
+            "a malformed token passed to revoke() raises nothing (A-33/D-16)",
+            _revoke_then_is_revoked_round_trip)
+
+        def _revoked_token_pruned_once_it_expires():
+            # revoke() stores (token -> expiry); once that expiry has
+            # passed, the NEXT revoke()/is_revoked() call must prune the
+            # entry out of auth._REVOKED, keeping the set bounded rather
+            # than growing for the lifetime of the process (T-19-14).
+            token = auth.issue_session_token()
+            auth.revoke(token)
+            if token not in auth._REVOKED:
+                return False, "expected revoke() to store a not-yet-expired token"
+            auth._REVOKED[token] = 0  # simulate its expiry having already passed
+            if auth.is_revoked(token):
+                return False, "expected an expired revoked entry to report False, not True"
+            if token in auth._REVOKED:
+                return False, "expected is_revoked() to prune the now-expired entry out of _REVOKED"
+            return True, ""
+        check(
+            "a revoked token is pruned out of the revocation set once its own expiry passes "
+            "(A-33/D-16, T-19-14: the set stays bounded)",
+            _revoked_token_pruned_once_it_expires)
 
         def _auth_not_configured_message_omits_password():
             saved = os.environ.pop(auth.PASSWORD_ENV_VAR, None)
@@ -2590,6 +2829,75 @@ def main():
             "*_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each",
             _four_new_static_routes_dom_contract_guard)
 
+        # --- 19-09-PLAN.md Task 3: freshness.js's own named guard (D-02) ---
+
+        def _freshness_script_es5_safe_with_one_reviewed_sink_exception():
+            # Modelled on _panel_lookup_script_es5_safe_and_no_html_write()
+            # above, with ONE DELIBERATE, DOCUMENTED divergence: fetch(,
+            # setTimeout and setInterval are PERMITTED here and nowhere
+            # else among this project's static scripts. D-02 makes
+            # freshness.js the single reviewed exception to that ban,
+            # because a live monitoring page needs a network read to stay
+            # honest, and the standing HTML-writing-sink ban is preserved
+            # a different way (DOMParser, never innerHTML/
+            # insertAdjacentHTML/document.write/eval(). Adding a second
+            # exception anywhere else in this codebase requires a new
+            # decision, not a precedent copied from this one.
+            js_path = os.path.join(HERE, "static", "freshness.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(",
+                "location.reload", "XMLHttpRequest",
+            )
+            for token in banned:
+                if token in src:
+                    return False, "freshness.js must not contain %r" % token
+            required = ("DOMParser", "replaceChild", "credentials", "fetch(")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in freshness.js" % token
+            return True, ""
+        check(
+            "freshness.js stays ES5-safe and keeps the standing HTML-writing-sink ban (no let/const/"
+            "arrow/backtick/innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/"
+            "location.reload/XHR), while fetch(/setTimeout/setInterval are its own single, "
+            "deliberate, reviewed exception to the sibling scripts' ban list (D-02) — and it "
+            "actually uses the safe DOMParser/replaceChild/credentials-scoped mechanism this "
+            "exception was granted for, not merely permitted to",
+            _freshness_script_es5_safe_with_one_reviewed_sink_exception)
+
+        def _freshness_script_no_url_taking_navigation_form():
+            # The security property the retired reload-only file's own
+            # comment protected, now pinned instead of merely promised
+            # (T-19-33). A bare READ of window.location.href as a fetch
+            # argument is explicitly permitted — this checks for the
+            # ASSIGNMENT/CALL forms only, never the substring
+            # "location.href" on its own, which would also match that
+            # permitted read.
+            js_path = os.path.join(HERE, "static", "freshness.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            forbidden_forms = (
+                "location.href =", "location.assign", "location.replace", "window.open",
+            )
+            for form in forbidden_forms:
+                if form in src:
+                    return False, "freshness.js must not contain the navigation form %r" % form
+            if "window.location.href" not in src:
+                return False, "expected the permitted window.location.href fetch-argument read"
+            return True, ""
+        check(
+            "freshness.js contains no URL-taking navigation form (an assignment to location.href, "
+            "or a call to location.assign/location.replace/window.open) while still reading "
+            "window.location.href as its fetch argument — the fetch target can never be influenced "
+            "by injected markup (19-09-PLAN.md Task 3, D-02/T-19-33)",
+            _freshness_script_no_url_taking_navigation_form)
+
         # --- 06.6.4.1-02 Task 3: panel-lookup.js (D-20) ---
 
         check(
@@ -2727,24 +3035,117 @@ def main():
             "layout.FLASH_CLEANUP_SCRIPT_SRC equals companion.app.FLASH_CLEANUP_SCRIPT_ROUTE",
             _flash_cleanup_script_route_src_agree)
 
-        def _seven_deferred_scripts_before_closing_body():
-            # Retargeted in place from _six_deferred_scripts_before_
-            # closing_body() (quick task 260903-peo, UIR-19 Task 4):
-            # flash-cleanup.js is the seventh unconditional script.
+        # --- 19-04-PLAN.md Task 1 (D-18/A-35): poll-cooldown.js ---
+
+        check(
+            "GET /static/poll-cooldown.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/poll-cooldown.js"))
+
+        def _poll_cooldown_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "poll-cooldown.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "poll-cooldown.js must not contain %r" % token
+            required = (
+                "textContent", "removeAttribute", "setInterval",
+                "clearInterval", "addEventListener")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in poll-cooldown.js" % token
+            return True, ""
+        check(
+            "poll-cooldown.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), and carries "
+            "both the D-01 countdown (textContent/removeAttribute/setInterval/clearInterval) and "
+            "the UXA-15 disable-on-submit affordance (addEventListener)",
+            _poll_cooldown_script_es5_safe_and_no_html_write)
+
+        def _poll_cooldown_script_route_src_agree():
+            import companion.app as app_module
+            if layout.POLL_COOLDOWN_SCRIPT_SRC != app_module.POLL_COOLDOWN_SCRIPT_ROUTE:
+                return False, "poll cooldown script route drift: %r vs %r" % (
+                    layout.POLL_COOLDOWN_SCRIPT_SRC, app_module.POLL_COOLDOWN_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.POLL_COOLDOWN_SCRIPT_SRC equals companion.app.POLL_COOLDOWN_SCRIPT_ROUTE",
+            _poll_cooldown_script_route_src_agree)
+
+        # --- 19-11-PLAN.md Task 2 (D-08/A-26): confirm-submit.js ---
+
+        check(
+            "GET /static/confirm-submit.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/confirm-submit.js"))
+
+        def _confirm_submit_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "confirm-submit.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest", "location.assign", "location.replace")
+            for token in banned:
+                if token in src:
+                    return False, "confirm-submit.js must not contain %r" % token
+            required = ("addEventListener", "preventDefault", "confirm(")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in confirm-submit.js" % token
+            return True, ""
+        check(
+            "confirm-submit.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/location.assign/"
+            "location.replace), and carries the native confirm() step (addEventListener/"
+            "preventDefault/confirm() all present) (D-08/A-26)",
+            _confirm_submit_script_es5_safe_and_no_html_write)
+
+        def _confirm_submit_script_route_src_agree():
+            import companion.app as app_module
+            if layout.CONFIRM_SUBMIT_SCRIPT_SRC != app_module.CONFIRM_SUBMIT_SCRIPT_ROUTE:
+                return False, "confirm-submit script route drift: %r vs %r" % (
+                    layout.CONFIRM_SUBMIT_SCRIPT_SRC, app_module.CONFIRM_SUBMIT_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.CONFIRM_SUBMIT_SCRIPT_SRC equals companion.app.CONFIRM_SUBMIT_SCRIPT_ROUTE",
+            _confirm_submit_script_route_src_agree)
+
+        def _nine_deferred_scripts_before_closing_body():
+            # Retargeted in place from _eight_deferred_scripts_before_
+            # closing_body() (19-11-PLAN.md Task 2, D-08/A-26):
+            # confirm-submit.js is the ninth unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 7:
-                return False, "expected exactly 7 deferred <script src= tags before </body>, got %d" % count
-            for src_const in (layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC):
+            if count != 9:
+                return False, "expected exactly 9 deferred <script src= tags before </body>, got %d" % count
+            for src_const in (
+                    layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
+                    layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly seven deferred <script src= tags "
-            "before the closing body tag, including panel-lookup.js and flash-cleanup.js",
-            _seven_deferred_scripts_before_closing_body)
+            "a rendered authenticated page contains exactly nine deferred <script src= tags "
+            "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
+            "poll-cooldown.js and confirm-submit.js",
+            _nine_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
@@ -3006,6 +3407,42 @@ def main():
             "an authenticated POST /settings redirects to /display (the default return page) carrying a flash query",
             _settings_post_redirects_to_settings_with_flash)
 
+        # --- 19-07-PLAN.md Task 3 (D-07/A-25): a rejected save re-renders
+        # the scoped page directly at 200 with the user's own input and a
+        # field-level message, and persists nothing ---
+
+        def _rejected_settings_save_rerenders_200_with_input_and_error_persists_nothing():
+            from companion.pages import config_page
+            before = device_config.load_device_config(harness.tmpdir)
+            status, headers, body = http_request(
+                base + "/settings", method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({
+                    "theme": "black", "tracked_runway": before["tracked_runway"],
+                    "quiet_hours_start": "",
+                }).encode())
+            if status != 200:
+                return False, "expected a 200 re-render on a rejected save, got %d" % status
+            if headers.get("Location"):
+                return False, "expected no redirect Location header on a rejected save, got %r" % (
+                    headers.get("Location"),)
+            body_text = body.decode("utf-8", errors="replace")
+            if 'name="theme" value="black"' not in body_text or "checked" not in body_text.split(
+                    'name="theme" value="black"', 1)[1].split(">", 1)[0]:
+                return False, "expected the just-picked theme (black) to render checked - nothing discarded"
+            if config_page.ERROR_QUIET_HOURS_TIME_SHAPE not in body_text:
+                return False, "expected the quiet_hours_start field-level error message in the response body"
+            if "banner--flash" in body_text:
+                return False, "expected no top-of-page flash banner on a field-level rejection (D-07)"
+            after = device_config.load_device_config(harness.tmpdir)
+            if after != before:
+                return False, "expected nothing to be persisted on a rejected save, got %r (was %r)" % (after, before)
+            return True, ""
+        check(
+            "a POST /settings with a valid theme change and an empty quiet_hours_start returns 200, shows the "
+            "newly-picked theme still selected, shows the quiet-hours field error, carries no flash banner, and "
+            "persists nothing on disk (D-07/A-25)",
+            _rejected_settings_save_rerenders_200_with_input_and_error_persists_nothing)
+
         # --- Phase 18: Home page, quick actions, scoped settings saves ---
 
         def _home_page_renders_widgets():
@@ -3182,6 +3619,32 @@ def main():
             "refresh live on Device only",
             _display_and_device_pages_split_the_groups)
 
+        def _device_page_edit_artwork_link_opens_airlines_with_edit_forms():
+            # 19-12-PLAN.md Task 2 (D-22, Device-page half): the real-HTTP
+            # end-to-end link between plan 19-08's ?edit=1 gate and this
+            # plan's Device-page anchor.
+            _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
+            device_text = device_body.decode("utf-8", errors="replace")
+            if "/airlines?edit=1" not in device_text:
+                return False, "expected the Device page to carry an Edit-artwork link to /airlines?edit=1"
+            status, _headers, body = http_request(
+                base + "/airlines?edit=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 following the Edit-artwork link, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            # Exact class="{token}" match, matching companion/
+            # test_view_pages.py's own precise-marker discipline for
+            # these same three edit-only forms (LIGHTBOX_REPLACE_FORM_
+            # CLASS is itself a prefix of several sibling classes).
+            for token in ("lightbox__replace", "resolve-upload-zone", "lightbox__delete"):
+                if ('class="%s"' % token) not in text:
+                    return False, "expected the edit-only form carrying class=%r on the followed page" % token
+            return True, ""
+        check(
+            "the Device page's Edit-artwork link opens /airlines?edit=1, and following it returns 200 with "
+            "the artwork-editing forms present (D-22, Device-page half)",
+            _device_page_edit_artwork_link_opens_airlines_with_edit_forms)
+
         def _html_pages_are_no_store():
             status, headers, _ = http_request(base + "/", cookie=session_cookie)
             if status != 200:
@@ -3196,6 +3659,102 @@ def main():
             "every HTML response (an authenticated page and the login page alike) carries Cache-Control: "
             "no-store, so the back button and shared caches never replay a page after sign-out",
             _html_pages_are_no_store)
+
+        # --- 19-04-PLAN.md Task 2 (D-18, T-19-06/T-19-17/T-19-18/T-19-19): ---
+        # --- CSP on every response, and hardened redirects (T-19-05)      ---
+
+        def _authenticated_html_carries_exact_csp():
+            import companion.app as app_module
+            status, headers, _ = http_request(base + "/", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            csp = headers.get("Content-Security-Policy")
+            if csp != app_module.CONTENT_SECURITY_POLICY:
+                return False, (
+                    "expected the CSP header to equal companion.app."
+                    "CONTENT_SECURITY_POLICY exactly, got %r vs %r"
+                    % (csp, app_module.CONTENT_SECURITY_POLICY))
+            return True, ""
+        check(
+            "an authenticated HTML response carries a Content-Security-Policy header equal "
+            "(string equality, not substring) to companion.app.CONTENT_SECURITY_POLICY",
+            _authenticated_html_carries_exact_csp)
+
+        def _csp_script_src_strict_no_unsafe_inline():
+            import companion.app as app_module
+            csp = app_module.CONTENT_SECURITY_POLICY
+            if "script-src 'self'" not in csp:
+                return False, "expected script-src 'self' in the CSP, got %r" % csp
+            if "script-src 'self' 'unsafe-inline'" in csp:
+                return False, "expected script-src to NOT carry 'unsafe-inline', got %r" % csp
+            return True, ""
+        check(
+            "the CSP's script-src directive is 'self' with no 'unsafe-inline' anywhere in it "
+            "(Task 1 removed the app's last two inline <script> elements, so no exception is needed)",
+            _csp_script_src_strict_no_unsafe_inline)
+
+        def _redirect_carries_four_hardening_headers():
+            # The unauthenticated redirect to /login is a 303 reachable
+            # with no cookie at all — exercises redirect()'s hardening
+            # headers on the simplest possible path.
+            status, headers, _ = http_request(base + "/display")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            for header_name in (
+                    "X-Content-Type-Options", "X-Frame-Options",
+                    "Referrer-Policy", "Content-Security-Policy"):
+                if header_name not in headers:
+                    return False, "expected %r on a 303 redirect response" % header_name
+            return True, ""
+        check(
+            "a 303 redirect response (the unauthenticated bounce to /login) carries all four "
+            "hardening headers, including the CSP — before this plan redirect() sent none of them",
+            _redirect_carries_four_hardening_headers)
+
+        def _static_css_response_carries_csp():
+            status, headers, _ = http_request(base + "/static/style.css")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if "Content-Security-Policy" not in headers:
+                return False, "expected the CSP header on the static CSS response too"
+            return True, ""
+        check(
+            "the static CSS response (the send_bytes() path) also carries the CSP header",
+            _static_css_response_carries_csp)
+
+        # --- 19-04-PLAN.md Task 3 (D-18, T-19-04): session-gate           ---
+        # --- POST /ui-theme and POST /logout                              ---
+
+        def _ui_theme_post_without_session_redirects_to_login():
+            status, headers, _ = http_request(
+                base + "/ui-theme", method="POST", data=b"ui_theme=dark")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, (
+                    "expected an unauthenticated POST /ui-theme to redirect to /login, "
+                    "got %d/%r" % (status, headers.get("Location")))
+            set_cookie = headers.get("Set-Cookie", "")
+            if auth.UI_THEME_COOKIE_NAME in set_cookie:
+                return False, (
+                    "expected no ui_theme Set-Cookie header on an unauthenticated "
+                    "POST /ui-theme, got %r" % set_cookie)
+            return True, ""
+        check(
+            "POST /ui-theme with no session cookie redirects to /login and does not set a "
+            "ui_theme cookie (T-19-04: an unauthenticated caller cannot set another visitor's "
+            "UI theme)",
+            _ui_theme_post_without_session_redirects_to_login)
+
+        def _logout_post_without_session_redirects_to_login():
+            status, headers, _ = http_request(base + "/logout", method="POST")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, (
+                    "expected an unauthenticated POST /logout to redirect to /login, "
+                    "got %d/%r" % (status, headers.get("Location")))
+            return True, ""
+        check(
+            "POST /logout with no session cookie redirects to /login (T-19-04: gating a "
+            "logout costs a signed-out caller nothing)",
+            _logout_post_without_session_redirects_to_login)
 
         # --- 11-04 end-to-end: the real SKYPANE_SLEEP_S pre-fill, over a  ---
         # --- dedicated Harness instance (the environment must be set     ---
@@ -3385,6 +3944,25 @@ def main():
             return True, ""
         check("POST /logout clears the session cookie (Max-Age=0)", _logout_clears_cookie)
 
+        def _replayed_cookie_after_logout_rejected():
+            # A-33/D-16: POST /logout now revokes the presented token
+            # server-side (auth.revoke()), so replaying the exact same
+            # cookie value on a later request is refused too - not just
+            # cleared client-side. The authenticated-tab checks earlier
+            # in this file already proved a GET with this exact
+            # session_cookie succeeded before logout ran.
+            status, headers, _ = http_request(base + "/display", cookie=session_cookie)
+            if status != 303 or headers.get("Location") != "/login?next=%2Fdisplay":
+                return False, (
+                    "expected the logged-out session cookie to be rejected with a "
+                    "redirect to /login?next=%%2Fdisplay, got %d/%r"
+                    % (status, headers.get("Location")))
+            return True, ""
+        check(
+            "replaying the exact session cookie after Sign out is rejected (A-33: revoked "
+            "server-side, not just cleared client-side)",
+            _replayed_cookie_after_logout_rejected)
+
         def _get_logout_no_longer_ends_session():
             status, _headers, _body = http_request(base + "/logout", cookie=session_cookie)
             if status != 404:
@@ -3395,15 +3973,13 @@ def main():
             _get_logout_no_longer_ends_session)
 
         def _tab_refused_after_logout():
-            # Sessions are stateless signed cookies (companion/auth.py has
-            # no server-side revocation store, by design) - logout works
-            # by clearing the *client's* cookie, not by invalidating the
-            # token server-side. A real browser discards the cookie the
-            # instant it sees Max-Age=0, so the faithful way to prove "a
-            # subsequent tab request is refused again" is to present no
-            # cookie at all on the next request, exactly as a browser
-            # would - resending the stale cookie value would prove
-            # nothing (it would still verify, by design).
+            # As of A-33/D-16, resending the stale cookie value after
+            # logout IS refused too - see
+            # _replayed_cookie_after_logout_rejected above, which proves
+            # that directly. This check instead exercises the separate,
+            # always-true case a real browser hits: no cookie presented
+            # at all, because it discarded the cookie the instant it saw
+            # Max-Age=0 on the /logout response.
             status, headers, _ = http_request(base + "/display")
             # 06.6.2-07 (UXA-03): a NAV_TABS route (phase 18: /display),
             # so require_session() carries it as ?next= too — the same
@@ -5219,6 +5795,125 @@ def main():
         check(
             "checking the disconnect box redirects with the disconnected flash key, and the calendar's previously-fetched flights are actually erased from disk (D-04)",
             _calendar_disconnect_reports_deletion_and_erases_entries)
+
+        # ==============================================================
+        # 19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect
+        # action's own dedicated POST /settings/calendar/disconnect
+        # route — a bare/wrong-confirm POST renders the two-step
+        # confirmation page and erases nothing; only confirm=yes
+        # disconnects; the route is session-gated like every other
+        # state-changing route.
+        # ==============================================================
+
+        def _calendar_disconnect_route_bare_post_renders_confirmation_and_touches_nothing():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                url = "https://bare-post.example/feed.ics?token=BAREPOSTTOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, _headers, body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST", data=b"", cookie=session)
+                if status != 200:
+                    return False, "expected a 200 confirmation page for a bare POST, got %d" % status
+                if html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_SENTENCE, quote=True).encode() not in body:
+                    return False, "expected the confirmation copy in the rendered page"
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain connected after a bare POST"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a bare authenticated POST /settings/calendar/disconnect with no confirm field returns 200 "
+            "with the confirmation copy and leaves the calendar connected (D-08/A-26)",
+            _calendar_disconnect_route_bare_post_renders_confirmation_and_touches_nothing)
+
+        def _calendar_disconnect_route_confirm_maybe_renders_confirmation_and_touches_nothing():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                url = "https://confirm-maybe.example/feed.ics?token=MAYBETOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, _headers, body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD: "maybe"}).encode(),
+                    cookie=session)
+                if status != 200:
+                    return False, "expected a 200 confirmation page for confirm=maybe, got %d" % status
+                if html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_SENTENCE, quote=True).encode() not in body:
+                    return False, "expected the confirmation copy in the rendered page"
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain connected after confirm=maybe"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an authenticated POST /settings/calendar/disconnect with confirm=maybe renders the "
+            "confirmation page rather than disconnecting anything (D-08/A-26)",
+            _calendar_disconnect_route_confirm_maybe_renders_confirmation_and_touches_nothing)
+
+        def _calendar_disconnect_route_confirm_yes_disconnects():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                url = "https://confirm-yes.example/feed.ics?token=YESTOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, headers, _body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {
+                            config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD:
+                                config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE,
+                        }).encode(),
+                    cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect for confirm=yes, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=calendar_disconnected" not in location:
+                    return False, "expected the calendar_disconnected flash key, got %r" % location
+                if calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to be disconnected"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an authenticated POST /settings/calendar/disconnect with confirm=yes 303-redirects with the "
+            "disconnected flash key and actually disconnects the calendar (D-08/A-26)",
+            _calendar_disconnect_route_confirm_yes_disconnects)
+
+        def _calendar_disconnect_route_unauthenticated_redirects_to_login():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                url = "https://unauth-disconnect.example/feed.ics?token=UNAUTHTOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, headers, _body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {
+                            config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD:
+                                config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE,
+                        }).encode())
+                if status != 303:
+                    return False, "expected a 303 redirect for an unauthenticated POST, got %d" % status
+                if headers.get("Location") != "/login":
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain connected — nothing should be written"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an unauthenticated POST /settings/calendar/disconnect (even with confirm=yes) redirects to "
+            "/login and writes nothing (D-08/A-26, T-19-41)",
+            _calendar_disconnect_route_unauthenticated_redirects_to_login)
 
         def _calendar_sync_bypasses_the_throttle_via_min_interval_zero():
             """D-06's bypass, proven two ways.

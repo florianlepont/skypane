@@ -112,6 +112,43 @@ Every page module in this package exposes:
           is a long-running `ThreadingHTTPServer`; a companion-side save
           landing mid-request must always be visible on the very next
           request, not just the next poll cycle
+        - screen_id: the persisted `device_config.json` `screen_id` value
+          (added by 19-12-PLAN.md Task 2, D-23), read from the SAME
+          `device_config` dict already loaded above — companion/app.py
+          never calls `device_config.load_device_config()` twice per
+          request for this. May be `None`, an unknown string, or a real
+          `companion.screens.SCREEN_IDS` member; every consumer reaches
+          this value through `companion.screens.current_screen_id(ctx)`,
+          which already membership-tests it and falls back to
+          `DEFAULT_SCREEN_ID` — no second validation is needed at this
+          layer. companion/pages/config_page.py's render()/handle_post()
+          are the two consumers today.
+        - last_checkin_ts: the device's last real check-in, as the raw
+          `device_health.ts` ISO string `history_db.
+          latest_device_health()` returns, or `None` on any failure or
+          when no reading has ever been recorded (added by
+          19-12-PLAN.md Task 3, D-13). Read fresh per request via a
+          fail-soft helper — data only, never formatted here: the
+          two consumers (companion/pages/home_page.py's Home page and
+          companion/pages/config_page.py's Device page) both feed this
+          value through `companion.wake.next_wake_at_iso()` and then
+          `companion.layout.local_clock_text()` themselves, matching
+          `wake.py`'s own deliberate no-view-dependency rule.
+        - edit_mode: a bool, `True` only for an exact `?edit=1` query
+          value (added by 19-08-PLAN.md Task 3, D-22) — computed by
+          companion/app.py's `page_context()` as
+          `params.get(airlines_page.EDIT_QUERY_PARAM, [None])[0] ==
+          "1"`, a strict membership test, never a truthiness check or a
+          substring/case-insensitive match. companion/pages/
+          airlines_page.py's render() is the sole consumer: it decides
+          whether the shared lightbox's artwork-editing affordances
+          (replace/upload/delete) render at all. This is a
+          **presentation-only** flag and must NEVER be treated as
+          authorisation — the POST routes those forms target
+          (`ILLUSTRATION_IMAGE_ROUTE_PREFIX`, `MANUAL_DELETE_ROUTE_
+          PREFIX`) keep their own `require_session()` gate in `do_POST()`
+          regardless of this key's value. Hiding a form changes what is
+          offered to render, not what is permitted to execute.
 
     handle_post(form, ctx) -> str
         Only modules that accept a form (today: config_page) additionally

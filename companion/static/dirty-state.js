@@ -26,16 +26,37 @@
  * 06.6.4.1 (D-03/D-04): the bar's copy now names which settings group(s)
  * changed, using the group labels Settings' own page module assigns via
  * data-dirty-section, instead of a raw field-diff count — see
- * dirtySectionLabels() and updateBar() below. This file
- * deliberately does NOT hide the form's always-rendered bottom Save
- * Settings button: that fix is the .js-gated CSS rule
- * companion/static/style.css landed (.js [data-static-save-fallback]
- * { display: none; }), driven by the .js class nav-dropdown.js already
- * sets unconditionally on <html> — no JavaScript in this file needs to
- * know that button exists. This closes the real bug where the old
- * per-section bars and the bottom button used to show at the same time:
- * previously this file's only DOM mutation was toggling the bar's own
- * hidden property, with no reference to that other button at all.
+ * dirtySectionLabels() and updateBar() below.
+ *
+ * SUPERSEDED by 19-10-PLAN.md (D-09/A-27): this paragraph used to say
+ * hiding the form's always-rendered bottom Save Settings button was NOT
+ * this file's job, because that was instead a .js-gated CSS rule
+ * (.js [data-static-save-fallback] { display: none; }) driven by the
+ * .js class nav-dropdown.js sets unconditionally on <html>. That was the
+ * defect: .js says nothing about whether THIS file ever reached its own
+ * initialisation — any hiccup in dirty-state.js (a thrown exception, a
+ * markup change that broke a querySelector) still left .js set, so the
+ * fallback button hid anyway while the replacement bar never appeared,
+ * leaving no way to save settings at all. The new contract: this file
+ * adds a marker class to <html>, defined below right after the guard
+ * that proves the bar actually exists, and
+ * companion/static/style.css's fallback-hide rule is retargeted to key
+ * on that marker instead of on .js, so the fallback now hides if and
+ * only if a working replacement is actually present.
+ *
+ * 19-10-PLAN.md (D-10/A-28): a beforeunload listener now warns before a
+ * real navigation (Add rule, Delete, Trigger poll, or simply closing the
+ * tab) discards unsaved settings edits. It uses one predicate,
+ * countDifferences() below - the same one the bar itself uses, reused
+ * rather than reimplemented - and is cleared by exactly two legitimate
+ * exits: a real form submit, and the Cancel button.
+ *
+ * 19-10-PLAN.md (D-14/S-04): three Quiet hours preset buttons
+ * (config_page.py's quiet_hours_group()) are also handled here, reading
+ * their data-preset-start/data-preset-end/data-preset-enabled
+ * attributes and writing into the same form's time inputs and enable
+ * checkbox, then reusing notifyDirty()/updateBar() to mark the form
+ * dirty - never a synthetic change event.
  */
 (function () {
   "use strict";
@@ -48,9 +69,68 @@
   var bar = document.querySelector("[data-dirty-bar]");
   var countEl = document.querySelector("[data-dirty-count]");
   var cancelBtn = document.querySelector("[data-dirty-cancel]");
+
+  // D-14/S-04: Quiet hours presets. Fills the two time inputs and the
+  // enable checkbox client-side, then marks the form dirty through
+  // notifyDirty() below. Placed here, BEFORE the [data-dirty-bar]/
+  // [data-dirty-count] guard immediately below, so the presets keep
+  // working even on a page whose save bar failed to initialise - that
+  // is the whole point of D-09. This script is served to every page on
+  // the site; most pages render no [data-quiet-preset] buttons at all,
+  // so the early return inside the nested function below is load-
+  // bearing, matching this file's own top guard.
+  (function () {
+    var buttons = document.querySelectorAll("[data-quiet-preset]");
+    if (!buttons.length) {
+      return;
+    }
+    var i;
+    for (i = 0; i < buttons.length; i++) {
+      attachPresetClickHandler(buttons[i]);
+    }
+  })();
+
+  function attachPresetClickHandler(button) {
+    button.addEventListener("click", function () {
+      var start = button.getAttribute("data-preset-start");
+      var end = button.getAttribute("data-preset-end");
+      var enabledAttr = button.getAttribute("data-preset-enabled");
+      if (start !== null && form.elements["quiet_hours_start"]) {
+        form.elements["quiet_hours_start"].value = start;
+      }
+      if (end !== null && form.elements["quiet_hours_end"]) {
+        form.elements["quiet_hours_end"].value = end;
+      }
+      if (enabledAttr !== null && form.elements["quiet_hours_enabled"]) {
+        form.elements["quiet_hours_enabled"].checked = enabledAttr !== "0";
+      }
+      notifyDirty();
+    });
+  }
+
+  // Reuses updateBar()/countDifferences() below rather than dispatching
+  // a synthetic change event - constructing one in an ES5-safe way is
+  // awkward and unnecessary when the handler that needs to react lives
+  // in this very same file. Only calls updateBar() once the bar itself
+  // is confirmed present, so a missing bar degrades to "the fields
+  // still fill in, there is just no dirty count to show" rather than
+  // throwing.
+  function notifyDirty() {
+    if (bar && countEl) {
+      updateBar();
+    }
+  }
+
   if (!bar || !countEl) {
     return;
   }
+
+  // D-09/A-27: the bar is now proven present — set the marker
+  // style.css's fallback-hide rule keys on. Mirrors nav-dropdown.js's
+  // own unconditional document.documentElement.className += " js"
+  // (its very first statement) rather than classList, matching this
+  // codebase's existing convention for writing a class onto <html>.
+  document.documentElement.className += " dirty-ready";
 
   // Snapshot every named field's value at load time. form.elements is a
   // live HTMLFormControlsCollection — re-scanned on every change/input
@@ -169,13 +249,49 @@
     countEl.textContent = head + ", and " + labels[labels.length - 1] + " changed";
   }
 
+  var suppressGuard = false;
+
   form.addEventListener("change", updateBar);
   form.addEventListener("input", updateBar);
+
+  // D-10/A-28: warn before a real navigation discards unsaved edits.
+  // Keyed on countDifferences() - the exact same predicate the bar
+  // itself uses, reused rather than reimplemented, so the two can never
+  // disagree about whether the form is actually dirty. Both
+  // evt.preventDefault() and setting evt.returnValue are needed for
+  // cross-browser coverage; the browser supplies its own confirmation
+  // copy in every modern browser, so never try to set a custom message.
+  window.addEventListener("beforeunload", function (evt) {
+    if (suppressGuard) {
+      return;
+    }
+    if (countDifferences() > 0) {
+      evt.preventDefault();
+      evt.returnValue = "";
+    }
+  });
+
+  // Clears the guard on the one legitimate submit path. The bar's own
+  // Save button renders OUTSIDE this form and submits it natively via
+  // its form="{SETTINGS_FORM_ID}" attribute (see config_page.py's
+  // dirty_bar_html, quick task 260901-re6) - so this single submit
+  // listener covers BOTH the in-form bottom Save button and the bar's
+  // out-of-form Save button. Do not add a second click handler on the
+  // bar's Save button for this; there is nothing to hook, it is a plain
+  // native submit.
+  form.addEventListener("submit", function () {
+    suppressGuard = true;
+  });
 
   if (cancelBtn) {
     cancelBtn.addEventListener("click", function () {
       form.reset();
       bar.hidden = true;
+      // form.reset() above already restores the load-time snapshot
+      // values, so countDifferences() would already report 0 - this is
+      // belt-and-braces against a browser whose reset() timing races
+      // the unload event, not the primary mechanism.
+      suppressGuard = true;
     });
   }
 

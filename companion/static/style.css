@@ -348,6 +348,22 @@ body {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* D-07 (19-07-PLAN.md, A-25): the field-level message a rejected
+ * Settings save renders directly under the offending control.
+ * Deliberately COMPOSES with .text-label the same way .section-caption
+ * above does — the markup always carries both classes together
+ * (`class="field-error text-label"`), so this rule adds only colour
+ * plus a small top margin, reusing the existing --color-status-error
+ * token (both themes already declare it) and the existing --space-xs
+ * token — no new custom property, no new colour literal. The top
+ * margin (rather than .section-caption's own no-margin decision) is
+ * what makes the message read as attached to the control immediately
+ * above it instead of colliding with the next sibling's own spacing. */
+.field-error {
+  color: var(--color-status-error);
+  margin: var(--space-xs) 0 0;
+}
+
 /* quick task 260901-tsa (finding B): pairs a section heading with an
  * inline, baseline-aligned muted description — Health's Screen/Server &
  * data headings. Declares NO margin of its own, deliberately: the <h2>
@@ -689,19 +705,25 @@ a:hover {
   }
 }
 
-/* Unified save bar (06.6.4.1 D-04): hides the form's always-rendered
- * bottom Save settings button once client-side script has proven it is
- * running, so the dirty-state bar (JS-only) is the sole visible save
- * affordance rather than both showing at once. `.js` is added to
- * <html> unconditionally as `nav-dropdown.js`'s very first statement on
- * every authenticated page — the same mechanism the `.js .mobile-nav`
- * rules above rely on — so this rule applies if and only if JS actually
- * ran; without JS the class never appears, this rule never matches, and
- * the bottom button remains the only way to save (D-06 graceful
- * degradation). Closes the bug where dirty-state.js's only DOM mutation
- * is toggling the bar's `hidden` property — it never had any reference
- * to this fallback button, so both used to render simultaneously. */
-.js [data-static-save-fallback] {
+/* Unified save bar (06.6.4.1 D-04, retargeted by 19-10-PLAN.md D-09/
+ * A-27): hides the form's always-rendered bottom Save settings button
+ * once dirty-state.js has PROVEN its own replacement bar exists, so the
+ * dirty-state bar is the sole visible save affordance rather than both
+ * showing at once. This used to key on `.js` — added to <html>
+ * unconditionally as `nav-dropdown.js`'s very first statement (the same
+ * mechanism the `.js .mobile-nav` rules above still rely on) — but `.js`
+ * says nothing about whether dirty-state.js itself succeeded, so any
+ * failure in that other, unrelated file left this fallback button
+ * hidden with no working replacement: no way to save settings at all
+ * (A-27). `.dirty-ready` is instead added by dirty-state.js itself, only
+ * once it has confirmed `[data-dirty-bar]` and `[data-dirty-count]` both
+ * exist — see that file's own header comment — so this rule now applies
+ * if and only if a working replacement bar is actually present. Without
+ * JS, or if dirty-state.js's own guard fails, `.dirty-ready` never
+ * appears, this rule never matches, and the bottom button remains the
+ * only way to save (D-06 graceful degradation, now also the D-09 no-
+ * way-to-save fix). */
+.dirty-ready [data-static-save-fallback] {
   display: none;
 }
 
@@ -1638,6 +1660,36 @@ button:hover {
  * rules already sit later in the file, verified rather than assumed). */
 .copy-btn:hover {
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+/* A-37/D-20: the "Copied" label rendered beside the icon on a
+ * successful copy. Hidden at rest — .copy-btn's box stays exactly
+ * 22x22px, icon-only, unchanged from before this pair of rules existed. */
+.copy-btn__label {
+  display: none;
+}
+
+/* Positioned to overflow .copy-btn's own fixed-size box (via its
+ * existing `position: relative`) rather than growing it: the button
+ * must keep its 22x22px footprint so the ::before 44x44 hit area and
+ * the table's column widths never shift for the ~1.5s a confirmation
+ * is visible. Colour and label-voice values (12px/semibold/uppercase/
+ * 0.06em, this file's existing label-voice register — see
+ * .theme-direction-label above) are reused verbatim; --color-status-ok
+ * is the existing token, no new custom property, no accent use. */
+.copy-btn--copied .copy-btn__label {
+  display: inline;
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: var(--space-xs);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-status-ok);
 }
 
 /* Disabled/cooldown state (CFG-07/D-17): reduced opacity, not-allowed

@@ -5,15 +5,14 @@
 separate process, its own systemd unit — it never touches that vendored
 device-protocol server).
 
-Whole-site auth gate (D-02): every route except the login routes, the
-stylesheet, and the theme-toggle POST calls `Handler.require_session()`
-as its first statement and returns immediately when the session is
-invalid — this file is the single place that gate is enforced, not each
-page module. This same exemption list also decides the caching scope on
-byte-served responses (`Handler.send_bytes()`'s `public` parameter): a
-route not in this list must never be advertised to a shared/intermediary
-cache as storable, so the two lists are not allowed to silently drift
-apart.
+Whole-site auth gate (D-02): every route except the login routes and the
+stylesheet calls `Handler.require_session()` as its first statement and
+returns immediately when the session is invalid — this file is the
+single place that gate is enforced, not each page module. This same
+exemption list also decides the caching scope on byte-served responses
+(`Handler.send_bytes()`'s `public` parameter): a route not in this list
+must never be advertised to a shared/intermediary cache as storable, so
+the two lists are not allowed to silently drift apart.
 
 This service binds all interfaces (0.0.0.0), exactly like
 `stub-server/byos_server.py` already does in production — loopback
@@ -36,6 +35,7 @@ service must never come up with authentication silently disabled.
 import email.message
 import os
 import socket
+import sqlite3
 import sys
 import threading
 import time
@@ -57,7 +57,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from companion import auth, illustration_normalize, layout, theme_preview  # noqa: E402
+from companion import auth, illustration_normalize, layout, theme_preview, wake  # noqa: E402
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
@@ -97,6 +97,39 @@ MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
 # shaped DoS reachable before any credential check. 30s comfortably covers
 # a slow real client on this LAN/VPN deployment while bounding the worst case.
 REQUEST_SOCKET_TIMEOUT_S = 30
+
+# 19-04-PLAN.md (D-18/A-35, T-19-06/T-19-17/T-19-18/T-19-19): the
+# orchestrator-amended Content-Security-Policy sent on every response
+# (see _send_hardening_headers() below). This is an authenticated admin
+# panel reachable from the public internet with no CSP at all before
+# this plan.
+#   script-src 'self'  — deliberately no 'unsafe-inline' and no nonce.
+#     This is where the real XSS risk lives, and Task 1 of this plan
+#     (19-04-PLAN.md) removed the app's last two inline <script>
+#     elements (companion/pages/config_page.py's poll_trigger_section(),
+#     externalized to companion/static/poll-cooldown.js), so nothing
+#     needs an exception here.
+#   style-src 'self' 'unsafe-inline'  — solely for the seven
+#     style="background:..." theme-swatch attributes in
+#     companion/pages/config_page.py's _theme_chip_grid_html() and its
+#     single-theme/calendar-section siblings. Every one of those values
+#     comes from the fixed 18-member server/device_config.py THEMES
+#     registry and is never user input, so this allowance carries no
+#     injection path; a class-per-theme CSS refactor was rejected
+#     because it would churn dozens of pinned render checks for no
+#     security gain.
+#   img-src 'self' data:  — the `data:` value is needed for the inline
+#     favicon/icon data URI companion/layout.py already emits.
+#   form-action 'self'  — every <form> on the site posts back to this
+#     same origin; complements the existing SameSite=Strict session
+#     cookie against cross-origin form posting.
+#   frame-ancestors 'none'  — the modern companion to the existing
+#     X-Frame-Options: DENY below, which is kept for older browsers.
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; img-src 'self' data:; "
+    "style-src 'self' 'unsafe-inline'; script-src 'self'; "
+    "form-action 'self'; frame-ancestors 'none'"
+)
 # D-07 (11-04): the same environment variable deploy/skypane-byos.service
 # passes to byos_server.py as --sleep. It reaches this process because
 # deploy/skypane-companion.service declares the identical
@@ -133,6 +166,14 @@ PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
 # FLASH_CLEANUP_SCRIPT_SRC must equal this exactly, mirroring the
 # SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
 FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
+# 19-04-PLAN.md (D-18/A-35): companion/layout.py's
+# POLL_COOLDOWN_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
+POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
+# 19-11-PLAN.md Task 2 (D-08/A-26): companion/layout.py's
+# CONFIRM_SUBMIT_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the ninth static script.
+CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -189,6 +230,11 @@ THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
 RULES_ADD_ROUTE = config_page.RULES_ADD_ROUTE
 RULES_DELETE_ROUTE_PREFIX = config_page.RULES_DELETE_ROUTE_PREFIX
 RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
+# 19-11-PLAN.md Task 1 (D-08/A-26): single definition site is companion/
+# pages/config_page.py, rebound here exactly like RULES_ADD_ROUTE above
+# rather than retyped as a literal (app.py imports that module, so the
+# reverse import would be a cycle).
+CALENDAR_DISCONNECT_ROUTE = config_page.CALENDAR_DISCONNECT_ROUTE
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -466,6 +512,8 @@ _COPY_BUTTON_JS_PATH = os.path.join(_HERE, "static", "copy-button.js")
 _FRESHNESS_JS_PATH = os.path.join(_HERE, "static", "freshness.js")
 _PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
 _FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
+_POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
+_CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -610,10 +658,22 @@ def poll_cooldown_remaining(state_dir):
 def env_wake_interval_default():
     """Return the deployed SKYPANE_SLEEP_S as an int, or None.
 
-    Read via `os.environ.get(SLEEP_ENV_VAR)` on every call — never
-    captured at import time — so a redeployed env file takes effect on
-    the next service restart with nothing cached in between, matching
-    `auth.configured_password()`'s own per-call shape.
+    19-12-PLAN.md Task 3 (D-13): the raw read now delegates to
+    `wake.env_sleep_s()` — the SAME per-call, uncached
+    `os.environ.get(SLEEP_ENV_VAR)` read that function already
+    performs — so there is exactly ONE place in this codebase that
+    reads `SKYPANE_SLEEP_S`. The `[device_config.WAKE_INTERVAL_MIN_S,
+    device_config.WAKE_INTERVAL_MAX_S]` clamp below deliberately stays
+    HERE rather than moving into `wake.env_sleep_s()`: that clamp exists
+    solely so this function's result can be rendered as a `value`
+    attribute on a Settings form's `min="60"` numeric input without
+    failing HTML5 constraint validation — a UI-rendering constraint that
+    does not apply to `wake.effective_wake_interval_s()`'s threshold
+    arithmetic, which must read the shipped `SKYPANE_SLEEP_S=30` (below
+    that same 60s floor) as the device's real, unclamped cadence. Never
+    captured at import time — matching `auth.configured_password()`'s
+    own per-call shape, so a redeployed env file takes effect on the
+    next service restart with nothing cached in between.
 
     Contract difference from `configured_password()`: that function is
     fail-closed and raises `AuthNotConfigured` when its variable is
@@ -633,14 +693,33 @@ def env_wake_interval_default():
     deployed value the form cannot represent is the placeholder, not a
     number the user cannot save. Never raises.
     """
-    raw = os.environ.get(SLEEP_ENV_VAR)
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
+    value = wake.env_sleep_s()
+    if value is None:
         return None
     if device_config.WAKE_INTERVAL_MIN_S <= value <= device_config.WAKE_INTERVAL_MAX_S:
         return value
     return None
+
+
+def _safe_last_checkin_ts(state_dir):
+    """The device's last real check-in, as the raw `device_health.ts`
+    string `history_db.latest_device_health()` returns, or `None` on
+    ANY failure — a missing/locked/unreadable database, or simply no
+    reading recorded yet (19-12-PLAN.md Task 3, D-13). Modelled on
+    `companion.pages.health_page._safe_query()`'s own narrow
+    `(sqlite3.Error, OSError)` catch, the established shape for "one
+    section's data access must never fault the whole page render" in
+    this codebase; `companion/app.py` has no sibling of its own to
+    reuse because none of `page_context()`'s existing SQLite reads
+    (`poll_cooldown_remaining()`, `mark_poll_triggered()`) run inside a
+    try/except of their own.
+    """
+    try:
+        with history_db.open_db(state_dir) as conn:
+            row = history_db.latest_device_health(conn)
+    except (sqlite3.Error, OSError):
+        return None
+    return row["ts"] if row else None
 
 
 def mark_poll_triggered(state_dir):
@@ -861,10 +940,16 @@ class Handler(BaseHTTPRequestHandler):
         authenticated page can be framed by a third-party site for
         clickjacking, and with no X-Content-Type-Options a MIME-sniffing
         quirk is one upstream misconfiguration away from an XSS vector.
+
+        19-04-PLAN.md (D-18/A-35): the fourth header, Content-Security-
+        Policy, completes that stated intent — see
+        CONTENT_SECURITY_POLICY's own module-level comment for the
+        directive-by-directive rationale.
         """
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
 
     def send_html(self, code, html_str):
         body = html_str.encode("utf-8")
@@ -904,18 +989,27 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def redirect(self, location, set_cookie=None):
+        # 19-04-PLAN.md (D-18/A-35, T-19-05): a 303 used to send none of
+        # send_html()'s/send_bytes()'s headers; Cache-Control: no-store
+        # matters here because a 303 can carry a Set-Cookie.
         self.send_response(303)
         self.send_header("Location", location)
         if set_cookie:
             self.send_header("Set-Cookie", set_cookie)
         self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self._send_hardening_headers()
         self.end_headers()
 
     # --- auth ----------------------------------------------------------
 
     def _is_authenticated(self):
+        # A-33/D-16: this is the ONLY place the revocation check runs —
+        # every one of the 9+ require_session() call sites below goes
+        # through this single predicate, never duplicated per route.
         cookies = auth.parse_cookies(self.headers.get("Cookie"))
-        return auth.verify_session_token(cookies.get(auth.SESSION_COOKIE_NAME))
+        token = cookies.get(auth.SESSION_COOKIE_NAME)
+        return bool(token) and auth.verify_session_token(token) and not auth.is_revoked(token)
 
     def require_session(self):
         if self._is_authenticated():
@@ -1040,10 +1134,30 @@ class Handler(BaseHTTPRequestHandler):
         # exact same DB-read snapshot instead of re-deriving it from a
         # second, non-atomic set of reads when the user is on /health.
         health_state = health_page.safe_health_state(state_dir, now)
+        # 19-12-PLAN.md Task 2 (D-23): loaded ONCE per request and reused
+        # for both the "device_config" and "screen_id" ctx keys below,
+        # rather than calling load_device_config() a second time —
+        # screens.current_screen_id(ctx) already membership-tests this
+        # value and falls back to DEFAULT_SCREEN_ID, so no second
+        # validation is needed at this layer.
+        device_cfg = device_config.load_device_config(state_dir)
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
-            "device_config": device_config.load_device_config(state_dir),
+            "device_config": device_cfg,
+            # 19-12-PLAN.md Task 2 (D-23): the persisted screen_id, read
+            # from the SAME device_config dict already loaded above —
+            # config_page.py's render()/handle_post() consume this via
+            # companion.screens.current_screen_id(ctx), which already
+            # falls back to DEFAULT_SCREEN_ID for a missing/unknown value.
+            "screen_id": device_cfg.get("screen_id"),
+            # 19-12-PLAN.md Task 3 (D-13): the raw ISO string of the
+            # device's last check-in, or None on any failure or absence
+            # (_safe_last_checkin_ts()'s own fail-soft contract above).
+            # Data only — the page module that renders it formats it
+            # (wake.next_wake_at_iso() + layout.local_clock_text()),
+            # matching wake.py's own deliberate no-view-dependency rule.
+            "last_checkin_ts": _safe_last_checkin_ts(state_dir),
             # D-07 (11-04): the deployed SKYPANE_SLEEP_S, read fresh from
             # this process's own environment on every request — an int in
             # [WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S] or None. An
@@ -1103,6 +1217,18 @@ class Handler(BaseHTTPRequestHandler):
             # of this phase's threat posture.
             "resolve_prefix": params.get(
                 airlines_page.RESOLVE_QUERY_PARAM, [None])[0],
+            # 19-08-PLAN.md Task 3 (D-22, T-19-30/T-19-31): an exact
+            # membership test against "1", nothing else — the same
+            # discipline layout.ui_theme_from_cookie()/submitted_scope()
+            # already apply to a query/cookie value before trusting it.
+            # Presentation-only: this decides whether airlines_page's
+            # artwork-editing forms (replace/upload/delete) RENDER, and
+            # is NEVER consulted by any POST handler — those routes keep
+            # their own require_session() gate regardless of this flag.
+            # See companion/pages/__init__.py's ctx contract for the
+            # full boundary statement.
+            "edit_mode": params.get(
+                airlines_page.EDIT_QUERY_PARAM, [None])[0] == "1",
             # Read fresh per request, exactly like device_config.load_
             # device_config(state_dir) above — never the process-scoped
             # cache set_manual_registry_state_dir()/airline_name_for_
@@ -1254,10 +1380,10 @@ class Handler(BaseHTTPRequestHandler):
                 payload = fh.read()
         except OSError:
             return self.send_html(404, self._not_found_page())
-        # One of the three D-02 gate exemptions named in this module's
-        # docstring (login routes, stylesheet, theme-toggle POST): no
-        # per-user content, identical for every client, so it is
-        # legitimately shared-cacheable.
+        # One of the two D-02 gate exemptions named in this module's
+        # docstring (login routes, stylesheet): no per-user content,
+        # identical for every client, so it is legitimately
+        # shared-cacheable.
         return self.send_bytes(200, "text/css", payload, cache_seconds=300, public=True)
 
     def _serve_script_file(self, abs_path):
@@ -1346,6 +1472,22 @@ class Handler(BaseHTTPRequestHandler):
         260903-peo, UIR-19).
         """
         return self._serve_script_file(_FLASH_CLEANUP_JS_PATH)
+
+    def _serve_poll_cooldown_script(self):
+        """Serve companion/static/poll-cooldown.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_flash_cleanup_script()'s shape exactly (19-04-PLAN.md,
+        D-18/A-35).
+        """
+        return self._serve_script_file(_POLL_COOLDOWN_JS_PATH)
+
+    def _serve_confirm_submit_script(self):
+        """Serve companion/static/confirm-submit.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_poll_cooldown_script()'s shape exactly (19-11-PLAN.md
+        Task 2, D-08/A-26).
+        """
+        return self._serve_script_file(_CONFIRM_SUBMIT_JS_PATH)
 
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
@@ -1841,6 +1983,62 @@ class Handler(BaseHTTPRequestHandler):
                 "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
         return self.redirect(DEVICE_ROUTE)
 
+    def _handle_calendar_disconnect_post(self):
+        """POST /settings/calendar/disconnect (19-11-PLAN.md Task 1,
+        D-08/A-26): the calendar disconnect action's own dedicated,
+        session-gated route — a sibling of `_handle_rule_add_post()`/
+        `_handle_rule_delete()` above, following their identical
+        gate-then-dispatch shape in `do_POST()` (`require_session()` is
+        checked there, before this method is ever called).
+
+        Two-step confirmation, server-side: a bare POST, or one carrying
+        any confirm value other than
+        `config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE`, renders
+        `config_page.calendar_disconnect_confirm_page(ctx)` directly at
+        200 and returns WITHOUT touching anything — the native
+        `confirm()` `companion/static/confirm-submit.js` shows (Task 2)
+        is a misclick guard only, never the security control; this
+        branch is what holds against a hand-crafted request or a
+        no-JS/CSP-blocked browser. Only an EXACT match on the accepted
+        confirm value proceeds to call
+        `calendar_rules.save_calendar_url(state_dir, calendar_rules.
+        CLEAR_CALENDAR_URL)` — the single existing disconnect writer
+        (`server/plane/calendar_rules.py`), never a reimplementation.
+        That writer's own identity-only sentinel comparison is what
+        takes the "clear" path rather than the ordinary "set a URL"
+        path.
+
+        The writer's boolean result is branched on explicitly, matching
+        `_handle_rule_add_post()`'s own never-a-dict-lookup discipline:
+        success redirects to the Device page with the existing
+        `FLASH_KEY_CALENDAR_DISCONNECTED` key (already used by the
+        retired in-form path, unchanged copy); failure redirects with
+        the existing generic `FLASH_KEY_CALENDAR_SYNC_FAILED` key rather
+        than inventing a second failure message for what is, from the
+        operator's point of view, the same "couldn't touch the
+        calendar's stored state" failure.
+
+        This route never calls `config_page.submitted_calendar_signal()`:
+        that resolver exists to interpret a `calendar_url`/
+        `calendar_disconnect` PAIR submitted alongside the rest of the
+        settings form, and this route's only possible meaning is
+        "disconnect" once its own confirm gate passes (see that
+        resolver's own docstring for the decision record).
+        """
+        form = self.read_form()
+        confirm = form.get(config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD)
+        if confirm != config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE:
+            ctx = self.page_context()
+            body = config_page.calendar_disconnect_confirm_page(ctx)
+            return self.send_html(200, self._page_shell_for(DEVICE_ROUTE, body, ctx))
+        state_dir = self.args.state_dir
+        if calendar_rules.save_calendar_url(
+                state_dir, calendar_rules.CLEAR_CALENDAR_URL):
+            return self.redirect(
+                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
+        return self.redirect(
+            "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
         try:
@@ -1849,6 +2047,28 @@ class Handler(BaseHTTPRequestHandler):
             path = ""
         allowed = {route for route, _ in layout.NAV_TABS}
         return path if path in allowed else HOME_ROUTE
+
+    def _page_shell_for(self, route, body, ctx):
+        """The `layout.page_shell()` assembly `_render_tab()` below needs
+        on every GET, and `_handle_settings_post()`'s D-07 rejected-save
+        branch (19-07-PLAN.md Task 3) also needs on a POST — factored out
+        here so the failure branch, which already has its own `ctx` and
+        already built its own `body` via a direct `config_page.render()`
+        call, reuses this shell assembly instead of a second literal
+        `page_shell()` call site. `_render_tab()` itself cannot be reused
+        directly for that branch: it unconditionally re-checks
+        `require_session()` (already checked once in `do_POST()` before
+        dispatch) and always calls `render(ctx)` itself with no way to
+        pass through an already-rendered body carrying `errors`/
+        `submitted`.
+        """
+        flash_html = (
+            layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+            if ctx["flash"] else None)
+        return layout.page_shell(
+            title=_PAGE_TITLES[route], active=layout.nav_slug(route), body=body,
+            ui_theme=ctx["ui_theme"], flash=flash_html,
+            health_alert=ctx["health_severity"])
 
     def _render_tab(self, route, render):
         """Render one authenticated tab: `render(ctx) -> body markup`
@@ -1861,14 +2081,7 @@ class Handler(BaseHTTPRequestHandler):
             return None
         ctx = self.page_context()
         body = render(ctx)
-        flash_html = (
-            layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
-            if ctx["flash"] else None)
-        html_doc = layout.page_shell(
-            title=_PAGE_TITLES[route], active=layout.nav_slug(route), body=body,
-            ui_theme=ctx["ui_theme"], flash=flash_html,
-            health_alert=ctx["health_severity"])
-        return self.send_html(200, html_doc)
+        return self.send_html(200, self._page_shell_for(route, body, ctx))
 
     # --- GET -------------------------------------------------------------
 
@@ -1922,6 +2135,12 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == FLASH_CLEANUP_SCRIPT_ROUTE:
             return self._serve_flash_cleanup_script()
+
+        if path == POLL_COOLDOWN_SCRIPT_ROUTE:
+            return self._serve_poll_cooldown_script()
+
+        if path == CONFIRM_SUBMIT_SCRIPT_ROUTE:
+            return self._serve_confirm_submit_script()
 
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:
@@ -2030,13 +2249,33 @@ class Handler(BaseHTTPRequestHandler):
 
         Body, in order:
 
-        1. `config_page.handle_post()` — every existing field validation
-           and the device-config/secret-file writes, completely
-           unchanged from before this plan.
-        2. Any non-`FLASH_KEY_SAVED` result is a rejection the page
-           module already decided; redirect with it and stop. No fetch
-           is ever attempted on a rejected save.
-        3. `config_page.submitted_calendar_signal()` — the SAME resolver
+        1. `config_page.handle_post()`, now called with an `errors={}`
+           keyword — every existing field validation and the
+           device-config/secret-file writes, completely unchanged from
+           before this plan, now also filling that dict in place on any
+           rejection.
+        2. (19-07-PLAN.md Task 3, D-07/A-25) When `errors` came back
+           non-empty, render the SAME scoped page directly at 200 with
+           the user's own submission still in the fields and each
+           offending control's own message — mirroring
+           `_handle_login_post()`'s own 200-on-failure-render precedent
+           (`_render_login_page()`/`self.send_html(401, ...)` above),
+           the only other place in this codebase that renders instead of
+           redirecting on a rejected form. Deliberately no flash banner
+           on this branch: the whole point of D-07 is that the message
+           lives at the field, and a duplicate top-of-page banner would
+           restate it. 200, not 422: D-07's own text says "renders the
+           page directly (200) on validation failure", and unlike
+           `_handle_login_post()`'s 401 (which carries real auth
+           meaning), this rejection carries none — a 200 also keeps the
+           browser's back/forward history sane for a form the user is
+           still actively editing.
+        3. Any OTHER non-`FLASH_KEY_SAVED` result — a failure path that
+           somehow produced no field error — falls through to the
+           pre-existing redirect-with-flash behaviour, unchanged, so no
+           rejection can ever fall through silently. No fetch is ever
+           attempted on a rejected save, by either branch.
+        4. `config_page.submitted_calendar_signal()` — the SAME resolver
            `handle_post()` itself just consulted, called again here
            (never re-derived) so persistence and this sync decision can
            never disagree about what the submission meant. `carry_
@@ -2046,10 +2285,10 @@ class Handler(BaseHTTPRequestHandler):
            branch is byte-identical in observable behaviour to before
            this plan, because it is the branch every settings save that
            touches no calendar field takes.
-        4. `clear` — no fetch: there is nothing to fetch, and the erase
+        5. `clear` — no fetch: there is nothing to fetch, and the erase
            already happened inside `handle_post()`'s own call to
            `calendar_rules.save_calendar_url()`.
-        5. `set` — D-09: acquire `_POLL_LOCK`, the SAME lock `_handle_
+        6. `set` — D-09: acquire `_POLL_LOCK`, the SAME lock `_handle_
            poll_now()` uses, with the same non-blocking acquire, rather
            than a second lock. Corrected 2026-09-10 (CR-01/IN-01, Phase
            17 review): this bullet previously claimed `_POLL_LOCK`
@@ -2074,7 +2313,7 @@ class Handler(BaseHTTPRequestHandler):
            contention with another *companion* request, the deferred
            key is the honest answer that the save landed and the sync
            did not run in this request.
-        6. Inside the lock: `calendar_rules.refresh_calendar_registry()`
+        7. Inside the lock: `calendar_rules.refresh_calendar_registry()`
            directly — never `poll_loop.run_once()`, which would run a
            full detection/render cycle this save has no need for — with
            `min_interval_s=0`. Zero, not omitted: omitting it resolves
@@ -2115,9 +2354,27 @@ class Handler(BaseHTTPRequestHandler):
         state_dir = self.args.state_dir
         form = self.read_form()
         ctx = self.page_context()
-        flash_key = config_page.handle_post(form, ctx)
+        errors = {}
+        flash_key = config_page.handle_post(form, ctx, errors=errors)
         # Phase 18: land back on the scoped page the form came from.
         back = config_page.submitted_return_route(form)
+        # 19-07-PLAN.md Task 3 (D-07/A-25): a rejected save with at least
+        # one field-level error re-renders the SAME scoped page directly
+        # at 200, carrying the user's own submission and each control's
+        # own message — never a redirect. See this method's own
+        # docstring bullet 2 for the full reasoning (the 401-vs-200
+        # distinction from _handle_login_post(), and why no flash banner
+        # is set here).
+        if errors:
+            scope = config_page.submitted_scope(form)
+            body = config_page.render(ctx, scope=scope, errors=errors, submitted=form)
+            return self.send_html(200, self._page_shell_for(back, body, ctx))
+        # Fallback for any failure path that somehow produced no field
+        # error (there is none today — every FLASH_SAVE_FAILED return in
+        # config_page.handle_post() now notes one — but this branch stays
+        # so a future gate that forgets to call _note_error() still
+        # rejects visibly instead of falling through to the success path
+        # below).
         if flash_key != FLASH_KEY_SAVED:
             return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
@@ -2162,26 +2419,33 @@ class Handler(BaseHTTPRequestHandler):
             state_dir = self.args.state_dir
             remaining = poll_cooldown_remaining(state_dir)
             if remaining > 0:
-                return self.redirect(
-                    "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_COOLDOWN)))
-            try:
-                # Pattern 3 (06-RESEARCH.md): the exact production code
-                # path the systemd timer already runs, in-process — never
-                # a second process and never a re-parsed subprocess
-                # result.
-                poll_loop.run_once(state_dir=state_dir, geofence=self.args.geofence)
-            except Exception:
-                return self.redirect(
-                    "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_FAILED)))
-            mark_poll_triggered(state_dir)
-            return self.redirect(
-                "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_TRIGGERED)))
+                flash = FLASH_KEY_POLL_COOLDOWN
+            else:
+                try:
+                    # Pattern 3 (06-RESEARCH.md): the exact production
+                    # code path the systemd timer already runs,
+                    # in-process — never a second process and never a
+                    # re-parsed subprocess result.
+                    poll_loop.run_once(
+                        state_dir=state_dir, geofence=self.args.geofence)
+                except Exception:
+                    flash = FLASH_KEY_POLL_FAILED
+                else:
+                    mark_poll_triggered(state_dir)
+                    flash = FLASH_KEY_POLL_TRIGGERED
         finally:
             # Always released — including on the except Exception: branch
             # above, which must stay inside this try so a failed poll
             # still releases the guard for the next attempt (never a
             # permanently wedged trigger, T-06.6.2-05).
             _POLL_LOCK.release()
+        # The redirect is written only AFTER the lock is released: writing
+        # it from inside the try left a window in which a client that
+        # acted on the 303 immediately (the cooldown harness check, or a
+        # double-tap on Refresh now) could reach the non-blocking acquire
+        # above before this thread's finally ran, and be told "already
+        # running" instead of the cooldown it had actually earned.
+        return self.redirect("%s?flash=%s" % (back, quote(flash)))
 
     def _handle_quick_toggle(self, field):
         """Phase 18: the Home page's one-tap switches — POST /quick/display
@@ -2217,9 +2481,12 @@ class Handler(BaseHTTPRequestHandler):
         submitted = form.get("ui_theme")
         cookie_header = None
         if submitted in layout.UI_THEME_CHOICES:
+            # A-34/D-17: routed through auth.secure_cookie_flag() so this
+            # cookie and the session cookie cannot drift on the Secure flag.
             cookie_header = (
-                "%s=%s; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=%d"
-                % (auth.UI_THEME_COOKIE_NAME, submitted, THEME_COOKIE_MAX_AGE_S))
+                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
+                % (auth.UI_THEME_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
+                   THEME_COOKIE_MAX_AGE_S))
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
     def do_POST(self):
@@ -2249,10 +2516,30 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             return self._handle_quick_toggle("quiet_hours_enabled")
 
+        # 19-04-PLAN.md (D-18/A-35, T-19-04): gated like every other
+        # state-changing route above — an unauthenticated caller setting
+        # another visitor's UI theme cookie is a real state change, not
+        # a cosmetic no-op.
         if path == THEME_ROUTE:
+            if not self.require_session():
+                return None
             return self._handle_theme_post()
 
+        # 19-04-PLAN.md (D-18/A-35, T-19-04): gated too, even though an
+        # unauthenticated POST /logout looks harmless at first glance —
+        # it is a CSRF-shaped forced-sign-out of whoever holds the
+        # session, and gating it costs a signed-out caller nothing since
+        # they are already signed out. A-33/D-16 (plan 19-02): also
+        # revokes the presented token server-side before clearing the
+        # client's cookie, so replaying the same cookie value after Sign
+        # out no longer verifies.
         if path == LOGOUT_ROUTE:
+            if not self.require_session():
+                return None
+            token = auth.parse_cookies(
+                self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
+            if token:
+                auth.revoke(token)
             return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
 
         # Phase 13 plan 13-06: Step A of the two-step resolve flow (D-03,
@@ -2294,6 +2581,14 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._handle_rule_add_post()
+
+        # 19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect
+        # action's own dedicated route, gated identically to every other
+        # state-changing route above.
+        if path == CALENDAR_DISCONNECT_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_calendar_disconnect_post()
 
         # Mirrors the manual-resolution delete branch's own startswith/
         # endswith shape above, with the one extra step this route's

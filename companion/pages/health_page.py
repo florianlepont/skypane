@@ -53,7 +53,16 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from companion.layout import escape_html
+import companion.battery as battery
 import companion.layout as layout
+import companion.wake as wake  # D-05/A-23, 19-05-PLAN.md Task 3: the
+# shared effective-wake-interval resolver and the derived device-
+# staleness thresholds, replacing this module's own retired
+# STALE_DEVICE_WARN_S/STALE_DEVICE_ERROR_S constants.
+from server import device_config  # D-05/A-23: read-only, for
+# load_device_config() — this module already imports two sibling server
+# modules below (history_db, poll_loop), so this is not a new boundary
+# crossing.
 from server import history_db
 import server.poll_loop as poll_loop  # 06.6.4.1-04 (D-11): the migrated
 # unresolved_rows() below now genuinely reads through this module's own
@@ -76,20 +85,21 @@ STALE_PIPELINE_WARN_S = 180  # 3 minutes — 6x the 30s cadence; one missed
 STALE_PIPELINE_ERROR_S = 900  # 15 minutes — 30x the cadence; well past
 # "the systemd timer is having a rough moment."
 
-# Device check-in: unlike the pipeline, this is genuinely tunable and
-# CURRENTLY a bring-up default, not a production value — deploy/
-# skypane.env.example's SKYPANE_SLEEP_S is 30 seconds today (verified
-# live on the OVH host, STATE.md 2026-08-26), but is explicitly expected
-# to lengthen substantially once Phase 5's real battery-life measurement
-# lands (05-01 Tasks 2-3, deliberately deferred to the end of the
-# project). These two thresholds must therefore be generous enough that
-# lengthening SKYPANE_SLEEP_S does not turn this page permanently red —
-# anchored instead to flightportrait's own documented backoff ceiling
-# (PROJECT.md: "exponential-backoff polling, caps at 6h"), which is the
-# worst-case gap a healthy-but-struggling device can produce on its own
-# before this page should call it an outage.
-STALE_DEVICE_WARN_S = 3600  # 1 hour
-STALE_DEVICE_ERROR_S = 21600  # 6 hours — matches the documented backoff cap.
+# Device check-in: unlike the pipeline, this is genuinely tunable — the
+# device's own effective wake cadence, which can be set on Settings or
+# deployed via SKYPANE_SLEEP_S. RETIRED (D-05/A-23, 19-05-PLAN.md):
+# STALE_DEVICE_WARN_S = 3600 (1 hour) / STALE_DEVICE_ERROR_S = 21600
+# (6 hours, flightportrait's own documented backoff ceiling) used to be
+# two fixed constants here, generous enough that a longer SKYPANE_SLEEP_S
+# would not turn this page permanently red — but "generous enough for
+# any cadence" is also "miscalibrated for every specific cadence": a
+# healthy 30s-cadence device was called "stale" only after a full hour,
+# a genuinely dead one only called an "outage" after six. D-05 replaces
+# the fixed pair with `wake.device_staleness_thresholds(
+# wake.effective_wake_interval_s(device_cfg))` — thresholds derived from
+# the device's OWN cadence (3/12 missed wakes, floored at 5/20 minutes),
+# computed in compute_health_state() and threaded into _device_section()
+# below.
 
 # --- Battery trend (D-12/D-13) ----------------------------------------------
 
@@ -138,14 +148,26 @@ _CORROBORATION_ROWS = (
     # explanation sourced from detect.poll_current_aircraft()'s own
     # documented three-outcome semantics — this page performs no new
     # inference, D-15).
-    ("True", "Agreement", "ok",
-     "Both ADS-B sources independently selected the same aircraft."),
-    ("None", "Single-source (uncorroborated)", "ok",
-     "Only one source returned a result this cycle — not the same as a "
-     "disagreement; no corroboration was available to check against."),
-    ("False", "Disagreement", "warn",
-     "The two sources named different aircraft, so nothing was selected "
-     "that cycle — the panel image was kept from the previous cycle."),
+    #
+    # 19-06-PLAN.md Task 2 (D-06): the display label and explanation for
+    # each row were rewritten from technical vocabulary (the retired
+    # "Agreement"/"Disagreement" pair, and the retired "Single-source"
+    # qualifier meaning "uncorroborated") into plain language a
+    # household member can parse without reading the source — the
+    # substance each row means is unchanged, only how it reads.
+    # The stored key in each tuple's first slot ("True"/"None"/"False")
+    # is the on-disk vocabulary history_db.save_poll_state() actually
+    # writes and must NEVER be renamed to match the new labels — only
+    # the second (label) and fourth (explanation) slots are copy.
+    ("True", "Both agree", "ok",
+     "Both flight-data sources on the frame picked the same aircraft."),
+    ("None", "Only one saw it", "ok",
+     "Only one of the two sources returned an aircraft this cycle — "
+     "that is not the same as a disagreement, there was simply nothing "
+     "from the other source to compare it against."),
+    ("False", "They disagree", "warn",
+     "The two sources named different aircraft, so nothing was shown "
+     "that cycle — the display kept the previous image instead."),
 )
 
 # --- CFG-05 landing context --------------------------------------------------
@@ -192,12 +214,50 @@ ANOMALY_BANNER_TEXT = "Something needs attention — check the tiles below."
 _SEVERITY_BANNER_NOUNS = {"warn": "warning", "error": "error"}
 
 DEVICE_FRESHNESS_LABEL = "Device last checked in"
-PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
+# 19-06-PLAN.md Task 2 (D-06): the visible label read in plain language
+# a household member can parse without hovering; the technical term
+# stays available one hover away via `caption_title` at the tile's
+# stat_tile() call site below.
+PIPELINE_FRESHNESS_LABEL = "Flight data last updated"
+PIPELINE_FRESHNESS_TITLE = "ADS-B pipeline last ran"
+
+# 19-06-PLAN.md Task 2 (D-06): replaces the literal "Corroboration"
+# string that used to be inlined straight at this tile's stat_tile()
+# call site — this module's own convention is constants at the top,
+# never literals at a render site. The technical term survives as this
+# tile's `caption_title` tooltip.
+CORROBORATION_TILE_LABEL = "Do the two data sources agree?"
+CORROBORATION_TILE_TITLE = "Corroboration"
 
 # Quick task 260903-peo (UIR-14): the pipeline tile's new second content
 # line, naming the last real aircraft detection sourced from
 # history_db.META_LAST_DETECTION.
 LAST_DETECTION_LABEL = "Last aircraft detected"
+
+# D-03/A-21, 19-01-PLAN.md: a short plain-sentence verdict for each stat
+# tile whose caption names a signal but whose border colour alone was the
+# only place the actual verdict lived (WCAG 1.4.1 — colour must never be
+# the sole means of conveying information). Modelled one-for-one on
+# home_page.py's FRAME_STATE_TEXT/DATA_STATE_TEXT/BATTERY_STATE_TEXT: a
+# dict keyed by the same "ok"/"warn"/"error" state each section builder
+# already computes, rendered as a '<p class="text-body widget-verdict">'
+# paragraph ahead of the tile's existing timestamp row. The Resolution-
+# rate tile deliberately has no sibling dict here — see render()'s own
+# comment at that tile's stat_tile() call for why.
+DEVICE_STATE_TEXT = {
+    "ok": "Checking in normally",
+    "warn": "Has not checked in for a while",
+    "error": "Has not checked in for a long time",
+}
+PIPELINE_STATE_TEXT = {
+    "ok": "Running on schedule",
+    "warn": "A little behind",
+    "error": "Has not run for a long time",
+}
+CORROBORATION_STATE_TEXT = {
+    "ok": "Sources agree",
+    "warn": "Sources disagreed recently",
+}
 
 # --- quick task 260902-gjj (ISSUE 2): D-01 reversal, recorded at the
 # removal site --------------------------------------------------------------
@@ -237,13 +297,64 @@ LAST_DETECTION_LABEL = "Last aircraft detected"
 # POLL_SUBMIT_PENDING_TEXT = "Polling…"), not three periods.
 REFRESH_PILL_TEXT = "Updating…"
 
-# Quick task 260903-peo (UIR-18): the persistent liveness cue's leading
-# text, prefixing a concise_timestamp_html(now, now) timestamp. States
-# liveness and the refresh time without restating the 45s auto-refresh
-# interval (AUTO_REFRESH_INTERVAL_MS lives in companion/static/
-# freshness.js, not importable from Python, and naming it here would
-# need a pinned cross-file constant for no user benefit).
-PERSISTENT_FRESHNESS_PREFIX_TEXT = "Live — refreshed "
+# 19-09-PLAN.md (D-02, A-20): SUPERSEDED — PERSISTENT_FRESHNESS_PREFIX_TEXT
+# used to read "Live — refreshed ", prefixing a
+# concise_timestamp_html(now, now) timestamp. That timestamp's own
+# relative-age suffix ("(0s ago)") was structurally always zero: `now`
+# is computed exactly once per request by page_context() and immediately
+# fed back into the very timestamp claiming to be "(Ns ago)" of itself —
+# so the line asserted a liveness the render-time mechanism never
+# actually measured. FRESHNESS_PREFIX_TEXT below replaces it with a
+# plain, honest label; the value the line now shows is a clock-only
+# rendering with no relative-age suffix at all (see freshness_html's own
+# assembly in render()), and the line only ever advances again because
+# companion/static/freshness.js re-renders the whole freshness wrapper
+# from a fresh fetch — never a client-side clock tick.
+FRESHNESS_PREFIX_TEXT = "Updated "
+
+# 19-09-PLAN.md (D-02): the Pause/Resume control's two labels, emitted
+# as data-pause-text/data-resume-text attributes on the button itself
+# rather than hardcoded in companion/static/freshness.js — the same
+# "Python owns the copy, the static script only reads attributes"
+# convention companion/static/poll-cooldown.js already established for
+# its own countdown template text.
+REFRESH_PAUSE_TEXT = "Pause updates"
+REFRESH_RESUME_TEXT = "Resume updates"
+
+# 19-09-PLAN.md (D-02): the single, greppable definition of every DOM
+# region companion/static/freshness.js swaps wholesale, replacing each
+# node with its own equivalent from a fetched copy of this same page.
+# Duplicated rather than imported — freshness.js is a static asset, not
+# a Python module — matching the BATTERY_READOUT_ID/SPARKLINE_HIT_CLASS
+# cross-file contract immediately below. Any change to the script's own
+# swap-target list must change this tuple too;
+# companion/test_status_pages.py pins the two in agreement.
+#
+# Deliberately excludes the sparkline <svg>/.sparkline-hit, the registry
+# card and its filter bar, and every <details> disclosure — swapping any
+# of those would leave companion/static/battery-trend.js's chart or
+# companion/static/list-filter.js's filter permanently dead (each
+# captures its DOM once, with no re-init hook) or would silently discard
+# an in-progress filter query. See freshness.js's own header for the
+# fuller record of this trade.
+#
+# `a[href="/health"]` — not a ".dot"/".nav-notification" selector — is
+# the nav-severity swap target on purpose: the severity dot only exists
+# in the DOM when severity is "warn"/"error" (companion/layout.py's
+# _health_alert_markup() renders nothing at all for "ok"), so a dot-only
+# selector would have nothing to replace on the far more common
+# transition where severity newly clears. The whole nav link is always
+# present in both documents regardless of severity, in both nav
+# renderings (sidebar_nav() and _mobile_nav_html()), so swapping it
+# whole is what keeps the swap correct across every severity
+# transition, not just a fixed dot.
+REFRESH_SWAP_SELECTORS = (
+    ".dashboard-grid",
+    "div.banner--anomaly, div.banner--warn",
+    "section.banner",
+    ".page-header__freshness",
+    'a[href="/health"]',
+)
 
 # D-02: per-point interactive hit-target contract. BATTERY_READOUT_ID and
 # SPARKLINE_HIT_CLASS are looked up by companion/static/battery-trend.js
@@ -316,9 +427,15 @@ SCREEN_SECTION_ID = "screen"
 SCREEN_SECTION_HEADING = "Screen"
 SERVER_DATA_SECTION_ID = "server-data"
 SERVER_DATA_SECTION_HEADING = "Server & data"
-RESOLUTION_RATE_LABEL = "Resolution rate"
-UNRESOLVED_SECTION_HEADING = "Unresolved prefixes"
-STATS_SECTION_HEADING = "Resolution statistics"
+# 19-06-PLAN.md Task 2 (D-06): plain-language label; the technical term
+# stays reachable via `caption_title` at this tile's stat_tile() call
+# site below.
+RESOLUTION_RATE_LABEL = "Flights we could name"
+RESOLUTION_RATE_TITLE = "Route resolution rate"
+# 19-06-PLAN.md Task 3: renamed into the same plain-language register —
+# constant NAMEs are unchanged so no unrelated reference breaks.
+UNRESOLVED_SECTION_HEADING = "Airlines we could not name"
+STATS_SECTION_HEADING = "How well we name flights"
 
 # --- quick task 260901-tsa: page-purpose + section-intro copy ----------
 #
@@ -345,18 +462,26 @@ SERVER_DATA_SECTION_DESCRIPTION = (
 # pages render this content. Every constant/function body below is
 # copied unchanged in logic; only the module they live in changes.
 
+# 19-06-PLAN.md Task 3 (D-06): no "prefix"/"ICAO"/"registry" in either
+# plain sentence below — the technical vocabulary for what this card
+# actually tracks (an unresolved ICAO callsign prefix registry, CFG-04)
+# is demoted to this comment, not deleted; the visible copy just says
+# what a household member sees: some airlines we could not name yet.
 _NO_GAPS_HEADING = "No coverage gaps."
 _NO_GAPS_BODY = (
-    "No unresolved callsign prefixes — airline coverage looks complete.")
+    "Every airline we've seen recently has been named — nothing left to look up.")
 
 # Phase 13 (D-10) reworded this note in place: it now names Airlines as
 # the resolution surface and points at the per-row Resolve link Task 2
 # below adds, instead of the old manual runbook. This does NOT reopen
 # 06.6.4.1-04's D-11/D-12 — the registry here is still read-only; the
 # state-changing form lives on Airlines, not here.
+#
+# 19-06-PLAN.md Task 3 (D-06): "that prefix's airline" reworded to
+# "that airline" — no "prefix" in the visible sentence.
 _READ_ONLY_NOTE = (
     "This list is read-only here — each row's Resolve link opens the Airlines page "
-    "to name that prefix's airline (and add artwork, if it needs one).")
+    "to name that airline (and add artwork, if it needs one).")
 
 _NO_STATS_HEADING = "No resolution data yet."
 _NO_STATS_BODY = (
@@ -379,18 +504,28 @@ RESOLUTION_WINDOW_DAYS = 30  # A month is long enough to smooth over a
 # reflects a maintained static table shipped with the code, the other
 # reflects an ad hoc runtime registry a human curates — collapsing them
 # would hide which of the two actually did the work.
+# 19-06-PLAN.md Task 3 (D-06): every "adsbdb" occurrence below is now
+# "the route database" in visible prose — the developer-facing name
+# survives as a source comment (this one), not in rendered text. The
+# live/cache/static-table distinction between "fresh_hit"/"cache_hit"/
+# "airline_only" is deliberately kept (collapsing it would hide which
+# mechanism actually resolved the route, per the module comment above),
+# just phrased in ordinary words. The "miss" gloss no longer says
+# "CFG-04's registry" (no requirement id may appear in visible text) —
+# it names the on-screen card by its own current heading instead, so a
+# reader can find it without knowing the requirement id.
 _SOURCE_ROWS = (
     ("fresh_hit", "Fresh lookup",
-     "A live adsbdb lookup resolved a full route this cycle."),
+     "A live lookup in the route database resolved a full route this cycle."),
     ("cache_hit", "Cached hit",
      "A previously-cached route was reused, sparing a network request."),
     ("airline_only", "Airline only",
-     "adsbdb had no route, but the callsign's ICAO prefix identified the "
-     "airline from the static prefix table."),
+     "The route database had no route, but the callsign's ICAO prefix "
+     "identified the airline from the static prefix table."),
     ("miss", "Miss",
-     "Neither adsbdb nor the static prefix table resolved anything for "
-     "this callsign — this is exactly what CFG-04's registry above "
-     "tracks."),
+     "Neither the route database nor the static prefix table resolved "
+     "anything for this callsign, so it shows up in the %s list above."
+     % UNRESOLVED_SECTION_HEADING),
     ("manual", "Manual",
      "The operator resolved this callsign's prefix by hand, from the "
      "companion web interface."),
@@ -592,6 +727,25 @@ _SPARKLINE_CANVAS_HEIGHT_PX = 160
 # _SPARKLINE_CANVAS_HEIGHT_PX above ever changes.
 _SPARKLINE_VERTICAL_INSET_PERCENT = 3.75
 
+# D-04 (A-22), 19-05-PLAN.md: the sparkline's Y-axis is now a FIXED range
+# — the single-cell LiPo's whole usable window (3.3-4.2V, the same span
+# `companion/battery.py`'s BATTERY_EMPTY_MV/BATTERY_FULL_MV estimate
+# uses), never an auto-scaled `min(values)`/`max(values)` window. Before
+# this task, a flat battery series pinned to the bottom of the canvas
+# (min == max, since nothing else was on screen to compare it against)
+# and a real but tiny 15mV wiggle stretched to fill the WHOLE vertical
+# range, reading as a cliff rather than the noise it actually was. A
+# fixed range fixes both: a flat series now draws flat, a small wiggle
+# now draws small, and the chart's own axis labels agree by construction
+# with the percentage readout `companion/battery.py`'s estimate already
+# shows beside it, since both are now measured against the same span.
+SPARKLINE_Y_MIN_MV = 3000
+SPARKLINE_Y_MAX_MV = 4200
+_SPARKLINE_Y_SPAN_MV = SPARKLINE_Y_MAX_MV - SPARKLINE_Y_MIN_MV  # no `or 1`
+# guard needed here (unlike the retired `span = (hi - lo) or 1`): this is
+# now a fixed, always-nonzero constant, never a per-render min/max that
+# could collide to zero for a flat series.
+
 # 260902-l0b: the cosmetic marker's and the normal hit target's radii,
 # named (they were literals — `r="3"`/`r="8"` — inside the point loop
 # before this task) so the density rule below can reference them instead
@@ -623,18 +777,50 @@ _SPARKLINE_HIT_RADIUS_PX = 8
 # resolves it for one real, cited data point, and this task's own human-
 # verification pass is exactly what surfaced the gap between the
 # estimate and reality.
-#
-# `_point_x()` below spreads `point_count` points evenly across the
-# canvas's full width, so consecutive points sit `226 / (point_count - 1)`
-# CSS pixels apart. They stop reading as separate marks once that gap
-# drops below the cosmetic dot's own diameter (2 * _SPARKLINE_DOT_RADIUS_PX
-# = 6px): `226 / (point_count - 1) < 6` => `point_count > 226 / 6 + 1`
-# => `point_count > 38.67`, so 39 is the first integer point count where
-# suppression is warranted. Re-derive this figure (from a real running
-# instance, not from memory) if the canvas's own measured width, the
-# realistic Y-label digit count, or the cosmetic dot radius above ever
-# changes.
-_SPARKLINE_DENSE_POINT_THRESHOLD = 39
+_SPARKLINE_NARROWEST_CANVAS_PX = 226  # the live-measured figure above —
+# the narrowest canvas width this project has ever actually measured.
+
+
+def _sparkline_dense_threshold(canvas_width_px):
+    """(D-04, 19-05-PLAN.md) The first integer point count at which
+    `_point_x()`'s evenly-spread points sit closer together than the
+    cosmetic dot's own diameter, for a canvas rendered at
+    `canvas_width_px` CSS pixels wide.
+
+    `_point_x()` spreads `point_count` points evenly across the canvas's
+    full width, so consecutive points sit
+    `canvas_width_px / (point_count - 1)` CSS pixels apart. They stop
+    reading as separate marks once that gap drops below the cosmetic
+    dot's own diameter (`2 * _SPARKLINE_DOT_RADIUS_PX`):
+    `canvas_width_px / (point_count - 1) < 2 * _SPARKLINE_DOT_RADIUS_PX`
+    => `point_count > canvas_width_px / (2 * _SPARKLINE_DOT_RADIUS_PX) +
+    1`, and this function returns the first integer above that bound.
+
+    This promotes into code the exact points-per-pixel arithmetic the
+    retired `_SPARKLINE_DENSE_POINT_THRESHOLD = 39` typed constant used
+    to compute once, by hand, for one measured width — expressed this
+    way, the rule re-derives itself automatically if the dot radius or
+    the measured canvas width below ever changes, instead of silently
+    rotting as a magic integer nobody re-checks.
+
+    Honest limitation, not solved here: `battery_sparkline_svg()`'s
+    `<svg>` carries no viewBox (see that function's own docstring for
+    why), so the server genuinely cannot know a particular client's
+    actual rendered canvas width. `_SPARKLINE_DENSE_POINT_THRESHOLD`
+    below always calls this with `_SPARKLINE_NARROWEST_CANVAS_PX`, the
+    narrowest canvas width this project has ever measured, so dots never
+    overlap at any container width this project has actually observed —
+    a deliberately conservative choice, not a guarantee for some
+    unmeasured, still-narrower container.
+    """
+    spacing_ceiling_px = 2 * _SPARKLINE_DOT_RADIUS_PX
+    return int(canvas_width_px / spacing_ceiling_px + 1) + 1
+
+
+# Re-derive this figure (from a real running instance, not from memory)
+# if the canvas's own measured width, the realistic Y-label digit count,
+# or the cosmetic dot radius above ever changes.
+_SPARKLINE_DENSE_POINT_THRESHOLD = _sparkline_dense_threshold(_SPARKLINE_NARROWEST_CANVAS_PX)
 
 # The reduced hit-target radius used at/above the density threshold —
 # smaller than the normal 8px so heavily overlapping hit circles no
@@ -704,12 +890,29 @@ def _battery_reading_parts(mv, ts, now):
     the seeded readout, each chart point's `<title>` tooltip and
     `aria-label`, and each point's `data-when` attribute.
 
-    `value` is "{mv} mV". `when` copies `layout.concise_timestamp_html()`'s
-    own visible-text shape ("HH:MM UTC (Nx ago)") without its `<span>`
-    markup wrapper — a short clock time plus `layout.relative_age_text()`'s
-    existing suffix — so this page's battery timestamps read in the same
-    humanised format as its Device/Pipeline timestamps, instead of the
-    raw ISO string this finding replaces.
+    `value` is now the estimate then the measurement (D-01/A-19,
+    19-01-PLAN.md): "≈ NN% · {mv} mV" when `battery.battery_percent(mv)`
+    resolves to an int, or bare "{mv} mV" when it does not (a non-numeric
+    or non-positive reading). The estimate is labelled "≈" because it is a
+    linear approximation — D-01 keeps this linear estimate until Phase 5's
+    discharge run yields real calibration data — and it is only the
+    estimate, never the underlying millivolt figure, that carries that
+    label: the frame's own low-battery warning still uses the exact
+    millivolt thresholds in `server/poll_loop.py`. The literal "{mv} mV"
+    substring is preserved in both branches so every existing pinned check
+    on the millivolt figure keeps matching. This one helper, not
+    `_battery_readout_block()`, is deliberately where the estimate is
+    computed — it is what makes the resting readout, each chart point's
+    tooltip, aria-label and `data-when` attribute carry the same estimate
+    BY CONSTRUCTION, with no change needed to `companion/static/
+    battery-trend.js`.
+
+    `when` copies `layout.concise_timestamp_html()`'s own visible-text
+    shape ("HH:MM UTC (Nx ago)") without its `<span>` markup wrapper — a
+    short clock time plus `layout.relative_age_text()`'s existing suffix —
+    so this page's battery timestamps read in the same humanised format
+    as its Device/Pipeline timestamps, instead of the raw ISO string this
+    finding replaces.
 
     Returns PLAIN, UNESCAPED text — inheriting `layout.absolute_and_relative()`'s
     stated contract: every caller escapes at the point of interpolation.
@@ -730,7 +933,8 @@ def _battery_reading_parts(mv, ts, now):
     attacker-supplied timestamp still reaches the tooltip, still through
     `escape_html()`, exactly as before this task.
     """
-    value = "%d mV" % mv
+    pct = battery.battery_percent(mv)
+    value = ("≈ %d%% · %s mV" % (pct, mv)) if pct is not None else ("%s mV" % mv)
     parsed = layout.parse_iso(ts)
     age = layout.age_seconds(ts, now)
     if parsed is None or age is None:
@@ -862,9 +1066,6 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     ]
     if len(pairs) < 2:
         return ""
-    values = [value for value, _ts, _count in pairs]
-    lo, hi = min(values), max(values)
-    span = (hi - lo) or 1
     point_count = len(pairs)
     inset = _SPARKLINE_VERTICAL_INSET_PERCENT
     # 260902-l0b: the density rule — see _SPARKLINE_DENSE_POINT_THRESHOLD's
@@ -880,11 +1081,20 @@ def battery_sparkline_svg(rows, now=None, daily=False):
         return index / (point_count - 1) * 100
 
     def _point_y(value):
+        # D-04 (A-22): every value is clamped into the fixed
+        # [SPARKLINE_Y_MIN_MV, SPARKLINE_Y_MAX_MV] range before its y
+        # position is computed, so an out-of-range reading draws pinned
+        # at the canvas edge rather than escaping it or silently
+        # rescaling the axis (there is no axis left to rescale — the
+        # range is now a constant, not derived from `value` at all).
         # `inset` on both top and bottom keeps every marker's 3-unit
         # radius fully inside the canvas (see _SPARKLINE_VERTICAL_INSET_
         # PERCENT's own derivation above); the y-axis is inverted (higher
         # mV -> smaller y%) to match SVG's top-down coordinate direction.
-        return inset + (1 - (value - lo) / span) * (100 - 2 * inset)
+        clamped = max(SPARKLINE_Y_MIN_MV, min(SPARKLINE_Y_MAX_MV, value))
+        return inset + (
+            1 - (clamped - SPARKLINE_Y_MIN_MV) / _SPARKLINE_Y_SPAN_MV
+        ) * (100 - 2 * inset)
 
     # Axis chrome first (paint order — see the note below the point loop
     # for why order matters at all). Filled <rect> elements, not stroked
@@ -912,8 +1122,8 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     ) % (
         SPARKLINE_AXIS_CLASS,
         SPARKLINE_AXIS_CLASS,
-        SPARKLINE_AXIS_CLASS, _point_y(hi),
-        SPARKLINE_AXIS_CLASS, _point_y(lo),
+        SPARKLINE_AXIS_CLASS, _point_y(SPARKLINE_Y_MAX_MV),
+        SPARKLINE_AXIS_CLASS, _point_y(SPARKLINE_Y_MIN_MV),
         SPARKLINE_AXIS_CLASS, _point_x(0),
         SPARKLINE_AXIS_CLASS, _point_x(point_count - 1),
     )
@@ -989,12 +1199,18 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     # pair: oldest first, newest second — .sparkline__x is a flex row with
     # the same space-between, so document order left-to-right places
     # oldest before newest.
+    #
+    # D-04 (A-22): these two labels now print the fixed
+    # SPARKLINE_Y_MIN_MV/SPARKLINE_Y_MAX_MV constants, never a per-render
+    # min(values)/max(values) — so the axis always reads "3000 mV"/
+    # "4200 mV" regardless of what the plotted readings actually were,
+    # matching the fixed range _point_y() draws against above.
     y_labels_html = (
         '<div class="sparkline__y">'
         '<span class="sparkline-axis-label" aria-hidden="true">%d mV</span>'
         '<span class="sparkline-axis-label" aria-hidden="true">%d mV</span>'
         "</div>"
-    ) % (hi, lo)
+    ) % (SPARKLINE_Y_MAX_MV, SPARKLINE_Y_MIN_MV)
     x_labels_html = (
         '<div class="sparkline__x">'
         '<span class="sparkline-axis-label" aria-hidden="true">%s</span>'
@@ -1021,12 +1237,20 @@ def battery_sparkline_svg(rows, now=None, daily=False):
 
 
 def battery_status(rows):
-    """`"error"` when any two chronologically-consecutive readings in
+    """`"warn"` when any two chronologically-consecutive readings in
     `rows` (newest-first) drop by more than `BATTERY_DROP_WARN_MV`,
     `"ok"` otherwise (including fewer than two usable readings — nothing
     to compare, so nothing to flag). A row with a missing/non-numeric
     `battery_mv` is skipped rather than compared, never crashing the
     scan or producing a false anomaly from a bad reading.
+
+    D-05/A-23, 19-05-PLAN.md: demoted from `"error"` to `"warn"` — a
+    single sampling artefact (one dropped/noisy reading) must not paint
+    the whole page as an outage. `BATTERY_DROP_WARN_MV`'s own name
+    already said "warn"; this is the behaviour finally agreeing with the
+    name. A sustained decline still shows up in the chart and in the
+    percentage readout — this function's job is only to flag one
+    consecutive-pair anomaly, never to hide a real trend.
     """
     chronological = list(reversed(rows))
     for earlier, later in zip(chronological, chronological[1:]):
@@ -1037,7 +1261,7 @@ def battery_status(rows):
         if not isinstance(later_mv, int) or isinstance(later_mv, bool):
             continue
         if earlier_mv - later_mv >= BATTERY_DROP_WARN_MV:
-            return "error"
+            return "warn"
     return "ok"
 
 
@@ -1061,69 +1285,94 @@ def corroboration_status(counts):
     }
 
 
-def collect_anomalies(device_state, pipeline_state, battery_state, disagreement_warn):
+def collect_anomalies(
+    device_state, pipeline_state, battery_state, disagreement_warn,
+    coverage_state="ok", source_fault=False,
+):
     """A list of short, human-readable strings — one per non-healthy
-    condition among the four D-14 signals this page tracks. An empty
-    list means "render no anomaly banner at all" (D-21's uncluttered
-    all-clear); render() is the only caller that decides what to do with
-    the result.
+    condition among the signals this page tracks. An empty list means
+    "render no anomaly banner at all" (D-21's uncluttered all-clear);
+    render() is the only caller that decides what to do with the result.
 
     Since 06.6.1-03: render() no longer renders this list's contents
     anywhere on the page (the redundant bulleted detail-list markup was
     removed — the Overview tiles already carry the same information via
     colour) — only its emptiness is consumed, to decide whether the
-    banner appears at all. The four item strings below deliberately
-    survive anyway: they remain the readable, greppable definition of
-    what counts as an anomaly.
+    banner appears at all. The item strings below deliberately survive
+    anyway: they remain the readable, greppable definition of what
+    counts as an anomaly.
 
     Since 06.6.2-06 (UXA-14): anomaly_active()/health_severity() no
     longer route their verdict through this exact function directly —
     they route through overall_severity(), which derives a real
-    "ok"/"warn"/"error" severity from the same four state/flag inputs
-    this function takes. This function itself is unchanged and remains
-    the readable, greppable definition of what counts as an anomaly (and
-    test_status_pages.py still calls it directly) — only its role as the
-    presence-gate inside render() was replaced.
+    "ok"/"warn"/"error" severity from the same state/flag inputs this
+    function takes. This function itself remains the readable, greppable
+    definition of what counts as an anomaly (and test_status_pages.py
+    still calls it directly) — only its role as the presence-gate inside
+    render() was replaced.
+
+    D-05/A-23, 19-05-PLAN.md: `coverage_state` (`coverage_status()`'s own
+    "ok"/"warn" verdict on the CFG-04 unresolved-prefix registry) and
+    `source_fault` (the truthiness of `META_SOURCE_FAULT`) are two more
+    fully-defaulted parameters, so every existing 4-argument call site
+    keeps working unchanged. Two more literal strings join the original
+    four — this is A-23's third half: `anomaly_active()`/
+    `health_severity()` now report on two more real signals than before.
     """
     anomalies = []
     if device_state != "ok":
         anomalies.append("Device check-in is stale.")
     if pipeline_state != "ok":
-        anomalies.append("ADS-B pipeline run is stale.")
+        anomalies.append("Flight data is stale.")
     if battery_state != "ok":
         anomalies.append("A battery reading shows an abnormal drop.")
     if disagreement_warn:
-        anomalies.append("ADS-B sources disagreed on the selected aircraft recently.")
+        anomalies.append("Data sources disagreed recently.")
+    if coverage_state != "ok":
+        anomalies.append("Some airlines are unidentified.")
+    if source_fault:
+        anomalies.append("All data sources failed.")
     return anomalies
 
 
-def overall_severity(device_state, pipeline_state, battery_state, disagreement_warn):
-    """Derive one "ok"/"warn"/"error" severity from the same four D-14
-    signals `collect_anomalies()` tracks — the precedence table UXA-14's
-    own acceptance criteria require documenting explicitly:
+def overall_severity(
+    device_state, pipeline_state, battery_state, disagreement_warn,
+    coverage_state="ok", source_fault=False,
+):
+    """Derive one "ok"/"warn"/"error" severity from the same signals
+    `collect_anomalies()` tracks — the precedence table UXA-14's own
+    acceptance criteria require documenting explicitly:
 
-        1. "error" wins: if any of `device_state`/`pipeline_state`/
+        1. `source_fault` wins outright: every configured ADS-B source
+           failed on the most recent pipeline run — the page's most
+           severe real state — so the overall severity is "error"
+           regardless of anything else.
+        2. Otherwise "error": if any of `device_state`/`pipeline_state`/
            `battery_state` equals "error", the overall severity is
-           "error", regardless of anything else.
-        2. Otherwise "warn": if any of the three states equals "warn",
-           or `disagreement_warn` is true, the overall severity is
-           "warn".
-        3. Otherwise "ok".
+           "error".
+        3. Otherwise "warn": if any of the three states equals "warn",
+           or `disagreement_warn` is true, or `coverage_state` equals
+           "warn", the overall severity is "warn".
+        4. Otherwise "ok".
 
-    Deliberate scope boundary: `_source_fault_block()`'s own
-    always-rendered-when-true section is NOT folded into this
-    precedence. It is not one of the four D-14 signals
-    `collect_anomalies()` tracks (source-fault is a distinct CFG-05
-    signal, rendered as its own block above the Overview grid), and
-    folding it in here would silently change what `anomaly_active()` has
-    always meant for existing callers. If a future phase wants
-    source-fault to also drive nav/banner severity, that is a new
-    decision, not an oversight of this function.
+    D-05/A-23, 19-05-PLAN.md: `coverage_state` and `source_fault` are two
+    new, fully-defaulted keyword parameters (signature widening, never a
+    return-type change — every existing 4-argument call is unaffected).
+    This SUPERSEDES this function's own former "deliberate scope
+    boundary" paragraph, which used to say folding `_source_fault_block()`
+    ('s always-rendered-when-true section) and the CFG-04 registry's
+    coverage state into this precedence would be a new decision, not
+    made here. D-05 IS that decision: `anomaly_active()`/
+    `health_severity()` (both routed through this function) now report
+    on two more real signals than the original four D-14 states —
+    intentionally, not as an oversight of an earlier boundary.
     """
+    if source_fault:
+        return "error"
     states = (device_state, pipeline_state, battery_state)
     if "error" in states:
         return "error"
-    if "warn" in states or disagreement_warn:
+    if "warn" in states or disagreement_warn or coverage_state == "warn":
         return "warn"
     return "ok"
 
@@ -1149,7 +1398,15 @@ def compute_health_state(state_dir, now=None):
     if now is None:
         now = history_db.utc_now_iso()
     inputs = _read_health_inputs(state_dir, now)
-    device_html, device_state = _device_section(inputs["device_health"], now)
+    # D-05/A-23, 19-05-PLAN.md: the device's own effective wake cadence
+    # (screen-off cadence, else a configured wake_interval_s, else the
+    # deployed SKYPANE_SLEEP_S) resolves to this device's own staleness
+    # thresholds — computed once here, never independently re-derived by
+    # _device_section() or any harness fixture that omits them.
+    warn_s, error_s = wake.device_staleness_thresholds(
+        wake.effective_wake_interval_s(inputs["device_config"]))
+    device_html, device_state = _device_section(
+        inputs["device_health"], now, warn_s=warn_s, error_s=error_s)
     pipeline_html, pipeline_state = _pipeline_section(
         inputs["pipeline_ts"], inputs["last_detection"], now)
     battery_html, battery_state = _battery_section(inputs["trend_rows"], inputs["daily_rows"])
@@ -1165,16 +1422,25 @@ def compute_health_state(state_dir, now=None):
     battery_caption = _battery_trend_caption(inputs["trend_rows"], inputs["daily_rows"])
     corroboration_html, disagreement_warn = _corroboration_section(
         inputs["corroboration_counts"])
+    # D-05/A-23: coverage_status() and the source-fault flag now feed
+    # overall_severity()/collect_anomalies() too, not only render()'s own
+    # registry card and _source_fault_block() — see both functions' own
+    # docstrings for the precedence this adds.
+    coverage_state = coverage_status(inputs["registry_rows"])
+    source_fault = _meta_flag_true(inputs["source_fault_raw"])
     severity = overall_severity(
-        device_state, pipeline_state, battery_state, disagreement_warn)
+        device_state, pipeline_state, battery_state, disagreement_warn,
+        coverage_state=coverage_state, source_fault=source_fault)
     # UXA-06/D-18: threaded through to render() so _anomaly_banner_html()
     # can name the real failing category or categories rather than
     # recomputing collect_anomalies() a second time from scratch.
     anomalies = collect_anomalies(
-        device_state, pipeline_state, battery_state, disagreement_warn)
+        device_state, pipeline_state, battery_state, disagreement_warn,
+        coverage_state=coverage_state, source_fault=source_fault)
     return {
         "now": now,
         "source_fault_raw": inputs["source_fault_raw"],
+        "registry_rows": inputs["registry_rows"],
         "device_html": device_html,
         "device_state": device_state,
         "pipeline_html": pipeline_html,
@@ -1400,12 +1666,25 @@ def _section_intro_html(section_id, heading, description):
     ) % (section_id, escape_html(heading), escape_html(description))
 
 
-def _device_section(device_health, now):
+def _device_section(device_health, now, warn_s=None, error_s=None):
+    """D-05/A-23, 19-05-PLAN.md: `warn_s`/`error_s` are the device's own
+    cadence-derived staleness thresholds (`wake.device_staleness_
+    thresholds()`), computed once in `compute_health_state()` and
+    threaded through here — never recomputed independently, so the
+    Device tile and the anomaly banner it feeds can never disagree on
+    what "stale" means for this deployment. Both default to `None` so
+    every existing direct-call harness fixture (and any caller that
+    predates this task) keeps working unchanged: `None` degrades to
+    `wake.device_staleness_thresholds(None)`'s own bare floors, exactly
+    the retired STALE_DEVICE_WARN_S/STALE_DEVICE_ERROR_S replaced.
+    """
     if device_health is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
+    if warn_s is None or error_s is None:
+        warn_s, error_s = wake.device_staleness_thresholds(None)
     ts = (device_health or {}).get("ts")
     age = layout.age_seconds(ts, now)
-    state = staleness_status(age, STALE_DEVICE_WARN_S, STALE_DEVICE_ERROR_S)
+    state = staleness_status(age, warn_s, error_s)
     # quick task 260901-tsa (finding C): this used to be
     # `status_dot(state, DEVICE_FRESHNESS_LABEL) + detail` — but
     # stat_tile()'s own caption already renders DEVICE_FRESHNESS_LABEL,
@@ -1424,11 +1703,22 @@ def _device_section(device_health, now):
     # dot-label span, so that would mean either an empty span or a
     # second copy of its state->class mapping duplicated here.
     #
+    # D-03/A-21, 19-01-PLAN.md: a `widget-verdict` paragraph now sits
+    # ahead of the timestamp row, naming the verdict this tile's border
+    # colour alone used to carry. This is NOT a revival of the
+    # duplicated-label defect described above: the caption
+    # (DEVICE_FRESHNESS_LABEL) names the SIGNAL, this verdict states the
+    # JUDGEMENT on that signal, and the timestamp row gives the raw
+    # detail backing the judgement — three distinct rungs, not one
+    # repeated twice.
+    #
     # D-09: concise_timestamp_html() already returns pre-escaped-safe
     # markup — wrapping it in escape_html() a second time would
     # double-encode it and print the raw tags as visible text.
+    verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
+        DEVICE_STATE_TEXT.get(state, DEVICE_STATE_TEXT["warn"]))
     detail = layout.concise_timestamp_html(ts, now)
-    row = '<p class="stat-tile__value">%s</p>' % detail
+    row = verdict + '<p class="stat-tile__value">%s</p>' % detail
     return row, state
 
 
@@ -1441,11 +1731,19 @@ def _pipeline_section(pipeline_ts, last_detection, now):
     # _device_section() above — see that function's comment for the
     # full explanation of why dropping the dot is safe.
     #
+    # D-03/A-21, 19-01-PLAN.md: same verdict-paragraph addition, same
+    # reasoning, as _device_section() above — this is not a revival of
+    # the duplicated-label defect quick task 260901-tsa's comment
+    # describes; the verdict answers the tile's caption rather than
+    # repeating it.
+    #
     # D-09: concise_timestamp_html() already returns pre-escaped-safe
     # markup — wrapping it in escape_html() a second time would
     # double-encode it and print the raw tags as visible text.
+    verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
+        PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"]))
     detail = layout.concise_timestamp_html(pipeline_ts, now)
-    row = '<p class="stat-tile__value">%s</p>' % detail
+    row = verdict + '<p class="stat-tile__value">%s</p>' % detail
     # Quick task 260903-peo (UIR-14): a real second content line, not
     # filler — `last_detection` is history_db.META_LAST_DETECTION, read
     # inside the same atomic _read_health_inputs() snapshot pipeline_ts
@@ -1807,9 +2105,9 @@ def _corroboration_section(counts):
     counts = counts or {}
     if not any(counts.values()):
         return layout.empty_state(
-            "No corroboration data yet.",
-            "Corroboration data appears once the ADS-B pipeline has "
-            "recorded at least one runway event."), False
+            "Nothing to compare yet.",
+            "This appears once the frame has recorded at least one "
+            "flight."), False
 
     statuses = corroboration_status(counts)
     rows_html = []
@@ -2309,10 +2607,10 @@ def _resolution_rate_tile_html(stats):
 
 
 def _read_health_inputs(state_dir, now):
-    """The seven `_safe_query()` reads `render()` and `anomaly_active()`
-    both need, single-sourced into one dict.
+    """The nine reads `render()` and `anomaly_active()` both need,
+    single-sourced into one dict.
 
-    `render()` and `anomaly_active()` must be looking at the same seven
+    `render()` and `anomaly_active()` must be looking at the same nine
     values, or the Health nav-tab dot and the page's own anomaly banner
     can disagree on screen — single-sourcing the *inputs* (not just the
     section-builder calls that consume them) is what removes that whole
@@ -2325,15 +2623,33 @@ def _read_health_inputs(state_dir, now):
     same request. Quick task 260903-peo (UIR-14) grew it again, six to
     seven: `last_detection` joins `pipeline_ts` here for the identical
     reason — it feeds the same section builder (`_pipeline_section()`),
-    from the same table (`meta`), in the same request. This does NOT
-    reopen D-11: the migrated registry/stats reads in `render()` stay
-    their own independent calls, deliberately NOT folded in here, because
-    they are a genuinely DIFFERENT failure mode (filesystem/JSON vs
-    SQLite) feeding a DIFFERENT card that must keep failing independently
-    of this one — see `render()`'s own comment at that call site for the
-    unchanged reasoning.
+    from the same table (`meta`), in the same request.
+
+    D-05/A-23, 19-05-PLAN.md: grew again, seven to nine — `device_config`
+    (`device_config.load_device_config()`, a never-raising config read,
+    consumed by `compute_health_state()` to derive the device's own
+    staleness thresholds) and `registry_rows` (the CFG-04 unresolved-
+    prefix registry, now consumed by `overall_severity()`/
+    `collect_anomalies()` via `coverage_status()`, in addition to its
+    pre-existing consumer, `render()`'s own registry card).
+
+    This PARTIALLY reopens D-11's original "does NOT reopen" boundary,
+    and says so explicitly rather than silently contradicting it:
+    `registry_rows` here is wrapped in its own narrow
+    `(OSError, ValueError)` guard (T-19-23) — a DIFFERENT failure mode
+    from every other key in this dict (SQLite, via `_safe_query()`) — so
+    a registry read failure degrades to "no gaps" for SEVERITY purposes
+    without taking down any other section, preserving the failure-mode
+    isolation `render()`'s own comment demands. `render()`'s registry
+    CARD still degrades independently too (see its own call site's
+    comment for why this key alone is read twice, by design, rather than
+    threading one value through both consumers).
     """
     cutoff = _cutoff_iso(now, _CORROBORATION_WINDOW_DAYS)
+    try:
+        registry_rows = unresolved_rows(state_dir)
+    except (OSError, ValueError):
+        registry_rows = []
     return {
         "device_health": _safe_query(state_dir, history_db.latest_device_health),
         "pipeline_ts": _safe_query(
@@ -2350,6 +2666,8 @@ def _read_health_inputs(state_dir, now):
         "corroboration_counts": _safe_query(
             state_dir,
             lambda conn: history_db.corroboration_counts(conn, since=cutoff)),
+        "device_config": device_config.load_device_config(state_dir),
+        "registry_rows": registry_rows,
     }
 
 
@@ -2409,17 +2727,34 @@ def render(ctx):
     banner_html = (
         _anomaly_banner_html(severity, anomalies) if severity != "ok" else "")
 
-    # D-11: the migrated registry/stats reads are their own independent
-    # calls here, deliberately NOT folded into _read_health_inputs()'s
-    # single dict — the registry read is a filesystem/JSON failure mode
-    # (poll_loop.load_poll_state(), inside unresolved_rows()), the stats
-    # read is a SQLite failure mode (_safe_query()); merging them would
-    # make one query's failure take down a card that used to fail
-    # independently on the page it came from.
-    registry_rows = unresolved_rows(state_dir)
+    # D-11: the registry card's own read is deliberately independent of
+    # the stats read below — the registry read is a filesystem/JSON
+    # failure mode (poll_loop.load_poll_state(), inside
+    # unresolved_rows()), the stats read is a SQLite failure mode
+    # (_safe_query()); merging them would make one query's failure take
+    # down a card that used to fail independently on the page it came
+    # from.
+    #
+    # D-05/A-23, 19-05-PLAN.md: `_read_health_inputs()` now ALSO reads
+    # the registry (for severity's sake — see that function's own
+    # docstring), so `state["registry_rows"]` already carries this
+    # exact value whenever `state` is a real compute_health_state()
+    # result. Reused here rather than re-reading the registry a second
+    # time per request — the same "reuse the precomputed state, fall
+    # back to a fresh read" shape this function already uses for
+    # `health_state` itself, so a caller that builds `ctx["health_state"]`
+    # by hand (bypassing `_read_health_inputs()`) still gets a real
+    # registry card rather than a missing key.
+    registry_rows = state.get("registry_rows")
+    if registry_rows is None:
+        registry_rows = unresolved_rows(state_dir)
     stats = _safe_query(
         state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
 
+    # 19-06-PLAN.md Task 2 (D-06): DEVICE_FRESHNESS_LABEL is already
+    # plain language ("Device last checked in") — there is no genuine
+    # technical term to demote to a tooltip here, so no `caption_title`
+    # is passed, rather than inventing one.
     device_tile_html = layout.stat_tile(
         DEVICE_FRESHNESS_LABEL, device_html, device_state, icon=ICON_DEVICE)
 
@@ -2431,13 +2766,30 @@ def render(ctx):
     # _battery_trend_section_html()'s new `state` argument below. A
     # different mechanism reaching the same original intent D-01's own
     # reference note expected.
+    # D-03/A-21, 19-01-PLAN.md: the Corroboration tile's verdict is keyed
+    # on the identical expression already passed as this tile's own
+    # `status` argument below, so the word and the border colour can
+    # never disagree.
+    corroboration_state = "warn" if disagreement_warn else "ok"
+    corroboration_verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
+        CORROBORATION_STATE_TEXT.get(corroboration_state, CORROBORATION_STATE_TEXT["ok"]))
     server_data_tiles_html = (
         layout.stat_tile(
-            PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state, icon=ICON_PIPELINE)
+            PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state,
+            icon=ICON_PIPELINE, caption_title=PIPELINE_FRESHNESS_TITLE)
         + layout.stat_tile(
-            "Corroboration", corroboration_html,
-            "warn" if disagreement_warn else "ok", icon=ICON_CORROBORATION)
-        + layout.stat_tile(RESOLUTION_RATE_LABEL, _resolution_rate_tile_html(stats), None)
+            CORROBORATION_TILE_LABEL, corroboration_verdict + corroboration_html,
+            corroboration_state, icon=ICON_CORROBORATION,
+            caption_title=CORROBORATION_TILE_TITLE)
+        # D-03/A-21: the Resolution-rate tile is the one deliberate
+        # exception — it is passed status=None and carries no
+        # pass/fail verdict anywhere in this module (no status function
+        # for it exists), so inventing a verdict word for it here would
+        # assert a judgement this page does not actually make. Its
+        # rendered figure stays exactly as it was before this task.
+        + layout.stat_tile(
+            RESOLUTION_RATE_LABEL, _resolution_rate_tile_html(stats), None,
+            caption_title=RESOLUTION_RATE_TITLE)
     )
 
     # 260902-chc: SUPERSEDED — this used to be a manual Refresh link
@@ -2468,34 +2820,70 @@ def render(ctx):
     pill_html = (
         '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
         % (escape_html(now), layout.icon_html("icon-refresh"), REFRESH_PILL_TEXT))
-    # Quick task 260903-peo (UIR-18): a persistent, server-rendered
-    # liveness note joins the pill above inside ONE block-level wrapper —
-    # load-bearing, not decorative. `.page-header` is a plain block box;
-    # 260902-ep7 (BUG 1) fixed a measured 28px title-to-purpose gap
+    # 19-09-PLAN.md (D-02, A-20): the clock-only rendering that replaces
+    # concise_timestamp_html(now, now)'s dishonest "(0s ago)" suffix (see
+    # FRESHNESS_PREFIX_TEXT's own comment above for why). Parses `now`
+    # once and formats it with layout.local_clock_text(parsed,
+    # now_parsed=parsed) — passing the SAME parsed value as both
+    # arguments always takes that function's "same local day as now"
+    # branch, so the visible text is always a bare "HH:MM", never the
+    # "D Mon HH:MM" cross-day form, exactly mirroring
+    # concise_timestamp_html()'s own span shape (a `mono` class, the full
+    # ISO string demoted to `title`) but with no relative-age half.
+    # Degrades exactly like concise_timestamp_html() does: an
+    # unparseable `now` renders the raw value in both the title and
+    # visible-text slots rather than raising. `data-refresh-clock` is
+    # this span's own hook for companion/static/freshness.js — it reads
+    # nothing from this span itself (the whole wrapper is swapped
+    # instead), but the attribute keeps this element easy to find from a
+    # future edit or a live DOM inspection.
+    _now_parsed = layout.parse_iso(now)
+    _clock_text = (
+        layout.local_clock_text(_now_parsed, now_parsed=_now_parsed)
+        if _now_parsed is not None else now)
+    clock_html = (
+        '<span class="mono" data-refresh-clock title="%s">%s</span>'
+        % (escape_html(now), escape_html(_clock_text)))
+    # 19-09-PLAN.md (D-02, A-20): the visible Pause/Resume control.
+    # `data-pause-text`/`data-resume-text` carry both labels so
+    # freshness.js never hardcodes copy — it only ever writes back a
+    # value this module already escaped. `aria-pressed` reflects
+    # "paused", not "resumed": the button always starts in its
+    # not-pressed, not-paused state on a fresh server render, matching
+    # every real render (a render only ever happens while the page is
+    # not mid-pause on the client — see freshness.js's own header for
+    # why a swap never fires while paused). The button's own visible
+    # text doubles as its accessible name; no separate aria-label is
+    # needed.
+    toggle_html = (
+        '<button type="button" data-refresh-toggle aria-pressed="false" '
+        'data-pause-text="%s" data-resume-text="%s">%s</button>'
+        % (escape_html(REFRESH_PAUSE_TEXT), escape_html(REFRESH_RESUME_TEXT),
+           escape_html(REFRESH_PAUSE_TEXT)))
+    # Quick task 260903-peo (UIR-18): the pill, the clock and (19-09-
+    # PLAN.md) the toggle button all join inside ONE block-level wrapper
+    # — load-bearing, not decorative. `.page-header` is a plain block
+    # box; 260902-ep7 (BUG 1) fixed a measured 28px title-to-purpose gap
     # caused by a stranded inline-level child (the bare pill span)
     # forcing an anonymous block box between the block <h1> and the
     # block <p class="page-header__purpose">. The pill escapes that only
     # because `.page-header .refresh-pill` is absolutely positioned; a
     # second bare inline node next to it would recreate the exact same
-    # condition. Wrapping both in one block-level <p> keeps
+    # condition. Wrapping all three in one block-level <p> keeps
     # `.page-header`'s children all block-level, and
     # `.page-header .refresh-pill` — a descendant selector — still
     # matches straight through the wrapper, so the pill's `top: 8px;
     # right: 0` offsets (anchored to `.page-header`, the nearest
     # positioned ancestor, never the wrapper) are unchanged.
     #
-    # The note's content is layout.concise_timestamp_html(now, now) —
-    # `now` is already in hand, computed once per request by app.py's
-    # page_context() and already interpolated into `data-loaded-at`
-    # above. Its output is already-safe markup, interpolated verbatim
-    # (D-09) — never re-escaped. No client-side ticker, no new timer, no
-    # second data-loaded-at consumer: the page regenerates itself every
-    # 45s (freshness.js), so a render-time value is honest for its whole
-    # life.
+    # This whole `<p class="page-header__freshness">` element is one of
+    # REFRESH_SWAP_SELECTORS' own entries — freshness.js replaces it
+    # wholesale from its own fetch, so a render-time value here is
+    # honest for exactly as long as it takes the next successful swap to
+    # replace it, never longer.
     freshness_html = (
-        '<p class="page-header__freshness text-label">%s%s%s</p>'
-        % (escape_html(PERSISTENT_FRESHNESS_PREFIX_TEXT),
-           layout.concise_timestamp_html(now, now), pill_html))
+        '<p class="page-header__freshness text-label">%s%s%s%s</p>'
+        % (escape_html(FRESHNESS_PREFIX_TEXT), clock_html, pill_html, toggle_html))
 
     # §5.2 (D-10): two id-anchored sections. Screen holds the
     # Device-freshness tile wrapped in its own single-tile dashboard-grid
