@@ -914,8 +914,12 @@ class Handler(BaseHTTPRequestHandler):
     # --- auth ----------------------------------------------------------
 
     def _is_authenticated(self):
+        # A-33/D-16: this is the ONLY place the revocation check runs —
+        # every one of the 9+ require_session() call sites below goes
+        # through this single predicate, never duplicated per route.
         cookies = auth.parse_cookies(self.headers.get("Cookie"))
-        return auth.verify_session_token(cookies.get(auth.SESSION_COOKIE_NAME))
+        token = cookies.get(auth.SESSION_COOKIE_NAME)
+        return bool(token) and auth.verify_session_token(token) and not auth.is_revoked(token)
 
     def require_session(self):
         if self._is_authenticated():
@@ -2217,9 +2221,12 @@ class Handler(BaseHTTPRequestHandler):
         submitted = form.get("ui_theme")
         cookie_header = None
         if submitted in layout.UI_THEME_CHOICES:
+            # A-34/D-17: routed through auth.secure_cookie_flag() so this
+            # cookie and the session cookie cannot drift on the Secure flag.
             cookie_header = (
-                "%s=%s; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=%d"
-                % (auth.UI_THEME_COOKIE_NAME, submitted, THEME_COOKIE_MAX_AGE_S))
+                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
+                % (auth.UI_THEME_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
+                   THEME_COOKIE_MAX_AGE_S))
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
     def do_POST(self):
@@ -2253,6 +2260,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_theme_post()
 
         if path == LOGOUT_ROUTE:
+            # A-33/D-16: revoke the presented token server-side before
+            # clearing the client's cookie, so replaying the same cookie
+            # value after Sign out no longer verifies. The 19-04 plan
+            # adds the require_session() gate to this branch; this plan
+            # only adds the revoke() call.
+            cookies = auth.parse_cookies(self.headers.get("Cookie"))
+            token = cookies.get(auth.SESSION_COOKIE_NAME)
+            if token:
+                auth.revoke(token)
             return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
 
         # Phase 13 plan 13-06: Step A of the two-step resolve flow (D-03,

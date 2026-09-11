@@ -267,6 +267,15 @@ EXPECTED_CHECK_COUNT = 159  # 157 + 2 (13-REVIEW.md WR-11 fix: end-to-end
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 165
 EXPECTED_CHECK_COUNT = 192  # 177 + 15 (phase 18: two more tabs in the per-tab loops (+4), legacy-route redirects (+4), Home/quick-action/scoped-save/split-page/no-store checks (+7)) — was 177 # 165 + 12 (phase 17 plan 04 Task 3, D-06/D-09:
+EXPECTED_CHECK_COUNT = 194  # 192 + 2 (phase 19 plan 02 Task 1, D-15/A-32:
+# the zero-length-window and real-lockout_s self-releasing-lockout checks
+# for LoginThrottle.record_failure()).
+EXPECTED_CHECK_COUNT = 198  # 194 + 4 (phase 19 plan 02 Task 2, D-16/A-33:
+# the derived-signing-key check, the revoke()/is_revoked() round-trip and
+# pruning-on-expiry checks, and the real-HTTP replay-after-logout check).
+EXPECTED_CHECK_COUNT = 201  # 198 + 3 (phase 19 plan 02 Task 3, D-17/A-34:
+# the insecure-cookies-drops-Secure check, the fails-closed-on-"true"
+# check, and the deploy/skypane.env.example documentation check).
 # the save-triggered immediate calendar sync's real-HTTP-round-trip
 # outcomes — plural/singular flight count, a zero-entry feed's distinct
 # success, the single generic failure message with the URL still saved,
@@ -770,6 +779,66 @@ def main():
             "session_set_cookie_header() carries HttpOnly/Secure/SameSite=Strict/Path",
             _session_cookie_header_carries_security_flags)
 
+        def _insecure_cookies_flag_drops_secure_but_keeps_other_flags():
+            # A-34/D-17: the exact opt-out value "1" drops Secure from
+            # both cookie builders while every other flag survives.
+            saved = os.environ.get(auth.INSECURE_COOKIES_ENV_VAR)
+            os.environ[auth.INSECURE_COOKIES_ENV_VAR] = "1"
+            try:
+                session_header = auth.session_set_cookie_header(auth.issue_session_token())
+                logout_header = auth.logout_set_cookie_header()
+                for header in (session_header, logout_header):
+                    if "Secure" in header:
+                        return False, "expected Secure to be absent, got %r" % (header,)
+                    for needle in ("HttpOnly", "SameSite=Strict", "Path=/"):
+                        if needle not in header:
+                            return False, "missing %r in %r" % (needle, header)
+                return True, ""
+            finally:
+                if saved is None:
+                    os.environ.pop(auth.INSECURE_COOKIES_ENV_VAR, None)
+                else:
+                    os.environ[auth.INSECURE_COOKIES_ENV_VAR] = saved
+        check(
+            "SKYPANE_COMPANION_INSECURE_COOKIES=1 drops Secure from both cookie builders "
+            "while HttpOnly/SameSite=Strict/Path survive (A-34/D-17)",
+            _insecure_cookies_flag_drops_secure_but_keeps_other_flags)
+
+        def _insecure_cookies_flag_fails_closed_on_other_values():
+            # Any value other than exactly "1" — including a
+            # truthy-looking "true" — must leave Secure on.
+            saved = os.environ.get(auth.INSECURE_COOKIES_ENV_VAR)
+            os.environ[auth.INSECURE_COOKIES_ENV_VAR] = "true"
+            try:
+                header = auth.session_set_cookie_header(auth.issue_session_token())
+                if "Secure" not in header:
+                    return False, "expected Secure to remain on for a non-'1' value, got %r" % (header,)
+                return True, ""
+            finally:
+                if saved is None:
+                    os.environ.pop(auth.INSECURE_COOKIES_ENV_VAR, None)
+                else:
+                    os.environ[auth.INSECURE_COOKIES_ENV_VAR] = saved
+        check(
+            "SKYPANE_COMPANION_INSECURE_COOKIES=\"true\" fails closed - Secure stays on "
+            "(A-34/D-17)",
+            _insecure_cookies_flag_fails_closed_on_other_values)
+
+        def _env_example_documents_insecure_cookies_flag():
+            env_example_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "..", "deploy", "skypane.env.example")
+            with open(env_example_path, "r") as fh:
+                contents = fh.read()
+            if auth.INSECURE_COOKIES_ENV_VAR not in contents:
+                return False, (
+                    "expected %r to be documented in deploy/skypane.env.example"
+                    % (auth.INSECURE_COOKIES_ENV_VAR,))
+            return True, ""
+        check(
+            "deploy/skypane.env.example documents SKYPANE_COMPANION_INSECURE_COOKIES (A-34/D-17)",
+            _env_example_documents_insecure_cookies_flag)
+
         def _logout_cookie_expires_immediately():
             header = auth.logout_set_cookie_header()
             if "Max-Age=0" not in header:
@@ -814,6 +883,55 @@ def main():
             "LoginThrottle allows attempts up to its limit, locks out, then resets on success",
             _login_throttle_allows_locks_and_resets)
 
+        def _login_throttle_self_releases_with_zero_length_window():
+            # A-32/D-15: with lockout_s=0 the window elapses immediately,
+            # so no real sleep is needed to exercise "a lockout releases
+            # itself." The regression this pins: a naive fix that only
+            # checks the failure count (not the elapsed window) would
+            # re-arm the lockout on this 4th failure instead of starting
+            # a fresh count.
+            throttle = auth.LoginThrottle(limit=3, lockout_s=0)
+            for _ in range(3):
+                throttle.record_failure()
+            if throttle.locked_out():
+                return False, "expected locked_out() False once the zero-length window has passed"
+            throttle.record_failure()
+            if throttle.locked_out():
+                return False, (
+                    "one post-window failure should count as 1 of 3 toward a fresh "
+                    "lockout, not immediately re-arm it")
+            return True, ""
+        check(
+            "LoginThrottle with a zero-length window releases itself and a post-window "
+            "failure starts a fresh count (A-32/D-15)",
+            _login_throttle_self_releases_with_zero_length_window)
+
+        def _login_throttle_self_releases_with_real_window():
+            # Same property as above, but with a real non-zero lockout_s,
+            # proven by rewinding _locked_until into the past (mirroring
+            # how _login_throttle_allows_locks_and_resets already drives
+            # this class purely through its public methods plus direct
+            # attribute access for time-travel, since there is no clock
+            # injection point on LoginThrottle).
+            throttle = auth.LoginThrottle(limit=3, lockout_s=60)
+            for _ in range(3):
+                throttle.record_failure()
+            if not throttle.locked_out():
+                return False, "expected locked_out() True immediately after the 3rd failure"
+            throttle._locked_until = time.time() - 1  # simulate the window elapsing
+            if throttle.locked_out():
+                return False, "expected locked_out() False once the window has elapsed"
+            throttle.record_failure()
+            if throttle.locked_out():
+                return False, (
+                    "one post-window failure should count as 1 of 3 toward a fresh "
+                    "lockout, not immediately re-arm it")
+            return True, ""
+        check(
+            "LoginThrottle with a real lockout_s releases itself once the window elapses "
+            "and a post-window failure starts a fresh count (A-32/D-15)",
+            _login_throttle_self_releases_with_real_window)
+
         def _forged_token_different_secret_rejected():
             forged = _sign_with_secret(
                 str(int(time.time()) + 3600), "attacker-controlled-secret")
@@ -833,6 +951,74 @@ def main():
         check(
             "a hand-built token expired by one second is rejected despite a correct signature",
             _hand_built_expired_token_rejected)
+
+        def _tokens_signed_with_derived_key_not_raw_password():
+            # A-33/D-16: two tokens issued in this process both verify -
+            # the derived signing key is stable within a process.
+            token_a = auth.issue_session_token()
+            token_b = auth.issue_session_token()
+            if not auth.verify_session_token(token_a) or not auth.verify_session_token(token_b):
+                return False, "expected both freshly-issued tokens to verify"
+            # But a signature computed with the OLD scheme (the raw
+            # shared password as the HMAC key, no per-process salt) must
+            # NOT verify - that is the actual behaviour being fixed.
+            expiry = str(int(time.time()) + 3600)
+            raw_password_token = _sign_with_secret(expiry, TEST_PASSWORD)
+            if auth.verify_session_token(raw_password_token) is not False:
+                return False, (
+                    "a signature computed with the raw password (the pre-D-16 scheme) "
+                    "must not verify - the signing key must be genuinely derived")
+            return True, ""
+        check(
+            "issued tokens verify within this process, but a raw-password-keyed signature "
+            "(the old scheme) does not - the signing key is genuinely derived (A-33/D-16)",
+            _tokens_signed_with_derived_key_not_raw_password)
+
+        def _revoke_then_is_revoked_round_trip():
+            token = auth.issue_session_token()
+            # A different token string, not a second real session (which
+            # issue_session_token()'s nanosecond-resolution expiry already
+            # makes vanishingly unlikely to collide with `token` anyway) -
+            # is_revoked() only ever does a plain membership test.
+            never_issued = token + "0"
+            if auth.is_revoked(token):
+                return False, "a never-revoked token must not be reported as revoked"
+            auth.revoke(token)
+            if not auth.is_revoked(token):
+                return False, "expected is_revoked() True immediately after revoke()"
+            if auth.is_revoked(never_issued):
+                return False, "revoking one token must not affect a different, never-revoked token"
+            try:
+                auth.revoke("not-a-valid-token-shape")
+                auth.revoke(None)
+                auth.revoke("")
+            except Exception as exc:
+                return False, "revoke() must never raise on a malformed token, got %r" % (exc,)
+            return True, ""
+        check(
+            "revoke(token) then is_revoked(token) is True, a never-issued token is False, and "
+            "a malformed token passed to revoke() raises nothing (A-33/D-16)",
+            _revoke_then_is_revoked_round_trip)
+
+        def _revoked_token_pruned_once_it_expires():
+            # revoke() stores (token -> expiry); once that expiry has
+            # passed, the NEXT revoke()/is_revoked() call must prune the
+            # entry out of auth._REVOKED, keeping the set bounded rather
+            # than growing for the lifetime of the process (T-19-14).
+            token = auth.issue_session_token()
+            auth.revoke(token)
+            if token not in auth._REVOKED:
+                return False, "expected revoke() to store a not-yet-expired token"
+            auth._REVOKED[token] = 0  # simulate its expiry having already passed
+            if auth.is_revoked(token):
+                return False, "expected an expired revoked entry to report False, not True"
+            if token in auth._REVOKED:
+                return False, "expected is_revoked() to prune the now-expired entry out of _REVOKED"
+            return True, ""
+        check(
+            "a revoked token is pruned out of the revocation set once its own expiry passes "
+            "(A-33/D-16, T-19-14: the set stays bounded)",
+            _revoked_token_pruned_once_it_expires)
 
         def _auth_not_configured_message_omits_password():
             saved = os.environ.pop(auth.PASSWORD_ENV_VAR, None)
@@ -3385,6 +3571,25 @@ def main():
             return True, ""
         check("POST /logout clears the session cookie (Max-Age=0)", _logout_clears_cookie)
 
+        def _replayed_cookie_after_logout_rejected():
+            # A-33/D-16: POST /logout now revokes the presented token
+            # server-side (auth.revoke()), so replaying the exact same
+            # cookie value on a later request is refused too - not just
+            # cleared client-side. The authenticated-tab checks earlier
+            # in this file already proved a GET with this exact
+            # session_cookie succeeded before logout ran.
+            status, headers, _ = http_request(base + "/display", cookie=session_cookie)
+            if status != 303 or headers.get("Location") != "/login?next=%2Fdisplay":
+                return False, (
+                    "expected the logged-out session cookie to be rejected with a "
+                    "redirect to /login?next=%%2Fdisplay, got %d/%r"
+                    % (status, headers.get("Location")))
+            return True, ""
+        check(
+            "replaying the exact session cookie after Sign out is rejected (A-33: revoked "
+            "server-side, not just cleared client-side)",
+            _replayed_cookie_after_logout_rejected)
+
         def _get_logout_no_longer_ends_session():
             status, _headers, _body = http_request(base + "/logout", cookie=session_cookie)
             if status != 404:
@@ -3395,15 +3600,13 @@ def main():
             _get_logout_no_longer_ends_session)
 
         def _tab_refused_after_logout():
-            # Sessions are stateless signed cookies (companion/auth.py has
-            # no server-side revocation store, by design) - logout works
-            # by clearing the *client's* cookie, not by invalidating the
-            # token server-side. A real browser discards the cookie the
-            # instant it sees Max-Age=0, so the faithful way to prove "a
-            # subsequent tab request is refused again" is to present no
-            # cookie at all on the next request, exactly as a browser
-            # would - resending the stale cookie value would prove
-            # nothing (it would still verify, by design).
+            # As of A-33/D-16, resending the stale cookie value after
+            # logout IS refused too - see
+            # _replayed_cookie_after_logout_rejected above, which proves
+            # that directly. This check instead exercises the separate,
+            # always-true case a real browser hits: no cookie presented
+            # at all, because it discarded the cookie the instant it saw
+            # Max-Age=0 on the /logout response.
             status, headers, _ = http_request(base + "/display")
             # 06.6.2-07 (UXA-03): a NAV_TABS route (phase 18: /display),
             # so require_session() carries it as ?next= too — the same
