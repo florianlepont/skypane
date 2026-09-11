@@ -975,7 +975,7 @@ Plans:
 **Goal:** Close every defect still open in 18-AUDIT.md (A-19 through A-39, plus the remainder of A-40) and the two small suggestions that belong with them (S-02 next-wake countdown, S-04 quiet-hours presets), keeping the everyday pages plain-language and the design contract intact — see 19-CONTEXT.md D-01..D-23.
 **Requirements**: CFG-01, CFG-03, CFG-04, CFG-06, CFG-08
 **Depends on:** Phase 18
-**Plans:** 2/12 plans executed
+**Plans:** 5/12 plans executed
 
 Plans:
 **Wave 1**
@@ -985,9 +985,9 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 19-03-PLAN.md — Flights: 6-column table, focusable scroller, honest copy feedback (D-19, D-20)
-- [ ] 19-04-PLAN.md — Shell: CSP everywhere, hardened redirects, gated routes, inline scripts externalised (D-18)
-- [ ] 19-05-PLAN.md — Health: fixed-range sparkline + wake-derived staleness and severity (D-04, D-05)
+- [x] 19-03-PLAN.md — Flights: 6-column table, focusable scroller, honest copy feedback (D-19, D-20)
+- [x] 19-04-PLAN.md — Shell: CSP everywhere, hardened redirects, gated routes, inline scripts externalised (D-18)
+- [x] 19-05-PLAN.md — Health: fixed-range sparkline + wake-derived staleness and severity (D-04, D-05)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
