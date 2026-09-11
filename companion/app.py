@@ -1156,6 +1156,18 @@ class Handler(BaseHTTPRequestHandler):
             # of this phase's threat posture.
             "resolve_prefix": params.get(
                 airlines_page.RESOLVE_QUERY_PARAM, [None])[0],
+            # 19-08-PLAN.md Task 3 (D-22, T-19-30/T-19-31): an exact
+            # membership test against "1", nothing else — the same
+            # discipline layout.ui_theme_from_cookie()/submitted_scope()
+            # already apply to a query/cookie value before trusting it.
+            # Presentation-only: this decides whether airlines_page's
+            # artwork-editing forms (replace/upload/delete) RENDER, and
+            # is NEVER consulted by any POST handler — those routes keep
+            # their own require_session() gate regardless of this flag.
+            # See companion/pages/__init__.py's ctx contract for the
+            # full boundary statement.
+            "edit_mode": params.get(
+                airlines_page.EDIT_QUERY_PARAM, [None])[0] == "1",
             # Read fresh per request, exactly like device_config.load_
             # device_config(state_dir) above — never the process-scoped
             # cache set_manual_registry_state_dir()/airline_name_for_

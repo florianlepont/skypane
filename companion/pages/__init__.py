@@ -112,6 +112,21 @@ Every page module in this package exposes:
           is a long-running `ThreadingHTTPServer`; a companion-side save
           landing mid-request must always be visible on the very next
           request, not just the next poll cycle
+        - edit_mode: a bool, `True` only for an exact `?edit=1` query
+          value (added by 19-08-PLAN.md Task 3, D-22) — computed by
+          companion/app.py's `page_context()` as
+          `params.get(airlines_page.EDIT_QUERY_PARAM, [None])[0] ==
+          "1"`, a strict membership test, never a truthiness check or a
+          substring/case-insensitive match. companion/pages/
+          airlines_page.py's render() is the sole consumer: it decides
+          whether the shared lightbox's artwork-editing affordances
+          (replace/upload/delete) render at all. This is a
+          **presentation-only** flag and must NEVER be treated as
+          authorisation — the POST routes those forms target
+          (`ILLUSTRATION_IMAGE_ROUTE_PREFIX`, `MANUAL_DELETE_ROUTE_
+          PREFIX`) keep their own `require_session()` gate in `do_POST()`
+          regardless of this key's value. Hiding a form changes what is
+          offered to render, not what is permitted to execute.
 
     handle_post(form, ctx) -> str
         Only modules that accept a form (today: config_page) additionally
