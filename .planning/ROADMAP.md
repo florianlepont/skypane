@@ -975,7 +975,7 @@ Plans:
 **Goal:** Close every defect still open in 18-AUDIT.md (A-19 through A-39, plus the remainder of A-40) and the two small suggestions that belong with them (S-02 next-wake countdown, S-04 quiet-hours presets), keeping the everyday pages plain-language and the design contract intact — see 19-CONTEXT.md D-01..D-23.
 **Requirements**: CFG-01, CFG-03, CFG-04, CFG-06, CFG-08
 **Depends on:** Phase 18
-**Plans:** 7/12 plans executed
+**Plans:** 10/12 plans executed
 
 Plans:
 **Wave 1**
@@ -996,9 +996,9 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 19-08-PLAN.md — Airlines: Unidentified-airlines strip, Airlines back link, view-only lightbox (D-21, D-22)
-- [ ] 19-09-PLAN.md — Health: fetch-and-swap live refresh with a Pause control (D-02)
-- [ ] 19-10-PLAN.md — Settings: dirty-ready fallback gating, unload guard, quiet-hours presets (D-09, D-10, D-14)
+- [x] 19-08-PLAN.md — Airlines: Unidentified-airlines strip, Airlines back link, view-only lightbox (D-21, D-22)
+- [x] 19-09-PLAN.md — Health: fetch-and-swap live refresh with a Pause control (D-02)
+- [x] 19-10-PLAN.md — Settings: dirty-ready fallback gating, unload guard, quiet-hours presets (D-09, D-10, D-14)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
