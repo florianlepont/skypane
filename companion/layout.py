@@ -38,6 +38,11 @@ SITE_TITLE = "SkyPane"
 LOCAL_TZ = ZoneInfo("Europe/Paris")
 _MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+# D-07, 20-03-PLAN.md Task 2: the French month-abbreviation table
+# local_clock_text() selects instead of _MONTH_ABBR above under a
+# French request — same twelve-entry shape, parallel index.
+_MONTH_ABBR_FR = ("janv.", "févr.", "mars", "avr.", "mai", "juin",
+                   "juil.", "août", "sept.", "oct.", "nov.", "déc.")
 
 # Ordered (route, label) pairs — 06-UI-SPEC.md's Page Inventory. Login is
 # deliberately absent: it is shown instead of any page when unauthenticated,
@@ -581,13 +586,61 @@ def age_seconds(ts, now_ts):
         return None
 
 
-def relative_age_text(age_seconds):
+# D-07, 20-03-PLAN.md Task 2: the French unit-suffix table
+# relative_age_text()'s French branch consumes below, in the same
+# "fixed dict, membership lookup, documented fallback" shape
+# _STATUS_DOT_CLASSES already uses. Kept complete (all four English
+# unit letters) even though the "s" entry is never actually reached
+# (the seconds bucket always short-circuits to "à l'instant" before
+# consulting this table) — the same audit-by-grep discipline every
+# other fixed-vocabulary dict in this module follows.
+_AGE_UNIT_SUFFIX_FR = {
+    "s": "s",
+    "m": "min",
+    "h": "h",
+    "d": "j",
+}
+
+
+def relative_age_text(age_seconds, lang=None):
     """"Ns ago"/"Nm ago"/"Nh ago"/"Nd ago" using the s/m/h/d threshold
     ladder this app already ships on the Device/Pipeline rows. A
     negative age (clock skew) is clamped to 0 rather than read as
     "in the future".
+
+    `lang` (D-07, 20-03-PLAN.md Task 2) is a trailing keyword whose
+    `None` resolves to `prefs.current_lang()` — every pre-existing call
+    site passes only the positional `age_seconds` and keeps getting the
+    identical English string this function has always returned; the
+    English branch below is byte-for-byte unchanged. Only a French
+    request (an explicit `lang="fr"`, or a request whose
+    `prefs.current_lang()` resolves to `"fr"`) takes the French branch.
+
+    French collapses the whole under-a-minute bucket into one
+    "à l'instant" ("just now") regardless of the exact second count —
+    the idiomatic French phrasing 20-CONTEXT.md's D-07 names, rather
+    than a literal "il y a %d secondes". The minute/hour/day buckets
+    read "il y a N <unit>" (a real U+00A0 non-breaking space
+    between the number and the unit, per D-09), with the unit taken
+    from `_AGE_UNIT_SUFFIX_FR` above and the connector taken from the
+    `"%s ago"` catalogue entry — the copy for both lives in
+    `companion/i18n_fr/health.py`, read here through `i18n.t_lang()`
+    rather than duplicated as a module literal.
     """
     age_seconds = max(0, int(age_seconds))
+    if lang is None:
+        lang = prefs.current_lang()
+    if lang == "fr":
+        if age_seconds < 60:
+            return i18n.t_lang("just now", "fr")
+        if age_seconds < 3600:
+            value, unit = age_seconds // 60, "m"
+        elif age_seconds < 86400:
+            value, unit = age_seconds // 3600, "h"
+        else:
+            value, unit = age_seconds // 86400, "d"
+        quantity = "%d %s" % (value, _AGE_UNIT_SUFFIX_FR[unit])
+        return i18n.t_lang("%s ago", "fr") % quantity
     if age_seconds < 60:
         return "%ds ago" % age_seconds
     if age_seconds < 3600:
@@ -667,11 +720,20 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet"):
         escape_html(relative_age_text(age)))
 
 
-def local_clock_text(parsed, now_parsed=None):
+def local_clock_text(parsed, now_parsed=None, lang=None):
     """`parsed` (an aware or naive datetime) rendered on LOCAL_TZ: "HH:MM"
     when it falls on the same local day as `now_parsed` (or when no `now`
     is supplied), otherwise "D Mon HH:MM". A naive datetime is taken as
     UTC, matching history_db.utc_now_iso()'s own output. Never raises.
+
+    `lang` (D-07, 20-03-PLAN.md Task 2) is a trailing keyword whose
+    `None` resolves to `prefs.current_lang()` — every pre-existing call
+    site passes only `parsed` (and, at most, `now_parsed` by keyword),
+    so the English month table (`_MONTH_ABBR`) and this function's
+    English output are unchanged. Under a French request, the month
+    abbreviation comes from `_MONTH_ABBR_FR` instead; the clock itself
+    stays 24-hour Europe/Paris in both languages — no locale module,
+    no `%p`, no change to the timezone handling.
     """
     try:
         if parsed.tzinfo is None:
@@ -683,7 +745,10 @@ def local_clock_text(parsed, now_parsed=None):
                 now_parsed = now_parsed.replace(tzinfo=ZoneInfo("UTC"))
             if now_parsed.astimezone(LOCAL_TZ).date() == local.date():
                 return clock
-            return "%d %s %s" % (local.day, _MONTH_ABBR[local.month - 1], clock)
+            if lang is None:
+                lang = prefs.current_lang()
+            month_abbr = _MONTH_ABBR_FR if lang == "fr" else _MONTH_ABBR
+            return "%d %s %s" % (local.day, month_abbr[local.month - 1], clock)
         return clock
     except (ValueError, OverflowError, AttributeError):
         return parsed.strftime("%H:%M") if hasattr(parsed, "strftime") else ""

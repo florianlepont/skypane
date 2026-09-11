@@ -464,6 +464,17 @@ EXPECTED_CHECK_COUNT = 204  # 20-03-PLAN.md Task 1 (D-21/D-17/§C): +8
 # pre-existing root-sandbox anomaly_active() failure, unrelated to this
 # plan), not trusted from arithmetic alone.
 
+EXPECTED_CHECK_COUNT = 208  # 20-03-PLAN.md Task 2 (D-07): +4
+# (relative_age_text()'s French seconds-bucket/'à l’instant' and
+# day-bucket/'il y a 1 j' pair; relative_age_text()'s English
+# output unchanged under lang='en'; local_clock_text()'s French/
+# English month-abbreviation pair with an identical HH:MM in both;
+# the positional-signature-unchanged source guard). 204 + 4 = 208,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (207/208 pass — the one documented pre-existing
+# root-sandbox anomaly_active() failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -6609,6 +6620,84 @@ def main():
         "compute_health_state()'s returned dict carries a device_detail_html key holding the "
         "verdict-free fragment also embedded (once) inside device_html (D-17)",
         _compute_health_state_carries_device_detail_html)
+
+    # ======================================================================
+    # Section 1.8: companion/layout.py's language-aware relative_age_
+    # text()/local_clock_text() (D-07, 20-03-PLAN.md Task 2). Every
+    # check resets prefs' ContextVars in a finally block so no check's
+    # language leaks into the next one.
+    # ======================================================================
+
+    def _relative_age_text_french_seconds_bucket_reads_a_linstant():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            thirty_s = layout.relative_age_text(30)
+            one_day = layout.relative_age_text(90000)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if thirty_s != "à l’instant":
+            return False, "expected relative_age_text(30) under fr to be 'à l’instant', got %r" % (thirty_s,)
+        if not one_day.startswith("il y a 1"):
+            return False, "expected relative_age_text(90000) under fr to start with 'il y a 1', got %r" % (one_day,)
+        if " " not in one_day:
+            return False, "expected a real U+00A0 between the number and the unit (D-09), got %r" % (one_day,)
+        return True, ""
+    check(
+        "under lang='fr', relative_age_text(30) reads 'à l’instant' and relative_age_text(90000) "
+        "reads 'il y a 1\\u00a0j' (D-07)",
+        _relative_age_text_french_seconds_bucket_reads_a_linstant)
+
+    def _relative_age_text_english_unchanged_under_default_lang():
+        try:
+            prefs.set_request_prefs(lang="en")
+            thirty_s = layout.relative_age_text(30)
+            one_day = layout.relative_age_text(90000)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if thirty_s != "30s ago":
+            return False, "expected the unchanged English '30s ago', got %r" % (thirty_s,)
+        if one_day != "1d ago":
+            return False, "expected the unchanged English '1d ago', got %r" % (one_day,)
+        return True, ""
+    check(
+        "under lang='en' (the default), relative_age_text()'s English output is byte-for-byte "
+        "unchanged — '30s ago'/'1d ago' (D-07)",
+        _relative_age_text_english_unchanged_under_default_lang)
+
+    def _local_clock_text_french_month_abbreviation():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            september = datetime(2026, 9, 10, 11, 53, tzinfo=timezone.utc)
+            now = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
+            fr_rendered = layout.local_clock_text(september, now)
+            prefs.set_request_prefs(lang="en")
+            en_rendered = layout.local_clock_text(september, now)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if "sept." not in fr_rendered:
+            return False, "expected the French month abbreviation 'sept.' in %r" % (fr_rendered,)
+        if "Sep" not in en_rendered:
+            return False, "expected the English month abbreviation 'Sep' in %r" % (en_rendered,)
+        fr_clock = fr_rendered.rsplit(" ", 1)[-1]
+        en_clock = en_rendered.rsplit(" ", 1)[-1]
+        if fr_clock != en_clock:
+            return False, "expected an identical HH:MM in both languages, got %r vs %r" % (
+                fr_clock, en_clock)
+        return True, ""
+    check(
+        "local_clock_text() on a September timestamp reads 'sept.' under fr and 'Sep' under en, "
+        "with an identical HH:MM in both (D-07)",
+        _local_clock_text_french_month_abbreviation)
+
+    def _relative_age_text_signature_unchanged_positionally():
+        source = inspect.getsource(layout.relative_age_text)
+        if not source.startswith("def relative_age_text(age_seconds"):
+            return False, "expected relative_age_text()'s positional signature to stay untouched"
+        return True, ""
+    check(
+        "relative_age_text()'s positional signature (age_seconds first) is untouched — lang is a "
+        "trailing keyword only",
+        _relative_age_text_signature_unchanged_positionally)
 
     # ======================================================================
     # Section 2: companion/pages/airlines_page.py — the illustration
