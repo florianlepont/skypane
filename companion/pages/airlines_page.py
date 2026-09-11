@@ -81,6 +81,18 @@ GALLERY_PURPOSE_TEXT = (
 
 CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
 
+# 19-08-PLAN.md Task 1 (D-21/A-38): the coverage-gap cards' own explained
+# strip, byte-identical-style copy convention to health_page.py's
+# SOURCE_FAULT_HEADING/SOURCE_FAULT_BODY (a module-level string constant,
+# escaped exactly once at _gap_strip_html()'s own single interpolation
+# point). Before this, the gap cards sat at the head of the curated
+# artwork grid with no heading at all, reading as broken artwork rather
+# than a call to action.
+GAP_STRIP_HEADING = "Unidentified airlines"
+GAP_STRIP_BODY = (
+    "The frame saw these callsigns but doesn’t know the airline. Tap "
+    "one to name it.")
+
 # quick task 260902-tli: the click-to-enlarge lightbox. This gallery
 # reuses History's already-shipped `<dialog>` lightbox and the document-
 # level click delegation companion/static/panel-lookup.js already
@@ -827,6 +839,15 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_
     existing test calling this function positionally with two arguments)
     keeps rendering byte-identical output with no gap block at all.
 
+    19-08-PLAN.md Task 1 (D-21/A-38): this parameter's only caller,
+    `render()`, stopped passing it as of this plan — the gap cards now
+    live in their own explained `_gap_strip_html()` strip above the
+    filter bar, never inside this curated artwork grid. The parameter
+    itself is retained rather than removed, for the same 46-call-site
+    backward-compatibility reason stated above; a future caller must
+    not reintroduce gap cards into this grid — pass them to
+    `_gap_strip_html()` instead.
+
     `manual_info_by_name` (14-06-PLAN.md Task 1, D-08/D-10): an optional
     dict mapping an airline's display name to its own
     `(prefix, superseded, needs_artwork)` triple — `render()`'s own
@@ -1046,11 +1067,66 @@ def _gap_overflow_html(overflow_count):
     wrapped by the `<a href="/health">` anchor — the trailing period
     sits outside it, matching 14-UI-SPEC.md's Gap-block composition
     literal exactly.
+
+    19-08-PLAN.md Task 1 (D-21): this anchor still points at `/health`,
+    deliberately NOT retargeted to Airlines even though this line now
+    renders inside the Airlines-hosted `_gap_strip_html()` strip rather
+    than at the head of the artwork grid. The link exists to show the
+    prefixes the strip's own `GAP_BLOCK_CAP` hides, and only Health's
+    unresolved-prefix registry table lists every one of them — Airlines
+    itself has no equivalent full list to link to.
     """
     if not overflow_count:
         return ""
     return '<p class="text-label section-caption">%s<a href="/health">%s</a>.</p>' % (
         MANUAL_OVERFLOW_TEMPLATE % overflow_count, MANUAL_OVERFLOW_LINK_TEXT)
+
+
+def _gap_strip_html(gap_cards_html, overflow_html):
+    """D-21's (A-38) own explained home for the coverage-gap cards: a
+    real `<section class="page-section">` card carrying
+    `GAP_STRIP_HEADING`/`GAP_STRIP_BODY` (each escaped exactly once
+    here, matching `health_page.py`'s `SOURCE_FAULT_HEADING`/
+    `SOURCE_FAULT_BODY` module-level-string-constant convention) plus
+    `gap_cards_html` (already-safe markup from `render()`'s own
+    `"".join(_gap_card_html(...) for ...)` call — every value inside it
+    already passed `escape_html()` in `_gap_card_html()`, so it is
+    interpolated verbatim here, never re-escaped) inside its own
+    `.illustration-grid illustration-grid--gap` container, and
+    `overflow_html` (also already-safe, from `_gap_overflow_html()`)
+    after the cards.
+
+    Returns `""` when `gap_cards_html` is empty — a no-gaps render emits
+    no empty section at all, matching this codebase's "no chrome with
+    no data" rule. `overflow_html` alone can never make this non-empty:
+    `_gap_overflow_html()` only ever returns a non-empty string when
+    `_gap_rows_for_grid()`'s cap actually hid an eligible row, which
+    cannot happen without `gap_cards_html` itself also being non-empty.
+
+    Composed entirely from classes that already exist in
+    `companion/static/style.css` (`.page-section`, `.text-heading`,
+    `.text-label section-caption`, `.illustration-grid`) — plan 19-10
+    owns that stylesheet in this same wave and this plan must not touch
+    it; `illustration-grid--gap` is a bare modifier class carrying no
+    rule of its own, present only so a full-page-order check can find
+    the artwork grid's own exact `class="illustration-grid"` attribute
+    without also matching this strip's cards.
+    """
+    if not gap_cards_html:
+        return ""
+    return (
+        '<section class="page-section">'
+        '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        '<div class="illustration-grid illustration-grid--gap">%s</div>'
+        "%s"
+        "</section>"
+    ) % (
+        escape_html(GAP_STRIP_HEADING),
+        escape_html(GAP_STRIP_BODY),
+        gap_cards_html,
+        overflow_html,
+    )
 
 
 def _lightbox_html():
@@ -1690,18 +1766,21 @@ def _manual_summary_html(manual_rows):
 
 def render(ctx):
     """The Airlines page (D-13 through D-17, extended by phase 13's
-    D-03/D-06/D-07/D-10 through D-13, and by phase 14's coverage-gap
-    grid, manual-resolution absorption, and page-order reversal): the
-    page header, the D-16 filter bar, the D-11 manual-resolutions
-    summary line (only when the registry has at least one entry), the
-    D-04/D-05/D-06/D-07 gap block (gap cards prepended head-of-grid,
-    plus D-07's overflow line), one card per airline in
-    `illustrations.target_variants_by_airline()` order (plus any
-    injected manual-only card, D-08), the shared click-to-enlarge
-    lightbox dialog (quick task 260902-tli), then (phase 14, moved from
-    the top of the page) the conditional resolve section. `ctx` is
-    accepted for call-site parity with every other page module's
-    `render(ctx)` signature.
+    D-03/D-06/D-07/D-10 through D-13, phase 14's coverage-gap grid,
+    manual-resolution absorption, and page-order reversal, and 19-08-
+    PLAN.md's D-21/D-22 explained-gap-strip and edit-gated-lightbox
+    rework): the page header, then (19-08-PLAN.md Task 1, D-21) the
+    "Unidentified airlines" gap strip — its own explained `<section>`,
+    emitted before everything else so a household member sees it first
+    — the D-16 filter bar, the D-11 manual-resolutions summary line
+    (only when the registry has at least one entry), one card per
+    airline in `illustrations.target_variants_by_airline()` order (plus
+    any injected manual-only card, D-08; the gap cards themselves no
+    longer live in this grid, per D-21), the shared click-to-enlarge
+    lightbox dialog (quick task 260902-tli, now edit-gated per D-22),
+    then (phase 14, moved from the top of the page) the conditional
+    resolve section. `ctx` is accepted for call-site parity with every
+    other page module's `render(ctx)` signature.
 
     Since quick task 260902-v26 this reads `state_dir` (used to resolve
     each card's illustration-replace cache buster, see
@@ -1759,6 +1838,11 @@ def render(ctx):
     gap_shown, gap_overflow_count = _gap_rows_for_grid(state_dir, registry)
     gap_cards_html = "".join(_gap_card_html(i, row) for i, row in enumerate(gap_shown))
     overflow_html = _gap_overflow_html(gap_overflow_count)
+    # 19-08-PLAN.md Task 1 (D-21/A-38): the gap strip is built here, from
+    # the same gap_cards_html/overflow_html this function has always
+    # computed — _gap_strip_html() itself decides whether that adds up
+    # to a real section or "" (no gaps at all).
+    gap_strip_html = _gap_strip_html(gap_cards_html, overflow_html)
 
     # manual_info_by_name maps a CARD's display name to its own
     # (prefix, superseded, needs_artwork) triple. A superseded row's
@@ -1827,13 +1911,21 @@ def render(ctx):
     # (`_manual_resolutions_section_html()`, deleted this task) is gone;
     # this one-line summary takes its place, reusing `manual_rows`
     # computed above rather than recomputing it.
+    #
+    # 19-08-PLAN.md Task 1 (D-21/A-38) supersedes the ordering above in
+    # one respect: the gap strip now renders BEFORE filter_html (first
+    # thing on the page, per D-21), and overflow_html moved inside that
+    # strip — it no longer has a separate slot in this return
+    # expression. _gallery_grid_html() is called WITHOUT gap_cards_html
+    # (its own "" default), so the curated grid renders byte-identically
+    # to a no-gaps render today.
     summary_html = _manual_summary_html(manual_rows)
     return (
         layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
+        + gap_strip_html
         + filter_html
         + summary_html
-        + overflow_html
-        + _gallery_grid_html(pairs, state_dir, gap_cards_html, manual_info_by_name)
+        + _gallery_grid_html(pairs, state_dir, manual_info_by_name=manual_info_by_name)
         + lightbox_html
         + resolve_html
     )

@@ -69,11 +69,21 @@ from companion.pages import airlines_page, health_page, history_page  # noqa: E4
 from server import device_config  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
+# 19-08-PLAN.md Task 1 (D-21): the same crossing point airlines_page.py
+# itself already sanctions (companion/pages/__init__.py only forbids a
+# page module importing another page module, not a test harness
+# importing server.poll_loop) - used solely to seed a real unresolved-
+# prefix registry for the gap-strip checks below.
+import server.poll_loop as poll_loop  # noqa: E402
 
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 76  # 73 + 3 (19-03-PLAN.md Task 3: D-20's visible "Copied" swap for 1.5s —
+EXPECTED_CHECK_COUNT = 78  # 76 + 2 (19-08-PLAN.md Task 1: D-21/A-38's "Unidentified airlines" gap
+# strip — 2 new checks: a render with an eligible gap emits the strip's heading/sentence before
+# the filter bar with no gap card in the curated grid, and a render with no gaps emits no strip
+# at all) — was 76
+# 76 = 73 + 3 (19-03-PLAN.md Task 3: D-20's visible "Copied" swap for 1.5s —
 # 3 new checks: the rendered copy-btn__icon/copy-btn__label span pair with data-copy-feedback
 # intact, copy-button.js referencing copy-btn__label/copy-btn--copied/1500ms, and style.css
 # styling both classes) — was 73
@@ -372,6 +382,14 @@ def _seed_runway_events(state_dir, events):
     with history_db.open_db(state_dir) as conn:
         for fields in events:
             history_db.record_runway_event(conn, **fields)
+
+
+def _seed_unresolved_prefixes(state_dir, registry):
+    """19-08-PLAN.md Task 1 (D-21): mirrors
+    companion/test_status_pages.py's own helper of the same name — the
+    one sanctioned write path for a real `poll_state.json`'s
+    `unresolved_prefixes` dict, never a hand-written JSON literal."""
+    poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": registry})
 
 
 def _write_panel_file(state_dir):
@@ -2572,6 +2590,65 @@ def main():
         "airlines_page.render({}) with a literal empty dict still succeeds and its output still contains the "
         "gallery grid (quick task 260902-v26's ctx.get(\"state_dir\") tolerance)",
         _airlines_render_empty_ctx_still_contains_gallery_grid)
+
+    # ======================================================================
+    # 19-08-PLAN.md Task 1 (D-21/A-38): the "Unidentified airlines" gap
+    # strip - its own explained home for the coverage-gap cards, moved
+    # off the head of the curated artwork grid.
+    # ======================================================================
+
+    def _airlines_gap_strip_renders_before_filter_bar_with_heading_and_no_grid_placeholder():
+        tmp = _mkstate("a-gap-strip")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 3, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            rendered = airlines_page.render({"state_dir": tmp})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        if airlines_page.GAP_STRIP_HEADING not in rendered:
+            return False, "expected the gap strip's heading in a render with an eligible gap"
+        if airlines_page.GAP_STRIP_BODY not in rendered:
+            return False, "expected the gap strip's exact sentence in a render with an eligible gap"
+        try:
+            strip_index = rendered.index(airlines_page.GAP_STRIP_HEADING)
+            filter_bar_index = rendered.index('class="filter-bar')
+        except ValueError as exc:
+            return False, "expected both the gap strip heading and the filter bar present: %s" % (exc,)
+        if strip_index >= filter_bar_index:
+            return False, "expected the gap strip to render before the filter bar"
+        # The curated artwork grid never holds a gap card: every gap
+        # card carries .airline-card__placeholder, and no curated card
+        # ever does, so zero occurrences anywhere at/after the filter
+        # bar (i.e. outside the strip, which rendered entirely before
+        # it) proves the grid holds none.
+        if "airline-card__placeholder" in rendered[filter_bar_index:]:
+            return False, "expected the curated artwork grid to hold no gap card placeholder"
+        return True, ""
+    check(
+        "a render with an eligible gap emits the \"Unidentified airlines\" strip with its exact heading and "
+        "sentence before the filter bar, and the curated artwork grid holds no gap card (D-21, A-38, "
+        "19-08-PLAN.md Task 1)",
+        _airlines_gap_strip_renders_before_filter_bar_with_heading_and_no_grid_placeholder)
+
+    def _airlines_gap_strip_absent_with_no_gaps():
+        tmp = _mkstate("a-no-gap-strip")
+        try:
+            rendered = airlines_page.render({"state_dir": tmp})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        if airlines_page.GAP_STRIP_HEADING in rendered:
+            return False, "expected no gap strip heading when there are no eligible gaps"
+        if "<section class=\"page-section\">" in rendered:
+            return False, "expected no empty gap-strip <section> at all when there are no eligible gaps"
+        return True, ""
+    check(
+        "a render with no eligible gaps emits no \"Unidentified airlines\" strip and no empty section "
+        "(D-21, 19-08-PLAN.md Task 1)",
+        _airlines_gap_strip_absent_with_no_gaps)
 
     # ======================================================================
     # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's
