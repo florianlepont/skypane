@@ -69,11 +69,28 @@ from companion.pages import airlines_page, health_page, history_page  # noqa: E4
 from server import device_config  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
+# 19-08-PLAN.md Task 1 (D-21): the same crossing point airlines_page.py
+# itself already sanctions (companion/pages/__init__.py only forbids a
+# page module importing another page module, not a test harness
+# importing server.poll_loop) - used solely to seed a real unresolved-
+# prefix registry for the gap-strip checks below.
+import server.poll_loop as poll_loop  # noqa: E402
 
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 76  # 73 + 3 (19-03-PLAN.md Task 3: D-20's visible "Copied" swap for 1.5s —
+EXPECTED_CHECK_COUNT = 83  # 79 + 4 (19-08-PLAN.md Task 3: D-22's edit-gated lightbox forms —
+# 4 new checks: a default render has none of the three edit-only forms, a default render keeps
+# exactly one resolve-name form, an edit_mode=True render has exactly one of each edit-only form,
+# and a real HTTP GET proves the exact-"1" membership test end to end) — was 79
+# 79 = 78 + 1 (19-08-PLAN.md Task 2: D-21/A-38's resolve-panel back link now
+# names and targets Airlines instead of Health — 1 new check, the back link renders exactly
+# once with href == AIRLINES_ROUTE) — was 78
+# 78 = 76 + 2 (19-08-PLAN.md Task 1: D-21/A-38's "Unidentified airlines" gap
+# strip — 2 new checks: a render with an eligible gap emits the strip's heading/sentence before
+# the filter bar with no gap card in the curated grid, and a render with no gaps emits no strip
+# at all) — was 76
+# 76 = 73 + 3 (19-03-PLAN.md Task 3: D-20's visible "Copied" swap for 1.5s —
 # 3 new checks: the rendered copy-btn__icon/copy-btn__label span pair with data-copy-feedback
 # intact, copy-button.js referencing copy-btn__label/copy-btn--copied/1500ms, and style.css
 # styling both classes) — was 73
@@ -372,6 +389,14 @@ def _seed_runway_events(state_dir, events):
     with history_db.open_db(state_dir) as conn:
         for fields in events:
             history_db.record_runway_event(conn, **fields)
+
+
+def _seed_unresolved_prefixes(state_dir, registry):
+    """19-08-PLAN.md Task 1 (D-21): mirrors
+    companion/test_status_pages.py's own helper of the same name — the
+    one sanctioned write path for a real `poll_state.json`'s
+    `unresolved_prefixes` dict, never a hand-written JSON literal."""
+    poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": registry})
 
 
 def _write_panel_file(state_dir):
@@ -2163,10 +2188,13 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-        # airlines_page.render() reads nothing from ctx - a plain dict is
-        # call-site parity only, matching every other page module's
-        # render(ctx) signature.
-        airlines_rendered = airlines_page.render({})
+        # 19-08-PLAN.md Task 3 (D-22) retarget: LIGHTBOX_REPLACE_FORM_
+        # CLASS ("lightbox__replace") is now one of the three
+        # artwork-editing forms gated behind edit_mode, so this
+        # DOM-contract guard must render under edit_mode=True to see it
+        # at all - a plain {} render is exercised separately by the
+        # D-22 absence checks below.
+        airlines_rendered = airlines_page.render({"edit_mode": True})
 
         for token in _LIGHTBOX_SHARED_TOKENS:
             if token not in js_source:
@@ -2491,7 +2519,11 @@ def main():
         with open(style_css_path) as fh:
             style_css_source = fh.read()
 
-        airlines_rendered = airlines_page.render({})
+        # 19-08-PLAN.md Task 3 (D-22) retarget: LIGHTBOX_REPLACE_FORM_
+        # CLASS is edit-gated now (see the DOM-contract guard's own
+        # identical retarget above) - render under edit_mode=True so
+        # this check keeps proving the token reaches a real render.
+        airlines_rendered = airlines_page.render({"edit_mode": True})
         tmp = _mkstate("h-replace-tokens-absent")
         try:
             names = ["2026-08-27T10-07-00+00-00.png"]
@@ -2572,6 +2604,150 @@ def main():
         "airlines_page.render({}) with a literal empty dict still succeeds and its output still contains the "
         "gallery grid (quick task 260902-v26's ctx.get(\"state_dir\") tolerance)",
         _airlines_render_empty_ctx_still_contains_gallery_grid)
+
+    # ======================================================================
+    # 19-08-PLAN.md Task 1 (D-21/A-38): the "Unidentified airlines" gap
+    # strip - its own explained home for the coverage-gap cards, moved
+    # off the head of the curated artwork grid.
+    # ======================================================================
+
+    def _airlines_gap_strip_renders_before_filter_bar_with_heading_and_no_grid_placeholder():
+        tmp = _mkstate("a-gap-strip")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 3, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            rendered = airlines_page.render({"state_dir": tmp})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        if airlines_page.GAP_STRIP_HEADING not in rendered:
+            return False, "expected the gap strip's heading in a render with an eligible gap"
+        if airlines_page.GAP_STRIP_BODY not in rendered:
+            return False, "expected the gap strip's exact sentence in a render with an eligible gap"
+        try:
+            strip_index = rendered.index(airlines_page.GAP_STRIP_HEADING)
+            filter_bar_index = rendered.index('class="filter-bar')
+        except ValueError as exc:
+            return False, "expected both the gap strip heading and the filter bar present: %s" % (exc,)
+        if strip_index >= filter_bar_index:
+            return False, "expected the gap strip to render before the filter bar"
+        # The curated artwork grid never holds a gap card: every gap
+        # card carries .airline-card__placeholder, and no curated card
+        # ever does, so zero occurrences anywhere at/after the filter
+        # bar (i.e. outside the strip, which rendered entirely before
+        # it) proves the grid holds none.
+        if "airline-card__placeholder" in rendered[filter_bar_index:]:
+            return False, "expected the curated artwork grid to hold no gap card placeholder"
+        return True, ""
+    check(
+        "a render with an eligible gap emits the \"Unidentified airlines\" strip with its exact heading and "
+        "sentence before the filter bar, and the curated artwork grid holds no gap card (D-21, A-38, "
+        "19-08-PLAN.md Task 1)",
+        _airlines_gap_strip_renders_before_filter_bar_with_heading_and_no_grid_placeholder)
+
+    def _airlines_gap_strip_absent_with_no_gaps():
+        tmp = _mkstate("a-no-gap-strip")
+        try:
+            rendered = airlines_page.render({"state_dir": tmp})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        if airlines_page.GAP_STRIP_HEADING in rendered:
+            return False, "expected no gap strip heading when there are no eligible gaps"
+        if "<section class=\"page-section\">" in rendered:
+            return False, "expected no empty gap-strip <section> at all when there are no eligible gaps"
+        return True, ""
+    check(
+        "a render with no eligible gaps emits no \"Unidentified airlines\" strip and no empty section "
+        "(D-21, 19-08-PLAN.md Task 1)",
+        _airlines_gap_strip_absent_with_no_gaps)
+
+    # ======================================================================
+    # 19-08-PLAN.md Task 2 (D-21/A-38): the resolve panel's back link now
+    # names and targets Airlines, not Health.
+    # ======================================================================
+
+    def _airlines_resolve_panel_back_link_names_and_targets_airlines():
+        # No live gap, no manual entry for "XYZ": the stale/invalid
+        # branch, one of the six _resolve_section_html() branches that
+        # all share the same back_link, built once.
+        tmp = _mkstate("a-resolve-back-link")
+        try:
+            rendered = airlines_page.render({"state_dir": tmp, "resolve_prefix": "XYZ"})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        matches = re.findall(
+            r'<a class="text-label" href="([^"]*)">%s</a>' % re.escape(airlines_page.RESOLVE_BACK_LINK_TEXT),
+            rendered)
+        if len(matches) != 1:
+            return False, "expected exactly one resolve-panel back link, found %d" % (len(matches),)
+        if matches[0] != airlines_page.AIRLINES_ROUTE:
+            return False, "expected the back link's href to equal AIRLINES_ROUTE, got %r" % (matches[0],)
+        return True, ""
+    check(
+        "the resolve panel's back link renders exactly once, named \"" +
+        airlines_page.RESOLVE_BACK_LINK_TEXT.replace("\"", "'") +
+        "\" and targeting airlines_page.AIRLINES_ROUTE, superseding the Phase 13 Copy Deck's "
+        "\"Back to Health\" (D-21, A-38, 19-08-PLAN.md Task 2)",
+        _airlines_resolve_panel_back_link_names_and_targets_airlines)
+
+    # ======================================================================
+    # 19-08-PLAN.md Task 3 (D-22): the shared lightbox's replace, upload
+    # and delete forms render only under an exact ?edit=1; the everyday
+    # view-only lightbox keeps only the resolve-name form.
+    # ======================================================================
+
+    def _airlines_default_render_has_no_edit_only_forms():
+        rendered = airlines_page.render({})
+        for token in (
+                airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
+                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
+                airlines_page.LIGHTBOX_DELETE_CLASS):
+            if token in rendered:
+                return False, "expected no %r in a default (edit_mode absent) render" % (token,)
+        return True, ""
+    check(
+        "a default airlines_page.render({}) call (edit_mode absent, the everyday view-only "
+        "lightbox) contains none of the replace, upload-zone or delete edit-only forms (D-22, "
+        "19-08-PLAN.md Task 3)",
+        _airlines_default_render_has_no_edit_only_forms)
+
+    def _airlines_default_render_keeps_exactly_one_resolve_name_form():
+        rendered = airlines_page.render({})
+        count = rendered.count('class="%s"' % airlines_page.LIGHTBOX_RESOLVE_NAME_CLASS)
+        if count != 1:
+            return False, (
+                "expected exactly one %r form in a default render (the everyday naming path), "
+                "got %d" % (airlines_page.LIGHTBOX_RESOLVE_NAME_CLASS, count))
+        return True, ""
+    check(
+        "a default airlines_page.render({}) call still contains exactly one "
+        "lightbox__resolve-name form - naming a prefix stays the everyday action (D-22, "
+        "19-08-PLAN.md Task 3)",
+        _airlines_default_render_keeps_exactly_one_resolve_name_form)
+
+    def _airlines_edit_mode_render_has_exactly_one_of_each_edit_only_form():
+        # Exact `class="{token}"` (with the closing quote), never a bare
+        # substring - LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
+        # is itself a prefix of several sibling classes
+        # (lightbox__replace-zone, lightbox__replace-icon,
+        # lightbox__replace-hint), each of which also renders under
+        # edit_mode=True.
+        rendered = airlines_page.render({"edit_mode": True})
+        for token in (
+                airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
+                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
+                airlines_page.LIGHTBOX_DELETE_CLASS):
+            count = rendered.count('class="%s"' % token)
+            if count != 1:
+                return False, "expected exactly one %r form under edit_mode=True, got %d" % (token, count)
+        return True, ""
+    check(
+        "airlines_page.render({\"edit_mode\": True}) contains exactly one each of the replace, "
+        "upload-zone and delete edit-only forms (D-22, 19-08-PLAN.md Task 3)",
+        _airlines_edit_mode_render_has_exactly_one_of_each_edit_only_form)
 
     # ======================================================================
     # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's
@@ -2977,6 +3153,43 @@ def main():
             "route the per-row View-panel lightbox now links to genuinely serves full-resolution "
             "bytes, against a real running service",
             _history_preview_gallery_end_to_end)
+
+        def _airlines_edit_query_param_exact_one_membership_test():
+            # 19-08-PLAN.md Task 3 (D-22, T-19-31): a real authenticated
+            # HTTP GET, not a direct render() call - proves the exact-"1"
+            # membership test app.py's page_context() applies survives
+            # the full query-string round trip, against a real running
+            # service.
+            edit_only_tokens = (
+                airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
+                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
+                airlines_page.LIGHTBOX_DELETE_CLASS,
+            )
+            for query in ("?edit=2", "?edit=true", "?edit="):
+                status, _headers, body = http_request(
+                    base + "/airlines" + query, cookie=session_cookie)
+                if status != 200:
+                    return False, "expected 200 for /airlines%s, got %d" % (query, status)
+                body_text = body.decode("utf-8", "replace")
+                for token in edit_only_tokens:
+                    if ('class="%s"' % token) in body_text:
+                        return False, (
+                            "expected /airlines%s to NOT enable edit mode - found a %r form"
+                            % (query, token))
+            status, _headers, body = http_request(base + "/airlines?edit=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 for /airlines?edit=1, got %d" % status
+            body_text = body.decode("utf-8", "replace")
+            for token in edit_only_tokens:
+                if ('class="%s"' % token) not in body_text:
+                    return False, "expected /airlines?edit=1 to enable edit mode - missing a %r form" % (token,)
+            return True, ""
+        check(
+            "a real authenticated GET of /airlines?edit=2, ?edit=true and ?edit= does not enable "
+            "edit mode (the exact-\"1\" membership test), while /airlines?edit=1 does render all "
+            "three edit-only forms, against a real running service (D-22, T-19-31, "
+            "19-08-PLAN.md Task 3)",
+            _airlines_edit_query_param_exact_one_membership_test)
 
     finally:
         harness.stop()

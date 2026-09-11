@@ -81,6 +81,18 @@ GALLERY_PURPOSE_TEXT = (
 
 CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
 
+# 19-08-PLAN.md Task 1 (D-21/A-38): the coverage-gap cards' own explained
+# strip, byte-identical-style copy convention to health_page.py's
+# SOURCE_FAULT_HEADING/SOURCE_FAULT_BODY (a module-level string constant,
+# escaped exactly once at _gap_strip_html()'s own single interpolation
+# point). Before this, the gap cards sat at the head of the curated
+# artwork grid with no heading at all, reading as broken artwork rather
+# than a call to action.
+GAP_STRIP_HEADING = "Unidentified airlines"
+GAP_STRIP_BODY = (
+    "The frame saw these callsigns but doesn’t know the airline. Tap "
+    "one to name it.")
+
 # quick task 260902-tli: the click-to-enlarge lightbox. This gallery
 # reuses History's already-shipped `<dialog>` lightbox and the document-
 # level click delegation companion/static/panel-lookup.js already
@@ -283,6 +295,14 @@ MANUAL_DELETE_ROUTE_PREFIX = "/airlines/manual-resolutions/"
 MANUAL_DELETE_ROUTE_SUFFIX = "/delete"
 AIRLINES_ROUTE = "/airlines"
 RESOLVE_QUERY_PARAM = "resolve"
+# 19-08-PLAN.md Task 3 (D-22): the query-flag name for the artwork-
+# editing affordances (replace/upload/delete). Read by companion/app.py's
+# page_context() via an exact `== "1"` membership test — never a
+# substring, truthiness or case-insensitive check — into
+# ctx["edit_mode"]; see that key's own doc comment in
+# companion/pages/__init__.py for the presentation-only-flag boundary
+# this constant sits behind.
+EDIT_QUERY_PARAM = "edit"
 
 # Phase 14 (14-04-PLAN.md, D-06): the gap block's threshold and cap —
 # both locked numeric values from D-06's own text, not a discretion
@@ -296,10 +316,19 @@ GAP_BLOCK_CAP = 12
 # Phase 13 copy constants, byte-identical to 13-UI-SPEC.md's Full Copy
 # Deck (real U+2014 em dashes, real U+2019 apostrophes, matching every
 # other string in this module).
-RESOLVE_BACK_LINK_TEXT = "← Back to Health"
+#
+# 19-08-PLAN.md Task 2 (D-21/A-38): a deliberate supersession, not
+# drift. The Phase 13 Copy Deck put the resolve flow's entry point on
+# Health — at the time, that page was the only place a coverage gap
+# was ever surfaced. Phase 18 moved the everyday entry point onto
+# Airlines' own gap cards (19-08-PLAN.md Task 1's strip is the current
+# home for them), so "Back to Health" started returning a household
+# member to a page they never visited on the common path. This link
+# now names and targets Airlines instead.
+RESOLVE_BACK_LINK_TEXT = "← Back to Airlines"
 RESOLVE_STALE_BODY = (
     "That coverage gap isn’t there anymore — it may already be "
-    "resolved. Check Health for current gaps.")
+    "resolved. See Health for the complete list of current gaps.")
 RESOLVE_HEADING = "Resolve an unidentified flight"
 # Phase 14 (14-02-PLAN.md Task 1, D-01) reworded this template in place,
 # replacing its Phase 13 wording: one template with no callsign clause,
@@ -827,6 +856,15 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_
     existing test calling this function positionally with two arguments)
     keeps rendering byte-identical output with no gap block at all.
 
+    19-08-PLAN.md Task 1 (D-21/A-38): this parameter's only caller,
+    `render()`, stopped passing it as of this plan — the gap cards now
+    live in their own explained `_gap_strip_html()` strip above the
+    filter bar, never inside this curated artwork grid. The parameter
+    itself is retained rather than removed, for the same 46-call-site
+    backward-compatibility reason stated above; a future caller must
+    not reintroduce gap cards into this grid — pass them to
+    `_gap_strip_html()` instead.
+
     `manual_info_by_name` (14-06-PLAN.md Task 1, D-08/D-10): an optional
     dict mapping an airline's display name to its own
     `(prefix, superseded, needs_artwork)` triple — `render()`'s own
@@ -1046,6 +1084,14 @@ def _gap_overflow_html(overflow_count):
     wrapped by the `<a href="/health">` anchor — the trailing period
     sits outside it, matching 14-UI-SPEC.md's Gap-block composition
     literal exactly.
+
+    19-08-PLAN.md Task 1 (D-21): this anchor still points at `/health`,
+    deliberately NOT retargeted to Airlines even though this line now
+    renders inside the Airlines-hosted `_gap_strip_html()` strip rather
+    than at the head of the artwork grid. The link exists to show the
+    prefixes the strip's own `GAP_BLOCK_CAP` hides, and only Health's
+    unresolved-prefix registry table lists every one of them — Airlines
+    itself has no equivalent full list to link to.
     """
     if not overflow_count:
         return ""
@@ -1053,7 +1099,54 @@ def _gap_overflow_html(overflow_count):
         MANUAL_OVERFLOW_TEMPLATE % overflow_count, MANUAL_OVERFLOW_LINK_TEXT)
 
 
-def _lightbox_html():
+def _gap_strip_html(gap_cards_html, overflow_html):
+    """D-21's (A-38) own explained home for the coverage-gap cards: a
+    real `<section class="page-section">` card carrying
+    `GAP_STRIP_HEADING`/`GAP_STRIP_BODY` (each escaped exactly once
+    here, matching `health_page.py`'s `SOURCE_FAULT_HEADING`/
+    `SOURCE_FAULT_BODY` module-level-string-constant convention) plus
+    `gap_cards_html` (already-safe markup from `render()`'s own
+    `"".join(_gap_card_html(...) for ...)` call — every value inside it
+    already passed `escape_html()` in `_gap_card_html()`, so it is
+    interpolated verbatim here, never re-escaped) inside its own
+    `.illustration-grid illustration-grid--gap` container, and
+    `overflow_html` (also already-safe, from `_gap_overflow_html()`)
+    after the cards.
+
+    Returns `""` when `gap_cards_html` is empty — a no-gaps render emits
+    no empty section at all, matching this codebase's "no chrome with
+    no data" rule. `overflow_html` alone can never make this non-empty:
+    `_gap_overflow_html()` only ever returns a non-empty string when
+    `_gap_rows_for_grid()`'s cap actually hid an eligible row, which
+    cannot happen without `gap_cards_html` itself also being non-empty.
+
+    Composed entirely from classes that already exist in
+    `companion/static/style.css` (`.page-section`, `.text-heading`,
+    `.text-label section-caption`, `.illustration-grid`) — plan 19-10
+    owns that stylesheet in this same wave and this plan must not touch
+    it; `illustration-grid--gap` is a bare modifier class carrying no
+    rule of its own, present only so a full-page-order check can find
+    the artwork grid's own exact `class="illustration-grid"` attribute
+    without also matching this strip's cards.
+    """
+    if not gap_cards_html:
+        return ""
+    return (
+        '<section class="page-section">'
+        '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        '<div class="illustration-grid illustration-grid--gap">%s</div>'
+        "%s"
+        "</section>"
+    ) % (
+        escape_html(GAP_STRIP_HEADING),
+        escape_html(GAP_STRIP_BODY),
+        gap_cards_html,
+        overflow_html,
+    )
+
+
+def _lightbox_html(edit_mode=False):
     """The single shared click-to-enlarge `<dialog>` (quick task
     260902-tli), emitted once per page — never once per card — by
     `render()`, only when at least one card actually carries a zoom
@@ -1076,6 +1169,24 @@ def _lightbox_html():
     tab order reads "look, act, dismiss" — `panel-lookup.js` finds the
     close button by attribute, not by position, so this order matters
     only to a human, never to the script.
+
+    19-08-PLAN.md Task 3 (D-22): `edit_mode` (fully defaulted to
+    `False`, so every existing direct call in the harness keeps its
+    current behaviour until retargeted) splits this dialog's forms into
+    two tiers. The resolve-name form (and the always-present
+    resolve-context `<dl>`) stay unconditional — naming a prefix is the
+    everyday action the gap strip's own sentence invites ("Tap one to
+    name it"), so the view-only lightbox still lets a household member
+    do that. `resolve_upload_html`, the replace form and the delete
+    form are the artwork-editing tier: each is emitted only when
+    `edit_mode` is true, and is the empty string otherwise. This needs
+    no change to `companion/static/panel-lookup.js` — all three of its
+    lookups for these elements (`.lightbox__replace`, `.resolve-upload-
+    zone`, `.lightbox__delete`) already sit outside its mandatory
+    image/caption/note guard and are each used behind their own
+    `if (form)`-style test, so their total absence from the markup is
+    an already-handled state, exactly like History's own dialog (which
+    never renders any of the three at all).
 
     Every optional child here is a real, present placeholder — heading
     and manual-note are emitted empty (their own `:empty` CSS collapse
@@ -1103,8 +1214,9 @@ def _lightbox_html():
     """
     resolve_context_html = _resolve_context_html(None, None, id_suffix="-dialog")
     resolve_name_html = _resolve_name_form_html("", "-dialog")
-    resolve_upload_html = _resolve_upload_form_html("", "-dialog")
-    delete_html = _manual_delete_form_html("")
+    resolve_upload_html = _resolve_upload_form_html("", "-dialog") if edit_mode else ""
+    replace_html = _lightbox_replace_form_html() if edit_mode else ""
+    delete_html = _manual_delete_form_html("") if edit_mode else ""
     return (
         '<dialog class="lightbox lightbox--wide" id="%s" aria-label="%s">'
         '<img class="lightbox__image" src="" alt="">'
@@ -1126,7 +1238,7 @@ def _lightbox_html():
         resolve_context_html,
         resolve_name_html,
         resolve_upload_html,
-        _lightbox_replace_form_html(),
+        replace_html,
         delete_html,
         _VIEW_PANEL_CLOSE_ATTR,
     )
@@ -1481,7 +1593,7 @@ def _manual_delete_form_html(action):
     ) % (LIGHTBOX_DELETE_CLASS, action, MANUAL_DELETE_CAPTION, DELETE_BUTTON_TEXT)
 
 
-def _resolve_section_html(ctx):
+def _resolve_section_html(ctx, edit_mode=False):
     """The conditional resolve section (D-03, D-10 through D-13):
     `""` when `ctx.get("resolve_prefix")` is falsy, otherwise one of the
     server-derived states below. Every branch reads `state_dir`/`now`
@@ -1531,13 +1643,24 @@ def _resolve_section_html(ctx):
     (stale/invalid, Step A) — the same rule the dialog encodes via
     `manual` being `active`/`superseded`, i.e. whenever an entry exists.
     One rule, two render sites, not two rules.
+
+    19-08-PLAN.md Task 3 (D-22): `edit_mode` (fully defaulted to
+    `False`) applies the identical artwork-editing gate `_lightbox_html()`
+    applies, to this no-JS fallback panel's own two entry-bearing
+    branches — Step B's upload zone and both entry-bearing branches'
+    shared delete form are each emitted only when `edit_mode` is true,
+    so the fallback path matches the dialog rather than diverging from
+    it. The resolve-name form (Step A) stays unconditional, for the
+    identical reason `_lightbox_html()` keeps it unconditional.
     """
     prefix_raw = ctx.get("resolve_prefix")
     if not prefix_raw:
         return ""
     state_dir = ctx.get("state_dir")
     now = ctx.get("now")
-    back_link = '<a class="text-label" href="/health">%s</a>' % RESOLVE_BACK_LINK_TEXT
+    # 19-08-PLAN.md Task 2 (D-21): AIRLINES_ROUTE, never a retyped "/health"
+    # literal — see RESOLVE_BACK_LINK_TEXT's own comment above for why.
+    back_link = '<a class="text-label" href="%s">%s</a>' % (AIRLINES_ROUTE, RESOLVE_BACK_LINK_TEXT)
 
     row = unresolved_row_for_prefix(state_dir, prefix_raw)
     if row is not None:
@@ -1585,14 +1708,16 @@ def _resolve_section_html(ctx):
     escaped_name = escape_html(airline_name)
     heading = '<h2 class="text-heading">%s</h2>' % (STEP_B_HEADING_TEMPLATE % escaped_name)
     # D-09 amendment: an entry exists past this point in every remaining
-    # branch, so the delete form renders in both of them.
-    delete_form = _manual_delete_form_html(_manual_delete_action(prefix))
+    # branch, so the delete form is eligible to render in both of them.
+    # 19-08-PLAN.md Task 3 (D-22): eligible does not mean unconditional
+    # any more — gated on edit_mode, matching _lightbox_html()'s own gate.
+    delete_form = _manual_delete_form_html(_manual_delete_action(prefix)) if edit_mode else ""
 
     if illustrations.resolved_illustration_path(key, state_dir) is None:
         # Step B — name already saved, no artwork exists yet.
         caption = '<p class="text-label section-caption">%s</p>' % STEP_B_CAPTION
         upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
-        upload_zone = _resolve_upload_form_html(upload_action, "")
+        upload_zone = _resolve_upload_form_html(upload_action, "") if edit_mode else ""
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
             AIRLINES_ROUTE, STEP_B_SKIP_TEXT)
         return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s%s%s</div>' % (
@@ -1690,18 +1815,21 @@ def _manual_summary_html(manual_rows):
 
 def render(ctx):
     """The Airlines page (D-13 through D-17, extended by phase 13's
-    D-03/D-06/D-07/D-10 through D-13, and by phase 14's coverage-gap
-    grid, manual-resolution absorption, and page-order reversal): the
-    page header, the D-16 filter bar, the D-11 manual-resolutions
-    summary line (only when the registry has at least one entry), the
-    D-04/D-05/D-06/D-07 gap block (gap cards prepended head-of-grid,
-    plus D-07's overflow line), one card per airline in
-    `illustrations.target_variants_by_airline()` order (plus any
-    injected manual-only card, D-08), the shared click-to-enlarge
-    lightbox dialog (quick task 260902-tli), then (phase 14, moved from
-    the top of the page) the conditional resolve section. `ctx` is
-    accepted for call-site parity with every other page module's
-    `render(ctx)` signature.
+    D-03/D-06/D-07/D-10 through D-13, phase 14's coverage-gap grid,
+    manual-resolution absorption, and page-order reversal, and 19-08-
+    PLAN.md's D-21/D-22 explained-gap-strip and edit-gated-lightbox
+    rework): the page header, then (19-08-PLAN.md Task 1, D-21) the
+    "Unidentified airlines" gap strip — its own explained `<section>`,
+    emitted before everything else so a household member sees it first
+    — the D-16 filter bar, the D-11 manual-resolutions summary line
+    (only when the registry has at least one entry), one card per
+    airline in `illustrations.target_variants_by_airline()` order (plus
+    any injected manual-only card, D-08; the gap cards themselves no
+    longer live in this grid, per D-21), the shared click-to-enlarge
+    lightbox dialog (quick task 260902-tli, now edit-gated per D-22),
+    then (phase 14, moved from the top of the page) the conditional
+    resolve section. `ctx` is accepted for call-site parity with every
+    other page module's `render(ctx)` signature.
 
     Since quick task 260902-v26 this reads `state_dir` (used to resolve
     each card's illustration-replace cache buster, see
@@ -1720,6 +1848,13 @@ def render(ctx):
     cards, no manual summary, no resolve section. This page still opens
     no database.
 
+    19-08-PLAN.md Task 3 (D-22) adds a fifth `ctx.get()` read,
+    `edit_mode` — a presentation-only bool (documented in full in
+    companion/pages/__init__.py) threaded into both `_lightbox_html()`
+    and `_resolve_section_html()` as a fully-defaulted keyword, so it
+    decides only whether the artwork-editing forms render, never
+    whether the routes those forms target accept the request.
+
     The filter bar and the lightbox dialog both render whenever there is
     at least one card of EITHER kind (gap or curated) — this codebase's
     consistent "no chrome with no data" rule, widened here so a state
@@ -1736,7 +1871,8 @@ def render(ctx):
     # of this page (companion/app.py's page_context()) does supply
     # state_dir, so this must stay tolerant of both.
     state_dir = ctx.get("state_dir")
-    resolve_html = _resolve_section_html(ctx)
+    edit_mode = bool(ctx.get("edit_mode"))
+    resolve_html = _resolve_section_html(ctx, edit_mode=edit_mode)
     pairs = illustrations.target_variants_by_airline()
 
     # Phase 14 (14-06-PLAN.md Task 1, D-08/D-10/D-12 fallback
@@ -1759,6 +1895,11 @@ def render(ctx):
     gap_shown, gap_overflow_count = _gap_rows_for_grid(state_dir, registry)
     gap_cards_html = "".join(_gap_card_html(i, row) for i, row in enumerate(gap_shown))
     overflow_html = _gap_overflow_html(gap_overflow_count)
+    # 19-08-PLAN.md Task 1 (D-21/A-38): the gap strip is built here, from
+    # the same gap_cards_html/overflow_html this function has always
+    # computed — _gap_strip_html() itself decides whether that adds up
+    # to a real section or "" (no gaps at all).
+    gap_strip_html = _gap_strip_html(gap_cards_html, overflow_html)
 
     # manual_info_by_name maps a CARD's display name to its own
     # (prefix, superseded, needs_artwork) triple. A superseded row's
@@ -1820,20 +1961,28 @@ def render(ctx):
 
     total = len(gap_shown) + len(pairs)
     filter_html = _filter_bar_html(total) if (pairs or gap_shown) else ""
-    lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
+    lightbox_html = _lightbox_html(edit_mode=edit_mode) if (pairs or gap_shown) else ""
     # Phase 14 (14-06-PLAN.md Task 2, D-11): UI-SPEC's binding
     # top-to-bottom order is filter_bar, then manual-summary, then
     # gap-overflow, then grid — the standalone management table
     # (`_manual_resolutions_section_html()`, deleted this task) is gone;
     # this one-line summary takes its place, reusing `manual_rows`
     # computed above rather than recomputing it.
+    #
+    # 19-08-PLAN.md Task 1 (D-21/A-38) supersedes the ordering above in
+    # one respect: the gap strip now renders BEFORE filter_html (first
+    # thing on the page, per D-21), and overflow_html moved inside that
+    # strip — it no longer has a separate slot in this return
+    # expression. _gallery_grid_html() is called WITHOUT gap_cards_html
+    # (its own "" default), so the curated grid renders byte-identically
+    # to a no-gaps render today.
     summary_html = _manual_summary_html(manual_rows)
     return (
         layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
+        + gap_strip_html
         + filter_html
         + summary_html
-        + overflow_html
-        + _gallery_grid_html(pairs, state_dir, gap_cards_html, manual_info_by_name)
+        + _gallery_grid_html(pairs, state_dir, manual_info_by_name=manual_info_by_name)
         + lightbox_html
         + resolve_html
     )
