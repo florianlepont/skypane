@@ -300,13 +300,18 @@ EXPECTED_CHECK_COUNT = 185  # 180 + 5 (19-05-PLAN.md Task 3: D-05/A-23's
 # (battery_status()'s error->warn demotion, the seven-to-nine-keys
 # _read_health_inputs() check, and the battery-trend-section status
 # modifier check) were retargeted in place, not counted as new.
-EXPECTED_CHECK_COUNT = 188  # 185 + 3 (19-06-PLAN.md Task 1, D-06:
+EXPECTED_CHECK_COUNT = 189  # 188 + 1 (19-06-PLAN.md Task 2, D-06: the
+# combined plain-language/tooltip check — Health's stat tiles and
+# corroboration rows carry no banned jargon in visible text, and the
+# Pipeline/Corroboration/Resolution-rate tiles' caption elements each
+# carry a title attribute equal to their matching technical constant.
+# The pre-existing Corroboration-tile lookup in the D-01-reversal
+# dot-removal-scoped check was retargeted in place, not counted as new).
+# 188 = 185 + 3 (19-06-PLAN.md Task 1, D-06:
 # layout.stat_tile()'s new caption_title parameter — the byte-identical-
 # when-unused check, the renders-as-a-title-on-the-caption-only check,
 # and the escaped-when-hostile check).
-# Re-derived by RUNNING the harness (184/185 — the one documented
-# pre-existing root-sandbox anomaly_active() failure), not by
-# arithmetic.
+# Re-derived by RUNNING the harness (187/188), not by arithmetic.
 # 180 = 176 + 4 (19-05-PLAN.md Task 2: D-04/A-22's fixed
 # sparkline range and width-derived density checks — a flat series draws
 # at one consistent y level, a 15mV wiggle stays under a tenth of the
@@ -3805,7 +3810,12 @@ def main():
             if "dot-label" in registry_slice:
                 return False, "the Unresolved-prefixes card must render no dot-label — its own dot is retired"
 
-            corrob_at = rendered.index(">Corroboration<")
+            # 19-06-PLAN.md Task 2 (D-06): retargeted in place — the tile's
+            # visible caption is now the plain-language CORROBORATION_TILE_LABEL,
+            # not the literal "Corroboration" (which now only survives as this
+            # tile's caption_title tooltip).
+            corrob_at = rendered.index(
+                ">%s<" % layout.escape_html(health_page.CORROBORATION_TILE_LABEL))
             corrob_open = rendered.rindex('<div class="stat-tile ', 0, corrob_at)
             corrob_close = rendered.index("</div>", corrob_open) + len("</div>")
             corrob_slice = rendered[corrob_open:corrob_close]
@@ -5940,6 +5950,54 @@ def main():
         "layout.stat_tile()'s caption_title is escaped through escape_html(), matching every other "
         "attribute value this module emits (19-06-PLAN.md Task 1, D-06/T-19-08)",
         _stat_tile_caption_title_is_escaped)
+
+    # --- 19-06-PLAN.md Task 2: Health's stat tiles and corroboration rows
+    # read in plain language (D-06) --------------------------------------
+
+    def _visible_text_outside_title_attributes(markup):
+        # A title="..." attribute IS the sanctioned home for a technical
+        # term under D-06 — strip every such attribute's value before
+        # scanning for banned jargon, so this guard only ever fires on a
+        # real leak into visible text.
+        return re.sub(r'\btitle="[^"]*"', "", markup)
+
+    def _health_tiles_and_rows_read_in_plain_language():
+        tmp = _mkstate("h-plain-language-tiles")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_runway_events(tmp, [{"ts": _iso(now), "hex": "abc123", "corroborated": True}])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        visible = _visible_text_outside_title_attributes(rendered)
+        for banned in ("Corroboration", "Single-source (uncorroborated)", "pipeline last ran"):
+            if banned in visible:
+                return False, "expected %r to be absent from visible text (outside a title attribute)" % banned
+
+        for label, expected_title in (
+                (health_page.PIPELINE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_TITLE),
+                (health_page.CORROBORATION_TILE_LABEL, health_page.CORROBORATION_TILE_TITLE),
+                (health_page.RESOLUTION_RATE_LABEL, health_page.RESOLUTION_RATE_TITLE)):
+            needle = ">%s<" % layout.escape_html(label)
+            at = rendered.index(needle)
+            caption_open = rendered.rindex('<p class="text-label stat-tile__caption"', 0, at)
+            caption_close = rendered.index(">", caption_open)
+            caption_tag = rendered[caption_open:caption_close]
+            expected_attr = 'title="%s"' % layout.escape_html(expected_title)
+            if expected_attr not in caption_tag:
+                return False, (
+                    "expected the %r tile's caption element to carry %s, got %r"
+                    % (label, expected_attr, caption_tag))
+        return True, ""
+    check(
+        "Health's stat tiles and corroboration rows read in plain language: 'Corroboration', "
+        "'Single-source (uncorroborated)' and 'pipeline last ran' are all absent from visible text, and the "
+        "Pipeline/Corroboration/Resolution-rate tiles' caption elements each carry a title attribute equal "
+        "to their matching technical constant (19-06-PLAN.md Task 2, D-06)",
+        _health_tiles_and_rows_read_in_plain_language)
 
     # ======================================================================
     # Section 1.5: companion/illustration_normalize.py — the shared

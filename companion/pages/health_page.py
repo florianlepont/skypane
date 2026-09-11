@@ -148,14 +148,26 @@ _CORROBORATION_ROWS = (
     # explanation sourced from detect.poll_current_aircraft()'s own
     # documented three-outcome semantics — this page performs no new
     # inference, D-15).
-    ("True", "Agreement", "ok",
-     "Both ADS-B sources independently selected the same aircraft."),
-    ("None", "Single-source (uncorroborated)", "ok",
-     "Only one source returned a result this cycle — not the same as a "
-     "disagreement; no corroboration was available to check against."),
-    ("False", "Disagreement", "warn",
-     "The two sources named different aircraft, so nothing was selected "
-     "that cycle — the panel image was kept from the previous cycle."),
+    #
+    # 19-06-PLAN.md Task 2 (D-06): the display label and explanation for
+    # each row were rewritten from technical vocabulary (the retired
+    # "Agreement"/"Disagreement" pair, and the retired "Single-source"
+    # qualifier meaning "uncorroborated") into plain language a
+    # household member can parse without reading the source — the
+    # substance each row means is unchanged, only how it reads.
+    # The stored key in each tuple's first slot ("True"/"None"/"False")
+    # is the on-disk vocabulary history_db.save_poll_state() actually
+    # writes and must NEVER be renamed to match the new labels — only
+    # the second (label) and fourth (explanation) slots are copy.
+    ("True", "Both agree", "ok",
+     "Both flight-data sources on the frame picked the same aircraft."),
+    ("None", "Only one saw it", "ok",
+     "Only one of the two sources returned an aircraft this cycle — "
+     "that is not the same as a disagreement, there was simply nothing "
+     "from the other source to compare it against."),
+    ("False", "They disagree", "warn",
+     "The two sources named different aircraft, so nothing was shown "
+     "that cycle — the display kept the previous image instead."),
 )
 
 # --- CFG-05 landing context --------------------------------------------------
@@ -202,7 +214,20 @@ ANOMALY_BANNER_TEXT = "Something needs attention — check the tiles below."
 _SEVERITY_BANNER_NOUNS = {"warn": "warning", "error": "error"}
 
 DEVICE_FRESHNESS_LABEL = "Device last checked in"
-PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
+# 19-06-PLAN.md Task 2 (D-06): the visible label read in plain language
+# a household member can parse without hovering; the technical term
+# stays available one hover away via `caption_title` at the tile's
+# stat_tile() call site below.
+PIPELINE_FRESHNESS_LABEL = "Flight data last updated"
+PIPELINE_FRESHNESS_TITLE = "ADS-B pipeline last ran"
+
+# 19-06-PLAN.md Task 2 (D-06): replaces the literal "Corroboration"
+# string that used to be inlined straight at this tile's stat_tile()
+# call site — this module's own convention is constants at the top,
+# never literals at a render site. The technical term survives as this
+# tile's `caption_title` tooltip.
+CORROBORATION_TILE_LABEL = "Do the two data sources agree?"
+CORROBORATION_TILE_TITLE = "Corroboration"
 
 # Quick task 260903-peo (UIR-14): the pipeline tile's new second content
 # line, naming the last real aircraft detection sourced from
@@ -351,7 +376,11 @@ SCREEN_SECTION_ID = "screen"
 SCREEN_SECTION_HEADING = "Screen"
 SERVER_DATA_SECTION_ID = "server-data"
 SERVER_DATA_SECTION_HEADING = "Server & data"
-RESOLUTION_RATE_LABEL = "Resolution rate"
+# 19-06-PLAN.md Task 2 (D-06): plain-language label; the technical term
+# stays reachable via `caption_title` at this tile's stat_tile() call
+# site below.
+RESOLUTION_RATE_LABEL = "Flights we could name"
+RESOLUTION_RATE_TITLE = "Route resolution rate"
 UNRESOLVED_SECTION_HEADING = "Unresolved prefixes"
 STATS_SECTION_HEADING = "Resolution statistics"
 
@@ -2651,6 +2680,10 @@ def render(ctx):
     stats = _safe_query(
         state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
 
+    # 19-06-PLAN.md Task 2 (D-06): DEVICE_FRESHNESS_LABEL is already
+    # plain language ("Device last checked in") — there is no genuine
+    # technical term to demote to a tooltip here, so no `caption_title`
+    # is passed, rather than inventing one.
     device_tile_html = layout.stat_tile(
         DEVICE_FRESHNESS_LABEL, device_html, device_state, icon=ICON_DEVICE)
 
@@ -2671,17 +2704,21 @@ def render(ctx):
         CORROBORATION_STATE_TEXT.get(corroboration_state, CORROBORATION_STATE_TEXT["ok"]))
     server_data_tiles_html = (
         layout.stat_tile(
-            PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state, icon=ICON_PIPELINE)
+            PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state,
+            icon=ICON_PIPELINE, caption_title=PIPELINE_FRESHNESS_TITLE)
         + layout.stat_tile(
-            "Corroboration", corroboration_verdict + corroboration_html,
-            corroboration_state, icon=ICON_CORROBORATION)
+            CORROBORATION_TILE_LABEL, corroboration_verdict + corroboration_html,
+            corroboration_state, icon=ICON_CORROBORATION,
+            caption_title=CORROBORATION_TILE_TITLE)
         # D-03/A-21: the Resolution-rate tile is the one deliberate
         # exception — it is passed status=None and carries no
         # pass/fail verdict anywhere in this module (no status function
         # for it exists), so inventing a verdict word for it here would
         # assert a judgement this page does not actually make. Its
         # rendered figure stays exactly as it was before this task.
-        + layout.stat_tile(RESOLUTION_RATE_LABEL, _resolution_rate_tile_html(stats), None)
+        + layout.stat_tile(
+            RESOLUTION_RATE_LABEL, _resolution_rate_tile_html(stats), None,
+            caption_title=RESOLUTION_RATE_TITLE)
     )
 
     # 260902-chc: SUPERSEDED — this used to be a manual Refresh link
