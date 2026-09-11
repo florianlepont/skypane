@@ -2182,6 +2182,19 @@ button:disabled {
     .theme-direction-label {
     display: none;
   }
+
+  /* 20-04-PLAN.md Task 2 (D-14c, 20-UI-SPEC.md §E): the fused Calendar
+   * card — squares the card's bottom corners and zeroes its bottom
+   * margin only when a .calendar-disconnect-form immediately follows it,
+   * so the two <form>s read as one card with a trailing action strip.
+   * Joins this block (rather than opening a third) per
+   * companion/test_config_page.py's own exact-count pin — see this
+   * selector's own declaration further down this file. */
+  .page-section:has(+ .calendar-disconnect-form) {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    margin-bottom: 0;
+  }
 }
 
 /* Shared Settings-page checkbox normalization (quick task 260901-qif,
@@ -5327,4 +5340,250 @@ a.airline-card__zoom {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
+}
+
+/* --- 20-UI-SPEC.md §E: the fused Calendar card (D-14c) -----------------
+ * A genuinely new pattern — a two-<form> card visually fused into one.
+ * Scoped with :has() inside this file's existing progressive-enhancement
+ * convention — companion/test_config_page.py pins the whole file to
+ * exactly two feature-query blocks of that shape (the live-selection-
+ * state one and Phase 15 D-05's arrivals-reveal one), so this rule joins
+ * the second of those two rather than opening a third such block; see
+ * that block's own declaration further up this file. A browser without
+ * :has() support simply keeps all four of the Calendar card's corners
+ * rounded and lets .calendar-disconnect-form render as its own
+ * small separate card immediately below, at the normal --space-lg gap —
+ * an accepted, non-broken degradation, never unstyled. */
+
+.calendar-disconnect-form {
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-top: none;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom-left-radius: var(--radius-control);
+  border-bottom-right-radius: var(--radius-control);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* --- 20-UI-SPEC.md §F: "Match by" segmented radios, and the rule rows
+ * (D-15b, D-15c) -------------------------------------------------------
+ * Structural Note 5 / this phase's own resolution: native radios styled
+ * as the existing .theme-form/.theme-option segmented control, chosen
+ * over three JS-driven <button>s requiring rule-form.js for full
+ * functionality — the zero-degraded-state path, which is why no
+ * rule-form.js exists this phase. The radio itself is hidden via the
+ * existing `.visually-hidden` utility in the markup (input.visually-
+ * hidden, declared above, already clears the 44px floor for it); this
+ * rule only styles the adjacent <label>, at .theme-option's own
+ * 28px/13px geometry, with the same 12%-accent active pill now driven
+ * by :checked instead of a --active class toggle. */
+.theme-form input[type="radio"] + label {
+  height: 28px;
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: 13px;
+  font-weight: var(--weight-regular);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+
+.theme-form input[type="radio"]:checked + label {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  font-weight: var(--weight-semibold);
+}
+
+.theme-form input[type="radio"]:not(:checked) + label:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+/* The global :focus-visible floor (declared above) targets `input`
+ * directly, but this input is visually hidden off-screen, so its own
+ * outline would be invisible too. Moving the ring onto the label keeps
+ * keyboard focus visible for this one control. */
+.theme-form input[type="radio"]:focus-visible + label {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.rule-add-form--inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.rule-add-form--inline .rule-add-form__field--kind {
+  flex: 0 0 auto;
+}
+
+.rule-add-form--inline input[type="text"] {
+  max-width: 140px;
+}
+
+/* D-15e's suggested-from-recent chips: inert <button>s (with no JS they
+ * do nothing but submit no form of their own either — matching the
+ * segmented control's own "control degrades to inert, never to
+ * invisible" convention above) reset down to plain inline text rather
+ * than the base button's 30px quiet-wash treatment, since D-15e's own
+ * text says "with no JS the chips are plain text". */
+.rule-suggestions {
+  margin: var(--space-sm) 0 0;
+}
+
+.rule-suggestion-chip {
+  height: auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  font: inherit;
+  font-weight: var(--weight-regular);
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.rule-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.rule-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-dominant);
+}
+
+.rule-row__key {
+  flex: 0 0 auto;
+  min-width: 72px;
+}
+
+/* .rule-row__kind gets no rule of its own — it composes .banner__pill
+ * verbatim and, per 20-UI-SPEC.md §F, must NOT be colour-coded. */
+
+.rule-row__theme {
+  flex: 1 1 auto;
+}
+
+.rule-row form {
+  flex: none;
+  margin: 0;
+}
+
+/* --- 20-UI-SPEC.md §G: the compact theme chip (D-14d, D-15b) -----------
+ * Additive, size-only modifier on the existing .theme-chip base — every
+ * selected-state mechanism (border, wash, check glyph, the live
+ * :has(input:checked) layer, the fallback layer, all declared above)
+ * applies automatically. No selected-state rule of any kind is added
+ * here, which is the whole point of making this size-only. */
+.theme-chip--compact {
+  width: 104px;
+}
+
+.theme-chip--compact .theme-chip__preview {
+  height: 36px;
+}
+
+.theme-chip--compact .theme-chip__body {
+  padding: var(--space-xs);
+}
+
+/* 2px micro-spacing exception, second of the three this phase reuses
+ * (the first is .preview-frame__flight above). Reuses .theme-chip__name's
+ * existing no-wrap/ellipsis rule verbatim — declared once, further up
+ * this file — rather than restating it here. */
+.theme-chip--compact .theme-chip__name {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+/* 2px micro-spacing exception, third of the three. */
+.theme-chip--compact .theme-chip__swatches {
+  gap: 2px;
+}
+
+.theme-chip--compact .theme-chip__dot {
+  width: 8px;
+  height: 8px;
+}
+
+.theme-chip--compact .theme-chip__check {
+  top: var(--space-xs);
+  right: var(--space-xs);
+}
+
+.theme-chip--compact .theme-chip__check .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* --- 20-UI-SPEC.md §H: the live theme preview (D-22..D-24) -------------
+ * 480px max-width matches .lightbox's own base max-width above — no new
+ * dimension token. */
+.theme-live-preview {
+  margin: 0 0 var(--space-md);
+  max-width: 480px;
+}
+
+.theme-live-preview__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.theme-live-preview figcaption {
+  margin-top: var(--space-sm);
+  text-align: center;
+}
+
+/* --- 20-UI-SPEC.md §K: the Airlines "Change pictures" toggle (D-36) ----
+ * An <a> cannot share the `button[type="submit"]`/bare `button` element
+ * selectors above, so this is a deliberate, minimal duplication of the
+ * base quiet-button visual treatment onto an anchor — the same reason
+ * this class needs to exist at all. Values mirror the base `button`
+ * block exactly: the wash/border strengths, the 30px/36px height pair. */
+.airlines-edit-toggle {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  text-decoration: none;
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+
+.airlines-edit-toggle:hover {
+  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+
+@media (max-width: 959.98px) {
+  .airlines-edit-toggle {
+    height: 36px;
+  }
 }
