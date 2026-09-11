@@ -395,37 +395,45 @@ THEMES = {
 # unchanged; the "06-24"/"02-20" entries use the same "ORY · RWY ..."/
 # "Watching Runway ..." shape with the U+00B7 middle-dot separator.
 #
-# Quick task 260902-j21 (2026-09-02): each `label` now carries only the
-# runway number Orly's own signage and runway-works documentation use
-# ("Piste N"), sourced from the official Aeroport de Paris runway-works
-# diagram the developer supplied - superseding the prior heading-pair
-# labels ("Runway 3 (07/25)", "Runway 06/24", "Runway 02/20") quoted here
-# for context only. The mapping is NOT inferable from the keys, so it is
-# recorded explicitly: key "3" (DEFAULT_RUNWAY_ID) -> Piste 3 (07-25), key
-# "06-24" -> Piste 4, key "02-20" -> Piste 2. The dict KEYS themselves are
-# deliberately unchanged - they are the persisted `tracked_runway` value in
-# device_config.json, the membership set RUNWAY_IDS validates against, the
-# CFG-12 consistency check against adsb-test/runway3.json noted above, and
-# the filename stem the companion/static/RUNWAY-IMAGES.md `runway-{id}.png`
-# drop-in contract keys off of - renaming any of them would silently orphan
-# the matching diagram asset. `tag_text`/`empty_heading` are deliberately
-# left in their existing English airport-board voice: they render onto the
-# physical Spectra 6 panel via server/plane/render.py's runway_tag_text()/
-# runway_empty_heading(), a separate design surface nobody asked to change.
-# The French "Piste" vocabulary is scoped to the companion web picker alone.
+# 19-12-PLAN.md Task 1 (D-11/A-29): each `label` now reads in plain
+# English, carrying both the ADP runway number and the physical
+# heading-pair designator in parentheses - "Runway 3 (07/25)",
+# "Runway 4 (06/24)", "Runway 2 (02/20)" - superseding the prior quick
+# task 260902-j21's French ADP vocabulary (the French word for
+# "runway" followed by the number, sourced from the official Aeroport
+# de Paris runway-works diagram) quoted here for
+# context only. The "3" key's parenthetical, "07/25", is NOT derivable
+# from the key itself and is therefore typed by hand, not templated.
+# The mapping is recorded explicitly: key "3" (DEFAULT_RUNWAY_ID) ->
+# Runway 3 (07/25), key "06-24" -> Runway 4 (06/24), key "02-20" ->
+# Runway 2 (02/20). The dict KEYS themselves are deliberately unchanged
+# - they are the persisted `tracked_runway` value in device_config.json,
+# the membership set RUNWAY_IDS validates against, the CFG-12
+# consistency check against adsb-test/runway3.json noted above, and the
+# filename stem the companion/static/RUNWAY-IMAGES.md `runway-{id}.png`
+# drop-in contract keys off of - renaming any of them would silently
+# orphan the matching diagram asset. `tag_text`/`empty_heading` are
+# deliberately left UNCHANGED, in their existing English,
+# parentheses-free airport-board voice: they render onto the physical
+# Spectra 6 panel via server/plane/render.py's runway_tag_text()/
+# runway_empty_heading(), a separate design surface D-11 does not touch
+# and server/test_render.py's own pinned expectations depend on. Only
+# `label` - the companion web picker's own value - changes here; the
+# picker is English again, and the ADP number survives inside the label
+# rather than the vocabulary the picker used before this change.
 RUNWAYS = {
     "3": {
-        "label": "Piste 3",
+        "label": "Runway 3 (07/25)",
         "tag_text": "ORY · RWY 3",
         "empty_heading": "Watching Runway 3",
     },
     "06-24": {
-        "label": "Piste 4",
+        "label": "Runway 4 (06/24)",
         "tag_text": "ORY · RWY 06/24",
         "empty_heading": "Watching Runway 06/24",
     },
     "02-20": {
-        "label": "Piste 2",
+        "label": "Runway 2 (02/20)",
         "tag_text": "ORY · RWY 02/20",
         "empty_heading": "Watching Runway 02/20",
     },
@@ -433,6 +441,29 @@ RUNWAYS = {
 
 THEME_IDS = tuple(THEMES)
 RUNWAY_IDS = tuple(RUNWAYS)
+
+# --- Screen-id seam (D-23, 19-12-PLAN.md Task 1) --------------------------
+#
+# `companion/screens.py` owns the real screen-type registry
+# (SCREEN_TYPES/SCREEN_IDS/DEFAULT_SCREEN_ID) - the two constants below
+# are a DELIBERATE DUPLICATE of that module's own `SCREEN_IDS`/
+# `DEFAULT_SCREEN_ID` values, not an import of them. This module is a
+# leaf (its own docstring above: stdlib plus server.panel_format only)
+# and `server/` must never import `companion/` - the dependency between
+# the two packages runs one way only (companion/ imports server/, e.g.
+# companion/app.py's `from server import device_config, history_db`),
+# so importing companion.screens here would invert it. This is the same
+# duplicated-not-imported contract companion/app.py's `*_SCRIPT_ROUTE`
+# constants and companion/layout.py's matching `*_SCRIPT_SRC` constants
+# already use for an identical reason (companion/app.py cannot import
+# companion/layout.py's constant either, for its own, unrelated cycle
+# reason) - a dedicated harness check
+# (server/test_config_history.py) pins SCREEN_IDS/DEFAULT_SCREEN_ID
+# equal to companion.screens's own values, so the two can never
+# silently drift apart. Keep both files' names identical when either
+# changes.
+DEFAULT_SCREEN_ID = "plane-frame"
+SCREEN_IDS = ("plane-frame",)
 
 DEVICE_CONFIG_FILENAME = "device_config.json"
 
@@ -513,6 +544,18 @@ def normalise_runway_id(value):
     if isinstance(value, str) and value in RUNWAYS:
         return value
     return DEFAULT_RUNWAY_ID
+
+
+def normalise_screen_id(value):
+    """Return `value` unchanged only when it is a string AND a member of
+    `SCREEN_IDS` - otherwise return `DEFAULT_SCREEN_ID`. Never raises,
+    and never uses `value` as a lookup key without the membership test
+    first (T-19-11, ASVS V5) - same read-path "degrade to the default"
+    shape every sibling normaliser in this module already uses
+    (normalise_theme_id()/normalise_runway_id() above)."""
+    if isinstance(value, str) and value in SCREEN_IDS:
+        return value
+    return DEFAULT_SCREEN_ID
 
 
 def normalise_led_enabled(value):
@@ -598,24 +641,28 @@ def normalise_wake_interval_s(value):
 def load_device_config(state_dir):
     """Read `<state_dir>/device_config.json`; a missing file, an unreadable
     file, a malformed document, or a non-dict document all fall back to an
-    empty dict rather than raising. Always returns all ten keys with valid
+    empty dict rather than raising. Always returns all eleven keys with valid
     values - `theme`, `theme_arriving`, `calendar_theme_id`,
     `tracked_runway`, `led_enabled`, `quiet_hours_enabled`,
-    `quiet_hours_start`, `quiet_hours_end`, `wake_interval_s`, and
-    `display_enabled` - via normalise_theme_id()/normalise_theme_arriving()/
-    normalise_calendar_theme_id()/normalise_runway_id()/
-    normalise_led_enabled()/normalise_quiet_hours_enabled()/
-    normalise_quiet_hours_time()/normalise_wake_interval_s()/
-    normalise_display_enabled(), so a hostile or stale value on disk (e.g. a
+    `quiet_hours_start`, `quiet_hours_end`, `wake_interval_s`,
+    `display_enabled`, and `screen_id` - via normalise_theme_id()/
+    normalise_theme_arriving()/normalise_calendar_theme_id()/
+    normalise_runway_id()/normalise_led_enabled()/
+    normalise_quiet_hours_enabled()/normalise_quiet_hours_time()/
+    normalise_wake_interval_s()/normalise_display_enabled()/
+    normalise_screen_id(), so a hostile or stale value on disk (e.g. a
     path-traversal string, a numeric runway id, a non-bool led_enabled, a
     malformed quiet-hours time, a hostile wake_interval_s, an unregistered
-    theme_arriving or calendar_theme_id, or a non-bool display_enabled) never
-    reaches a caller. `theme_arriving` (D-04) and `calendar_theme_id` (phase
-    16 plan 02) are both read with `.get()`, so a `device_config.json`
-    written before either key existed - one that has never carried it -
-    resolves that key to `None` with no migration and no rewrite of the file
-    on disk. `wake_interval_s`, `theme_arriving`, and `calendar_theme_id` are
-    the three keys whose valid value set includes `None`: `wake_interval_s`'s
+    theme_arriving, calendar_theme_id or screen_id, or a non-bool
+    display_enabled) never reaches a caller. `theme_arriving` (D-04),
+    `calendar_theme_id` (phase 16 plan 02), and `screen_id` (D-23,
+    19-12-PLAN.md Task 1) are all read with `.get()`, so a
+    `device_config.json` written before any of the three existed - one
+    that has never carried it - resolves that key to its documented
+    default (`None` for the first two, `DEFAULT_SCREEN_ID` for the third)
+    with no migration and no rewrite of the file on disk. `wake_interval_s`,
+    `theme_arriving`, and `calendar_theme_id` are the three keys whose valid
+    value set includes `None`: `wake_interval_s`'s
     `None` means never-explicitly-set, `theme_arriving`'s `None` means "no
     override, same as `theme`", and `calendar_theme_id`'s `None` means "the
     operator has not chosen a calendar theme, so a calendar match has no
@@ -640,6 +687,7 @@ def load_device_config(state_dir):
         "quiet_hours_end": normalise_quiet_hours_time(data.get("quiet_hours_end"), DEFAULT_QUIET_HOURS_END),
         "wake_interval_s": normalise_wake_interval_s(data.get("wake_interval_s")),
         "display_enabled": normalise_display_enabled(data.get("display_enabled")),
+        "screen_id": normalise_screen_id(data.get("screen_id")),
     }
 
 
@@ -647,14 +695,26 @@ def save_device_config(
     state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
     wake_interval_s=None, display_enabled=None, calendar_theme_id=None,
+    screen_id=None,
 ):
     """Validate and persist a new theme and/or theme_arriving override and/or
     tracked-runway id and/or led_enabled flag and/or the three quiet-hours
     fields and/or wake_interval_s and/or display_enabled and/or
-    calendar_theme_id.
+    calendar_theme_id and/or screen_id.
+
+    `screen_id` (D-23, 19-12-PLAN.md Task 1) is placed LAST so every
+    existing positional/keyword call site predating this plan is
+    unaffected. It follows the identical "membership test, raise on
+    write, degrade on read" split every sibling registry field here
+    already uses: a non-None value not in `SCREEN_IDS` raises
+    `ValueError` naming both the rejected value and `SCREEN_IDS`
+    (matching `tracked_runway`'s own message shape below) before
+    anything is written; `None` carries the current on-disk value
+    forward, the same "not supplied" meaning every other field's `None`
+    already has.
 
     Each supplied (non-None) value is checked before anything is written:
-    `theme`/`tracked_runway`/`calendar_theme_id` against their registries
+    `theme`/`tracked_runway`/`calendar_theme_id`/`screen_id` against their registries
     with an explicit membership test, `led_enabled`/`quiet_hours_enabled`/
     `display_enabled` with an explicit `isinstance(..., bool)` type check
     (there is no registry for a boolean), `quiet_hours_start`/
@@ -714,6 +774,8 @@ def save_device_config(
         raise ValueError("unknown calendar_theme_id %r (expected None or one of %r)" % (calendar_theme_id, THEME_IDS))
     if tracked_runway is not None and tracked_runway not in RUNWAYS:
         raise ValueError("unknown tracked_runway id %r (expected one of %r)" % (tracked_runway, RUNWAY_IDS))
+    if screen_id is not None and screen_id not in SCREEN_IDS:
+        raise ValueError("unknown screen_id %r (expected one of %r)" % (screen_id, SCREEN_IDS))
     if led_enabled is not None and not isinstance(led_enabled, bool):
         raise ValueError("led_enabled must be a bool, got %r" % (led_enabled,))
     if quiet_hours_enabled is not None and not isinstance(quiet_hours_enabled, bool):
@@ -758,6 +820,7 @@ def save_device_config(
         "quiet_hours_end": quiet_hours_end if quiet_hours_end is not None else current["quiet_hours_end"],
         "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
         "display_enabled": display_enabled if display_enabled is not None else current["display_enabled"],
+        "screen_id": screen_id if screen_id is not None else current["screen_id"],
     }
 
     os.makedirs(state_dir, exist_ok=True)
