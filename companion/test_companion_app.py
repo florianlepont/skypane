@@ -301,6 +301,13 @@ EXPECTED_CHECK_COUNT = 210  # 208 + 2 (19-04-PLAN.md Task 3, D-18/T-19-04:
 # could never observe. Recomputed directly against the real on-disk
 # check(...) call count at execution time (177/177 pass), not trusted
 # from arithmetic alone, per this file's own established discipline.
+EXPECTED_CHECK_COUNT = 211  # 19-07-PLAN.md Task 3 (D-07/A-25): +1 (the
+# real end-to-end check: a POST /settings with a valid theme change and
+# an empty quiet_hours_start returns 200, shows the newly-picked theme
+# still selected, shows the quiet-hours field error, carries no flash
+# banner, and persists nothing on disk). 210 + 1 = 211, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (211/211 pass), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -3251,6 +3258,42 @@ def main():
         check(
             "an authenticated POST /settings redirects to /display (the default return page) carrying a flash query",
             _settings_post_redirects_to_settings_with_flash)
+
+        # --- 19-07-PLAN.md Task 3 (D-07/A-25): a rejected save re-renders
+        # the scoped page directly at 200 with the user's own input and a
+        # field-level message, and persists nothing ---
+
+        def _rejected_settings_save_rerenders_200_with_input_and_error_persists_nothing():
+            from companion.pages import config_page
+            before = device_config.load_device_config(harness.tmpdir)
+            status, headers, body = http_request(
+                base + "/settings", method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({
+                    "theme": "black", "tracked_runway": before["tracked_runway"],
+                    "quiet_hours_start": "",
+                }).encode())
+            if status != 200:
+                return False, "expected a 200 re-render on a rejected save, got %d" % status
+            if headers.get("Location"):
+                return False, "expected no redirect Location header on a rejected save, got %r" % (
+                    headers.get("Location"),)
+            body_text = body.decode("utf-8", errors="replace")
+            if 'name="theme" value="black"' not in body_text or "checked" not in body_text.split(
+                    'name="theme" value="black"', 1)[1].split(">", 1)[0]:
+                return False, "expected the just-picked theme (black) to render checked - nothing discarded"
+            if config_page.ERROR_QUIET_HOURS_TIME_SHAPE not in body_text:
+                return False, "expected the quiet_hours_start field-level error message in the response body"
+            if "banner--flash" in body_text:
+                return False, "expected no top-of-page flash banner on a field-level rejection (D-07)"
+            after = device_config.load_device_config(harness.tmpdir)
+            if after != before:
+                return False, "expected nothing to be persisted on a rejected save, got %r (was %r)" % (after, before)
+            return True, ""
+        check(
+            "a POST /settings with a valid theme change and an empty quiet_hours_start returns 200, shows the "
+            "newly-picked theme still selected, shows the quiet-hours field error, carries no flash banner, and "
+            "persists nothing on disk (D-07/A-25)",
+            _rejected_settings_save_rerenders_200_with_input_and_error_persists_nothing)
 
         # --- Phase 18: Home page, quick actions, scoped settings saves ---
 

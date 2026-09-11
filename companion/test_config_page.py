@@ -270,6 +270,29 @@ EXPECTED_CHECK_COUNT = 127
 # call count at execution time (138/138 pass), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 142  # 138 + 4 (phase 18: page scopes / screens registry)
+EXPECTED_CHECK_COUNT = 147  # 19-07-PLAN.md Task 1 (D-07/A-25): +5 (the
+# no-errors-arg-byte-identical-flash-keys check, the errors-dict-filled-
+# per-field check across six real-user-error cases, the errors-dict-
+# stays-empty-on-success check, the empty-quiet_hours_start-writes-
+# nothing all-or-nothing pin, and the local HH:MM regex/
+# save_device_config() agreement check over the plan's own input table).
+# 142 + 5 = 147, recomputed directly against the real on-disk check(...)
+# call count at execution time (147/147 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 153  # 19-07-PLAN.md Task 2 (D-07/A-25/T-19-12):
+# +6 (render()-with-no-new-args byte-identical/no-field-error-markup
+# check, the wake_interval_s message/value/aria-invalid/aria-describedby
+# check, the submitted-theme-id-checked-even-when-differs check, the
+# both-time-inputs-carry-required check, the calendar_url error-without-
+# secret-echo check, and the cross-file style.css .field-error guard).
+# 147 + 6 = 153, recomputed directly against the real on-disk check(...)
+# call count at execution time (153/153 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 154  # 19-07-PLAN.md Task 3 (D-07/A-25): +1 (the
+# rejected-save-without-errors-arg-still-returns-save-failed legacy-
+# contract pin). 153 + 1 = 154, recomputed directly against the real
+# on-disk check(...) call count at execution time (154/154 pass), not
+# trusted from arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2130,6 +2153,279 @@ def main():
     check(
         "after a save that stored wake_interval_s 120, a later submission with wake_interval_s as the empty string, and another with the key absent entirely, both return the saved flash key and leave the stored value at 120 (11-RESEARCH.md Open Question 2)",
         _handle_post_wake_interval_empty_or_absent_leaves_unchanged)
+
+    # ------------------------------------------------------------------
+    # 19-07-PLAN.md Task 1 (D-07/A-25): handle_post()'s new optional
+    # `errors` dict parameter — the legacy no-errors callers stay
+    # byte-identical, and each new field-level pre-check fills exactly
+    # one keyed message without changing the returned flash-key string.
+    # ------------------------------------------------------------------
+
+    def _handle_post_no_errors_arg_returns_identical_flash_keys():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            valid_flash = config_page.handle_post({"theme": "white"}, ctx)
+            if valid_flash != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED for a representative valid save, got %r" % (valid_flash,)
+            invalid_flash = config_page.handle_post({"theme": "not-a-real-theme"}, ctx)
+            if invalid_flash != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for a representative invalid save, got %r" % (invalid_flash,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post(form, ctx) with no errors argument still returns exactly the same flash keys it did "
+        "before this plan, for both a representative valid save and a representative invalid save",
+        _handle_post_no_errors_arg_returns_identical_flash_keys)
+
+    def _handle_post_errors_dict_filled_for_each_real_user_error_field():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            cases = (
+                ({"wake_interval_s": "7"}, "wake_interval_s", config_page.ERROR_WAKE_INTERVAL_RANGE),
+                ({"wake_interval_s": "abc"}, "wake_interval_s", config_page.ERROR_WAKE_INTERVAL_RANGE),
+                ({"quiet_hours_start": "24:00"}, "quiet_hours_start", config_page.ERROR_QUIET_HOURS_TIME_SHAPE),
+                ({"quiet_hours_start": ""}, "quiet_hours_start", config_page.ERROR_QUIET_HOURS_TIME_SHAPE),
+                ({"quiet_hours_end": "not-a-time"}, "quiet_hours_end", config_page.ERROR_QUIET_HOURS_TIME_SHAPE),
+                (
+                    {
+                        "calendar_url": "https://example.com/feed.ics",
+                        "calendar_disconnect": config_page.CALENDAR_DISCONNECT_CHECKBOX_VALUE,
+                    },
+                    "calendar_url", config_page.ERROR_CALENDAR_URL_INVALID,
+                ),
+            )
+            for form, field, expected_message in cases:
+                errors = {}
+                flash_key = config_page.handle_post(form, ctx, errors=errors)
+                if flash_key != config_page.FLASH_SAVE_FAILED:
+                    return False, "expected FLASH_SAVE_FAILED for form=%r, got %r" % (form, flash_key)
+                if errors != {field: expected_message}:
+                    return False, "expected errors == {%r: %r} for form=%r, got %r" % (
+                        field, expected_message, form, errors)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post(form, ctx, errors=d) fills d with exactly one field-keyed message for each real-user-error "
+        "case (wake_interval_s non-numeric/out-of-range, quiet_hours_start/quiet_hours_end malformed including "
+        "empty, and a contradictory calendar_url+calendar_disconnect submission)",
+        _handle_post_errors_dict_filled_for_each_real_user_error_field)
+
+    def _handle_post_errors_dict_stays_empty_on_a_valid_save():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            errors = {}
+            flash_key = config_page.handle_post(
+                {
+                    "theme": "white", "quiet_hours_start": "22:30",
+                    "quiet_hours_end": "06:15", "wake_interval_s": "120",
+                },
+                ctx, errors=errors)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            if errors != {}:
+                return False, "expected errors to stay empty on a valid save, got %r" % (errors,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post(form, ctx, errors=d) leaves d empty when the save succeeds",
+        _handle_post_errors_dict_stays_empty_on_a_valid_save)
+
+    def _handle_post_empty_quiet_hours_start_writes_nothing():
+        # The all-or-nothing contract's own direct pin for the NEW
+        # pre-check: an empty quiet_hours_start must reject before
+        # save_device_config() is ever called, leaving a pre-existing
+        # config byte-identical - not merely returning the right flash
+        # key.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            errors = {}
+            flash_key = config_page.handle_post(
+                {"theme": "white", "quiet_hours_start": ""}, ctx, errors=errors)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for an empty quiet_hours_start, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to stay byte-identical, it changed"
+            if errors != {"quiet_hours_start": config_page.ERROR_QUIET_HOURS_TIME_SHAPE}:
+                return False, "expected exactly one quiet_hours_start error, got %r" % (errors,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"theme\": \"white\", \"quiet_hours_start\": \"\"}, ctx, errors=d) rejects the whole save, "
+        "writes nothing (the theme must not persist either), and reports the error on quiet_hours_start alone",
+        _handle_post_empty_quiet_hours_start_writes_nothing)
+
+    def _local_quiet_hours_regex_agrees_with_save_device_config():
+        # 19-07-PLAN.md Task 1: this module's own local HH:MM shape gate
+        # (_QUIET_HOURS_TIME_RE) is a UX pre-check only -
+        # save_device_config()'s identical gate stays authoritative. This
+        # pins the two never silently drifting apart, over the exact
+        # table of inputs the plan names.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            for candidate in ("", "7:00", "07:00", "24:00", "abc", "23:59", "00:00"):
+                pre_check_says_ok = bool(config_page._QUIET_HOURS_TIME_RE.match(candidate))
+                try:
+                    device_config.save_device_config(
+                        tmpdir, quiet_hours_start=candidate)
+                    save_device_config_says_ok = True
+                except ValueError:
+                    save_device_config_says_ok = False
+                if pre_check_says_ok != save_device_config_says_ok:
+                    return False, (
+                        "disagreement for %r: pre-check says ok=%r, save_device_config() says ok=%r"
+                        % (candidate, pre_check_says_ok, save_device_config_says_ok))
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "config_page._QUIET_HOURS_TIME_RE agrees with server.device_config.save_device_config()'s own HH:MM "
+        "shape gate over the table \"\"/\"7:00\"/\"07:00\"/\"24:00\"/\"abc\"/\"23:59\"/\"00:00\"",
+        _local_quiet_hours_regex_agrees_with_save_device_config)
+
+    # ------------------------------------------------------------------
+    # 19-07-PLAN.md Task 2 (D-07/A-25): render() repopulates every
+    # control from a rejected save's own submission and renders each
+    # field's error message and aria wiring — while staying byte-
+    # identical to today whenever errors/submitted are not passed.
+    # ------------------------------------------------------------------
+
+    _TASK2_BASE_CTX = {
+        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "poll_cooldown_remaining": 0,
+        "now": "2026-09-07T09:12:04+00:00",
+    }
+
+    def _render_no_new_args_byte_identical_and_no_field_error_markup():
+        plain = config_page.render(_TASK2_BASE_CTX)
+        explicit_none = config_page.render(_TASK2_BASE_CTX, errors=None, submitted=None)
+        if plain != explicit_none:
+            return False, "expected render(ctx) to be byte-identical to render(ctx, errors=None, submitted=None)"
+        if "field-error" in plain:
+            return False, "expected no field-error markup when no errors are passed"
+        return True, ""
+    check(
+        "render(ctx) with no new arguments is byte-identical to render(ctx, errors=None, submitted=None) and "
+        "contains no field-error markup",
+        _render_no_new_args_byte_identical_and_no_field_error_markup)
+
+    def _render_wake_interval_error_shows_message_value_and_aria():
+        rendered = config_page.render(
+            _TASK2_BASE_CTX, errors={"wake_interval_s": "msg"},
+            submitted={"wake_interval_s": "7"})
+        if rendered.count("msg") != 1:
+            return False, "expected the error message to render exactly once, got %d" % rendered.count("msg")
+        if 'value="7"' not in rendered:
+            return False, "expected the submitted value 7 to be echoed back into the input"
+        input_match = re.search(r'<input type="number" name="wake_interval_s"[^>]*>', rendered)
+        if not input_match:
+            return False, "expected the wake_interval_s input to still be present"
+        if 'aria-invalid="true"' not in input_match.group(0):
+            return False, "expected aria-invalid=\"true\" on the errored input"
+        describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
+        if not describedby_match:
+            return False, "expected an aria-describedby attribute on the errored input"
+        error_id = describedby_match.group(1)
+        if ('id="%s"' % error_id) not in rendered:
+            return False, "expected an element carrying id=%r matching aria-describedby" % (error_id,)
+        return True, ""
+    check(
+        "render(ctx, errors={\"wake_interval_s\": \"msg\"}, submitted={\"wake_interval_s\": \"7\"}) renders the "
+        "message once, echoes value=\"7\" back into the input, and sets aria-invalid plus a matching "
+        "aria-describedby",
+        _render_wake_interval_error_shows_message_value_and_aria)
+
+    def _render_submitted_theme_id_checked_even_when_differs_from_stored():
+        rendered = config_page.render(
+            dict(_TASK2_BASE_CTX, device_config={"theme": "white", "tracked_runway": "3"}),
+            submitted={"theme": "black"})
+        if not re.search(r'name="theme" value="black"[^>]*checked', rendered):
+            return False, "expected the submitted theme (black) to render checked even though the stored theme is white"
+        if re.search(r'name="theme" value="white"[^>]*checked', rendered):
+            return False, "expected the stored theme (white) to NOT render checked once a different submission is being repopulated"
+        return True, ""
+    check(
+        "a submitted theme id is rendered as the CHECKED radio even when it differs from the stored theme "
+        "(D-07 repopulation)",
+        _render_submitted_theme_id_checked_even_when_differs_from_stored)
+
+    def _render_both_quiet_hours_time_inputs_carry_required():
+        rendered = config_page.render(_TASK2_BASE_CTX)
+        start_match = re.search(r'<input type="time" name="quiet_hours_start"[^>]*>', rendered)
+        end_match = re.search(r'<input type="time" name="quiet_hours_end"[^>]*>', rendered)
+        if not start_match or "required" not in start_match.group(0):
+            return False, "expected the quiet_hours_start input to carry required"
+        if not end_match or "required" not in end_match.group(0):
+            return False, "expected the quiet_hours_end input to carry required"
+        return True, ""
+    check(
+        "both quiet-hours time inputs carry required in the rendered Settings page",
+        _render_both_quiet_hours_time_inputs_carry_required)
+
+    def _render_calendar_url_error_never_echoes_the_submitted_secret():
+        rendered = config_page.render(
+            _TASK2_BASE_CTX, errors={"calendar_url": "msg"},
+            submitted={"calendar_url": "https://secret.example/abc?token=xyz"})
+        if "msg" not in rendered:
+            return False, "expected the calendar_url error message to render"
+        for needle in ("secret.example", "abc", "token", "xyz"):
+            if needle in rendered:
+                return False, "expected %r never to appear in the re-rendered page (T-19-12/T-16-SECRET)" % (needle,)
+        return True, ""
+    check(
+        "render(ctx, errors={\"calendar_url\": \"msg\"}, submitted={\"calendar_url\": \"https://secret.example/"
+        "abc?token=xyz\"}) renders the message but contains none of the submitted URL's host, path, query-"
+        "parameter name, or token — the write-only field is never repopulated (D-07/T-19-12)",
+        _render_calendar_url_error_never_echoes_the_submitted_secret)
+
+    def _style_css_styles_field_error():
+        style_path = os.path.join(REPO_ROOT, "companion", "static", "style.css")
+        with open(style_path, encoding="utf-8") as fh:
+            css = fh.read()
+        idx = css.find(".field-error")
+        if idx == -1:
+            return False, "expected a .field-error rule in companion/static/style.css"
+        window = css[idx:idx + 400]
+        if "--color-status-error" not in window:
+            return False, "expected .field-error to read the existing --color-status-error token"
+        return True, ""
+    check(
+        "companion/static/style.css styles .field-error using the existing --color-status-error token "
+        "(cross-file DOM contract guard)",
+        _style_css_styles_field_error)
+
+    # ------------------------------------------------------------------
+    # 19-07-PLAN.md Task 3 (D-07/A-25): the legacy no-errors-arg contract
+    # is intact even for a rejected save — companion/app.py's own
+    # errors-branch (which now ALSO fires whenever errors is non-empty)
+    # depends on handle_post() still returning FLASH_SAVE_FAILED, not
+    # some new sentinel, when no errors dict is passed at all.
+    # ------------------------------------------------------------------
+
+    def _handle_post_rejected_save_without_errors_arg_still_returns_save_failed():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({"theme": "not-a-real-theme"}, ctx)
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED with no errors argument, got %r" % (flash_key,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "a rejected save still returns FLASH_SAVE_FAILED from handle_post() when no errors dict is passed "
+        "(the legacy contract is intact)",
+        _handle_post_rejected_save_without_errors_arg_still_returns_save_failed)
 
     # ------------------------------------------------------------------
     # 06.6.4.1-07 (D-05): led_fieldset()/led_section()/handle_led_post()
