@@ -129,6 +129,8 @@ def _screen_selector_html(current_screen_id, errors=None):
 and pass `errors=errors` from both `_screen_selector_html(screen_id)`
 call sites in `render()`.
 
+**Status:** fixed in 4ec97a3
+
 ### WR-02: Module docstring's D-02 exemption list is now stale for `/ui-theme`
 
 **File:** `companion/app.py:8-16` (module docstring), cross-referenced with `companion/app.py:2517-2520` (`do_POST()`)
@@ -153,6 +155,8 @@ shared cache.
 route except the login routes and the stylesheet calls
 `Handler.require_session()`" (dropping the theme-toggle POST clause),
 and adjust the exemption-list comment at line 1384-1387 to match.
+
+**Status:** fixed in 12e4ff0
 
 ### WR-03: `LoginThrottle` failure/lockout counters are mutated without synchronization under `ThreadingHTTPServer`
 
@@ -195,6 +199,8 @@ def record_failure(self):
         ...
 ```
 
+**Status:** fixed in f1e1a89
+
 ## Info
 
 ### IN-01: `_battery_readout_block()`'s percentage estimate now duplicates two constant sets with an implicit equality requirement
@@ -216,6 +222,10 @@ the other's constants, or fold both into one canonical source (e.g.
 `battery.py` exporting the sparkline's own margin explicitly) so the
 relationship is discoverable by grep.
 
+**Status:** skipped — out of the fix scope for this pass (a
+documentation nit about two constant pairs, not a one-line comment
+fix; scope was limited to WR-01, WR-02, WR-03, and IN-02).
+
 ### IN-02: `wake_interval_group()`'s rejected-save echo double-converts an already-string value
 
 **File:** `companion/pages/config_page.py:1416-1418`
@@ -232,6 +242,8 @@ no-op wrapping an already-`str` value. Harmless, but it reads as if
 codebase's `read_form()` contract, and could mislead a future reader
 into thinking this function accepts richer input shapes than it does.
 **Fix:** Drop the redundant `str()` call: `escape_html(raw_submitted)`.
+
+**Status:** fixed in a924324
 
 ---
 
