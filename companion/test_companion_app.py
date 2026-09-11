@@ -353,6 +353,18 @@ EXPECTED_CHECK_COUNT = 227  # 20-01-PLAN.md Task 2 (D-02/D-29/D-03):
 # against the real on-disk check(...) call count at execution time
 # (225/227 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 233  # 20-08-PLAN.md Task 1 (D-23): +6 (the
+# no-event cache path is stable and distinct from a live-event path;
+# two different event ids give two different paths and the same event
+# id twice gives the same path; a hostile/non-integer event id degrades
+# to the sample path; preview_png_bytes() renders a full and a partial
+# live-event row without raising; cached_preview_bytes() with no event
+# is unchanged; cached_preview_bytes() keys its cache on the event row
+# id, serving a same-event repeat from disk and missing on a newer
+# event). 227 + 6 = 233, recomputed directly against the real on-disk
+# check(...) call count at execution time (231/233 pass — the two
+# documented WR-11 root-sandbox failures, unrelated to this plan), not
+# trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -2426,6 +2438,135 @@ def main():
         "preview_signature() changes when THEME_PREVIEW_CACHE_VERSION changes (the manual "
         "escape hatch for a render-geometry change the signature can't otherwise see)",
         _theme_preview_signature_changes_with_cache_version)
+
+    # ==================================================================
+    # Section 2.5b: companion/theme_preview.py's D-23 live-event render
+    # path and event-aware cache key (20-08-PLAN.md Task 1).
+    # ==================================================================
+
+    def _theme_preview_cache_path_no_event_is_stable_and_distinct_from_live():
+        with tempfile.TemporaryDirectory() as state_dir:
+            no_event_first = theme_preview.cache_path(state_dir, "white")
+            no_event_second = theme_preview.cache_path(state_dir, "white")
+            if no_event_first != no_event_second:
+                return False, "expected the no-event path to be deterministic across two calls"
+            live_path = theme_preview.cache_path(state_dir, "white", live_event_id=41)
+            if no_event_first == live_path:
+                return False, "expected the no-event path to differ from a live-event path"
+            if "41" not in live_path:
+                return False, "expected the live-event path to contain the event id"
+        return True, ""
+    check(
+        "cache_path() with no event returns a stable, deterministic filename that differs "
+        "from the same theme's live-event filename (which contains the event id) — the "
+        "existing 2-argument call site (the chip grid) keeps working unmodified, D-23",
+        _theme_preview_cache_path_no_event_is_stable_and_distinct_from_live)
+
+    def _theme_preview_cache_path_distinct_event_ids_distinct_paths():
+        with tempfile.TemporaryDirectory() as state_dir:
+            path_41 = theme_preview.cache_path(state_dir, "white", live_event_id=41)
+            path_42 = theme_preview.cache_path(state_dir, "white", live_event_id=42)
+            path_41_again = theme_preview.cache_path(state_dir, "white", live_event_id=41)
+            if path_41 == path_42:
+                return False, "expected two different event ids to give two different paths"
+            if path_41 != path_41_again:
+                return False, "expected the same event id twice to give the same path"
+        return True, ""
+    check(
+        "cache_path() gives two different event ids two different paths, and the same event "
+        "id twice the same path (D-23/Pitfall 7)",
+        _theme_preview_cache_path_distinct_event_ids_distinct_paths)
+
+    def _theme_preview_cache_path_hostile_event_id_degrades_to_sample():
+        with tempfile.TemporaryDirectory() as state_dir:
+            sample_path = theme_preview.cache_path(state_dir, "white")
+            for hostile in ("../../etc/passwd", "not-a-number", object()):
+                degraded = theme_preview.cache_path(state_dir, "white", live_event_id=hostile)
+                if degraded != sample_path:
+                    return False, (
+                        "expected a non-integer event id (%r) to degrade to the sample path, "
+                        "got %r" % (hostile, degraded))
+                if isinstance(hostile, str) and hostile in os.path.basename(degraded):
+                    return False, "hostile event id string leaked into the filename"
+        return True, ""
+    check(
+        "cache_path() degrades a non-integer or hostile event id to the same sample path as "
+        "no event at all, never reaching the filename (T-20-14)",
+        _theme_preview_cache_path_hostile_event_id_degrades_to_sample)
+
+    def _theme_preview_png_bytes_live_event_full_and_partial_row():
+        full_row = {
+            "id": 5, "hex": "3946a1", "callsign": "AFR1380", "airline": "Air France",
+            "origin": "ORY", "destination": "TLS", "confirmed_state": "departing",
+        }
+        partial_row = {"id": 6}
+        for row in (full_row, partial_row):
+            payload = theme_preview.preview_png_bytes("white", live_event=row)
+            img = Image.open(io.BytesIO(payload))
+            if img.format != "PNG":
+                return False, "expected a PNG for live_event=%r, got %r" % (row, img.format)
+            if img.size != theme_preview.THEME_PREVIEW_SIZE:
+                return False, "expected size %r for live_event=%r, got %r" % (
+                    theme_preview.THEME_PREVIEW_SIZE, row, img.size)
+        return True, ""
+    check(
+        "preview_png_bytes(theme_id, live_event=row) returns a well-formed PNG for a full "
+        "runway_events row and for a row missing half its fields (partial rows never raise, "
+        "D-23)",
+        _theme_preview_png_bytes_live_event_full_and_partial_row)
+
+    def _theme_preview_cached_bytes_no_event_unchanged():
+        with tempfile.TemporaryDirectory() as state_dir:
+            direct = theme_preview.preview_png_bytes("blue")
+            cached = theme_preview.cached_preview_bytes(state_dir, "blue")
+            path = theme_preview.cache_path(state_dir, "blue")
+            if not os.path.isfile(path):
+                return False, "expected cached_preview_bytes() to create %r" % (path,)
+            if cached != direct:
+                return False, "expected the no-event cached render to still match preview_png_bytes()"
+        return True, ""
+    check(
+        "cached_preview_bytes() with no live_event still creates the cache file and returns "
+        "exactly what preview_png_bytes(theme_id) returns, unchanged by this task (D-23)",
+        _theme_preview_cached_bytes_no_event_unchanged)
+
+    def _theme_preview_cached_bytes_live_event_keyed_by_id():
+        with tempfile.TemporaryDirectory() as state_dir:
+            event_5 = {
+                "id": 5, "hex": "3946a1", "callsign": "AFR1380", "airline": "Air France",
+                "origin": "ORY", "destination": "TLS", "confirmed_state": "departing",
+            }
+            event_6 = dict(event_5, id=6, callsign="AFR9999")
+            first = theme_preview.cached_preview_bytes(state_dir, "white", live_event=event_5)
+            path_5 = theme_preview.cache_path(state_dir, "white", live_event_id=5)
+            if not os.path.isfile(path_5):
+                return False, "expected cached_preview_bytes() to create %r" % (path_5,)
+            # A cache HIT for the same event id must not re-render — mutate the
+            # on-disk bytes and confirm the second call serves them unchanged,
+            # the same proof _theme_preview_cached_bytes_second_call_serves_
+            # from_disk() already applies to the no-event path.
+            marker = b"mutated-cache-fixture-not-a-real-render"
+            with open(path_5, "wb") as fh:
+                fh.write(marker)
+            second_same_event = theme_preview.cached_preview_bytes(
+                state_dir, "white", live_event=event_5)
+            if second_same_event != marker:
+                return False, "expected a same-event second call to be served from disk, not re-rendered"
+            # A NEWER event (a different id) must be a cache MISS, not the
+            # stale mutated bytes above — this is D-23/Pitfall 7's entire point.
+            third_newer_event = theme_preview.cached_preview_bytes(
+                state_dir, "white", live_event=event_6)
+            if third_newer_event == marker:
+                return False, "expected a newer event id to be a cache miss, not the stale marker bytes"
+            path_6 = theme_preview.cache_path(state_dir, "white", live_event_id=6)
+            if path_5 == path_6:
+                return False, "expected two different event ids to produce two different cache files"
+            return True, ""
+    check(
+        "cached_preview_bytes() keys its cache on the live event's row id: a repeat request "
+        "for the SAME event serves the on-disk file unchanged (no re-render), and a NEWER "
+        "event is a cache miss rather than the stale first render (D-23/Pitfall 7)",
+        _theme_preview_cached_bytes_live_event_keyed_by_id)
 
     # ==================================================================
     # Section 2.6: companion/app.py's _illustration_filenames() (phase 13
