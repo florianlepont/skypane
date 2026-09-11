@@ -170,6 +170,10 @@ FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
 # POLL_COOLDOWN_SCRIPT_SRC must equal this exactly, mirroring the
 # SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
 POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
+# 19-11-PLAN.md Task 2 (D-08/A-26): companion/layout.py's
+# CONFIRM_SUBMIT_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the ninth static script.
+CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -509,6 +513,7 @@ _FRESHNESS_JS_PATH = os.path.join(_HERE, "static", "freshness.js")
 _PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
 _FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
 _POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
+_CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -1425,6 +1430,14 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_POLL_COOLDOWN_JS_PATH)
 
+    def _serve_confirm_submit_script(self):
+        """Serve companion/static/confirm-submit.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_poll_cooldown_script()'s shape exactly (19-11-PLAN.md
+        Task 2, D-08/A-26).
+        """
+        return self._serve_script_file(_CONFIRM_SUBMIT_JS_PATH)
+
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
         if payload is None:
@@ -2074,6 +2087,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == POLL_COOLDOWN_SCRIPT_ROUTE:
             return self._serve_poll_cooldown_script()
+
+        if path == CONFIRM_SUBMIT_SCRIPT_ROUTE:
+            return self._serve_confirm_submit_script()
 
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:

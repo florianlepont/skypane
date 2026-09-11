@@ -141,6 +141,11 @@ FLASH_CLEANUP_SCRIPT_SRC = "/static/flash-cleanup.js"
 # contract as the constants above.
 POLL_COOLDOWN_SCRIPT_SRC = "/static/poll-cooldown.js"
 
+# 19-11-PLAN.md Task 2 (D-08/A-26): must equal companion/app.py's
+# CONFIRM_SUBMIT_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above — the ninth static script.
+CONFIRM_SUBMIT_SCRIPT_SRC = "/static/confirm-submit.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 _STATUS_DOT_CLASSES = {
@@ -1120,6 +1125,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -1158,6 +1164,11 @@ def page_shell(
         # no-op-via-guard-clause convention — served every page, since
         # only Settings renders #poll-trigger-btn.
         POLL_COOLDOWN_SCRIPT_SRC,
+        # 19-11-PLAN.md Task 2 (D-08/A-26): ninth script, same
+        # unconditional/no-op-via-guard-clause convention — served every
+        # page, since only the Device page renders a
+        # form[data-confirm] (the calendar disconnect form).
+        CONFIRM_SUBMIT_SCRIPT_SRC,
     )
 
 

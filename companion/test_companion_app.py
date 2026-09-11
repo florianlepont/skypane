@@ -327,6 +327,14 @@ EXPECTED_CHECK_COUNT = 217  # 19-11-PLAN.md Task 1 (D-08/A-26): +4 (the
 # count at execution time (215/217 pass — the two documented WR-11
 # root-sandbox failures, unrelated to this plan), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 220  # 19-11-PLAN.md Task 2 (D-08/A-26): +3 (the
+# ninth static script, confirm-submit.js: its own public-serving check,
+# its ES5-safe/no-HTML-writing-sink guard, and its route/src agreement
+# check). The eight-deferred-scripts check was retargeted in place to
+# nine, a net-zero rename. 217 + 3 = 220, recomputed directly against
+# the real on-disk check(...) call count at execution time (218/220
+# pass — the two documented WR-11 root-sandbox failures, unrelated to
+# this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -3065,27 +3073,71 @@ def main():
             "layout.POLL_COOLDOWN_SCRIPT_SRC equals companion.app.POLL_COOLDOWN_SCRIPT_ROUTE",
             _poll_cooldown_script_route_src_agree)
 
-        def _eight_deferred_scripts_before_closing_body():
-            # Retargeted in place from _seven_deferred_scripts_before_
-            # closing_body() (19-04-PLAN.md Task 1, D-18/A-35):
-            # poll-cooldown.js is the eighth unconditional script.
+        # --- 19-11-PLAN.md Task 2 (D-08/A-26): confirm-submit.js ---
+
+        check(
+            "GET /static/confirm-submit.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/confirm-submit.js"))
+
+        def _confirm_submit_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "confirm-submit.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest", "location.assign", "location.replace")
+            for token in banned:
+                if token in src:
+                    return False, "confirm-submit.js must not contain %r" % token
+            required = ("addEventListener", "preventDefault", "confirm(")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in confirm-submit.js" % token
+            return True, ""
+        check(
+            "confirm-submit.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/location.assign/"
+            "location.replace), and carries the native confirm() step (addEventListener/"
+            "preventDefault/confirm() all present) (D-08/A-26)",
+            _confirm_submit_script_es5_safe_and_no_html_write)
+
+        def _confirm_submit_script_route_src_agree():
+            import companion.app as app_module
+            if layout.CONFIRM_SUBMIT_SCRIPT_SRC != app_module.CONFIRM_SUBMIT_SCRIPT_ROUTE:
+                return False, "confirm-submit script route drift: %r vs %r" % (
+                    layout.CONFIRM_SUBMIT_SCRIPT_SRC, app_module.CONFIRM_SUBMIT_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.CONFIRM_SUBMIT_SCRIPT_SRC equals companion.app.CONFIRM_SUBMIT_SCRIPT_ROUTE",
+            _confirm_submit_script_route_src_agree)
+
+        def _nine_deferred_scripts_before_closing_body():
+            # Retargeted in place from _eight_deferred_scripts_before_
+            # closing_body() (19-11-PLAN.md Task 2, D-08/A-26):
+            # confirm-submit.js is the ninth unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 8:
-                return False, "expected exactly 8 deferred <script src= tags before </body>, got %d" % count
+            if count != 9:
+                return False, "expected exactly 9 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
-                    layout.POLL_COOLDOWN_SCRIPT_SRC):
+                    layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly eight deferred <script src= tags "
-            "before the closing body tag, including panel-lookup.js, flash-cleanup.js and "
-            "poll-cooldown.js",
-            _eight_deferred_scripts_before_closing_body)
+            "a rendered authenticated page contains exactly nine deferred <script src= tags "
+            "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
+            "poll-cooldown.js and confirm-submit.js",
+            _nine_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
