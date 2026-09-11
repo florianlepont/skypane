@@ -1225,7 +1225,7 @@ def status_dot(state, label, title=None):
         % (css_class, title_attr, escape_html(label)))
 
 
-def stat_tile(caption, content_html, status=None, icon=None):
+def stat_tile(caption, content_html, status=None, icon=None, caption_title=None):
     """A status-coloured dashboard card wrapping already-built markup.
 
     `caption` is escaped here. `content_html` is the caller's own
@@ -1250,6 +1250,24 @@ def stat_tile(caption, content_html, status=None, icon=None):
     STAT_TILE_ICON_CLASS) followed by the escaped caption text in a
     <span>, so companion/static/style.css's flex caption rule lays them
     out on one line.
+
+    `caption_title` (19-06, D-06) is an ATTRIBUTE VALUE, not markup — it
+    is escaped here through the same escape_html() call `caption` and
+    status_dot()'s own `title` parameter already go through, and is
+    never interpolated as raw HTML. That is why adding it does not
+    violate the "never grow a second free-form raw-markup parameter"
+    rule stated above for `icon`: an attribute value and a markup
+    fragment are different trust levels, and this parameter is the
+    former. When falsy (the default), the returned string is
+    BYTE-IDENTICAL to what this function returned before this
+    parameter existed, on both the icon and no-icon branches — no
+    `title` attribute is emitted at all. When truthy, a
+    `title="{escaped caption_title}"` attribute is added to the
+    `<p class="text-label stat-tile__caption">` element (the label
+    itself) and nothing else changes. D-06's purpose: a household
+    reader sees a plain-language label; the technical term a developer
+    needs to grep/diagnose by stays one hover away instead of being
+    deleted outright.
     """
     css_class = "stat-tile " + _STAT_TILE_BORDER_CLASSES.get(
         status, _DEFAULT_STAT_TILE_CLASS)
@@ -1258,12 +1276,13 @@ def stat_tile(caption, content_html, status=None, icon=None):
         caption_html = icon_markup + "<span>%s</span>" % escape_html(caption)
     else:
         caption_html = escape_html(caption)
+    title_attr = ' title="%s"' % escape_html(caption_title) if caption_title else ""
     return (
         '<div class="%s">'
-        '<p class="text-label stat-tile__caption">%s</p>'
+        '<p class="text-label stat-tile__caption"%s>%s</p>'
         "%s"
         "</div>"
-    ) % (css_class, caption_html, content_html)
+    ) % (css_class, title_attr, caption_html, content_html)
 
 
 def card_status_class(base_class, status):

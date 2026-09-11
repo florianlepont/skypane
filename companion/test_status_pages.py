@@ -300,6 +300,10 @@ EXPECTED_CHECK_COUNT = 185  # 180 + 5 (19-05-PLAN.md Task 3: D-05/A-23's
 # (battery_status()'s error->warn demotion, the seven-to-nine-keys
 # _read_health_inputs() check, and the battery-trend-section status
 # modifier check) were retargeted in place, not counted as new.
+EXPECTED_CHECK_COUNT = 188  # 185 + 3 (19-06-PLAN.md Task 1, D-06:
+# layout.stat_tile()'s new caption_title parameter — the byte-identical-
+# when-unused check, the renders-as-a-title-on-the-caption-only check,
+# and the escaped-when-hostile check).
 # Re-derived by RUNNING the harness (184/185 — the one documented
 # pre-existing root-sandbox anomaly_active() failure), not by
 # arithmetic.
@@ -5887,6 +5891,55 @@ def main():
         "own literal value — this guard's failure mode is silence, so this check is the only thing "
         "that would notice a drift",
         _quick_260902_chc_skip_guard_cross_file_contract)
+
+    # --- 19-06-PLAN.md Task 1: layout.stat_tile()'s caption_title tooltip
+    # (D-06) ------------------------------------------------------------
+
+    def _stat_tile_caption_title_byte_identical_when_unused():
+        default_call = layout.stat_tile("C", "<p>x</p>", "ok", None)
+        explicit_none = layout.stat_tile("C", "<p>x</p>", "ok", None, caption_title=None)
+        explicit_empty = layout.stat_tile("C", "<p>x</p>", "ok", None, caption_title="")
+        if default_call != explicit_none or default_call != explicit_empty:
+            return False, (
+                "expected stat_tile()'s output to be byte-identical whether caption_title is "
+                "omitted, None, or the empty string")
+        if "title=" in default_call:
+            return False, "expected no title attribute anywhere in the unused-caption_title output"
+        return True, ""
+    check(
+        "layout.stat_tile()'s new caption_title parameter is byte-identical to the pre-existing output "
+        "when omitted, None, or '' (19-06-PLAN.md Task 1, D-06)",
+        _stat_tile_caption_title_byte_identical_when_unused)
+
+    def _stat_tile_caption_title_renders_as_tooltip_on_caption_only():
+        markup = layout.stat_tile("Cap", "<p>y</p>", "ok", None, caption_title="Tech Term")
+        if markup.count('title="Tech Term"') != 1:
+            return False, (
+                "expected exactly one title=\"Tech Term\" attribute in the output, got %d"
+                % markup.count('title="Tech Term"'))
+        caption_open = markup.index('<p class="text-label stat-tile__caption"')
+        caption_close = markup.index(">", caption_open)
+        caption_tag = markup[caption_open:caption_close]
+        if 'title="Tech Term"' not in caption_tag:
+            return False, "expected the title attribute on the caption <p> element itself, got %r" % caption_tag
+        return True, ""
+    check(
+        "layout.stat_tile()'s caption_title renders as a title attribute on the caption <p> element, and "
+        "nowhere else (19-06-PLAN.md Task 1, D-06)",
+        _stat_tile_caption_title_renders_as_tooltip_on_caption_only)
+
+    def _stat_tile_caption_title_is_escaped():
+        hostile = 'a<b"c'
+        markup = layout.stat_tile("Cap", "<p>y</p>", "ok", None, caption_title=hostile)
+        if hostile in markup:
+            return False, "expected the hostile caption_title to be escaped, not interpolated raw"
+        if "&lt;" not in markup or "&quot;" not in markup:
+            return False, "expected the escaped caption_title to carry &lt; and &quot;"
+        return True, ""
+    check(
+        "layout.stat_tile()'s caption_title is escaped through escape_html(), matching every other "
+        "attribute value this module emits (19-06-PLAN.md Task 1, D-06/T-19-08)",
+        _stat_tile_caption_title_is_escaped)
 
     # ======================================================================
     # Section 1.5: companion/illustration_normalize.py — the shared
