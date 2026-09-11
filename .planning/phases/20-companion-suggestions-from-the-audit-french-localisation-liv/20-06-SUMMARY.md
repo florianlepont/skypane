@@ -148,3 +148,13 @@ None - no external service configuration required.
 ---
 *Phase: 20-companion-suggestions-from-the-audit-french-localisation-liv*
 *Completed: 2026-09-11*
+
+## Self-Check: PASSED
+
+- FOUND: companion/pages/home_page.py
+- FOUND: companion/i18n_fr/home.py
+- FOUND: .planning/phases/20-companion-suggestions-from-the-audit-french-localisation-liv/20-06-SUMMARY.md
+- FOUND commit: 0fdbd9b (Task 1)
+- FOUND commit: ef8ce7a (Task 2)
+- FOUND commit: af6467b (Task 3)
+- FOUND commit: 2fc0499 (plan-metadata)
