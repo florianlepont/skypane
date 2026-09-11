@@ -54,7 +54,15 @@ from datetime import datetime, timedelta, timezone
 
 from companion.layout import escape_html
 import companion.battery as battery
+import companion.i18n as i18n  # D-05, 20-03-PLAN.md Task 3: every
+# user-visible string on this page renders through i18n.t() — a
+# shared, page-independent module (see its own module docstring),
+# never a second copy of the lookup this module reaches for.
 import companion.layout as layout
+import companion.prefs as prefs  # D-09: the one place this module needs
+# the resolved language directly rather than through i18n.t() — a
+# label+colon join where French requires a real U+00A0 before the
+# colon (_label_colon() below), not merely a translated label.
 import companion.wake as wake  # D-05/A-23, 19-05-PLAN.md Task 3: the
 # shared effective-wake-interval resolver and the derived device-
 # staleness thresholds, replacing this module's own retired
@@ -72,6 +80,15 @@ import server.poll_loop as poll_loop  # 06.6.4.1-04 (D-11): the migrated
 HEALTH_UNAVAILABLE_TEXT = (
     "Health history is temporarily unavailable — check the companion "
     "service logs.")
+
+
+def _label_colon(label):
+    """`label` (already translated by the caller) followed by a
+    language-appropriate colon separator — D-09 requires a real
+    U+00A0 non-breaking space before ":" in French; English keeps the
+    plain ":" this page has always rendered.
+    """
+    return label + (" :" if prefs.current_lang() == "fr" else ":")
 
 # --- Freshness thresholds (D-12) -------------------------------------------
 #
@@ -182,12 +199,17 @@ _CORROBORATION_ROWS = (
 _ADSB_PROVIDER_NAMES = ("adsb.fi", "adsb.lol")
 
 SOURCE_FAULT_HEADING = "ADS-B source outage"
-SOURCE_FAULT_BODY = (
+# 20-03-PLAN.md Task 3 (D-05): a %s-templated constant rather than the
+# already-formatted sentence this used to be — the render site below
+# translates the TEMPLATE through i18n.t() first, then substitutes the
+# provider hostnames (identifiers, never translated, per D-05). The
+# fully-formatted English sentence is kept as SOURCE_FAULT_BODY for any
+# reader that still wants the plain English value.
+SOURCE_FAULT_BODY_TEMPLATE = (
     "The frame's alert badge is showing because every configured ADS-B "
     "source (%s) failed to respond on the most recent pipeline run — "
-    "this is a data-source outage, not a device problem."
-    % ", ".join(_ADSB_PROVIDER_NAMES)
-)
+    "this is a data-source outage, not a device problem.")
+SOURCE_FAULT_BODY = SOURCE_FAULT_BODY_TEMPLATE % ", ".join(_ADSB_PROVIDER_NAMES)
 
 # --- D-14 anomaly banner -----------------------------------------------------
 
@@ -446,8 +468,9 @@ STATS_SECTION_HEADING = "How well we name flights"
 # em-dash and the space after it on both descriptions: that is what
 # makes the heading and its description read as one continuous phrase
 # across the baseline-aligned `.section-intro` row (see
-# `_section_intro_html()` below), and it is the validated copy — do not
-# drop it as "redundant punctuation".
+# `layout.section_intro_html()`, promoted from this module's own former
+# private copy by 20-03-PLAN.md Task 1), and it is the validated copy —
+# do not drop it as "redundant punctuation".
 PAGE_PURPOSE_TEXT = "Screen status and server data quality, in one place."
 SCREEN_SECTION_DESCRIPTION = (
     "— the physical frame: is it checking in, and how's the battery.")
@@ -671,10 +694,10 @@ def _battery_trend_caption(trend_rows, daily_rows):
     true of what is actually plotted.
     """
     if _battery_daily_series_usable(daily_rows):
-        return "Last 3 months, daily average"
+        return i18n.t("Last 3 months, daily average")
     if not trend_rows or trend_rows is _DB_UNAVAILABLE:
-        return "Last 3 months, daily average"
-    return "Latest %d readings" % BATTERY_TREND_LIMIT
+        return i18n.t("Last 3 months, daily average")
+    return i18n.t("Latest %d readings") % BATTERY_TREND_LIMIT
 
 
 # quick task 260902-ep7 (BUG 4): _AXIS_LEFT_GUTTER and _AXIS_BOTTOM_STRIP
@@ -832,13 +855,17 @@ _SPARKLINE_DENSE_POINT_THRESHOLD = _sparkline_dense_threshold(_SPARKLINE_NARROWE
 # human-verification list.
 _SPARKLINE_DENSE_HIT_RADIUS_PX = 4
 
-# 260902-l0b: a fixed, English month-abbreviation table, deliberately NOT
-# `datetime.strftime("%b")` — this app's own UI text is English
-# throughout regardless of the developer's own French (see this page's
-# other timestamp helpers' docstrings), and `%b` is locale-dependent: a
-# server process with any other locale active would silently render a
+# 260902-l0b: a fixed month-abbreviation table, deliberately NOT
+# `datetime.strftime("%b")` — `%b` is locale-dependent: a server
+# process with any other locale active would silently render a
 # French/German/etc. abbreviation here. A fixed table has no such
-# failure mode.
+# failure mode. This comment used to add "this app's own UI text is
+# English throughout" — that predates D-01 (20-01-PLAN.md) and no
+# longer describes this app; it is left English-only here as a
+# deliberate, narrow scope boundary of 20-03-PLAN.md Task 2, which
+# names only `layout.local_clock_text()`/`layout.relative_age_text()`
+# for D-07's language-aware date text, not this chart's own private
+# axis-label helper.
 _MONTH_ABBR = (
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -1222,10 +1249,11 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     )
 
     svg_html = (
-        '<svg class="sparkline__canvas" role="group" aria-label="Battery trend">'
+        '<svg class="sparkline__canvas" role="group" aria-label="%s">'
         "%s%s%s"
         "</svg>"
-    ) % (axis_chrome, "".join(line_segments), "".join(circles))
+    ) % (escape_html(i18n.t(BATTERY_SECTION_HEADING)),
+         axis_chrome, "".join(line_segments), "".join(circles))
 
     # Grid document order: the Y-label column first (grid column 1, row
     # 1), then the canvas (auto-placed into column 2, row 1 — the only
@@ -1319,19 +1347,25 @@ def collect_anomalies(
     four — this is A-23's third half: `anomaly_active()`/
     `health_severity()` now report on two more real signals than before.
     """
+    # D-05, 20-03-PLAN.md Task 3: each literal is wrapped in i18n.t()
+    # at the append site — the literal itself (what every pinned
+    # `collect_anomalies(...) == [...]` equality check in
+    # test_status_pages.py compares against) is unchanged, since those
+    # checks run under the default English request and t() degrades to
+    # the English string unchanged there (D-04).
     anomalies = []
     if device_state != "ok":
-        anomalies.append("Device check-in is stale.")
+        anomalies.append(i18n.t("Device check-in is stale."))
     if pipeline_state != "ok":
-        anomalies.append("Flight data is stale.")
+        anomalies.append(i18n.t("Flight data is stale."))
     if battery_state != "ok":
-        anomalies.append("A battery reading shows an abnormal drop.")
+        anomalies.append(i18n.t("A battery reading shows an abnormal drop."))
     if disagreement_warn:
-        anomalies.append("Data sources disagreed recently.")
+        anomalies.append(i18n.t("Data sources disagreed recently."))
     if coverage_state != "ok":
-        anomalies.append("Some airlines are unidentified.")
+        anomalies.append(i18n.t("Some airlines are unidentified."))
     if source_fault:
-        anomalies.append("All data sources failed.")
+        anomalies.append(i18n.t("All data sources failed."))
     return anomalies
 
 
@@ -1407,6 +1441,12 @@ def compute_health_state(state_dir, now=None):
         wake.effective_wake_interval_s(inputs["device_config"]))
     device_html, device_state = _device_section(
         inputs["device_health"], now, warn_s=warn_s, error_s=error_s)
+    # 20-03-PLAN.md Task 1 (D-17): a verdict-free sibling of device_html,
+    # published below as "device_detail_html" — Home's status card
+    # (20-06) reads it off ctx["health_state"] instead of embedding
+    # device_html wholesale, since companion/pages/__init__.py forbids
+    # home_page.py from importing health_page.py directly.
+    device_detail_html = _device_timestamp_only(inputs["device_health"], now)
     pipeline_html, pipeline_state = _pipeline_section(
         inputs["pipeline_ts"], inputs["last_detection"], now)
     battery_html, battery_state = _battery_section(inputs["trend_rows"], inputs["daily_rows"])
@@ -1443,6 +1483,7 @@ def compute_health_state(state_dir, now=None):
         "registry_rows": inputs["registry_rows"],
         "device_html": device_html,
         "device_state": device_state,
+        "device_detail_html": device_detail_html,
         "pipeline_html": pipeline_html,
         "pipeline_state": pipeline_state,
         "battery_html": battery_html,
@@ -1617,53 +1658,46 @@ def _anomaly_banner_html(severity, anomalies):
     """
     css_class = "banner--anomaly" if severity == "error" else "banner--warn"
     role = "alert" if severity == "error" else "status"
-    noun = _SEVERITY_BANNER_NOUNS.get(severity, "issue")
+    noun = i18n.t(_SEVERITY_BANNER_NOUNS.get(severity, "issue"))
     count = len(anomalies)
     plural = "" if count == 1 else "s"
     lead_html = '<span class="banner__label">%s</span>' % escape_html(
-        "%d %s%s:" % (count, noun, plural))
+        _label_colon("%d %s%s" % (count, noun, plural)))
     pills_html = "".join(
         '<span class="banner__pill">%s</span>' % escape_html(label)
         for label in _anomaly_category_labels(anomalies)
     )
-    tail_text = "%s — %s" % (_anomaly_category_text(anomalies), ANOMALY_BANNER_TEXT)
+    tail_text = "%s — %s" % (_anomaly_category_text(anomalies), i18n.t(ANOMALY_BANNER_TEXT))
     tail_html = '<span class="visually-hidden">%s</span>' % escape_html(tail_text)
     return '<div class="banner %s" role="%s">%s%s%s</div>' % (
         css_class, role, lead_html, pills_html, tail_html)
 
 
 def _unavailable_block():
-    return '<p class="text-body">%s</p>' % escape_html(HEALTH_UNAVAILABLE_TEXT)
+    return '<p class="text-body">%s</p>' % escape_html(i18n.t(HEALTH_UNAVAILABLE_TEXT))
 
 
-def _section_intro_html(section_id, heading, description):
-    """A `<div class="section-intro">` wrapping one id-anchored `<h2>`
-    plus a muted one-sentence description on the same baseline (quick
-    task 260901-tsa, finding B) — the wrapper exists so the description
-    sits inline and baseline-aligned with its heading rather than as a
-    separate stacked paragraph.
+def _device_timestamp_only(device_health, now):
+    """The timestamp-only half of `_device_section()`'s own return
+    value — no verdict paragraph (D-17, 20-UI-SPEC.md Section Anatomy
+    A). Published on the health-state dict as `compute_health_state()`'s
+    `"device_detail_html"` key: Home's new status card (20-06) renders
+    its OWN Frame verdict from `home_page.FRAME_STATE_TEXT` and takes
+    only this detail-only fragment for `status_row()`'s `detail` slot,
+    so `DEVICE_STATE_TEXT`'s verdict sentence is never rendered twice
+    (20-RESEARCH.md Pitfall 3 — `health["device_html"]` already carries
+    it once, in `_device_section()`'s own verdict paragraph below).
+    Do NOT fix the duplication by editing either state-text dict's
+    wording; the fix is this detail-only sibling existing at all.
 
-    The `<h2 id="..." class="text-heading">...</h2>` this emits is
-    byte-identical to the string `render()` built directly before this
-    task — same attribute order (`id` then `class`), same class value,
-    same `escape_html()` call on the heading text — because
-    `companion/test_status_pages.py`'s existing structural checks match
-    that whole string literally and count `'<h2 id="'` occurrences; this
-    builder must never drift from that shape.
-
-    The description is classed `text-label section-caption` — the same
-    pair quick task 260901-re6 already established for exactly this
-    "muted one-sentence-under-a-heading" role on Settings — reused
-    rather than reinvented. A second class for the same role would
-    reopen the second-muted-strength defect this stylesheet's own
-    comments record having fixed twice.
+    `_device_section()` is refactored below to call this helper for
+    its own second half, so the two outputs can never drift out of
+    sync with each other.
     """
-    return (
-        '<div class="section-intro">'
-        '<h2 id="%s" class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
-        "</div>"
-    ) % (section_id, escape_html(heading), escape_html(description))
+    if device_health is _DB_UNAVAILABLE:
+        return _unavailable_block()
+    ts = (device_health or {}).get("ts")
+    return layout.concise_timestamp_html(ts, now)
 
 
 def _device_section(device_health, now, warn_s=None, error_s=None):
@@ -1715,9 +1749,15 @@ def _device_section(device_health, now, warn_s=None, error_s=None):
     # D-09: concise_timestamp_html() already returns pre-escaped-safe
     # markup — wrapping it in escape_html() a second time would
     # double-encode it and print the raw tags as visible text.
+    #
+    # 20-03-PLAN.md Task 1 (D-17): the timestamp half is delegated to
+    # _device_timestamp_only() rather than recomputed here, so this
+    # tile's own detail row and the verdict-free "device_detail_html"
+    # fragment compute_health_state() publishes for Home can never
+    # drift apart.
     verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
-        DEVICE_STATE_TEXT.get(state, DEVICE_STATE_TEXT["warn"]))
-    detail = layout.concise_timestamp_html(ts, now)
+        i18n.t(DEVICE_STATE_TEXT.get(state, DEVICE_STATE_TEXT["warn"])))
+    detail = _device_timestamp_only(device_health, now)
     row = verdict + '<p class="stat-tile__value">%s</p>' % detail
     return row, state
 
@@ -1741,7 +1781,7 @@ def _pipeline_section(pipeline_ts, last_detection, now):
     # markup — wrapping it in escape_html() a second time would
     # double-encode it and print the raw tags as visible text.
     verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
-        PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"]))
+        i18n.t(PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"])))
     detail = layout.concise_timestamp_html(pipeline_ts, now)
     row = verdict + '<p class="stat-tile__value">%s</p>' % detail
     # Quick task 260903-peo (UIR-14): a real second content line, not
@@ -1770,7 +1810,7 @@ def _pipeline_section(pipeline_ts, last_detection, now):
     detection_detail = layout.concise_timestamp_html(last_detection, now)
     detail_row = (
         '<p class="stat-tile__meta text-label section-caption">%s %s</p>'
-        % (escape_html(LAST_DETECTION_LABEL + ":"), detection_detail))
+        % (escape_html(_label_colon(i18n.t(LAST_DETECTION_LABEL))), detection_detail))
     return row + detail_row, state
 
 
@@ -1906,8 +1946,9 @@ def _battery_trend_section_html(battery_html, state, caption=None):
     weight but no colour, so an element carrying only one of them
     inherits full-strength `--color-text`; the muted strength for a
     subtitle/caption role lives in `.section-caption` and is composed
-    onto the sizing class, never restated — `_section_intro_html()`
-    above is the in-file precedent this follows (its own description
+    onto the sizing class, never restated — `layout.section_intro_html()`
+    (promoted from this module's own former private copy by 20-03-
+    PLAN.md Task 1) is the precedent this follows (its own description
     paragraph pairs `text-label section-caption` for the same reason).
     `_registry_section()`'s read-only note applies the identical fix to
     its own `text-body` paragraph; see that function's own comment.
@@ -1937,7 +1978,7 @@ def _battery_trend_section_html(battery_html, state, caption=None):
     """
     modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
     section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
-    caption_text = caption if caption is not None else ("Latest %d readings" % BATTERY_TREND_LIMIT)
+    caption_text = caption if caption is not None else (i18n.t("Latest %d readings") % BATTERY_TREND_LIMIT)
     return (
         '<section class="%s">'
         '<h2 class="text-heading">%s<span class="text-label section-caption">'
@@ -1946,7 +1987,7 @@ def _battery_trend_section_html(battery_html, state, caption=None):
         "</section>"
     ) % (
         section_class,
-        escape_html(BATTERY_SECTION_HEADING), escape_html(caption_text), battery_html)
+        escape_html(i18n.t(BATTERY_SECTION_HEADING)), escape_html(caption_text), battery_html)
 
 
 def _battery_section(trend_rows, daily_rows=None):
@@ -2007,9 +2048,10 @@ def _battery_section(trend_rows, daily_rows=None):
         # card's own top edge carries this "ok" verdict instead, via
         # _battery_trend_section_html()'s `state` argument.
         return layout.empty_state(
-            "No battery readings yet.",
-            "No battery telemetry recorded yet — check back after the "
-            "device's next poll."), "ok"
+            i18n.t("No battery readings yet."),
+            i18n.t(
+                "No battery telemetry recorded yet — check back after the "
+                "device's next poll.")), "ok"
     state = battery_status(trend_rows)
     # 06.6-01 (D-02): now is computed locally, rather than threaded in as
     # a parameter, because _battery_section()'s positional-arity gate
@@ -2033,12 +2075,16 @@ def _battery_section(trend_rows, daily_rows=None):
         for row in trend_rows
     ]
     table_html = layout.data_table(
-        ["Timestamp", "Battery (mV)"], table_rows, mono_columns=(1,), raw_columns=(0,))
+        [i18n.t("Timestamp"), i18n.t("Battery (mV)")], table_rows,
+        mono_columns=(1,), raw_columns=(0,))
     # D-08: the raw readings table is collapsed behind a closed-by-default
     # native <details> disclosure — no custom JS toggler needed.
     disclosure_html = (
-        '<details class="readings-disclosure"><summary>View %d reading%s</summary>%s</details>'
-        % (len(trend_rows), "" if len(trend_rows) == 1 else "s", table_html))
+        '<details class="readings-disclosure"><summary>%s</summary>%s</details>'
+        % (
+            escape_html(i18n.t("View %d reading%s") % (
+                len(trend_rows), "" if len(trend_rows) == 1 else "s")),
+            table_html))
     # 260902-l0b: the series the CHART plots — the daily series when it is
     # usable, the raw series otherwise (the day-1 fallback). Everything
     # above and below this line keeps working from trend_rows unchanged.
@@ -2090,12 +2136,12 @@ def _corroboration_details_html():
     verbatim for this second use, so no new CSS is needed.
     """
     dl_items = "".join(
-        "<dt>%s</dt><dd>%s</dd>" % (escape_html(label), escape_html(explanation))
+        "<dt>%s</dt><dd>%s</dd>" % (escape_html(i18n.t(label)), escape_html(i18n.t(explanation)))
         for _key, label, _status, explanation in _CORROBORATION_ROWS
     )
     return (
-        '<details class="readings-disclosure"><summary>More details</summary>'
-        "<dl>%s</dl></details>" % dl_items
+        '<details class="readings-disclosure"><summary>%s</summary>'
+        "<dl>%s</dl></details>" % (escape_html(i18n.t("More details")), dl_items)
     )
 
 
@@ -2105,9 +2151,10 @@ def _corroboration_section(counts):
     counts = counts or {}
     if not any(counts.values()):
         return layout.empty_state(
-            "Nothing to compare yet.",
-            "This appears once the frame has recorded at least one "
-            "flight."), False
+            i18n.t("Nothing to compare yet."),
+            i18n.t(
+                "This appears once the frame has recorded at least one "
+                "flight.")), False
 
     statuses = corroboration_status(counts)
     rows_html = []
@@ -2115,7 +2162,7 @@ def _corroboration_section(counts):
         rows_html.append(
             '<p class="text-body">%s <span class="mono">%d</span></p>'
             % (
-                layout.status_dot(statuses[key], label),
+                layout.status_dot(statuses[key], i18n.t(label)),
                 counts.get(key, 0) or 0,
             )
         )
@@ -2136,12 +2183,13 @@ def _source_fault_block(source_fault_raw):
         return ""
     if not _meta_flag_true(source_fault_raw):
         return ""
+    body = i18n.t(SOURCE_FAULT_BODY_TEMPLATE) % ", ".join(_ADSB_PROVIDER_NAMES)
     return (
         '<section class="page-section banner banner--anomaly">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-body">%s</p>'
         "</section>"
-    ) % (escape_html(SOURCE_FAULT_HEADING), escape_html(SOURCE_FAULT_BODY))
+    ) % (escape_html(i18n.t(SOURCE_FAULT_HEADING)), escape_html(body))
 
 
 # --- 06.6.4.1-04 (D-11/D-12): migrated Unresolved-prefixes registry
@@ -2231,8 +2279,14 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
 
     resolved = total - counts.get("miss", 0)
     resolved_pct = round((resolved / total) * 100, 1)
+    # 20-03-PLAN.md Task 3 (D-05): label/gloss are translated here, at
+    # the one place both _stats_cards_html() and _stats_table_html()
+    # read them from — every pinned check comparing row[0] against a
+    # literal English source string (e.g. "Manual") runs under the
+    # default English request, where i18n.t() degrades to the literal
+    # unchanged.
     rows = [
-        (label, gloss, counts.get(source, 0))
+        (i18n.t(label), i18n.t(gloss), counts.get(source, 0))
         for source, label, gloss in _SOURCE_ROWS
     ]
     return {"rows": rows, "total": total, "resolved_pct": resolved_pct}
@@ -2255,8 +2309,8 @@ def _registry_filter_bar_html(total):
     also needs zero new CSS beyond the already-shipped `.filter-bar`
     rules.
     """
-    count_text = "%d of %d shown" % (total, total)
-    empty_body = _FILTER_EMPTY_BODY_TEMPLATE % total
+    count_text = i18n.t("%d of %d shown") % (total, total)
+    empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
     return (
         '<div class="filter-bar">'
         '<label class="text-label" for="%s">%s</label>'
@@ -2265,19 +2319,20 @@ def _registry_filter_bar_html(total):
         '<input type="search" id="%s" data-filter-input>'
         "</div>"
         '<span class="filter-bar__count" data-filter-count>%s</span>'
-        '<a href="#%s" data-filter-clear>Clear</a>'
+        '<a href="#%s" data-filter-clear>%s</a>'
         "</div>"
         '<div class="empty-state" data-filter-empty hidden>'
         '<p class="empty-state__heading text-heading">%s</p>'
         '<p class="empty-state__body text-body">%s</p>'
         "</div>"
     ) % (
-        _FILTER_INPUT_ID, escape_html(_FILTER_LABEL_TEXT),
+        _FILTER_INPUT_ID, escape_html(i18n.t(_FILTER_LABEL_TEXT)),
         layout.icon_html("icon-search"),
         _FILTER_INPUT_ID,
         escape_html(count_text),
         _FILTER_INPUT_ID,
-        escape_html(_FILTER_EMPTY_HEADING),
+        escape_html(i18n.t("Clear")),
+        escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
         escape_html(empty_body),
     )
 
@@ -2342,7 +2397,7 @@ def _registry_row_html(index, prefix, count, first_seen, last_seen, example_call
     last_seen_html = layout.concise_timestamp_html(last_seen, now, fallback="")
     escaped_prefix = escape_html(prefix)
     resolve_href = RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix
-    resolve_aria = RESOLVE_LINK_ARIA_TEMPLATE % escaped_prefix
+    resolve_aria = escape_html(i18n.t(RESOLVE_LINK_ARIA_TEMPLATE)) % escaped_prefix
     cells = (
         '<td class="mono">%s</td>' % escaped_prefix,
         "<td>%s</td>" % escape_html(count),
@@ -2350,7 +2405,7 @@ def _registry_row_html(index, prefix, count, first_seen, last_seen, example_call
         "<td>%s</td>" % last_seen_html,
         '<td class="mono">%s</td>' % escape_html(example_callsign),
         '<td><a href="%s" aria-label="%s">%s</a></td>' % (
-            resolve_href, resolve_aria, RESOLVE_LINK_TEXT),
+            resolve_href, resolve_aria, escape_html(i18n.t(RESOLVE_LINK_TEXT))),
     )
     filter_text = _registry_filter_text(prefix)
     # data-filter-group (quick task 260903-ghy): this row now HAS a
@@ -2374,7 +2429,7 @@ def _registry_table_html(rows, now):
     precedent for exactly the same reason, matching `data_table()`'s CSS
     classes exactly for visual consistency.
     """
-    header_cells = "".join("<th>%s</th>" % escape_html(h) for h in _REGISTRY_HEADERS)
+    header_cells = "".join("<th>%s</th>" % escape_html(i18n.t(h)) for h in _REGISTRY_HEADERS)
     body_rows = [
         _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now)
         for index, (prefix, count, first_seen, last_seen, example_callsign) in enumerate(rows)
@@ -2440,34 +2495,35 @@ def _registry_cards_html(rows, now):
             '<span class="data-card__label">%s</span> %s'
             "</span>"
             "</div>"
-        ) % (escape_html(prefix), escape_html(_REGISTRY_HEADERS[1]), escape_html(count))
+        ) % (escape_html(prefix), escape_html(i18n.t(_REGISTRY_HEADERS[1])), escape_html(count))
         secondary = (
             '<div class="data-card__secondary">'
             '<span class="data-card__label">%s</span>%s'
             "</div>"
         ) % (
-            escape_html(_REGISTRY_HEADERS[3]),
+            escape_html(i18n.t(_REGISTRY_HEADERS[3])),
             layout.concise_timestamp_html(last_seen, now, fallback=""))
         escaped_prefix = escape_html(prefix)
         resolve_href = RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix
-        resolve_aria = RESOLVE_LINK_ARIA_TEMPLATE % escaped_prefix
+        resolve_aria = escape_html(i18n.t(RESOLVE_LINK_ARIA_TEMPLATE)) % escaped_prefix
         action = (
             '<div class="data-card__action">'
             '<a href="%s" aria-label="%s">%s</a>'
             "</div>"
-        ) % (resolve_href, resolve_aria, RESOLVE_CARD_LINK_TEXT)
+        ) % (resolve_href, resolve_aria, escape_html(i18n.t(RESOLVE_CARD_LINK_TEXT)))
         details = (
             '<details class="data-card__details">'
-            "<summary>More details</summary>"
+            "<summary>%s</summary>"
             "<dl>"
             "<dt>%s</dt><dd>%s</dd>"
             '<dt>%s</dt><dd class="mono">%s</dd>'
             "</dl>"
             "</details>"
         ) % (
-            escape_html(_REGISTRY_HEADERS[2]),
+            escape_html(i18n.t("More details")),
+            escape_html(i18n.t(_REGISTRY_HEADERS[2])),
             layout.concise_timestamp_html(first_seen, now, fallback=""),
-            escape_html(_REGISTRY_HEADERS[4]),
+            escape_html(i18n.t(_REGISTRY_HEADERS[4])),
             escape_html(example_callsign),
         )
         items.append(
@@ -2502,10 +2558,10 @@ def _registry_section(rows, now):
     # Body size, and dropping it to Label size would be an unrequested
     # size change that would also disagree with the sibling prose in this
     # same card region.
-    header_html = '<p class="text-body section-caption">%s</p>' % escape_html(_READ_ONLY_NOTE)
+    header_html = '<p class="text-body section-caption">%s</p>' % escape_html(i18n.t(_READ_ONLY_NOTE))
 
     if not rows:
-        return header_html + layout.empty_state(_NO_GAPS_HEADING, _NO_GAPS_BODY)
+        return header_html + layout.empty_state(i18n.t(_NO_GAPS_HEADING), i18n.t(_NO_GAPS_BODY))
 
     filter_html = _registry_filter_bar_html(len(rows))
     cards_html = _registry_cards_html(rows, now)
@@ -2550,7 +2606,7 @@ def _stats_cards_html(rows):
             '<span class="data-card__label">%s</span> %s'
             "</span>"
             "</div>"
-        ) % (escape_html(label), escape_html(_STATS_HEADERS[2]), escape_html(count))
+        ) % (escape_html(label), escape_html(i18n.t(_STATS_HEADERS[2])), escape_html(count))
         desc = '<p class="data-card__desc">%s</p>' % escape_html(gloss)
         items.append('<li class="data-card">%s%s</li>' % (primary, desc))
     return '<ul class="data-cards">%s</ul>' % "".join(items)
@@ -2585,7 +2641,7 @@ def _stats_table_html(stats):
     if stats is _DB_UNAVAILABLE or stats["total"] == 0:
         return ""
     return _stats_cards_html(stats["rows"]) + layout.data_table(
-        list(_STATS_HEADERS), stats["rows"],
+        [i18n.t(header) for header in _STATS_HEADERS], stats["rows"],
         desc_columns=(1,), prose=True)
 
 
@@ -2599,11 +2655,15 @@ def _resolution_rate_tile_html(stats):
     if stats is _DB_UNAVAILABLE:
         return _unavailable_block()
     if stats["total"] == 0:
-        return layout.empty_state(_NO_STATS_HEADING, _NO_STATS_BODY)
+        return layout.empty_state(i18n.t(_NO_STATS_HEADING), i18n.t(_NO_STATS_BODY))
     return (
-        '<p class="stat-tile__value">%.1f%% resolved</p>'
-        '<p class="text-label">over the last %d days, %d events</p>'
-    ) % (stats["resolved_pct"], RESOLUTION_WINDOW_DAYS, stats["total"])
+        '<p class="stat-tile__value">%s</p>'
+        '<p class="text-label">%s</p>'
+    ) % (
+        escape_html(i18n.t("%.1f%% resolved") % stats["resolved_pct"]),
+        escape_html(i18n.t("over the last %d days, %d events") % (
+            RESOLUTION_WINDOW_DAYS, stats["total"])),
+    )
 
 
 def _read_health_inputs(state_dir, now):
@@ -2756,7 +2816,7 @@ def render(ctx):
     # technical term to demote to a tooltip here, so no `caption_title`
     # is passed, rather than inventing one.
     device_tile_html = layout.stat_tile(
-        DEVICE_FRESHNESS_LABEL, device_html, device_state, icon=ICON_DEVICE)
+        i18n.t(DEVICE_FRESHNESS_LABEL), device_html, device_state, icon=ICON_DEVICE)
 
     # battery_state is still consumed above (collect_anomalies() still
     # takes it), and (quick task 260902-gjj, ISSUE 2) it once again paints
@@ -2772,15 +2832,15 @@ def render(ctx):
     # never disagree.
     corroboration_state = "warn" if disagreement_warn else "ok"
     corroboration_verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
-        CORROBORATION_STATE_TEXT.get(corroboration_state, CORROBORATION_STATE_TEXT["ok"]))
+        i18n.t(CORROBORATION_STATE_TEXT.get(corroboration_state, CORROBORATION_STATE_TEXT["ok"])))
     server_data_tiles_html = (
         layout.stat_tile(
-            PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state,
-            icon=ICON_PIPELINE, caption_title=PIPELINE_FRESHNESS_TITLE)
+            i18n.t(PIPELINE_FRESHNESS_LABEL), pipeline_html, pipeline_state,
+            icon=ICON_PIPELINE, caption_title=i18n.t(PIPELINE_FRESHNESS_TITLE))
         + layout.stat_tile(
-            CORROBORATION_TILE_LABEL, corroboration_verdict + corroboration_html,
+            i18n.t(CORROBORATION_TILE_LABEL), corroboration_verdict + corroboration_html,
             corroboration_state, icon=ICON_CORROBORATION,
-            caption_title=CORROBORATION_TILE_TITLE)
+            caption_title=i18n.t(CORROBORATION_TILE_TITLE))
         # D-03/A-21: the Resolution-rate tile is the one deliberate
         # exception — it is passed status=None and carries no
         # pass/fail verdict anywhere in this module (no status function
@@ -2788,8 +2848,8 @@ def render(ctx):
         # assert a judgement this page does not actually make. Its
         # rendered figure stays exactly as it was before this task.
         + layout.stat_tile(
-            RESOLUTION_RATE_LABEL, _resolution_rate_tile_html(stats), None,
-            caption_title=RESOLUTION_RATE_TITLE)
+            i18n.t(RESOLUTION_RATE_LABEL), _resolution_rate_tile_html(stats), None,
+            caption_title=i18n.t(RESOLUTION_RATE_TITLE))
     )
 
     # 260902-chc: SUPERSEDED — this used to be a manual Refresh link
@@ -2801,9 +2861,11 @@ def render(ctx):
     # page_context() — and gains a second job there (a tab returning
     # from a long hidden stretch uses it to decide whether it owes an
     # immediate catch-up refresh; see freshness.js's own header).
-    # escape_html() is required on `now` only: it is real, request-scoped
-    # data. REFRESH_PILL_TEXT is a static module constant and needs
-    # none, the same distinction the retired banner comment above drew.
+    # escape_html() is required on `now` only: it used to be the sole
+    # requester, back when REFRESH_PILL_TEXT was a static module
+    # constant needing none. 20-03-PLAN.md Task 3 (D-05/T-20-03): a
+    # translated string is not pre-escaped, so i18n.t(REFRESH_PILL_TEXT)
+    # now goes through escape_html() too, like every other t() result.
     #
     # No ARIA role on the pill: a live region announces on content
     # mutation, not on a visibility change, so a role="status" pill whose
@@ -2819,7 +2881,7 @@ def render(ctx):
     # live screen-reader pass is named in this task's SUMMARY.
     pill_html = (
         '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
-        % (escape_html(now), layout.icon_html("icon-refresh"), REFRESH_PILL_TEXT))
+        % (escape_html(now), layout.icon_html("icon-refresh"), escape_html(i18n.t(REFRESH_PILL_TEXT))))
     # 19-09-PLAN.md (D-02, A-20): the clock-only rendering that replaces
     # concise_timestamp_html(now, now)'s dishonest "(0s ago)" suffix (see
     # FRESHNESS_PREFIX_TEXT's own comment above for why). Parses `now`
@@ -2855,11 +2917,12 @@ def render(ctx):
     # why a swap never fires while paused). The button's own visible
     # text doubles as its accessible name; no separate aria-label is
     # needed.
+    pause_text = escape_html(i18n.t(REFRESH_PAUSE_TEXT))
+    resume_text = escape_html(i18n.t(REFRESH_RESUME_TEXT))
     toggle_html = (
         '<button type="button" data-refresh-toggle aria-pressed="false" '
         'data-pause-text="%s" data-resume-text="%s">%s</button>'
-        % (escape_html(REFRESH_PAUSE_TEXT), escape_html(REFRESH_RESUME_TEXT),
-           escape_html(REFRESH_PAUSE_TEXT)))
+        % (pause_text, resume_text, pause_text))
     # Quick task 260903-peo (UIR-18): the pill, the clock and (19-09-
     # PLAN.md) the toggle button all join inside ONE block-level wrapper
     # — load-bearing, not decorative. `.page-header` is a plain block
@@ -2883,7 +2946,7 @@ def render(ctx):
     # replace it, never longer.
     freshness_html = (
         '<p class="page-header__freshness text-label">%s%s%s%s</p>'
-        % (escape_html(FRESHNESS_PREFIX_TEXT), clock_html, pill_html, toggle_html))
+        % (escape_html(i18n.t(FRESHNESS_PREFIX_TEXT)), clock_html, pill_html, toggle_html))
 
     # §5.2 (D-10): two id-anchored sections. Screen holds the
     # Device-freshness tile wrapped in its own single-tile dashboard-grid
@@ -2904,8 +2967,8 @@ def render(ctx):
     # failure mode, a different container and still correct, untouched
     # by this edit).
     screen_section_html = (
-        _section_intro_html(
-            SCREEN_SECTION_ID, SCREEN_SECTION_HEADING, SCREEN_SECTION_DESCRIPTION)
+        layout.section_intro_html(
+            SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), i18n.t(SCREEN_SECTION_DESCRIPTION))
         + '<div class="dashboard-grid">' + device_tile_html + '</div>'
         + _battery_trend_section_html(battery_html, battery_state, battery_caption)
     )
@@ -2920,9 +2983,9 @@ def render(ctx):
     registry_class = "page-section page-section--nested" + (
         (" " + registry_modifier) if registry_modifier else "")
     server_data_section_html = (
-        _section_intro_html(
-            SERVER_DATA_SECTION_ID, SERVER_DATA_SECTION_HEADING,
-            SERVER_DATA_SECTION_DESCRIPTION)
+        layout.section_intro_html(
+            SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING),
+            i18n.t(SERVER_DATA_SECTION_DESCRIPTION))
         + '<div class="dashboard-grid">' + server_data_tiles_html + '</div>'
         # quick task 260901-uzi (finding 4): both migrated cards carry an
         # additive `page-section--nested` modifier — they sit nested
@@ -2944,7 +3007,7 @@ def render(ctx):
         # page can show as one more subordinate card — see that
         # function's own class list.
         + '<section class="%s"><h2 class="text-heading">%s</h2>%s</section>' % (
-            registry_class, escape_html(UNRESOLVED_SECTION_HEADING),
+            registry_class, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)),
             _registry_section(registry_rows, now))
         # quick task 260902-gjj (ISSUE 2): this card deliberately gets NO
         # status modifier — _stats_table_html() computes no verdict (it
@@ -2956,12 +3019,12 @@ def render(ctx):
         # carries no pass/fail state — not an omission to "complete the
         # pattern" with an accent border.
         + '<section class="page-section page-section--nested"><h2 class="text-heading">%s</h2>%s</section>' % (
-            escape_html(STATS_SECTION_HEADING), _stats_table_html(stats))
+            escape_html(i18n.t(STATS_SECTION_HEADING)), _stats_table_html(stats))
     )
 
     return (
         layout.page_header(
-            "Health", purpose=PAGE_PURPOSE_TEXT, freshness_html=freshness_html)
+            i18n.t("Health"), purpose=i18n.t(PAGE_PURPOSE_TEXT), freshness_html=freshness_html)
         + _source_fault_block(source_fault_raw)
         + banner_html
         + screen_section_html
