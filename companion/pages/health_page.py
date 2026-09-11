@@ -200,6 +200,31 @@ PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
 # history_db.META_LAST_DETECTION.
 LAST_DETECTION_LABEL = "Last aircraft detected"
 
+# D-03/A-21, 19-01-PLAN.md: a short plain-sentence verdict for each stat
+# tile whose caption names a signal but whose border colour alone was the
+# only place the actual verdict lived (WCAG 1.4.1 — colour must never be
+# the sole means of conveying information). Modelled one-for-one on
+# home_page.py's FRAME_STATE_TEXT/DATA_STATE_TEXT/BATTERY_STATE_TEXT: a
+# dict keyed by the same "ok"/"warn"/"error" state each section builder
+# already computes, rendered as a '<p class="text-body widget-verdict">'
+# paragraph ahead of the tile's existing timestamp row. The Resolution-
+# rate tile deliberately has no sibling dict here — see render()'s own
+# comment at that tile's stat_tile() call for why.
+DEVICE_STATE_TEXT = {
+    "ok": "Checking in normally",
+    "warn": "Has not checked in for a while",
+    "error": "Has not checked in for a long time",
+}
+PIPELINE_STATE_TEXT = {
+    "ok": "Running on schedule",
+    "warn": "A little behind",
+    "error": "Has not run for a long time",
+}
+CORROBORATION_STATE_TEXT = {
+    "ok": "Sources agree",
+    "warn": "Sources disagreed recently",
+}
+
 # --- quick task 260902-gjj (ISSUE 2): D-01 reversal, recorded at the
 # removal site --------------------------------------------------------------
 #
@@ -1443,11 +1468,22 @@ def _device_section(device_health, now):
     # dot-label span, so that would mean either an empty span or a
     # second copy of its state->class mapping duplicated here.
     #
+    # D-03/A-21, 19-01-PLAN.md: a `widget-verdict` paragraph now sits
+    # ahead of the timestamp row, naming the verdict this tile's border
+    # colour alone used to carry. This is NOT a revival of the
+    # duplicated-label defect described above: the caption
+    # (DEVICE_FRESHNESS_LABEL) names the SIGNAL, this verdict states the
+    # JUDGEMENT on that signal, and the timestamp row gives the raw
+    # detail backing the judgement — three distinct rungs, not one
+    # repeated twice.
+    #
     # D-09: concise_timestamp_html() already returns pre-escaped-safe
     # markup — wrapping it in escape_html() a second time would
     # double-encode it and print the raw tags as visible text.
+    verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
+        DEVICE_STATE_TEXT.get(state, DEVICE_STATE_TEXT["warn"]))
     detail = layout.concise_timestamp_html(ts, now)
-    row = '<p class="stat-tile__value">%s</p>' % detail
+    row = verdict + '<p class="stat-tile__value">%s</p>' % detail
     return row, state
 
 
@@ -1460,11 +1496,19 @@ def _pipeline_section(pipeline_ts, last_detection, now):
     # _device_section() above — see that function's comment for the
     # full explanation of why dropping the dot is safe.
     #
+    # D-03/A-21, 19-01-PLAN.md: same verdict-paragraph addition, same
+    # reasoning, as _device_section() above — this is not a revival of
+    # the duplicated-label defect quick task 260901-tsa's comment
+    # describes; the verdict answers the tile's caption rather than
+    # repeating it.
+    #
     # D-09: concise_timestamp_html() already returns pre-escaped-safe
     # markup — wrapping it in escape_html() a second time would
     # double-encode it and print the raw tags as visible text.
+    verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
+        PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"]))
     detail = layout.concise_timestamp_html(pipeline_ts, now)
-    row = '<p class="stat-tile__value">%s</p>' % detail
+    row = verdict + '<p class="stat-tile__value">%s</p>' % detail
     # Quick task 260903-peo (UIR-14): a real second content line, not
     # filler — `last_detection` is history_db.META_LAST_DETECTION, read
     # inside the same atomic _read_health_inputs() snapshot pipeline_ts
@@ -2450,12 +2494,25 @@ def render(ctx):
     # _battery_trend_section_html()'s new `state` argument below. A
     # different mechanism reaching the same original intent D-01's own
     # reference note expected.
+    # D-03/A-21, 19-01-PLAN.md: the Corroboration tile's verdict is keyed
+    # on the identical expression already passed as this tile's own
+    # `status` argument below, so the word and the border colour can
+    # never disagree.
+    corroboration_state = "warn" if disagreement_warn else "ok"
+    corroboration_verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
+        CORROBORATION_STATE_TEXT.get(corroboration_state, CORROBORATION_STATE_TEXT["ok"]))
     server_data_tiles_html = (
         layout.stat_tile(
             PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state, icon=ICON_PIPELINE)
         + layout.stat_tile(
-            "Corroboration", corroboration_html,
-            "warn" if disagreement_warn else "ok", icon=ICON_CORROBORATION)
+            "Corroboration", corroboration_verdict + corroboration_html,
+            corroboration_state, icon=ICON_CORROBORATION)
+        # D-03/A-21: the Resolution-rate tile is the one deliberate
+        # exception — it is passed status=None and carries no
+        # pass/fail verdict anywhere in this module (no status function
+        # for it exists), so inventing a verdict word for it here would
+        # assert a judgement this page does not actually make. Its
+        # rendered figure stays exactly as it was before this task.
         + layout.stat_tile(RESOLUTION_RATE_LABEL, _resolution_rate_tile_html(stats), None)
     )
 

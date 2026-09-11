@@ -282,7 +282,14 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 166  # 163 + 3 (19-01-PLAN.md Task 2: D-01/A-19's
+EXPECTED_CHECK_COUNT = 171  # 166 + 5 (19-01-PLAN.md Task 3: D-03/A-21's
+# text-verdict checks — the Device tile's widget-verdict paragraph at
+# each of its three severities, the Pipeline tile's at each of its three
+# severities, the Corroboration tile's at both the agreement and
+# disagreement states, the Resolution-rate tile's deliberate absence of
+# any widget-verdict paragraph, and the three state-text dicts' exact key
+# sets). Re-derived by RUNNING the harness, not by arithmetic.
+# 166 = 163 + 3 (19-01-PLAN.md Task 2: D-01/A-19's
 # percentage-estimate checks — _battery_reading_parts()'s value text
 # leading with the '≈ NN%' estimate for a numeric reading, falling back
 # to the bare millivolt figure with no stray '≈' when
@@ -2024,6 +2031,140 @@ def main():
         "a seeded health_page.render() call's battery-readout__value span carries both the '≈' estimate "
         "and the ' mV' millivolt figure (D-01/A-19)",
         _seeded_render_shows_both_the_estimate_and_the_millivolt_figure)
+
+    # --- D-03/A-21 (19-01-PLAN.md Task 3): text verdicts on the Device/ -----
+    # Pipeline/Corroboration stat tiles (WCAG 1.4.1) --------------------------
+
+    def _tile_slice_by_caption(rendered, caption):
+        at = rendered.index(caption)
+        tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
+        tile_close = rendered.index("</div>", tile_open) + len("</div>")
+        return rendered[tile_open:tile_close]
+
+    def _device_tile_verdict_matches_state_at_each_severity():
+        cases = (
+            (0, "ok"),
+            (health_page.STALE_DEVICE_WARN_S + 60, "warn"),
+            (health_page.STALE_DEVICE_ERROR_S + 60, "error"),
+        )
+        for age_s, expected_state in cases:
+            tmp = _mkstate("h-device-verdict-%s" % expected_state)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now - timedelta(seconds=age_s)), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+                    health_page.DEVICE_STATE_TEXT[expected_state])
+                tile_slice = _tile_slice_by_caption(rendered, health_page.DEVICE_FRESHNESS_LABEL)
+                if expected_verdict_html not in tile_slice:
+                    return False, (
+                        "expected the Device tile's verdict paragraph for state %r, got tile %r"
+                        % (expected_state, tile_slice))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the Device tile's widget-verdict paragraph matches DEVICE_STATE_TEXT at each of the three "
+        "severities a real health_page.render() call can produce (D-03/A-21)",
+        _device_tile_verdict_matches_state_at_each_severity)
+
+    def _pipeline_tile_verdict_matches_state_at_each_severity():
+        cases = (
+            (0, "ok"),
+            (health_page.STALE_PIPELINE_WARN_S + 30, "warn"),
+            (health_page.STALE_PIPELINE_ERROR_S + 30, "error"),
+        )
+        for age_s, expected_state in cases:
+            tmp = _mkstate("h-pipeline-verdict-%s" % expected_state)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now), 4200)])
+                _seed_meta(tmp, **{
+                    history_db.META_LAST_PIPELINE_RUN: _iso(now - timedelta(seconds=age_s))})
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+                    health_page.PIPELINE_STATE_TEXT[expected_state])
+                tile_slice = _tile_slice_by_caption(rendered, health_page.PIPELINE_FRESHNESS_LABEL)
+                if expected_verdict_html not in tile_slice:
+                    return False, (
+                        "expected the Pipeline tile's verdict paragraph for state %r, got tile %r"
+                        % (expected_state, tile_slice))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the Pipeline tile's widget-verdict paragraph matches PIPELINE_STATE_TEXT at each of the three "
+        "severities a real health_page.render() call can produce (D-03/A-21)",
+        _pipeline_tile_verdict_matches_state_at_each_severity)
+
+    def _corroboration_tile_verdict_matches_disagreement_state():
+        cases = (
+            (True, "ok"),
+            (False, "warn"),
+        )
+        for corroborated, expected_state in cases:
+            tmp = _mkstate("h-corrob-verdict-%s" % expected_state)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                _seed_runway_events(tmp, [
+                    {"ts": _iso(now), "hex": "abc123", "corroborated": corroborated}])
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+                    health_page.CORROBORATION_STATE_TEXT[expected_state])
+                tile_slice = _tile_slice_by_caption(rendered, "Corroboration")
+                if expected_verdict_html not in tile_slice:
+                    return False, (
+                        "expected the Corroboration tile's verdict paragraph for state %r, got tile %r"
+                        % (expected_state, tile_slice))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the Corroboration tile's widget-verdict paragraph matches CORROBORATION_STATE_TEXT for both the "
+        "agreement and disagreement states a real health_page.render() call can produce (D-03/A-21)",
+        _corroboration_tile_verdict_matches_disagreement_state)
+
+    def _resolution_rate_tile_carries_no_verdict():
+        # The Resolution-rate tile is the one deliberate exception: it is
+        # passed status=None and has no status function of its own, so
+        # inventing a verdict word for it would assert a judgement this
+        # page does not make.
+        tmp = _mkstate("h-resolution-rate-no-verdict")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tile_slice = _tile_slice_by_caption(rendered, health_page.RESOLUTION_RATE_LABEL)
+            if "widget-verdict" in tile_slice:
+                return False, (
+                    "expected the Resolution-rate tile to carry no widget-verdict paragraph, got tile %r"
+                    % (tile_slice,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Resolution-rate tile deliberately carries no widget-verdict paragraph (D-03/A-21)",
+        _resolution_rate_tile_carries_no_verdict)
+
+    def _state_text_dicts_have_expected_key_sets():
+        if set(health_page.DEVICE_STATE_TEXT) != {"ok", "warn", "error"}:
+            return False, "expected DEVICE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
+                set(health_page.DEVICE_STATE_TEXT),)
+        if set(health_page.PIPELINE_STATE_TEXT) != {"ok", "warn", "error"}:
+            return False, "expected PIPELINE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
+                set(health_page.PIPELINE_STATE_TEXT),)
+        if set(health_page.CORROBORATION_STATE_TEXT) != {"ok", "warn"}:
+            return False, "expected CORROBORATION_STATE_TEXT's keys to be exactly ok/warn, got %r" % (
+                set(health_page.CORROBORATION_STATE_TEXT),)
+        return True, ""
+    check(
+        "DEVICE_STATE_TEXT/PIPELINE_STATE_TEXT each have exactly the ok/warn/error key set and "
+        "CORROBORATION_STATE_TEXT has exactly ok/warn (it has no error state) (D-03/A-21)",
+        _state_text_dicts_have_expected_key_sets)
 
     def _single_reading_still_no_chart_no_readout_no_script():
         if health_page.battery_sparkline_svg(
