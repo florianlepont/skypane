@@ -284,7 +284,18 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 176  # 171 + 5 (19-05-PLAN.md Task 1: companion/wake.py's
+EXPECTED_CHECK_COUNT = 180  # 176 + 4 (19-05-PLAN.md Task 2: D-04/A-22's fixed
+# sparkline range and width-derived density checks — a flat series draws
+# at one consistent y level, a 15mV wiggle stays under a tenth of the
+# full canvas excursion, an out-of-range value clamps to the canvas edge
+# without rescaling the fixed axis labels, and _sparkline_dense_
+# threshold() derives two different thresholds for two different canvas
+# widths. The pre-existing axis-label check was retargeted in place (not
+# counted as new) to assert the FIXED SPARKLINE_Y_MIN_MV/MAX_MV labels
+# instead of the fixture's own real min/max. Re-derived by RUNNING the
+# harness (179/180 — the one documented pre-existing root-sandbox
+# anomaly_active() failure), not by arithmetic.
+# 176 = 171 + 5 (19-05-PLAN.md Task 1: companion/wake.py's
 # floors-and-multipliers check, the warn_s < error_s guarantee across six
 # inputs, env_sleep_s()'s unclamped-read-and-degrade check, effective_wake_
 # interval_s()'s screen-off/screen-on/None precedence check, and the
@@ -1680,16 +1691,18 @@ def main():
         "chronological order, with roving tabindex on the latest point only",
         _sparkline_svg_has_per_point_interactive_markup)
 
-    def _sparkline_axis_labels_present_with_real_min_max():
-        # 06.6.4.1-04 (D-09/§5.3): four aria-hidden axis-label elements,
-        # two carrying the fixture's real min/max mV values. quick task
-        # 260902-ep7 (BUG 4): retargeted in place from SVG `<text
-        # class="sparkline-axis-label"` onto HTML `<span
+    def _sparkline_axis_labels_present_with_fixed_range():
+        # 06.6.4.1-04 (D-09/§5.3): four aria-hidden axis-label elements.
+        # quick task 260902-ep7 (BUG 4): retargeted in place from SVG
+        # `<text class="sparkline-axis-label"` onto HTML `<span
         # class="sparkline-axis-label"` — the labels moved out of the
         # SVG's scaled coordinate space entirely, into an HTML grid
         # column/row sized by the browser's own real text measurement.
-        # The per-tag aria-hidden assertion, the four-label count and the
-        # real-min/max-value assertions are otherwise unchanged.
+        # 19-05-PLAN.md Task 2 (D-04/A-22): retargeted again — the two Y
+        # labels used to print this fixture's own real min/max mV values
+        # (4200/3850); they now print the fixed SPARKLINE_Y_MIN_MV/
+        # SPARKLINE_Y_MAX_MV constants regardless of what the fixture's
+        # readings actually were, since the axis no longer auto-scales.
         rows = [
             {"ts": "2024-01-01T08:00:00", "battery_mv": 4200},
             {"ts": "2024-01-01T09:00:00", "battery_mv": 3850},
@@ -1697,7 +1710,7 @@ def main():
         ]
         svg = health_page.battery_sparkline_svg(rows)
         tag_start = 0
-        label_count = 0
+        label_texts = []
         while True:
             idx = svg.find('<span class="sparkline-axis-label"', tag_start)
             if idx == -1:
@@ -1706,14 +1719,24 @@ def main():
             tag = svg[idx:tag_end + 1]
             if 'aria-hidden="true"' not in tag:
                 return False, "expected every sparkline-axis-label <span> to carry aria-hidden=\"true\" on its own tag"
-            label_count += 1
+            text_end = svg.index("</span>", tag_end)
+            label_texts.append(svg[tag_end + 1:text_end])
             tag_start = tag_end
-        if label_count != 4:
-            return False, "expected exactly four sparkline-axis-label elements, got %d" % label_count
-        if "4200 mV" not in svg:
-            return False, "expected the real maximum mV value in an axis label"
-        if "3850 mV" not in svg:
-            return False, "expected the real minimum mV value in an axis label"
+        if len(label_texts) != 4:
+            return False, "expected exactly four sparkline-axis-label elements, got %d" % len(label_texts)
+        # Document order: max label first, min label second (see the Y-axis
+        # pair's own emission comment above) — asserted against each
+        # label's own isolated text, not a page-wide substring search,
+        # because a per-point tooltip legitimately contains this
+        # fixture's own real mV values elsewhere on the same markup.
+        expected_max_label = "%d mV" % health_page.SPARKLINE_Y_MAX_MV
+        expected_min_label = "%d mV" % health_page.SPARKLINE_Y_MIN_MV
+        if label_texts[0] != expected_max_label:
+            return False, "expected the first Y axis label to be the fixed %r, got %r" % (
+                expected_max_label, label_texts[0])
+        if label_texts[1] != expected_min_label:
+            return False, "expected the second Y axis label to be the fixed %r, got %r" % (
+                expected_min_label, label_texts[1])
         # quick task 260902-ep7 (BUG 4): retargeted in place from the
         # retired single-<polyline> marker onto SPARKLINE_LINE_CLASS — 2
         # trend-line segments (n - 1) for this 3-row fixture.
@@ -1726,9 +1749,133 @@ def main():
                 return False, "found forbidden %r in the axis-labeled sparkline SVG" % forbidden
         return True, ""
     check(
-        "battery_sparkline_svg() emits exactly four aria-hidden axis-label text nodes carrying the fixture's real "
-        "min/max mV values, with every prior no-external-reference guarantee intact (D-09)",
-        _sparkline_axis_labels_present_with_real_min_max)
+        "battery_sparkline_svg() emits exactly four aria-hidden axis-label text nodes carrying the FIXED "
+        "SPARKLINE_Y_MIN_MV/SPARKLINE_Y_MAX_MV values (not the fixture's own real min/max), with every prior "
+        "no-external-reference guarantee intact (D-09, retargeted by 19-05-PLAN.md Task 2/D-04)",
+        _sparkline_axis_labels_present_with_fixed_range)
+
+    def _extract_point_ys(svg):
+        """The cy="%.2f%%" value off every sparkline-hit circle, in
+        document order — the exact y coordinate _point_y() computed for
+        each plotted point, read back out of the rendered markup rather
+        than recomputed independently."""
+        ys = []
+        for match in re.finditer(
+                r'<circle class="%s"[^>]*cy="([0-9.]+)%%"' % health_page.SPARKLINE_HIT_CLASS, svg):
+            ys.append(float(match.group(1)))
+        return ys
+
+    def _sparkline_flat_series_draws_flat_not_pinned_to_bottom():
+        # 19-05-PLAN.md Task 2 (D-04/A-22): the defect this pins — before
+        # the fixed range, a flat series (every value identical) computed
+        # lo == hi, so the retired `span = (hi - lo) or 1` guard forced
+        # span to 1 and every point pinned to the SAME edge of the
+        # canvas, indistinguishable from "no data" rather than reading as
+        # a flat, healthy line at its own real level.
+        rows = [{"ts": "t%d" % i, "battery_mv": 3800} for i in range(4)]
+        svg = health_page.battery_sparkline_svg(rows)
+        ys = _extract_point_ys(svg)
+        if len(ys) != 4:
+            return False, "expected four plotted points for a four-row flat fixture, got %d" % len(ys)
+        if len(set(ys)) != 1:
+            return False, "expected every point of a flat series to share the same y coordinate, got %r" % ys
+        return True, ""
+    check(
+        "battery_sparkline_svg() draws a flat series (every value identical) at one consistent y level, "
+        "never pinned to the canvas edge by a collapsed min==max range (19-05-PLAN.md Task 2/D-04, A-22)",
+        _sparkline_flat_series_draws_flat_not_pinned_to_bottom)
+
+    def _sparkline_small_wiggle_stays_small_not_a_cliff():
+        # 19-05-PLAN.md Task 2 (D-04/A-22): the defect's other half — a
+        # real but tiny 15mV wiggle used to stretch across the WHOLE
+        # auto-scaled range (min==3785, max==3800 => the entire canvas),
+        # reading as a cliff. Against the fixed 1200mV span, a 15mV
+        # wiggle must move the plotted y by a small, bounded fraction of
+        # the canvas height — asserted as a fraction of the full
+        # min-to-max y excursion the fixed range allows end to end.
+        rows = [
+            {"ts": "t0", "battery_mv": 3800},
+            {"ts": "t1", "battery_mv": 3785},
+            {"ts": "t2", "battery_mv": 3800},
+            {"ts": "t3", "battery_mv": 3785},
+        ]
+        svg = health_page.battery_sparkline_svg(rows)
+        ys = _extract_point_ys(svg)
+        if len(ys) != 4:
+            return False, "expected four plotted points for this wiggle fixture, got %d" % len(ys)
+        wiggle_span_percent = max(ys) - min(ys)
+        full_span_percent = (
+            100 - 2 * health_page._SPARKLINE_VERTICAL_INSET_PERCENT)
+        if wiggle_span_percent >= full_span_percent * 0.10:
+            return False, (
+                "expected a 15mV wiggle to move the plotted y by well under 10%% of the full "
+                "min-to-max canvas excursion (%.2f%% of %.2f%%), got %.2f%%"
+                % (10.0, full_span_percent, wiggle_span_percent))
+        return True, ""
+    check(
+        "battery_sparkline_svg() draws a small (15mV) wiggle as a small y movement, well under a tenth of "
+        "the fixed range's full excursion — not a cliff spanning the whole canvas (19-05-PLAN.md Task 2/D-04, A-22)",
+        _sparkline_small_wiggle_stays_small_not_a_cliff)
+
+    def _sparkline_out_of_range_values_clamp_not_rescale():
+        # 19-05-PLAN.md Task 2 (D-04): an out-of-range reading (below
+        # SPARKLINE_Y_MIN_MV or above SPARKLINE_Y_MAX_MV) must draw pinned
+        # at the canvas edge, and the axis labels must stay the fixed
+        # constants — neither escaping the canvas nor rescaling the axis
+        # to accommodate the outlier.
+        # `rows` is newest-first (battery_trend_rows()'s own ordering);
+        # battery_sparkline_svg() plots chronologically (oldest first), so
+        # the 2500mV reading (oldest here) becomes the LEFTMOST point.
+        rows = [
+            {"ts": "t2", "battery_mv": 4500},
+            {"ts": "t1", "battery_mv": 3800},
+            {"ts": "t0", "battery_mv": 2500},
+        ]
+        svg = health_page.battery_sparkline_svg(rows)
+        ys = _extract_point_ys(svg)
+        if len(ys) != 3:
+            return False, "expected three plotted points for this out-of-range fixture, got %d" % len(ys)
+        inset = health_page._SPARKLINE_VERTICAL_INSET_PERCENT
+        clamped_low_y = ys[0]  # 2500mV (oldest, leftmost), below SPARKLINE_Y_MIN_MV -> clamped to the min edge
+        clamped_high_y = ys[2]  # 4500mV (newest, rightmost), above SPARKLINE_Y_MAX_MV -> clamped to the max edge
+        if abs(clamped_low_y - (100 - inset)) > 0.01:
+            return False, "expected the below-range point to clamp to the bottom inset edge, got %r" % clamped_low_y
+        if abs(clamped_high_y - inset) > 0.01:
+            return False, "expected the above-range point to clamp to the top inset edge, got %r" % clamped_high_y
+        if ("%d mV" % health_page.SPARKLINE_Y_MAX_MV) not in svg:
+            return False, "expected the axis max label to stay the fixed constant, not rescale to 4500"
+        if ("%d mV" % health_page.SPARKLINE_Y_MIN_MV) not in svg:
+            return False, "expected the axis min label to stay the fixed constant, not rescale to 2500"
+        if "4500 mV" in svg.split('class="sparkline__y"')[1].split("</div>")[0]:
+            return False, "expected the Y axis label column NOT to rescale to the out-of-range 4500 value"
+        return True, ""
+    check(
+        "battery_sparkline_svg() clamps out-of-range values (2500mV, 4500mV) to the canvas edge rather than "
+        "escaping it or rescaling the fixed axis labels (19-05-PLAN.md Task 2/D-04)",
+        _sparkline_out_of_range_values_clamp_not_rescale)
+
+    def _sparkline_dense_threshold_is_width_derived():
+        # 19-05-PLAN.md Task 2 (D-04): the retired typed constant
+        # (_SPARKLINE_DENSE_POINT_THRESHOLD = 39) is now
+        # _sparkline_dense_threshold(_SPARKLINE_NARROWEST_CANVAS_PX) — two
+        # different widths must produce two different thresholds, both
+        # greater than 1 (never a degenerate "every series is dense" or
+        # "no series is ever dense" constant).
+        narrow = health_page._sparkline_dense_threshold(226)
+        wide = health_page._sparkline_dense_threshold(900)
+        if narrow == wide:
+            return False, "expected two different canvas widths to derive two different thresholds"
+        if narrow <= 1 or wide <= 1:
+            return False, "expected both derived thresholds to be well above 1"
+        if health_page._SPARKLINE_DENSE_POINT_THRESHOLD != narrow:
+            return False, (
+                "expected the module-level _SPARKLINE_DENSE_POINT_THRESHOLD to equal "
+                "_sparkline_dense_threshold(_SPARKLINE_NARROWEST_CANVAS_PX)")
+        return True, ""
+    check(
+        "_sparkline_dense_threshold() derives a different threshold for different canvas widths, proving the "
+        "density rule is width-derived rather than a typed constant (19-05-PLAN.md Task 2/D-04)",
+        _sparkline_dense_threshold_is_width_derived)
 
     def _sparkline_scale_bounded_at_one_across_real_container_widths():
         # quick task 260902-dng (bug 1) wrote this check to prove a

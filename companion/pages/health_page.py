@@ -618,6 +618,25 @@ _SPARKLINE_CANVAS_HEIGHT_PX = 160
 # _SPARKLINE_CANVAS_HEIGHT_PX above ever changes.
 _SPARKLINE_VERTICAL_INSET_PERCENT = 3.75
 
+# D-04 (A-22), 19-05-PLAN.md: the sparkline's Y-axis is now a FIXED range
+# — the single-cell LiPo's whole usable window (3.3-4.2V, the same span
+# `companion/battery.py`'s BATTERY_EMPTY_MV/BATTERY_FULL_MV estimate
+# uses), never an auto-scaled `min(values)`/`max(values)` window. Before
+# this task, a flat battery series pinned to the bottom of the canvas
+# (min == max, since nothing else was on screen to compare it against)
+# and a real but tiny 15mV wiggle stretched to fill the WHOLE vertical
+# range, reading as a cliff rather than the noise it actually was. A
+# fixed range fixes both: a flat series now draws flat, a small wiggle
+# now draws small, and the chart's own axis labels agree by construction
+# with the percentage readout `companion/battery.py`'s estimate already
+# shows beside it, since both are now measured against the same span.
+SPARKLINE_Y_MIN_MV = 3000
+SPARKLINE_Y_MAX_MV = 4200
+_SPARKLINE_Y_SPAN_MV = SPARKLINE_Y_MAX_MV - SPARKLINE_Y_MIN_MV  # no `or 1`
+# guard needed here (unlike the retired `span = (hi - lo) or 1`): this is
+# now a fixed, always-nonzero constant, never a per-render min/max that
+# could collide to zero for a flat series.
+
 # 260902-l0b: the cosmetic marker's and the normal hit target's radii,
 # named (they were literals — `r="3"`/`r="8"` — inside the point loop
 # before this task) so the density rule below can reference them instead
@@ -649,18 +668,50 @@ _SPARKLINE_HIT_RADIUS_PX = 8
 # resolves it for one real, cited data point, and this task's own human-
 # verification pass is exactly what surfaced the gap between the
 # estimate and reality.
-#
-# `_point_x()` below spreads `point_count` points evenly across the
-# canvas's full width, so consecutive points sit `226 / (point_count - 1)`
-# CSS pixels apart. They stop reading as separate marks once that gap
-# drops below the cosmetic dot's own diameter (2 * _SPARKLINE_DOT_RADIUS_PX
-# = 6px): `226 / (point_count - 1) < 6` => `point_count > 226 / 6 + 1`
-# => `point_count > 38.67`, so 39 is the first integer point count where
-# suppression is warranted. Re-derive this figure (from a real running
-# instance, not from memory) if the canvas's own measured width, the
-# realistic Y-label digit count, or the cosmetic dot radius above ever
-# changes.
-_SPARKLINE_DENSE_POINT_THRESHOLD = 39
+_SPARKLINE_NARROWEST_CANVAS_PX = 226  # the live-measured figure above —
+# the narrowest canvas width this project has ever actually measured.
+
+
+def _sparkline_dense_threshold(canvas_width_px):
+    """(D-04, 19-05-PLAN.md) The first integer point count at which
+    `_point_x()`'s evenly-spread points sit closer together than the
+    cosmetic dot's own diameter, for a canvas rendered at
+    `canvas_width_px` CSS pixels wide.
+
+    `_point_x()` spreads `point_count` points evenly across the canvas's
+    full width, so consecutive points sit
+    `canvas_width_px / (point_count - 1)` CSS pixels apart. They stop
+    reading as separate marks once that gap drops below the cosmetic
+    dot's own diameter (`2 * _SPARKLINE_DOT_RADIUS_PX`):
+    `canvas_width_px / (point_count - 1) < 2 * _SPARKLINE_DOT_RADIUS_PX`
+    => `point_count > canvas_width_px / (2 * _SPARKLINE_DOT_RADIUS_PX) +
+    1`, and this function returns the first integer above that bound.
+
+    This promotes into code the exact points-per-pixel arithmetic the
+    retired `_SPARKLINE_DENSE_POINT_THRESHOLD = 39` typed constant used
+    to compute once, by hand, for one measured width — expressed this
+    way, the rule re-derives itself automatically if the dot radius or
+    the measured canvas width below ever changes, instead of silently
+    rotting as a magic integer nobody re-checks.
+
+    Honest limitation, not solved here: `battery_sparkline_svg()`'s
+    `<svg>` carries no viewBox (see that function's own docstring for
+    why), so the server genuinely cannot know a particular client's
+    actual rendered canvas width. `_SPARKLINE_DENSE_POINT_THRESHOLD`
+    below always calls this with `_SPARKLINE_NARROWEST_CANVAS_PX`, the
+    narrowest canvas width this project has ever measured, so dots never
+    overlap at any container width this project has actually observed —
+    a deliberately conservative choice, not a guarantee for some
+    unmeasured, still-narrower container.
+    """
+    spacing_ceiling_px = 2 * _SPARKLINE_DOT_RADIUS_PX
+    return int(canvas_width_px / spacing_ceiling_px + 1) + 1
+
+
+# Re-derive this figure (from a real running instance, not from memory)
+# if the canvas's own measured width, the realistic Y-label digit count,
+# or the cosmetic dot radius above ever changes.
+_SPARKLINE_DENSE_POINT_THRESHOLD = _sparkline_dense_threshold(_SPARKLINE_NARROWEST_CANVAS_PX)
 
 # The reduced hit-target radius used at/above the density threshold —
 # smaller than the normal 8px so heavily overlapping hit circles no
@@ -906,9 +957,6 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     ]
     if len(pairs) < 2:
         return ""
-    values = [value for value, _ts, _count in pairs]
-    lo, hi = min(values), max(values)
-    span = (hi - lo) or 1
     point_count = len(pairs)
     inset = _SPARKLINE_VERTICAL_INSET_PERCENT
     # 260902-l0b: the density rule — see _SPARKLINE_DENSE_POINT_THRESHOLD's
@@ -924,11 +972,20 @@ def battery_sparkline_svg(rows, now=None, daily=False):
         return index / (point_count - 1) * 100
 
     def _point_y(value):
+        # D-04 (A-22): every value is clamped into the fixed
+        # [SPARKLINE_Y_MIN_MV, SPARKLINE_Y_MAX_MV] range before its y
+        # position is computed, so an out-of-range reading draws pinned
+        # at the canvas edge rather than escaping it or silently
+        # rescaling the axis (there is no axis left to rescale — the
+        # range is now a constant, not derived from `value` at all).
         # `inset` on both top and bottom keeps every marker's 3-unit
         # radius fully inside the canvas (see _SPARKLINE_VERTICAL_INSET_
         # PERCENT's own derivation above); the y-axis is inverted (higher
         # mV -> smaller y%) to match SVG's top-down coordinate direction.
-        return inset + (1 - (value - lo) / span) * (100 - 2 * inset)
+        clamped = max(SPARKLINE_Y_MIN_MV, min(SPARKLINE_Y_MAX_MV, value))
+        return inset + (
+            1 - (clamped - SPARKLINE_Y_MIN_MV) / _SPARKLINE_Y_SPAN_MV
+        ) * (100 - 2 * inset)
 
     # Axis chrome first (paint order — see the note below the point loop
     # for why order matters at all). Filled <rect> elements, not stroked
@@ -956,8 +1013,8 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     ) % (
         SPARKLINE_AXIS_CLASS,
         SPARKLINE_AXIS_CLASS,
-        SPARKLINE_AXIS_CLASS, _point_y(hi),
-        SPARKLINE_AXIS_CLASS, _point_y(lo),
+        SPARKLINE_AXIS_CLASS, _point_y(SPARKLINE_Y_MAX_MV),
+        SPARKLINE_AXIS_CLASS, _point_y(SPARKLINE_Y_MIN_MV),
         SPARKLINE_AXIS_CLASS, _point_x(0),
         SPARKLINE_AXIS_CLASS, _point_x(point_count - 1),
     )
@@ -1033,12 +1090,18 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     # pair: oldest first, newest second — .sparkline__x is a flex row with
     # the same space-between, so document order left-to-right places
     # oldest before newest.
+    #
+    # D-04 (A-22): these two labels now print the fixed
+    # SPARKLINE_Y_MIN_MV/SPARKLINE_Y_MAX_MV constants, never a per-render
+    # min(values)/max(values) — so the axis always reads "3000 mV"/
+    # "4200 mV" regardless of what the plotted readings actually were,
+    # matching the fixed range _point_y() draws against above.
     y_labels_html = (
         '<div class="sparkline__y">'
         '<span class="sparkline-axis-label" aria-hidden="true">%d mV</span>'
         '<span class="sparkline-axis-label" aria-hidden="true">%d mV</span>'
         "</div>"
-    ) % (hi, lo)
+    ) % (SPARKLINE_Y_MAX_MV, SPARKLINE_Y_MIN_MV)
     x_labels_html = (
         '<div class="sparkline__x">'
         '<span class="sparkline-axis-label" aria-hidden="true">%s</span>'
