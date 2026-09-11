@@ -43,6 +43,13 @@
  * companion/static/style.css's fallback-hide rule is retargeted to key
  * on that marker instead of on .js, so the fallback now hides if and
  * only if a working replacement is actually present.
+ *
+ * 19-10-PLAN.md (D-10/A-28): a beforeunload listener now warns before a
+ * real navigation (Add rule, Delete, Trigger poll, or simply closing the
+ * tab) discards unsaved settings edits. It uses one predicate,
+ * countDifferences() below - the same one the bar itself uses, reused
+ * rather than reimplemented - and is cleared by exactly two legitimate
+ * exits: a real form submit, and the Cancel button.
  */
 (function () {
   "use strict";
@@ -183,13 +190,49 @@
     countEl.textContent = head + ", and " + labels[labels.length - 1] + " changed";
   }
 
+  var suppressGuard = false;
+
   form.addEventListener("change", updateBar);
   form.addEventListener("input", updateBar);
+
+  // D-10/A-28: warn before a real navigation discards unsaved edits.
+  // Keyed on countDifferences() - the exact same predicate the bar
+  // itself uses, reused rather than reimplemented, so the two can never
+  // disagree about whether the form is actually dirty. Both
+  // evt.preventDefault() and setting evt.returnValue are needed for
+  // cross-browser coverage; the browser supplies its own confirmation
+  // copy in every modern browser, so never try to set a custom message.
+  window.addEventListener("beforeunload", function (evt) {
+    if (suppressGuard) {
+      return;
+    }
+    if (countDifferences() > 0) {
+      evt.preventDefault();
+      evt.returnValue = "";
+    }
+  });
+
+  // Clears the guard on the one legitimate submit path. The bar's own
+  // Save button renders OUTSIDE this form and submits it natively via
+  // its form="{SETTINGS_FORM_ID}" attribute (see config_page.py's
+  // dirty_bar_html, quick task 260901-re6) - so this single submit
+  // listener covers BOTH the in-form bottom Save button and the bar's
+  // out-of-form Save button. Do not add a second click handler on the
+  // bar's Save button for this; there is nothing to hook, it is a plain
+  // native submit.
+  form.addEventListener("submit", function () {
+    suppressGuard = true;
+  });
 
   if (cancelBtn) {
     cancelBtn.addEventListener("click", function () {
       form.reset();
       bar.hidden = true;
+      // form.reset() above already restores the load-time snapshot
+      // values, so countDifferences() would already report 0 - this is
+      // belt-and-braces against a browser whose reset() timing races
+      // the unload event, not the primary mechanism.
+      suppressGuard = true;
     });
   }
 

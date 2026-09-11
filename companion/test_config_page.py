@@ -299,6 +299,10 @@ EXPECTED_CHECK_COUNT = 155  # 19-10-PLAN.md Task 1 (D-09/A-27): +1 (the
 # 154 + 1 = 155, recomputed directly against the real on-disk check(...)
 # call count at execution time (155/155 pass), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 156  # 19-10-PLAN.md Task 2 (D-10/A-28): +1 (the
+# beforeunload-guard-reuses-countDifferences check). 155 + 1 = 156,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (156/156 pass), not trusted from arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2666,6 +2670,39 @@ def main():
         "dirty-state.js's first dirty-ready occurrence comes after its first data-dirty-bar occurrence (D-09: set "
         "only after the bar guard passes)",
         _dirty_state_js_sets_dirty_ready_only_after_bar_guard)
+
+    # ------------------------------------------------------------------
+    # 19-10-PLAN.md Task 2 (D-10/A-28): a beforeunload guard, keyed on
+    # the existing countDifferences() predicate, warns before a real
+    # navigation discards unsaved settings edits.
+    # ------------------------------------------------------------------
+
+    def _dirty_state_js_beforeunload_guard_reuses_count_differences():
+        source = _read_static("dirty-state.js")
+        if "beforeunload" not in source:
+            return False, "expected dirty-state.js to register a beforeunload listener"
+        if "returnValue" not in source:
+            return False, "expected dirty-state.js's beforeunload guard to set evt.returnValue"
+        if "preventDefault" not in source:
+            return False, "expected dirty-state.js's beforeunload guard to call evt.preventDefault()"
+        beforeunload_idx = source.index("beforeunload")
+        # The guard's own listener body must reference countDifferences -
+        # reused, never reimplemented as a separate flag that can drift
+        # from the bar's own dirty state.
+        listener_body = source[beforeunload_idx:beforeunload_idx + 400]
+        if "countDifferences" not in listener_body:
+            return False, "expected the beforeunload listener's body to reference countDifferences"
+        if 'addEventListener("submit"' not in source:
+            return False, "expected dirty-state.js to register a submit listener on the form"
+        for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
+            if forbidden in source:
+                return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
+        return True, ""
+    check(
+        "dirty-state.js registers a beforeunload listener whose body references countDifferences and sets "
+        "returnValue/calls preventDefault, and a submit listener clears the guard; contains none of "
+        "innerHTML/let /const /=>/backtick",
+        _dirty_state_js_beforeunload_guard_reuses_count_differences)
 
     def _style_css_references_static_save_fallback_attr():
         source = _read_static("style.css")
