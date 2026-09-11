@@ -279,6 +279,15 @@ EXPECTED_CHECK_COUNT = 147  # 19-07-PLAN.md Task 1 (D-07/A-25): +5 (the
 # 142 + 5 = 147, recomputed directly against the real on-disk check(...)
 # call count at execution time (147/147 pass), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 153  # 19-07-PLAN.md Task 2 (D-07/A-25/T-19-12):
+# +6 (render()-with-no-new-args byte-identical/no-field-error-markup
+# check, the wake_interval_s message/value/aria-invalid/aria-describedby
+# check, the submitted-theme-id-checked-even-when-differs check, the
+# both-time-inputs-carry-required check, the calendar_url error-without-
+# secret-echo check, and the cross-file style.css .field-error guard).
+# 147 + 6 = 153, recomputed directly against the real on-disk check(...)
+# call count at execution time (153/153 pass), not trusted from
+# arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2278,6 +2287,117 @@ def main():
         "config_page._QUIET_HOURS_TIME_RE agrees with server.device_config.save_device_config()'s own HH:MM "
         "shape gate over the table \"\"/\"7:00\"/\"07:00\"/\"24:00\"/\"abc\"/\"23:59\"/\"00:00\"",
         _local_quiet_hours_regex_agrees_with_save_device_config)
+
+    # ------------------------------------------------------------------
+    # 19-07-PLAN.md Task 2 (D-07/A-25): render() repopulates every
+    # control from a rejected save's own submission and renders each
+    # field's error message and aria wiring — while staying byte-
+    # identical to today whenever errors/submitted are not passed.
+    # ------------------------------------------------------------------
+
+    _TASK2_BASE_CTX = {
+        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "poll_cooldown_remaining": 0,
+        "now": "2026-09-07T09:12:04+00:00",
+    }
+
+    def _render_no_new_args_byte_identical_and_no_field_error_markup():
+        plain = config_page.render(_TASK2_BASE_CTX)
+        explicit_none = config_page.render(_TASK2_BASE_CTX, errors=None, submitted=None)
+        if plain != explicit_none:
+            return False, "expected render(ctx) to be byte-identical to render(ctx, errors=None, submitted=None)"
+        if "field-error" in plain:
+            return False, "expected no field-error markup when no errors are passed"
+        return True, ""
+    check(
+        "render(ctx) with no new arguments is byte-identical to render(ctx, errors=None, submitted=None) and "
+        "contains no field-error markup",
+        _render_no_new_args_byte_identical_and_no_field_error_markup)
+
+    def _render_wake_interval_error_shows_message_value_and_aria():
+        rendered = config_page.render(
+            _TASK2_BASE_CTX, errors={"wake_interval_s": "msg"},
+            submitted={"wake_interval_s": "7"})
+        if rendered.count("msg") != 1:
+            return False, "expected the error message to render exactly once, got %d" % rendered.count("msg")
+        if 'value="7"' not in rendered:
+            return False, "expected the submitted value 7 to be echoed back into the input"
+        input_match = re.search(r'<input type="number" name="wake_interval_s"[^>]*>', rendered)
+        if not input_match:
+            return False, "expected the wake_interval_s input to still be present"
+        if 'aria-invalid="true"' not in input_match.group(0):
+            return False, "expected aria-invalid=\"true\" on the errored input"
+        describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
+        if not describedby_match:
+            return False, "expected an aria-describedby attribute on the errored input"
+        error_id = describedby_match.group(1)
+        if ('id="%s"' % error_id) not in rendered:
+            return False, "expected an element carrying id=%r matching aria-describedby" % (error_id,)
+        return True, ""
+    check(
+        "render(ctx, errors={\"wake_interval_s\": \"msg\"}, submitted={\"wake_interval_s\": \"7\"}) renders the "
+        "message once, echoes value=\"7\" back into the input, and sets aria-invalid plus a matching "
+        "aria-describedby",
+        _render_wake_interval_error_shows_message_value_and_aria)
+
+    def _render_submitted_theme_id_checked_even_when_differs_from_stored():
+        rendered = config_page.render(
+            dict(_TASK2_BASE_CTX, device_config={"theme": "white", "tracked_runway": "3"}),
+            submitted={"theme": "black"})
+        if not re.search(r'name="theme" value="black"[^>]*checked', rendered):
+            return False, "expected the submitted theme (black) to render checked even though the stored theme is white"
+        if re.search(r'name="theme" value="white"[^>]*checked', rendered):
+            return False, "expected the stored theme (white) to NOT render checked once a different submission is being repopulated"
+        return True, ""
+    check(
+        "a submitted theme id is rendered as the CHECKED radio even when it differs from the stored theme "
+        "(D-07 repopulation)",
+        _render_submitted_theme_id_checked_even_when_differs_from_stored)
+
+    def _render_both_quiet_hours_time_inputs_carry_required():
+        rendered = config_page.render(_TASK2_BASE_CTX)
+        start_match = re.search(r'<input type="time" name="quiet_hours_start"[^>]*>', rendered)
+        end_match = re.search(r'<input type="time" name="quiet_hours_end"[^>]*>', rendered)
+        if not start_match or "required" not in start_match.group(0):
+            return False, "expected the quiet_hours_start input to carry required"
+        if not end_match or "required" not in end_match.group(0):
+            return False, "expected the quiet_hours_end input to carry required"
+        return True, ""
+    check(
+        "both quiet-hours time inputs carry required in the rendered Settings page",
+        _render_both_quiet_hours_time_inputs_carry_required)
+
+    def _render_calendar_url_error_never_echoes_the_submitted_secret():
+        rendered = config_page.render(
+            _TASK2_BASE_CTX, errors={"calendar_url": "msg"},
+            submitted={"calendar_url": "https://secret.example/abc?token=xyz"})
+        if "msg" not in rendered:
+            return False, "expected the calendar_url error message to render"
+        for needle in ("secret.example", "abc", "token", "xyz"):
+            if needle in rendered:
+                return False, "expected %r never to appear in the re-rendered page (T-19-12/T-16-SECRET)" % (needle,)
+        return True, ""
+    check(
+        "render(ctx, errors={\"calendar_url\": \"msg\"}, submitted={\"calendar_url\": \"https://secret.example/"
+        "abc?token=xyz\"}) renders the message but contains none of the submitted URL's host, path, query-"
+        "parameter name, or token — the write-only field is never repopulated (D-07/T-19-12)",
+        _render_calendar_url_error_never_echoes_the_submitted_secret)
+
+    def _style_css_styles_field_error():
+        style_path = os.path.join(REPO_ROOT, "companion", "static", "style.css")
+        with open(style_path, encoding="utf-8") as fh:
+            css = fh.read()
+        idx = css.find(".field-error")
+        if idx == -1:
+            return False, "expected a .field-error rule in companion/static/style.css"
+        window = css[idx:idx + 400]
+        if "--color-status-error" not in window:
+            return False, "expected .field-error to read the existing --color-status-error token"
+        return True, ""
+    check(
+        "companion/static/style.css styles .field-error using the existing --color-status-error token "
+        "(cross-file DOM contract guard)",
+        _style_css_styles_field_error)
 
     # ------------------------------------------------------------------
     # 06.6.4.1-07 (D-05): led_fieldset()/led_section()/handle_led_post()

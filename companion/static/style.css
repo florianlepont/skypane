@@ -348,6 +348,22 @@ body {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* D-07 (19-07-PLAN.md, A-25): the field-level message a rejected
+ * Settings save renders directly under the offending control.
+ * Deliberately COMPOSES with .text-label the same way .section-caption
+ * above does — the markup always carries both classes together
+ * (`class="field-error text-label"`), so this rule adds only colour
+ * plus a small top margin, reusing the existing --color-status-error
+ * token (both themes already declare it) and the existing --space-xs
+ * token — no new custom property, no new colour literal. The top
+ * margin (rather than .section-caption's own no-margin decision) is
+ * what makes the message read as attached to the control immediately
+ * above it instead of colliding with the next sibling's own spacing. */
+.field-error {
+  color: var(--color-status-error);
+  margin: var(--space-xs) 0 0;
+}
+
 /* quick task 260901-tsa (finding B): pairs a section heading with an
  * inline, baseline-aligned muted description — Health's Screen/Server &
  * data headings. Declares NO margin of its own, deliberately: the <h2>

@@ -477,6 +477,85 @@ FLASH_CALENDAR_DISCONNECTED = "calendar_disconnected"
 FLASH_CALENDAR_SYNC_DEFERRED = "calendar_sync_deferred"
 
 
+def _field_error_html(errors, field, control_id):
+    """D-07 (19-07-PLAN.md Task 2): the empty string when `field` carries
+    no message in `errors` (which is `None` or `{}` for every render()
+    call this plan does not itself add — every existing call site keeps
+    emitting nothing here), otherwise a single `role="alert"` paragraph
+    rendered immediately after the offending control:
+    `<p class="field-error text-label" id="{control_id}-error"
+    role="alert">{escaped message}</p>`. `control_id` need not match any
+    real DOM `id` already on the control — it exists solely to build a
+    stable anchor id that `_field_error_attrs()` below points
+    `aria-describedby` at from that SAME control, so the message is
+    programmatically associated, not merely visually adjacent. The
+    message is interpolated through `escape_html()`, this file's
+    universal escaping choke point, matching every other dynamic string
+    in this module (T-19-26: never into a script or style context).
+    """
+    message = errors.get(field) if errors else None
+    if not message:
+        return ""
+    return (
+        '<p class="field-error text-label" id="%s-error" role="alert">%s</p>'
+    ) % (escape_html(control_id), escape_html(message))
+
+
+def _field_error_attrs(errors, field, control_id):
+    """The `aria-invalid="true" aria-describedby="{control_id}-error"`
+    attribute fragment for the control `_field_error_html()` above just
+    built an anchor for — the empty string when `field` carries no
+    message in `errors`. Applied to controls that have exactly one
+    natural DOM element to decorate (a text/number/time input, a
+    checkbox, or a `<select>`); the three radio-group fields (theme,
+    theme_arriving, tracked_runway) render their error message the same
+    way but skip this attribute fragment, since no single native input
+    in a same-named radio group is uniquely "the" control to describe.
+    """
+    if not (errors and errors.get(field)):
+        return ""
+    return ' aria-invalid="true" aria-describedby="%s-error"' % escape_html(control_id)
+
+
+def _submitted_or_current(submitted, field, current):
+    """This file's explicit-`is None` fallback idiom (see the
+    current_wake_interval_s comment inside render() below), applied to a
+    rejected save's repopulation: `submitted[field]` when `field` is
+    PRESENT in `submitted` — an empty string is a meaningful submitted
+    value, never treated as absent — else `current`. `submitted` is
+    `None` for every render() call that is not re-rendering a rejected
+    save (nothing to repopulate from, so `current` — the on-disk/ctx
+    value — always wins). Never `or`.
+    """
+    if submitted is not None and field in submitted:
+        return submitted[field]
+    return current
+
+
+def _submitted_checkbox_checked(submitted, field, checked_value, current_checked):
+    """The rendered `checked` state for one of the absent-means-False
+    checkbox fields (led_enabled/quiet_hours_enabled/display_enabled/
+    theme_arriving_enabled) on a rejected save's re-render.
+
+    When a real submission happened (`submitted is not None` — always a
+    dict, even an empty one, once a POST reaches this module:
+    companion/app.py's `read_form()` never returns `None`), an absent
+    field means unchecked — the identical absent-means-False semantics
+    `handle_post()` itself just applied to the same submission — and a
+    present-but-wrong value still renders unchecked (the field's own
+    error message is what reports the problem, never a bogus stuck-on
+    box). `submitted is None` (every ordinary page-load render(), never
+    a rejected-save re-render) falls back to `current_checked`
+    untouched — this is why `render()` below must NOT collapse a `None`
+    `submitted` to `{}`: doing so would make every ordinary page load
+    render every checkbox in this family unchecked, since an ordinary
+    load never real-submits any of them either.
+    """
+    if submitted is None:
+        return bool(current_checked)
+    return submitted.get(field) == checked_value
+
+
 def _palette_hex(index):
     """`#RRGGBB`, computed from `server.panel_format.PALETTE_RGB`'s flat
     int list at palette index `index` — never a hardcoded hex literal, so
@@ -545,7 +624,7 @@ def _theme_chip_grid_html(field_name, selected_theme_id, extra_class="", extra_a
     return '<div class="%s"%s>%s</div>' % (grid_class, attr_html, "".join(chips))
 
 
-def theme_fieldset(current_theme_id, current_theme_arriving=None):
+def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, submitted=None):
     """D-04: a read-only theme status block when exactly one theme is
     registered (`len(device_config.THEME_IDS) == 1`) — a one-option radio
     group has no real decision value. Falls back to the editable D-01
@@ -604,6 +683,22 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None):
     theme — `current_theme_arriving` when set, otherwise the same
     `current_theme_id` the first grid has selected — so an operator who
     ticks the box starts from the theme already in use, not from nothing.
+
+    19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
+    defaulted, so every pre-Phase-19 call site is unaffected) let a
+    rejected save re-render this group with the user's own submission.
+    `theme`/`theme_arriving` are membership-test ("hostile-request
+    shape") fields — a submitted id that matches nothing in
+    `device_config.THEME_IDS` simply pre-selects nothing in the
+    corresponding chip grid, and the field's error message renders once,
+    directly after that grid. Neither radio group's individual `<input>`
+    gains an `aria-invalid`/`aria-describedby` pair: no single input in
+    a same-named radio group is uniquely "the" control the message
+    describes. `theme_arriving_enabled` (a genuine checkbox with one
+    natural control) DOES gain that pair, anchored on
+    `THEME_ARRIVING_TOGGLE_ID`. The single-theme read-only branch above
+    has no editable control and is therefore never passed a `theme`
+    error in practice — this function does not special-case that away.
     """
     caption_html = (
         '<p class="text-label section-caption">%s</p>'
@@ -634,14 +729,27 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None):
             escape_html(device_config.theme_label(theme_id)),
         )
 
-    first_grid = _theme_chip_grid_html("theme", current_theme_id)
-    checkbox_checked = " checked" if current_theme_arriving is not None else ""
+    effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
+    first_grid = _theme_chip_grid_html("theme", effective_theme_id)
+    theme_error_html = _field_error_html(errors, "theme", "theme")
+
+    checkbox_checked = _submitted_checkbox_checked(
+        submitted, "theme_arriving_enabled", ARRIVING_CHECKBOX_VALUE,
+        current_theme_arriving is not None)
+    theme_arriving_enabled_attrs = _field_error_attrs(
+        errors, "theme_arriving_enabled", THEME_ARRIVING_TOGGLE_ID)
+    theme_arriving_enabled_error_html = _field_error_html(
+        errors, "theme_arriving_enabled", THEME_ARRIVING_TOGGLE_ID)
+
+    submitted_theme_arriving = _submitted_or_current(
+        submitted, "theme_arriving", current_theme_arriving)
     effective_arriving = (
-        current_theme_arriving if current_theme_arriving is not None
-        else current_theme_id)
+        submitted_theme_arriving if submitted_theme_arriving is not None
+        else effective_theme_id)
     second_grid = _theme_chip_grid_html(
         "theme_arriving", effective_arriving,
         extra_class="theme-chip-grid--arrivals", extra_attr=ARRIVAL_GRID_ATTR)
+    theme_arriving_error_html = _field_error_html(errors, "theme_arriving", "theme-arriving")
     # Only the revealed (second) grid gets a label: before the checkbox
     # exists there is exactly one grid and it needs no label (unchanged
     # today); once revealed, the <h2>Theme</h2> heading plus the
@@ -653,26 +761,30 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None):
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">Theme</h2>'
         "%s"
-        "%s"
+        "%s%s"
         '<label class="settings-checkbox">'
-        '<input type="checkbox" name="theme_arriving_enabled" id="%s" value="%s"%s> %s'
+        '<input type="checkbox" name="theme_arriving_enabled" id="%s" value="%s"%s%s> %s'
         "</label>"
-        '<p class="text-label theme-direction-label">%s</p>'
         "%s"
+        '<p class="text-label theme-direction-label">%s</p>'
+        "%s%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Theme"),
         caption_html,
-        first_grid,
+        first_grid, theme_error_html,
         escape_html(THEME_ARRIVING_TOGGLE_ID),
-        escape_html(ARRIVING_CHECKBOX_VALUE), checkbox_checked,
+        escape_html(ARRIVING_CHECKBOX_VALUE),
+        " checked" if checkbox_checked else "",
+        theme_arriving_enabled_attrs,
         escape_html(THEME_ARRIVING_CHECKBOX_LABEL),
+        theme_arriving_enabled_error_html,
         escape_html(THEME_DIRECTION_LABEL),
-        second_grid,
+        second_grid, theme_arriving_error_html,
     )
 
 
-def runway_fieldset(current_runway_id, images_available=()):
+def runway_fieldset(current_runway_id, images_available=(), errors=None, submitted=None):
     """D-05: one selectable `.runway-card` per `device_config.RUNWAYS`
     entry (exactly three today), in registry order — the entire card
     (`<label>`) is the hit target, wrapping a visually-hidden (never
@@ -728,10 +840,20 @@ def runway_fieldset(current_runway_id, images_available=()):
     instead of the validated row-of-three. The row is a layout container
     only — it carries no visual treatment of its own, and the cards keep
     theirs.
+
+    19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
+    defaulted) let a rejected save repopulate the selected card from the
+    submission and render `tracked_runway`'s error message once, after
+    the card row. `tracked_runway` is a membership-test field, like
+    `theme` above — no single radio in the group gains
+    `aria-invalid`/`aria-describedby`, for the identical reason
+    `theme_fieldset()`'s own docstring already gives.
     """
+    effective_runway_id = _submitted_or_current(
+        submitted, "tracked_runway", current_runway_id)
     cards = []
     for runway_id in device_config.RUNWAY_IDS:
-        selected = runway_id == current_runway_id
+        selected = runway_id == effective_runway_id
         checked = " checked" if selected else ""
         card_class = (
             "runway-card runway-card--selected" if selected else "runway-card")
@@ -758,20 +880,23 @@ def runway_fieldset(current_runway_id, images_available=()):
                 image_html, layout.icon_html("icon-check"),
             )
         )
+    runway_error_html = _field_error_html(errors, "tracked_runway", "tracked-runway")
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">Runway</h2>'
         '<p class="text-label section-caption">%s</p>'
         '<div class="runway-row">%s</div>'
+        "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Runway"),
         escape_html(RUNWAY_SECTION_CAPTION),
         "".join(cards),
+        runway_error_html,
     )
 
 
-def led_group(current_led_enabled):
+def led_group(current_led_enabled, errors=None, submitted=None):
     """The Diagnostic LED settings group (D-05, 06.6.4.1): a sibling of the
     Theme and Runway groups inside the single merged `<form
     action="{SETTINGS_ROUTE}">`, wrapped in the same `.theme-status`
@@ -811,25 +936,36 @@ def led_group(current_led_enabled):
     native 16px size while relocating the 44px touch-target floor onto
     this label — the input's own `type`/`name`/`value`/`checked`
     attribute sequence is untouched.
+
+    19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
+    defaulted) let a rejected save repopulate this checkbox's `checked`
+    state from the submission (absent-means-unchecked, matching
+    `handle_post()`'s own resolution of this exact field) and render its
+    "unexpected switch value" error, anchored on the checkbox itself.
     """
-    checked = " checked" if current_led_enabled else ""
+    checked = _submitted_checkbox_checked(
+        submitted, "led_enabled", LED_CHECKBOX_VALUE, current_led_enabled)
+    error_attrs = _field_error_attrs(errors, "led_enabled", "led-enabled")
+    error_html = _field_error_html(errors, "led_enabled", "led-enabled")
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption">%s</p>'
         '<label class="settings-checkbox">'
-        '<input type="checkbox" name="led_enabled" value="%s"%s> Enable diagnostic LED'
+        '<input type="checkbox" name="led_enabled" value="%s"%s%s> Enable diagnostic LED'
         "</label>"
+        "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(LED_SECTION_HEADING),
         escape_html(LED_SECTION_HEADING),
         escape_html(LED_SECTION_CAPTION),
-        escape_html(LED_CHECKBOX_VALUE), checked,
+        escape_html(LED_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
+        error_html,
     )
 
 
-def quiet_hours_group(current_enabled, current_start, current_end):
+def quiet_hours_group(current_enabled, current_start, current_end, errors=None, submitted=None):
     """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md): a
     fourth sibling of the Theme/Runway/Diagnostic LED groups inside the
     single merged `<form action="{SETTINGS_ROUTE}">`, built against
@@ -864,29 +1000,58 @@ def quiet_hours_group(current_enabled, current_start, current_end):
     Every interpolated current value — the heading, the caption, the
     checkbox value, and both current times — is routed through
     `escape_html()`, matching this file's universal escaping discipline.
+
+    19-07-PLAN.md Task 2 (D-07/A-25): `errors`/`submitted` (both fully
+    defaulted) let a rejected save repopulate all three controls from the
+    submission and render each field's own error message directly after
+    it. Both time inputs additionally gain a `required` attribute — a
+    client-side convenience only (D-07's explicit instruction); the
+    server-side HH:MM gate `handle_post()` runs before this render is
+    ever reached is the real control, and the inputs stay enabled
+    regardless of the enable checkbox either way — the
+    pre-configure-before-enabling behaviour this docstring's own
+    Interaction Contract paragraph above locks is unchanged.
     """
-    checked = " checked" if current_enabled else ""
+    checked = _submitted_checkbox_checked(
+        submitted, "quiet_hours_enabled", QUIET_HOURS_CHECKBOX_VALUE, current_enabled)
+    enabled_error_attrs = _field_error_attrs(errors, "quiet_hours_enabled", "quiet-hours-enabled")
+    enabled_error_html = _field_error_html(errors, "quiet_hours_enabled", "quiet-hours-enabled")
+
+    effective_start = _submitted_or_current(submitted, "quiet_hours_start", current_start)
+    start_error_attrs = _field_error_attrs(errors, "quiet_hours_start", "quiet-hours-start")
+    start_error_html = _field_error_html(errors, "quiet_hours_start", "quiet-hours-start")
+
+    effective_end = _submitted_or_current(submitted, "quiet_hours_end", current_end)
+    end_error_attrs = _field_error_attrs(errors, "quiet_hours_end", "quiet-hours-end")
+    end_error_html = _field_error_html(errors, "quiet_hours_end", "quiet-hours-end")
+
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption">%s</p>'
         '<label class="settings-checkbox">'
-        '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s> Enable quiet hours'
+        '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s%s> Enable quiet hours'
         "</label>"
-        '<label>Start <input type="time" name="quiet_hours_start" value="%s"></label>'
-        '<label>End <input type="time" name="quiet_hours_end" value="%s"></label>'
+        "%s"
+        '<label>Start <input type="time" name="quiet_hours_start" value="%s" required%s></label>'
+        "%s"
+        '<label>End <input type="time" name="quiet_hours_end" value="%s" required%s></label>'
+        "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(QUIET_HOURS_SECTION_HEADING),
         escape_html(QUIET_HOURS_SECTION_HEADING),
         escape_html(QUIET_HOURS_SECTION_CAPTION),
-        escape_html(QUIET_HOURS_CHECKBOX_VALUE), checked,
-        escape_html(current_start),
-        escape_html(current_end),
+        escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", enabled_error_attrs,
+        enabled_error_html,
+        escape_html(effective_start), start_error_attrs,
+        start_error_html,
+        escape_html(effective_end), end_error_attrs,
+        end_error_html,
     )
 
 
-def wake_interval_group(current_wake_interval_s):
+def wake_interval_group(current_wake_interval_s, errors=None, submitted=None):
     """The Wake interval settings group (11-UI-SPEC.md, 11-RESEARCH.md
     Pattern 4): a fifth sibling of the Theme/Runway/Diagnostic LED/Quiet
     hours groups inside the single merged `<form action="{SETTINGS_ROUTE}">`,
@@ -929,21 +1094,41 @@ def wake_interval_group(current_wake_interval_s):
     `escape_html()`, matching this file's universal escaping discipline;
     the numeric value needs no escaping because `%d` cannot emit anything
     but digits and a sign.
+
+    19-07-PLAN.md Task 2 (D-07): when a real submission is being
+    repopulated (`submitted is not None`) and it actually carries this
+    field, the RAW submitted string is echoed back verbatim (escaped),
+    deliberately bypassing the in-range/non-bool-int guard above — that
+    guard exists only for the ordinary ctx-sourced int
+    (`current_wake_interval_s`), never for a rejected save's own echoed
+    input. "7" is a string, not an int, and would otherwise never get a
+    `value` attribute at all, silently discarding exactly what D-07
+    requires be shown back to the user. Native HTML5 min/max constraint
+    validation still applies on the user's NEXT submit attempt (nothing
+    here suppresses it) — that is a feature, not a bug: it is what
+    prompts them to fix the value before it can be saved.
     """
-    value_attr = (
-        ' value="%d"' % current_wake_interval_s
-        if (
-            isinstance(current_wake_interval_s, int)
-            and not isinstance(current_wake_interval_s, bool)
-            and device_config.WAKE_INTERVAL_MIN_S <= current_wake_interval_s <= device_config.WAKE_INTERVAL_MAX_S
-        ) else "")
+    if submitted is not None and "wake_interval_s" in submitted:
+        raw_submitted = submitted["wake_interval_s"]
+        value_attr = ' value="%s"' % escape_html(str(raw_submitted)) if raw_submitted else ""
+    else:
+        value_attr = (
+            ' value="%d"' % current_wake_interval_s
+            if (
+                isinstance(current_wake_interval_s, int)
+                and not isinstance(current_wake_interval_s, bool)
+                and device_config.WAKE_INTERVAL_MIN_S <= current_wake_interval_s <= device_config.WAKE_INTERVAL_MAX_S
+            ) else "")
+    error_attrs = _field_error_attrs(errors, "wake_interval_s", "wake-interval-s")
+    error_html = _field_error_html(errors, "wake_interval_s", "wake-interval-s")
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption">%s</p>'
         "<label>Wake interval (seconds) "
         '<input type="number" name="wake_interval_s" min="%d" max="%d"'
-        ' placeholder="%s"%s></label>'
+        ' placeholder="%s"%s%s></label>'
+        "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(WAKE_INTERVAL_SECTION_HEADING),
@@ -951,11 +1136,12 @@ def wake_interval_group(current_wake_interval_s):
         escape_html(WAKE_INTERVAL_SECTION_CAPTION),
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
         escape_html(WAKE_INTERVAL_PLACEHOLDER_TEXT),
-        value_attr,
+        value_attr, error_attrs,
+        error_html,
     )
 
 
-def display_group(current_display_enabled):
+def display_group(current_display_enabled, errors=None, submitted=None):
     """The Display settings group (12-UI-SPEC.md, 12-CONTEXT.md D-08/D-09):
     a sixth and last sibling of the Theme/Runway/Diagnostic LED/Quiet
     hours/Wake interval groups inside the single merged `<form
@@ -982,27 +1168,38 @@ def display_group(current_display_enabled):
     Every interpolated current value — the heading, the caption, and the
     checkbox value — is routed through `escape_html()`, matching this
     file's universal escaping discipline.
+
+    19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
+    defaulted) let a rejected save repopulate this checkbox's `checked`
+    state from the submission (absent-means-unchecked, matching
+    `handle_post()`'s own resolution of this exact field) and render its
+    "unexpected switch value" error, anchored on the checkbox itself.
     """
-    checked = " checked" if current_display_enabled else ""
+    checked = _submitted_checkbox_checked(
+        submitted, "display_enabled", DISPLAY_CHECKBOX_VALUE, current_display_enabled)
+    error_attrs = _field_error_attrs(errors, "display_enabled", "display-enabled")
+    error_html = _field_error_html(errors, "display_enabled", "display-enabled")
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption">%s</p>'
         '<label class="settings-checkbox">'
-        '<input type="checkbox" name="display_enabled" value="%s"%s> Enable display'
+        '<input type="checkbox" name="display_enabled" value="%s"%s%s> Enable display'
         "</label>"
+        "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(DISPLAY_SECTION_HEADING),
         escape_html(DISPLAY_SECTION_HEADING),
         escape_html(DISPLAY_SECTION_CAPTION),
-        escape_html(DISPLAY_CHECKBOX_VALUE), checked,
+        escape_html(DISPLAY_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
+        error_html,
     )
 
 
 def calendar_group(
         configured, drift, last_synced_at, now, current_calendar_theme_id,
-        current_theme_id):
+        current_theme_id, errors=None, submitted=None):
     """The Calendar settings group (16-UI-SPEC.md Section Anatomy): a
     seventh and last sibling inside the single merged `<form
     action="{SETTINGS_ROUTE}">`, appended after `display_group()`'s
@@ -1085,6 +1282,16 @@ def calendar_group(
     default-selection precedent). `class="calendar-status"` is emitted as
     a bare hook; 16-UI-SPEC.md Open Question 4 is resolved in favour of no
     new CSS rule — companion/static/style.css needs no change for it.
+
+    19-07-PLAN.md Task 2 (D-07/T-19-12): `errors`/`submitted` (both fully
+    defaulted) let a rejected save repopulate `calendar_theme_id`'s
+    `<select>` from the submission and render its error message. The
+    write-only `calendar_url` input is the ONE field this D-07
+    repopulation rule does not apply to (T-16-SECRET, 17-CONTEXT.md
+    D-01/D-02): its `value` stays EMPTY on every branch, exactly as
+    before this plan, even when `submitted` carries the URL the operator
+    just typed — repopulating it would serve that secret back in the
+    HTML. Only its error message (never its value) is added here.
     """
     # Drift first (D-02): a drifted file makes `configured` already
     # False (D-08), so checking `not configured` before `drift` would
@@ -1129,7 +1336,8 @@ def calendar_group(
             escape_html(CALENDAR_DISCONNECT_CHECKBOX_LABEL),
         )
 
-    selected_calendar_theme_id = (
+    selected_calendar_theme_id = _submitted_or_current(
+        submitted, "calendar_theme_id",
         current_calendar_theme_id if current_calendar_theme_id is not None
         else current_theme_id)
     theme_options = "".join(
@@ -1141,6 +1349,15 @@ def calendar_group(
         )
         for theme_id in device_config.THEME_IDS
     )
+    calendar_theme_error_attrs = _field_error_attrs(
+        errors, "calendar_theme_id", "calendar-theme")
+    calendar_theme_error_html = _field_error_html(
+        errors, "calendar_theme_id", "calendar-theme")
+    # T-16-SECRET / T-19-12: the write-only calendar_url input's value
+    # stays empty always, never repopulated from `submitted` — see the
+    # docstring above. Only the error attrs/message are new here.
+    calendar_url_error_attrs = _field_error_attrs(errors, "calendar_url", "calendar-url")
+    calendar_url_error_html = _field_error_html(errors, "calendar_url", "calendar-url")
     return (
         '<div class="page-section" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
@@ -1149,14 +1366,16 @@ def calendar_group(
         '<div class="rule-add-form__field">'
         '<label for="calendar-url">%s</label>'
         '<input type="text" id="calendar-url" name="calendar_url" '
-        'autocomplete="off" spellcheck="false" maxlength="%s">'
+        'autocomplete="off" spellcheck="false" maxlength="%s"%s>'
         '<p class="text-label section-caption">%s</p>'
+        "%s"
         "</div>"
         "%s"
         '<div class="rule-add-form__field">'
         '<label for="calendar-theme">%s</label>'
-        '<select id="calendar-theme" name="calendar_theme_id" required>%s</select>'
+        '<select id="calendar-theme" name="calendar_theme_id" required%s>%s</select>'
         '<p class="text-label section-caption">%s</p>'
+        "%s"
         "</div>"
         "</div>"
     ) % (
@@ -1165,11 +1384,14 @@ def calendar_group(
         escape_html(CALENDAR_SECTION_CAPTION),
         status_html,
         escape_html(CALENDAR_URL_FIELD_LABEL),
-        CALENDAR_URL_MAX_LEN,
+        CALENDAR_URL_MAX_LEN, calendar_url_error_attrs,
         escape_html(CALENDAR_URL_HINT),
+        calendar_url_error_html,
         disconnect_checkbox_html,
-        escape_html(CALENDAR_THEME_FIELD_LABEL), theme_options,
+        escape_html(CALENDAR_THEME_FIELD_LABEL),
+        calendar_theme_error_attrs, theme_options,
         escape_html(CALENDAR_THEME_HINT),
+        calendar_theme_error_html,
     )
 
 
@@ -1510,7 +1732,31 @@ def _rules_section_html(ctx):
         heading, caption, add_form, cards_html, table_html)
 
 
-def render(ctx, scope=SCOPE_ALL):
+def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
+    """Render one settings page (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE).
+
+    19-07-PLAN.md Task 2 (D-07/A-25): `errors` and `submitted` are both
+    fully-defaulted keyword parameters placed last, so every one of the
+    46 pre-Phase-19 call sites keeps producing byte-identical output.
+    `companion/app.py`'s `_handle_settings_post()` is the sole caller
+    that passes both, on a rejected save: `errors` is the dict
+    `config_page.handle_post()` just filled, and `submitted` is the raw
+    form dict, threaded straight through to every group builder via the
+    `builders` dict below so each control can repopulate its own field
+    and render its own error message.
+
+    `errors` is normalised to `{}` here (harmless either way — every
+    lookup below already treats `None`/`{}` identically). `submitted` is
+    deliberately NOT collapsed to `{}`: `None` (every ordinary page-load
+    render) and an actual dict (a real, possibly-empty submission being
+    repopulated) mean different things to the absent-means-unchecked
+    checkbox fields (`_submitted_checkbox_checked()`) — collapsing that
+    distinction away would render every checkbox in that family
+    unchecked on every ordinary page load, since an ordinary load never
+    "submits" any of them either.
+    """
+    if errors is None:
+        errors = {}
     device_cfg = ctx.get("device_config") or {}
     current_theme_id = device_cfg.get("theme", device_config.DEFAULT_THEME_ID)
     # Phase 15 D-04: an explicit `.get()` with no `or` fallback and no
@@ -1623,18 +1869,24 @@ def render(ctx, scope=SCOPE_ALL):
 
     builders = {
         screens.GROUP_THEME: lambda: theme_fieldset(
-            current_theme_id, current_theme_arriving),
+            current_theme_id, current_theme_arriving,
+            errors=errors, submitted=submitted),
         screens.GROUP_RUNWAY: lambda: runway_fieldset(
-            current_runway_id, ctx.get("runway_images") or ()),
-        screens.GROUP_LED: lambda: led_group(current_led_enabled),
+            current_runway_id, ctx.get("runway_images") or (),
+            errors=errors, submitted=submitted),
+        screens.GROUP_LED: lambda: led_group(
+            current_led_enabled, errors=errors, submitted=submitted),
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
-            current_quiet_enabled, current_quiet_start, current_quiet_end),
+            current_quiet_enabled, current_quiet_start, current_quiet_end,
+            errors=errors, submitted=submitted),
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
-            current_wake_interval_s),
-        screens.GROUP_DISPLAY: lambda: display_group(current_display_enabled),
+            current_wake_interval_s, errors=errors, submitted=submitted),
+        screens.GROUP_DISPLAY: lambda: display_group(
+            current_display_enabled, errors=errors, submitted=submitted),
         screens.GROUP_CALENDAR: lambda: calendar_group(
             calendar_configured, calendar_drift, calendar_last_synced_at,
-            ctx.get("now"), current_calendar_theme_id, current_theme_id),
+            ctx.get("now"), current_calendar_theme_id, current_theme_id,
+            errors=errors, submitted=submitted),
     }
     groups_html = "".join(builders[g]() for g in groups if g in builders)
 
