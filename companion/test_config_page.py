@@ -1917,7 +1917,11 @@ def main():
             # returns screen_id too, "plane-frame" (DEFAULT_SCREEN_ID) here
             # because this post carries no screen_id field. Same mechanical
             # update as the two lines above.
-            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None, "screen_id": "plane-frame"}:
+            # 20-02-PLAN.md Task 3 (D-26): load_device_config() now always
+            # returns notifications too, DEFAULT_NOTIFICATIONS here because
+            # this post carries no notifications field. Same mechanical
+            # update as the three lines above.
+            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:

@@ -465,6 +465,22 @@ RUNWAY_IDS = tuple(RUNWAYS)
 DEFAULT_SCREEN_ID = "plane-frame"
 SCREEN_IDS = ("plane-frame",)
 
+# D-26/D-28 (20-CONTEXT.md): the notifications config group - the first
+# DICT-VALUED field in this registry, every sibling field above being a
+# scalar (string/bool/int) or None. `topic_url` is write-only (D-26's
+# amendment: never rendered back, not partially masked - that contract
+# lives in the web app's own Device-page renderer, a later plan, not
+# here); this module stores it verbatim because server/poll_loop.py's
+# notification sender needs the real value to POST to. `lang` is a
+# persisted en/fr snapshot (D-28) because the poll loop has no browser
+# to read a per-request language from.
+DEFAULT_NOTIFICATIONS = {
+    "topic_url": None,
+    "battery_low": True,
+    "frame_silent": True,
+    "lang": "en",
+}
+
 DEVICE_CONFIG_FILENAME = "device_config.json"
 
 
@@ -558,6 +574,40 @@ def normalise_screen_id(value):
     return DEFAULT_SCREEN_ID
 
 
+def normalise_notifications(value):
+    """Return a well-formed notifications sub-dict - never raises,
+    degrades to a fresh copy of `DEFAULT_NOTIFICATIONS` wholesale for
+    anything that isn't a dict, and per-field within it for anything
+    malformed, mirroring `normalise_screen_id()`'s own "membership
+    test on read, degrade to default" shape, applied once per sub-key
+    (D-26/D-28).
+
+    `topic_url` keeps a `str` or becomes `None` (no scheme/host check
+    here - `server/notify.py`'s `_url_is_safe()`-gated send is the one
+    place that validates it, at send time, so there is no second,
+    driftable copy of that gate). `battery_low`/`frame_silent` keep a
+    real `bool` or take their own documented default (the
+    `isinstance(True, int)` gotcha every sibling boolean normaliser in
+    this module already guards against does not apply here - there is
+    no numeric sibling field to confuse it with, but the same explicit
+    `isinstance(..., bool)` test is used anyway, for the same reason
+    every other boolean field in this module uses it). `lang` keeps a
+    member of `("en", "fr")` or becomes `DEFAULT_NOTIFICATIONS["lang"]`.
+    """
+    if not isinstance(value, dict):
+        return dict(DEFAULT_NOTIFICATIONS)
+    topic_url = value.get("topic_url")
+    battery_low = value.get("battery_low")
+    frame_silent = value.get("frame_silent")
+    lang = value.get("lang")
+    return {
+        "topic_url": topic_url if isinstance(topic_url, str) else None,
+        "battery_low": battery_low if isinstance(battery_low, bool) else DEFAULT_NOTIFICATIONS["battery_low"],
+        "frame_silent": frame_silent if isinstance(frame_silent, bool) else DEFAULT_NOTIFICATIONS["frame_silent"],
+        "lang": lang if lang in ("en", "fr") else DEFAULT_NOTIFICATIONS["lang"],
+    }
+
+
 def normalise_led_enabled(value):
     """Return `value` unchanged only when `isinstance(value, bool)` is true -
     otherwise return `DEFAULT_LED_ENABLED`. Never raises. Deliberately no
@@ -641,28 +691,30 @@ def normalise_wake_interval_s(value):
 def load_device_config(state_dir):
     """Read `<state_dir>/device_config.json`; a missing file, an unreadable
     file, a malformed document, or a non-dict document all fall back to an
-    empty dict rather than raising. Always returns all eleven keys with valid
+    empty dict rather than raising. Always returns all twelve keys with valid
     values - `theme`, `theme_arriving`, `calendar_theme_id`,
     `tracked_runway`, `led_enabled`, `quiet_hours_enabled`,
     `quiet_hours_start`, `quiet_hours_end`, `wake_interval_s`,
-    `display_enabled`, and `screen_id` - via normalise_theme_id()/
+    `display_enabled`, `screen_id`, and `notifications` - via normalise_theme_id()/
     normalise_theme_arriving()/normalise_calendar_theme_id()/
     normalise_runway_id()/normalise_led_enabled()/
     normalise_quiet_hours_enabled()/normalise_quiet_hours_time()/
     normalise_wake_interval_s()/normalise_display_enabled()/
-    normalise_screen_id(), so a hostile or stale value on disk (e.g. a
-    path-traversal string, a numeric runway id, a non-bool led_enabled, a
-    malformed quiet-hours time, a hostile wake_interval_s, an unregistered
-    theme_arriving, calendar_theme_id or screen_id, or a non-bool
-    display_enabled) never reaches a caller. `theme_arriving` (D-04),
-    `calendar_theme_id` (phase 16 plan 02), and `screen_id` (D-23,
-    19-12-PLAN.md Task 1) are all read with `.get()`, so a
-    `device_config.json` written before any of the three existed - one
-    that has never carried it - resolves that key to its documented
-    default (`None` for the first two, `DEFAULT_SCREEN_ID` for the third)
-    with no migration and no rewrite of the file on disk. `wake_interval_s`,
-    `theme_arriving`, and `calendar_theme_id` are the three keys whose valid
-    value set includes `None`: `wake_interval_s`'s
+    normalise_screen_id()/normalise_notifications(), so a hostile or stale
+    value on disk (e.g. a path-traversal string, a numeric runway id, a
+    non-bool led_enabled, a malformed quiet-hours time, a hostile
+    wake_interval_s, an unregistered theme_arriving, calendar_theme_id or
+    screen_id, a non-bool display_enabled, or a malformed notifications
+    group) never reaches a caller. `theme_arriving` (D-04),
+    `calendar_theme_id` (phase 16 plan 02), `screen_id` (D-23,
+    19-12-PLAN.md Task 1), and `notifications` (D-26, 20-02-PLAN.md Task 3)
+    are all read with `.get()`, so a `device_config.json` written before
+    any of the four existed - one that has never carried it - resolves
+    that key to its documented default (`None` for the first two,
+    `DEFAULT_SCREEN_ID` for the third, `DEFAULT_NOTIFICATIONS` for the
+    fourth) with no migration and no rewrite of the file on disk.
+    `wake_interval_s`, `theme_arriving`, and `calendar_theme_id` are the
+    three keys whose valid value set includes `None`: `wake_interval_s`'s
     `None` means never-explicitly-set, `theme_arriving`'s `None` means "no
     override, same as `theme`", and `calendar_theme_id`'s `None` means "the
     operator has not chosen a calendar theme, so a calendar match has no
@@ -688,6 +740,7 @@ def load_device_config(state_dir):
         "wake_interval_s": normalise_wake_interval_s(data.get("wake_interval_s")),
         "display_enabled": normalise_display_enabled(data.get("display_enabled")),
         "screen_id": normalise_screen_id(data.get("screen_id")),
+        "notifications": normalise_notifications(data.get("notifications")),
     }
 
 
@@ -695,15 +748,15 @@ def save_device_config(
     state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
     wake_interval_s=None, display_enabled=None, calendar_theme_id=None,
-    screen_id=None,
+    screen_id=None, notifications=None,
 ):
     """Validate and persist a new theme and/or theme_arriving override and/or
     tracked-runway id and/or led_enabled flag and/or the three quiet-hours
     fields and/or wake_interval_s and/or display_enabled and/or
-    calendar_theme_id and/or screen_id.
+    calendar_theme_id and/or screen_id and/or notifications.
 
-    `screen_id` (D-23, 19-12-PLAN.md Task 1) is placed LAST so every
-    existing positional/keyword call site predating this plan is
+    `screen_id` (D-23, 19-12-PLAN.md Task 1) is placed LAST-but-one so
+    every existing positional/keyword call site predating that plan is
     unaffected. It follows the identical "membership test, raise on
     write, degrade on read" split every sibling registry field here
     already uses: a non-None value not in `SCREEN_IDS` raises
@@ -712,6 +765,22 @@ def save_device_config(
     anything is written; `None` carries the current on-disk value
     forward, the same "not supplied" meaning every other field's `None`
     already has.
+
+    `notifications` (D-26, 20-02-PLAN.md Task 3) is placed LAST for the
+    identical reason `screen_id` documents above - so every existing
+    positional/keyword call site predating this plan (including
+    `screen_id` itself) is unaffected. Unlike every other field in this
+    module, it is a dict, not a scalar: a non-None value that is not a
+    dict, or whose `topic_url` is neither a `str` nor `None`, or whose
+    `battery_low`/`frame_silent` are not real `bool`s, or whose `lang` is
+    outside `("en", "fr")`, raises `ValueError` naming the rejected
+    field - the raise-on-write half of `normalise_notifications()`'s own
+    degrade-on-read contract. `None` carries the current on-disk group
+    forward unchanged, the same "not supplied" meaning every other field's
+    `None` already has. This module does no URL-safety check of its own
+    on `topic_url` - `server/notify.py`'s `_url_is_safe()`-gated send is
+    the one place that validates it, at send time (D-25's own boundary),
+    so there is no second, driftable copy of that gate here.
 
     Each supplied (non-None) value is checked before anything is written:
     `theme`/`tracked_runway`/`calendar_theme_id`/`screen_id` against their registries
@@ -795,6 +864,21 @@ def save_device_config(
             "wake_interval_s must be an int in [%d, %d], got %r"
             % (WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S, wake_interval_s)
         )
+    if notifications is not None:
+        if not isinstance(notifications, dict):
+            raise ValueError("notifications must be a dict, got %r" % (notifications,))
+        topic_url = notifications.get("topic_url")
+        if topic_url is not None and not isinstance(topic_url, str):
+            raise ValueError("notifications['topic_url'] must be a str or None, got %r" % (topic_url,))
+        battery_low = notifications.get("battery_low")
+        if not isinstance(battery_low, bool):
+            raise ValueError("notifications['battery_low'] must be a bool, got %r" % (battery_low,))
+        frame_silent = notifications.get("frame_silent")
+        if not isinstance(frame_silent, bool):
+            raise ValueError("notifications['frame_silent'] must be a bool, got %r" % (frame_silent,))
+        lang = notifications.get("lang")
+        if lang not in ("en", "fr"):
+            raise ValueError("notifications['lang'] must be 'en' or 'fr', got %r" % (lang,))
 
     current = load_device_config(state_dir)
     # theme_arriving is the one field in this module with three write-time
@@ -821,6 +905,16 @@ def save_device_config(
         "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
         "display_enabled": display_enabled if display_enabled is not None else current["display_enabled"],
         "screen_id": screen_id if screen_id is not None else current["screen_id"],
+        "notifications": (
+            {
+                "topic_url": notifications.get("topic_url"),
+                "battery_low": notifications.get("battery_low"),
+                "frame_silent": notifications.get("frame_silent"),
+                "lang": notifications.get("lang"),
+            }
+            if notifications is not None
+            else current["notifications"]
+        ),
     }
 
     os.makedirs(state_dir, exist_ok=True)
