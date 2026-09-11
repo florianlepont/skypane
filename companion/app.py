@@ -97,6 +97,39 @@ MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
 # shaped DoS reachable before any credential check. 30s comfortably covers
 # a slow real client on this LAN/VPN deployment while bounding the worst case.
 REQUEST_SOCKET_TIMEOUT_S = 30
+
+# 19-04-PLAN.md (D-18/A-35, T-19-06/T-19-17/T-19-18/T-19-19): the
+# orchestrator-amended Content-Security-Policy sent on every response
+# (see _send_hardening_headers() below). This is an authenticated admin
+# panel reachable from the public internet with no CSP at all before
+# this plan.
+#   script-src 'self'  — deliberately no 'unsafe-inline' and no nonce.
+#     This is where the real XSS risk lives, and Task 1 of this plan
+#     (19-04-PLAN.md) removed the app's last two inline <script>
+#     elements (companion/pages/config_page.py's poll_trigger_section(),
+#     externalized to companion/static/poll-cooldown.js), so nothing
+#     needs an exception here.
+#   style-src 'self' 'unsafe-inline'  — solely for the seven
+#     style="background:..." theme-swatch attributes in
+#     companion/pages/config_page.py's _theme_chip_grid_html() and its
+#     single-theme/calendar-section siblings. Every one of those values
+#     comes from the fixed 18-member server/device_config.py THEMES
+#     registry and is never user input, so this allowance carries no
+#     injection path; a class-per-theme CSS refactor was rejected
+#     because it would churn dozens of pinned render checks for no
+#     security gain.
+#   img-src 'self' data:  — the `data:` value is needed for the inline
+#     favicon/icon data URI companion/layout.py already emits.
+#   form-action 'self'  — every <form> on the site posts back to this
+#     same origin; complements the existing SameSite=Strict session
+#     cookie against cross-origin form posting.
+#   frame-ancestors 'none'  — the modern companion to the existing
+#     X-Frame-Options: DENY below, which is kept for older browsers.
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; img-src 'self' data:; "
+    "style-src 'self' 'unsafe-inline'; script-src 'self'; "
+    "form-action 'self'; frame-ancestors 'none'"
+)
 # D-07 (11-04): the same environment variable deploy/skypane-byos.service
 # passes to byos_server.py as --sleep. It reaches this process because
 # deploy/skypane-companion.service declares the identical
@@ -133,6 +166,10 @@ PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
 # FLASH_CLEANUP_SCRIPT_SRC must equal this exactly, mirroring the
 # SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
 FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
+# 19-04-PLAN.md (D-18/A-35): companion/layout.py's
+# POLL_COOLDOWN_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
+POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -466,6 +503,7 @@ _COPY_BUTTON_JS_PATH = os.path.join(_HERE, "static", "copy-button.js")
 _FRESHNESS_JS_PATH = os.path.join(_HERE, "static", "freshness.js")
 _PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
 _FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
+_POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -861,10 +899,16 @@ class Handler(BaseHTTPRequestHandler):
         authenticated page can be framed by a third-party site for
         clickjacking, and with no X-Content-Type-Options a MIME-sniffing
         quirk is one upstream misconfiguration away from an XSS vector.
+
+        19-04-PLAN.md (D-18/A-35): the fourth header, Content-Security-
+        Policy, completes that stated intent — see
+        CONTENT_SECURITY_POLICY's own module-level comment for the
+        directive-by-directive rationale.
         """
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
 
     def send_html(self, code, html_str):
         body = html_str.encode("utf-8")
@@ -904,11 +948,16 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def redirect(self, location, set_cookie=None):
+        # 19-04-PLAN.md (D-18/A-35, T-19-05): a 303 used to send none of
+        # send_html()'s/send_bytes()'s headers; Cache-Control: no-store
+        # matters here because a 303 can carry a Set-Cookie.
         self.send_response(303)
         self.send_header("Location", location)
         if set_cookie:
             self.send_header("Set-Cookie", set_cookie)
         self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self._send_hardening_headers()
         self.end_headers()
 
     # --- auth ----------------------------------------------------------
@@ -1350,6 +1399,14 @@ class Handler(BaseHTTPRequestHandler):
         260903-peo, UIR-19).
         """
         return self._serve_script_file(_FLASH_CLEANUP_JS_PATH)
+
+    def _serve_poll_cooldown_script(self):
+        """Serve companion/static/poll-cooldown.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_flash_cleanup_script()'s shape exactly (19-04-PLAN.md,
+        D-18/A-35).
+        """
+        return self._serve_script_file(_POLL_COOLDOWN_JS_PATH)
 
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
@@ -1927,6 +1984,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == FLASH_CLEANUP_SCRIPT_ROUTE:
             return self._serve_flash_cleanup_script()
 
+        if path == POLL_COOLDOWN_SCRIPT_ROUTE:
+            return self._serve_poll_cooldown_script()
+
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:
             return self._render_tab(HOME_ROUTE, home_page.render)
@@ -2256,17 +2316,28 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             return self._handle_quick_toggle("quiet_hours_enabled")
 
+        # 19-04-PLAN.md (D-18/A-35, T-19-04): gated like every other
+        # state-changing route above — an unauthenticated caller setting
+        # another visitor's UI theme cookie is a real state change, not
+        # a cosmetic no-op.
         if path == THEME_ROUTE:
+            if not self.require_session():
+                return None
             return self._handle_theme_post()
 
+        # 19-04-PLAN.md (D-18/A-35, T-19-04): gated too, even though an
+        # unauthenticated POST /logout looks harmless at first glance —
+        # it is a CSRF-shaped forced-sign-out of whoever holds the
+        # session, and gating it costs a signed-out caller nothing since
+        # they are already signed out. A-33/D-16 (plan 19-02): also
+        # revokes the presented token server-side before clearing the
+        # client's cookie, so replaying the same cookie value after Sign
+        # out no longer verifies.
         if path == LOGOUT_ROUTE:
-            # A-33/D-16: revoke the presented token server-side before
-            # clearing the client's cookie, so replaying the same cookie
-            # value after Sign out no longer verifies. The 19-04 plan
-            # adds the require_session() gate to this branch; this plan
-            # only adds the revoke() call.
-            cookies = auth.parse_cookies(self.headers.get("Cookie"))
-            token = cookies.get(auth.SESSION_COOKIE_NAME)
+            if not self.require_session():
+                return None
+            token = auth.parse_cookies(
+                self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
             if token:
                 auth.revoke(token)
             return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())

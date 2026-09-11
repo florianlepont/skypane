@@ -276,6 +276,17 @@ EXPECTED_CHECK_COUNT = 198  # 194 + 4 (phase 19 plan 02 Task 2, D-16/A-33:
 EXPECTED_CHECK_COUNT = 201  # 198 + 3 (phase 19 plan 02 Task 3, D-17/A-34:
 # the insecure-cookies-drops-Secure check, the fails-closed-on-"true"
 # check, and the deploy/skypane.env.example documentation check).
+EXPECTED_CHECK_COUNT = 204  # 201 + 3 (19-04-PLAN.md Task 1, D-18/A-35:
+# poll-cooldown.js's public-serving/ES5-safe/route-src-agreement checks;
+# the eight-deferred-scripts check is retargeted in place from the
+# seven-deferred-scripts check, not counted as new).
+EXPECTED_CHECK_COUNT = 208  # 204 + 4 (19-04-PLAN.md Task 2, D-18/T-19-05:
+# the exact-CSP-equality check, the strict-script-src-no-unsafe-inline
+# check, the redirect-carries-four-hardening-headers check, and the
+# static-CSS-response-carries-CSP check).
+EXPECTED_CHECK_COUNT = 210  # 208 + 2 (19-04-PLAN.md Task 3, D-18/T-19-04:
+# unauthenticated POST /ui-theme and POST /logout both redirect to
+# /login checks).
 # the save-triggered immediate calendar sync's real-HTTP-round-trip
 # outcomes — plural/singular flight count, a zero-entry feed's distinct
 # success, the single generic failure message with the URL still saved,
@@ -2913,24 +2924,73 @@ def main():
             "layout.FLASH_CLEANUP_SCRIPT_SRC equals companion.app.FLASH_CLEANUP_SCRIPT_ROUTE",
             _flash_cleanup_script_route_src_agree)
 
-        def _seven_deferred_scripts_before_closing_body():
-            # Retargeted in place from _six_deferred_scripts_before_
-            # closing_body() (quick task 260903-peo, UIR-19 Task 4):
-            # flash-cleanup.js is the seventh unconditional script.
+        # --- 19-04-PLAN.md Task 1 (D-18/A-35): poll-cooldown.js ---
+
+        check(
+            "GET /static/poll-cooldown.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/poll-cooldown.js"))
+
+        def _poll_cooldown_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "poll-cooldown.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "poll-cooldown.js must not contain %r" % token
+            required = (
+                "textContent", "removeAttribute", "setInterval",
+                "clearInterval", "addEventListener")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in poll-cooldown.js" % token
+            return True, ""
+        check(
+            "poll-cooldown.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), and carries "
+            "both the D-01 countdown (textContent/removeAttribute/setInterval/clearInterval) and "
+            "the UXA-15 disable-on-submit affordance (addEventListener)",
+            _poll_cooldown_script_es5_safe_and_no_html_write)
+
+        def _poll_cooldown_script_route_src_agree():
+            import companion.app as app_module
+            if layout.POLL_COOLDOWN_SCRIPT_SRC != app_module.POLL_COOLDOWN_SCRIPT_ROUTE:
+                return False, "poll cooldown script route drift: %r vs %r" % (
+                    layout.POLL_COOLDOWN_SCRIPT_SRC, app_module.POLL_COOLDOWN_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.POLL_COOLDOWN_SCRIPT_SRC equals companion.app.POLL_COOLDOWN_SCRIPT_ROUTE",
+            _poll_cooldown_script_route_src_agree)
+
+        def _eight_deferred_scripts_before_closing_body():
+            # Retargeted in place from _seven_deferred_scripts_before_
+            # closing_body() (19-04-PLAN.md Task 1, D-18/A-35):
+            # poll-cooldown.js is the eighth unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 7:
-                return False, "expected exactly 7 deferred <script src= tags before </body>, got %d" % count
-            for src_const in (layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC):
+            if count != 8:
+                return False, "expected exactly 8 deferred <script src= tags before </body>, got %d" % count
+            for src_const in (
+                    layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
+                    layout.POLL_COOLDOWN_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly seven deferred <script src= tags "
-            "before the closing body tag, including panel-lookup.js and flash-cleanup.js",
-            _seven_deferred_scripts_before_closing_body)
+            "a rendered authenticated page contains exactly eight deferred <script src= tags "
+            "before the closing body tag, including panel-lookup.js, flash-cleanup.js and "
+            "poll-cooldown.js",
+            _eight_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
@@ -3382,6 +3442,102 @@ def main():
             "every HTML response (an authenticated page and the login page alike) carries Cache-Control: "
             "no-store, so the back button and shared caches never replay a page after sign-out",
             _html_pages_are_no_store)
+
+        # --- 19-04-PLAN.md Task 2 (D-18, T-19-06/T-19-17/T-19-18/T-19-19): ---
+        # --- CSP on every response, and hardened redirects (T-19-05)      ---
+
+        def _authenticated_html_carries_exact_csp():
+            import companion.app as app_module
+            status, headers, _ = http_request(base + "/", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            csp = headers.get("Content-Security-Policy")
+            if csp != app_module.CONTENT_SECURITY_POLICY:
+                return False, (
+                    "expected the CSP header to equal companion.app."
+                    "CONTENT_SECURITY_POLICY exactly, got %r vs %r"
+                    % (csp, app_module.CONTENT_SECURITY_POLICY))
+            return True, ""
+        check(
+            "an authenticated HTML response carries a Content-Security-Policy header equal "
+            "(string equality, not substring) to companion.app.CONTENT_SECURITY_POLICY",
+            _authenticated_html_carries_exact_csp)
+
+        def _csp_script_src_strict_no_unsafe_inline():
+            import companion.app as app_module
+            csp = app_module.CONTENT_SECURITY_POLICY
+            if "script-src 'self'" not in csp:
+                return False, "expected script-src 'self' in the CSP, got %r" % csp
+            if "script-src 'self' 'unsafe-inline'" in csp:
+                return False, "expected script-src to NOT carry 'unsafe-inline', got %r" % csp
+            return True, ""
+        check(
+            "the CSP's script-src directive is 'self' with no 'unsafe-inline' anywhere in it "
+            "(Task 1 removed the app's last two inline <script> elements, so no exception is needed)",
+            _csp_script_src_strict_no_unsafe_inline)
+
+        def _redirect_carries_four_hardening_headers():
+            # The unauthenticated redirect to /login is a 303 reachable
+            # with no cookie at all — exercises redirect()'s hardening
+            # headers on the simplest possible path.
+            status, headers, _ = http_request(base + "/display")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            for header_name in (
+                    "X-Content-Type-Options", "X-Frame-Options",
+                    "Referrer-Policy", "Content-Security-Policy"):
+                if header_name not in headers:
+                    return False, "expected %r on a 303 redirect response" % header_name
+            return True, ""
+        check(
+            "a 303 redirect response (the unauthenticated bounce to /login) carries all four "
+            "hardening headers, including the CSP — before this plan redirect() sent none of them",
+            _redirect_carries_four_hardening_headers)
+
+        def _static_css_response_carries_csp():
+            status, headers, _ = http_request(base + "/static/style.css")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if "Content-Security-Policy" not in headers:
+                return False, "expected the CSP header on the static CSS response too"
+            return True, ""
+        check(
+            "the static CSS response (the send_bytes() path) also carries the CSP header",
+            _static_css_response_carries_csp)
+
+        # --- 19-04-PLAN.md Task 3 (D-18, T-19-04): session-gate           ---
+        # --- POST /ui-theme and POST /logout                              ---
+
+        def _ui_theme_post_without_session_redirects_to_login():
+            status, headers, _ = http_request(
+                base + "/ui-theme", method="POST", data=b"ui_theme=dark")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, (
+                    "expected an unauthenticated POST /ui-theme to redirect to /login, "
+                    "got %d/%r" % (status, headers.get("Location")))
+            set_cookie = headers.get("Set-Cookie", "")
+            if auth.UI_THEME_COOKIE_NAME in set_cookie:
+                return False, (
+                    "expected no ui_theme Set-Cookie header on an unauthenticated "
+                    "POST /ui-theme, got %r" % set_cookie)
+            return True, ""
+        check(
+            "POST /ui-theme with no session cookie redirects to /login and does not set a "
+            "ui_theme cookie (T-19-04: an unauthenticated caller cannot set another visitor's "
+            "UI theme)",
+            _ui_theme_post_without_session_redirects_to_login)
+
+        def _logout_post_without_session_redirects_to_login():
+            status, headers, _ = http_request(base + "/logout", method="POST")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, (
+                    "expected an unauthenticated POST /logout to redirect to /login, "
+                    "got %d/%r" % (status, headers.get("Location")))
+            return True, ""
+        check(
+            "POST /logout with no session cookie redirects to /login (T-19-04: gating a "
+            "logout costs a signed-out caller nothing)",
+            _logout_post_without_session_redirects_to_login)
 
         # --- 11-04 end-to-end: the real SKYPANE_SLEEP_S pre-fill, over a  ---
         # --- dedicated Harness instance (the environment must be set     ---

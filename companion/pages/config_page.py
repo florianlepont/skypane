@@ -11,8 +11,6 @@ control below is unrelated plumbing owned by companion/app.py (plan
 server.poll_loop.run_once() call all live there, not here — this module
 only renders the button/copy for it.
 """
-import json
-
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
@@ -284,17 +282,19 @@ DIRTY_BAR_INITIAL_TEXT = "Unsaved changes"
 # module).
 POLL_COOLDOWN_HELPER_TEXT = "Poll triggered recently — try again in {n}s."
 
-# DOM ids the D-01 live countdown script (_poll_cooldown_script(), below)
-# hooks with document.getElementById() — shared between poll_trigger_
-# section()'s markup and the script it emits so the two can never drift
-# apart.
+# DOM ids the D-01 live countdown script (companion/static/
+# poll-cooldown.js as of 19-04-PLAN.md/D-18) hooks with
+# document.getElementById() — shared between poll_trigger_section()'s
+# markup and the script so the two can never drift apart.
 POLL_TRIGGER_BUTTON_ID = "poll-trigger-btn"
 POLL_COOLDOWN_TEXT_ID = "poll-cooldown-text"
 
 # UXA-15: the enabled (zero-cooldown) branch's button label while a
-# submit is pending, swapped in by _poll_submit_script() below. Cosmetic
-# only — companion/app.py's _POLL_LOCK is the actual correctness
-# boundary, this is purely the immediate-feedback affordance.
+# submit is pending, swapped in by companion/static/poll-cooldown.js
+# (19-04-PLAN.md/D-18) via the button's data-submit-pending attribute.
+# Cosmetic only — companion/app.py's _POLL_LOCK is the actual
+# correctness boundary, this is purely the immediate-feedback
+# affordance.
 POLL_SUBMIT_PENDING_TEXT = "Polling…"
 
 # The placeholder the client substitutes the live second count into. The
@@ -1171,153 +1171,40 @@ def calendar_group(
     )
 
 
-def _js_literal(value):
-    """The single, mandatory gate for every Python value crossing into
-    `_poll_cooldown_script()`'s inline `<script>` body. Never interpolate
-    a Python value into the script with `%` or an f-string — always route
-    it through this function.
-
-    Two reasons: `json.dumps()` of an `int` or `str` is, by construction,
-    a syntactically valid, correctly-escaped JavaScript literal, which
-    hand-rolled quoting is not; and rewriting every `</` occurrence in
-    the result to `<\\/` means no future copy change containing a
-    closing-tag-like sequence (e.g. `</script>`) can terminate the
-    script element early. `json.dumps()` defaults to ASCII-only output,
-    so the em dash in POLL_COOLDOWN_HELPER_TEXT is emitted as a `\\u...`
-    escape sequence and the script body stays pure ASCII.
-    """
-    return json.dumps(value).replace("</", "<\\/")
-
-
-def _poll_cooldown_script(cooldown_remaining):
-    """A `<script>` element with no attributes, rendered only on
-    `poll_trigger_section()`'s disabled branch (D-01). Its body is a
-    single immediately-invoked function expression, written in an
-    ES5-safe subset (`var`, `function`, no arrow functions, no
-    `let`/`const`, no template literals) so no transpiler is ever
-    needed — matching the convention 06.5-01-PLAN.md establishes for
-    this codebase's first piece of client-side JavaScript
-    (companion/static/battery-trend.js).
-
-    Every value crossing the Python-to-JavaScript boundary goes through
-    `_js_literal()` — never `%`/f-string interpolation. The script
-    resolves both DOM elements with `document.getElementById` and
-    returns immediately if either is absent or the seeded value is not
-    greater than zero, so it is inert and harmless on any page whose
-    markup has changed. It mutates the DOM only through the paragraph's
-    `textContent` property and the button's `removeAttribute` — no
-    HTML-writing sink, no dynamic code evaluation, no network call. It
-    leaks no global (everything lives inside the IIFE) and holds no
-    persistent state.
-    """
-    template = POLL_COOLDOWN_HELPER_TEXT.format(n=POLL_COOLDOWN_TEMPLATE_TOKEN)
-    return (
-        "<script>"
-        '(function () {'
-        '"use strict";'
-        "var remaining = %s;"
-        "var btn = document.getElementById(%s);"
-        "var text = document.getElementById(%s);"
-        "if (!btn || !text || remaining <= 0) { return; }"
-        "var template = %s;"
-        "var token = %s;"
-        "var timer = setInterval(function () {"
-        "remaining -= 1;"
-        "if (remaining <= 0) {"
-        "clearInterval(timer);"
-        'btn.removeAttribute("disabled");'
-        'text.textContent = "";'
-        "return;"
-        "}"
-        "text.textContent = template.replace(token, String(remaining));"
-        "}, 1000);"
-        "})();"
-        "</script>"
-    ) % (
-        _js_literal(cooldown_remaining),
-        _js_literal(POLL_TRIGGER_BUTTON_ID),
-        _js_literal(POLL_COOLDOWN_TEXT_ID),
-        _js_literal(template),
-        _js_literal(POLL_COOLDOWN_TEMPLATE_TOKEN),
-    )
-
-
-def _poll_submit_script():
-    """A `<script>` element with no attributes, rendered only on
-    `poll_trigger_section()`'s enabled (zero-cooldown) branch (UXA-15).
-    Its body is a single immediately-invoked function expression,
-    written in the same ES5-safe subset (`var`, `function`, no arrow
-    functions, no `let`/`const`, no template literals) and
-    `_js_literal()`-gated convention `_poll_cooldown_script()` above
-    establishes — never `%`/f-string interpolation into the script body.
-
-    On the button's owning form's `submit` event, disables the button
-    and swaps its label to `POLL_SUBMIT_PENDING_TEXT` — immediate
-    visible acknowledgement that the click registered, before the
-    server round-trip completes. Guards with `if (!btn) { return; }` so
-    it is inert and harmless on any page whose markup has changed. It
-    mutates the DOM only through the button's `disabled` and
-    `textContent` properties — no HTML-writing sink, no dynamic code
-    evaluation, no network call.
-
-    This is cosmetic only, never a trust boundary: companion/app.py's
-    `_POLL_LOCK` (a process-global, non-blocking `threading.Lock()`
-    guarding `_handle_poll_now()`'s entire check-run-mark sequence) is
-    the actual correctness boundary that prevents two overlapping polls
-    from ever executing concurrently. A user who re-enables this button
-    by hand in devtools, or who submits the no-JS form from two tabs,
-    still cannot trigger a second concurrent poll cycle — the
-    server-side lock alone decides that, honestly reporting
-    "already running" to whichever request loses the race.
-    """
-    return (
-        "<script>"
-        '(function () {'
-        '"use strict";'
-        "var btn = document.getElementById(%s);"
-        "if (!btn) { return; }"
-        "var form = btn.form;"
-        "if (!form) { return; }"
-        'form.addEventListener("submit", function () {'
-        "btn.disabled = true;"
-        "btn.textContent = %s;"
-        "});"
-        "})();"
-        "</script>"
-    ) % (
-        _js_literal(POLL_TRIGGER_BUTTON_ID),
-        _js_literal(POLL_SUBMIT_PENDING_TEXT),
-    )
-
-
 def poll_trigger_section(cooldown_remaining):
     """The CFG-07 manual-trigger control: an enabled button when
     `cooldown_remaining` is zero, or a native-disabled button plus the
     D-17 remaining-seconds copy otherwise.
 
-    D-01: on the disabled branch, the button and paragraph also gain
-    `id` attributes and a `_poll_cooldown_script()` is appended after
-    the paragraph — a live, ticking countdown that decrements once per
-    second and re-enables the button (and clears the copy) at zero,
-    with no page reload. Its starting value is the server-computed,
-    history_db-persisted figure that companion/app.py's
-    `poll_cooldown_remaining()` puts in `ctx["poll_cooldown_remaining"]`,
-    so it survives a service restart and stays correct across multiple
-    tabs — the client never re-derives it from the cooldown duration
-    constant (`POLL_COOLDOWN_S`). A browser with JavaScript disabled
-    still sees exactly the same server-rendered copy and markup as
-    before this change.
-
-    The countdown script renders only on this disabled branch. The
-    zero-cooldown (enabled) branch below carries its own, different
-    script — `_poll_submit_script()`'s UXA-15 "Polling…" disable-on-
-    submit affordance — never the countdown script. Both are UX
-    affordances only, never a trust boundary: companion/app.py's
-    `_handle_poll_now()` independently re-checks the cooldown
-    server-side, and its `_POLL_LOCK` independently serializes
-    execution, before it would ever call `poll_loop.run_once()` — so a
-    user who re-enables either button by hand in devtools still cannot
-    poll early or trigger two concurrent polls.
+    D-18/A-35 (19-04-PLAN.md): this function emits ZERO `<script>`
+    elements on either branch. The D-01 live countdown and the UXA-15
+    disable-on-submit affordance both moved into
+    `companion/static/poll-cooldown.js`, served pre-auth from
+    `companion/app.py`'s `POLL_COOLDOWN_SCRIPT_ROUTE`, so
+    `companion/app.py`'s Content-Security-Policy can set
+    `script-src 'self'` with no `'unsafe-inline'` and no nonce. What
+    used to be Python-interpolated through the now-removed
+    `_js_literal()` is instead exposed as `data-*` attributes on the
+    button, every one routed through `escape_html()` here:
+      `data-cooldown` — the disabled branch's server-computed remaining
+        seconds (D-01: `poll_cooldown_remaining()`'s history_db-
+        persisted figure, so it survives a service restart and stays
+        correct across multiple tabs — never re-derived client-side
+        from `POLL_COOLDOWN_S`), absent on the enabled branch;
+      `data-cooldown-text-id` / `data-cooldown-template` /
+        `data-cooldown-token` — the disabled branch's countdown-paragraph
+        id and its `POLL_COOLDOWN_HELPER_TEXT` template plus
+        substitution token, both formatted here exactly as before;
+      `data-submit-pending` — the enabled branch's UXA-15
+        `POLL_SUBMIT_PENDING_TEXT` label, swapped in client-side on
+        submit.
+    A browser with JavaScript disabled still sees exactly the same
+    server-rendered copy and markup as before this change; the
+    countdown/disable-on-submit affordances are UX only, never a trust
+    boundary — companion/app.py's `_handle_poll_now()` independently
+    re-checks the cooldown server-side, and its `_POLL_LOCK`
+    independently serializes execution, before it would ever call
+    `poll_loop.run_once()`.
 
     quick task 260901-s5o: the section's single muted caption
     (`POLL_SECTION_CAPTION`) renders first on both branches, landing
@@ -1328,39 +1215,46 @@ def poll_trigger_section(cooldown_remaining):
     `caption_html` is computed once above the branch rather than inline
     in each return.
     """
-    # `> 0`, not truthy: must agree with _poll_cooldown_script()'s own
-    # `remaining <= 0` early-return, or a negative value would take this
-    # branch (natively disabling the button) while the script inertly
-    # no-ops, leaving no way to re-enable it client-side.
+    # `> 0`, not truthy: must agree with companion/static/poll-cooldown.js's
+    # own `remaining > 0` guard (after its `parseInt()`/`isNaN()` gate), or
+    # a negative value would take this branch (natively disabling the
+    # button) while the script inertly no-ops, leaving no way to
+    # re-enable it client-side.
     caption_html = (
         '<p class="text-label section-caption">%s</p>'
         % escape_html(POLL_SECTION_CAPTION))
     if cooldown_remaining > 0:
         cooldown_text = POLL_COOLDOWN_HELPER_TEXT.format(n=cooldown_remaining)
+        template = POLL_COOLDOWN_HELPER_TEXT.format(n=POLL_COOLDOWN_TEMPLATE_TOKEN)
         return (
             "%s"
             '<form method="post" action="/poll-now">'
-            '<button type="submit" id="%s" disabled>Trigger poll now</button>'
+            '<button type="submit" id="%s" disabled '
+            'data-cooldown="%s" data-cooldown-text-id="%s" '
+            'data-cooldown-template="%s" data-cooldown-token="%s">'
+            "Trigger poll now</button>"
             "</form>"
             '<p class="text-body" id="%s">%s</p>'
-            "%s"
         ) % (
             caption_html,
             POLL_TRIGGER_BUTTON_ID,
+            escape_html(str(cooldown_remaining)),
+            escape_html(POLL_COOLDOWN_TEXT_ID),
+            escape_html(template),
+            escape_html(POLL_COOLDOWN_TEMPLATE_TOKEN),
             POLL_COOLDOWN_TEXT_ID,
             escape_html(cooldown_text),
-            _poll_cooldown_script(cooldown_remaining),
         )
     return (
         "%s"
         '<form method="post" action="/poll-now">'
-        '<button type="submit" id="%s">Trigger poll now</button>'
+        '<button type="submit" id="%s" data-submit-pending="%s">'
+        "Trigger poll now</button>"
         "</form>"
-        "%s"
     ) % (
         caption_html,
         POLL_TRIGGER_BUTTON_ID,
-        _poll_submit_script(),
+        escape_html(POLL_SUBMIT_PENDING_TEXT),
     )
 
 

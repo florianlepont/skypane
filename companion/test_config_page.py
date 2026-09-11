@@ -1485,27 +1485,24 @@ def main():
         _poll_section_caption_renders_on_both_branches_under_the_heading)
 
     def _poll_trigger_live_countdown_seeded_from_server_value():
-        # D-01: the disabled branch must ship exactly one inline <script>,
-        # carrying id="poll-trigger-btn"/id="poll-cooldown-text", the
-        # unchanged server-rendered no-JS copy, and every value the
-        # script needs emitted through config_page._js_literal() — never
-        # a hardcoded quoted string, so this check stays correct if the
-        # id/token constants are ever changed deliberately.
+        # D-18/A-35 (19-04-PLAN.md): RETARGETED — the disabled branch no
+        # longer ships an inline <script> at all (that behaviour moved to
+        # companion/static/poll-cooldown.js, D-01/UXA-15 externalized).
+        # This check now pins the data-* attribute contract the script
+        # reads instead: id="poll-trigger-btn"/id="poll-cooldown-text",
+        # the unchanged server-rendered no-JS copy, and every value the
+        # script needs exposed as an escape_html()-gated data attribute
+        # on the button — never a hardcoded quoted string, so this check
+        # stays correct if the id/token constants are ever changed
+        # deliberately.
         d17 = config_page.poll_trigger_section(17)
         d5 = config_page.poll_trigger_section(5)
         z = config_page.poll_trigger_section(0)
 
-        if d17.count("<script") != 1:
-            return False, "expected exactly one <script occurrence at cooldown=17, got %d" % d17.count("<script")
-        # UXA-15 (06.6.2-02): the zero-cooldown branch now legitimately
-        # ships its own, different <script> (the submit-affordance
-        # script, _poll_submit_script()) — no longer zero. Distinguish
-        # it from the countdown script by absence of countdown-only
-        # markers.
-        if z.count("<script") != 1:
-            return False, "expected exactly one <script occurrence at cooldown=0 (the submit-affordance script), got %d" % z.count("<script")
-        if "setInterval" in z or "removeAttribute" in z:
-            return False, "expected the zero-cooldown script to be the submit-affordance script, not the countdown script"
+        if "<script" in d17:
+            return False, "expected zero <script occurrences at cooldown=17 (D-18: externalized to poll-cooldown.js)"
+        if "<script" in z:
+            return False, "expected zero <script occurrences at cooldown=0 (D-18: externalized to poll-cooldown.js)"
         if ('id="%s"' % config_page.POLL_TRIGGER_BUTTON_ID) not in d17:
             return False, "expected the button's id attribute"
         if ('id="%s"' % config_page.POLL_COOLDOWN_TEXT_ID) not in d17:
@@ -1516,56 +1513,46 @@ def main():
         if visible_copy not in d17:
             return False, "expected the unchanged, server-rendered no-JS copy"
 
-        body17_match = re.search(r"<script>(.*?)</script>", d17, re.S)
-        if not body17_match:
-            return False, "expected a <script>...</script> body to extract"
-        body17 = body17_match.group(1)
-
-        expected_literals = [
-            config_page._js_literal(17),
-            config_page._js_literal(config_page.POLL_TRIGGER_BUTTON_ID),
-            config_page._js_literal(config_page.POLL_COOLDOWN_TEXT_ID),
-            config_page._js_literal(config_page.POLL_COOLDOWN_TEMPLATE_TOKEN),
-            config_page._js_literal(
-                config_page.POLL_COOLDOWN_HELPER_TEXT.format(
-                    n=config_page.POLL_COOLDOWN_TEMPLATE_TOKEN)),
+        template = escape_html(config_page.POLL_COOLDOWN_HELPER_TEXT.format(
+            n=config_page.POLL_COOLDOWN_TEMPLATE_TOKEN))
+        token = escape_html(config_page.POLL_COOLDOWN_TEMPLATE_TOKEN)
+        expected_attrs = [
+            'data-cooldown="17"',
+            'data-cooldown-text-id="%s"' % escape_html(config_page.POLL_COOLDOWN_TEXT_ID),
+            'data-cooldown-template="%s"' % template,
+            'data-cooldown-token="%s"' % token,
         ]
-        for literal in expected_literals:
-            if literal not in body17:
-                return False, "expected seeded literal %r in the script body" % (literal,)
+        for attr in expected_attrs:
+            if attr not in d17:
+                return False, "expected data attribute %r on the disabled branch" % (attr,)
 
-        body5_match = re.search(r"<script>(.*?)</script>", d5, re.S)
-        if not body5_match:
-            return False, "expected a <script>...</script> body to extract at cooldown=5"
-        body5 = body5_match.group(1)
-        if body5 == body17:
-            return False, "expected a different seed to produce a different script body"
-        if config_page._js_literal(5) not in body5:
+        if 'data-cooldown="5"' not in d5:
             return False, "expected the seed to come from the argument (5), not a hardcoded value"
-
-        if "</" in config_page._js_literal("</script>"):
-            return False, "expected _js_literal() to break the script-closing sequence"
 
         return True, ""
     check(
-        "poll_trigger_section() ships a live countdown script on the disabled branch, seeded exclusively via _js_literal(), and a different submit-affordance script on the zero-cooldown branch (D-01, UXA-15)",
+        "poll_trigger_section() emits zero <script> elements and ships the D-01/UXA-15 data-* "
+        "attribute contract companion/static/poll-cooldown.js reads instead, on both the "
+        "disabled and zero-cooldown branches (D-18/A-35, 19-04-PLAN.md)",
         _poll_trigger_live_countdown_seeded_from_server_value)
 
     def _poll_trigger_zero_cooldown_ships_submit_affordance_script():
-        # UXA-15 (06.6.2-02): supersedes the pre-existing "no script at
-        # zero cooldown" regression guard this check used to assert —
-        # that invariant is no longer true by design. Pins the new one
-        # instead: poll_trigger_section(0) carries id="poll-trigger-btn"
-        # and exactly one <script> (the submit-affordance script, not
-        # the countdown script), while poll_trigger_section(30)'s own
-        # pre-existing _poll_cooldown_script() output stays unchanged.
+        # D-18/A-35 (19-04-PLAN.md): RETARGETED — supersedes the
+        # pre-existing "ships its own inline <script>" assertion, no
+        # longer true by design now that the UXA-15 disable-on-submit
+        # affordance lives in companion/static/poll-cooldown.js. Pins
+        # the new contract instead: poll_trigger_section(0) carries
+        # id="poll-trigger-btn" and a data-submit-pending attribute, no
+        # <script> anywhere, while poll_trigger_section(30) carries the
+        # disabled-branch data-cooldown attribute set instead.
         rendered = config_page.poll_trigger_section(0)
         if "Trigger poll now" not in rendered:
             return False, "expected the Trigger poll now button copy"
         # Scoped to the <button ...> tag, not a bare substring search —
         # see _poll_trigger_enabled_at_zero_cooldown()'s own comment on
-        # why (_poll_submit_script()'s body legitimately contains
-        # "disabled" as a JS property name).
+        # why (poll-cooldown.js's own body legitimately contains
+        # "disabled" as a JS property name, though that no longer
+        # reaches this render() output at all post-externalization).
         button_tag = re.search(r"<button\b[^>]*>", rendered)
         if not button_tag:
             return False, "expected a <button> tag to extract"
@@ -1573,19 +1560,21 @@ def main():
             return False, "expected no disabled attribute at zero cooldown"
         if ('id="%s"' % config_page.POLL_TRIGGER_BUTTON_ID) not in rendered:
             return False, "expected the button's id attribute"
-        if rendered.count("<script") != 1:
-            return False, "expected exactly one <script occurrence at zero cooldown"
-        if "setInterval" in rendered or "removeAttribute" in rendered:
-            return False, "expected the zero-cooldown script to be the submit-affordance script, not the countdown script"
+        if "<script" in rendered:
+            return False, "expected zero <script occurrences at zero cooldown (D-18: externalized to poll-cooldown.js)"
+        if 'data-submit-pending="%s"' % escape_html(config_page.POLL_SUBMIT_PENDING_TEXT) not in rendered:
+            return False, "expected the data-submit-pending attribute carrying the pending label"
 
         nonzero = config_page.poll_trigger_section(30)
-        if config_page._poll_cooldown_script(30) not in nonzero:
+        if 'data-cooldown="30"' not in nonzero:
             return False, (
-                "expected poll_trigger_section(30) to still carry its own "
-                "pre-existing _poll_cooldown_script() output unchanged")
+                "expected poll_trigger_section(30) to carry the disabled-branch "
+                "data-cooldown attribute")
         return True, ""
     check(
-        "poll_trigger_section(0) ships id=\"poll-trigger-btn\" and exactly one <script> (the UXA-15 submit-affordance script), while poll_trigger_section(30) still carries its unchanged countdown script",
+        "poll_trigger_section(0) ships id=\"poll-trigger-btn\" and a data-submit-pending "
+        "attribute with zero <script> elements, while poll_trigger_section(30) carries the "
+        "disabled-branch data-cooldown attribute instead (D-18/A-35, 19-04-PLAN.md)",
         _poll_trigger_zero_cooldown_ships_submit_affordance_script)
 
     # The whole forbidden-sink family in one place, so a future reader
@@ -1599,44 +1588,68 @@ def main():
         "use strict", "textContent", "removeAttribute",
         "setInterval", "clearInterval",
     )
+    _POLL_COOLDOWN_JS_PATH = os.path.join(HERE, "static", "poll-cooldown.js")
 
     def _poll_cooldown_script_has_no_forbidden_sink():
+        # D-18/A-35 (19-04-PLAN.md): RETARGETED IN PLACE — the countdown
+        # no longer renders as an inline <script>, so this check now
+        # asserts poll_trigger_section(17) contains NO <script substring
+        # at all plus the required data attributes, and moves the
+        # forbidden-sink/required-operation coverage this check used to
+        # provide onto companion/static/poll-cooldown.js's own source
+        # (read from disk) instead of dropping it.
         rendered = config_page.poll_trigger_section(17)
-        body_match = re.search(r"<script>(.*?)</script>", rendered, re.S)
-        if not body_match:
-            return False, "expected a <script>...</script> body to extract"
-        body = body_match.group(1)
+        if "<script" in rendered:
+            return False, "expected zero <script occurrences at cooldown=17 (D-18: externalized to poll-cooldown.js)"
+        for attr in (
+                'data-cooldown="17"',
+                'data-cooldown-text-id="%s"' % escape_html(config_page.POLL_COOLDOWN_TEXT_ID)):
+            if attr not in rendered:
+                return False, "expected data attribute %r on the disabled branch" % (attr,)
+        with open(_POLL_COOLDOWN_JS_PATH) as fh:
+            src = fh.read()
         for forbidden in _FORBIDDEN_SCRIPT_SINKS:
-            if forbidden in body:
-                return False, "forbidden sink found in the inline script: %r" % (forbidden,)
+            if forbidden in src:
+                return False, "forbidden sink found in poll-cooldown.js: %r" % (forbidden,)
         for required in _REQUIRED_SCRIPT_OPERATIONS:
-            if required not in body:
-                return False, "expected required operation %r in the inline script" % (required,)
+            if required not in src:
+                return False, "expected required operation %r in poll-cooldown.js" % (required,)
         return True, ""
     check(
-        "the inline countdown script contains none of the forbidden HTML-writing/eval/network sinks and does contain strict mode plus the permitted DOM/timer operations",
+        "poll_trigger_section(17) carries no <script substring and ships the countdown's "
+        "required data attributes; companion/static/poll-cooldown.js's own source contains "
+        "none of the forbidden HTML-writing/eval/network sinks and does contain strict mode "
+        "plus the permitted DOM/timer operations (retargeted, D-18/A-35)",
         _poll_cooldown_script_has_no_forbidden_sink)
 
     def _poll_submit_script_has_no_forbidden_sink():
+        # D-18/A-35 (19-04-PLAN.md): RETARGETED IN PLACE — the
+        # disable-on-submit affordance no longer renders as an inline
+        # <script>, so this check now asserts poll_trigger_section(0)
+        # contains NO <script substring at all plus the
+        # data-submit-pending attribute, and moves the forbidden-sink
+        # coverage onto companion/static/poll-cooldown.js's own source
+        # (read from disk) instead of dropping it.
         rendered = config_page.poll_trigger_section(0)
-        body_match = re.search(r"<script>(.*?)</script>", rendered, re.S)
-        if not body_match:
-            return False, "expected a <script>...</script> body to extract"
-        body = body_match.group(1)
+        if "<script" in rendered:
+            return False, "expected zero <script occurrences at cooldown=0 (D-18: externalized to poll-cooldown.js)"
+        if 'data-submit-pending="%s"' % escape_html(config_page.POLL_SUBMIT_PENDING_TEXT) not in rendered:
+            return False, "expected the data-submit-pending attribute carrying the pending label"
+        with open(_POLL_COOLDOWN_JS_PATH) as fh:
+            src = fh.read()
         for forbidden in _FORBIDDEN_SCRIPT_SINKS:
-            if forbidden in body:
-                return False, "forbidden sink found in the inline script: %r" % (forbidden,)
-        if config_page._js_literal(config_page.POLL_TRIGGER_BUTTON_ID) not in body:
-            return False, "expected the button id to be seeded via _js_literal(), not hardcoded"
-        if config_page._js_literal(config_page.POLL_SUBMIT_PENDING_TEXT) not in body:
-            return False, "expected the pending-label text to be seeded via _js_literal(), not hardcoded"
-        if "use strict" not in body:
+            if forbidden in src:
+                return False, "forbidden sink found in poll-cooldown.js: %r" % (forbidden,)
+        if "use strict" not in src:
             return False, "expected strict mode"
-        if "addEventListener" not in body:
+        if "addEventListener" not in src:
             return False, "expected a submit event listener"
         return True, ""
     check(
-        "the inline submit-affordance script contains none of the forbidden HTML-writing/eval/network sinks, seeds every interpolated value via _js_literal(), and attaches a submit listener (UXA-15)",
+        "poll_trigger_section(0) carries no <script substring and ships the data-submit-pending "
+        "attribute; companion/static/poll-cooldown.js's own source contains none of the "
+        "forbidden HTML-writing/eval/network sinks and attaches a submit listener (retargeted, "
+        "D-18/A-35, UXA-15)",
         _poll_submit_script_has_no_forbidden_sink)
 
     def _valid_save_writes_both_and_returns_saved_key():
