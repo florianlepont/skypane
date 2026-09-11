@@ -1,7 +1,7 @@
 ---
 phase: 20
 slug: companion-suggestions-from-the-audit-french-localisation-liv
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-09-11
@@ -43,7 +43,7 @@ Reused as-is — zero new tokens:
 | 2xl | 48px | Not used directly by this phase's new markup |
 | 3xl | 64px | Not used directly by this phase's new markup |
 
-Exceptions: none. Every new rule composes existing spacing tokens only.
+Exceptions: one, already established — a 2px micro-spacing tier for hairline-adjacent internals (`.theme-form { gap: 2px; padding: 2px }` and `.section-intro { gap: 2px }` ship today). This phase reuses it in exactly three places: `.preview-frame__flight { margin-top: 2px }`, `.theme-chip--compact .theme-chip__name { margin-bottom: 2px }` and the compact `.theme-chip__swatches { gap: 2px }`. Every other new rule composes the 4px-multiple tokens only.
 
 ---
 
@@ -140,7 +140,7 @@ Locked-English module constants (source language), each with its French catalogu
 | Status verdict: not connected | "Not connected" | "Non connecté" |
 | Status detail template | "%d upcoming flights · checked %s" | "%d vols à venir · vérifié %s" |
 | Status detail, error | "The feed could not be read" | "Impossible de lire le flux" |
-| Connect button | "Connect" | "Connecter" |
+| Connect button | "Connect calendar" | "Connecter le calendrier" |
 | Flash, success | "Calendar connected — %d flights found" | "Calendrier connecté — %d vols trouvés" |
 | Replace-URL disclosure | "Replace the feed URL" | "Remplacer l'URL du flux" |
 | Disconnect button (unchanged control, now positioned as a secondary button at card end) | "Disconnect" | "Déconnecter" |
@@ -157,7 +157,7 @@ Locked-English module constants (source language), each with its French catalogu
 | Segment: aircraft | "Aircraft" (title="ICAO24 hex") | "Avion" (title="Code hexadécimal ICAO24") |
 | Segment: airline | "Airline" (title="Callsign prefix") | "Compagnie" (title="Préfixe d'indicatif d'appel") |
 | Value placeholder (per segment, data-shaped, not translated) | `AFR1234` / `3944F2` / `AFR` | unchanged |
-| Add button | "Add" | "Ajouter" |
+| Add button | "Add rule" | "Ajouter la règle" |
 | Kind badge text (list) | "Flight" / "Aircraft" / "Airline" | "Vol" / "Avion" / "Compagnie" |
 | Remove button | "Remove" | "Retirer" |
 | Empty heading | "No flight colours yet." | "Encore aucune couleur de vol." |
