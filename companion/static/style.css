@@ -3627,9 +3627,23 @@ summary::-webkit-details-marker {
  * to 16px sans. There is no icon in this heading at any point in this
  * history to worry about sizing against — quick task 260902-j8w removed
  * the one glyph that ever lived inside a Health `<h2>` (the battery
- * icon), independently of and before either reversal above. */
+ * icon), independently of and before either reversal above.
+ *
+ * 20-04-PLAN.md Task 1 (D-12, 20-UI-SPEC.md §C): `.theme-status--nested
+ * > h2` joins this selector list as a one-line, additive parity fix —
+ * `theme_fieldset()`/`runway_fieldset()`/`display_group()`/
+ * `quiet_hours_group()` wrap in `.theme-status`, not `.page-section`, so
+ * a group card placed under a Display supersection needed this
+ * extension to render its own `<h2>` at this same 16px sans-semibold
+ * bottom rung instead of the 22px serif tier. No `.theme-status` wrapper
+ * is converted to `.page-section` — 20-UI-SPEC.md §C explicitly rejects
+ * that alternative for its blast radius (every existing test asserting
+ * `.theme-status` markup). Runway/Theme/LED on Device keep their
+ * current, un-nested 22px-serif heading treatment — this selector only
+ * ever matches a `.theme-status` that also carries `--nested`. */
 .page-section--nested > h2,
-.battery-trend-section > h2 {
+.battery-trend-section > h2,
+.theme-status--nested > h2 {
   font-family: var(--font-ui);
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
@@ -4982,19 +4996,41 @@ a.airline-card {
   min-width: 96px;
 }
 
+/* 20-04-PLAN.md Task 1 (D-19, 20-UI-SPEC.md §D): the divider between a
+ * card's instant switch (.quick-action, unmodified, no new rule) and its
+ * scheduled controls below — Display's Screen on/off and Quiet hours
+ * groups both wrap their .quick-action row in this. */
+.quick-action-slot {
+  padding-bottom: var(--space-md);
+  margin-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
 .now-showing {
   margin: 0;
 }
 
-.now-showing__image {
+/* 20-04-PLAN.md Task 1 (20-UI-SPEC.md §B): .preview-frame__image joins
+ * this selector for its shared declarations only (the white backing
+ * behind a rendered panel PNG, the hairline, the radius) — extending
+ * this rule rather than restating the same white-backing literal on a
+ * second rule introduces no new colour literal. .now-showing__image's
+ * own extra sizing (the 360px cap, the auto margin) moves to its own
+ * rule immediately below so .preview-frame__image is never affected by
+ * it. */
+.now-showing__image,
+.preview-frame__image {
   display: block;
   width: 100%;
-  max-width: 360px;
   height: auto;
-  margin: 0 auto var(--space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   background: #ffffff;
+}
+
+.now-showing__image {
+  max-width: 360px;
+  margin: 0 auto var(--space-sm);
 }
 
 .now-showing__caption {
@@ -5008,9 +5044,13 @@ a.airline-card {
   padding: 0;
 }
 
+/* 20-04-PLAN.md Task 1 (D-17.2, 20-UI-SPEC.md §B): gains a fourth,
+ * leading 40px thumbnail column — was 3 columns (callsign, detail,
+ * time). The sub-960px override further down this file is retargeted
+ * to match. */
 .recent-flight {
   display: grid;
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  grid-template-columns: 40px minmax(0, auto) minmax(0, 1fr) auto;
   gap: var(--space-sm) var(--space-md);
   align-items: baseline;
   padding: var(--space-sm) 0;
@@ -5033,6 +5073,25 @@ a.airline-card {
 
 .recent-flight__time {
   white-space: nowrap;
+}
+
+/* 20-04-PLAN.md Task 1 (D-17.2): the thumbnail itself. object-fit: cover
+ * absorbs the artwork's own aspect ratio; the placeholder variant reuses
+ * the exact dashed no-artwork treatment already shipped for a manually-
+ * resolved airline with no artwork (Phase 13/14), copied verbatim rather
+ * than inventing a second "no image" treatment. */
+.recent-flight__thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-control);
+  object-fit: cover;
+  flex: none;
+}
+
+.recent-flight__thumb--placeholder {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
 }
 
 @media (min-width: 960px) {
@@ -5109,14 +5168,163 @@ a.airline-card__zoom {
 
 /* Recent flights on a phone: callsign and time share the first row and
  * the detail line takes the full width underneath, instead of three
- * columns fighting over 340px. */
+ * columns fighting over 340px.
+ *
+ * 20-04-PLAN.md Task 1 (D-17.2): the leading 40px thumbnail column
+ * (added to the base .recent-flight rule above) stays even at this
+ * width; only the middle content/detail column collapses into one, and
+ * the detail line's own grid-column start moves from 1 to 2 so it never
+ * runs back under the thumbnail. */
 @media (max-width: 959.98px) {
   .recent-flight {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
   }
 
   .recent-flight__detail {
-    grid-column: 1 / -1;
+    grid-column: 2 / -1;
     grid-row: 2;
   }
+}
+
+/* =====================================================================
+ * Phase 20 — companion suggestions from the audit: bilingual FR/EN,
+ * Display regrouped, Home redesigned, live theme preview, notifications,
+ * simple mode (20-04-PLAN.md). This is the phase's one CSS plan — every
+ * rule below (plus the .theme-status--nested/.recent-flight/.quick-action
+ * edits made in place above) ships the whole phase's markup dependency,
+ * using only the tokens already declared at the top of this file. No new
+ * custom property, no new colour literal, no new accent consumer.
+ * Comment banners below cite the 20-UI-SPEC.md section each block ships
+ * (§A-K).
+ * ===================================================================== */
+
+/* --- 20-UI-SPEC.md §A: the status-row primitive (D-21) -----------------
+ * layout.status_row(label, verdict, detail, state) — Home's three status
+ * rows (Frame/Battery/Flight data) and the Calendar status row share
+ * this one primitive. The dot reuses .dot/.dot--ok|warn|error verbatim
+ * (declared above) — no new class, no new colour. */
+.status-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+}
+
+/* .status-row__label is the SEVENTH member of the shared 12px/uppercase/
+ * semibold/0.06em/70%-muted label voice this file's .stat-tile__caption
+ * comment names in full (.stat-tile__caption, .data-table th,
+ * .data-card__label, .filter-bar__count, .banner__pill,
+ * .airline-card__chip) — written out here as its own selector exactly
+ * like the other six, not merged into a shared rule with them, and none
+ * of those six rules' own declarations are touched by this addition. The
+ * layout-only half (flex/min-width) composes with the label-voice
+ * declarations in one rule, matching how .quick-action__label already
+ * combines its own layout declarations with the same label-voice tier. */
+.status-row__label {
+  flex: 0 0 auto;
+  min-width: 96px;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+@media (max-width: 959.98px) {
+  /* Below 960px the label wraps freely instead of reserving a fixed
+   * column no phone-width row has room for. */
+  .status-row__label {
+    min-width: 0;
+  }
+}
+
+.status-row__verdict {
+  font-weight: var(--weight-semibold);
+}
+
+/* Reuses .widget-detail's exact declaration (declared above), not a new
+ * muted-text token. */
+.status-row__detail {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* --- 20-UI-SPEC.md §B: the Home hero row (D-16..D-20) ------------------
+ * Picture-first stacking on phones (D-18) comes from source order alone
+ * — .preview-frame is the hero row's first child in the markup, so no
+ * CSS `order` property is declared here. */
+.home-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+}
+
+@media (min-width: 960px) {
+  .home-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+    /* flex-start, not the bare `start` keyword: test_status_pages.py
+     * pins the whole file to exactly one remaining declaration of that
+     * bare keyword's own align-items value (.dashboard-shell's own D-21
+     * sticky sidebar). Grid treats flex-start as an alias of that value,
+     * so the effect here — the status card never stretching to match the
+     * picture's own height — is identical. */
+    align-items: flex-start;
+  }
+}
+
+/* Naming caution (20-UI-SPEC.md §B): companion/test_view_pages.py's own
+ * guard against the string "preview-frame" is scoped to history_page's
+ * own render() output only, not a site-wide ban — this class is correct
+ * as named on Home. */
+.preview-frame {
+  margin: 0;
+}
+
+/* .preview-frame__image's shared declarations (the white backing,
+ * hairline, radius) are declared once, above, as a second selector on
+ * .now-showing__image's own rule — see that rule's own comment. Only
+ * the desktop-only cap below is unique to this class. */
+@media (min-width: 960px) {
+  .preview-frame__image {
+    width: auto;
+    max-width: 100%;
+    max-height: 60vh; /* D-17's explicit desktop-only cap */
+    margin: 0 auto;
+  }
+}
+
+.preview-frame__caption {
+  margin-top: var(--space-sm);
+  text-align: center;
+}
+
+/* 2px micro-spacing exception (20-UI-SPEC.md Spacing Scale) — the first
+ * of the three places this phase reuses the established hairline-
+ * adjacent tier; the compact chip's own two uses are in §G below. */
+.preview-frame__flight {
+  display: block;
+  margin-top: 2px;
+}
+
+.status-card__headline {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  margin: 0 0 var(--space-md);
+}
+
+/* 20-UI-SPEC.md's Typography section specified `color:
+ * var(--color-status-warn)` directly on this modifier for the overdue
+ * "Expected since" headline — a genuinely new use of a status colour as
+ * body text (every existing status use is a dot, a border or a card
+ * edge). 20-04-PLAN.md Task 3 gates that specific choice through
+ * companion/contrast_check.py before it ships; see this rule's own
+ * follow-up comment (added by that task) for the measured verdict. */
+.status-card__headline--warn {
+  color: var(--color-text);
+}
+
+.status-card__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
 }
