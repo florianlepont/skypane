@@ -183,8 +183,13 @@ def main():
     # simple-mode switch's "Simple" option is unchanged ("Simple" /
     # "Complet") — the one documented exception to "the French value
     # always differs from its English key" for this plan's own seeded
-    # entries.
-    _UNCHANGED_IN_FRENCH = frozenset({"Simple"})
+    # entries. 20-03-PLAN.md Task 3 (D-05) adds three genuine French/
+    # English cognates from the Health page's own catalogue entries —
+    # "Corroboration" (a shared technical loanword), and "Source"/
+    # "Description" (the resolution-statistics table's own headers,
+    # identical in both languages) — the same "real cognate, not a
+    # missed translation" exception this frozenset already exists for.
+    _UNCHANGED_IN_FRENCH = frozenset({"Simple", "Corroboration", "Source", "Description"})
 
     def _check_every_catalog_value_is_str_and_differs_from_key():
         bad_type = [k for k, v in i18n_fr.CATALOG.items() if not isinstance(v, str)]
