@@ -311,6 +311,17 @@ Every decision below is locked (it comes from the PRD, which records the develop
    renamed "Flight colours" heading are proposals; both are one-line changes
    if the developer prefers otherwise.
 
+### Resolutions of the research's findings and open questions (2026-09-11, orchestrator)
+- **D-19 amended:** the Screen on/off and Quiet hours cards render OUTSIDE `<form id="settings-form">` (HTML forbids nested forms); their scheduled inputs bind to the form with the `form="settings-form"` attribute, the precedent quick task 260901-re6 already shipped. No pinned check asserts those groups are literal descendants of the form (substring checks only) — retarget any that turn out to.
+- **D-14c amended:** the calendar "Connect" mini-form posts to its own dedicated route `POST /settings/calendar/connect` (mirroring `calendar_disconnect_section()`), never to `/settings?scope=display` — with Calendar in Display's scope, a scope post would flip absent checkboxes off.
+- **D-17 bug root cause:** Home's Frame tile embeds `health_state["device_html"]`, which already carries the verdict paragraph; the rebuild renders the verdict once from `FRAME_STATE_TEXT` and takes only the timestamp/detail from the health state.
+- **D-26 amended:** the notification topic URL is write-only like the calendar URL (never rendered back, not partially masked); the group shows a "Configured" / "Not configured" status row and a "Replace the URL" disclosure.
+- **D-27:** the wake arithmetic moves to a new `server/wake.py`; `companion/wake.py` becomes a thin re-export shim so no import site or pinned test changes.
+- **D-23:** the live preview cache key folds in the runway event's row id (theme id, event id, cache version).
+- **D-06 scope narrowed by the inventory:** only `copy-button.js` ("Copied") and `dirty-state.js` (the "changed"/"and"/"unsaved change(s)" connector words) still carry screen-bound literals; the other scripts already read `data-*` attributes.
+- **Home's checks** live in `companion/test_view_pages.py` (13 `home_page.` references; none in the other harnesses) — that file owns every Home retarget; no new `test_home_page.py`.
+- **UI-SPEC:** `20-UI-SPEC.md` is this phase's design contract (produced non-interactively from the locked decisions and the design-system skill); the planner reads it alongside the skill. Its five structural notes are adopted: switches outside the form (above), Display supersections reuse Health's `_section_intro_html()` promoted to `layout.py`, the two-form calendar card, native radios styled as the segmented control for "Match by", and a `contrast_check.py` gate for the warn-coloured "Expected since" headline.
+
 ### Claude's Discretion
 - The exact French wording of every string, within D-09's rules; the catalogue file layout (one dict, grouped by page with comments).
 - How `t()` learns the request language (a `contextvars.ContextVar` set by the handler is the expected shape; a thread-local is acceptable since `ThreadingHTTPServer` is one thread per request).
