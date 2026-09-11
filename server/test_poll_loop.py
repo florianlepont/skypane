@@ -120,7 +120,15 @@ if REPO_ROOT not in sys.path:
 # refresh_calendar_registry()'s new min_interval_s parameter to default to
 # None, driven through run_once()'s own production call site rather than
 # the calendar function directly) - 80 + 1.
-EXPECTED_CHECK_COUNT = 81
+# 20-05-PLAN.md Task 1: +8 (wiring _notify_battery_transition() into both
+# battery_low_active call sites: a first low transition sending exactly
+# one push with the millivolt figure, a second cycle still low sending
+# nothing, a recovery transition sending exactly one push, D-26's
+# battery_low:False and no-topic_url off-switches each sending nothing, a
+# False-returning sender still flipping the recorded state, a raising
+# sender not propagating out of the real run_once() call site, and
+# notifications.lang="fr" producing the French body) - 80 + 8.
+EXPECTED_CHECK_COUNT = 89
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -328,6 +336,23 @@ def _write_battery_state(state_dir, mv):
     """
     with open(os.path.join(state_dir, "battery_state.json"), "w") as fh:
         json.dump({"battery_mv": mv, "received_at": 1.0}, fh)
+
+
+# 20-05-PLAN.md: the transition-hook checks below (both tasks) never
+# perform a real POST - every one injects this fake in place of
+# server.notify.send_notification, recording each call's (topic_url,
+# title, body) rather than reaching a network.
+class _FakeSender:
+    def __init__(self, result=True, raises=None):
+        self.calls = []
+        self.result = result
+        self.raises = raises
+
+    def __call__(self, topic_url, title, body, timeout=5, transport=None):
+        self.calls.append((topic_url, title, body))
+        if self.raises is not None:
+            raise self.raises
+        return self.result
 
 
 # Phase 16, plan 07: a real airline/far-end pair the calendar checks reuse
@@ -3527,6 +3552,203 @@ def main():
                 "refresh_calendar_registry()'s new parameter to default to None so today's pacing is "
                 "unchanged (D-06)",
                 _default_min_interval_s_preserves_poll_loops_pacing,
+            )
+
+            # --- 20-05-PLAN.md Task 1: the battery-low transition push,
+            # sent once per transition. Every check below calls
+            # poll_loop._notify_battery_transition() directly with an
+            # injected _FakeSender - the private helper both
+            # battery_low_active call sites in run_once() invoke - never a
+            # real POST. One check (raising sender) additionally drives
+            # the real run_once() call site to prove the exception
+            # containment holds through the actual wiring, not just the
+            # helper in isolation. -----------------------------------------
+
+            _NOTIFY_TOPIC_URL = "https://ntfy.sh/skypane-test-topic"
+
+            def _notify_device_cfg(topic_url=_NOTIFY_TOPIC_URL, battery_low=True, frame_silent=True, lang="en"):
+                notifications = {
+                    "topic_url": topic_url, "battery_low": battery_low,
+                    "frame_silent": frame_silent, "lang": lang,
+                }
+                return {"notifications": notifications}
+
+            # 68. A first cycle crossing into low sends exactly one push
+            # whose body carries the millivolt figure, and records
+            # last_battery_sent=True.
+            def _battery_low_transition_sends_once_with_mv():
+                poll_state = {}
+                sender = _FakeSender()
+                poll_loop._notify_battery_transition(
+                    "unused", poll_state, True, 3400, _notify_device_cfg(), sender=sender,
+                )
+                if len(sender.calls) != 1:
+                    return False, "expected exactly one send, got %d" % len(sender.calls)
+                _, title, body = sender.calls[0]
+                if title != poll_loop.notify.TEST_NOTIFICATION_TITLE:
+                    return False, "expected the project's short-name title, got %r" % (title,)
+                if "3400" not in body:
+                    return False, "expected the millivolt figure 3400 in body %r" % (body,)
+                if poll_state.get("notifications", {}).get("last_battery_sent") is not True:
+                    return False, "expected last_battery_sent=True recorded, got %r" % (poll_state,)
+                return True, ""
+            check(
+                "a first cycle crossing into battery-low sends exactly one push whose body carries the "
+                "millivolt reading, and records last_battery_sent=True",
+                _battery_low_transition_sends_once_with_mv,
+            )
+
+            # 69. A second cycle still low (unchanged reported state) sends
+            # nothing.
+            def _battery_low_second_cycle_sends_nothing():
+                poll_state = {"notifications": {"last_battery_sent": True, "last_silent_sent": False}}
+                sender = _FakeSender()
+                poll_loop._notify_battery_transition(
+                    "unused", poll_state, True, 3400, _notify_device_cfg(), sender=sender,
+                )
+                if sender.calls:
+                    return False, "expected no send on an unchanged battery-low state, got %r" % (sender.calls,)
+                return True, ""
+            check(
+                "a second cycle still battery-low (last_battery_sent already True) sends nothing",
+                _battery_low_second_cycle_sends_nothing,
+            )
+
+            # 70. A cycle crossing back to normal sends exactly one
+            # recovery push (no arguments in the body) and records
+            # last_battery_sent=False.
+            def _battery_recovery_transition_sends_once():
+                poll_state = {"notifications": {"last_battery_sent": True, "last_silent_sent": False}}
+                sender = _FakeSender()
+                poll_loop._notify_battery_transition(
+                    "unused", poll_state, False, 3700, _notify_device_cfg(), sender=sender,
+                )
+                if len(sender.calls) != 1:
+                    return False, "expected exactly one recovery send, got %d" % len(sender.calls)
+                if sender.calls[0][2] != poll_loop.notify.BATTERY_OK_BODY:
+                    return False, "expected the fixed recovery body, got %r" % (sender.calls[0][2],)
+                if poll_state["notifications"]["last_battery_sent"] is not False:
+                    return False, "expected last_battery_sent=False recorded, got %r" % (poll_state,)
+                return True, ""
+            check(
+                "a cycle crossing back to normal sends exactly one recovery push (no interpolated "
+                "arguments) and records last_battery_sent=False",
+                _battery_recovery_transition_sends_once,
+            )
+
+            # 71. D-26: a config with battery_low: False sends nothing on a
+            # transition, and records nothing either.
+            def _battery_config_disabled_sends_nothing():
+                poll_state = {}
+                sender = _FakeSender()
+                poll_loop._notify_battery_transition(
+                    "unused", poll_state, True, 3400, _notify_device_cfg(battery_low=False), sender=sender,
+                )
+                if sender.calls:
+                    return False, "expected no send with battery_low: False, got %r" % (sender.calls,)
+                if "notifications" in poll_state:
+                    return False, "expected nothing recorded with battery_low: False, got %r" % (poll_state,)
+                return True, ""
+            check(
+                "D-26: a notifications group with battery_low: False sends nothing on a transition and "
+                "records nothing",
+                _battery_config_disabled_sends_nothing,
+            )
+
+            # 72. D-26: a config with no topic_url sends nothing.
+            def _battery_no_topic_url_sends_nothing():
+                poll_state = {}
+                sender = _FakeSender()
+                poll_loop._notify_battery_transition(
+                    "unused", poll_state, True, 3400, _notify_device_cfg(topic_url=None), sender=sender,
+                )
+                if sender.calls:
+                    return False, "expected no send with topic_url=None, got %r" % (sender.calls,)
+                return True, ""
+            check(
+                "D-26: a notifications group with no topic_url configured sends nothing",
+                _battery_no_topic_url_sends_nothing,
+            )
+
+            # 73. A sender returning False still flips the recorded state,
+            # so a persistently-failing endpoint does not repeat the push
+            # every cycle.
+            def _battery_sender_returning_false_still_flips_state():
+                poll_state = {}
+                sender = _FakeSender(result=False)
+                poll_loop._notify_battery_transition(
+                    "unused", poll_state, True, 3400, _notify_device_cfg(), sender=sender,
+                )
+                if len(sender.calls) != 1:
+                    return False, "expected exactly one attempted send, got %d" % len(sender.calls)
+                if poll_state.get("notifications", {}).get("last_battery_sent") is not True:
+                    return False, "expected last_battery_sent=True recorded even on a False return, got %r" % (poll_state,)
+                sender2 = _FakeSender(result=False)
+                poll_loop._notify_battery_transition(
+                    "unused", poll_state, True, 3400, _notify_device_cfg(), sender=sender2,
+                )
+                if sender2.calls:
+                    return False, "expected no repeat send on the next cycle despite the False return, got %r" % (sender2.calls,)
+                return True, ""
+            check(
+                "a sender returning False still flips the recorded state, so a persistently-failing "
+                "endpoint does not repeat the push every cycle",
+                _battery_sender_returning_false_still_flips_state,
+            )
+
+            # 74. A sender raising an exception does not propagate out of
+            # run_once() - driven through the real call site, not the
+            # helper directly, to prove the wiring itself is contained
+            # (T-20-17).
+            def _battery_raising_sender_does_not_propagate_through_run_once():
+                raise_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-notify-raise-")
+                try:
+                    device_config.save_device_config(
+                        raise_dir,
+                        notifications={
+                            "topic_url": _NOTIFY_TOPIC_URL, "battery_low": True,
+                            "frame_silent": True, "lang": "en",
+                        },
+                    )
+                    _write_battery_state(raise_dir, 3400)
+                    original_send = poll_loop.notify.send_notification
+
+                    def _boom(*args, **kwargs):
+                        raise RuntimeError("simulated transport failure")
+
+                    poll_loop.notify.send_notification = _boom
+                    try:
+                        result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=raise_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.notify.send_notification = original_send
+                    if result is None or result.get("panel_changed") is None:
+                        return False, "run_once() did not return its normal result dict: %r" % (result,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(raise_dir, ignore_errors=True)
+            check(
+                "a raising send_notification() does not propagate out of the real run_once() battery-"
+                "transition call site (T-20-17)",
+                _battery_raising_sender_does_not_propagate_through_run_once,
+            )
+
+            # 75. D-28: notifications.lang == "fr" produces the French
+            # body.
+            def _battery_french_lang_produces_french_body():
+                poll_state = {}
+                sender = _FakeSender()
+                poll_loop._notify_battery_transition(
+                    "unused", poll_state, True, 3400, _notify_device_cfg(lang="fr"), sender=sender,
+                )
+                if len(sender.calls) != 1:
+                    return False, "expected exactly one send, got %d" % len(sender.calls)
+                body = sender.calls[0][2]
+                if "Batterie faible" not in body:
+                    return False, "expected the French battery-low body, got %r" % (body,)
+                return True, ""
+            check(
+                "D-28: notifications.lang == \"fr\" produces the French battery-low body",
+                _battery_french_lang_produces_french_body,
             )
 
         finally:

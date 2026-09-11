@@ -60,6 +60,7 @@ if _REPO_ROOT not in sys.path:
 
 import server.device_config as device_config
 import server.history_db as history_db
+import server.notify as notify
 import server.panel_format as panel_format
 import server.plane.calendar_rules as calendar_rules
 import server.plane.colour_rules as colour_rules
@@ -404,6 +405,117 @@ def apply_battery_hysteresis(battery_mv, was_active):
     if was_active:
         return battery_mv < BATTERY_LOW_CLEAR_MV
     return battery_mv <= BATTERY_LOW_THRESHOLD_MV
+
+
+# D-25/D-27/D-28 (20-CONTEXT.md, 20-05-PLAN.md): the shared
+# "notifications" sub-dict of poll_state.json, and its two never-raising
+# transition hooks. Kept beside the battery helpers above, mirroring
+# `apply_battery_hysteresis()`'s own hysteresis-latch shape: each hook
+# compares the freshly-computed boolean against what was last reported,
+# sends at most one push per genuine transition (T-20-22), and records the
+# newly-reported state whether or not the send actually succeeded (a
+# flapping topic endpoint must not turn one transition into a push every
+# cycle). Neither hook is ever called on a cycle where the caller's own
+# state did not change - see the call sites in run_once() below - so the
+# "did the reported state change" comparison inside each hook is a belt-
+# and-suspenders proof, not the sole gate.
+
+# A rough state-of-charge estimate for a single-cell LiPo, duplicated
+# (not imported) from the web app's own battery-percentage module - its
+# identical BATTERY_FULL_MV/BATTERY_EMPTY_MV/battery_percent(). This
+# module must never import anything from the web-app package (D-27, the
+# same constraint server/wake.py's own module docstring documents), and
+# the estimate is a handful of constants plus one clamped linear
+# interpolation - small enough that a private copy here is cheaper than
+# inventing a third shared home for it.
+_NOTIFY_BATTERY_FULL_MV = 4200
+_NOTIFY_BATTERY_EMPTY_MV = 3300
+
+
+def _battery_percent_estimate(battery_mv):
+    """A clamped 0-100 estimate for `battery_mv`, or None for a
+    non-numeric or non-positive reading. Never raises. See the module
+    note above this function for why this duplicates, rather than
+    imports, the web app's identical estimate.
+    """
+    try:
+        value = float(battery_mv)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0:
+        return None
+    ratio = (value - _NOTIFY_BATTERY_EMPTY_MV) / float(
+        _NOTIFY_BATTERY_FULL_MV - _NOTIFY_BATTERY_EMPTY_MV
+    )
+    return int(round(max(0.0, min(1.0, ratio)) * 100))
+
+
+def _notifications_group(device_cfg):
+    """The `notifications` sub-dict off `device_cfg`
+    (`device_config.load_device_config()`'s own shape), or None when
+    `device_cfg` is not a dict or carries no well-formed group - never
+    raises. Shared by both transition hooks below so neither has to repeat
+    the same defensive `isinstance()` check.
+    """
+    if not isinstance(device_cfg, dict):
+        return None
+    notifications = device_cfg.get("notifications")
+    return notifications if isinstance(notifications, dict) else None
+
+
+def _notify_battery_transition(state_dir, poll_state, battery_low, battery_mv, device_cfg, sender=None):
+    """D-25/D-26/D-27/D-28: push exactly one notification per genuine
+    battery-low transition - never once per cycle, because
+    `poll_state["notifications"]["last_battery_sent"]` remembers what was
+    last reported. Called from BOTH `battery_low_active` sites in
+    `run_once()`, gated on the caller's own `battery_changed` (D-27) - see
+    the call sites below.
+
+    Returns immediately, sending and recording nothing (D-26), when the
+    group has no `topic_url` configured or `battery_low` is off. The low
+    body interpolates the millivolt reading and the `_battery_percent_estimate()`
+    figure; the recovery body takes no arguments. The reported state is
+    recorded whether or not the send actually succeeded, so a flapping
+    topic endpoint cannot turn one transition into a push every cycle
+    (T-20-22).
+
+    Never raises (T-20-17): any exception - a malformed `device_cfg`, or a
+    raising injected `sender` - is logged by type name and swallowed, on
+    the same reasoning `notify.send_notification()` itself documents: a
+    poll cycle that dies on a notification is strictly worse than a
+    missed one. `state_dir` is accepted (not used) purely to keep this
+    hook's own signature symmetric with the frame-silence hook 20-05-PLAN.md
+    Task 2 adds beside it.
+    """
+    try:
+        notifications = _notifications_group(device_cfg)
+        if notifications is None:
+            return
+        topic_url = notifications.get("topic_url")
+        if not topic_url or not notifications.get("battery_low"):
+            return
+        state = poll_state.setdefault(
+            "notifications", {"last_battery_sent": False, "last_silent_sent": False}
+        )
+        if state.get("last_battery_sent") is battery_low:
+            return
+        lang = notifications.get("lang")
+        if battery_low:
+            pct = _battery_percent_estimate(battery_mv)
+            body = notify.body_for_lang(notify.BATTERY_LOW_BODY, lang) % (
+                battery_mv, pct if pct is not None else 0,
+            )
+        else:
+            body = notify.body_for_lang(notify.BATTERY_OK_BODY, lang)
+        send = sender or notify.send_notification
+        send(topic_url, notify.TEST_NOTIFICATION_TITLE, body)
+        state["last_battery_sent"] = battery_low
+    except Exception as exc:
+        print(
+            "poll_loop: battery-transition notification hook failed: %s" % type(exc).__name__,
+            file=sys.stderr,
+        )
+
 
 
 def save_poll_state(state_dir, state):
@@ -847,6 +959,8 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         battery_low = apply_battery_hysteresis(load_battery_state(state_dir), was_battery_low)
         battery_changed = battery_low != was_battery_low
         poll_state["battery_low_active"] = battery_low
+        if battery_changed:
+            _notify_battery_transition(state_dir, poll_state, battery_low, load_battery_state(state_dir), device_cfg)
 
         # No provider was queried this cycle, so there is no new
         # observation to classify - carry the previously-persisted fault
@@ -1012,6 +1126,8 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     battery_low = apply_battery_hysteresis(load_battery_state(state_dir), was_battery_low)
     battery_changed = battery_low != was_battery_low
     poll_state["battery_low_active"] = battery_low
+    if battery_changed:
+        _notify_battery_transition(state_dir, poll_state, battery_low, load_battery_state(state_dir), device_cfg)
 
     # --- Display pacing: which detection occupies the "current" slot -------
     #
