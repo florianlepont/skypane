@@ -79,6 +79,7 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -128,7 +129,17 @@ if REPO_ROOT not in sys.path:
 # False-returning sender still flipping the recorded state, a raising
 # sender not propagating out of the real run_once() call site, and
 # notifications.lang="fr" producing the French body) - 80 + 8.
-EXPECTED_CHECK_COUNT = 89
+# 20-05-PLAN.md Task 2: +7 (wiring _notify_silence_transition() into
+# run_once()'s single post-_record_history() call site: a stale check-in
+# past the shared warn threshold sending exactly one silent push, a
+# second cycle on the same stale row sending nothing, a fresh check-in
+# sending exactly one recovery push, a check-in just inside the threshold
+# sending nothing, no device_health rows at all sending and recording
+# nothing, D-26's frame_silent:False off-switch sending nothing, and the
+# threshold boundary itself proven to equal
+# wake.device_staleness_thresholds(wake.effective_wake_interval_s(cfg))[0]
+# for a non-default wake_interval_s) - 89 + 7.
+EXPECTED_CHECK_COUNT = 96
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -353,6 +364,27 @@ class _FakeSender:
         if self.raises is not None:
             raise self.raises
         return self.result
+
+
+def _iso(epoch):
+    """`epoch` (fake-clock seconds) as the same timezone-aware UTC
+    ISO-8601-at-seconds-precision string `history_db.utc_now_iso()`
+    produces, so a seeded `device_health` row parses through
+    `poll_loop._parse_iso_epoch()` exactly like a real one would.
+    """
+    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat(timespec="seconds")
+
+
+def _seed_device_health(poll_loop, state_dir, ts_iso, battery_mv=None):
+    """Insert one `device_health` row directly via `history_db`, the way
+    `history_db.ingest_caddy_battery_log()` would from a real Caddy log
+    line - this harness seeds the row itself so the frame-silent checks
+    below never depend on a real Caddy log file. `poll_loop` is passed in
+    explicitly, mirroring `_seed_calendar_cache()`'s own established
+    pattern in this file.
+    """
+    with poll_loop.history_db.open_db(state_dir) as conn:
+        poll_loop.history_db.record_device_health(conn, ts_iso, battery_mv=battery_mv)
 
 
 # Phase 16, plan 07: a real airline/far-end pair the calendar checks reuse
@@ -3566,12 +3598,15 @@ def main():
 
             _NOTIFY_TOPIC_URL = "https://ntfy.sh/skypane-test-topic"
 
-            def _notify_device_cfg(topic_url=_NOTIFY_TOPIC_URL, battery_low=True, frame_silent=True, lang="en"):
+            def _notify_device_cfg(topic_url=_NOTIFY_TOPIC_URL, battery_low=True, frame_silent=True, lang="en", wake_interval_s=None):
                 notifications = {
                     "topic_url": topic_url, "battery_low": battery_low,
                     "frame_silent": frame_silent, "lang": lang,
                 }
-                return {"notifications": notifications}
+                cfg = {"notifications": notifications}
+                if wake_interval_s is not None:
+                    cfg["wake_interval_s"] = wake_interval_s
+                return cfg
 
             # 68. A first cycle crossing into low sends exactly one push
             # whose body carries the millivolt figure, and records
@@ -3749,6 +3784,211 @@ def main():
             check(
                 "D-28: notifications.lang == \"fr\" produces the French battery-low body",
                 _battery_french_lang_produces_french_body,
+            )
+
+            # --- 20-05-PLAN.md Task 2: the frame-silent transition push,
+            # on the shared staleness threshold. Every check below calls
+            # poll_loop._notify_silence_transition() directly with an
+            # injected _FakeSender and a real history.db connection seeded
+            # via _seed_device_health() - never a real POST and never a
+            # real Caddy log file. --------------------------------------
+
+            # 76. A seeded check-in older than the warn threshold sends
+            # exactly one silent push, and records last_silent_sent=True.
+            def _silence_transition_sends_once_past_warn_threshold():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-past-")
+                try:
+                    device_cfg = _notify_device_cfg(wake_interval_s=500)
+                    warn_s, _error_s = poll_loop.wake.device_staleness_thresholds(
+                        poll_loop.wake.effective_wake_interval_s(device_cfg)
+                    )
+                    now_epoch = poll_loop.now_s()
+                    _seed_device_health(poll_loop, d, _iso(now_epoch - warn_s - 60))
+                    poll_state = {}
+                    sender = _FakeSender()
+                    with poll_loop.history_db.open_db(d) as conn:
+                        poll_loop._notify_silence_transition(d, poll_state, conn, device_cfg, sender=sender)
+                    if len(sender.calls) != 1:
+                        return False, "expected exactly one silent push, got %d" % len(sender.calls)
+                    if poll_state.get("notifications", {}).get("last_silent_sent") is not True:
+                        return False, "expected last_silent_sent=True recorded, got %r" % (poll_state,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "a seeded device_health check-in older than the shared warn threshold sends exactly one "
+                "frame-silent push and records last_silent_sent=True",
+                _silence_transition_sends_once_past_warn_threshold,
+            )
+
+            # 77. A second cycle with the same stale row sends nothing.
+            def _silence_transition_second_cycle_sends_nothing():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-repeat-")
+                try:
+                    device_cfg = _notify_device_cfg(wake_interval_s=500)
+                    warn_s, _error_s = poll_loop.wake.device_staleness_thresholds(
+                        poll_loop.wake.effective_wake_interval_s(device_cfg)
+                    )
+                    now_epoch = poll_loop.now_s()
+                    _seed_device_health(poll_loop, d, _iso(now_epoch - warn_s - 60))
+                    poll_state = {}
+                    with poll_loop.history_db.open_db(d) as conn:
+                        poll_loop._notify_silence_transition(d, poll_state, conn, device_cfg, sender=_FakeSender())
+                    sender2 = _FakeSender()
+                    with poll_loop.history_db.open_db(d) as conn:
+                        poll_loop._notify_silence_transition(d, poll_state, conn, device_cfg, sender=sender2)
+                    if sender2.calls:
+                        return False, "expected no repeat send on an unchanged stale row, got %r" % (sender2.calls,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "a second cycle reading the same stale device_health row sends nothing",
+                _silence_transition_second_cycle_sends_nothing,
+            )
+
+            # 78. A fresh check-in afterwards sends exactly one recovery
+            # push.
+            def _silence_transition_recovery_sends_once():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-recover-")
+                try:
+                    device_cfg = _notify_device_cfg(wake_interval_s=500)
+                    warn_s, _error_s = poll_loop.wake.device_staleness_thresholds(
+                        poll_loop.wake.effective_wake_interval_s(device_cfg)
+                    )
+                    now_epoch = poll_loop.now_s()
+                    _seed_device_health(poll_loop, d, _iso(now_epoch - warn_s - 60))
+                    poll_state = {}
+                    with poll_loop.history_db.open_db(d) as conn:
+                        poll_loop._notify_silence_transition(d, poll_state, conn, device_cfg, sender=_FakeSender())
+                    _seed_device_health(poll_loop, d, _iso(now_epoch))
+                    sender2 = _FakeSender()
+                    with poll_loop.history_db.open_db(d) as conn:
+                        poll_loop._notify_silence_transition(d, poll_state, conn, device_cfg, sender=sender2)
+                    if len(sender2.calls) != 1:
+                        return False, "expected exactly one recovery push, got %d" % len(sender2.calls)
+                    if sender2.calls[0][2] != poll_loop.notify.FRAME_RECOVERED_BODY:
+                        return False, "expected the fixed recovery body, got %r" % (sender2.calls[0][2],)
+                    if poll_state["notifications"]["last_silent_sent"] is not False:
+                        return False, "expected last_silent_sent=False recorded, got %r" % (poll_state,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "a fresh device_health check-in after a reported silence sends exactly one recovery push",
+                _silence_transition_recovery_sends_once,
+            )
+
+            # 79. A seeded check-in just inside the threshold sends
+            # nothing.
+            def _silence_transition_inside_threshold_sends_nothing():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-inside-")
+                try:
+                    device_cfg = _notify_device_cfg(wake_interval_s=500)
+                    warn_s, _error_s = poll_loop.wake.device_staleness_thresholds(
+                        poll_loop.wake.effective_wake_interval_s(device_cfg)
+                    )
+                    now_epoch = poll_loop.now_s()
+                    _seed_device_health(poll_loop, d, _iso(now_epoch - (warn_s - 10)))
+                    poll_state = {}
+                    sender = _FakeSender()
+                    with poll_loop.history_db.open_db(d) as conn:
+                        poll_loop._notify_silence_transition(d, poll_state, conn, device_cfg, sender=sender)
+                    if sender.calls:
+                        return False, "expected no send for a check-in still inside the warn threshold, got %r" % (sender.calls,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "a seeded device_health check-in just inside the shared warn threshold sends nothing",
+                _silence_transition_inside_threshold_sends_nothing,
+            )
+
+            # 80. No device_health rows at all sends nothing and records
+            # nothing - a frame that has never checked in is a
+            # first-install state, not a silence transition.
+            def _silence_transition_no_rows_sends_and_records_nothing():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-norows-")
+                try:
+                    device_cfg = _notify_device_cfg(wake_interval_s=500)
+                    poll_state = {}
+                    sender = _FakeSender()
+                    with poll_loop.history_db.open_db(d) as conn:
+                        poll_loop._notify_silence_transition(d, poll_state, conn, device_cfg, sender=sender)
+                    if sender.calls:
+                        return False, "expected no send with no device_health rows at all, got %r" % (sender.calls,)
+                    if "notifications" in poll_state:
+                        return False, "expected nothing recorded with no device_health rows at all, got %r" % (poll_state,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "no device_health rows at all sends nothing and records nothing (a first-install state, "
+                "not a silence transition)",
+                _silence_transition_no_rows_sends_and_records_nothing,
+            )
+
+            # 81. D-26: frame_silent: False sends nothing even for a very
+            # stale check-in.
+            def _silence_transition_config_disabled_sends_nothing():
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-disabled-")
+                try:
+                    device_cfg = _notify_device_cfg(frame_silent=False, wake_interval_s=500)
+                    now_epoch = poll_loop.now_s()
+                    _seed_device_health(poll_loop, d, _iso(now_epoch - 100000))
+                    poll_state = {}
+                    sender = _FakeSender()
+                    with poll_loop.history_db.open_db(d) as conn:
+                        poll_loop._notify_silence_transition(d, poll_state, conn, device_cfg, sender=sender)
+                    if sender.calls:
+                        return False, "expected no send with frame_silent: False, got %r" % (sender.calls,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            check(
+                "D-26: a notifications group with frame_silent: False sends nothing even for a very "
+                "stale check-in",
+                _silence_transition_config_disabled_sends_nothing,
+            )
+
+            # 82. The silent threshold the helper actually used equals
+            # wake.device_staleness_thresholds(wake.effective_wake_interval_s(cfg))[0]
+            # for a non-default wake_interval_s (777s, chosen off both the
+            # 60s/100s round numbers a hand-typed default might resemble and
+            # the STALE_WARN_FLOOR_S=300 floor - the multiplier path, not
+            # the floor, must be what fires) - proving this module reused
+            # the shared function rather than a phase-local re-tuning.
+            def _silence_threshold_matches_shared_wake_thresholds_for_nondefault_interval():
+                device_cfg = _notify_device_cfg(wake_interval_s=777)
+                warn_s, _error_s = poll_loop.wake.device_staleness_thresholds(
+                    poll_loop.wake.effective_wake_interval_s(device_cfg)
+                )
+                now_epoch = poll_loop.now_s()
+                d_inside = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-boundary-in-")
+                d_outside = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-boundary-out-")
+                try:
+                    _seed_device_health(poll_loop, d_inside, _iso(now_epoch - (warn_s - 5)))
+                    sender_inside = _FakeSender()
+                    with poll_loop.history_db.open_db(d_inside) as conn:
+                        poll_loop._notify_silence_transition(d_inside, {}, conn, device_cfg, sender=sender_inside)
+                    if sender_inside.calls:
+                        return False, "age 5s inside warn_s=%r unexpectedly reported silent" % (warn_s,)
+
+                    _seed_device_health(poll_loop, d_outside, _iso(now_epoch - (warn_s + 5)))
+                    sender_outside = _FakeSender()
+                    with poll_loop.history_db.open_db(d_outside) as conn:
+                        poll_loop._notify_silence_transition(d_outside, {}, conn, device_cfg, sender=sender_outside)
+                    if len(sender_outside.calls) != 1:
+                        return False, "age 5s past warn_s=%r did not report silent" % (warn_s,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(d_inside, ignore_errors=True)
+                    shutil.rmtree(d_outside, ignore_errors=True)
+            check(
+                "the silent threshold the helper actually used equals "
+                "wake.device_staleness_thresholds(wake.effective_wake_interval_s(cfg))[0] for a "
+                "non-default wake_interval_s (777s), not a phase-local re-tuning",
+                _silence_threshold_matches_shared_wake_thresholds_for_nondefault_interval,
             )
 
         finally:

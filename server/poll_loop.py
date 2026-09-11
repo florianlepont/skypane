@@ -48,6 +48,7 @@ import os
 import sqlite3
 import sys
 import time
+from datetime import datetime, timezone
 
 # Allow both `import server.poll_loop` (package import) and direct script
 # execution (`python3 server/poll_loop.py`, where sys.path[0] is server/
@@ -70,6 +71,7 @@ import server.plane.illustrations as illustrations
 import server.plane.manual_resolutions as manual_resolutions
 import server.plane.render as render
 import server.plane.runway_config as runway_config
+import server.wake as wake
 
 DEFAULT_STATE_DIR = os.path.join(_HERE, "state")
 POLL_INTERVAL_S = 30
@@ -450,6 +452,39 @@ def _battery_percent_estimate(battery_mv):
     return int(round(max(0.0, min(1.0, ratio)) * 100))
 
 
+def _humanize_age_s(age_s):
+    """A short "2 h"-shaped duration string for the frame-silent
+    notification body (D-27's own example wording), floored at 0 so a
+    negative age (clock skew) never reads as "in the future". Deliberately
+    not the web app's own `relative_age_text()` - that module lives in the
+    web-app package, which this module must never import (D-27).
+    """
+    age_s = max(0, int(age_s))
+    if age_s < 60:
+        return "%ds" % age_s
+    if age_s < 3600:
+        return "%d min" % (age_s // 60)
+    if age_s < 86400:
+        return "%d h" % (age_s // 3600)
+    return "%d d" % (age_s // 86400)
+
+
+def _parse_iso_epoch(ts):
+    """Parse an ISO-8601 string (`history_db.utc_now_iso()`'s own format)
+    to epoch seconds, or None for anything unparsable - never raises. A
+    timezone-naive value is stamped UTC before conversion, the same
+    naive-value-is-UTC convention `server.wake.next_wake_at_iso()` already
+    documents.
+    """
+    try:
+        parsed = datetime.fromisoformat(ts)
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
+
+
 def _notifications_group(device_cfg):
     """The `notifications` sub-dict off `device_cfg`
     (`device_config.load_device_config()`'s own shape), or None when
@@ -484,8 +519,7 @@ def _notify_battery_transition(state_dir, poll_state, battery_low, battery_mv, d
     the same reasoning `notify.send_notification()` itself documents: a
     poll cycle that dies on a notification is strictly worse than a
     missed one. `state_dir` is accepted (not used) purely to keep this
-    hook's own signature symmetric with the frame-silence hook 20-05-PLAN.md
-    Task 2 adds beside it.
+    hook's signature symmetric with `_notify_silence_transition()`'s own.
     """
     try:
         notifications = _notifications_group(device_cfg)
@@ -516,6 +550,69 @@ def _notify_battery_transition(state_dir, poll_state, battery_low, battery_mv, d
             file=sys.stderr,
         )
 
+
+def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=None):
+    """D-25/D-27/D-28: push exactly one notification per genuine
+    frame-silent transition, on the SAME shared staleness threshold the
+    Health page displays - `wake.device_staleness_thresholds()`'s WARN
+    value (`wake.MISSED_WAKES_WARN` = 3 wake intervals), reused rather
+    than re-tuned, so this silent threshold can never drift below the
+    Health page's own warn threshold (20-RESEARCH.md A6).
+
+    Returns immediately, sending and recording nothing, when the group
+    has no `topic_url` configured, `frame_silent` is off, or
+    `history_db.latest_device_health(conn)` has no row at all - a frame
+    that has never checked in is a first-install state, not a silence
+    transition. Records the reported state whether or not the send
+    succeeded (T-20-22), exactly as its battery counterpart above does.
+
+    MUST be called only after this cycle's own `_record_history()` call
+    (and therefore its `history_db.ingest_caddy_battery_log()` ingestion)
+    has already committed - see the single call site in `run_once()`
+    below - so a frame that just checked in THIS cycle can never be
+    reported silent for the one cycle before that fresh row becomes
+    visible.
+
+    Never raises (T-20-17): any exception is logged by type name and
+    swallowed, for the identical reason its battery counterpart above
+    documents.
+    """
+    try:
+        notifications = _notifications_group(device_cfg)
+        if notifications is None:
+            return
+        topic_url = notifications.get("topic_url")
+        if not topic_url or not notifications.get("frame_silent"):
+            return
+        latest = history_db.latest_device_health(conn)
+        if not latest:
+            return
+        checkin_epoch = _parse_iso_epoch(latest.get("ts"))
+        if checkin_epoch is None:
+            return
+        age_s = now_s() - checkin_epoch
+        warn_s, _error_s = wake.device_staleness_thresholds(
+            wake.effective_wake_interval_s(device_cfg)
+        )
+        silent = age_s >= warn_s
+        state = poll_state.setdefault(
+            "notifications", {"last_battery_sent": False, "last_silent_sent": False}
+        )
+        if state.get("last_silent_sent") is silent:
+            return
+        lang = notifications.get("lang")
+        if silent:
+            body = notify.body_for_lang(notify.FRAME_SILENT_BODY, lang) % _humanize_age_s(age_s)
+        else:
+            body = notify.body_for_lang(notify.FRAME_RECOVERED_BODY, lang)
+        send = sender or notify.send_notification
+        send(topic_url, notify.TEST_NOTIFICATION_TITLE, body)
+        state["last_silent_sent"] = silent
+    except Exception as exc:
+        print(
+            "poll_loop: _notify_silence_transition failed: %s" % type(exc).__name__,
+            file=sys.stderr,
+        )
 
 
 def save_poll_state(state_dir, state):
@@ -1500,6 +1597,33 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             tracked_runway_id, source_fault, False, now_iso,
             caddy_log=caddy_log,
         )
+
+    # D-27 (20-05-PLAN.md Task 2): the ONE call site for the frame-silence
+    # transition check, common to all three branches above (never inside
+    # the early-return hold branch further up, which has no "this cycle's
+    # own check-in" to reason about the same way). Placed here,
+    # deliberately AFTER every branch's own `_record_history()` call, so
+    # this cycle's Caddy-log-ingested check-in row (when configured) has
+    # already committed and is visible to `history_db.latest_device_health()`
+    # - a frame that just checked in this cycle can never be reported
+    # silent. Persisted unconditionally right after, the same "the hook
+    # mutated poll_state and the mutation must survive this oneshot's
+    # process boundary" reasoning the battery hook's own call sites above
+    # rely on - each of those instead piggybacks on a branch's own
+    # already-conditional save (each already includes battery_changed in
+    # its condition), which this single shared call site has no
+    # equivalent branch-local save to piggyback on.
+    try:
+        with history_db.open_db(state_dir) as conn:
+            _notify_silence_transition(state_dir, poll_state, conn, device_cfg)
+    except (sqlite3.Error, OSError) as exc:
+        # T-06-10-05's own containment shape, applied to this connection
+        # too: opening history.db can fail for the identical reasons
+        # `_record_history()` above already tolerates (a lock, a
+        # permissions error, a missing directory) - the poll cycle must
+        # not die on it.
+        print("poll_loop: silence-transition history read failed: %s: %s" % (type(exc).__name__, exc))
+    save_poll_state(state_dir, poll_state)
 
     # T-02-04-05: log only the callsign, the enrichment outcome
     # (cache_hit / fresh_hit / miss / n/a / held), and the selection's own
