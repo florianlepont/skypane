@@ -256,6 +256,12 @@ EXPECTED_CHECK_COUNT = 83  # 79 + 4 (19-08-PLAN.md Task 3: D-22's edit-gated lig
 # 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History Timestamp column reads
 # "ISO (Nm ago)"; Task 2: Preview's Captured caption reads "Captured ISO
 # (Nm ago)"; Task 3: corroboration copy cross-page drift guard, D-03)
+EXPECTED_CHECK_COUNT = 85  # 19-12-PLAN.md Task 3 (D-13/S-02): +2 (wake.
+# next_wake_at_iso()'s None-for-falsy/unparseable/unknown-interval contract
+# plus the screen-on/screen-off arithmetic, and Home rendering the ≈
+# figure only when both a check-in and an interval are known). 83 + 2 =
+# 85, recomputed directly against the real on-disk check(...) call count
+# at execution time (85/85 pass), not trusted from arithmetic alone.
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -3080,6 +3086,72 @@ def main():
     check(
         "battery_percent() no longer exists on home_page after moving to companion/battery.py (D-01)",
         _battery_percent_moved_out_of_home_page)
+
+    # --- 19-12-PLAN.md Task 3 (D-13/S-02): the "Next wake ≈ HH:MM" figure --
+
+    def _wake_next_wake_at_iso_contract():
+        import companion.wake as wake
+        from server import device_config as _dc
+        # None for a falsy/unparseable ts, or no known interval.
+        if wake.next_wake_at_iso(None, {}) is not None:
+            return False, "expected None for a falsy last_checkin_ts"
+        if wake.next_wake_at_iso("", {"wake_interval_s": 900}) is not None:
+            return False, "expected None for an empty-string last_checkin_ts"
+        if wake.next_wake_at_iso("not-a-timestamp", {"wake_interval_s": 900}) is not None:
+            return False, "expected None for an unparseable last_checkin_ts"
+        if wake.next_wake_at_iso("2026-08-27T11:55:00+00:00", {}) is not None:
+            return False, "expected None for a config with no known interval and no env fallback"
+        # A screen-on config: last_checkin + wake_interval_s.
+        got = wake.next_wake_at_iso(
+            "2026-08-27T11:55:00+00:00", {"wake_interval_s": 900, "display_enabled": True})
+        if got != "2026-08-27T12:10:00+00:00":
+            return False, "expected last_checkin + wake_interval_s, got %r" % (got,)
+        # A screen-off config: last_checkin + DISPLAY_OFF_SLEEP_S, the D-13
+        # screen-off rule — wins over wake_interval_s regardless of its value.
+        got = wake.next_wake_at_iso(
+            "2026-08-27T11:55:00+00:00",
+            {"wake_interval_s": 900, "display_enabled": False})
+        from datetime import datetime, timedelta, timezone
+        expected = (
+            datetime(2026, 8, 27, 11, 55, 0, tzinfo=timezone.utc)
+            + timedelta(seconds=_dc.DISPLAY_OFF_SLEEP_S)).isoformat()
+        if got != expected:
+            return False, "expected last_checkin + DISPLAY_OFF_SLEEP_S for a screen-off config, got %r" % (got,)
+        return True, ""
+    check(
+        "wake.next_wake_at_iso() returns None for a falsy/unparseable ts or an unknown interval, "
+        "last_checkin + wake_interval_s for a screen-on config, and last_checkin + DISPLAY_OFF_SLEEP_S "
+        "for a screen-off config (D-13's screen-off rule)",
+        _wake_next_wake_at_iso_contract)
+
+    def _home_page_renders_next_wake_figure_only_when_known():
+        from companion.pages import home_page
+        base_ctx = {
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "health_state": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
+        }
+        with_both = dict(base_ctx, last_checkin_ts="2026-08-27T11:55:00+00:00", now="2026-08-27T12:00:00+00:00")
+        rendered_both = home_page._status_tiles_html(with_both)
+        # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
+        # UTC+2, in effect in late August) — layout.local_clock_text()
+        # renders in local time, matching D-13's "Paris local time" wording.
+        if "Next wake" not in rendered_both or "≈ 14:10" not in rendered_both:
+            return False, "expected the Next wake figure when a check-in and an interval are both present"
+        missing_checkin = dict(base_ctx, last_checkin_ts=None, now="2026-08-27T12:00:00+00:00")
+        rendered_missing_checkin = home_page._status_tiles_html(missing_checkin)
+        if "Next wake" in rendered_missing_checkin:
+            return False, "expected no Next wake label at all when there is no check-in yet"
+        missing_interval = dict(
+            base_ctx, device_config={}, last_checkin_ts="2026-08-27T11:55:00+00:00",
+            now="2026-08-27T12:00:00+00:00")
+        rendered_missing_interval = home_page._status_tiles_html(missing_interval)
+        if "Next wake" in rendered_missing_interval:
+            return False, "expected no Next wake label at all when the wake interval is unknown"
+        return True, ""
+    check(
+        "Home renders the ≈ Next-wake figure only when a check-in and an interval are both known, "
+        "and renders no Next-wake label at all when either is missing (D-13)",
+        _home_page_renders_next_wake_figure_only_when_known)
 
     def _battery_module_never_imports_pages_or_server():
         battery_path = os.path.join(REPO_ROOT, "companion", "battery.py")

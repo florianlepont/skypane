@@ -15,9 +15,18 @@ import anything from the pages package, and it must never import the
 top-level HTTP handler module (app.py) — app.py is expected to import
 this module in a later plan, so the reverse import would be circular.
 
-Stdlib-only (os), plus server.device_config.
+19-12-PLAN.md Task 3 (D-13/S-02) adds `next_wake_at_iso()`, this
+module's second export and the one definition site of the "when will
+the frame next wake up" arithmetic Home and Device both display.
+Deliberately imports no view/formatting module, even though its
+return value is only ever fed to a clock-text formatter by a caller:
+this module stays free of any VIEW dependency, matching every other
+function here — each page module formats the ISO string itself.
+
+Stdlib-only (os, datetime), plus server.device_config.
 """
 import os
+from datetime import datetime, timedelta, timezone
 
 from server import device_config
 
@@ -144,3 +153,41 @@ def device_staleness_thresholds(wake_interval_s):
     warn_s = max(MISSED_WAKES_WARN * wake_interval_s, STALE_WARN_FLOOR_S)
     error_s = max(MISSED_WAKES_ERROR * wake_interval_s, STALE_ERROR_FLOOR_S)
     return (warn_s, error_s)
+
+
+def next_wake_at_iso(last_checkin_ts, device_cfg):
+    """The next time the device is expected to wake, as an ISO-8601 UTC
+    string — `last_checkin_ts + effective_wake_interval_s(device_cfg)` —
+    or `None` when it cannot be determined (D-13/S-02).
+
+    `None` is returned, never raised, for every one of these cases:
+      - `last_checkin_ts` is falsy (no check-in recorded yet) or is not
+        a string `datetime.fromisoformat()`-equivalent parsing accepts;
+      - `effective_wake_interval_s(device_cfg)` itself returns `None`
+        (no on-disk `wake_interval_s`, no `SKYPANE_SLEEP_S`, and the
+        screen is not off).
+
+    `last_checkin_ts` is parsed with the same naive-value-is-UTC
+    convention this codebase's own clock-text formatter documents (it
+    matches `history_db.utc_now_iso()`'s own timezone-aware output, but
+    a hand-written or legacy naive value must not raise or silently
+    misread as local time): a timezone-naive result is stamped UTC
+    before the addition, never left ambiguous.
+
+    Returns a plain ISO string, not formatted text — deliberately not
+    run through any formatter here, since this module has no view
+    dependency (see the module docstring above); each caller formats
+    the value itself for display.
+    """
+    if not last_checkin_ts:
+        return None
+    try:
+        parsed = datetime.fromisoformat(last_checkin_ts)
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    interval_s = effective_wake_interval_s(device_cfg)
+    if interval_s is None:
+        return None
+    return (parsed + timedelta(seconds=interval_s)).isoformat()

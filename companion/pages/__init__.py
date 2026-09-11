@@ -123,6 +123,17 @@ Every page module in this package exposes:
           `DEFAULT_SCREEN_ID` — no second validation is needed at this
           layer. companion/pages/config_page.py's render()/handle_post()
           are the two consumers today.
+        - last_checkin_ts: the device's last real check-in, as the raw
+          `device_health.ts` ISO string `history_db.
+          latest_device_health()` returns, or `None` on any failure or
+          when no reading has ever been recorded (added by
+          19-12-PLAN.md Task 3, D-13). Read fresh per request via a
+          fail-soft helper — data only, never formatted here: the
+          two consumers (companion/pages/home_page.py's Home page and
+          companion/pages/config_page.py's Device page) both feed this
+          value through `companion.wake.next_wake_at_iso()` and then
+          `companion.layout.local_clock_text()` themselves, matching
+          `wake.py`'s own deliberate no-view-dependency rule.
         - edit_mode: a bool, `True` only for an exact `?edit=1` query
           value (added by 19-08-PLAN.md Task 3, D-22) — computed by
           companion/app.py's `page_context()` as

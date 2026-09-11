@@ -345,6 +345,13 @@ EXPECTED_CHECK_COUNT = 176  # 19-12-PLAN.md Task 2 (D-23/D-22): +6 (the
 # Device-has-one/Display-has-none Edit-artwork-anchor check). 170 + 6 =
 # 176, recomputed directly against the real on-disk check(...) call count
 # at execution time (176/176 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 180  # 19-12-PLAN.md Task 3 (D-13/S-02): +4 (the
+# _with_next_wake() helper contract, each affected caption gaining the
+# suffix only when known, DISPLAY_SECTION_CAPTION never gaining one, and
+# the Device header's own Next-wake line rendering only when known).
+# 176 + 4 = 180, recomputed directly against the real on-disk check(...)
+# call count at execution time (180/180 pass), not trusted from
+# arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -5087,6 +5094,97 @@ def main():
         "the Device scope renders exactly one Edit-artwork anchor whose href contains edit=1, while the "
         "Display scope renders none (D-22, Device-page half)",
         _device_scope_has_one_edit_artwork_link_display_has_none)
+
+    # --- 19-12-PLAN.md Task 3 (D-13/S-02): "next wake ≈ HH:MM" caption
+    # suffixes on Display/Device -------------------------------------------
+
+    def _with_next_wake_helper_contract():
+        if config_page._with_next_wake("caption.", None) != "caption.":
+            return False, "expected the caption unchanged for a falsy next_wake_clock"
+        if config_page._with_next_wake("caption.", "") != "caption.":
+            return False, "expected the caption unchanged for an empty-string next_wake_clock"
+        got = config_page._with_next_wake("caption.", "14:10")
+        if got != "caption. (next wake ≈ 14:10)":
+            return False, "expected the suffix appended when next_wake_clock is known, got %r" % (got,)
+        return True, ""
+    check(
+        "_with_next_wake() returns the caption byte-identical for a falsy clock and appends "
+        "'(next wake ≈ HH:MM)' when the clock is known",
+        _with_next_wake_helper_contract)
+
+    def _affected_captions_gain_the_suffix_only_when_known():
+        known_ctx = {
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        unknown_ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        known_display = config_page.render(known_ctx, scope=config_page.SCOPE_DISPLAY)
+        known_device = config_page.render(known_ctx, scope=config_page.SCOPE_DEVICE)
+        unknown_display = config_page.render(unknown_ctx, scope=config_page.SCOPE_DISPLAY)
+        unknown_device = config_page.render(unknown_ctx, scope=config_page.SCOPE_DEVICE)
+        for caption in (
+                config_page.THEME_SECTION_CAPTION, config_page.RUNWAY_SECTION_CAPTION,
+                config_page.LED_SECTION_CAPTION, config_page.QUIET_HOURS_SECTION_CAPTION,
+                config_page.WAKE_INTERVAL_SECTION_CAPTION):
+            # escape_html() is what the render pipeline actually applies —
+            # several of these captions carry an apostrophe (e.g. "the
+            # device's"), so the RAW constant never appears verbatim in the
+            # rendered HTML; every comparison below must go through the
+            # same escaping the render call site itself uses.
+            escaped_caption = escape_html(caption)
+            escaped_suffix = config_page.NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE % "14:10"
+            if (escaped_caption + escaped_suffix) not in known_display and (escaped_caption + escaped_suffix) not in known_device:
+                return False, "expected %r to gain the suffix when the next-wake value is known" % (caption,)
+            if escaped_caption not in (unknown_display + unknown_device):
+                return False, "expected %r to render byte-identical to its own constant when unknown" % (caption,)
+            if (escaped_caption + " (next wake") in (unknown_display + unknown_device):
+                return False, "expected %r to carry no suffix when the next-wake value is unknown" % (caption,)
+        return True, ""
+    check(
+        "each of Theme/Runway/LED/Quiet-hours/Wake-interval's own caption gains the '(next wake ≈ "
+        "HH:MM)' suffix when the value is known, and is byte-identical to its own constant when it "
+        "is not (D-13)",
+        _affected_captions_gain_the_suffix_only_when_known)
+
+    def _display_section_caption_never_gains_a_suffix():
+        known_ctx = {
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        # GROUP_DISPLAY is an everyday group (companion/screens.py) — it
+        # renders on the Display scope, not Device.
+        rendered = config_page.render(known_ctx, scope=config_page.SCOPE_DISPLAY)
+        escaped_caption = escape_html(config_page.DISPLAY_SECTION_CAPTION)
+        if escaped_caption not in rendered:
+            return False, "expected DISPLAY_SECTION_CAPTION to render unchanged"
+        if (escaped_caption + " (next wake") in rendered:
+            return False, "expected DISPLAY_SECTION_CAPTION to never gain a next-wake suffix (D-01/D-13)"
+        return True, ""
+    check(
+        "DISPLAY_SECTION_CAPTION never gains a next-wake suffix, even when the value is known "
+        "(12-CONTEXT.md D-01's own honest ~5-minute-latency exception)",
+        _display_section_caption_never_gains_a_suffix)
+
+    def _device_header_shows_next_wake_line_when_known():
+        known_ctx = {
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        unknown_ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        known_device = config_page.render(known_ctx, scope=config_page.SCOPE_DEVICE)
+        if "Next wake" not in known_device or "≈ 14:10" not in known_device:
+            return False, "expected the Device header to carry a Next wake ≈ HH:MM line when known"
+        unknown_device = config_page.render(unknown_ctx, scope=config_page.SCOPE_DEVICE)
+        if "Next wake" in unknown_device:
+            return False, "expected no Next wake line in the Device header when the value is unknown"
+        return True, ""
+    check(
+        "the Device page header carries a 'Next wake ≈ HH:MM' line when the value is known and "
+        "none at all when it is not (D-13's 'Home and Device show' wording)",
+        _device_header_shows_next_wake_line_when_known)
 
     harness = Harness()
     try:

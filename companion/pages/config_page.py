@@ -17,6 +17,7 @@ from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
 from companion import screens
+from companion import wake
 # Phase 15 D-10 (15-05-PLAN.md): the one deliberate exception to this
 # package's own page-module-isolation convention (companion/pages/
 # __init__.py; see airlines_page.py's own precedent comment for the same
@@ -637,6 +638,33 @@ def _describedby_attr(*ids):
     return ' aria-describedby="%s"' % escape_html(" ".join(present))
 
 
+# 19-12-PLAN.md Task 3 (D-13): the suffix template appended to a
+# caption's own "Applies on the next scheduled poll" clause when the
+# next-wake value is known — never baked into the caption constant
+# itself (D-13 says "where the value is known", so the caption must
+# read exactly as it does today when it is not).
+NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE = " (next wake ≈ %s)"
+
+
+def _with_next_wake(caption, next_wake_clock):
+    """`caption` unchanged when `next_wake_clock` is falsy (D-13: no
+    placeholder, no "unknown" — the caption reads exactly as it did
+    before this plan); otherwise `caption` plus
+    `NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE % next_wake_clock`, appended at
+    RENDER time. The single implementation every caption site below
+    uses, so none hand-concatenates its own suffix.
+
+    `DISPLAY_SECTION_CAPTION` deliberately never calls this: it states
+    its own honest ~5-minute screen-off latency instead of the generic
+    "next scheduled poll" clause (12-CONTEXT.md D-01), and appending a
+    wake-interval-derived figure there would contradict that sentence —
+    see `render()`'s own comment at that group for the same exception.
+    """
+    if not next_wake_clock:
+        return caption
+    return caption + (NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE % next_wake_clock)
+
+
 def _field_error_attrs(errors, field, control_id, hint_id=None):
     """The ARIA attribute fragment for the control `_field_error_html()`
     above just built an error anchor for, folding in an optional
@@ -780,7 +808,9 @@ def _theme_chip_grid_html(field_name, selected_theme_id, extra_class="", extra_a
     return '<div class="%s"%s>%s</div>' % (grid_class, attr_html, "".join(chips))
 
 
-def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, submitted=None):
+def theme_fieldset(
+        current_theme_id, current_theme_arriving=None, errors=None, submitted=None,
+        next_wake_clock=None):
     """D-04: a read-only theme status block when exactly one theme is
     registered (`len(device_config.THEME_IDS) == 1`) — a one-option radio
     group has no real decision value. Falls back to the editable D-01
@@ -876,7 +906,10 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
     """
     caption_html = (
         '<p class="text-label section-caption" id="%s">%s</p>'
-        % (escape_html(THEME_SECTION_CAPTION_ID), escape_html(THEME_SECTION_CAPTION)))
+        % (
+            escape_html(THEME_SECTION_CAPTION_ID),
+            escape_html(_with_next_wake(THEME_SECTION_CAPTION, next_wake_clock)),
+        ))
     if len(device_config.THEME_IDS) == 1:
         theme_id = (
             current_theme_id if current_theme_id in device_config.THEMES
@@ -969,7 +1002,9 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
     )
 
 
-def runway_fieldset(current_runway_id, images_available=(), errors=None, submitted=None):
+def runway_fieldset(
+        current_runway_id, images_available=(), errors=None, submitted=None,
+        next_wake_clock=None):
     """D-05: one selectable `.runway-card` per `device_config.RUNWAYS`
     entry (exactly three today), in registry order — the entire card
     (`<label>`) is the hit target, wrapping a visually-hidden (never
@@ -1087,14 +1122,15 @@ def runway_fieldset(current_runway_id, images_available=(), errors=None, submitt
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Runway"),
         escape_html(RUNWAY_GROUP_HEADING_ID),
-        escape_html(RUNWAY_SECTION_CAPTION_ID), escape_html(RUNWAY_SECTION_CAPTION),
+        escape_html(RUNWAY_SECTION_CAPTION_ID),
+        escape_html(_with_next_wake(RUNWAY_SECTION_CAPTION, next_wake_clock)),
         row_attr,
         "".join(cards),
         runway_error_html,
     )
 
 
-def led_group(current_led_enabled, errors=None, submitted=None):
+def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=None):
     """The Diagnostic LED settings group (D-05, 06.6.4.1): a sibling of the
     Theme and Runway groups inside the single merged `<form
     action="{SETTINGS_ROUTE}">`, wrapped in the same `.theme-status`
@@ -1175,13 +1211,16 @@ def led_group(current_led_enabled, errors=None, submitted=None):
     ) % (
         DIRTY_SECTION_ATTR, escape_html(LED_SECTION_HEADING),
         escape_html(LED_SECTION_HEADING),
-        escape_html(LED_SECTION_CAPTION_ID), escape_html(LED_SECTION_CAPTION),
+        escape_html(LED_SECTION_CAPTION_ID),
+        escape_html(_with_next_wake(LED_SECTION_CAPTION, next_wake_clock)),
         escape_html(LED_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
         error_html,
     )
 
 
-def quiet_hours_group(current_enabled, current_start, current_end, errors=None, submitted=None):
+def quiet_hours_group(
+        current_enabled, current_start, current_end, errors=None, submitted=None,
+        next_wake_clock=None):
     """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md): a
     fourth sibling of the Theme/Runway/Diagnostic LED groups inside the
     single merged `<form action="{SETTINGS_ROUTE}">`, built against
@@ -1305,7 +1344,8 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
     ) % (
         DIRTY_SECTION_ATTR, escape_html(QUIET_HOURS_SECTION_HEADING),
         escape_html(QUIET_HOURS_SECTION_HEADING),
-        escape_html(QUIET_HOURS_SECTION_CAPTION_ID), escape_html(QUIET_HOURS_SECTION_CAPTION),
+        escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
+        escape_html(_with_next_wake(QUIET_HOURS_SECTION_CAPTION, next_wake_clock)),
         escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", enabled_error_attrs,
         enabled_error_html,
         preset_row_html,
@@ -1316,7 +1356,7 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
     )
 
 
-def wake_interval_group(current_wake_interval_s, errors=None, submitted=None):
+def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, next_wake_clock=None):
     """The Wake interval settings group (11-UI-SPEC.md, 11-RESEARCH.md
     Pattern 4): a fifth sibling of the Theme/Runway/Diagnostic LED/Quiet
     hours groups inside the single merged `<form action="{SETTINGS_ROUTE}">`,
@@ -1399,7 +1439,8 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None):
     ) % (
         DIRTY_SECTION_ATTR, escape_html(WAKE_INTERVAL_SECTION_HEADING),
         escape_html(WAKE_INTERVAL_SECTION_HEADING),
-        escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID), escape_html(WAKE_INTERVAL_SECTION_CAPTION),
+        escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID),
+        escape_html(_with_next_wake(WAKE_INTERVAL_SECTION_CAPTION, next_wake_clock)),
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
         escape_html(WAKE_INTERVAL_PLACEHOLDER_TEXT),
         value_attr, error_attrs,
@@ -1440,6 +1481,13 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     state from the submission (absent-means-unchecked, matching
     `handle_post()`'s own resolution of this exact field) and render its
     "unexpected switch value" error, anchored on the checkbox itself.
+
+    19-12-PLAN.md Task 3 (D-13): deliberately takes NO `next_wake_clock`
+    parameter, unlike every sibling group builder above. D-13's suffix
+    is derived from `wake_interval_s`/`SKYPANE_SLEEP_S`, which this
+    field's own honest ~5-minute latency sentence (above) already
+    supersedes for this one group — appending a wake-interval-derived
+    figure here would contradict that sentence, per 12-CONTEXT.md D-01.
     """
     checked = _submitted_checkbox_checked(
         submitted, "display_enabled", DISPLAY_CHECKBOX_VALUE, current_display_enabled)
@@ -2137,6 +2185,20 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # how calendar_configured/calendar_last_synced_at above already read.
     calendar_drift = ctx.get("calendar_drift")
     cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
+    # 19-12-PLAN.md Task 3 (D-13): the same wake.next_wake_at_iso() +
+    # layout.local_clock_text() pipeline home_page.py's Frame tile uses,
+    # computed once here and threaded into every caption site below via
+    # _with_next_wake() plus rendered again in the Device header slot.
+    # None when the value is unknown (no check-in yet, or no known
+    # interval) — every consumer already treats a falsy value as "omit
+    # the suffix/line entirely" (D-13: "where the value is known").
+    next_wake_clock = None
+    next_wake_iso = wake.next_wake_at_iso(ctx.get("last_checkin_ts"), device_cfg)
+    if next_wake_iso:
+        next_wake_parsed = layout.parse_iso(next_wake_iso)
+        if next_wake_parsed is not None:
+            next_wake_clock = layout.local_clock_text(
+                next_wake_parsed, now_parsed=layout.parse_iso(ctx.get("now")))
 
     # D-05 (06.6.4.1): the LED group used to be a sibling page-section,
     # appended AFTER the Poll section, rather than a third fieldset
@@ -2201,17 +2263,19 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     builders = {
         screens.GROUP_THEME: lambda: theme_fieldset(
             current_theme_id, current_theme_arriving,
-            errors=errors, submitted=submitted),
+            errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
         screens.GROUP_RUNWAY: lambda: runway_fieldset(
             current_runway_id, ctx.get("runway_images") or (),
-            errors=errors, submitted=submitted),
+            errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
         screens.GROUP_LED: lambda: led_group(
-            current_led_enabled, errors=errors, submitted=submitted),
+            current_led_enabled, errors=errors, submitted=submitted,
+            next_wake_clock=next_wake_clock),
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
             current_quiet_enabled, current_quiet_start, current_quiet_end,
-            errors=errors, submitted=submitted),
+            errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
-            current_wake_interval_s, errors=errors, submitted=submitted),
+            current_wake_interval_s, errors=errors, submitted=submitted,
+            next_wake_clock=next_wake_clock),
         screens.GROUP_DISPLAY: lambda: display_group(
             current_display_enabled, errors=errors, submitted=submitted),
         screens.GROUP_CALENDAR: lambda: calendar_group(
@@ -2235,11 +2299,16 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # 19-12-PLAN.md Task 2 (D-22, Device-page half): the Edit
         # artwork link is Device-only, joining the screen caption/
         # selector in the same action_html slot.
+        # 19-12-PLAN.md Task 3 (D-13): "Home and Device show" — the
+        # Next-wake line joins the same slot, Device-only (Display
+        # instead carries the per-caption suffixes via next_wake_clock
+        # threaded into the builders dict above).
         header = layout.page_header(
             DEVICE_PAGE_TITLE, purpose=DEVICE_PAGE_PURPOSE,
             action_html=(
                 _screen_caption_html(screen) + _screen_selector_html(screen_id)
-                + _edit_artwork_link_html()))
+                + _edit_artwork_link_html()
+                + _next_wake_caption_html(next_wake_clock)))
         hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
         show_rules = bool(screen.get("has_colour_rules"))
         show_poll = bool(screen.get("has_manual_poll"))
@@ -2308,6 +2377,28 @@ def _screen_caption_html(screen):
     return (
         '<p class="page-header__screen text-label">%s</p>'
         % escape_html(SCREEN_CAPTION_TEMPLATE % screen["label"]))
+
+
+NEXT_WAKE_HEADER_LABEL = "Next wake"
+NEXT_WAKE_HEADER_VALUE_TEMPLATE = "≈ %s"
+
+
+def _next_wake_caption_html(next_wake_clock):
+    """The Device page header's own "Next wake ≈ HH:MM" line (D-13/S-02:
+    "Home and Device show" — this is the Device half; Home's own copy
+    lives in companion/pages/home_page.py). Returns the EMPTY STRING
+    when `next_wake_clock` is falsy — no placeholder, no "unknown" —
+    matching `_with_next_wake()`'s identical omit-when-unknown contract
+    for the per-group caption suffixes.
+    """
+    if not next_wake_clock:
+        return ""
+    return (
+        '<p class="page-header__screen text-label">%s</p>'
+        % escape_html(
+            "%s %s" % (
+                NEXT_WAKE_HEADER_LABEL,
+                NEXT_WAKE_HEADER_VALUE_TEMPLATE % next_wake_clock)))
 
 
 def _screen_selector_html(current_screen_id):

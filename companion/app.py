@@ -36,6 +36,7 @@ service must never come up with authentication silently disabled.
 import email.message
 import os
 import socket
+import sqlite3
 import sys
 import threading
 import time
@@ -57,7 +58,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from companion import auth, illustration_normalize, layout, theme_preview  # noqa: E402
+from companion import auth, illustration_normalize, layout, theme_preview, wake  # noqa: E402
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
@@ -658,10 +659,22 @@ def poll_cooldown_remaining(state_dir):
 def env_wake_interval_default():
     """Return the deployed SKYPANE_SLEEP_S as an int, or None.
 
-    Read via `os.environ.get(SLEEP_ENV_VAR)` on every call — never
-    captured at import time — so a redeployed env file takes effect on
-    the next service restart with nothing cached in between, matching
-    `auth.configured_password()`'s own per-call shape.
+    19-12-PLAN.md Task 3 (D-13): the raw read now delegates to
+    `wake.env_sleep_s()` — the SAME per-call, uncached
+    `os.environ.get(SLEEP_ENV_VAR)` read that function already
+    performs — so there is exactly ONE place in this codebase that
+    reads `SKYPANE_SLEEP_S`. The `[device_config.WAKE_INTERVAL_MIN_S,
+    device_config.WAKE_INTERVAL_MAX_S]` clamp below deliberately stays
+    HERE rather than moving into `wake.env_sleep_s()`: that clamp exists
+    solely so this function's result can be rendered as a `value`
+    attribute on a Settings form's `min="60"` numeric input without
+    failing HTML5 constraint validation — a UI-rendering constraint that
+    does not apply to `wake.effective_wake_interval_s()`'s threshold
+    arithmetic, which must read the shipped `SKYPANE_SLEEP_S=30` (below
+    that same 60s floor) as the device's real, unclamped cadence. Never
+    captured at import time — matching `auth.configured_password()`'s
+    own per-call shape, so a redeployed env file takes effect on the
+    next service restart with nothing cached in between.
 
     Contract difference from `configured_password()`: that function is
     fail-closed and raises `AuthNotConfigured` when its variable is
@@ -681,14 +694,33 @@ def env_wake_interval_default():
     deployed value the form cannot represent is the placeholder, not a
     number the user cannot save. Never raises.
     """
-    raw = os.environ.get(SLEEP_ENV_VAR)
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
+    value = wake.env_sleep_s()
+    if value is None:
         return None
     if device_config.WAKE_INTERVAL_MIN_S <= value <= device_config.WAKE_INTERVAL_MAX_S:
         return value
     return None
+
+
+def _safe_last_checkin_ts(state_dir):
+    """The device's last real check-in, as the raw `device_health.ts`
+    string `history_db.latest_device_health()` returns, or `None` on
+    ANY failure — a missing/locked/unreadable database, or simply no
+    reading recorded yet (19-12-PLAN.md Task 3, D-13). Modelled on
+    `companion.pages.health_page._safe_query()`'s own narrow
+    `(sqlite3.Error, OSError)` catch, the established shape for "one
+    section's data access must never fault the whole page render" in
+    this codebase; `companion/app.py` has no sibling of its own to
+    reuse because none of `page_context()`'s existing SQLite reads
+    (`poll_cooldown_remaining()`, `mark_poll_triggered()`) run inside a
+    try/except of their own.
+    """
+    try:
+        with history_db.open_db(state_dir) as conn:
+            row = history_db.latest_device_health(conn)
+    except (sqlite3.Error, OSError):
+        return None
+    return row["ts"] if row else None
 
 
 def mark_poll_triggered(state_dir):
@@ -1120,6 +1152,13 @@ class Handler(BaseHTTPRequestHandler):
             # companion.screens.current_screen_id(ctx), which already
             # falls back to DEFAULT_SCREEN_ID for a missing/unknown value.
             "screen_id": device_cfg.get("screen_id"),
+            # 19-12-PLAN.md Task 3 (D-13): the raw ISO string of the
+            # device's last check-in, or None on any failure or absence
+            # (_safe_last_checkin_ts()'s own fail-soft contract above).
+            # Data only — the page module that renders it formats it
+            # (wake.next_wake_at_iso() + layout.local_clock_text()),
+            # matching wake.py's own deliberate no-view-dependency rule.
+            "last_checkin_ts": _safe_last_checkin_ts(state_dir),
             # D-07 (11-04): the deployed SKYPANE_SLEEP_S, read fresh from
             # this process's own environment on every request — an int in
             # [WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S] or None. An
