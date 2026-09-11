@@ -975,7 +975,7 @@ Plans:
 **Goal:** Close every defect still open in 18-AUDIT.md (A-19 through A-39, plus the remainder of A-40) and the two small suggestions that belong with them (S-02 next-wake countdown, S-04 quiet-hours presets), keeping the everyday pages plain-language and the design contract intact — see 19-CONTEXT.md D-01..D-23.
 **Requirements**: CFG-01, CFG-03, CFG-04, CFG-06, CFG-08
 **Depends on:** Phase 18
-**Plans:** 5/12 plans executed
+**Plans:** 7/12 plans executed
 
 Plans:
 **Wave 1**
@@ -991,8 +991,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 19-06-PLAN.md — Health: plain-language labels, rows and prose with technical terms in tooltips (D-06)
-- [ ] 19-07-PLAN.md — Settings: field-level save errors with repopulation (D-07)
+- [x] 19-06-PLAN.md — Health: plain-language labels, rows and prose with technical terms in tooltips (D-06)
+- [x] 19-07-PLAN.md — Settings: field-level save errors with repopulation (D-07)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
