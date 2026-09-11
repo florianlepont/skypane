@@ -379,6 +379,15 @@ EXPECTED_CHECK_COUNT = 238  # 20-08-PLAN.md Task 2 (D-23): +5 (?live=1
 # against the real on-disk check(...) call count at execution time
 # (236/238 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 242  # 20-08-PLAN.md Task 3 (D-22..D-24/D-32): +4
+# (the tenth static script, theme-preview.js: its own public-serving
+# check, its ES5-safe/no-HTML-writing-sink guard, its route/src
+# agreement check, and the exactly-one-script-tag/no-bare-inline-script
+# shell check). The nine-deferred-scripts check was retargeted in place
+# to ten, a net-zero rename. 238 + 4 = 242, recomputed directly against
+# the real on-disk check(...) call count at execution time (240/242
+# pass — the two documented WR-11 root-sandbox failures, unrelated to
+# this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -2551,7 +2560,7 @@ def main():
                 "origin": "ORY", "destination": "TLS", "confirmed_state": "departing",
             }
             event_6 = dict(event_5, id=6, callsign="AFR9999")
-            first = theme_preview.cached_preview_bytes(state_dir, "white", live_event=event_5)
+            theme_preview.cached_preview_bytes(state_dir, "white", live_event=event_5)
             path_5 = theme_preview.cache_path(state_dir, "white", live_event_id=5)
             if not os.path.isfile(path_5):
                 return False, "expected cached_preview_bytes() to create %r" % (path_5,)
@@ -3310,27 +3319,89 @@ def main():
             "layout.CONFIRM_SUBMIT_SCRIPT_SRC equals companion.app.CONFIRM_SUBMIT_SCRIPT_ROUTE",
             _confirm_submit_script_route_src_agree)
 
-        def _nine_deferred_scripts_before_closing_body():
-            # Retargeted in place from _eight_deferred_scripts_before_
-            # closing_body() (19-11-PLAN.md Task 2, D-08/A-26):
-            # confirm-submit.js is the ninth unconditional script.
+        # --- 20-08-PLAN.md Task 3 (D-22..D-24/D-32): theme-preview.js ---
+
+        check(
+            "GET /static/theme-preview.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/theme-preview.js"))
+
+        def _theme_preview_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "theme-preview.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest", "setTimeout(", "setInterval(")
+            for token in banned:
+                if token in src:
+                    return False, "theme-preview.js must not contain %r" % token
+            required = ("addEventListener", "querySelector", "getAttribute", "data-preview-src")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in theme-preview.js" % token
+            return True, ""
+        check(
+            "theme-preview.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers), and "
+            "carries the chip-selection src swap (addEventListener/querySelector/getAttribute/"
+            "data-preview-src all present) (D-22..D-24)",
+            _theme_preview_script_es5_safe_and_no_html_write)
+
+        def _theme_preview_script_route_src_agree():
+            import companion.app as app_module
+            if layout.THEME_PREVIEW_SCRIPT_SRC != app_module.THEME_PREVIEW_SCRIPT_ROUTE:
+                return False, "theme-preview script route drift: %r vs %r" % (
+                    layout.THEME_PREVIEW_SCRIPT_SRC, app_module.THEME_PREVIEW_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.THEME_PREVIEW_SCRIPT_SRC equals companion.app.THEME_PREVIEW_SCRIPT_ROUTE",
+            _theme_preview_script_route_src_agree)
+
+        def _theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.THEME_PREVIEW_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            # No inline <script> without a src anywhere in a rendered page —
+            # the CSP's own "no inline script" rule (D-32), pinned here so a
+            # future change cannot silently reintroduce one.
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one theme-preview.js <script> tag "
+            "and no inline <script> without a src (D-32)",
+            _theme_preview_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _ten_deferred_scripts_before_closing_body():
+            # Retargeted in place from _nine_deferred_scripts_before_
+            # closing_body() (20-08-PLAN.md Task 3, D-22..D-24/D-32):
+            # theme-preview.js is the tenth unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 9:
-                return False, "expected exactly 9 deferred <script src= tags before </body>, got %d" % count
+            if count != 10:
+                return False, "expected exactly 10 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
-                    layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC):
+                    layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
+                    layout.THEME_PREVIEW_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly nine deferred <script src= tags "
+            "a rendered authenticated page contains exactly ten deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
-            "poll-cooldown.js and confirm-submit.js",
-            _nine_deferred_scripts_before_closing_body)
+            "poll-cooldown.js, confirm-submit.js and theme-preview.js",
+            _ten_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
