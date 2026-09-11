@@ -975,13 +975,13 @@ Plans:
 **Goal:** Close every defect still open in 18-AUDIT.md (A-19 through A-39, plus the remainder of A-40) and the two small suggestions that belong with them (S-02 next-wake countdown, S-04 quiet-hours presets), keeping the everyday pages plain-language and the design contract intact — see 19-CONTEXT.md D-01..D-23.
 **Requirements**: CFG-01, CFG-03, CFG-04, CFG-06, CFG-08
 **Depends on:** Phase 18
-**Plans:** 12 plans in 6 waves
+**Plans:** 2/12 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 19-01-PLAN.md — Health: shared battery estimate + tile text verdicts (D-01, D-03)
-- [ ] 19-02-PLAN.md — Auth hardening: lockout reset, derived signing key + revocation, conditional Secure (D-15, D-16, D-17)
+- [x] 19-01-PLAN.md — Health: shared battery estimate + tile text verdicts (D-01, D-03)
+- [x] 19-02-PLAN.md — Auth hardening: lockout reset, derived signing key + revocation, conditional Secure (D-15, D-16, D-17)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
