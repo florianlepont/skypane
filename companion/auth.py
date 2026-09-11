@@ -310,6 +310,13 @@ class LoginThrottle:
         self._lockout_s = lockout_s
         self._failures = 0
         self._locked_until = 0.0
+        # WR-03 (19-REVIEW.md): this instance is a single process-global
+        # object shared across every request thread under
+        # ThreadingHTTPServer (see the class docstring above), so
+        # _failures/_locked_until must not be read-then-written by two
+        # threads at once. Mirrors _REVOKED_LOCK's own precedent a few
+        # functions above in this same file.
+        self._lock = threading.Lock()
 
     def record_failure(self):
         # A-32/D-15: once the previous lockout window has fully elapsed,
@@ -317,19 +324,23 @@ class LoginThrottle:
         # the lockout from an already-saturated counter — otherwise one
         # stray wrong password per window keeps the lockout permanent.
         # Contract: five fresh failures per window, never permanent.
-        if self._failures >= self._limit and time.time() >= self._locked_until:
-            self._failures = 0
-        self._failures += 1
-        if self._failures >= self._limit:
-            self._locked_until = time.time() + self._lockout_s
+        with self._lock:
+            if self._failures >= self._limit and time.time() >= self._locked_until:
+                self._failures = 0
+            self._failures += 1
+            if self._failures >= self._limit:
+                self._locked_until = time.time() + self._lockout_s
 
     def record_success(self):
-        self._failures = 0
-        self._locked_until = 0.0
+        with self._lock:
+            self._failures = 0
+            self._locked_until = 0.0
 
     def locked_out(self):
-        return time.time() < self._locked_until
+        with self._lock:
+            return time.time() < self._locked_until
 
     def seconds_remaining(self):
-        remaining = self._locked_until - time.time()
+        with self._lock:
+            remaining = self._locked_until - time.time()
         return int(remaining) if remaining > 0 else 0
