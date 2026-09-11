@@ -356,10 +356,10 @@
     // document URL — and NEVER a URL read out of the DOM. This is a
     // security property, not a style preference: the fetch target must
     // never be readable from, or influenced by, injected markup. No
-    // URL-taking navigation form (location.assign/location.replace/
-    // location.href =/window.open) appears anywhere in this file,
-    // preserving the exact property the retired reload-only file's own
-    // comment protected.
+    // URL-taking navigation form (an assignment to the page's own
+    // location, or a call to assign/replace/open) appears anywhere in
+    // this file, preserving the exact property the retired reload-only
+    // file's own comment protected.
     //
     // redirect: "manual" (T-19-34): fetch()'s default behaviour silently
     // FOLLOWS a same-origin redirect and reports the FINAL response's

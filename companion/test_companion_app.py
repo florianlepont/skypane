@@ -308,6 +308,15 @@ EXPECTED_CHECK_COUNT = 211  # 19-07-PLAN.md Task 3 (D-07/A-25): +1 (the
 # banner, and persists nothing on disk). 210 + 1 = 211, recomputed
 # directly against the real on-disk check(...) call count at execution
 # time (211/211 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 213  # 19-09-PLAN.md Task 3 (D-02): +2 (freshness.js's
+# own named ES5/sink guard — the sibling nav-dropdown.js/panel-lookup.js
+# ban list minus location.reload plus fetch(/setTimeout/setInterval as its
+# one reviewed exception, plus DOMParser/replaceChild/credentials/fetch(
+# required present — and the no-URL-taking-navigation-form check). 211 + 2
+# = 213, recomputed directly against the real on-disk check(...) call
+# count at execution time (211/213 pass — the two documented WR-11
+# root-sandbox failures, unrelated to this plan), not trusted from
+# arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -2793,6 +2802,75 @@ def main():
             "companion.app.py's 4 new *_SCRIPT_ROUTE constants equal companion/layout.py's 4 new "
             "*_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each",
             _four_new_static_routes_dom_contract_guard)
+
+        # --- 19-09-PLAN.md Task 3: freshness.js's own named guard (D-02) ---
+
+        def _freshness_script_es5_safe_with_one_reviewed_sink_exception():
+            # Modelled on _panel_lookup_script_es5_safe_and_no_html_write()
+            # above, with ONE DELIBERATE, DOCUMENTED divergence: fetch(,
+            # setTimeout and setInterval are PERMITTED here and nowhere
+            # else among this project's static scripts. D-02 makes
+            # freshness.js the single reviewed exception to that ban,
+            # because a live monitoring page needs a network read to stay
+            # honest, and the standing HTML-writing-sink ban is preserved
+            # a different way (DOMParser, never innerHTML/
+            # insertAdjacentHTML/document.write/eval(). Adding a second
+            # exception anywhere else in this codebase requires a new
+            # decision, not a precedent copied from this one.
+            js_path = os.path.join(HERE, "static", "freshness.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(",
+                "location.reload", "XMLHttpRequest",
+            )
+            for token in banned:
+                if token in src:
+                    return False, "freshness.js must not contain %r" % token
+            required = ("DOMParser", "replaceChild", "credentials", "fetch(")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in freshness.js" % token
+            return True, ""
+        check(
+            "freshness.js stays ES5-safe and keeps the standing HTML-writing-sink ban (no let/const/"
+            "arrow/backtick/innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/"
+            "location.reload/XHR), while fetch(/setTimeout/setInterval are its own single, "
+            "deliberate, reviewed exception to the sibling scripts' ban list (D-02) — and it "
+            "actually uses the safe DOMParser/replaceChild/credentials-scoped mechanism this "
+            "exception was granted for, not merely permitted to",
+            _freshness_script_es5_safe_with_one_reviewed_sink_exception)
+
+        def _freshness_script_no_url_taking_navigation_form():
+            # The security property the retired reload-only file's own
+            # comment protected, now pinned instead of merely promised
+            # (T-19-33). A bare READ of window.location.href as a fetch
+            # argument is explicitly permitted — this checks for the
+            # ASSIGNMENT/CALL forms only, never the substring
+            # "location.href" on its own, which would also match that
+            # permitted read.
+            js_path = os.path.join(HERE, "static", "freshness.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            forbidden_forms = (
+                "location.href =", "location.assign", "location.replace", "window.open",
+            )
+            for form in forbidden_forms:
+                if form in src:
+                    return False, "freshness.js must not contain the navigation form %r" % form
+            if "window.location.href" not in src:
+                return False, "expected the permitted window.location.href fetch-argument read"
+            return True, ""
+        check(
+            "freshness.js contains no URL-taking navigation form (an assignment to location.href, "
+            "or a call to location.assign/location.replace/window.open) while still reading "
+            "window.location.href as its fetch argument — the fetch target can never be influenced "
+            "by injected markup (19-09-PLAN.md Task 3, D-02/T-19-33)",
+            _freshness_script_no_url_taking_navigation_form)
 
         # --- 06.6.4.1-02 Task 3: panel-lookup.js (D-20) ---
 
