@@ -26,16 +26,23 @@
  * 06.6.4.1 (D-03/D-04): the bar's copy now names which settings group(s)
  * changed, using the group labels Settings' own page module assigns via
  * data-dirty-section, instead of a raw field-diff count — see
- * dirtySectionLabels() and updateBar() below. This file
- * deliberately does NOT hide the form's always-rendered bottom Save
- * Settings button: that fix is the .js-gated CSS rule
- * companion/static/style.css landed (.js [data-static-save-fallback]
- * { display: none; }), driven by the .js class nav-dropdown.js already
- * sets unconditionally on <html> — no JavaScript in this file needs to
- * know that button exists. This closes the real bug where the old
- * per-section bars and the bottom button used to show at the same time:
- * previously this file's only DOM mutation was toggling the bar's own
- * hidden property, with no reference to that other button at all.
+ * dirtySectionLabels() and updateBar() below.
+ *
+ * SUPERSEDED by 19-10-PLAN.md (D-09/A-27): this paragraph used to say
+ * hiding the form's always-rendered bottom Save Settings button was NOT
+ * this file's job, because that was instead a .js-gated CSS rule
+ * (.js [data-static-save-fallback] { display: none; }) driven by the
+ * .js class nav-dropdown.js sets unconditionally on <html>. That was the
+ * defect: .js says nothing about whether THIS file ever reached its own
+ * initialisation — any hiccup in dirty-state.js (a thrown exception, a
+ * markup change that broke a querySelector) still left .js set, so the
+ * fallback button hid anyway while the replacement bar never appeared,
+ * leaving no way to save settings at all. The new contract: this file
+ * adds a marker class to <html>, defined below right after the guard
+ * that proves the bar actually exists, and
+ * companion/static/style.css's fallback-hide rule is retargeted to key
+ * on that marker instead of on .js, so the fallback now hides if and
+ * only if a working replacement is actually present.
  */
 (function () {
   "use strict";
@@ -51,6 +58,13 @@
   if (!bar || !countEl) {
     return;
   }
+
+  // D-09/A-27: the bar is now proven present — set the marker
+  // style.css's fallback-hide rule keys on. Mirrors nav-dropdown.js's
+  // own unconditional document.documentElement.className += " js"
+  // (its very first statement) rather than classList, matching this
+  // codebase's existing convention for writing a class onto <html>.
+  document.documentElement.className += " dirty-ready";
 
   // Snapshot every named field's value at load time. form.elements is a
   // live HTMLFormControlsCollection — re-scanned on every change/input

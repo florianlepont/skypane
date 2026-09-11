@@ -293,6 +293,12 @@ EXPECTED_CHECK_COUNT = 154  # 19-07-PLAN.md Task 3 (D-07/A-25): +1 (the
 # contract pin). 153 + 1 = 154, recomputed directly against the real
 # on-disk check(...) call count at execution time (154/154 pass), not
 # trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 155  # 19-10-PLAN.md Task 1 (D-09/A-27): +1 (the
+# dirty-ready-set-only-after-bar-guard source-ordering check; the other
+# two edits this task made were in-place retargets, not additions).
+# 154 + 1 = 155, recomputed directly against the real on-disk check(...)
+# call count at execution time (155/155 pass), not trusted from
+# arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2630,13 +2636,36 @@ def main():
         source = _read_static("dirty-state.js")
         if config_page.DIRTY_SECTION_ATTR not in source:
             return False, "expected dirty-state.js to reference the literal value of DIRTY_SECTION_ATTR"
+        # 19-10-PLAN.md (D-09/A-27): also pins the dirty-ready marker
+        # literal, keeping this script and style.css's retargeted
+        # fallback-hide selector from drifting apart.
+        if "dirty-ready" not in source:
+            return False, "expected dirty-state.js to reference the literal string dirty-ready"
         for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
             if forbidden in source:
                 return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
         return True, ""
     check(
-        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and contains none of innerHTML/let /const /=>/backtick",
+        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and the dirty-ready marker, and "
+        "contains none of innerHTML/let /const /=>/backtick",
         _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax)
+
+    def _dirty_state_js_sets_dirty_ready_only_after_bar_guard():
+        # 19-10-PLAN.md (D-09/A-27): the same source-ordering technique
+        # test_companion_app.py's _panel_lookup_optional_replace_lookup_
+        # stays_outside_mandatory_guard check already uses - dirty-ready
+        # must only ever be set once the bar's existence is proven (the
+        # [data-dirty-bar] guard clause), never before it.
+        source = _read_static("dirty-state.js")
+        if "dirty-ready" not in source or "data-dirty-bar" not in source:
+            return False, "expected both dirty-ready and data-dirty-bar to be present in dirty-state.js"
+        if source.index("dirty-ready") <= source.index("data-dirty-bar"):
+            return False, "expected the first dirty-ready occurrence to come after the first data-dirty-bar occurrence"
+        return True, ""
+    check(
+        "dirty-state.js's first dirty-ready occurrence comes after its first data-dirty-bar occurrence (D-09: set "
+        "only after the bar guard passes)",
+        _dirty_state_js_sets_dirty_ready_only_after_bar_guard)
 
     def _style_css_references_static_save_fallback_attr():
         source = _read_static("style.css")
@@ -2646,9 +2675,22 @@ def main():
         window = source[idx:idx + 120]
         if "display: none" not in window and "display:none" not in window:
             return False, "expected the fallback-hide rule to set display: none near the attribute reference"
+        # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready -
+        # the fallback now hides only once dirty-state.js has proven the
+        # bar exists, not merely because nav-dropdown.js's unconditional
+        # .js class is present. The selector prefix sits BEFORE the
+        # attribute reference (".dirty-ready [data-static-save-fallback]"),
+        # so widen the window backwards too rather than only forwards.
+        selector_window = source[max(0, idx - 40):idx + 120]
+        if "dirty-ready" not in selector_window:
+            return False, "expected the fallback-hide rule's selector to reference dirty-ready"
+        old_selector = ".js [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
+        if old_selector in source:
+            return False, "expected the old .js-gated selector to be gone entirely"
         return True, ""
     check(
-        "style.css contains the .js-gated fallback-hide rule referencing config_page.STATIC_SAVE_FALLBACK_ATTR's literal value",
+        "style.css contains the .dirty-ready-gated fallback-hide rule referencing "
+        "config_page.STATIC_SAVE_FALLBACK_ATTR's literal value, and no longer the old .js-gated selector",
         _style_css_references_static_save_fallback_attr)
 
     def _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors():
