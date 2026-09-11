@@ -201,12 +201,14 @@ DEVICE_ROUTE = layout.DEVICE_ROUTE
 # The pre-phase-18 History route, kept as a fixed 303 to FLIGHTS_ROUTE
 # for stale bookmarks — the same treatment PREVIEW_PAGE_ROUTE gets.
 HISTORY_LEGACY_ROUTE = "/history"
-# Quick-action routes the Home page's widgets post to. Must equal
-# companion/pages/home_page.py's own literals (that module cannot
-# import this one).
-QUICK_DISPLAY_ROUTE = home_page.QUICK_DISPLAY_ROUTE
-QUICK_QUIET_HOURS_ROUTE = home_page.QUICK_QUIET_HOURS_ROUTE
-assert POLL_ROUTE == home_page.POLL_ROUTE
+# Quick-action routes the Screen on/off and Quiet-hours instant
+# switches post to. D-16 (20-06-PLAN.md) moved those switches off Home
+# onto Display (20-07-PLAN.md) and deleted home_page.py's own copies of
+# these two route literals along with the widgets that posted to them —
+# literal here now, byte-identical to the values home_page.py used to
+# define, since this module can never import a page module either.
+QUICK_DISPLAY_ROUTE = "/quick/display"
+QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
 THEME_ROUTE = "/ui-theme"
 # D-02/D-29 (20-01-PLAN.md Task 2): the two new nav-footer switch
 # routes, byte-for-byte siblings of THEME_ROUTE above.

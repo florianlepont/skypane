@@ -256,7 +256,19 @@ EXPECTED_CHECK_COUNT = 83  # 79 + 4 (19-08-PLAN.md Task 3: D-22's edit-gated lig
 # 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History Timestamp column reads
 # "ISO (Nm ago)"; Task 2: Preview's Captured caption reads "Captured ISO
 # (Nm ago)"; Task 3: corroboration copy cross-page drift guard, D-03)
-EXPECTED_CHECK_COUNT = 85  # 19-12-PLAN.md Task 3 (D-13/S-02): +2 (wake.
+EXPECTED_CHECK_COUNT = 87  # 20-06-PLAN.md Task 1 (D-16/D-17/D-21): net +2
+# (85 -> 87) — retargeted the seeded-render check and the empty-ctx check
+# off the deleted Quick-actions/stat_tile markup, replaced the single
+# _home_page_renders_next_wake_figure_only_when_known() check (-1) with
+# three new checks (+3): no quick-action markup/no /quick/ action
+# anywhere plus exactly three status-row blocks with the Frame verdict
+# appearing exactly once (the 20-RESEARCH.md Pitfall 3 regression test),
+# the status card's "Next update ≈"/"Expected since" headline across
+# future/past/never-checked-in next-wake states, and the "See details on
+# Health" link's simple_mode gating (D-30). Recomputed directly against
+# the real on-disk check(...) call count at execution time (87/87 pass),
+# not trusted from arithmetic alone.
+# 85 = 19-12-PLAN.md Task 3 (D-13/S-02): +2 (wake.
 # next_wake_at_iso()'s None-for-falsy/unparseable/unknown-interval contract
 # plus the screen-on/screen-off arithmetic, and Home rendering the ≈
 # figure only when both a check-in and an interval are known). 83 + 2 =
@@ -3024,44 +3036,126 @@ def main():
             ctx = {
                 "state_dir": tmp, "now": now,
                 "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
-                "device_config": {"display_enabled": False, "quiet_hours_enabled": True,
-                                  "quiet_hours_start": "22:00", "quiet_hours_end": "06:30"},
+                "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+                "device_config": {"wake_interval_s": 900, "display_enabled": True},
                 "health_state": {"device_state": "ok", "pipeline_state": "warn",
-                                 "battery_state": "ok", "device_html": "<b>d</b>",
-                                 "pipeline_html": "<b>p</b>"},
-                "poll_cooldown_remaining": 0,
+                                 "battery_state": "ok",
+                                 "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
+                                 "pipeline_html": "<p>A little stale</p>"},
+                "simple_mode": False,
             }
             rendered = home_page.render(ctx)
             for needle in (
                     '<h1 class="page-title">Home</h1>', "AFR1380", "Air France", "ORY → TLS",
-                    'src="/gallery/2026-08-27T11-50-00+00-00.png"', "Switch on",
-                    "On — 22:00 to 06:30", "Turn off", "Refresh now", "3750 mV",
-                    'value="on"', "quick-action--off", "quick-action--on",
-                    "≈ 50%"):
+                    'src="/gallery/2026-08-27T11-50-00+00-00.png"', "3750 mV",
+                    "≈ 50%", "Next update ≈"):
                 if needle not in rendered:
                     return False, "expected %r in the Home page" % needle
             if "<XYZ>" in rendered or "&lt;XYZ&gt;" not in rendered:
                 return False, "expected the hostile callsign to be escaped"
-            if rendered.count("recent-flight ") != 2 and rendered.count('class="recent-flight"') != 2:
+            if rendered.count('class="recent-flight"') != 2:
                 return False, "expected exactly two recent-flight rows"
-            cooled = home_page.render(dict(ctx, poll_cooldown_remaining=12))
-            if "try again in 12s" not in cooled or "<button type=\"submit\" disabled>" not in cooled:
-                return False, "expected the refresh widget to honour the cooldown"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "home_page.render() with seeded flights, a battery reading and a gallery entry renders the "
-        "status tiles (with a battery percentage estimate), the current-panel image, the three "
-        "quick-action widgets reflecting the saved state, escaped recent flights, and a disabled "
-        "refresh control during the cooldown",
+        "home_page.render() with seeded flights, a battery reading and a gallery entry renders "
+        "the hero picture, the battery percentage estimate, escaped recent flights, and the "
+        "Next-update headline",
         _home_page_render_with_seeded_state)
+
+    def _home_page_full_render_has_no_quick_actions_and_three_status_rows():
+        from companion.pages import home_page
+        ctx = {
+            "health_state": {"device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"},
+            "device_config": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
+            "now": "2026-08-27T12:00:00+00:00", "simple_mode": False,
+        }
+        rendered = home_page.render(ctx)
+        if "quick-action" in rendered or "/quick/" in rendered:
+            return False, "expected no quick-action markup or /quick/ action anywhere on Home (D-16)"
+        if rendered.count('<div class="status-row') != 3:
+            return False, "expected exactly three status-row blocks"
+        for label in (home_page.FRAME_ROW_LABEL, home_page.BATTERY_ROW_LABEL,
+                      home_page.DATA_ROW_LABEL):
+            if label not in rendered:
+                return False, "expected the %r status-row label" % (label,)
+        if rendered.count(home_page.FRAME_STATE_TEXT["ok"]) != 1:
+            return False, (
+                "expected the Frame state sentence to appear exactly once — the "
+                "20-RESEARCH.md Pitfall 3 duplicated-verdict regression test")
+        return True, ""
+    check(
+        "a rendered Home page carries no quick-action markup and no /quick/ action anywhere "
+        "(D-16), exactly three status-row blocks labelled Frame/Battery/Flight data, and the "
+        "Frame verdict sentence exactly once",
+        _home_page_full_render_has_no_quick_actions_and_three_status_rows)
+
+    def _home_status_card_headline_next_update_or_expected_since():
+        from companion.pages import home_page
+        base_ctx = {
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "health_state": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
+        }
+        future_ctx = dict(
+            base_ctx, last_checkin_ts="2026-08-27T11:55:00+00:00", now="2026-08-27T12:00:00+00:00")
+        rendered_future = home_page._status_card_html(future_ctx)
+        # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
+        # UTC+2, in effect in late August) — still AFTER the 12:00 UTC
+        # "now", so this is the not-yet-due branch.
+        if "Next update ≈ 14:10" not in rendered_future:
+            return False, "expected the future next-update headline"
+        if "status-card__headline--warn" in rendered_future:
+            return False, "expected no warn modifier for a future next-update"
+
+        past_ctx = dict(
+            base_ctx, last_checkin_ts="2026-08-27T11:00:00+00:00", now="2026-08-27T12:00:00+00:00")
+        rendered_past = home_page._status_card_html(past_ctx)
+        # 11:00 UTC + 15 minutes = 11:15 UTC, already BEFORE the 12:00 UTC
+        # "now" — the overdue, warn-treatment branch.
+        if "Expected since" not in rendered_past:
+            return False, "expected the overdue headline wording"
+        if "status-card__headline--warn" not in rendered_past:
+            return False, "expected the warn modifier for an overdue next-update"
+
+        missing_checkin = dict(base_ctx, last_checkin_ts=None, now="2026-08-27T12:00:00+00:00")
+        if "status-card__headline" in home_page._status_card_html(missing_checkin):
+            return False, "expected no headline at all when there is no check-in yet"
+        missing_interval = dict(
+            base_ctx, device_config={}, last_checkin_ts="2026-08-27T11:55:00+00:00",
+            now="2026-08-27T12:00:00+00:00")
+        if "status-card__headline" in home_page._status_card_html(missing_interval):
+            return False, "expected no headline at all when the wake interval is unknown"
+        return True, ""
+    check(
+        "the status card's headline reads 'Next update ≈ HH:MM' for a future next-update, "
+        "'Expected since HH:MM' in the warn treatment for a past one, and renders no headline "
+        "at all when either the check-in or the wake interval is unknown (D-17)",
+        _home_status_card_headline_next_update_or_expected_since)
+
+    def _home_status_card_health_link_gated_by_simple_mode():
+        from companion.pages import home_page
+        ctx = {
+            "health_state": {}, "device_config": {},
+            "state_dir": "/tmp/skypane-no-such-state-dir", "now": "2026-08-27T12:00:00+00:00",
+        }
+        full_mode_rendered = home_page._status_card_html(dict(ctx, simple_mode=False))
+        simple_mode_rendered = home_page._status_card_html(dict(ctx, simple_mode=True))
+        if home_page.HEALTH_LINK_TEXT not in full_mode_rendered:
+            return False, "expected the Health link when simple_mode is off"
+        if home_page.HEALTH_LINK_TEXT in simple_mode_rendered:
+            return False, "expected no Health link when simple_mode is on (D-30)"
+        return True, ""
+    check(
+        "the status card's 'See details on Health' link is present with simple_mode off and "
+        "absent with it on (D-30)",
+        _home_status_card_health_link_gated_by_simple_mode)
 
     def _home_page_render_degrades_with_nothing():
         from companion.pages import home_page
         rendered = home_page.render({})
         for needle in (home_page.NO_FLIGHTS_HEADING, home_page.NO_PANEL_HEADING,
-                       home_page.NO_READING_TEXT, "Quick actions"):
+                       home_page.NO_READING_TEXT):
             if needle not in rendered:
                 return False, "expected %r for an empty ctx" % needle
         if battery.battery_percent(4200) != 100 or battery.battery_percent(3300) != 0:
@@ -3123,35 +3217,6 @@ def main():
         "last_checkin + wake_interval_s for a screen-on config, and last_checkin + DISPLAY_OFF_SLEEP_S "
         "for a screen-off config (D-13's screen-off rule)",
         _wake_next_wake_at_iso_contract)
-
-    def _home_page_renders_next_wake_figure_only_when_known():
-        from companion.pages import home_page
-        base_ctx = {
-            "device_config": {"wake_interval_s": 900, "display_enabled": True},
-            "health_state": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
-        }
-        with_both = dict(base_ctx, last_checkin_ts="2026-08-27T11:55:00+00:00", now="2026-08-27T12:00:00+00:00")
-        rendered_both = home_page._status_tiles_html(with_both)
-        # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
-        # UTC+2, in effect in late August) — layout.local_clock_text()
-        # renders in local time, matching D-13's "Paris local time" wording.
-        if "Next wake" not in rendered_both or "≈ 14:10" not in rendered_both:
-            return False, "expected the Next wake figure when a check-in and an interval are both present"
-        missing_checkin = dict(base_ctx, last_checkin_ts=None, now="2026-08-27T12:00:00+00:00")
-        rendered_missing_checkin = home_page._status_tiles_html(missing_checkin)
-        if "Next wake" in rendered_missing_checkin:
-            return False, "expected no Next wake label at all when there is no check-in yet"
-        missing_interval = dict(
-            base_ctx, device_config={}, last_checkin_ts="2026-08-27T11:55:00+00:00",
-            now="2026-08-27T12:00:00+00:00")
-        rendered_missing_interval = home_page._status_tiles_html(missing_interval)
-        if "Next wake" in rendered_missing_interval:
-            return False, "expected no Next wake label at all when the wake interval is unknown"
-        return True, ""
-    check(
-        "Home renders the ≈ Next-wake figure only when a check-in and an interval are both known, "
-        "and renders no Next-wake label at all when either is missing (D-13)",
-        _home_page_renders_next_wake_figure_only_when_known)
 
     def _battery_module_never_imports_pages_or_server():
         battery_path = os.path.join(REPO_ROOT, "companion", "battery.py")
