@@ -282,7 +282,22 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 163  # 158 + 5 (phase 14 plan 14-06 Task 1: the
+EXPECTED_CHECK_COUNT = 171  # 166 + 5 (19-01-PLAN.md Task 3: D-03/A-21's
+# text-verdict checks — the Device tile's widget-verdict paragraph at
+# each of its three severities, the Pipeline tile's at each of its three
+# severities, the Corroboration tile's at both the agreement and
+# disagreement states, the Resolution-rate tile's deliberate absence of
+# any widget-verdict paragraph, and the three state-text dicts' exact key
+# sets). Re-derived by RUNNING the harness, not by arithmetic.
+# 166 = 163 + 3 (19-01-PLAN.md Task 2: D-01/A-19's
+# percentage-estimate checks — _battery_reading_parts()'s value text
+# leading with the '≈ NN%' estimate for a numeric reading, falling back
+# to the bare millivolt figure with no stray '≈' when
+# battery.battery_percent() returns None, and a real seeded
+# health_page.render() call's readout value span carrying both the
+# estimate and the millivolt figure). Re-derived by RUNNING the harness,
+# not by arithmetic.
+# 163 = 158 + 5 (phase 14 plan 14-06 Task 1: the
 # manual_info=None byte-compat/plain-card check, the active-manual-states
 # (art + needs-artwork) attribute check, the needs-artwork sighting-
 # context conditional-on-live-gap check, the superseded-card
@@ -1955,6 +1970,201 @@ def main():
         "helper builds, split across its value/detail spans, and the retired placeholder prompt no longer "
         "appears (D-09, quick task 260901-uzi finding 3)",
         _battery_readout_seeded_with_latest_reading_not_placeholder)
+
+    def _battery_reading_parts_value_carries_the_percentage_estimate():
+        # D-01/A-19, 19-01-PLAN.md: the value half of the (value, when)
+        # pair now leads with a percentage estimate, still followed by
+        # the exact millivolt figure every existing pinned check keys on.
+        value_text, _when_text = health_page._battery_reading_parts(
+            3750, "2026-09-11T10:00:00+00:00", "2026-09-11T10:05:00+00:00")
+        if not value_text.startswith("≈"):
+            return False, "expected the value text to start with the estimate's ≈ marker, got %r" % value_text
+        if "%" not in value_text:
+            return False, "expected a percentage sign in the value text, got %r" % value_text
+        if "3750 mV" not in value_text:
+            return False, "expected the exact millivolt figure to survive as a substring, got %r" % value_text
+        return True, ""
+    check(
+        "_battery_reading_parts()'s value text leads with a '≈ NN%' estimate ahead of the exact millivolt "
+        "figure, for a numeric reading battery.battery_percent() can estimate (D-01/A-19)",
+        _battery_reading_parts_value_carries_the_percentage_estimate)
+
+    def _battery_reading_parts_value_has_no_estimate_when_percent_is_none():
+        # battery.battery_percent(0) returns None (the non-positive
+        # guard) — the value text must fall back to the bare millivolt
+        # figure, with no stray "≈", rather than raising on a reading
+        # the estimate cannot be computed for.
+        value_text, _when_text = health_page._battery_reading_parts(
+            0, "2026-09-11T10:00:00+00:00", "2026-09-11T10:05:00+00:00")
+        if "≈" in value_text:
+            return False, "expected no ≈ marker when battery.battery_percent() returns None, got %r" % value_text
+        if value_text != "0 mV":
+            return False, "expected the bare millivolt figure with no estimate, got %r" % value_text
+        return True, ""
+    check(
+        "_battery_reading_parts()'s value text stays a bare millivolt figure, with no ≈ marker, when "
+        "battery.battery_percent() cannot estimate the reading (D-01/A-19)",
+        _battery_reading_parts_value_has_no_estimate_when_percent_is_none)
+
+    def _seeded_render_shows_both_the_estimate_and_the_millivolt_figure():
+        tmp = _mkstate("h-readout-percentage")
+        try:
+            base = _now()
+            _seed_device_health(tmp, [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 3750),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
+            value_start = rendered.index('class="battery-readout__value mono"', readout_start)
+            value_tag_end = rendered.index(">", value_start) + 1
+            value_end = rendered.index("</span>", value_tag_end)
+            value_html = rendered[value_tag_end:value_end]
+            if "≈" not in value_html:
+                return False, "expected the ≈ estimate marker inside the readout's value span"
+            if " mV" not in value_html:
+                return False, "expected the millivolt figure inside the readout's value span"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a seeded health_page.render() call's battery-readout__value span carries both the '≈' estimate "
+        "and the ' mV' millivolt figure (D-01/A-19)",
+        _seeded_render_shows_both_the_estimate_and_the_millivolt_figure)
+
+    # --- D-03/A-21 (19-01-PLAN.md Task 3): text verdicts on the Device/ -----
+    # Pipeline/Corroboration stat tiles (WCAG 1.4.1) --------------------------
+
+    def _tile_slice_by_caption(rendered, caption):
+        at = rendered.index(caption)
+        tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
+        tile_close = rendered.index("</div>", tile_open) + len("</div>")
+        return rendered[tile_open:tile_close]
+
+    def _device_tile_verdict_matches_state_at_each_severity():
+        cases = (
+            (0, "ok"),
+            (health_page.STALE_DEVICE_WARN_S + 60, "warn"),
+            (health_page.STALE_DEVICE_ERROR_S + 60, "error"),
+        )
+        for age_s, expected_state in cases:
+            tmp = _mkstate("h-device-verdict-%s" % expected_state)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now - timedelta(seconds=age_s)), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+                    health_page.DEVICE_STATE_TEXT[expected_state])
+                tile_slice = _tile_slice_by_caption(rendered, health_page.DEVICE_FRESHNESS_LABEL)
+                if expected_verdict_html not in tile_slice:
+                    return False, (
+                        "expected the Device tile's verdict paragraph for state %r, got tile %r"
+                        % (expected_state, tile_slice))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the Device tile's widget-verdict paragraph matches DEVICE_STATE_TEXT at each of the three "
+        "severities a real health_page.render() call can produce (D-03/A-21)",
+        _device_tile_verdict_matches_state_at_each_severity)
+
+    def _pipeline_tile_verdict_matches_state_at_each_severity():
+        cases = (
+            (0, "ok"),
+            (health_page.STALE_PIPELINE_WARN_S + 30, "warn"),
+            (health_page.STALE_PIPELINE_ERROR_S + 30, "error"),
+        )
+        for age_s, expected_state in cases:
+            tmp = _mkstate("h-pipeline-verdict-%s" % expected_state)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now), 4200)])
+                _seed_meta(tmp, **{
+                    history_db.META_LAST_PIPELINE_RUN: _iso(now - timedelta(seconds=age_s))})
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+                    health_page.PIPELINE_STATE_TEXT[expected_state])
+                tile_slice = _tile_slice_by_caption(rendered, health_page.PIPELINE_FRESHNESS_LABEL)
+                if expected_verdict_html not in tile_slice:
+                    return False, (
+                        "expected the Pipeline tile's verdict paragraph for state %r, got tile %r"
+                        % (expected_state, tile_slice))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the Pipeline tile's widget-verdict paragraph matches PIPELINE_STATE_TEXT at each of the three "
+        "severities a real health_page.render() call can produce (D-03/A-21)",
+        _pipeline_tile_verdict_matches_state_at_each_severity)
+
+    def _corroboration_tile_verdict_matches_disagreement_state():
+        cases = (
+            (True, "ok"),
+            (False, "warn"),
+        )
+        for corroborated, expected_state in cases:
+            tmp = _mkstate("h-corrob-verdict-%s" % expected_state)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                _seed_runway_events(tmp, [
+                    {"ts": _iso(now), "hex": "abc123", "corroborated": corroborated}])
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                expected_verdict_html = '<p class="text-body widget-verdict">%s</p>' % health_page.escape_html(
+                    health_page.CORROBORATION_STATE_TEXT[expected_state])
+                tile_slice = _tile_slice_by_caption(rendered, "Corroboration")
+                if expected_verdict_html not in tile_slice:
+                    return False, (
+                        "expected the Corroboration tile's verdict paragraph for state %r, got tile %r"
+                        % (expected_state, tile_slice))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the Corroboration tile's widget-verdict paragraph matches CORROBORATION_STATE_TEXT for both the "
+        "agreement and disagreement states a real health_page.render() call can produce (D-03/A-21)",
+        _corroboration_tile_verdict_matches_disagreement_state)
+
+    def _resolution_rate_tile_carries_no_verdict():
+        # The Resolution-rate tile is the one deliberate exception: it is
+        # passed status=None and has no status function of its own, so
+        # inventing a verdict word for it would assert a judgement this
+        # page does not make.
+        tmp = _mkstate("h-resolution-rate-no-verdict")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tile_slice = _tile_slice_by_caption(rendered, health_page.RESOLUTION_RATE_LABEL)
+            if "widget-verdict" in tile_slice:
+                return False, (
+                    "expected the Resolution-rate tile to carry no widget-verdict paragraph, got tile %r"
+                    % (tile_slice,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Resolution-rate tile deliberately carries no widget-verdict paragraph (D-03/A-21)",
+        _resolution_rate_tile_carries_no_verdict)
+
+    def _state_text_dicts_have_expected_key_sets():
+        if set(health_page.DEVICE_STATE_TEXT) != {"ok", "warn", "error"}:
+            return False, "expected DEVICE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
+                set(health_page.DEVICE_STATE_TEXT),)
+        if set(health_page.PIPELINE_STATE_TEXT) != {"ok", "warn", "error"}:
+            return False, "expected PIPELINE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
+                set(health_page.PIPELINE_STATE_TEXT),)
+        if set(health_page.CORROBORATION_STATE_TEXT) != {"ok", "warn"}:
+            return False, "expected CORROBORATION_STATE_TEXT's keys to be exactly ok/warn, got %r" % (
+                set(health_page.CORROBORATION_STATE_TEXT),)
+        return True, ""
+    check(
+        "DEVICE_STATE_TEXT/PIPELINE_STATE_TEXT each have exactly the ok/warn/error key set and "
+        "CORROBORATION_STATE_TEXT has exactly ok/warn (it has no error state) (D-03/A-21)",
+        _state_text_dicts_have_expected_key_sets)
 
     def _single_reading_still_no_chart_no_readout_no_script():
         if health_page.battery_sparkline_svg(

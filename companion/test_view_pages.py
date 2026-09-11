@@ -63,6 +63,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import auth  # noqa: E402
+import companion.battery as battery  # noqa: E402
 import companion.layout as layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 from server import device_config  # noqa: E402
@@ -72,7 +73,11 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 65  # 63 + 2 (phase 18: Home page) — was 63 # + 8 (phase 14 plan 14-05 Task 2: 8 new
+EXPECTED_CHECK_COUNT = 67  # 65 + 2 (19-01-PLAN.md Task 1: D-01's battery_percent() move — the
+# retargeted battery.battery_percent() check, plus the two new boundary checks proving the
+# function is gone from home_page and that companion/battery.py imports neither companion.pages
+# nor server) — was 65
+# 65 = 63 + 2 (phase 18: Home page) — was 63 # + 8 (phase 14 plan 14-05 Task 2: 8 new
 # source-content checks pinning panel-lookup.js's own contract without a
 # live DOM - no image.src="" anywhere; image.removeAttribute("src") is
 # conditional, not unconditional at module scope; the shared populate
@@ -2590,9 +2595,9 @@ def main():
                        home_page.NO_READING_TEXT, "Quick actions"):
             if needle not in rendered:
                 return False, "expected %r for an empty ctx" % needle
-        if home_page.battery_percent(4200) != 100 or home_page.battery_percent(3300) != 0:
+        if battery.battery_percent(4200) != 100 or battery.battery_percent(3300) != 0:
             return False, "expected the percentage estimate to clamp at the full/empty voltages"
-        if home_page.battery_percent("x") is not None or home_page.battery_percent(0) is not None:
+        if battery.battery_percent("x") is not None or battery.battery_percent(0) is not None:
             return False, "expected a non-numeric or zero reading to yield None"
         if home_page._gallery_name_to_iso("2026-09-10T21-38-48+00-00.png") != "2026-09-10T21:38:48+00:00":
             return False, "expected the gallery filename to round-trip to its ISO timestamp"
@@ -2600,9 +2605,33 @@ def main():
             return False, "expected an unparseable gallery name to yield None"
         return True, ""
     check(
-        "home_page.render({}) degrades to its empty states without raising, battery_percent() clamps "
-        "and rejects bad input, and the gallery filename parser round-trips or returns None",
+        "home_page.render({}) degrades to its empty states without raising, battery.battery_percent() "
+        "clamps and rejects bad input, and the gallery filename parser round-trips or returns None",
         _home_page_render_degrades_with_nothing)
+
+    def _battery_percent_moved_out_of_home_page():
+        from companion.pages import home_page
+        if hasattr(home_page, "battery_percent"):
+            return False, "expected home_page.battery_percent to be gone after the D-01 move"
+        return True, ""
+    check(
+        "battery_percent() no longer exists on home_page after moving to companion/battery.py (D-01)",
+        _battery_percent_moved_out_of_home_page)
+
+    def _battery_module_never_imports_pages_or_server():
+        battery_path = os.path.join(REPO_ROOT, "companion", "battery.py")
+        with open(battery_path, "r") as fh:
+            source = fh.read()
+        if "companion.pages" in source or "from server" in source:
+            return False, (
+                "expected companion/battery.py to never import companion.pages or server, "
+                "keeping it usable by both home_page and health_page without either importing "
+                "the other")
+        return True, ""
+    check(
+        "companion/battery.py imports neither companion.pages nor server, preserving its "
+        "shared, page-independent boundary (D-01)",
+        _battery_module_never_imports_pages_or_server)
 
     harness = Harness()
     try:
