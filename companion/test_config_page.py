@@ -293,6 +293,25 @@ EXPECTED_CHECK_COUNT = 154  # 19-07-PLAN.md Task 3 (D-07/A-25): +1 (the
 # contract pin). 153 + 1 = 154, recomputed directly against the real
 # on-disk check(...) call count at execution time (154/154 pass), not
 # trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 155  # 19-10-PLAN.md Task 1 (D-09/A-27): +1 (the
+# dirty-ready-set-only-after-bar-guard source-ordering check; the other
+# two edits this task made were in-place retargets, not additions).
+# 154 + 1 = 155, recomputed directly against the real on-disk check(...)
+# call count at execution time (155/155 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 156  # 19-10-PLAN.md Task 2 (D-10/A-28): +1 (the
+# beforeunload-guard-reuses-countDifferences check). 155 + 1 = 156,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (156/156 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 163  # 19-10-PLAN.md Task 3 (D-14/S-04): +7 (the
+# exactly-three-button-presets check, the Night-preset-matches-
+# device_config-defaults check, the Work day preset check, the
+# Always-on preset check, the preset-row-position check, the
+# handle_post()-treats-a-preset-shaped-submission-identically check
+# (T-19-38), and the dirty-state.js/config_page.py cross-file
+# data-preset-* attribute-agreement check). 156 + 7 = 163, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (163/163 pass), not trusted from arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -577,6 +596,113 @@ def main():
     check(
         "quiet_hours_group() escapes a crafted current_start value — no raw <script> substring reaches the markup",
         _quiet_hours_group_escapes_crafted_current_values)
+
+    # ------------------------------------------------------------------
+    # 19-10-PLAN.md Task 3 (D-14/S-04): the three Quiet hours presets -
+    # markup shape/values, document position, and the T-19-38 mitigation
+    # that handle_post() treats a preset-filled submission identically to
+    # a hand-typed one (no new server code path).
+    # ------------------------------------------------------------------
+
+    def _quiet_hours_group_renders_exactly_three_button_presets():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        if rendered.count(config_page.QUIET_HOURS_PRESET_ATTR) != 3:
+            return False, (
+                "expected exactly three data-quiet-preset occurrences, got %d"
+                % rendered.count(config_page.QUIET_HOURS_PRESET_ATTR))
+        preset_buttons = re.findall(
+            r'<button\b[^>]*%s[^>]*>' % re.escape(config_page.QUIET_HOURS_PRESET_ATTR), rendered)
+        if len(preset_buttons) != 3:
+            return False, "expected exactly three preset <button> elements, got %d" % len(preset_buttons)
+        for button_html in preset_buttons:
+            if 'type="button"' not in button_html:
+                return False, "expected every preset button to carry type=\"button\", got %r" % (button_html,)
+        return True, ""
+    check(
+        "quiet_hours_group() renders exactly three data-quiet-preset <button type=\"button\"> elements",
+        _quiet_hours_group_renders_exactly_three_button_presets)
+
+    def _quiet_hours_group_night_preset_matches_device_config_defaults():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        expected = 'data-preset-start="%s" data-preset-end="%s"' % (
+            device_config.DEFAULT_QUIET_HOURS_START, device_config.DEFAULT_QUIET_HOURS_END)
+        if expected not in rendered:
+            return False, "expected the Night preset's start/end to equal device_config's own shipped defaults"
+        return True, ""
+    check(
+        "the Night preset's data-preset-start/data-preset-end equal server.device_config's "
+        "DEFAULT_QUIET_HOURS_START/DEFAULT_QUIET_HOURS_END",
+        _quiet_hours_group_night_preset_matches_device_config_defaults)
+
+    def _quiet_hours_group_workday_preset_carries_expected_times():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        if 'data-preset-start="08:00" data-preset-end="18:00"' not in rendered:
+            return False, "expected the Work day preset to carry data-preset-start=08:00/data-preset-end=18:00"
+        return True, ""
+    check(
+        "the Work day preset carries data-preset-start=\"08:00\" data-preset-end=\"18:00\"",
+        _quiet_hours_group_workday_preset_carries_expected_times)
+
+    def _quiet_hours_group_always_on_preset_disables_with_no_time_attrs():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        always_on_match = re.search(
+            r'<button\b[^>]*data-preset-enabled="0"[^>]*>', rendered)
+        if not always_on_match:
+            return False, "expected exactly one button carrying data-preset-enabled=\"0\""
+        button_html = always_on_match.group(0)
+        if "data-preset-start" in button_html or "data-preset-end" in button_html:
+            return False, "expected the Always-on preset to carry no time attributes, got %r" % (button_html,)
+        return True, ""
+    check(
+        "the Always-on preset carries data-preset-enabled=\"0\" and no data-preset-start/data-preset-end attributes",
+        _quiet_hours_group_always_on_preset_disables_with_no_time_attrs)
+
+    def _quiet_hours_group_preset_row_between_checkbox_and_time_inputs():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        checkbox_pos = rendered.index("settings-checkbox")
+        preset_pos = rendered.index(config_page.QUIET_HOURS_PRESET_ATTR)
+        time_pos = rendered.index('type="time"')
+        if not (checkbox_pos < preset_pos < time_pos):
+            return False, (
+                "expected the preset row to fall after the settings-checkbox label and before the first "
+                "type=\"time\" input, got positions %r" % ((checkbox_pos, preset_pos, time_pos),))
+        return True, ""
+    check(
+        "the preset button row appears after the .settings-checkbox label and before the first "
+        "type=\"time\" input (D-14's locked position)",
+        _quiet_hours_group_preset_row_between_checkbox_and_time_inputs)
+
+    def _handle_post_preset_filled_submission_treated_identically_to_hand_typed():
+        # T-19-38: the presets write into the SAME two fields a hand-typed
+        # submission already posts through - this proves handle_post()
+        # needs no new code path by driving it with exactly the values
+        # the Night preset would write, then confirming the persisted
+        # result is identical to the pre-existing hand-typed test above
+        # (_handle_post_quiet_hours_checkbox_on_persists_all_three).
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {
+                    "quiet_hours_enabled": config_page.QUIET_HOURS_CHECKBOX_VALUE,
+                    "quiet_hours_start": config_page.QUIET_HOURS_PRESET_NIGHT_START,
+                    "quiet_hours_end": config_page.QUIET_HOURS_PRESET_NIGHT_END,
+                },
+                ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["quiet_hours_start"] != config_page.QUIET_HOURS_PRESET_NIGHT_START:
+                return False, "expected the Night preset's start to persist unchanged"
+            if on_disk["quiet_hours_end"] != config_page.QUIET_HOURS_PRESET_NIGHT_END:
+                return False, "expected the Night preset's end to persist unchanged"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post() persists a Night-preset-shaped submission (quiet_hours_start/end equal to "
+        "device_config's own defaults) exactly as it would a hand-typed value - no new server code path (T-19-38)",
+        _handle_post_preset_filled_submission_treated_identically_to_hand_typed)
 
     def _render_wires_quiet_hours_group_after_led_before_save_button():
         rendered = config_page.render({
@@ -2630,13 +2756,91 @@ def main():
         source = _read_static("dirty-state.js")
         if config_page.DIRTY_SECTION_ATTR not in source:
             return False, "expected dirty-state.js to reference the literal value of DIRTY_SECTION_ATTR"
+        # 19-10-PLAN.md (D-09/A-27): also pins the dirty-ready marker
+        # literal, keeping this script and style.css's retargeted
+        # fallback-hide selector from drifting apart.
+        if "dirty-ready" not in source:
+            return False, "expected dirty-state.js to reference the literal string dirty-ready"
         for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
             if forbidden in source:
                 return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
         return True, ""
     check(
-        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and contains none of innerHTML/let /const /=>/backtick",
+        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and the dirty-ready marker, and "
+        "contains none of innerHTML/let /const /=>/backtick",
         _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax)
+
+    def _dirty_state_js_sets_dirty_ready_only_after_bar_guard():
+        # 19-10-PLAN.md (D-09/A-27): the same source-ordering technique
+        # test_companion_app.py's _panel_lookup_optional_replace_lookup_
+        # stays_outside_mandatory_guard check already uses - dirty-ready
+        # must only ever be set once the bar's existence is proven (the
+        # [data-dirty-bar] guard clause), never before it.
+        source = _read_static("dirty-state.js")
+        if "dirty-ready" not in source or "data-dirty-bar" not in source:
+            return False, "expected both dirty-ready and data-dirty-bar to be present in dirty-state.js"
+        if source.index("dirty-ready") <= source.index("data-dirty-bar"):
+            return False, "expected the first dirty-ready occurrence to come after the first data-dirty-bar occurrence"
+        return True, ""
+    check(
+        "dirty-state.js's first dirty-ready occurrence comes after its first data-dirty-bar occurrence (D-09: set "
+        "only after the bar guard passes)",
+        _dirty_state_js_sets_dirty_ready_only_after_bar_guard)
+
+    # ------------------------------------------------------------------
+    # 19-10-PLAN.md Task 2 (D-10/A-28): a beforeunload guard, keyed on
+    # the existing countDifferences() predicate, warns before a real
+    # navigation discards unsaved settings edits.
+    # ------------------------------------------------------------------
+
+    def _dirty_state_js_beforeunload_guard_reuses_count_differences():
+        source = _read_static("dirty-state.js")
+        if "beforeunload" not in source:
+            return False, "expected dirty-state.js to register a beforeunload listener"
+        if "returnValue" not in source:
+            return False, "expected dirty-state.js's beforeunload guard to set evt.returnValue"
+        if "preventDefault" not in source:
+            return False, "expected dirty-state.js's beforeunload guard to call evt.preventDefault()"
+        beforeunload_idx = source.index("beforeunload")
+        # The guard's own listener body must reference countDifferences -
+        # reused, never reimplemented as a separate flag that can drift
+        # from the bar's own dirty state.
+        listener_body = source[beforeunload_idx:beforeunload_idx + 400]
+        if "countDifferences" not in listener_body:
+            return False, "expected the beforeunload listener's body to reference countDifferences"
+        if 'addEventListener("submit"' not in source:
+            return False, "expected dirty-state.js to register a submit listener on the form"
+        for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
+            if forbidden in source:
+                return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
+        return True, ""
+    check(
+        "dirty-state.js registers a beforeunload listener whose body references countDifferences and sets "
+        "returnValue/calls preventDefault, and a submit listener clears the guard; contains none of "
+        "innerHTML/let /const /=>/backtick",
+        _dirty_state_js_beforeunload_guard_reuses_count_differences)
+
+    # ------------------------------------------------------------------
+    # 19-10-PLAN.md Task 3 (D-14/S-04): cross-file guard keeping
+    # dirty-state.js's preset reader in agreement with config_page.py's
+    # QUIET_HOURS_PRESET_ATTR/data-preset-* markup.
+    # ------------------------------------------------------------------
+
+    def _dirty_state_js_references_quiet_preset_attrs():
+        source = _read_static("dirty-state.js")
+        for literal in (
+                config_page.QUIET_HOURS_PRESET_ATTR, "data-preset-start",
+                "data-preset-end", "data-preset-enabled"):
+            if literal not in source:
+                return False, "expected dirty-state.js to reference the literal %r" % (literal,)
+        for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
+            if forbidden in source:
+                return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
+        return True, ""
+    check(
+        "dirty-state.js references config_page.QUIET_HOURS_PRESET_ATTR's literal value and the three "
+        "data-preset-* attribute names, and contains none of innerHTML/let /const /=>/backtick",
+        _dirty_state_js_references_quiet_preset_attrs)
 
     def _style_css_references_static_save_fallback_attr():
         source = _read_static("style.css")
@@ -2646,9 +2850,22 @@ def main():
         window = source[idx:idx + 120]
         if "display: none" not in window and "display:none" not in window:
             return False, "expected the fallback-hide rule to set display: none near the attribute reference"
+        # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready -
+        # the fallback now hides only once dirty-state.js has proven the
+        # bar exists, not merely because nav-dropdown.js's unconditional
+        # .js class is present. The selector prefix sits BEFORE the
+        # attribute reference (".dirty-ready [data-static-save-fallback]"),
+        # so widen the window backwards too rather than only forwards.
+        selector_window = source[max(0, idx - 40):idx + 120]
+        if "dirty-ready" not in selector_window:
+            return False, "expected the fallback-hide rule's selector to reference dirty-ready"
+        old_selector = ".js [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
+        if old_selector in source:
+            return False, "expected the old .js-gated selector to be gone entirely"
         return True, ""
     check(
-        "style.css contains the .js-gated fallback-hide rule referencing config_page.STATIC_SAVE_FALLBACK_ATTR's literal value",
+        "style.css contains the .dirty-ready-gated fallback-hide rule referencing "
+        "config_page.STATIC_SAVE_FALLBACK_ATTR's literal value, and no longer the old .js-gated selector",
         _style_css_references_static_save_fallback_attr)
 
     def _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors():
