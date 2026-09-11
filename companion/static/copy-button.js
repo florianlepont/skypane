@@ -11,9 +11,9 @@
  * COPY_BUTTON_SCRIPT_ROUTE, mirroring the existing /static/style.css
  * route.
  *
- * Standing constraint this file must never violate: no innerHTML, no
- * other HTML-writing sink anywhere in this file — only textContent and
- * attribute reads. The values this file ever touches are already
+ * Standing constraint this file must never violate: no inner-HTML
+ * assignment, no other HTML-writing sink anywhere in this file — only
+ * textContent and attribute reads. The values this file ever touches are already
  * server-escaped data-copy-value attributes; writing them back into the
  * DOM via anything other than textContent would reopen a markup
  * injection surface this file has no reason to carry.
@@ -46,7 +46,11 @@
     document.body.appendChild(textarea);
     try {
       textarea.select();
-      document.execCommand("copy");
+      // A-37's third half: this used to call document.execCommand("copy")
+      // and discard its boolean return value, so handleClick() below
+      // showed "Copied" even when the copy silently failed. Propagate
+      // the real result instead.
+      return document.execCommand("copy");
     } finally {
       document.body.removeChild(textarea);
     }
@@ -72,14 +76,19 @@
           showFeedback(button);
         },
         function () {
-          fallbackCopy(value);
-          showFeedback(button);
+          // A-37: only report success when fallbackCopy() actually
+          // succeeded. A failed copy must show nothing at all — never a
+          // false "Copied".
+          if (fallbackCopy(value)) {
+            showFeedback(button);
+          }
         }
       );
       return;
     }
-    fallbackCopy(value);
-    showFeedback(button);
+    if (fallbackCopy(value)) {
+      showFeedback(button);
+    }
   }
 
   for (var i = 0; i < buttons.length; i++) {

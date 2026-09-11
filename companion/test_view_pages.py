@@ -73,7 +73,11 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 70  # 67 + 3 (19-03-PLAN.md Task 1: A-36/D-19's 7->6 column drop and
+EXPECTED_CHECK_COUNT = 73  # 70 + 3 (19-03-PLAN.md Task 2: A-37/D-20's per-row copy labels and
+# real-success gating — retargeted the raw-label aria-label check in place, plus 3 new checks: 2
+# distinct aria-labels on differently-named rows, each button naming its own row, and
+# copy-button.js propagating execCommand's real result) — was 70
+# 70 = 67 + 3 (19-03-PLAN.md Task 1: A-36/D-19's 7->6 column drop and
 # clock-only Timestamp cell — retargeted the .data-table-wrap exact-match and 7-column checks in
 # place, plus 3 new checks: the runway survives in the <tr title>/mobile details, the scroller is
 # focusable and named, and the desktop Timestamp cell drops its relative-age suffix) — was 67
@@ -1528,9 +1532,14 @@ def main():
                     "desktop row, got %d" % tr_block.count("data-copy-value"))
             if tr_block.count("data-copy-feedback") != 2:
                 return False, "expected each copy button's data-copy-feedback sibling to survive"
+            # A-37/D-20: the bare _COPY_*_LABEL constants are now %s
+            # templates - format each against this row's own callsign
+            # (history_page._row_copy_name()'s fallback order) rather
+            # than asserting the raw, un-formatted template string.
+            row_name = history_page._row_copy_name("REVEAL", "rev01")
             for label in (history_page._COPY_CALLSIGN_LABEL, history_page._COPY_HEX_LABEL):
-                if layout.escape_html(label) not in tr_block:
-                    return False, "expected %r as an aria-label in the desktop row" % label
+                if layout.escape_html(label % row_name) not in tr_block:
+                    return False, "expected %r as an aria-label in the desktop row" % (label % row_name)
             if "data-view-panel-src" not in tr_block:
                 return False, "expected the row's View-panel/eye trigger to still render"
             view_panel_start = tr_block.index("data-view-panel-src")
@@ -1550,6 +1559,92 @@ def main():
         "data-copy-value — the discriminator the desktop reveal rule depends on "
         "(quick task 260903-peo, UIR-17)",
         _quick_260903_peo_desktop_row_copy_buttons_and_eye_button_discriminator)
+
+    def _copy_buttons_no_longer_share_one_aria_label():
+        # A-37/D-20: the defect this task closes — every one of a
+        # page's ~50 copy buttons used to share one identical
+        # aria-label. Two differently-named rows must now render at
+        # least two distinct aria-label values among their copy
+        # buttons.
+        tmp = _mkstate("h-copy-distinct-labels")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "dl01", "callsign": "DISTINCT1"},
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "dl02", "callsign": "DISTINCT2"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            aria_labels = set(re.findall(r'aria-label="([^"]*)"', rendered))
+            copy_labels = {
+                label for label in aria_labels
+                if "Copy callsign" in label or "Copy hex ID" in label
+                or "Copy timestamp" in label}
+            if len(copy_labels) < 2:
+                return False, (
+                    "expected at least 2 distinct copy-button aria-labels, got %d: %r"
+                    % (len(copy_labels), copy_labels))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with two differently-named rows, at least two distinct copy-button aria-label values "
+        "render on the page — the '50 identical names' defect closed (A-37/D-20)",
+        _copy_buttons_no_longer_share_one_aria_label)
+
+    def _each_copy_button_aria_label_names_its_own_row():
+        # A-37/D-20: each row's copy buttons must name THAT row's own
+        # callsign, not merely differ from each other.
+        tmp = _mkstate("h-copy-own-row")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "or01", "callsign": "OWNROW1"},
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "or02", "callsign": "OWNROW2"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            # Rows render newest-first (history_db.recent_runway_events()'s
+            # own ordering) - the later timestamp (OWNROW2) lands at
+            # data-filter-group=0, the earlier one (OWNROW1) at 1.
+            for index, callsign in ((0, "OWNROW2"), (1, "OWNROW1")):
+                tr_block = _row_block(rendered, "tr", index)
+                if tr_block is None:
+                    return False, "could not locate row block for data-filter-group=%d" % index
+                if callsign not in tr_block:
+                    return False, "expected %r inside its own row's markup" % callsign
+                if ('aria-label="Copy callsign %s"' % callsign) not in tr_block:
+                    return False, (
+                        "expected row %d's callsign copy button to name its own "
+                        "callsign %r" % (index, callsign))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "each row's callsign copy button carries an aria-label naming that row's own "
+        "callsign, not a shared/generic name (A-37/D-20)",
+        _each_copy_button_aria_label_names_its_own_row)
+
+    def _copy_button_script_propagates_execcommand_success():
+        # A-37/D-20's third half: fallbackCopy() used to call
+        # document.execCommand("copy") and discard its boolean return
+        # value, so handleClick() showed "Copied" even when the copy
+        # silently failed. Source-level check, mirroring
+        # test_companion_app.py's own token-ban convention for static
+        # scripts (companion/static/panel-lookup.js et al.).
+        js_path = os.path.join(HERE, "static", "copy-button.js")
+        with open(js_path) as fh:
+            src = fh.read()
+        if "return document.execCommand" not in src:
+            return False, "expected fallbackCopy() to return document.execCommand(...)'s result"
+        banned = (
+            "let ", "const ", "=>", "`", "innerHTML", "insertAdjacentHTML",
+            "document.write", "eval(",
+        )
+        for token in banned:
+            if token in src:
+                return False, "copy-button.js must not contain %r" % token
+        return True, ""
+    check(
+        "copy-button.js propagates fallbackCopy()'s real document.execCommand(...) result "
+        "instead of discarding it, and stays ES5-safe/sink-free (A-37/D-20)",
+        _copy_button_script_propagates_execcommand_success)
 
     def _presentation_labels_in_full_render():
         # UXA-05: Task 1's format_event_row()-level fixture, re-asserted

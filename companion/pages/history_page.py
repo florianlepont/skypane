@@ -204,15 +204,33 @@ _FILTER_EMPTY_BODY_TEMPLATE = (
 
 # D-23: the copy-to-clipboard accessible-name contract
 # (06.6.3-UI-SPEC.md's Copywriting Contract: "Copy {field}").
-_COPY_CALLSIGN_LABEL = "Copy callsign"
-_COPY_HEX_LABEL = "Copy hex ID"
-_COPY_TIMESTAMP_LABEL = "Copy timestamp"
+# A-37/D-20: each is now a %s template naming the row (a callsign, or a
+# hex/NO_CALLSIGN_NOTE_TEXT fallback via _row_copy_name() below) — the
+# bare constants used to leave every one of a page's ~50 copy buttons
+# sharing one identical accessible name. Constant names are unchanged so
+# no unrelated reference breaks.
+_COPY_CALLSIGN_LABEL = "Copy callsign %s"
+_COPY_HEX_LABEL = "Copy hex ID for %s"
+_COPY_TIMESTAMP_LABEL = "Copy timestamp for %s"
 
 # quick task 260902-w4t (UIR-06): the presentational note shown beside a
 # promoted hex when a row has no callsign - a module-level constant so
 # the desktop cell (_callsign_hex_cell()) and the mobile card
 # (_history_cards_html()) cannot drift onto two different wordings.
 NO_CALLSIGN_NOTE_TEXT = "no callsign"
+
+
+def _row_copy_name(callsign, hex_value):
+    """The value substituted for the `%s` in each `_COPY_*_LABEL`
+    template (A-37/D-20): the row's callsign, falling back to its hex
+    when the callsign is absent, and finally to NO_CALLSIGN_NOTE_TEXT so
+    a row with neither never leaves the accessible name with a dangling
+    "for ". Mirrors _callsign_hex_cell()'s own three-branch fallback
+    order exactly — a future edit to one is visibly obliged to touch
+    the other.
+    """
+    return callsign or hex_value or NO_CALLSIGN_NOTE_TEXT
+
 
 # D-20: the per-row "View panel near this time" lookup and its shared
 # lightbox. VIEW_PANEL_LABEL is verbatim from D-20. LIGHTBOX_DIALOG_ID,
@@ -590,19 +608,20 @@ def _callsign_hex_cell(callsign, hex_value):
       no secondary — a button that would copy `""` is exactly the dead
       affordance UIR-06 reported, so this branch emits none of it.
     """
+    row_name = _row_copy_name(callsign, hex_value)
     if callsign:
         html = '<span class="%s">%s</span>%s' % (
             CELL_PRIMARY_CLASS, escape_html(callsign),
-            _copy_button_html(callsign, _COPY_CALLSIGN_LABEL))
+            _copy_button_html(callsign, _COPY_CALLSIGN_LABEL % row_name))
         if hex_value:
             html += '<span class="%s">%s</span><span class="%s">%s</span>%s' % (
                 CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
                 CELL_SECONDARY_CLASS, escape_html(hex_value),
-                _copy_button_html(hex_value, _COPY_HEX_LABEL))
+                _copy_button_html(hex_value, _COPY_HEX_LABEL % row_name))
     elif hex_value:
         html = '<span class="%s">%s</span>%s' % (
             CELL_PRIMARY_CLASS, escape_html(hex_value),
-            _copy_button_html(hex_value, _COPY_HEX_LABEL))
+            _copy_button_html(hex_value, _COPY_HEX_LABEL % row_name))
         html += '<span class="%s">%s</span><span class="%s">%s</span>' % (
             CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
             CELL_SECONDARY_CLASS, escape_html(NO_CALLSIGN_NOTE_TEXT))
@@ -855,6 +874,10 @@ def _history_cards_html(formatted_rows, now=None):
         unresolved_link = (
             _unresolved_link_html()
             if row["airline_label"] == AIRLINE_FALLBACK_TEXT else "")
+        # A-37/D-20: the mobile disclosure's three copy buttons name
+        # their own row too, via the same _row_copy_name() fallback
+        # order the desktop cell uses.
+        row_name = _row_copy_name(row["callsign"], row["hex"])
         details = (
             '<details class="history-card__details">'
             "<summary>More details</summary>"
@@ -869,7 +892,7 @@ def _history_cards_html(formatted_rows, now=None):
             "</details>"
         ) % (
             escape_html(row["callsign"]),
-            _copy_button_html(row["callsign"], _COPY_CALLSIGN_LABEL),
+            _copy_button_html(row["callsign"], _COPY_CALLSIGN_LABEL % row_name),
             escape_html(row["aircraft_type_label"]),
             escape_html(CELL_SEPARATOR_TEXT),
             escape_html(row["airline_label"]),
@@ -879,9 +902,9 @@ def _history_cards_html(formatted_rows, now=None):
                 row["corroboration_title"]),
             escape_html(row["tracked_runway"]),
             escape_html(row["hex"]),
-            _copy_button_html(row["hex"], _COPY_HEX_LABEL),
+            _copy_button_html(row["hex"], _COPY_HEX_LABEL % row_name),
             escape_html(row["raw_ts"]),
-            _copy_button_html(row["raw_ts"], _COPY_TIMESTAMP_LABEL),
+            _copy_button_html(row["raw_ts"], _COPY_TIMESTAMP_LABEL % row_name),
         )
         items.append(
             '<li class="history-card" data-filter-text="%s" '
