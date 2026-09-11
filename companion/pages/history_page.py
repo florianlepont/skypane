@@ -22,10 +22,11 @@ matching `data_table()`'s CSS classes exactly for visual consistency,
 escaping every other cell through `companion.layout.escape_html()`.
 Only the escaping had to be hand-rolled, not the scroll container: this
 table is still wrapped in the same horizontal-scroll container
-`data_table()` itself emits, so History's 7-column table matches
-Airlines and Health's phone behaviour (D-03) — dropping that wrapper
-along with the escaping, when this table was first hand-built, was the
-original defect this module now closes.
+`data_table()` itself emits, so History's 6-column table (dropped from
+7 by A-36/D-19 — see the note above `_HEADERS`) matches Airlines and
+Health's phone behaviour (D-03) — dropping that wrapper along with the
+escaping, when this table was first hand-built, was the original defect
+this module now closes.
 
 Callsign+Hex and Aircraft type+Airline are each rendered as one merged,
 one-line cell (`_merged_cell()`, 06.6.1 D-02/data-density.md sketch 003
@@ -125,14 +126,26 @@ _NO_FLIGHTS_BODY = (
 _HISTORY_UNAVAILABLE_TEXT = (
     "The flight list is temporarily unavailable — try again in a minute.")
 
-# 7 entries, left-to-right order unchanged from the previous 9-column
-# table so a returning user's scanning habit still works. "Callsign" and
-# "Type" are now merged columns: each carries a secondary value (hex,
-# airline) rendered on the same line via _merged_cell() (06.6.1 D-02).
+# 6 entries (A-36/D-19: dropped from 7 — one runway is tracked at a
+# time, so the Runway column carried the same value on every row while
+# costing ~90px of a 1,305px table that had to fit an 880px column. The
+# value now lives in each rendered <tr>'s title attribute and in the
+# mobile card's More details, so nothing is lost by dropping the
+# desktop column). Left-to-right order is otherwise unchanged from the
+# previous 9-column table so a returning user's scanning habit still
+# works. "Callsign" and "Type" are still merged columns: each carries a
+# secondary value (hex, airline) rendered on the same line via
+# _merged_cell() (06.6.1 D-02).
 _HEADERS = (
     "Timestamp", "Callsign", "Type", "Route", "State", "Corroboration",
-    "Runway",
 )
+
+# A-36/D-19: names the .data-table-wrap scroller for keyboard users — at
+# 1,305px inside an 880px column the table scrolled behind a 12px
+# shadow that a keyboard-only user had no way to reach at all.
+# tabindex="0" plus this label turn the wrapper itself into a focusable,
+# named region a keyboard user can Tab to and arrow-scroll.
+SCROLLER_ARIA_LABEL = "Recent flights table, scrollable"
 
 # Class names styled by companion/static/style.css (plan 06.6.1-01, same
 # wave). Duplicated here rather than imported because a page module has
@@ -665,6 +678,42 @@ def _filter_bar_html(total):
     )
 
 
+# A-36/D-19: mirrors layout.concise_timestamp_html()'s own default
+# fallback string exactly, so a caller can never tell the two functions
+# apart by their empty-value behaviour.
+_CLOCK_CELL_FALLBACK = "no reading yet"
+
+
+def _clock_cell_html(raw_ts, now):
+    """The desktop table's clock-only Timestamp cell (A-36/D-19): a
+    local clock ("HH:MM", or "D Mon HH:MM" once the row is no longer
+    from today — layout.local_clock_text(), Europe/Paris, Phase 18
+    D-06) with the full ISO still carried in the `title` attribute, and
+    no relative-age suffix — that suffix is exactly what made
+    layout.concise_timestamp_html()'s own rendering too wide for this
+    column. Built directly from layout.parse_iso() +
+    layout.local_clock_text() rather than calling
+    concise_timestamp_html() itself, and this function must never be
+    used as a reason to edit companion/layout.py — plan 19-04 owns that
+    file in this same wave.
+
+    Degrades exactly the way concise_timestamp_html() does: a falsy
+    raw_ts returns the escaped fallback text (never markup); an
+    unparseable raw_ts returns a span carrying the raw value in both
+    the title and the visible text. Never raises.
+    """
+    if not raw_ts:
+        return escape_html(_CLOCK_CELL_FALLBACK)
+    parsed = layout.parse_iso(raw_ts)
+    if parsed is None:
+        return '<span class="mono" title="%s">%s</span>' % (
+            escape_html(raw_ts), escape_html(raw_ts))
+    now_parsed = layout.parse_iso(now)
+    return '<span class="mono" title="%s">%s</span>' % (
+        escape_html(raw_ts),
+        escape_html(layout.local_clock_text(parsed, now_parsed)))
+
+
 def _history_table_html(formatted_rows, now=None):
     if not formatted_rows:
         return layout.empty_state(_NO_FLIGHTS_HEADING, _NO_FLIGHTS_BODY)
@@ -674,19 +723,19 @@ def _history_table_html(formatted_rows, now=None):
     body_rows = []
     for index, row in enumerate(formatted_rows):
         row_class = "row-alt" if index % 2 else "row"
-        # D-09: layout.concise_timestamp_html() already returns
-        # already-safe <span class="mono" title="..."> markup - this
-        # file hand-rolls its own <td> cells (it does not call
-        # layout.data_table()), so the return value is interpolated
-        # directly with no wrapping escape_html() call, matching
-        # _merged_cell()'s own documented "do not double-escape
-        # already-safe markup" discipline. D-20's View-panel trigger
-        # (already-safe markup, or "" for a row with no nearest render -
-        # render() computes this once per row and both representations
-        # share it) is appended after the timestamp markup.
+        # A-36/D-19: _clock_cell_html() already returns already-safe
+        # <span class="mono" title="..."> markup - this file hand-rolls
+        # its own <td> cells (it does not call layout.data_table()), so
+        # the return value is interpolated directly with no wrapping
+        # escape_html() call, matching _merged_cell()'s own documented
+        # "do not double-escape already-safe markup" discipline. D-20's
+        # View-panel trigger (already-safe markup, or "" for a row with
+        # no nearest render - render() computes this once per row and
+        # both representations share it) is appended after the
+        # timestamp markup.
         cells = (
             "<td>%s%s</td>" % (
-                layout.concise_timestamp_html(row["raw_ts"], now),
+                _clock_cell_html(row["raw_ts"], now),
                 row.get("view_panel_html", "")),
             _callsign_hex_cell(row["callsign"], row["hex"]),
             _type_airline_cell(row),
@@ -695,7 +744,6 @@ def _history_table_html(formatted_rows, now=None):
             "<td>%s</td>" % layout.status_dot(
                 row["corroboration_status"], row["corroboration_label"],
                 row["corroboration_title"]),
-            "<td>%s</td>" % escape_html(row["tracked_runway"]),
         )
         # D-20: data-filter-text drives companion/static/list-filter.js's
         # match — the same value the mobile <li> for this same row also
@@ -705,18 +753,25 @@ def _history_table_html(formatted_rows, now=None):
         # index in _history_cards_html(), since render() feeds both
         # functions the identical formatted_rows list) so list-filter.js
         # can count logical rows once instead of once per representation.
+        # A-36/D-19: title carries the row's runway — the value the
+        # dropped Runway column used to show — escaped through
+        # escape_html() at this point of interpolation, same as every
+        # other attribute value this function builds.
         body_rows.append(
-            '<tr class="%s" data-filter-text="%s" data-filter-group="%d">%s</tr>'
-            % (row_class, _filter_text_attr(row), index, "".join(cells)))
+            '<tr class="%s" data-filter-text="%s" data-filter-group="%d" '
+            'title="%s">%s</tr>'
+            % (row_class, _filter_text_attr(row), index,
+               escape_html(row["tracked_runway"]), "".join(cells)))
 
     return (
-        '<div class="data-table-wrap">'
+        '<div class="data-table-wrap" tabindex="0" role="region" '
+        'aria-label="%s">'
         '<table class="data-table">'
         "<thead><tr>%s</tr></thead>"
         "<tbody>%s</tbody>"
         "</table>"
         "</div>"
-    ) % (header_cells, "".join(body_rows))
+    ) % (escape_html(SCROLLER_ARIA_LABEL), header_cells, "".join(body_rows))
 
 
 def _history_cards_html(formatted_rows, now=None):

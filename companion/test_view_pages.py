@@ -73,7 +73,11 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 67  # 65 + 2 (19-01-PLAN.md Task 1: D-01's battery_percent() move — the
+EXPECTED_CHECK_COUNT = 70  # 67 + 3 (19-03-PLAN.md Task 1: A-36/D-19's 7->6 column drop and
+# clock-only Timestamp cell — retargeted the .data-table-wrap exact-match and 7-column checks in
+# place, plus 3 new checks: the runway survives in the <tr title>/mobile details, the scroller is
+# focusable and named, and the desktop Timestamp cell drops its relative-age suffix) — was 67
+# 67 = 65 + 2 (19-01-PLAN.md Task 1: D-01's battery_percent() move — the
 # retargeted battery.battery_percent() check, plus the two new boundary checks proving the
 # function is gone from home_page and that companion/battery.py imports neither companion.pages
 # nor server) — was 65
@@ -735,7 +739,11 @@ def main():
                 {"ts": "2026-08-27T10:00:00+00:00", "hex": "d5", "callsign": "WRAP1"},
             ])
             rendered = history_page.render(_history_ctx(tmp))
-            if '<div class="data-table-wrap">' not in rendered:
+            # A-36/D-19: the wrapper now also carries tabindex/role/
+            # aria-label (see the scroller-focusable checks below), so
+            # this can no longer be an exact-tag match — the substring
+            # keeps checking the same wrapper class is still present.
+            if '<div class="data-table-wrap"' not in rendered:
                 return False, "expected the flight table to be wrapped in .data-table-wrap"
             if '<table class="data-table">' not in rendered:
                 return False, "expected the .data-table itself to still be present"
@@ -748,19 +756,21 @@ def main():
         "History's flight table gains the .data-table-wrap horizontal-scroll wrapper Airlines/Health already have, without disturbing the Corroboration status dot",
         _history_table_wrapped_for_horizontal_scroll_dot_survives)
 
-    def _seven_columns_named_and_ordered():
-        # 06.6.1-02 (D-02): proves the 9->7 column reduction shipped - the
-        # header labels come from history_page._HEADERS itself (the
-        # contract), not a re-typed literal list.
-        tmp = _mkstate("h-7col")
+    def _six_columns_named_and_ordered():
+        # A-36/D-19: proves the 7->6 column reduction shipped (the
+        # Runway column dropped) - the header labels come from
+        # history_page._HEADERS itself (the contract), not a re-typed
+        # literal list. Was _seven_columns_named_and_ordered() /
+        # 06.6.1-02 (D-02)'s own 9->7 pin before this task's drop.
+        tmp = _mkstate("h-6col")
         try:
             _seed_runway_events(tmp, [
                 {"ts": "2026-08-27T10:00:00+00:00", "hex": "d6", "callsign": "SEVEN1"},
             ])
             rendered = history_page.render(_history_ctx(tmp))
             th_count = len(re.findall(r"<th>", rendered))
-            if th_count != 7:
-                return False, "expected exactly 7 <th> cells, got %d" % th_count
+            if th_count != 6:
+                return False, "expected exactly 6 <th> cells, got %d" % th_count
             positions = []
             for header in history_page._HEADERS:
                 idx = rendered.find("<th>%s</th>" % header)
@@ -768,15 +778,120 @@ def main():
                     return False, "expected header %r to appear as a <th>" % header
                 positions.append(idx)
             if positions != sorted(positions):
-                return False, "expected the 7 headers in history_page._HEADERS' own left-to-right order"
+                return False, "expected the 6 headers in history_page._HEADERS' own left-to-right order"
             if "<th>Hex</th>" in rendered or "<th>Airline</th>" in rendered:
                 return False, "did not expect standalone Hex/Airline header cells after the merge"
+            if "<th>Runway</th>" in rendered:
+                return False, "did not expect a standalone Runway header cell after A-36/D-19's drop"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "History renders exactly the 7 headers in history_page._HEADERS, in order, with no standalone Hex/Airline column",
-        _seven_columns_named_and_ordered)
+        "History renders exactly the 6 headers in history_page._HEADERS, in order, with no standalone Hex/Airline/Runway column (A-36/D-19)",
+        _six_columns_named_and_ordered)
+
+    def _runway_survives_in_row_title_and_mobile_details():
+        # A-36/D-19: the dropped Runway column's value must survive
+        # somewhere - the desktop <tr>'s title attribute, and the
+        # mobile card's existing <dt>Runway</dt> disclosure row (which
+        # this task deliberately leaves untouched).
+        tmp = _mkstate("h-runway-title")
+        try:
+            _seed_runway_events(tmp, [
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "rwt01",
+                    "callsign": "RWTITLE", "tracked_runway": "3",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            runway_label = device_config.runway_label("3")
+            # A plain regex, not the shared _row_block() helper (defined
+            # later in this function's own source order — a nested def
+            # is only bound once execution reaches it, and this check
+            # runs earlier): its capture starts AFTER the opening tag's
+            # own ">", so it cannot see an attribute on the <tr> itself
+            # (only its inner content) - the title lives on the tag, so
+            # match the whole opening tag directly instead.
+            tr_tag_match = re.search(
+                r'<tr[^>]*data-filter-group="0"[^>]*>', rendered)
+            li_match = re.search(
+                r'<li[^>]*data-filter-group="0"[^>]*>(.*?)</li>', rendered, re.S)
+            if tr_tag_match is None or li_match is None:
+                return False, "could not locate row block for data-filter-group=0"
+            tr_tag = tr_tag_match.group(0)
+            li_block = li_match.group(1)
+            if ('title="%s"' % layout.escape_html(runway_label)) not in tr_tag:
+                return False, "expected the desktop <tr> to carry the runway in its title attribute"
+            if "<dt>Runway</dt><dd>%s</dd>" % layout.escape_html(runway_label) not in li_block:
+                return False, "expected the mobile card's More details to still show Runway"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the runway value the dropped desktop Runway column used to show survives in the "
+        "<tr title=\"...\"> attribute and, unchanged, in the mobile card's More details (A-36/D-19)",
+        _runway_survives_in_row_title_and_mobile_details)
+
+    def _scroller_focusable_and_named():
+        # A-36/D-19: a keyboard user must be able to Tab to the
+        # .data-table-wrap scroller and arrow-scroll it - tabindex="0"
+        # plus a non-empty accessible name (aria-label).
+        tmp = _mkstate("h-scroller")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "scr01", "callsign": "SCROLL1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            wrap_match = re.search(r'<div class="data-table-wrap"([^>]*)>', rendered)
+            if wrap_match is None:
+                return False, "expected a .data-table-wrap opening tag"
+            attrs = wrap_match.group(1)
+            if 'tabindex="0"' not in attrs:
+                return False, "expected the scroller to carry tabindex=\"0\""
+            if 'role="region"' not in attrs:
+                return False, "expected the scroller to carry role=\"region\""
+            aria_match = re.search(r'aria-label="([^"]*)"', attrs)
+            if aria_match is None or not aria_match.group(1):
+                return False, "expected the scroller to carry a non-empty aria-label"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the .data-table-wrap scroller is focusable (tabindex=\"0\") and carries a non-empty "
+        "aria-label naming what it scrolls (A-36/D-19)",
+        _scroller_focusable_and_named)
+
+    def _desktop_timestamp_cell_clock_only_no_relative_age():
+        # A-36/D-19: the desktop Timestamp cell must drop the relative-
+        # age suffix layout.concise_timestamp_html() adds (that suffix
+        # is what made the column too wide) while still carrying the
+        # full ISO string in a title attribute.
+        tmp = _mkstate("h-clock-only")
+        try:
+            raw_ts = "2026-08-27T10:00:00+00:00"
+            _seed_runway_events(tmp, [
+                {"ts": raw_ts, "hex": "clk01", "callsign": "CLOCK1"},
+            ])
+            now = "2026-08-27T10:05:00+00:00"
+            rendered = history_page.render(_history_ctx(tmp, now=now))
+            # Inlined rather than the shared _row_block() helper, which
+            # is defined later in this function's source order.
+            tr_match = re.search(
+                r'<tr[^>]*data-filter-group="0"[^>]*>(.*?)</tr>', rendered, re.S)
+            if tr_match is None:
+                return False, "could not locate row block for data-filter-group=0"
+            tr_block = tr_match.group(1)
+            if "title=\"%s\"" % layout.escape_html(raw_ts) not in tr_block:
+                return False, "expected the full ISO timestamp in a title attribute"
+            if " ago" in tr_block:
+                return False, "did not expect a relative-age suffix (\" ago\") in the desktop row"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the desktop Timestamp cell shows a local clock with no relative-age suffix, and the "
+        "full ISO timestamp still lives in a title attribute (A-36/D-19)",
+        _desktop_timestamp_cell_clock_only_no_relative_age)
 
     def _merged_values_survive_in_same_cell():
         # The merge removed *columns*, not *data* - and both halves must
