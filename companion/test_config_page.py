@@ -41,9 +41,12 @@ if REPO_ROOT not in sys.path:
 
 from companion import app as companion_app  # noqa: E402
 from companion import auth  # noqa: E402
+import companion.i18n_fr as i18n_fr  # noqa: E402
 import companion.layout as layout  # noqa: E402
 from companion.layout import escape_html  # noqa: E402
+import companion.prefs as prefs  # noqa: E402
 from companion.pages import config_page  # noqa: E402
+import companion.i18n_fr.display as i18n_fr_display  # noqa: E402
 from server import device_config  # noqa: E402
 from server.plane import calendar_rules, colour_rules  # noqa: E402
 
@@ -391,6 +394,21 @@ EXPECTED_CHECK_COUNT = 190  # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): +6
 # quick-action <form> ahead of it). 184 + 6 = 190, recomputed directly
 # against the real on-disk check(...) call count at execution time
 # (190/190 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 194  # 20-07-PLAN.md Task 3 (D-05/D-36): +4 (a
+# French Display render carries the three supersection headings, the
+# purpose sentence and the instant-switch sentence in French with none
+# of their English counterparts; an English render still carries every
+# pre-existing pinned English string; the Device render carries no
+# edit-artwork markup or ?edit=1 link in either language; every key of
+# companion/i18n_fr/display.py is a key of the merged companion.i18n_fr
+# .CATALOG) net of retargeting the pre-existing Edit-artwork-anchor
+# check in place (D-36: the link and its builder are deleted outright,
+# so the check now asserts absence on both scopes instead of one
+# anchor on Device) — no count change from that retarget, since it
+# replaces its own prior assertion rather than adding a new check(...)
+# call. 190 + 4 = 194, recomputed directly against the real on-disk
+# check(...) call count at execution time (194/194 pass), not trusted
+# from arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -5174,6 +5192,92 @@ def main():
         "still produces the same saved config (D-13/T-20-26)",
         _handle_post_same_field_set_after_restructure_saves_the_same_config)
 
+    # ==================================================================
+    # 20-07-PLAN.md Task 3 (D-05): config_page.py through t(), and its
+    # French catalogue (companion/i18n_fr/display.py).
+    # ==================================================================
+
+    _TASK3_I18N_CTX = {
+        "device_config": {
+            "display_enabled": True, "quiet_hours_enabled": True,
+            "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
+        },
+        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        "calendar_configured": True, "calendar_last_synced_at": None,
+        "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+    }
+
+    def _french_display_render_carries_french_headings_no_english():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_rendered = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        for french_text in ("Aspect", "Ce qu’il surveille", "Quand il est allumé",
+                             "Tout ce que le cadre affiche, et quand.",
+                             "S’applique la prochaine fois que le cadre se réveille."):
+            if french_text not in fr_rendered:
+                return False, "expected %r in the French Display render" % (french_text,)
+        for english_text in ("Look", "What it watches", "When it is on",
+                              "Everything about what the frame shows and when.",
+                              "Applies the next time the frame wakes up."):
+            if english_text in fr_rendered:
+                return False, "expected %r to be absent from the French Display render" % (english_text,)
+        return True, ""
+    check(
+        "a French Display render (prefs.set_request_prefs(lang='fr')) carries the three "
+        "supersection headings, the purpose sentence and the instant-switch sentence in French, "
+        "and none of their English counterparts (D-05)",
+        _french_display_render_carries_french_headings_no_english)
+
+    def _english_display_render_still_carries_every_pinned_english_string():
+        # The default (no prefs override) render must stay byte-identical
+        # to every pre-existing English-language check in this file —
+        # t()'s own fallback-to-English-unchanged contract, exercised at
+        # the whole-page level rather than per-string.
+        rendered = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
+        for english_text in (
+                config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
+                config_page.DISPLAY_ON_HEADING, config_page.DISPLAY_PAGE_PURPOSE,
+                config_page.QUICK_ACTION_APPLIES_SENTENCE, config_page.THEME_SECTION_CAPTION,
+                config_page.RUNWAY_SECTION_CAPTION, config_page.CALENDAR_SECTION_CAPTION):
+            if escape_html(english_text) not in rendered:
+                return False, "expected the English constant %r to still render verbatim" % (english_text,)
+        return True, ""
+    check(
+        "an English (default) Display render still contains every pre-existing English string this "
+        "file's own checks assert — t() never touches the default-language render (D-05)",
+        _english_display_render_still_carries_every_pinned_english_string)
+
+    def _device_render_carries_no_edit_artwork_markup_in_either_language():
+        for lang in ("en", "fr"):
+            try:
+                prefs.set_request_prefs(lang=lang)
+                rendered = config_page.render(
+                    {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0},
+                    scope=config_page.SCOPE_DEVICE)
+            finally:
+                prefs.set_request_prefs(lang="en")
+            if "edit-artwork" in rendered:
+                return False, "lang=%r: expected no edit-artwork markup on the Device page (D-36)" % (lang,)
+            if "?edit=1" in rendered:
+                return False, "lang=%r: expected no ?edit=1 link on the Device page (D-36)" % (lang,)
+        return True, ""
+    check(
+        "the Device render contains no edit-artwork markup and no ?edit=1 link, in either language "
+        "(D-36)",
+        _device_render_carries_no_edit_artwork_markup_in_either_language)
+
+    def _every_display_catalogue_key_is_a_key_of_the_merged_catalog():
+        missing = [key for key in i18n_fr_display.CATALOG if key not in i18n_fr.CATALOG]
+        if missing:
+            return False, "expected every companion/i18n_fr/display.py key in the merged CATALOG, missing %r" % (missing,)
+        return True, ""
+    check(
+        "every key of companion/i18n_fr/display.py is a key of the merged companion.i18n_fr.CATALOG "
+        "(the auto-merge package actually picked this module up)",
+        _every_display_catalogue_key_is_a_key_of_the_merged_catalog)
+
     def _submitted_scope_and_return_route_are_allowlisted():
         if config_page.submitted_scope({}) != config_page.SCOPE_ALL:
             return False, "expected a form without a scope field to resolve to the legacy all-scope"
@@ -5419,20 +5523,28 @@ def main():
         "errors carries one",
         _screen_selector_renders_the_field_error_message)
 
-    def _device_scope_has_one_edit_artwork_link_display_has_none():
+    def _neither_scope_renders_an_edit_artwork_link():
+        # 20-07-PLAN.md Task 3 (D-36): the Device page's "Edit artwork"
+        # link is deleted outright — retargeted in place from "the
+        # Device scope renders exactly one... Display renders none" to
+        # its own inverse, now that neither scope renders it at all.
         ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
         href_fragment = "/airlines?edit=1"
         if href_fragment in display:
             return False, "expected no Edit-artwork link on the Display page"
-        if device.count(href_fragment) != 1:
-            return False, "expected exactly one Edit-artwork anchor on the Device page, got %d" % device.count(href_fragment)
+        if href_fragment in device:
+            return False, "expected no Edit-artwork link on the Device page (D-36)"
+        if "edit-artwork" in display or "edit-artwork" in device:
+            return False, "expected no edit-artwork markup on either scope (D-36)"
+        if "_edit_artwork_link_html" in dir(config_page):
+            return False, "expected _edit_artwork_link_html() to be deleted outright (D-36)"
         return True, ""
     check(
-        "the Device scope renders exactly one Edit-artwork anchor whose href contains edit=1, while the "
-        "Display scope renders none (D-22, Device-page half)",
-        _device_scope_has_one_edit_artwork_link_display_has_none)
+        "neither the Display nor the Device scope renders an Edit-artwork link or markup any more — "
+        "the link and its builder are deleted outright (D-36)",
+        _neither_scope_renders_an_edit_artwork_link)
 
     # --- 19-12-PLAN.md Task 3 (D-13/S-02): "next wake ≈ HH:MM" caption
     # suffixes on Display/Device -------------------------------------------
