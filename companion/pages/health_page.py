@@ -381,8 +381,10 @@ SERVER_DATA_SECTION_HEADING = "Server & data"
 # site below.
 RESOLUTION_RATE_LABEL = "Flights we could name"
 RESOLUTION_RATE_TITLE = "Route resolution rate"
-UNRESOLVED_SECTION_HEADING = "Unresolved prefixes"
-STATS_SECTION_HEADING = "Resolution statistics"
+# 19-06-PLAN.md Task 3: renamed into the same plain-language register —
+# constant NAMEs are unchanged so no unrelated reference breaks.
+UNRESOLVED_SECTION_HEADING = "Airlines we could not name"
+STATS_SECTION_HEADING = "How well we name flights"
 
 # --- quick task 260901-tsa: page-purpose + section-intro copy ----------
 #
@@ -409,18 +411,26 @@ SERVER_DATA_SECTION_DESCRIPTION = (
 # pages render this content. Every constant/function body below is
 # copied unchanged in logic; only the module they live in changes.
 
+# 19-06-PLAN.md Task 3 (D-06): no "prefix"/"ICAO"/"registry" in either
+# plain sentence below — the technical vocabulary for what this card
+# actually tracks (an unresolved ICAO callsign prefix registry, CFG-04)
+# is demoted to this comment, not deleted; the visible copy just says
+# what a household member sees: some airlines we could not name yet.
 _NO_GAPS_HEADING = "No coverage gaps."
 _NO_GAPS_BODY = (
-    "No unresolved callsign prefixes — airline coverage looks complete.")
+    "Every airline we've seen recently has been named — nothing left to look up.")
 
 # Phase 13 (D-10) reworded this note in place: it now names Airlines as
 # the resolution surface and points at the per-row Resolve link Task 2
 # below adds, instead of the old manual runbook. This does NOT reopen
 # 06.6.4.1-04's D-11/D-12 — the registry here is still read-only; the
 # state-changing form lives on Airlines, not here.
+#
+# 19-06-PLAN.md Task 3 (D-06): "that prefix's airline" reworded to
+# "that airline" — no "prefix" in the visible sentence.
 _READ_ONLY_NOTE = (
     "This list is read-only here — each row's Resolve link opens the Airlines page "
-    "to name that prefix's airline (and add artwork, if it needs one).")
+    "to name that airline (and add artwork, if it needs one).")
 
 _NO_STATS_HEADING = "No resolution data yet."
 _NO_STATS_BODY = (
@@ -443,18 +453,28 @@ RESOLUTION_WINDOW_DAYS = 30  # A month is long enough to smooth over a
 # reflects a maintained static table shipped with the code, the other
 # reflects an ad hoc runtime registry a human curates — collapsing them
 # would hide which of the two actually did the work.
+# 19-06-PLAN.md Task 3 (D-06): every "adsbdb" occurrence below is now
+# "the route database" in visible prose — the developer-facing name
+# survives as a source comment (this one), not in rendered text. The
+# live/cache/static-table distinction between "fresh_hit"/"cache_hit"/
+# "airline_only" is deliberately kept (collapsing it would hide which
+# mechanism actually resolved the route, per the module comment above),
+# just phrased in ordinary words. The "miss" gloss no longer says
+# "CFG-04's registry" (no requirement id may appear in visible text) —
+# it names the on-screen card by its own current heading instead, so a
+# reader can find it without knowing the requirement id.
 _SOURCE_ROWS = (
     ("fresh_hit", "Fresh lookup",
-     "A live adsbdb lookup resolved a full route this cycle."),
+     "A live lookup in the route database resolved a full route this cycle."),
     ("cache_hit", "Cached hit",
      "A previously-cached route was reused, sparing a network request."),
     ("airline_only", "Airline only",
-     "adsbdb had no route, but the callsign's ICAO prefix identified the "
-     "airline from the static prefix table."),
+     "The route database had no route, but the callsign's ICAO prefix "
+     "identified the airline from the static prefix table."),
     ("miss", "Miss",
-     "Neither adsbdb nor the static prefix table resolved anything for "
-     "this callsign — this is exactly what CFG-04's registry above "
-     "tracks."),
+     "Neither the route database nor the static prefix table resolved "
+     "anything for this callsign, so it shows up in the %s list above."
+     % UNRESOLVED_SECTION_HEADING),
     ("manual", "Manual",
      "The operator resolved this callsign's prefix by hand, from the "
      "companion web interface."),

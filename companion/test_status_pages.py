@@ -300,7 +300,12 @@ EXPECTED_CHECK_COUNT = 185  # 180 + 5 (19-05-PLAN.md Task 3: D-05/A-23's
 # (battery_status()'s error->warn demotion, the seven-to-nine-keys
 # _read_health_inputs() check, and the battery-trend-section status
 # modifier check) were retargeted in place, not counted as new.
-EXPECTED_CHECK_COUNT = 189  # 188 + 1 (19-06-PLAN.md Task 2, D-06: the
+EXPECTED_CHECK_COUNT = 190  # 189 + 1 (19-06-PLAN.md Task 3, D-06: the
+# combined no-adsbdb/no-requirement-id full-render check, seeded with a
+# non-empty unresolved registry AND stats rows so every branch renders.
+# The pre-existing _read_only_note_reworded_to_point_at_airlines_not_
+# the_runbook() check was retargeted in place, not counted as new).
+# 189 = 188 + 1 (19-06-PLAN.md Task 2, D-06: the
 # combined plain-language/tooltip check — Health's stat tiles and
 # corroboration rows carry no banned jargon in visible text, and the
 # Pipeline/Corroboration/Resolution-rate tiles' caption elements each
@@ -3200,10 +3205,12 @@ def main():
             for marker in ("data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty"):
                 if marker not in rendered:
                     return False, "expected the migrated filter bar's %r marker to survive the move" % marker
-            # phase 13 (D-10) reworded this note to include two
-            # apostrophes ("row's", "prefix's"), which escape_html()'s
-            # quote=True mode renders as &#x27; — compare against the
-            # escaped form, matching this module's own single-escaping-
+            # phase 13 (D-10) reworded this note to include an
+            # apostrophe ("row's" — 19-06-PLAN.md Task 3, D-06 dropped
+            # the note's second apostrophe, "prefix's", along with the
+            # word "prefix" itself), which escape_html()'s quote=True
+            # mode renders as &#x27; — compare against the escaped
+            # form, matching this module's own single-escaping-
             # choke-point discipline, not the raw Python literal.
             if layout.escape_html(health_page._READ_ONLY_NOTE) not in rendered:
                 return False, "expected the read-only note to survive the move verbatim (escaped)"
@@ -3228,20 +3235,26 @@ def main():
         # history, belongs only here — never back in health_page.py,
         # since the acceptance gate greps the page module for its
         # absence.
+        #
+        # 19-06-PLAN.md Task 3 (D-06): retargeted in place — "that
+        # prefix's airline" reworded to "that airline", dropping the
+        # word "prefix" from this visible sentence entirely.
         old_note_closing_phrase = "following the existing coverage-gap runbook."
         expected_note = (
             "This list is read-only here — each row's Resolve link opens "
-            "the Airlines page to name that prefix's airline (and add "
+            "the Airlines page to name that airline (and add "
             "artwork, if it needs one).")
         if health_page._READ_ONLY_NOTE != expected_note:
             return False, (
-                "expected _READ_ONLY_NOTE to equal the UI-SPEC's exact new "
+                "expected _READ_ONLY_NOTE to equal the D-06 plain-language "
                 "string, got %r" % (health_page._READ_ONLY_NOTE,))
+        if "prefix" in health_page._READ_ONLY_NOTE.lower():
+            return False, "expected _READ_ONLY_NOTE to contain no occurrence of 'prefix'"
         tmp = _mkstate("h-read-only-note-reworded")
         try:
             rendered = health_page.render(_ctx(tmp))
-            # The note contains two apostrophes ("row's", "prefix's"),
-            # which escape_html()'s quote=True mode renders as &#x27; —
+            # The note contains an apostrophe ("row's"), which
+            # escape_html()'s quote=True mode renders as &#x27; —
             # compare against the escaped form, the module's own single
             # escaping choke-point discipline.
             if layout.escape_html(expected_note) not in rendered:
@@ -3252,8 +3265,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the read-only note is reworded to name Airlines as the resolution surface and no longer points at "
-        "the manual runbook (phase 13 D-10)",
+        "the read-only note is reworded to name Airlines as the resolution surface, no longer points at "
+        "the manual runbook (phase 13 D-10), and (19-06-PLAN.md Task 3, D-06) no longer says 'prefix' in "
+        "its visible sentence",
         _read_only_note_reworded_to_point_at_airlines_not_the_runbook)
 
     def _source_rows_gains_fifth_manual_entry():
@@ -5998,6 +6012,43 @@ def main():
         "Pipeline/Corroboration/Resolution-rate tiles' caption elements each carry a title attribute equal "
         "to their matching technical constant (19-06-PLAN.md Task 2, D-06)",
         _health_tiles_and_rows_read_in_plain_language)
+
+    # --- 19-06-PLAN.md Task 3: registry/statistics prose de-jargoned
+    # (D-06, CFG-04/CFG-08 surfaces) --------------------------------------
+
+    def _health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id():
+        tmp = _mkstate("h-no-jargon-full-render")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {"count": 3, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            events = []
+            for source in ("fresh_hit", "cache_hit", "airline_only", "miss", "manual"):
+                events.append({"ts": _iso(now), "hex": "abc123", "route_source": source})
+            _seed_runway_events(tmp, events)
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        if health_page.UNRESOLVED_SECTION_HEADING not in rendered or "data-filter-input" not in rendered:
+            return False, "fixture gap: expected the registry card to actually render"
+        if health_page.STATS_SECTION_HEADING not in rendered or "% resolved" not in rendered:
+            return False, "fixture gap: expected the resolution-statistics card to actually render"
+        if "adsbdb" in rendered:
+            return False, "expected no occurrence of 'adsbdb' anywhere in a full render"
+        visible = _visible_text_outside_title_attributes(rendered)
+        if re.search(r"CFG-\d", visible):
+            return False, "expected no requirement id (CFG-\\d) in visible text"
+        return True, ""
+    check(
+        "a full Health render with a non-empty unresolved registry and stats rows (every branch rendered) "
+        "contains no 'adsbdb' and no CFG-\\d requirement id outside a title attribute "
+        "(19-06-PLAN.md Task 3, D-06/T-19-24)",
+        _health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id)
 
     # ======================================================================
     # Section 1.5: companion/illustration_normalize.py — the shared
