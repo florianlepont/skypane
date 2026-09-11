@@ -227,6 +227,29 @@ QUIET_HOURS_SECTION_CAPTION = (
     "Pauses the frame's wake, poll and display cycle overnight. Applies "
     "on the next scheduled poll, which may now be hours away.")
 
+# 19-10-PLAN.md (D-14/S-04): three one-tap presets, client-side only - no
+# server change (see quiet_hours_group()'s docstring). The Night preset's
+# start/end are sourced from server.device_config's own shipped defaults
+# rather than retyped literals, so the preset and the default can never
+# drift apart. Ranges use a real U+2013 en dash, matching this module's
+# real-Unicode punctuation convention (see its em dashes elsewhere).
+QUIET_HOURS_PRESET_NIGHT_START = device_config.DEFAULT_QUIET_HOURS_START
+QUIET_HOURS_PRESET_NIGHT_END = device_config.DEFAULT_QUIET_HOURS_END
+QUIET_HOURS_PRESET_NIGHT_LABEL = "Night (%s–%s)" % (
+    QUIET_HOURS_PRESET_NIGHT_START, QUIET_HOURS_PRESET_NIGHT_END)
+QUIET_HOURS_PRESET_WORKDAY_START = "08:00"
+QUIET_HOURS_PRESET_WORKDAY_END = "18:00"
+QUIET_HOURS_PRESET_WORKDAY_LABEL = "Work day (%s–%s)" % (
+    QUIET_HOURS_PRESET_WORKDAY_START, QUIET_HOURS_PRESET_WORKDAY_END)
+# "Always on (off)": this preset UNCHECKS the enable checkbox and leaves
+# both times untouched - "off" means the curfew is disabled while the
+# configured window stays intact, the pre-configure-before-enabling
+# behaviour quiet_hours_group()'s own docstring already locks. Expressed
+# via a distinct data-preset-enabled="0" attribute rather than
+# overloading the time attributes with a sentinel value.
+QUIET_HOURS_PRESET_ALWAYS_ON_LABEL = "Always on (off)"
+QUIET_HOURS_PRESET_ATTR = "data-quiet-preset"
+
 # 11-UI-SPEC.md Copywriting Contract, locked verbatim (D-05). The caption's
 # closing sentence deliberately reuses the same "Applies on the next
 # scheduled poll" clause every sibling caption ends on (D-06 — no new
@@ -1011,6 +1034,20 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
     regardless of the enable checkbox either way — the
     pre-configure-before-enabling behaviour this docstring's own
     Interaction Contract paragraph above locks is unchanged.
+
+    19-10-PLAN.md (D-14/S-04): three `type="button"` presets (Night, Work
+    day, Always on) render between the enable checkbox and the Start
+    input — a CLIENT-SIDE affordance only, with NO server change. Each
+    button carries `data-preset-start`/`data-preset-end`/
+    `data-preset-enabled` attributes that a small addition to
+    `companion/static/dirty-state.js` reads and writes into this same
+    form's `quiet_hours_start`/`quiet_hours_end`/`quiet_hours_enabled`
+    fields — `handle_post()`'s validation of those three fields is
+    completely untouched. On a no-JS browser the three buttons are
+    simply inert (they carry no `type="submit"`, so they cannot even
+    accidentally submit the form); the time inputs and checkbox
+    themselves remain fully usable either way, an acceptable degradation
+    matching this page's established graceful-degradation convention.
     """
     checked = _submitted_checkbox_checked(
         submitted, "quiet_hours_enabled", QUIET_HOURS_CHECKBOX_VALUE, current_enabled)
@@ -1025,6 +1062,32 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
     end_error_attrs = _field_error_attrs(errors, "quiet_hours_end", "quiet-hours-end")
     end_error_html = _field_error_html(errors, "quiet_hours_end", "quiet-hours-end")
 
+    # 19-10-PLAN.md (D-14/S-04): the preset row. Reuses .runway-row -
+    # style.css's existing generic flex/wrap/gap row - rather than
+    # declaring a new CSS rule; that class is not scoped to the runway
+    # picker's markup, only to its layout shape, and nothing here asserts
+    # its absence from quiet_hours_group()'s own output (unlike
+    # .theme-status__row, which a pinned check requires stay absent from
+    # this group specifically). The three buttons are bare `type="button"`
+    # elements with no new class, inheriting the existing quiet-button
+    # treatment (base `button` selector) untouched.
+    preset_row_html = (
+        '<div class="runway-row">'
+        '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
+        '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
+        '<button type="button" %s data-preset-enabled="0">%s</button>'
+        "</div>"
+    ) % (
+        QUIET_HOURS_PRESET_ATTR,
+        escape_html(QUIET_HOURS_PRESET_NIGHT_START), escape_html(QUIET_HOURS_PRESET_NIGHT_END),
+        escape_html(QUIET_HOURS_PRESET_NIGHT_LABEL),
+        QUIET_HOURS_PRESET_ATTR,
+        escape_html(QUIET_HOURS_PRESET_WORKDAY_START), escape_html(QUIET_HOURS_PRESET_WORKDAY_END),
+        escape_html(QUIET_HOURS_PRESET_WORKDAY_LABEL),
+        QUIET_HOURS_PRESET_ATTR,
+        escape_html(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL),
+    )
+
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
@@ -1032,6 +1095,7 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s%s> Enable quiet hours'
         "</label>"
+        "%s"
         "%s"
         '<label>Start <input type="time" name="quiet_hours_start" value="%s" required%s></label>'
         "%s"
@@ -1044,6 +1108,7 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
         escape_html(QUIET_HOURS_SECTION_CAPTION),
         escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", enabled_error_attrs,
         enabled_error_html,
+        preset_row_html,
         escape_html(effective_start), start_error_attrs,
         start_error_html,
         escape_html(effective_end), end_error_attrs,

@@ -50,6 +50,13 @@
  * countDifferences() below - the same one the bar itself uses, reused
  * rather than reimplemented - and is cleared by exactly two legitimate
  * exits: a real form submit, and the Cancel button.
+ *
+ * 19-10-PLAN.md (D-14/S-04): three Quiet hours preset buttons
+ * (config_page.py's quiet_hours_group()) are also handled here, reading
+ * their data-preset-start/data-preset-end/data-preset-enabled
+ * attributes and writing into the same form's time inputs and enable
+ * checkbox, then reusing notifyDirty()/updateBar() to mark the form
+ * dirty - never a synthetic change event.
  */
 (function () {
   "use strict";
@@ -62,6 +69,58 @@
   var bar = document.querySelector("[data-dirty-bar]");
   var countEl = document.querySelector("[data-dirty-count]");
   var cancelBtn = document.querySelector("[data-dirty-cancel]");
+
+  // D-14/S-04: Quiet hours presets. Fills the two time inputs and the
+  // enable checkbox client-side, then marks the form dirty through
+  // notifyDirty() below. Placed here, BEFORE the [data-dirty-bar]/
+  // [data-dirty-count] guard immediately below, so the presets keep
+  // working even on a page whose save bar failed to initialise - that
+  // is the whole point of D-09. This script is served to every page on
+  // the site; most pages render no [data-quiet-preset] buttons at all,
+  // so the early return inside the nested function below is load-
+  // bearing, matching this file's own top guard.
+  (function () {
+    var buttons = document.querySelectorAll("[data-quiet-preset]");
+    if (!buttons.length) {
+      return;
+    }
+    var i;
+    for (i = 0; i < buttons.length; i++) {
+      attachPresetClickHandler(buttons[i]);
+    }
+  })();
+
+  function attachPresetClickHandler(button) {
+    button.addEventListener("click", function () {
+      var start = button.getAttribute("data-preset-start");
+      var end = button.getAttribute("data-preset-end");
+      var enabledAttr = button.getAttribute("data-preset-enabled");
+      if (start !== null && form.elements["quiet_hours_start"]) {
+        form.elements["quiet_hours_start"].value = start;
+      }
+      if (end !== null && form.elements["quiet_hours_end"]) {
+        form.elements["quiet_hours_end"].value = end;
+      }
+      if (enabledAttr !== null && form.elements["quiet_hours_enabled"]) {
+        form.elements["quiet_hours_enabled"].checked = enabledAttr !== "0";
+      }
+      notifyDirty();
+    });
+  }
+
+  // Reuses updateBar()/countDifferences() below rather than dispatching
+  // a synthetic change event - constructing one in an ES5-safe way is
+  // awkward and unnecessary when the handler that needs to react lives
+  // in this very same file. Only calls updateBar() once the bar itself
+  // is confirmed present, so a missing bar degrades to "the fields
+  // still fill in, there is just no dirty count to show" rather than
+  // throwing.
+  function notifyDirty() {
+    if (bar && countEl) {
+      updateBar();
+    }
+  }
+
   if (!bar || !countEl) {
     return;
   }
