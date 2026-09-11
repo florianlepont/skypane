@@ -6874,7 +6874,8 @@ def main():
         # exactly once.
         tmp = _mkstate("a-replace-action-membership")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
             # quick task 260903-df3: LIGHTBOX_REPLACE_ZONE_CLASS
             # ("lightbox__replace-zone") shares a prefix with
             # LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace"), but the
@@ -6913,7 +6914,8 @@ def main():
         # contract: now singular, since the form itself is singular.
         tmp = _mkstate("a-replace-method-enctype")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
             forms = re.findall(r'<form class="%s"[^>]*>' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS, rendered)
             if len(forms) != 1:
                 return False, "expected exactly one replace form, got %d" % len(forms)
@@ -6956,7 +6958,8 @@ def main():
         # ids is.
         tmp = _mkstate("a-replace-input-ids")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
             input_ids = re.findall(r'<input type="file" id="([^"]+)"', rendered)
             replace_ids = [i for i in input_ids if i == airlines_page.REPLACE_INPUT_ID]
             if len(replace_ids) != 1:
@@ -7063,7 +7066,8 @@ def main():
         hostile_name = '<script>alert(1)</script>"'
         illustrations.target_variants_by_airline = lambda: [(hostile_name, [])]
         try:
-            rendered = airlines_page.render({})
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render({"edit_mode": True})
         finally:
             illustrations.target_variants_by_airline = original_target_variants_by_airline
         if hostile_name in rendered:
@@ -7125,7 +7129,8 @@ def main():
         # constant.
         tmp = _mkstate("a-no-revert-control")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         form_match = re.search(
@@ -7198,7 +7203,8 @@ def main():
             return False, "expected 'icon-upload' to be a member of layout.ICON_IDS"
         tmp = _mkstate("a-replace-zone-icon-sprite")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         # Phase 14 (14-02-PLAN.md Task 3) retargeted this count in place
@@ -7240,7 +7246,8 @@ def main():
         # in the stylesheet, plus the first ::file-selector-button rule).
         tmp = _mkstate("a-replace-zone-contract")
         try:
-            rendered = airlines_page.render(_ctx(tmp))
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            rendered = airlines_page.render(dict(_ctx(tmp), edit_mode=True))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         zone_open_tag = '<div class="%s">' % airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS
@@ -7762,6 +7769,8 @@ def main():
                 return False, "expected add_entry() to accept a fresh, valid name, got %r" % (add_result,)
             ctx = _ctx(tmp, now=now)
             ctx["resolve_prefix"] = "XYZ"
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
             section = _resolve_slice(rendered)
             expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Brand New Air"
@@ -7937,6 +7946,8 @@ def main():
 
             ctx = _ctx(tmp, now=now)
             ctx["resolve_prefix"] = "XYZ"
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
             section = _resolve_slice(rendered)
             if airlines_page.RESOLVE_STALE_BODY in section:
@@ -8235,6 +8246,8 @@ def main():
             manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
             ctx = _ctx(tmp)
             ctx["resolve_prefix"] = "ZZZ"
+            # 19-08 (D-22): edit-only forms need edit_mode=True
+            ctx["edit_mode"] = True
             rendered = airlines_page.render(ctx)
 
             dialog_open_index = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID)
@@ -8604,6 +8617,17 @@ def main():
                     retired_token = "airline-card__" + "replace"
                     if retired_token in body_text:
                         return False, "expected zero occurrences of the retired per-card class token in the real /airlines HTTP response body"
+                    # 19-08 (D-22): edit-only forms need edit_mode=True.
+                    # The replace/resolve-upload/delete forms only render
+                    # under an exact ?edit=1, so the assertions below that
+                    # depend on those forms existing need a second, real
+                    # fetch of the edit-mode page rather than the plain
+                    # /airlines response already captured in body_text.
+                    edit_status, _edit_headers, edit_body = http_request(
+                        base + path + "?edit=1", cookie=session_cookie)
+                    if edit_status != 200:
+                        return False, "expected 200 for %s?edit=1, got %d" % (path, edit_status)
+                    edit_body_text = edit_body.decode("utf-8", errors="replace")
                     # quick task 260903-df3: a bare substring count of
                     # LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
                     # is no longer unambiguous — it is now also a prefix
@@ -8615,7 +8639,7 @@ def main():
                     # itself is counted, the same trailing-quote
                     # technique _replace_form_action_matches_trigger_attribute_membership()
                     # already uses.
-                    replace_form_count = body_text.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
+                    replace_form_count = edit_body_text.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
                     if replace_form_count != 1:
                         return False, (
                             "expected airlines_page.LIGHTBOX_REPLACE_FORM_CLASS exactly once in the real "
@@ -8651,20 +8675,20 @@ def main():
                     # resolve-name form's own action is never empty (it
                     # always posts to RESOLVE_ROUTE, in both the dialog
                     # and the no-JS fallback).
-                    if body_text.count(' action=""') != 3:
+                    if edit_body_text.count(' action=""') != 3:
                         return False, (
                             "expected ' action=\"\"' exactly 3 times (replace/resolve-upload/delete "
                             "forms) in the real /airlines HTTP response body, "
-                            "got %d" % body_text.count(' action=""'))
+                            "got %d" % edit_body_text.count(' action=""'))
                     # Phase 14 (14-02-PLAN.md Task 3) retargeted: the
                     # dialog now also carries the resolve-upload form's
                     # own file input, alongside the pre-existing replace
                     # form's, so the expected count is 2, not 1.
-                    if body_text.count('<input type="file"') != 2:
+                    if edit_body_text.count('<input type="file"') != 2:
                         return False, (
                             "expected <input type=\"file\" exactly twice (replace form, resolve-upload "
                             "form) in the real /airlines HTTP response "
-                            "body, got %d" % body_text.count('<input type="file"'))
+                            "body, got %d" % edit_body_text.count('<input type="file"'))
 
                 elif path == "/flights":
                     # quick task 260903-btu Task 5a: the served-HTML twin
