@@ -51,6 +51,12 @@ Every finding id below is an entry in 18-AUDIT.md; its evidence (file:line, scre
 ### Screens seam (A-40 remainder)
 - **D-23 (A-40):** `device_config` gains `screen_id` (default `"plane-frame"`, normalised against `screens.SCREEN_IDS`); `page_context()` threads it as `ctx["screen_id"]`; the Display/Device headers render a screen selector `<select>` only when `len(SCREEN_IDS) > 1`. No second screen type is added; this closes the seam so the next screen type is a registry entry plus its groups.
 
+### Resolutions of the research's open questions (2026-09-11, orchestrator)
+- **D-18 amended:** the CSP is `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; form-action 'self'; frame-ancestors 'none'`. The seven `style="background:…"` swatch attributes on the theme chips are server-controlled from the fixed 18-theme registry (never user input) and a class-per-theme refactor would churn 46 pinned render checks for no security gain; `script-src` stays strict with no `'unsafe-inline'`, which is where the XSS risk lives. The poll-cooldown inline `<script>` still moves to `static/poll-cooldown.js` as D-18 says.
+- **D-16:** the revocation set lives in `companion/auth.py` (the researcher's default), consulted from `verify_session()`.
+- **D-08:** no additional CSRF mechanism beyond the site's existing posture (`SameSite=Strict` session cookie, POST-only, session-gated); matches every other state-changing route.
+- **UI-SPEC gate:** this phase amends existing pages under the standing design contract (`.claude/skills/sketch-findings-skypane/`); no separate UI-SPEC.md is produced. Planned with the `--skip-ui` semantics of plan-phase, recorded here so verify-phase sees the decision.
+
 ### Claude's Discretion
 - Exact copy of the plain-language Health labels beyond the mapping in D-06, the CSP header's exact directive order, the shape of the field-level error markup (must reuse the existing `--color-status-error` token and the label voice), test check counts.
 - Whether D-16's revocation set lives in `auth.py` or `app.py` (it must be consulted from `require_session()`).
