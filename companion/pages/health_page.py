@@ -1323,15 +1323,15 @@ def collect_anomalies(
     if device_state != "ok":
         anomalies.append("Device check-in is stale.")
     if pipeline_state != "ok":
-        anomalies.append("ADS-B pipeline run is stale.")
+        anomalies.append("Flight data is stale.")
     if battery_state != "ok":
         anomalies.append("A battery reading shows an abnormal drop.")
     if disagreement_warn:
-        anomalies.append("ADS-B sources disagreed on the selected aircraft recently.")
+        anomalies.append("Data sources disagreed recently.")
     if coverage_state != "ok":
         anomalies.append("Some airlines are unidentified.")
     if source_fault:
-        anomalies.append("Every ADS-B source failed on the last run.")
+        anomalies.append("All data sources failed.")
     return anomalies
 
 
@@ -2105,9 +2105,9 @@ def _corroboration_section(counts):
     counts = counts or {}
     if not any(counts.values()):
         return layout.empty_state(
-            "No corroboration data yet.",
-            "Corroboration data appears once the ADS-B pipeline has "
-            "recorded at least one runway event."), False
+            "Nothing to compare yet.",
+            "This appears once the frame has recorded at least one "
+            "flight."), False
 
     statuses = corroboration_status(counts)
     rows_html = []

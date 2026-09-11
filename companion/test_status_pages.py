@@ -1218,7 +1218,7 @@ def main():
             _seed_runway_events(tmp, [
                 {"ts": _iso(now), "hex": "abc123", "corroborated": False}])
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-            if "ADS-B sources disagreed" not in rendered:
+            if "Data sources disagreed" not in rendered:
                 return False, "expected the anomaly banner to name the real failing category"
             if health_page.ANOMALY_BANNER_TEXT not in rendered:
                 return False, "expected ANOMALY_BANNER_TEXT to remain present as the banner's fallback tail"
@@ -1244,18 +1244,26 @@ def main():
         # Driven through the real collect_anomalies() strings, in the
         # real order, rather than hand-written fixtures — so the check
         # cannot drift away from the copy it is protecting.
+        # 19-06 (D-06) later rewrote every collect_anomalies() literal
+        # into plain language, so none of the real strings begins with
+        # an acronym any more; the real strings now prove the ordinary
+        # mid-sentence lower-casing, and a hand-written acronym-led
+        # fixture keeps the guard itself under test.
         anomalies = health_page.collect_anomalies(
             device_state="warn", pipeline_state="warn",
             battery_state="ok", disagreement_warn=True)
         text = health_page._anomaly_category_text(anomalies)
-        if "aDS-B" in text:
+        if "flight data is stale" not in text or "data sources disagreed" not in text:
+            return False, (
+                "expected the real non-first phrases to be lower-cased "
+                "mid-sentence, got %r" % (text,))
+        acronym = health_page._anomaly_category_text(
+            ["Device check-in is stale.",
+             "ADS-B sources disagreed on the selected aircraft recently."])
+        if "aDS-B" in acronym or "ADS-B sources" not in acronym:
             return False, (
                 "a leading acronym was lower-cased for mid-sentence "
-                "joining, producing %r" % (text,))
-        if text.count("ADS-B") != 2:
-            return False, (
-                "expected both ADS-B categories to survive intact, got %r"
-                % (text,))
+                "joining, producing %r" % (acronym,))
         # The guard must be narrow: an ordinary sentence-initial word in
         # a non-first position still lower-cases, or the joined clause
         # reads as a run of sentences again.
@@ -2711,7 +2719,7 @@ def main():
         _source_fault_alone_produces_error_registry_alone_produces_warn)
 
     def _collect_anomalies_two_new_items():
-        if "Every ADS-B source failed on the last run." not in health_page.collect_anomalies(
+        if "All data sources failed." not in health_page.collect_anomalies(
                 "ok", "ok", "ok", False, source_fault=True):
             return False, "expected the source_fault item to appear when source_fault=True"
         if "Some airlines are unidentified." not in health_page.collect_anomalies(
