@@ -136,6 +136,11 @@ PANEL_LOOKUP_SCRIPT_SRC = "/static/panel-lookup.js"
 # contract as the constants above.
 FLASH_CLEANUP_SCRIPT_SRC = "/static/flash-cleanup.js"
 
+# 19-04-PLAN.md (D-18/A-35): must equal companion/app.py's
+# POLL_COOLDOWN_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above.
+POLL_COOLDOWN_SCRIPT_SRC = "/static/poll-cooldown.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 _STATUS_DOT_CLASSES = {
@@ -1114,6 +1119,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -1148,6 +1154,10 @@ def page_shell(
         # page, since the flash banner it cleans up after is emitted by
         # this function for every authenticated page, not just one.
         FLASH_CLEANUP_SCRIPT_SRC,
+        # 19-04-PLAN.md (D-18/A-35): eighth script, same unconditional/
+        # no-op-via-guard-clause convention — served every page, since
+        # only Settings renders #poll-trigger-btn.
+        POLL_COOLDOWN_SCRIPT_SRC,
     )
 
 

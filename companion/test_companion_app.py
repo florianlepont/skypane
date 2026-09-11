@@ -276,6 +276,10 @@ EXPECTED_CHECK_COUNT = 198  # 194 + 4 (phase 19 plan 02 Task 2, D-16/A-33:
 EXPECTED_CHECK_COUNT = 201  # 198 + 3 (phase 19 plan 02 Task 3, D-17/A-34:
 # the insecure-cookies-drops-Secure check, the fails-closed-on-"true"
 # check, and the deploy/skypane.env.example documentation check).
+EXPECTED_CHECK_COUNT = 204  # 201 + 3 (19-04-PLAN.md Task 1, D-18/A-35:
+# poll-cooldown.js's public-serving/ES5-safe/route-src-agreement checks;
+# the eight-deferred-scripts check is retargeted in place from the
+# seven-deferred-scripts check, not counted as new).
 # the save-triggered immediate calendar sync's real-HTTP-round-trip
 # outcomes — plural/singular flight count, a zero-entry feed's distinct
 # success, the single generic failure message with the URL still saved,
@@ -2913,24 +2917,73 @@ def main():
             "layout.FLASH_CLEANUP_SCRIPT_SRC equals companion.app.FLASH_CLEANUP_SCRIPT_ROUTE",
             _flash_cleanup_script_route_src_agree)
 
-        def _seven_deferred_scripts_before_closing_body():
-            # Retargeted in place from _six_deferred_scripts_before_
-            # closing_body() (quick task 260903-peo, UIR-19 Task 4):
-            # flash-cleanup.js is the seventh unconditional script.
+        # --- 19-04-PLAN.md Task 1 (D-18/A-35): poll-cooldown.js ---
+
+        check(
+            "GET /static/poll-cooldown.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/poll-cooldown.js"))
+
+        def _poll_cooldown_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "poll-cooldown.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "poll-cooldown.js must not contain %r" % token
+            required = (
+                "textContent", "removeAttribute", "setInterval",
+                "clearInterval", "addEventListener")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in poll-cooldown.js" % token
+            return True, ""
+        check(
+            "poll-cooldown.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), and carries "
+            "both the D-01 countdown (textContent/removeAttribute/setInterval/clearInterval) and "
+            "the UXA-15 disable-on-submit affordance (addEventListener)",
+            _poll_cooldown_script_es5_safe_and_no_html_write)
+
+        def _poll_cooldown_script_route_src_agree():
+            import companion.app as app_module
+            if layout.POLL_COOLDOWN_SCRIPT_SRC != app_module.POLL_COOLDOWN_SCRIPT_ROUTE:
+                return False, "poll cooldown script route drift: %r vs %r" % (
+                    layout.POLL_COOLDOWN_SCRIPT_SRC, app_module.POLL_COOLDOWN_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.POLL_COOLDOWN_SCRIPT_SRC equals companion.app.POLL_COOLDOWN_SCRIPT_ROUTE",
+            _poll_cooldown_script_route_src_agree)
+
+        def _eight_deferred_scripts_before_closing_body():
+            # Retargeted in place from _seven_deferred_scripts_before_
+            # closing_body() (19-04-PLAN.md Task 1, D-18/A-35):
+            # poll-cooldown.js is the eighth unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 7:
-                return False, "expected exactly 7 deferred <script src= tags before </body>, got %d" % count
-            for src_const in (layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC):
+            if count != 8:
+                return False, "expected exactly 8 deferred <script src= tags before </body>, got %d" % count
+            for src_const in (
+                    layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
+                    layout.POLL_COOLDOWN_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly seven deferred <script src= tags "
-            "before the closing body tag, including panel-lookup.js and flash-cleanup.js",
-            _seven_deferred_scripts_before_closing_body)
+            "a rendered authenticated page contains exactly eight deferred <script src= tags "
+            "before the closing body tag, including panel-lookup.js, flash-cleanup.js and "
+            "poll-cooldown.js",
+            _eight_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
