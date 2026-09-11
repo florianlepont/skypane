@@ -55,6 +55,8 @@ if REPO_ROOT not in sys.path:
 import companion.app as app  # noqa: E402
 from companion import auth, illustration_normalize, layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
+import companion.wake as wake  # noqa: E402
+from server import device_config  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import illustrations  # noqa: E402
 from server.plane import manual_resolutions  # noqa: E402
@@ -282,7 +284,15 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 171  # 166 + 5 (19-01-PLAN.md Task 3: D-03/A-21's
+EXPECTED_CHECK_COUNT = 176  # 171 + 5 (19-05-PLAN.md Task 1: companion/wake.py's
+# floors-and-multipliers check, the warn_s < error_s guarantee across six
+# inputs, env_sleep_s()'s unclamped-read-and-degrade check, effective_wake_
+# interval_s()'s screen-off/screen-on/None precedence check, and the
+# source-scan boundary check asserting wake.py never mentions the pages
+# package or app.py). Re-derived by RUNNING the harness (175/176 — the one
+# documented pre-existing root-sandbox anomaly_active() failure), not by
+# arithmetic.
+# 171 = 166 + 5 (19-01-PLAN.md Task 3: D-03/A-21's
 # text-verdict checks — the Device tile's widget-verdict paragraph at
 # each of its three severities, the Pipeline tile's at each of its three
 # severities, the Corroboration tile's at both the agreement and
@@ -628,6 +638,85 @@ def main():
     check(
         "staleness_status() returns ok/warn/error at the right boundaries, warn for a never-seen signal",
         _staleness_status_boundaries)
+
+    # --- 19-05-PLAN.md Task 1: companion/wake.py -----------------------
+
+    def _device_staleness_thresholds_floors_and_multipliers():
+        if wake.device_staleness_thresholds(30) != (300, 1200):
+            return False, "expected the floors to bind at the shipped 30s cadence"
+        if wake.device_staleness_thresholds(300) != (900, 3600):
+            return False, "expected the multipliers to bind at a 5-minute cadence"
+        if wake.device_staleness_thresholds(None) != (300, 1200):
+            return False, "expected the bare floors for an undetermined cadence"
+        return True, ""
+    check(
+        "wake.device_staleness_thresholds() floors at (300, 1200), multiplies at a 5-minute cadence, "
+        "and falls back to the floors for None (19-05-PLAN.md D-05/A-23)",
+        _device_staleness_thresholds_floors_and_multipliers)
+
+    def _device_staleness_thresholds_warn_always_under_error():
+        for candidate in (None, 1, 30, 60, 300, 3600):
+            warn_s, error_s = wake.device_staleness_thresholds(candidate)
+            if warn_s >= error_s:
+                return False, (
+                    "expected warn_s < error_s for wake_interval_s=%r, got (%r, %r)"
+                    % (candidate, warn_s, error_s))
+        return True, ""
+    check(
+        "wake.device_staleness_thresholds() guarantees warn_s < error_s for every input",
+        _device_staleness_thresholds_warn_always_under_error)
+
+    def _env_sleep_s_reads_unclamped_and_degrades():
+        original = os.environ.get(wake.SLEEP_ENV_VAR)
+        try:
+            os.environ[wake.SLEEP_ENV_VAR] = "30"
+            if wake.env_sleep_s() != 30:
+                return False, "expected env_sleep_s() to read SKYPANE_SLEEP_S=30 unclamped"
+            for bad in ("", "abc", "0"):
+                os.environ[wake.SLEEP_ENV_VAR] = bad
+                if wake.env_sleep_s() is not None:
+                    return False, "expected env_sleep_s() to degrade to None for %r" % bad
+            del os.environ[wake.SLEEP_ENV_VAR]
+            if wake.env_sleep_s() is not None:
+                return False, "expected env_sleep_s() to degrade to None when unset"
+            return True, ""
+        finally:
+            if original is None:
+                os.environ.pop(wake.SLEEP_ENV_VAR, None)
+            else:
+                os.environ[wake.SLEEP_ENV_VAR] = original
+    check(
+        "wake.env_sleep_s() reads SKYPANE_SLEEP_S unclamped (no [60, 3600] range check) and degrades to "
+        "None for unset/empty/non-numeric/non-positive values",
+        _env_sleep_s_reads_unclamped_and_degrades)
+
+    def _effective_wake_interval_s_precedence():
+        off_cfg = {"display_enabled": False, "wake_interval_s": 900}
+        if wake.effective_wake_interval_s(off_cfg) != device_config.DISPLAY_OFF_SLEEP_S:
+            return False, "expected the screen-off cadence to win over a configured wake_interval_s"
+        on_cfg = {"display_enabled": True, "wake_interval_s": 120}
+        if wake.effective_wake_interval_s(on_cfg) != 120:
+            return False, "expected a screen-on config to return its own wake_interval_s"
+        if wake.effective_wake_interval_s(None) is not None:
+            return False, "expected effective_wake_interval_s(None) to degrade to None without raising"
+        return True, ""
+    check(
+        "wake.effective_wake_interval_s() prefers the screen-off cadence, otherwise a configured "
+        "wake_interval_s, and degrades to None for a missing config",
+        _effective_wake_interval_s_precedence)
+
+    def _wake_module_never_imports_pages_or_app():
+        wake_path = os.path.join(HERE, "wake.py")
+        with open(wake_path) as fh:
+            source = fh.read()
+        if "companion.pages" in source or "companion/pages" in source:
+            return False, "companion/wake.py must never import the pages package"
+        if "companion.app" in source or "companion/app" in source:
+            return False, "companion/wake.py must never import app.py (import cycle)"
+        return True, ""
+    check(
+        "companion/wake.py's source never mentions the pages package or app.py",
+        _wake_module_never_imports_pages_or_app)
 
     def _layout_absolute_and_relative_covers_every_documented_case():
         if layout.absolute_and_relative(
