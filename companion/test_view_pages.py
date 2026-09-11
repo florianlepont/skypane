@@ -256,7 +256,15 @@ EXPECTED_CHECK_COUNT = 83  # 79 + 4 (19-08-PLAN.md Task 3: D-22's edit-gated lig
 # 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History Timestamp column reads
 # "ISO (Nm ago)"; Task 2: Preview's Captured caption reads "Captured ISO
 # (Nm ago)"; Task 3: corroboration copy cross-page drift guard, D-03)
-EXPECTED_CHECK_COUNT = 87  # 20-06-PLAN.md Task 1 (D-16/D-17/D-21): net +2
+EXPECTED_CHECK_COUNT = 90  # 20-06-PLAN.md Task 2 (D-17.2/D-18/D-20): +3
+# (87 -> 90) — the recent-flights thumbnail resolved-vs-placeholder check,
+# the hero's flight-one-liner presence/absence plus .preview-frame-before-
+# .status-card document-order check, and a French-render check proving
+# Home's headings and a thumbnail's alt text translate while the
+# callsign/airline data itself stays untranslated. Recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (90/90 pass), not trusted from arithmetic alone.
+# 87 = 20-06-PLAN.md Task 1 (D-16/D-17/D-21): net +2
 # (85 -> 87) — retargeted the seeded-render check and the empty-ctx check
 # off the deleted Quick-actions/stat_tile markup, replaced the single
 # _home_page_renders_next_wake_figure_only_when_known() check (-1) with
@@ -3063,6 +3071,93 @@ def main():
         "the hero picture, the battery percentage estimate, escaped recent flights, and the "
         "Next-update headline",
         _home_page_render_with_seeded_state)
+
+    def _recent_flight_thumb_resolved_vs_placeholder():
+        from companion.pages import home_page
+        resolved_row = {"callsign": "AFR1380", "airline": "Air France"}
+        thumb_resolved = home_page._recent_flight_thumb_html(resolved_row)
+        if thumb_resolved.count("<img") != 1:
+            return False, "expected exactly one <img> for a resolved airline"
+        if 'loading="lazy"' not in thumb_resolved:
+            return False, "expected the thumbnail <img> to be lazily loaded"
+        if "/illustration/air-france.png" not in thumb_resolved:
+            return False, "expected the resolved illustration route in the <img> src"
+        unresolved_row = {"callsign": "XYZ", "airline": None}
+        thumb_placeholder = home_page._recent_flight_thumb_html(unresolved_row)
+        if "<img" in thumb_placeholder:
+            return False, "expected no <img> at all for a null/unrecognised airline"
+        if "recent-flight__thumb--placeholder" not in thumb_placeholder:
+            return False, "expected the dashed placeholder span for a null/unrecognised airline"
+        return True, ""
+    check(
+        "a recent-flight row whose airline resolves renders exactly one lazily-loaded "
+        "/illustration/ thumbnail <img>, and one with a null/unrecognised airline renders the "
+        "dashed placeholder span with no <img> at all (D-17.2)",
+        _recent_flight_thumb_resolved_vs_placeholder)
+
+    def _hero_figure_precedes_status_card_with_flight_one_liner_when_known():
+        from companion.pages import home_page
+        hero_ctx = {
+            "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+            "now": "2026-08-27T12:00:00+00:00",
+        }
+        current_flight_row = {
+            "callsign": "AFR1380", "airline": "Air France", "origin": "ORY",
+            "destination": "TLS", "confirmed_state": "departing",
+        }
+        hero_with_flight = home_page._hero_figure_html(hero_ctx, current_flight_row)
+        if "preview-frame__flight" not in hero_with_flight:
+            return False, "expected the flight one-liner when the current flight is known"
+        if '<span class="mono">AFR1380</span> · Air France · ORY → TLS' not in hero_with_flight:
+            return False, "expected the callsign/airline/route flight one-liner text"
+        hero_without_flight = home_page._hero_figure_html(hero_ctx, None)
+        if "preview-frame__flight" in hero_without_flight:
+            return False, "expected no flight one-liner when there is no current flight"
+
+        full_ctx = {
+            "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+            "now": "2026-08-27T12:00:00+00:00", "health_state": {}, "device_config": {},
+            "state_dir": "/tmp/skypane-no-such-state-dir",
+        }
+        rendered = home_page.render(full_ctx)
+        if rendered.index('<figure class="preview-frame">') > rendered.index(
+                'class="page-section status-card"'):
+            return False, "expected .preview-frame before .status-card in document order (D-18)"
+        return True, ""
+    check(
+        "the hero's flight one-liner (callsign in .mono, then airline, then the route) appears "
+        "when the current flight is known and is absent otherwise, and .preview-frame precedes "
+        ".status-card in document order (D-18's picture-first stacking)",
+        _hero_figure_precedes_status_card_with_flight_one_liner_when_known)
+
+    def _home_page_french_render_translates_headings_and_alt_text_not_data():
+        from companion.pages import home_page
+        import companion.prefs as _prefs
+        ctx = {
+            "gallery_entries": [],
+            "now": "2026-08-27T12:00:00+00:00", "health_state": {}, "device_config": {},
+            "state_dir": "/tmp/skypane-no-such-state-dir",
+        }
+        row = {"callsign": "AFR1380", "airline": "Air France"}
+        try:
+            _prefs.set_request_prefs(lang="fr")
+            rendered = home_page.render(ctx)
+            thumb = home_page._recent_flight_thumb_html(row)
+        finally:
+            _prefs.set_request_prefs(lang="en")
+        for needle in ("Vols récents", "Voir tous les vols"):
+            if needle not in rendered:
+                return False, "expected the French heading/link %r" % (needle,)
+        if "Illustration Air France" not in thumb:
+            return False, "expected the French alt-text template applied to the untranslated airline name"
+        if "Air France" not in thumb:
+            return False, "expected the airline name itself to stay untranslated data"
+        return True, ""
+    check(
+        "under a French request Home's headings ('Vols récents'/'Voir tous les vols') and a "
+        "thumbnail's alt text translate while the callsign/airline name stay untranslated data "
+        "(D-05)",
+        _home_page_french_render_translates_headings_and_alt_text_not_data)
 
     def _home_page_full_render_has_no_quick_actions_and_three_status_rows():
         from companion.pages import home_page
