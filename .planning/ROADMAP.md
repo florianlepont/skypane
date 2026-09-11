@@ -969,3 +969,23 @@ Plans:
 - [x] 17-02-PLAN.md
 - [x] 17-03-PLAN.md
 - [x] 17-04-PLAN.md
+
+### Phase 19: Companion audit follow-through: fix the open findings from 18-AUDIT.md
+
+**Goal:** Close every defect still open in 18-AUDIT.md (A-19 through A-39, plus the remainder of A-40) and the two small suggestions that belong with them (S-02 next-wake countdown, S-04 quiet-hours presets), keeping the everyday pages plain-language and the design contract intact — see 19-CONTEXT.md D-01..D-23.
+**Requirements**: CFG-01, CFG-03, CFG-04, CFG-06, CFG-08
+**Depends on:** Phase 18
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 19 to break down)
+
+### Phase 20: Companion suggestions from the audit: French localisation, live theme preview, notifications, simple mode
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 19
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 20 to break down)
