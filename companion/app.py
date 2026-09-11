@@ -2419,26 +2419,33 @@ class Handler(BaseHTTPRequestHandler):
             state_dir = self.args.state_dir
             remaining = poll_cooldown_remaining(state_dir)
             if remaining > 0:
-                return self.redirect(
-                    "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_COOLDOWN)))
-            try:
-                # Pattern 3 (06-RESEARCH.md): the exact production code
-                # path the systemd timer already runs, in-process — never
-                # a second process and never a re-parsed subprocess
-                # result.
-                poll_loop.run_once(state_dir=state_dir, geofence=self.args.geofence)
-            except Exception:
-                return self.redirect(
-                    "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_FAILED)))
-            mark_poll_triggered(state_dir)
-            return self.redirect(
-                "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_TRIGGERED)))
+                flash = FLASH_KEY_POLL_COOLDOWN
+            else:
+                try:
+                    # Pattern 3 (06-RESEARCH.md): the exact production
+                    # code path the systemd timer already runs,
+                    # in-process — never a second process and never a
+                    # re-parsed subprocess result.
+                    poll_loop.run_once(
+                        state_dir=state_dir, geofence=self.args.geofence)
+                except Exception:
+                    flash = FLASH_KEY_POLL_FAILED
+                else:
+                    mark_poll_triggered(state_dir)
+                    flash = FLASH_KEY_POLL_TRIGGERED
         finally:
             # Always released — including on the except Exception: branch
             # above, which must stay inside this try so a failed poll
             # still releases the guard for the next attempt (never a
             # permanently wedged trigger, T-06.6.2-05).
             _POLL_LOCK.release()
+        # The redirect is written only AFTER the lock is released: writing
+        # it from inside the try left a window in which a client that
+        # acted on the 303 immediately (the cooldown harness check, or a
+        # double-tap on Refresh now) could reach the non-blocking acquire
+        # above before this thread's finally ran, and be told "already
+        # running" instead of the cooldown it had actually earned.
+        return self.redirect("%s?flash=%s" % (back, quote(flash)))
 
     def _handle_quick_toggle(self, field):
         """Phase 18: the Home page's one-tap switches — POST /quick/display
