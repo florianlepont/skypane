@@ -13,6 +13,9 @@ only renders the button/copy for it.
 """
 import re
 
+from companion import i18n  # D-05, 20-07-PLAN.md Task 1: the Display page's
+# three supersection headings/intros render through i18n.t() (Task 3
+# widens this to every user-visible string in this file).
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
@@ -96,13 +99,32 @@ SCOPE_FIELD_NAME = "scope"
 RETURN_TO_FIELD_NAME = "return_to"
 
 DISPLAY_PAGE_TITLE = "Display"
-DISPLAY_PAGE_PURPOSE = (
-    "How the frame looks. Changes reach the frame the next time it wakes up.")
+# 20-07-PLAN.md Task 1 (D-12): the Display page now carries every
+# everyday group (Look/What it watches/When it is on), so its purpose
+# sentence widens from "how the frame looks" to the whole page's scope.
+DISPLAY_PAGE_PURPOSE = "Everything about what the frame shows and when."
 DEVICE_PAGE_TITLE = "Device"
 DEVICE_PAGE_PURPOSE = (
     "Hardware, data and diagnostics for the frame. Nothing here needs "
     "changing day to day.")
 SCREEN_CAPTION_TEMPLATE = "Screen: %s"
+
+# 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C): the
+# three headed supersections Display's own groups render under, in this
+# locked order. Each heading/intro pair is rendered through the shared
+# section-intro helper layout.py promoted from health_page.py's own
+# former private copy (20-03-PLAN.md).
+DISPLAY_LOOK_SECTION_ID = "display-look"
+DISPLAY_LOOK_HEADING = "Look"
+DISPLAY_LOOK_INTRO = (
+    "— the theme, flight colours and calendar that decide how the "
+    "picture looks.")
+DISPLAY_WATCHES_SECTION_ID = "display-watches"
+DISPLAY_WATCHES_HEADING = "What it watches"
+DISPLAY_WATCHES_INTRO = "— which Orly runway the frame is watching."
+DISPLAY_ON_SECTION_ID = "display-on"
+DISPLAY_ON_HEADING = "When it is on"
+DISPLAY_ON_INTRO = "— when the screen is lit and when it stays quiet."
 # 19-12-PLAN.md Task 2 (D-23): the conditional screen-type <select> — an
 # element id (not a class) because its own <label> targets it via `for`.
 SCREEN_SELECTOR_ID = "screen-id-selector"
@@ -1749,9 +1771,11 @@ def calendar_disconnect_confirm_page(ctx):
     The form posts back to the SAME route with the confirm field
     pre-filled to the accepted value and a real, plain submit button —
     the one and only way this page itself can cause a disconnect. The
-    cancel path is a plain link back to the Device page, never a second
-    form (nothing to submit, nothing to confirm). Every dynamic value
-    passes through `escape_html()`, matching this file's universal
+    cancel path is a plain link back to the Display page (20-07-PLAN.md
+    Task 1, D-11: Calendar moved from Device to Display this phase, so
+    this is the page the disconnect action itself now lives on), never a
+    second form (nothing to submit, nothing to confirm). Every dynamic
+    value passes through `escape_html()`, matching this file's universal
     escaping discipline; `ctx` is accepted (unused today) for the same
     reason `render()`'s own scoped builders all take it — so a future
     reader adding a ctx-derived detail here never has to widen this
@@ -1770,7 +1794,7 @@ def calendar_disconnect_confirm_page(ctx):
         CALENDAR_DISCONNECT_ROUTE,
         CALENDAR_DISCONNECT_CONFIRM_FIELD, escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
         escape_html(CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT),
-        layout.DEVICE_ROUTE, escape_html(CALENDAR_DISCONNECT_CANCEL_TEXT),
+        layout.DISPLAY_ROUTE, escape_html(CALENDAR_DISCONNECT_CANCEL_TEXT),
     )
 
 
@@ -2111,6 +2135,91 @@ def _rules_section_html(ctx):
         heading, caption, add_form, cards_html, table_html)
 
 
+def _nested_wrapper_html(html_fragment, base_class, nested_class):
+    """Appends the `--nested` modifier to a group builder's own outer
+    wrapper class (20-07-PLAN.md Task 1, 20-UI-SPEC.md Section Anatomy
+    C): a card rendered under one of Display's three supersections
+    carries `theme-status--nested`/`page-section--nested` so its own
+    `<h2>` renders one rung below the supersection's own heading (the
+    extended `.theme-status--nested > h2`/`.page-section--nested > h2`
+    selector, 20-04-PLAN.md Task 1) rather than the un-nested 22px serif
+    tier Device's own groups keep. `nested_class` is passed as a literal
+    string by every call site (never derived from `base_class` at
+    runtime) so the modifier this function actually emits stays
+    grep-visible in this file's own source, matching every sibling
+    class-literal already written out in full throughout this module.
+
+    Every group builder in this file emits its outer wrapper's class
+    attribute exactly once, as the literal substring `class="{base_class}"`
+    (grep-confirmed above, each function) — never as a second, inner
+    occurrence — so a single, count-limited `str.replace()` is the whole
+    mechanism: no builder's own signature or internals change, matching
+    this task's own "relocates and re-wraps, never rebuilds" scope.
+    """
+    needle = 'class="%s"' % base_class
+    replacement = 'class="%s %s"' % (base_class, nested_class)
+    return html_fragment.replace(needle, replacement, 1)
+
+
+def _display_groups_html(builders, groups):
+    """The Display scope's three headed supersections (D-12, 20-UI-SPEC.md
+    Section Anatomy C): "Look" over Theme and Calendar, "What it watches"
+    over Runway, "When it is on" over Screen on/off and Quiet hours — each
+    grouped card gains the `--nested` modifier (`_nested_wrapper_html()`
+    above). Replaces the flat `"".join(builders[g]() ...)` join the
+    Device and legacy all-scope paths still use unchanged (this task's
+    own instruction: leave those two untouched).
+
+    Flight colours (the per-flight colour-rules editor) is ALSO
+    conceptually part of "Look" per D-12's own locked order (Theme,
+    Flight colours, Calendar) but is deliberately NOT built here: its own
+    add form and each delete row are real `<form>` elements, and every
+    card this function assembles is a literal descendant of
+    `<form id="settings-form">` (unchanged from before this plan) — HTML
+    forbids nesting a `<form>` inside another `<form>` (the exact Pitfall
+    1 this phase's own D-13 amendment names for Screen on/off and Quiet
+    hours, which Task 2 resolves for those two specifically). `render()`
+    keeps emitting the Flight colours section as a sibling immediately
+    after `</form>` closes — the same DOM position it already occupied
+    before this plan — which is the position its own `<form>` requirement
+    demands (this task's own explicit instruction: "keep each of them in
+    whatever DOM position its own form requirements demand"). Its visual
+    reading therefore lands after "When it is on" rather than literally
+    between Theme and Calendar; 20-09 (Calendar/Flight colours redesign)
+    is positioned to close that remaining gap, for instance by giving
+    Flight colours a dedicated route the way `calendar_disconnect_
+    section()` already has for Calendar.
+    """
+    theme_html = (
+        _nested_wrapper_html(builders[screens.GROUP_THEME](), "theme-status", "theme-status--nested")
+        if screens.GROUP_THEME in groups else "")
+    calendar_html = (
+        _nested_wrapper_html(builders[screens.GROUP_CALENDAR](), "page-section", "page-section--nested")
+        if screens.GROUP_CALENDAR in groups else "")
+    runway_html = (
+        _nested_wrapper_html(builders[screens.GROUP_RUNWAY](), "theme-status", "theme-status--nested")
+        if screens.GROUP_RUNWAY in groups else "")
+    display_html = (
+        _nested_wrapper_html(builders[screens.GROUP_DISPLAY](), "theme-status", "theme-status--nested")
+        if screens.GROUP_DISPLAY in groups else "")
+    quiet_hours_html = (
+        _nested_wrapper_html(
+            builders[screens.GROUP_QUIET_HOURS](), "theme-status", "theme-status--nested")
+        if screens.GROUP_QUIET_HOURS in groups else "")
+    return (
+        layout.section_intro_html(
+            DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
+        + theme_html + calendar_html
+        + layout.section_intro_html(
+            DISPLAY_WATCHES_SECTION_ID, i18n.t(DISPLAY_WATCHES_HEADING),
+            i18n.t(DISPLAY_WATCHES_INTRO))
+        + runway_html
+        + layout.section_intro_html(
+            DISPLAY_ON_SECTION_ID, i18n.t(DISPLAY_ON_HEADING), i18n.t(DISPLAY_ON_INTRO))
+        + display_html + quiet_hours_html
+    )
+
+
 def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     """Render one settings page (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE).
 
@@ -2283,18 +2392,28 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
             ctx.get("now"), current_calendar_theme_id, current_theme_id,
             errors=errors, submitted=submitted),
     }
-    groups_html = "".join(builders[g]() for g in groups if g in builders)
-
     # 19-12-PLAN.md Task 2 (D-23): the conditional selector joins the
     # screen caption in BOTH scoped headers' action_html slot — with
     # today's single-member registry it renders as "", so both headers
     # stay byte-identical to their pre-D-23 output.
     if scope == SCOPE_DISPLAY:
         header = layout.page_header(
-            DISPLAY_PAGE_TITLE, purpose=DISPLAY_PAGE_PURPOSE,
+            i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
             action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
         hidden_html = _scope_fields_html(scope, layout.DISPLAY_ROUTE)
-        show_rules = show_poll = show_calendar_disconnect = False
+        # 20-07-PLAN.md Task 1 (D-10/D-11): Flight colours and the
+        # calendar-disconnect form move to Display with their groups —
+        # these two flags used to be Device-only (set only in the
+        # elif scope == SCOPE_DEVICE: branch below); Poll (Manual
+        # refresh) stays Device-only, unaffected by this move.
+        show_rules = bool(screen.get("has_colour_rules"))
+        show_poll = False
+        show_calendar_disconnect = screens.GROUP_CALENDAR in groups
+        # 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C):
+        # three headed supersections replace the flat join — see
+        # _display_groups_html()'s own docstring for the Flight-colours/
+        # Calendar placement reasoning.
+        groups_html = _display_groups_html(builders, groups)
     elif scope == SCOPE_DEVICE:
         # 19-12-PLAN.md Task 2 (D-22, Device-page half): the Edit
         # artwork link is Device-only, joining the screen caption/
@@ -2310,13 +2429,16 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
                 + _edit_artwork_link_html()
                 + _next_wake_caption_html(next_wake_clock)))
         hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
-        show_rules = bool(screen.get("has_colour_rules"))
+        # 20-07-PLAN.md Task 1 (D-10/D-11): Flight colours and the
+        # calendar-disconnect form are no longer Device concerns — both
+        # groups they act on (Runway/Calendar) moved to Display's
+        # everyday_groups this phase, so Device's own screens.GROUP_
+        # CALENDAR-in-groups test would always be False now anyway; kept
+        # explicit here rather than relying on that emptiness.
+        show_rules = False
         show_poll = bool(screen.get("has_manual_poll"))
-        # 19-11-PLAN.md Task 1 (D-08/A-26): the standalone disconnect
-        # form is Device-only, matching screens.GROUP_CALENDAR's own
-        # scoping — a screen type without the Calendar group has nothing
-        # to disconnect either.
-        show_calendar_disconnect = screens.GROUP_CALENDAR in groups
+        show_calendar_disconnect = False
+        groups_html = "".join(builders[g]() for g in groups if g in builders)
     else:
         header = layout.page_header("Settings")
         hidden_html = ""
@@ -2328,8 +2450,16 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # confirmed-form flow is new surface Task 1 adds only to the two
         # live scoped pages; SCOPE_ALL stays exactly as it was.
         show_calendar_disconnect = False
+        groups_html = "".join(builders[g]() for g in groups if g in builders)
 
     rules_section_html = _rules_section_html(ctx) if show_rules else ""
+    if rules_section_html and scope == SCOPE_DISPLAY:
+        # 20-07-PLAN.md Task 1 (D-12): only the Display scope's copy of
+        # Flight colours sits under a supersection heading — SCOPE_ALL's
+        # legacy render (the only other scope show_rules is ever true
+        # for) stays byte-identical to its own pre-Phase-19 output.
+        rules_section_html = _nested_wrapper_html(
+            rules_section_html, "page-section", "page-section--nested")
     poll_section_html = (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>'
@@ -2338,9 +2468,16 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         if show_poll else "")
     # 19-11-PLAN.md Task 1 (D-08/A-26): a sibling of the settings <form>,
     # never a descendant — see calendar_disconnect_section()'s own
-    # docstring for why. Emitted immediately after </form> closes, before
-    # the rules/poll sections, so it reads right after the Calendar group
-    # it acts on despite living outside the form that group is inside.
+    # docstring for why. Emitted immediately after </form> closes.
+    # 20-07-PLAN.md Task 1 (D-10/D-11): on the Display scope, Flight
+    # colours (rules_section_html) renders first, immediately followed
+    # by the calendar-disconnect form — the "Theme, Flight colours,
+    # Calendar" reading order the Calendar group's own card (still a
+    # literal <form id="settings-form"> descendant, per
+    # _display_groups_html()'s own docstring) can no longer carry on its
+    # own once its own supersection's other members force the form to
+    # stay open past it. Device/SCOPE_ALL never have both non-empty at
+    # once, so this reordering changes nothing for either.
     calendar_disconnect_html = (
         calendar_disconnect_section(calendar_configured, calendar_drift)
         if show_calendar_disconnect else "")
@@ -2362,8 +2499,8 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         hidden_html,
         groups_html,
         STATIC_SAVE_FALLBACK_ATTR,
-        calendar_disconnect_html,
         rules_section_html,
+        calendar_disconnect_html,
         poll_section_html,
         dirty_bar_html,
     )
