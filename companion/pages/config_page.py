@@ -2292,7 +2292,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     if scope == SCOPE_DISPLAY:
         header = layout.page_header(
             DISPLAY_PAGE_TITLE, purpose=DISPLAY_PAGE_PURPOSE,
-            action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id))
+            action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
         hidden_html = _scope_fields_html(scope, layout.DISPLAY_ROUTE)
         show_rules = show_poll = show_calendar_disconnect = False
     elif scope == SCOPE_DEVICE:
@@ -2306,7 +2306,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         header = layout.page_header(
             DEVICE_PAGE_TITLE, purpose=DEVICE_PAGE_PURPOSE,
             action_html=(
-                _screen_caption_html(screen) + _screen_selector_html(screen_id)
+                _screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors)
                 + _edit_artwork_link_html()
                 + _next_wake_caption_html(next_wake_clock)))
         hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
@@ -2401,7 +2401,7 @@ def _next_wake_caption_html(next_wake_clock):
                 NEXT_WAKE_HEADER_VALUE_TEMPLATE % next_wake_clock)))
 
 
-def _screen_selector_html(current_screen_id):
+def _screen_selector_html(current_screen_id, errors=None):
     """A `<select name="screen_id">` letting the operator switch which
     registered screen type this settings page edits — 19-12-PLAN.md Task
     2 (D-23)'s explicit condition: returns the EMPTY STRING when
@@ -2425,6 +2425,17 @@ def _screen_selector_html(current_screen_id):
     supplies the control's accessible name, matching this file's
     settings-checkbox `<label>` convention rather than an `aria-label`
     attribute.
+
+    `errors` (D-07, WR-01 follow-up: every sibling field this plan
+    touches renders its own `_field_error_html()` message; this was the
+    one field that did not) carries the D-23 gate's rejected-`screen_id`
+    message, if any, rendered via `_field_error_html()` immediately after
+    the `<select>` — no `submitted` repopulation parameter is needed
+    here, unlike the text/select fields elsewhere in this file, because
+    `current_screen_id` passed in above is already resolved by the
+    caller (`screens.current_screen_id(ctx)`), the same "current value
+    already reflects the rejected submission" reasoning `render()`'s own
+    call sites rely on for every field.
     """
     if len(screens.SCREEN_IDS) <= 1:
         return ""
@@ -2435,12 +2446,15 @@ def _screen_selector_html(current_screen_id):
         options.append(
             '<option value="%s"%s>%s</option>'
             % (escape_html(screen_id), selected, escape_html(label)))
+    error_html = _field_error_html(errors, "screen_id", SCREEN_SELECTOR_ID)
     return (
         '<label class="visually-hidden" for="%s">%s</label>'
         '<select name="screen_id" id="%s" form="%s">%s</select>'
+        "%s"
     ) % (
         SCREEN_SELECTOR_ID, escape_html(SCREEN_SELECTOR_LABEL_TEXT),
         SCREEN_SELECTOR_ID, SETTINGS_FORM_ID, "".join(options),
+        error_html,
     )
 
 

@@ -352,6 +352,11 @@ EXPECTED_CHECK_COUNT = 180  # 19-12-PLAN.md Task 3 (D-13/S-02): +4 (the
 # 176 + 4 = 180, recomputed directly against the real on-disk check(...)
 # call count at execution time (180/180 pass), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 181  # 19-REVIEW.md WR-01 fix: +1 (the
+# _screen_selector_html() field-level error message check). 180 + 1 =
+# 181, recomputed directly against the real on-disk check(...) call
+# count at execution time (181/181 pass), not trusted from arithmetic
+# alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -5079,6 +5084,38 @@ def main():
     check(
         "a valid screen_id round-trips through save_device_config()",
         _valid_screen_id_round_trips)
+
+    def _screen_selector_renders_the_field_error_message():
+        # WR-01 (19-REVIEW.md): _screen_selector_html() is the only
+        # render call site for screen_id and, unlike every sibling field
+        # this plan touches, never rendered its own _field_error_html()
+        # message. Only reachable through a multi-member registry, same
+        # as the sibling checks above.
+        from companion import screens
+        saved_types, saved_ids = dict(screens.SCREEN_TYPES), screens.SCREEN_IDS
+        try:
+            screens.SCREEN_TYPES["rer-board"] = {
+                "label": "RER board", "description": "d",
+                "everyday_groups": (), "advanced_groups": (),
+                "has_colour_rules": False, "has_manual_poll": False,
+            }
+            screens.SCREEN_IDS = tuple(screens.SCREEN_TYPES)
+            errors = {"screen_id": config_page.ERROR_INVALID_CHOICE}
+            html_out = config_page._screen_selector_html("plane-frame", errors=errors)
+            expected = escape_html(config_page.ERROR_INVALID_CHOICE)
+            if html_out.count(expected) != 1:
+                return False, (
+                    "expected the screen_id field-error message to appear exactly once, got %r"
+                    % (html_out,))
+            return True, ""
+        finally:
+            screens.SCREEN_TYPES.clear()
+            screens.SCREEN_TYPES.update(saved_types)
+            screens.SCREEN_IDS = saved_ids
+    check(
+        "_screen_selector_html() renders the screen_id field-level error message exactly once when "
+        "errors carries one",
+        _screen_selector_renders_the_field_error_message)
 
     def _device_scope_has_one_edit_artwork_link_display_has_none():
         ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
