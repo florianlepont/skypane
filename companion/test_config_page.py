@@ -288,6 +288,11 @@ EXPECTED_CHECK_COUNT = 153  # 19-07-PLAN.md Task 2 (D-07/A-25/T-19-12):
 # 147 + 6 = 153, recomputed directly against the real on-disk check(...)
 # call count at execution time (153/153 pass), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 154  # 19-07-PLAN.md Task 3 (D-07/A-25): +1 (the
+# rejected-save-without-errors-arg-still-returns-save-failed legacy-
+# contract pin). 153 + 1 = 154, recomputed directly against the real
+# on-disk check(...) call count at execution time (154/154 pass), not
+# trusted from arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2398,6 +2403,29 @@ def main():
         "companion/static/style.css styles .field-error using the existing --color-status-error token "
         "(cross-file DOM contract guard)",
         _style_css_styles_field_error)
+
+    # ------------------------------------------------------------------
+    # 19-07-PLAN.md Task 3 (D-07/A-25): the legacy no-errors-arg contract
+    # is intact even for a rejected save — companion/app.py's own
+    # errors-branch (which now ALSO fires whenever errors is non-empty)
+    # depends on handle_post() still returning FLASH_SAVE_FAILED, not
+    # some new sentinel, when no errors dict is passed at all.
+    # ------------------------------------------------------------------
+
+    def _handle_post_rejected_save_without_errors_arg_still_returns_save_failed():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({"theme": "not-a-real-theme"}, ctx)
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED with no errors argument, got %r" % (flash_key,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "a rejected save still returns FLASH_SAVE_FAILED from handle_post() when no errors dict is passed "
+        "(the legacy contract is intact)",
+        _handle_post_rejected_save_without_errors_arg_still_returns_save_failed)
 
     # ------------------------------------------------------------------
     # 06.6.4.1-07 (D-05): led_fieldset()/led_section()/handle_led_post()

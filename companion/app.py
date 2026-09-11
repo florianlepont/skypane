@@ -1911,6 +1911,28 @@ class Handler(BaseHTTPRequestHandler):
         allowed = {route for route, _ in layout.NAV_TABS}
         return path if path in allowed else HOME_ROUTE
 
+    def _page_shell_for(self, route, body, ctx):
+        """The `layout.page_shell()` assembly `_render_tab()` below needs
+        on every GET, and `_handle_settings_post()`'s D-07 rejected-save
+        branch (19-07-PLAN.md Task 3) also needs on a POST — factored out
+        here so the failure branch, which already has its own `ctx` and
+        already built its own `body` via a direct `config_page.render()`
+        call, reuses this shell assembly instead of a second literal
+        `page_shell()` call site. `_render_tab()` itself cannot be reused
+        directly for that branch: it unconditionally re-checks
+        `require_session()` (already checked once in `do_POST()` before
+        dispatch) and always calls `render(ctx)` itself with no way to
+        pass through an already-rendered body carrying `errors`/
+        `submitted`.
+        """
+        flash_html = (
+            layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+            if ctx["flash"] else None)
+        return layout.page_shell(
+            title=_PAGE_TITLES[route], active=layout.nav_slug(route), body=body,
+            ui_theme=ctx["ui_theme"], flash=flash_html,
+            health_alert=ctx["health_severity"])
+
     def _render_tab(self, route, render):
         """Render one authenticated tab: `render(ctx) -> body markup`
         (a page module's render(), or a lambda binding a scope onto
@@ -1922,14 +1944,7 @@ class Handler(BaseHTTPRequestHandler):
             return None
         ctx = self.page_context()
         body = render(ctx)
-        flash_html = (
-            layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
-            if ctx["flash"] else None)
-        html_doc = layout.page_shell(
-            title=_PAGE_TITLES[route], active=layout.nav_slug(route), body=body,
-            ui_theme=ctx["ui_theme"], flash=flash_html,
-            health_alert=ctx["health_severity"])
-        return self.send_html(200, html_doc)
+        return self.send_html(200, self._page_shell_for(route, body, ctx))
 
     # --- GET -------------------------------------------------------------
 
@@ -2094,13 +2109,33 @@ class Handler(BaseHTTPRequestHandler):
 
         Body, in order:
 
-        1. `config_page.handle_post()` — every existing field validation
-           and the device-config/secret-file writes, completely
-           unchanged from before this plan.
-        2. Any non-`FLASH_KEY_SAVED` result is a rejection the page
-           module already decided; redirect with it and stop. No fetch
-           is ever attempted on a rejected save.
-        3. `config_page.submitted_calendar_signal()` — the SAME resolver
+        1. `config_page.handle_post()`, now called with an `errors={}`
+           keyword — every existing field validation and the
+           device-config/secret-file writes, completely unchanged from
+           before this plan, now also filling that dict in place on any
+           rejection.
+        2. (19-07-PLAN.md Task 3, D-07/A-25) When `errors` came back
+           non-empty, render the SAME scoped page directly at 200 with
+           the user's own submission still in the fields and each
+           offending control's own message — mirroring
+           `_handle_login_post()`'s own 200-on-failure-render precedent
+           (`_render_login_page()`/`self.send_html(401, ...)` above),
+           the only other place in this codebase that renders instead of
+           redirecting on a rejected form. Deliberately no flash banner
+           on this branch: the whole point of D-07 is that the message
+           lives at the field, and a duplicate top-of-page banner would
+           restate it. 200, not 422: D-07's own text says "renders the
+           page directly (200) on validation failure", and unlike
+           `_handle_login_post()`'s 401 (which carries real auth
+           meaning), this rejection carries none — a 200 also keeps the
+           browser's back/forward history sane for a form the user is
+           still actively editing.
+        3. Any OTHER non-`FLASH_KEY_SAVED` result — a failure path that
+           somehow produced no field error — falls through to the
+           pre-existing redirect-with-flash behaviour, unchanged, so no
+           rejection can ever fall through silently. No fetch is ever
+           attempted on a rejected save, by either branch.
+        4. `config_page.submitted_calendar_signal()` — the SAME resolver
            `handle_post()` itself just consulted, called again here
            (never re-derived) so persistence and this sync decision can
            never disagree about what the submission meant. `carry_
@@ -2110,10 +2145,10 @@ class Handler(BaseHTTPRequestHandler):
            branch is byte-identical in observable behaviour to before
            this plan, because it is the branch every settings save that
            touches no calendar field takes.
-        4. `clear` — no fetch: there is nothing to fetch, and the erase
+        5. `clear` — no fetch: there is nothing to fetch, and the erase
            already happened inside `handle_post()`'s own call to
            `calendar_rules.save_calendar_url()`.
-        5. `set` — D-09: acquire `_POLL_LOCK`, the SAME lock `_handle_
+        6. `set` — D-09: acquire `_POLL_LOCK`, the SAME lock `_handle_
            poll_now()` uses, with the same non-blocking acquire, rather
            than a second lock. Corrected 2026-09-10 (CR-01/IN-01, Phase
            17 review): this bullet previously claimed `_POLL_LOCK`
@@ -2138,7 +2173,7 @@ class Handler(BaseHTTPRequestHandler):
            contention with another *companion* request, the deferred
            key is the honest answer that the save landed and the sync
            did not run in this request.
-        6. Inside the lock: `calendar_rules.refresh_calendar_registry()`
+        7. Inside the lock: `calendar_rules.refresh_calendar_registry()`
            directly — never `poll_loop.run_once()`, which would run a
            full detection/render cycle this save has no need for — with
            `min_interval_s=0`. Zero, not omitted: omitting it resolves
@@ -2179,9 +2214,27 @@ class Handler(BaseHTTPRequestHandler):
         state_dir = self.args.state_dir
         form = self.read_form()
         ctx = self.page_context()
-        flash_key = config_page.handle_post(form, ctx)
+        errors = {}
+        flash_key = config_page.handle_post(form, ctx, errors=errors)
         # Phase 18: land back on the scoped page the form came from.
         back = config_page.submitted_return_route(form)
+        # 19-07-PLAN.md Task 3 (D-07/A-25): a rejected save with at least
+        # one field-level error re-renders the SAME scoped page directly
+        # at 200, carrying the user's own submission and each control's
+        # own message — never a redirect. See this method's own
+        # docstring bullet 2 for the full reasoning (the 401-vs-200
+        # distinction from _handle_login_post(), and why no flash banner
+        # is set here).
+        if errors:
+            scope = config_page.submitted_scope(form)
+            body = config_page.render(ctx, scope=scope, errors=errors, submitted=form)
+            return self.send_html(200, self._page_shell_for(back, body, ctx))
+        # Fallback for any failure path that somehow produced no field
+        # error (there is none today — every FLASH_SAVE_FAILED return in
+        # config_page.handle_post() now notes one — but this branch stays
+        # so a future gate that forgets to call _note_error() still
+        # rejects visibly instead of falling through to the success path
+        # below).
         if flash_key != FLASH_KEY_SAVED:
             return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
