@@ -297,13 +297,64 @@ CORROBORATION_STATE_TEXT = {
 # POLL_SUBMIT_PENDING_TEXT = "Polling…"), not three periods.
 REFRESH_PILL_TEXT = "Updating…"
 
-# Quick task 260903-peo (UIR-18): the persistent liveness cue's leading
-# text, prefixing a concise_timestamp_html(now, now) timestamp. States
-# liveness and the refresh time without restating the 45s auto-refresh
-# interval (AUTO_REFRESH_INTERVAL_MS lives in companion/static/
-# freshness.js, not importable from Python, and naming it here would
-# need a pinned cross-file constant for no user benefit).
-PERSISTENT_FRESHNESS_PREFIX_TEXT = "Live — refreshed "
+# 19-09-PLAN.md (D-02, A-20): SUPERSEDED — PERSISTENT_FRESHNESS_PREFIX_TEXT
+# used to read "Live — refreshed ", prefixing a
+# concise_timestamp_html(now, now) timestamp. That timestamp's own
+# relative-age suffix ("(0s ago)") was structurally always zero: `now`
+# is computed exactly once per request by page_context() and immediately
+# fed back into the very timestamp claiming to be "(Ns ago)" of itself —
+# so the line asserted a liveness the render-time mechanism never
+# actually measured. FRESHNESS_PREFIX_TEXT below replaces it with a
+# plain, honest label; the value the line now shows is a clock-only
+# rendering with no relative-age suffix at all (see freshness_html's own
+# assembly in render()), and the line only ever advances again because
+# companion/static/freshness.js re-renders the whole freshness wrapper
+# from a fresh fetch — never a client-side clock tick.
+FRESHNESS_PREFIX_TEXT = "Updated "
+
+# 19-09-PLAN.md (D-02): the Pause/Resume control's two labels, emitted
+# as data-pause-text/data-resume-text attributes on the button itself
+# rather than hardcoded in companion/static/freshness.js — the same
+# "Python owns the copy, the static script only reads attributes"
+# convention companion/static/poll-cooldown.js already established for
+# its own countdown template text.
+REFRESH_PAUSE_TEXT = "Pause updates"
+REFRESH_RESUME_TEXT = "Resume updates"
+
+# 19-09-PLAN.md (D-02): the single, greppable definition of every DOM
+# region companion/static/freshness.js swaps wholesale, replacing each
+# node with its own equivalent from a fetched copy of this same page.
+# Duplicated rather than imported — freshness.js is a static asset, not
+# a Python module — matching the BATTERY_READOUT_ID/SPARKLINE_HIT_CLASS
+# cross-file contract immediately below. Any change to the script's own
+# swap-target list must change this tuple too;
+# companion/test_status_pages.py pins the two in agreement.
+#
+# Deliberately excludes the sparkline <svg>/.sparkline-hit, the registry
+# card and its filter bar, and every <details> disclosure — swapping any
+# of those would leave companion/static/battery-trend.js's chart or
+# companion/static/list-filter.js's filter permanently dead (each
+# captures its DOM once, with no re-init hook) or would silently discard
+# an in-progress filter query. See freshness.js's own header for the
+# fuller record of this trade.
+#
+# `a[href="/health"]` — not a ".dot"/".nav-notification" selector — is
+# the nav-severity swap target on purpose: the severity dot only exists
+# in the DOM when severity is "warn"/"error" (companion/layout.py's
+# _health_alert_markup() renders nothing at all for "ok"), so a dot-only
+# selector would have nothing to replace on the far more common
+# transition where severity newly clears. The whole nav link is always
+# present in both documents regardless of severity, in both nav
+# renderings (sidebar_nav() and _mobile_nav_html()), so swapping it
+# whole is what keeps the swap correct across every severity
+# transition, not just a fixed dot.
+REFRESH_SWAP_SELECTORS = (
+    ".dashboard-grid",
+    "div.banner--anomaly, div.banner--warn",
+    "section.banner",
+    ".page-header__freshness",
+    'a[href="/health"]',
+)
 
 # D-02: per-point interactive hit-target contract. BATTERY_READOUT_ID and
 # SPARKLINE_HIT_CLASS are looked up by companion/static/battery-trend.js
@@ -2769,34 +2820,70 @@ def render(ctx):
     pill_html = (
         '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
         % (escape_html(now), layout.icon_html("icon-refresh"), REFRESH_PILL_TEXT))
-    # Quick task 260903-peo (UIR-18): a persistent, server-rendered
-    # liveness note joins the pill above inside ONE block-level wrapper —
-    # load-bearing, not decorative. `.page-header` is a plain block box;
-    # 260902-ep7 (BUG 1) fixed a measured 28px title-to-purpose gap
+    # 19-09-PLAN.md (D-02, A-20): the clock-only rendering that replaces
+    # concise_timestamp_html(now, now)'s dishonest "(0s ago)" suffix (see
+    # FRESHNESS_PREFIX_TEXT's own comment above for why). Parses `now`
+    # once and formats it with layout.local_clock_text(parsed,
+    # now_parsed=parsed) — passing the SAME parsed value as both
+    # arguments always takes that function's "same local day as now"
+    # branch, so the visible text is always a bare "HH:MM", never the
+    # "D Mon HH:MM" cross-day form, exactly mirroring
+    # concise_timestamp_html()'s own span shape (a `mono` class, the full
+    # ISO string demoted to `title`) but with no relative-age half.
+    # Degrades exactly like concise_timestamp_html() does: an
+    # unparseable `now` renders the raw value in both the title and
+    # visible-text slots rather than raising. `data-refresh-clock` is
+    # this span's own hook for companion/static/freshness.js — it reads
+    # nothing from this span itself (the whole wrapper is swapped
+    # instead), but the attribute keeps this element easy to find from a
+    # future edit or a live DOM inspection.
+    _now_parsed = layout.parse_iso(now)
+    _clock_text = (
+        layout.local_clock_text(_now_parsed, now_parsed=_now_parsed)
+        if _now_parsed is not None else now)
+    clock_html = (
+        '<span class="mono" data-refresh-clock title="%s">%s</span>'
+        % (escape_html(now), escape_html(_clock_text)))
+    # 19-09-PLAN.md (D-02, A-20): the visible Pause/Resume control.
+    # `data-pause-text`/`data-resume-text` carry both labels so
+    # freshness.js never hardcodes copy — it only ever writes back a
+    # value this module already escaped. `aria-pressed` reflects
+    # "paused", not "resumed": the button always starts in its
+    # not-pressed, not-paused state on a fresh server render, matching
+    # every real render (a render only ever happens while the page is
+    # not mid-pause on the client — see freshness.js's own header for
+    # why a swap never fires while paused). The button's own visible
+    # text doubles as its accessible name; no separate aria-label is
+    # needed.
+    toggle_html = (
+        '<button type="button" data-refresh-toggle aria-pressed="false" '
+        'data-pause-text="%s" data-resume-text="%s">%s</button>'
+        % (escape_html(REFRESH_PAUSE_TEXT), escape_html(REFRESH_RESUME_TEXT),
+           escape_html(REFRESH_PAUSE_TEXT)))
+    # Quick task 260903-peo (UIR-18): the pill, the clock and (19-09-
+    # PLAN.md) the toggle button all join inside ONE block-level wrapper
+    # — load-bearing, not decorative. `.page-header` is a plain block
+    # box; 260902-ep7 (BUG 1) fixed a measured 28px title-to-purpose gap
     # caused by a stranded inline-level child (the bare pill span)
     # forcing an anonymous block box between the block <h1> and the
     # block <p class="page-header__purpose">. The pill escapes that only
     # because `.page-header .refresh-pill` is absolutely positioned; a
     # second bare inline node next to it would recreate the exact same
-    # condition. Wrapping both in one block-level <p> keeps
+    # condition. Wrapping all three in one block-level <p> keeps
     # `.page-header`'s children all block-level, and
     # `.page-header .refresh-pill` — a descendant selector — still
     # matches straight through the wrapper, so the pill's `top: 8px;
     # right: 0` offsets (anchored to `.page-header`, the nearest
     # positioned ancestor, never the wrapper) are unchanged.
     #
-    # The note's content is layout.concise_timestamp_html(now, now) —
-    # `now` is already in hand, computed once per request by app.py's
-    # page_context() and already interpolated into `data-loaded-at`
-    # above. Its output is already-safe markup, interpolated verbatim
-    # (D-09) — never re-escaped. No client-side ticker, no new timer, no
-    # second data-loaded-at consumer: the page regenerates itself every
-    # 45s (freshness.js), so a render-time value is honest for its whole
-    # life.
+    # This whole `<p class="page-header__freshness">` element is one of
+    # REFRESH_SWAP_SELECTORS' own entries — freshness.js replaces it
+    # wholesale from its own fetch, so a render-time value here is
+    # honest for exactly as long as it takes the next successful swap to
+    # replace it, never longer.
     freshness_html = (
-        '<p class="page-header__freshness text-label">%s%s%s</p>'
-        % (escape_html(PERSISTENT_FRESHNESS_PREFIX_TEXT),
-           layout.concise_timestamp_html(now, now), pill_html))
+        '<p class="page-header__freshness text-label">%s%s%s%s</p>'
+        % (escape_html(FRESHNESS_PREFIX_TEXT), clock_html, pill_html, toggle_html))
 
     # §5.2 (D-10): two id-anchored sections. Screen holds the
     # Device-freshness tile wrapped in its own single-tile dashboard-grid

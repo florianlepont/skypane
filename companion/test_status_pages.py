@@ -426,6 +426,20 @@ EXPECTED_CHECK_COUNT = 190  # 189 + 1 (19-06-PLAN.md Task 3, D-06: the
 # 130 = 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) + 2 (quick 260903-ghy Task 1: the Resolution-statistics table's mobile .data-cards completeness check, and the .data-cards toggle-contract/untouched-rules check; the pre-existing nested-card heading-rhythm check's own allowlist was extended in place for the new `<ul class="data-cards">` element, no count change from it) + 2 (quick 260903-ghy Task 2: the registry's mobile-card/table filter-pairing check, and the no-chrome-with-no-data/no-cross-page-leak check; the pre-existing anomaly-detail-list-markup check was retargeted in place from a page-wide <ul>/<li> ban onto the anomaly banner's own element slice, no count change from it) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
 
 
+EXPECTED_CHECK_COUNT = 191  # 190 + 1 (19-09-PLAN.md Task 3, D-02: the new
+# both-directions swap-selector-contract check - every health_page.
+# REFRESH_SWAP_SELECTORS entry appears verbatim in freshness.js, and
+# freshness.js never carries a .sparkline-hit selector literal, a
+# [data-filter-input] reference, or a details[...] selector. Three other
+# checks (the loop's own contract, the interaction-skip guard's
+# cross-file contract, and the persistent-freshness-note structural-
+# contract check) and the served-freshness-script half of the real-
+# running-service end-to-end check were all retargeted in place for the
+# same plan's Tasks 1/2/3, not counted as new. Re-derived by RUNNING the
+# harness (190/191 - the one documented pre-existing root-sandbox
+# anomaly_active() failure), not by arithmetic.
+
+
 # --- fixture helpers ---------------------------------------------------
 
 
@@ -3370,6 +3384,15 @@ def main():
         # 06.6.4.1-04's D-11/D-12 — Health gains no state-changing
         # control. Reads the module source directly, filters out
         # nothing.
+        #
+        # 19-09-PLAN.md (D-02): retargeted in place — button_count grew
+        # from 1 to 2 when the Pause/Resume control (a real
+        # <button type="button" data-refresh-toggle>) joined the
+        # pre-existing D-16 docstring mention. The zero-<form> half of
+        # this check is exactly why that new button is still compatible
+        # with T-13-13's own promise: it is a bare, formless, GET-free
+        # client-side toggle — it submits nothing anywhere, so it is not
+        # a "state-changing control" in the sense this check polices.
         source_path = os.path.join(HERE, "pages", "health_page.py")
         with open(source_path, encoding="utf-8") as fh:
             source = fh.read()
@@ -3377,15 +3400,16 @@ def main():
         button_count = source.count("<button")
         if form_count != 0:
             return False, "expected zero '<form' occurrences in health_page.py, got %d" % form_count
-        if button_count != 1:
+        if button_count != 2:
             return False, (
-                "expected exactly one '<button' occurrence (the pre-existing D-16 docstring mention), "
-                "got %d" % button_count)
+                "expected exactly two '<button' occurrences (the pre-existing D-16 docstring "
+                "mention plus the 19-09-PLAN.md Pause/Resume control), got %d" % button_count)
         return True, ""
     check(
-        "companion/pages/health_page.py still contains zero HTML form elements and exactly one '<button' "
-        "literal (the pre-existing D-16 docstring mention) — Health gains no state-changing control "
-        "(phase 13 D-10, T-13-13)",
+        "companion/pages/health_page.py still contains zero HTML form elements and exactly two "
+        "'<button' literals (the pre-existing D-16 docstring mention and the formless Pause/Resume "
+        "toggle) — Health still gains no state-changing (form-submitting) control (phase 13 D-10, "
+        "T-13-13; retargeted in place by 19-09-PLAN.md Task 1, D-02)",
         _health_still_has_no_form_and_exactly_one_button_literal)
 
     def _quick_260902_gjj_muted_captions_compose_section_caption():
@@ -5273,6 +5297,20 @@ def main():
     def _quick_260902_chc_loop_contract_guard():
         # Check 2: the loop's own contract, pinned against freshness.js's
         # shipped source rather than this plan's own prose.
+        #
+        # 19-09-PLAN.md (D-02): retargeted in place (same check name/
+        # function) for the fetch-and-swap rewrite. The tab-visibility
+        # loop machinery below is UNCHANGED from the reload-based version
+        # this superseded — same interval constant, same pause/visibility
+        # halves, same double-start guard. What changed is the ONE thing
+        # this task's own name is about: the no-argument reload form is
+        # now REQUIRED ABSENT (D-02 deletes it outright), fetch( moves
+        # from the forbidden list to the required list (companion/
+        # test_companion_app.py's own new named guard for this file
+        # states, in its body, that this is a single, deliberate,
+        # reviewed exception — not re-asserted here to avoid duplicating
+        # that guard's own reasoning), and the required-safe-primitives
+        # list grows by the swap mechanism's own three load-bearing calls.
         js_path = os.path.join(HERE, "static", "freshness.js")
         with open(js_path) as fh:
             js = fh.read()
@@ -5290,22 +5328,23 @@ def main():
             return False, "expected both a visibilitychange listener and a document.hidden read"
         if "intervalHandle !== null" not in js:
             return False, "expected the double-start guard (a no-op start when a handle already exists)"
-        if "location.reload()" not in js:
-            return False, "expected the no-argument location.reload() form"
+        if "location.reload" in js:
+            return False, "expected the retired reload form to be gone entirely (D-02)"
 
-        # test_config_page.py's own _FORBIDDEN_SCRIPT_SINKS tuple,
-        # copied here (not imported — it is a function-local inside that
-        # harness's main()) from the real source read at plan time. If
-        # that tuple's membership ever changes, this copy needs updating
-        # too.
+        # test_config_page.py's own _FORBIDDEN_SCRIPT_SINKS tuple, minus
+        # fetch( (this file's own single, reviewed exception — see the
+        # comment above), copied here (not imported — it is a
+        # function-local inside that harness's main()) from the real
+        # source read at plan time. If that tuple's membership ever
+        # changes, this copy needs updating too.
         forbidden_sinks = (
             "innerHTML", "outerHTML", "insertAdjacentHTML",
-            "document.write", "eval(", "fetch(", "XMLHttpRequest",
+            "document.write", "eval(", "XMLHttpRequest",
         )
         for sink in forbidden_sinks:
             if sink in js:
                 return False, "forbidden sink discipline broken: %r found in freshness.js" % sink
-        for nav in ("location.href =", "location.assign", "location.replace"):
+        for nav in ("location.href =", "location.assign", "location.replace", "window.open"):
             if nav in js:
                 return False, "URL-taking navigation form found in freshness.js: %r" % nav
 
@@ -5317,24 +5356,22 @@ def main():
             if token in js:
                 return False, "ES5-safe subset broken: %r found in freshness.js" % token
 
-        # Deliberate asymmetry, and the whole point of this task: unlike
-        # the sibling nav-dropdown.js/panel-lookup.js guards, setTimeout
-        # and setInterval must NOT be banned here — the timer ban is the
-        # ONLY discipline this task lifts on this file, and both timers
-        # must actually be present for the loop to exist at all.
-        for timer in ("setTimeout", "setInterval"):
-            if timer not in js:
-                return False, (
-                    "expected %r to be present — this task deliberately lifts the timer ban this "
-                    "file used to carry, the only discipline it lifts" % timer)
+        # setTimeout/setInterval must be present (the loop needs
+        # setInterval to exist at all); fetch(/DOMParser/replaceChild/
+        # importNode are the swap mechanism's own required-present
+        # primitives (19-09-PLAN.md Task 2).
+        for required in (
+                "setInterval", "fetch(", "DOMParser", "replaceChild", "importNode"):
+            if required not in js:
+                return False, "expected %r to be present in freshness.js" % required
         return True, ""
     check(
         "freshness.js's shipped source carries the loop's own contract — a named interval constant "
         "inside the 30-60s band, both halves of pause (setInterval+clearInterval) and visibility "
-        "(visibilitychange+document.hidden), the double-start guard, and the no-argument reload form — "
-        "while every pre-existing discipline except the timer ban (forbidden sinks, no URL-taking "
-        "navigation form, the ES5-safe subset) still holds; the timer ban is the ONLY thing this task "
-        "lifted",
+        "(visibilitychange+document.hidden), the double-start guard, and (19-09-PLAN.md, D-02) the "
+        "retired reload form gone entirely while fetch(/DOMParser/replaceChild/importNode are now "
+        "required present as this file's own reviewed exception to the forbidden-sink/no-URL-taking-"
+        "navigation-form/ES5-safe-subset disciplines, which otherwise still hold unchanged",
         _quick_260902_chc_loop_contract_guard)
 
     def _quick_260902_chc_pill_markup_contract():
@@ -5544,25 +5581,28 @@ def main():
         _quick_260903_peo_pipeline_second_line_absent_detection_fallback)
 
     def _quick_260903_peo_persistent_freshness_note():
-        # UIR-18: a persistent, server-rendered liveness note joins the
-        # existing hidden refresh pill inside ONE block-level wrapper —
-        # the anonymous-block-box guard from 260902-ep7 (BUG 1). Pins the
-        # structural contract (the wrapper is the .page-header's next
-        # child right after the <h1>, and the pill's own markup is
-        # untouched inside it), not just the note's text.
+        # 19-09-PLAN.md (D-02, A-20): retargeted in place (same check
+        # name/function, same structural-contract shape) for the honest
+        # "Updated HH:MM" rewrite. UIR-18's original structural contract
+        # survives — a persistent, server-rendered note joins the hidden
+        # refresh pill inside ONE block-level wrapper (260902-ep7's
+        # anonymous-block-box guard) that is .page-header's next child
+        # right after the <h1> — and gains three more assertions this
+        # task adds: the note carries no relative-age suffix at all, a
+        # single data-refresh-clock span holds the full ISO in its
+        # title, and a single data-refresh-toggle button renders inside
+        # the same wrapper with both label attributes and a starting
+        # aria-pressed="false".
         tmp = _mkstate("h-persistent-freshness")
         try:
             now_iso = _iso(_now())
             rendered = health_page.render(_ctx(tmp, now=now_iso))
 
-            expected_note = layout.concise_timestamp_html(now_iso, now_iso)
-            if expected_note not in rendered:
-                return False, (
-                    "expected the persistent note to render "
-                    "concise_timestamp_html(now, now) byte-identically")
-            prefix = layout.escape_html(health_page.PERSISTENT_FRESHNESS_PREFIX_TEXT)
+            prefix = layout.escape_html(health_page.FRESHNESS_PREFIX_TEXT)
             if prefix not in rendered:
-                return False, "expected the persistent note's prefix text in the rendered page"
+                return False, "expected the honest 'Updated ' prefix text in the rendered page"
+            if health_page.FRESHNESS_PREFIX_TEXT != "Updated ":
+                return False, "expected FRESHNESS_PREFIX_TEXT to read 'Updated '"
 
             if '<p class="page-header__freshness' not in rendered:
                 return False, "expected a block-level .page-header__freshness wrapper"
@@ -5571,8 +5611,46 @@ def main():
             wrapper_slice = rendered[wrapper_start:wrapper_end]
             if "data-refresh-pill" not in wrapper_slice:
                 return False, "expected the hidden refresh pill inside the freshness wrapper"
-            if expected_note not in wrapper_slice:
-                return False, "expected the persistent note inside the same freshness wrapper as the pill"
+            if " ago" in wrapper_slice:
+                return False, (
+                    "expected no relative-age suffix inside .page-header__freshness — "
+                    "'(0s ago)' was structurally always zero (A-20)")
+
+            if wrapper_slice.count("data-refresh-clock") != 1:
+                return False, (
+                    "expected exactly one data-refresh-clock span, got %d"
+                    % wrapper_slice.count("data-refresh-clock"))
+            clock_at = wrapper_slice.index("data-refresh-clock")
+            clock_tag = wrapper_slice[
+                wrapper_slice.rindex("<", 0, clock_at):wrapper_slice.index(">", clock_at) + 1]
+            if ('title="%s"' % now_iso) not in clock_tag:
+                return False, "expected the clock span's title to carry the full ISO instant"
+
+            if wrapper_slice.count("data-refresh-toggle") != 1:
+                return False, (
+                    "expected exactly one data-refresh-toggle button, got %d"
+                    % wrapper_slice.count("data-refresh-toggle"))
+            toggle_at = wrapper_slice.index("data-refresh-toggle")
+            toggle_end = wrapper_slice.index("</button>", toggle_at) + len("</button>")
+            toggle_tag_end = wrapper_slice.index(">", toggle_at) + 1
+            toggle_open_tag = wrapper_slice[
+                wrapper_slice.rindex("<", 0, toggle_at):toggle_tag_end]
+            if 'aria-pressed="false"' not in toggle_open_tag:
+                return False, "expected the toggle to start aria-pressed=\"false\""
+            if "data-pause-text=" not in toggle_open_tag:
+                return False, "expected the toggle to carry data-pause-text"
+            if "data-resume-text=" not in toggle_open_tag:
+                return False, "expected the toggle to carry data-resume-text"
+            toggle_label = wrapper_slice[toggle_tag_end:toggle_end - len("</button>")]
+            if not toggle_label.strip():
+                return False, "expected the toggle to have a non-empty accessible label (its own text)"
+
+            # Substring ordering, the same way this guard has always
+            # pinned the anonymous-block-box fix: prefix, then clock,
+            # then pill, then toggle, all inside the one wrapper.
+            prefix_at = wrapper_slice.index(prefix)
+            if not (prefix_at < clock_at < wrapper_slice.index("data-refresh-pill") < toggle_at):
+                return False, "expected prefix, clock, pill and toggle in that source order"
 
             header_start = rendered.index('<div class="page-header">')
             header_end = rendered.index("</div>", header_start) + len("</div>")
@@ -5604,10 +5682,12 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health's header renders a persistent server-rendered liveness note beside the "
-        "unchanged hidden refresh pill, both inside one block-level .page-header__freshness "
-        "wrapper that is the .page-header's next child right after the <h1> (quick task "
-        "260903-peo, UIR-18)",
+        "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, full ISO "
+        "in the clock span's title) beside the unchanged hidden refresh pill and a new Pause/Resume "
+        "toggle (aria-pressed=\"false\", both label attributes, a non-empty accessible label), all "
+        "inside one block-level .page-header__freshness wrapper that is the .page-header's next "
+        "child right after the <h1>, in prefix/clock/pill/toggle source order (19-09-PLAN.md Task 1, "
+        "D-02/A-20; supersedes quick task 260903-peo/UIR-18's 'Live — refreshed (Ns ago)' contract)",
         _quick_260903_peo_persistent_freshness_note)
 
     def _quick_260902_v2v_uir_03_07_12_13_fixes():
@@ -5868,8 +5948,18 @@ def main():
         # Check 5: the cross-file contract the interaction-skip guard
         # depends on. This guard's failure mode is silence — when it
         # stops matching, nothing errors and no other check moves, the
-        # page simply begins reloading out from under a user
+        # page simply begins swapping content out from under a user
         # mid-interaction — so this is the only thing that would notice.
+        #
+        # 19-09-PLAN.md (D-02): retargeted in place (same check name/
+        # function). The open-disclosure clause is GONE from
+        # freshness.js on purpose (D-02 removes the silent-suspension
+        # behaviour it caused) — this check's own assertion flips from
+        # "still present" to "still absent" for that one clause, while
+        # the fixture and the INPUT/SUMMARY/SPARKLINE_HIT_CLASS halves
+        # are unchanged: a targeted swap never touches a <details>
+        # element, so no interaction-skip clause is needed to protect
+        # one any more.
         tmp = _mkstate("h-skip-guard-contract")
         try:
             now = _now()
@@ -5898,8 +5988,10 @@ def main():
         js_path = os.path.join(HERE, "static", "freshness.js")
         with open(js_path) as fh:
             js = fh.read()
-        if "details[open]" not in js:
-            return False, "freshness.js no longer checks for an open <details> disclosure"
+        if "details[open]" in js:
+            return False, (
+                "freshness.js still checks for an open <details> disclosure — D-02 removes that "
+                "silent-suspension clause entirely")
         for tag_literal in ("INPUT", "SUMMARY"):
             if tag_literal not in js:
                 return False, (
@@ -5911,10 +6003,60 @@ def main():
     check(
         "the interaction-skip guard's cross-file contract: a fixture rich enough to actually render a "
         "disclosure, a filter input and a chart hit target, and freshness.js's shipped source still "
-        "checks for an open <details>, a focused INPUT/SUMMARY, and health_page.SPARKLINE_HIT_CLASS's "
-        "own literal value — this guard's failure mode is silence, so this check is the only thing "
-        "that would notice a drift",
+        "checks for a focused INPUT/SUMMARY and health_page.SPARKLINE_HIT_CLASS's own literal value "
+        "but no longer checks for an open <details> at all (19-09-PLAN.md, D-02: a targeted swap never "
+        "touches one, so the silent-suspension clause is gone, not merely unused) — this guard's "
+        "failure mode is silence, so this check is the only thing that would notice a drift",
         _quick_260902_chc_skip_guard_cross_file_contract)
+
+    # --- 19-09-PLAN.md Task 3: pin the new freshness contract ------------
+
+    def _19_09_freshness_swap_selectors_pinned_both_directions():
+        # The duplicated-not-imported agreement between health_page.
+        # REFRESH_SWAP_SELECTORS and freshness.js's own SWAP_SELECTORS
+        # array, pinned from both directions: every declared target must
+        # actually appear in the script, AND the script's excluded
+        # regions (the sparkline hit class, the filter-input attribute,
+        # a <details> selector) must never sneak into a future edit's
+        # swap list — a future editor who widens the swap to "just
+        # replace the whole main content" would silently kill
+        # battery-trend.js's chart and list-filter.js's filter, exactly
+        # the regression D-02's own interfaces section names by number
+        # (Pitfall 5).
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        for selector in health_page.REFRESH_SWAP_SELECTORS:
+            if selector not in js:
+                return False, (
+                    "expected health_page.REFRESH_SWAP_SELECTORS entry %r verbatim in "
+                    "freshness.js" % (selector,))
+        # A dot-prefixed class selector, as it would appear inside a
+        # querySelector(All) call targeting the sparkline hit points for
+        # REPLACEMENT — never confused with the space-padded substring
+        # test userIsInteracting() legitimately runs, or with the
+        # "sparkline-hit--active" swap-guard used by the battery-readout
+        # text update, neither of which is a swap-target selector.
+        if ".sparkline-hit\"" in js or ".sparkline-hit'" in js:
+            return False, (
+                "freshness.js must never carry a .sparkline-hit selector literal — swapping the "
+                "sparkline would leave battery-trend.js permanently dead (contract 2)")
+        if "[data-filter-input]" in js:
+            return False, (
+                "freshness.js must never reference [data-filter-input] — swapping the registry "
+                "filter would leave list-filter.js permanently dead and discard an in-progress "
+                "query (contract 3)")
+        if "details[" in js:
+            return False, (
+                "freshness.js must never carry a details[...] selector literal as a swap target — "
+                "the registry/readings disclosures are excluded from the swap list")
+        return True, ""
+    check(
+        "health_page.REFRESH_SWAP_SELECTORS' own entries all appear verbatim in freshness.js, and "
+        "freshness.js never carries a .sparkline-hit selector literal, a [data-filter-input] "
+        "reference, or a details[...] selector — the three regions Pitfall 5 names as fatal to swap "
+        "(19-09-PLAN.md Task 3)",
+        _19_09_freshness_swap_selectors_pinned_both_directions)
 
     # --- 19-06-PLAN.md Task 1: layout.stat_tile()'s caption_title tooltip
     # (D-06) ------------------------------------------------------------
@@ -8563,6 +8705,18 @@ def main():
             # freshness-script route from this same running service,
             # proving the process hands a browser the new loop, not only
             # that the on-disk file says so.
+            #
+            # 19-09-PLAN.md (D-02): retargeted in place (same check name/
+            # function, same "real served bytes" pattern) — three more
+            # required needles for the fetch-and-swap DOM contract
+            # (the [data-loaded-at]/[data-refresh-pill]/
+            # [data-refresh-toggle] attribute hooks), plus a fourth pass
+            # asserting every one of health_page.REFRESH_SWAP_SELECTORS'
+            # own selector strings appears verbatim in the real served
+            # bytes — the duplicated-not-imported agreement between the
+            # page module's declared swap targets and the script's own,
+            # pinned against the process actually serving them, not only
+            # the two on-disk files agreeing with each other.
             js_status, _js_headers, js_body = http_request(
                 base + app.FRESHNESS_SCRIPT_ROUTE, cookie=session_cookie)
             if js_status != 200:
@@ -8570,11 +8724,19 @@ def main():
             js_text = js_body.decode("utf-8", errors="replace")
             for needle, label in (
                     ("AUTO_REFRESH_INTERVAL_MS", "the named interval constant"),
-                    ("visibilitychange", "the visibility-change listener registration")):
+                    ("visibilitychange", "the visibility-change listener registration"),
+                    ("[data-loaded-at]", "the loaded-at attribute hook"),
+                    ("[data-refresh-pill]", "the refresh-pill attribute hook"),
+                    ("[data-refresh-toggle]", "the refresh-toggle attribute hook")):
                 if needle not in js_text:
                     return False, (
                         "expected %s (%r) in the real %s response body"
                         % (label, needle, app.FRESHNESS_SCRIPT_ROUTE))
+            for selector in health_page.REFRESH_SWAP_SELECTORS:
+                if selector not in js_text:
+                    return False, (
+                        "expected health_page.REFRESH_SWAP_SELECTORS entry %r verbatim in the "
+                        "real %s response body" % (selector, app.FRESHNESS_SCRIPT_ROUTE))
             return True, ""
         check(
             "GET /health, GET /airlines and GET /history all return 200 with their own page heading against a "
@@ -8589,9 +8751,11 @@ def main():
             "enctype or file input (quick task 260903-btu Task 5a), and the real served stylesheet "
             "(STYLE_ROUTE) carries the description-column rule, the demotion rule's new bottom margin and the "
             "prose rhythm rule's selector, and the real served freshness script (FRESHNESS_SCRIPT_ROUTE) "
-            "carries the interval constant and the visibility-change listener (quick task 260901-tsa; "
-            "extended in place by quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick "
-            "task 260902-chc, and quick task 260903-btu Task 5a)",
+            "carries the interval constant, the visibility-change listener, the [data-loaded-at]/"
+            "[data-refresh-pill]/[data-refresh-toggle] attribute hooks, and every "
+            "health_page.REFRESH_SWAP_SELECTORS entry verbatim (quick task 260901-tsa; extended in place by "
+            "quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick task 260902-chc, "
+            "quick task 260903-btu Task 5a, and 19-09-PLAN.md Task 3)",
             _both_tabs_ok_end_to_end)
 
         def _illustration_route_serves_normalized_bytes_end_to_end():
