@@ -31,14 +31,24 @@ Constants:
   guard thresholds (see LoginThrottle below).
 
 Session tokens are stateless: `expiry.signature`, where `signature` is
-an HMAC-SHA256 of the decimal expiry timestamp, keyed by the shared
-password. There is no server-side session store to leak, to grow
-unbounded, or to lose on restart — appropriate for one shared secret
-with no per-user revocation requirement.
+an HMAC-SHA256 of the decimal expiry timestamp (nanosecond-resolution,
+see `issue_session_token()`), keyed by a signing key
+*derived* from the shared password (see `_signing_key()` below, A-33/
+D-16) — never the raw password itself, so a leaked `(expiry,
+signature)` pair is not an offline password oracle. The one deliberate
+departure from a purely stateless design is the small in-memory
+revocation set below (`revoke()`/`is_revoked()`), consulted on Sign
+out: it is pruned by each entry's own embedded expiry on every access,
+so it cannot grow unbounded over the 12h `SESSION_TTL_S` window, and it
+is lost on restart exactly like everything else in this module — that
+is acceptable for one household (19-CONTEXT.md D-16), not a general
+session store.
 """
 import hashlib
 import hmac
 import os
+import secrets
+import threading
 import time
 from http.cookies import SimpleCookie
 
@@ -48,6 +58,82 @@ SESSION_COOKIE_NAME = "sp_session"
 UI_THEME_COOKIE_NAME = "sp_ui_theme"
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_LOCKOUT_S = 300
+
+# A-33/D-16: a per-process random salt, generated once at import time,
+# that never leaves this process (never embedded in a cookie, never
+# logged). issue_session_token()/verify_session_token() mix it into the
+# signing key via _signing_key() below so that a leaked (expiry,
+# signature) pair cannot be used to brute-force the shared password
+# offline — the attacker would also need this salt, which they cannot
+# get. A side effect, explicitly accepted for one household: a process
+# restart regenerates the salt and therefore invalidates every
+# outstanding session.
+_PROCESS_SALT = secrets.token_bytes(32)
+
+
+def _signing_key():
+    """The HMAC signing key for session tokens: HMAC-as-KDF over the
+    shared password and this process's random salt. This is a
+    standard, well-understood construction, not a hand-rolled one
+    (19-RESEARCH.md's own Don't Hand-Roll guidance) — deriving rather
+    than reusing configured_password() directly is what makes a leaked
+    token's signature useless for guessing the password offline.
+    """
+    return hmac.new(
+        configured_password(), _PROCESS_SALT, hashlib.sha256).digest()
+
+
+# A-33/D-16: the Sign out revocation set. Maps a presented token string
+# to its own embedded expiry (an int), so pruning never needs to touch
+# auth.py's other stateless machinery. Guarded by _REVOKED_LOCK,
+# mirroring companion/app.py's own _POLL_LOCK precedent for a lock
+# around small shared mutable state under ThreadingHTTPServer.
+_REVOKED = {}
+_REVOKED_LOCK = threading.Lock()
+
+
+def _prune_revoked_locked():
+    """Drop every revoked entry whose embedded expiry has already
+    passed. Caller must hold _REVOKED_LOCK."""
+    now = time.time_ns()
+    expired = [token for token, expiry in _REVOKED.items() if expiry <= now]
+    for token in expired:
+        del _REVOKED[token]
+
+
+def revoke(token):
+    """Add `token` to the revocation set, pruning expired entries on
+    the way in so the set stays bounded. A malformed or already-expired
+    token is ignored (not stored, never raises) — there is nothing
+    useful to revoke once a token can no longer verify anyway.
+
+    `token`'s embedded expiry is a nanosecond timestamp, matching
+    issue_session_token()'s field (see that function's docstring).
+    """
+    if not isinstance(token, str) or "." not in token:
+        return
+    expiry_str, _signature = token.split(".", 1)
+    try:
+        expiry = int(expiry_str)
+    except ValueError:
+        return
+    with _REVOKED_LOCK:
+        _prune_revoked_locked()
+        if expiry > time.time_ns():
+            _REVOKED[token] = expiry
+
+
+def is_revoked(token):
+    """True if `token` is in the revocation set. Prunes expired entries
+    first, so a revoked-but-since-expired token correctly stops
+    counting against the set's bound. Returns False for a non-string or
+    empty token rather than raising.
+    """
+    if not isinstance(token, str) or not token:
+        return False
+    with _REVOKED_LOCK:
+        _prune_revoked_locked()
+        return token in _REVOKED
 
 
 class AuthNotConfigured(RuntimeError):
@@ -90,10 +176,23 @@ def password_ok(submitted):
 
 
 def issue_session_token():
-    """Build and sign a fresh session token: "<expiry>.<hex signature>"."""
-    expiry = str(int(time.time()) + SESSION_TTL_S)
+    """Build and sign a fresh session token: "<expiry>.<hex signature>".
+
+    `expiry` is a nanosecond-resolution Unix timestamp (`time.time_ns()`),
+    not seconds. This is a deviation from the original second-resolution
+    field, made while adding the revocation set (A-33/D-16): tokens are
+    otherwise a pure function of (expiry, signing key), so two logins
+    landing in the same wall-clock SECOND used to produce byte-identical
+    tokens — meaning revoking one session's token on Sign out could
+    silently also revoke a different, still-legitimate session that
+    happened to be issued in that same second. Nanosecond resolution
+    makes that collision practically impossible while leaving the
+    "<int>.<hex>" two-field shape, and every existing caller/round-trip
+    check, unchanged.
+    """
+    expiry = str(time.time_ns() + SESSION_TTL_S * 1_000_000_000)
     signature = hmac.new(
-        configured_password(), expiry.encode(), hashlib.sha256).hexdigest()
+        _signing_key(), expiry.encode(), hashlib.sha256).hexdigest()
     return "%s.%s" % (expiry, signature)
 
 
@@ -111,7 +210,7 @@ def verify_session_token(value):
         return False
     expiry_str, signature = value.split(".", 1)
     try:
-        secret = configured_password()
+        secret = _signing_key()
     except AuthNotConfigured:
         return False
     expected_signature = hmac.new(
@@ -122,7 +221,7 @@ def verify_session_token(value):
         expiry = int(expiry_str)
     except ValueError:
         return False
-    return expiry > time.time()
+    return expiry > time.time_ns()
 
 
 def session_set_cookie_header(token):

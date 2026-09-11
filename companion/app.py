@@ -914,8 +914,12 @@ class Handler(BaseHTTPRequestHandler):
     # --- auth ----------------------------------------------------------
 
     def _is_authenticated(self):
+        # A-33/D-16: this is the ONLY place the revocation check runs —
+        # every one of the 9+ require_session() call sites below goes
+        # through this single predicate, never duplicated per route.
         cookies = auth.parse_cookies(self.headers.get("Cookie"))
-        return auth.verify_session_token(cookies.get(auth.SESSION_COOKIE_NAME))
+        token = cookies.get(auth.SESSION_COOKIE_NAME)
+        return bool(token) and auth.verify_session_token(token) and not auth.is_revoked(token)
 
     def require_session(self):
         if self._is_authenticated():
@@ -2253,6 +2257,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_theme_post()
 
         if path == LOGOUT_ROUTE:
+            # A-33/D-16: revoke the presented token server-side before
+            # clearing the client's cookie, so replaying the same cookie
+            # value after Sign out no longer verifies. The 19-04 plan
+            # adds the require_session() gate to this branch; this plan
+            # only adds the revoke() call.
+            cookies = auth.parse_cookies(self.headers.get("Cookie"))
+            token = cookies.get(auth.SESSION_COOKIE_NAME)
+            if token:
+                auth.revoke(token)
             return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
 
         # Phase 13 plan 13-06: Step A of the two-step resolve flow (D-03,
