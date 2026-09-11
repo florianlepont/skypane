@@ -446,8 +446,9 @@ STATS_SECTION_HEADING = "How well we name flights"
 # em-dash and the space after it on both descriptions: that is what
 # makes the heading and its description read as one continuous phrase
 # across the baseline-aligned `.section-intro` row (see
-# `_section_intro_html()` below), and it is the validated copy — do not
-# drop it as "redundant punctuation".
+# `layout.section_intro_html()`, promoted from this module's own former
+# private copy by 20-03-PLAN.md Task 1), and it is the validated copy —
+# do not drop it as "redundant punctuation".
 PAGE_PURPOSE_TEXT = "Screen status and server data quality, in one place."
 SCREEN_SECTION_DESCRIPTION = (
     "— the physical frame: is it checking in, and how's the battery.")
@@ -1407,6 +1408,12 @@ def compute_health_state(state_dir, now=None):
         wake.effective_wake_interval_s(inputs["device_config"]))
     device_html, device_state = _device_section(
         inputs["device_health"], now, warn_s=warn_s, error_s=error_s)
+    # 20-03-PLAN.md Task 1 (D-17): a verdict-free sibling of device_html,
+    # published below as "device_detail_html" — Home's status card
+    # (20-06) reads it off ctx["health_state"] instead of embedding
+    # device_html wholesale, since companion/pages/__init__.py forbids
+    # home_page.py from importing health_page.py directly.
+    device_detail_html = _device_timestamp_only(inputs["device_health"], now)
     pipeline_html, pipeline_state = _pipeline_section(
         inputs["pipeline_ts"], inputs["last_detection"], now)
     battery_html, battery_state = _battery_section(inputs["trend_rows"], inputs["daily_rows"])
@@ -1443,6 +1450,7 @@ def compute_health_state(state_dir, now=None):
         "registry_rows": inputs["registry_rows"],
         "device_html": device_html,
         "device_state": device_state,
+        "device_detail_html": device_detail_html,
         "pipeline_html": pipeline_html,
         "pipeline_state": pipeline_state,
         "battery_html": battery_html,
@@ -1636,34 +1644,27 @@ def _unavailable_block():
     return '<p class="text-body">%s</p>' % escape_html(HEALTH_UNAVAILABLE_TEXT)
 
 
-def _section_intro_html(section_id, heading, description):
-    """A `<div class="section-intro">` wrapping one id-anchored `<h2>`
-    plus a muted one-sentence description on the same baseline (quick
-    task 260901-tsa, finding B) — the wrapper exists so the description
-    sits inline and baseline-aligned with its heading rather than as a
-    separate stacked paragraph.
+def _device_timestamp_only(device_health, now):
+    """The timestamp-only half of `_device_section()`'s own return
+    value — no verdict paragraph (D-17, 20-UI-SPEC.md Section Anatomy
+    A). Published on the health-state dict as `compute_health_state()`'s
+    `"device_detail_html"` key: Home's new status card (20-06) renders
+    its OWN Frame verdict from `home_page.FRAME_STATE_TEXT` and takes
+    only this detail-only fragment for `status_row()`'s `detail` slot,
+    so `DEVICE_STATE_TEXT`'s verdict sentence is never rendered twice
+    (20-RESEARCH.md Pitfall 3 — `health["device_html"]` already carries
+    it once, in `_device_section()`'s own verdict paragraph below).
+    Do NOT fix the duplication by editing either state-text dict's
+    wording; the fix is this detail-only sibling existing at all.
 
-    The `<h2 id="..." class="text-heading">...</h2>` this emits is
-    byte-identical to the string `render()` built directly before this
-    task — same attribute order (`id` then `class`), same class value,
-    same `escape_html()` call on the heading text — because
-    `companion/test_status_pages.py`'s existing structural checks match
-    that whole string literally and count `'<h2 id="'` occurrences; this
-    builder must never drift from that shape.
-
-    The description is classed `text-label section-caption` — the same
-    pair quick task 260901-re6 already established for exactly this
-    "muted one-sentence-under-a-heading" role on Settings — reused
-    rather than reinvented. A second class for the same role would
-    reopen the second-muted-strength defect this stylesheet's own
-    comments record having fixed twice.
+    `_device_section()` is refactored below to call this helper for
+    its own second half, so the two outputs can never drift out of
+    sync with each other.
     """
-    return (
-        '<div class="section-intro">'
-        '<h2 id="%s" class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
-        "</div>"
-    ) % (section_id, escape_html(heading), escape_html(description))
+    if device_health is _DB_UNAVAILABLE:
+        return _unavailable_block()
+    ts = (device_health or {}).get("ts")
+    return layout.concise_timestamp_html(ts, now)
 
 
 def _device_section(device_health, now, warn_s=None, error_s=None):
@@ -1715,9 +1716,15 @@ def _device_section(device_health, now, warn_s=None, error_s=None):
     # D-09: concise_timestamp_html() already returns pre-escaped-safe
     # markup — wrapping it in escape_html() a second time would
     # double-encode it and print the raw tags as visible text.
+    #
+    # 20-03-PLAN.md Task 1 (D-17): the timestamp half is delegated to
+    # _device_timestamp_only() rather than recomputed here, so this
+    # tile's own detail row and the verdict-free "device_detail_html"
+    # fragment compute_health_state() publishes for Home can never
+    # drift apart.
     verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
         DEVICE_STATE_TEXT.get(state, DEVICE_STATE_TEXT["warn"]))
-    detail = layout.concise_timestamp_html(ts, now)
+    detail = _device_timestamp_only(device_health, now)
     row = verdict + '<p class="stat-tile__value">%s</p>' % detail
     return row, state
 
@@ -1906,8 +1913,9 @@ def _battery_trend_section_html(battery_html, state, caption=None):
     weight but no colour, so an element carrying only one of them
     inherits full-strength `--color-text`; the muted strength for a
     subtitle/caption role lives in `.section-caption` and is composed
-    onto the sizing class, never restated — `_section_intro_html()`
-    above is the in-file precedent this follows (its own description
+    onto the sizing class, never restated — `layout.section_intro_html()`
+    (promoted from this module's own former private copy by 20-03-
+    PLAN.md Task 1) is the precedent this follows (its own description
     paragraph pairs `text-label section-caption` for the same reason).
     `_registry_section()`'s read-only note applies the identical fix to
     its own `text-body` paragraph; see that function's own comment.
@@ -2904,7 +2912,7 @@ def render(ctx):
     # failure mode, a different container and still correct, untouched
     # by this edit).
     screen_section_html = (
-        _section_intro_html(
+        layout.section_intro_html(
             SCREEN_SECTION_ID, SCREEN_SECTION_HEADING, SCREEN_SECTION_DESCRIPTION)
         + '<div class="dashboard-grid">' + device_tile_html + '</div>'
         + _battery_trend_section_html(battery_html, battery_state, battery_caption)
@@ -2920,7 +2928,7 @@ def render(ctx):
     registry_class = "page-section page-section--nested" + (
         (" " + registry_modifier) if registry_modifier else "")
     server_data_section_html = (
-        _section_intro_html(
+        layout.section_intro_html(
             SERVER_DATA_SECTION_ID, SERVER_DATA_SECTION_HEADING,
             SERVER_DATA_SECTION_DESCRIPTION)
         + '<div class="dashboard-grid">' + server_data_tiles_html + '</div>'

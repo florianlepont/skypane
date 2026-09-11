@@ -1448,6 +1448,84 @@ def card_status_class(base_class, status):
     return base_class + suffix if suffix else ""
 
 
+def status_row(label, verdict, detail, state):
+    """<div class="status-row status-row--ok|warn|error"> — D-21's one
+    shared row primitive (dot + optional label + verdict + detail),
+    consumed by Home's status card (20-06) and the Calendar status row
+    (20-07) alike (20-UI-SPEC.md Section Anatomy A).
+
+    `label` is optional: a falsy value omits the `<span>` element
+    entirely, not merely its text — Calendar's own status row passes
+    "" because its surrounding `<h2>Calendar</h2>` already names the
+    subject, and a repeated "CALENDAR" label would be redundant
+    chrome. `verdict` and `detail` must carry two DIFFERENT pieces of
+    information — a state word versus a freshness/detail clause — by
+    contract: this primitive exists specifically to fix the Home
+    Frame-tile defect where `DEVICE_STATE_TEXT`/`FRAME_STATE_TEXT`'s
+    verdict sentence used to be rendered twice, once as the tile's own
+    verdict paragraph and once again inside `health_state["device_
+    html"]`'s own embedded verdict paragraph.
+
+    `state` maps through the SAME `_STATUS_DOT_CLASSES`/
+    `_DEFAULT_STATUS_DOT_CLASS` fallback `status_dot()`/`stat_tile()`
+    already use for the dot, and through `card_status_class()`'s own
+    three-key whitelist for the outer modifier class — never a second,
+    bare `%s` interpolation of an unvalidated `state` (T-20-18): an
+    unrecognised state degrades to the default (warn) dot and to NO
+    outer modifier class at all, rather than emitting an arbitrary,
+    attacker-influenceable class name. `verdict` and `detail` are both
+    escaped here (T-20-03) — `label` is escaped too, inside the
+    optional span.
+
+    The caller is responsible for translating `label`/`verdict`/
+    `detail` through `i18n.t()` BEFORE calling this — status_row()
+    itself calls no `t()` and treats every argument as already-
+    resolved display text.
+    """
+    dot_class = _STATUS_DOT_CLASSES.get(state, _DEFAULT_STATUS_DOT_CLASS)
+    modifier = card_status_class("status-row", state)
+    css_class = "status-row" + ((" " + modifier) if modifier else "")
+    label_html = (
+        '<span class="status-row__label text-label">%s</span>' % escape_html(label)
+        if label else "")
+    return (
+        '<div class="%s">'
+        '<span class="dot %s"></span>%s'
+        '<span class="status-row__verdict">%s</span>'
+        '<span class="status-row__detail">%s</span>'
+        "</div>"
+    ) % (css_class, dot_class, label_html, escape_html(verdict), escape_html(detail))
+
+
+def section_intro_html(section_id, heading, description):
+    """A `<div class="section-intro">` wrapping one id-anchored `<h2>`
+    plus a muted one-sentence description on the same baseline.
+
+    Promoted here, byte-identical (markup and CSS class unchanged),
+    from `companion/pages/health_page.py`'s own former private copy,
+    `_section_intro_html()` (20-UI-SPEC.md Section Anatomy C):
+    `companion/pages/__init__.py` forbids one page module importing
+    another, so a helper both `health_page.py` and `config_page.py`
+    (20-07's Display supersections) need must live in this shared
+    layer instead — the same reasoning D-21's `status_row()` above is
+    added here for, in the same phase.
+
+    The `<h2 id="..." class="text-heading">...</h2>` this emits keeps
+    the same attribute order (`id` then `class`) and the same
+    `escape_html()` call on the heading text health_page.py's own
+    pinned structural checks already match literally — this builder
+    must never drift from that shape. The description keeps the
+    `text-label section-caption` pairing already established for this
+    "muted one-sentence-under-a-heading" role.
+    """
+    return (
+        '<div class="section-intro">'
+        '<h2 id="%s" class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (section_id, escape_html(heading), escape_html(description))
+
+
 def empty_state(heading, body):
     """The escaped two-part empty-state block (06-UI-SPEC.md's Copywriting
     Contract) used for the flight log, the gallery, and the unresolved-
