@@ -73,7 +73,11 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 73  # 70 + 3 (19-03-PLAN.md Task 2: A-37/D-20's per-row copy labels and
+EXPECTED_CHECK_COUNT = 76  # 73 + 3 (19-03-PLAN.md Task 3: D-20's visible "Copied" swap for 1.5s —
+# 3 new checks: the rendered copy-btn__icon/copy-btn__label span pair with data-copy-feedback
+# intact, copy-button.js referencing copy-btn__label/copy-btn--copied/1500ms, and style.css
+# styling both classes) — was 73
+# 73 = 70 + 3 (19-03-PLAN.md Task 2: A-37/D-20's per-row copy labels and
 # real-success gating — retargeted the raw-label aria-label check in place, plus 3 new checks: 2
 # distinct aria-labels on differently-named rows, each button naming its own row, and
 # copy-button.js propagating execCommand's real result) — was 70
@@ -1645,6 +1649,79 @@ def main():
         "copy-button.js propagates fallbackCopy()'s real document.execCommand(...) result "
         "instead of discarding it, and stays ES5-safe/sink-free (A-37/D-20)",
         _copy_button_script_propagates_execcommand_success)
+
+    def _copy_button_markup_carries_icon_and_label_spans():
+        # D-20: every rendered copy button must carry exactly one
+        # .copy-btn__icon span (wrapping the SVG, aria-hidden) and one
+        # .copy-btn__label span (empty at rest, copy-button.js's own
+        # write target) - and the data-copy-feedback sibling contract
+        # copy-button.js depends on must survive unchanged.
+        tmp = _mkstate("h-copy-spans")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "sp01", "callsign": "SPANS1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            button_count = rendered.count("data-copy-value")
+            if button_count == 0:
+                return False, "expected at least one copy button to render"
+            icon_count = rendered.count('<span class="copy-btn__icon" aria-hidden="true">')
+            if icon_count != button_count:
+                return False, (
+                    "expected exactly one copy-btn__icon span per copy button, got %d for %d buttons"
+                    % (icon_count, button_count))
+            label_count = rendered.count('<span class="copy-btn__label"></span>')
+            if label_count != button_count:
+                return False, (
+                    "expected exactly one empty copy-btn__label span per copy button, got %d for %d buttons"
+                    % (label_count, button_count))
+            feedback_pairs = len(re.findall(r"</button><span[^>]*data-copy-feedback", rendered))
+            if feedback_pairs != button_count:
+                return False, (
+                    "expected every copy button to still be immediately followed by its "
+                    "data-copy-feedback sibling, found %d pairs for %d buttons"
+                    % (feedback_pairs, button_count))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every rendered copy button carries exactly one copy-btn__icon span and one empty "
+        "copy-btn__label span, and its data-copy-feedback sibling still immediately follows "
+        "the button (D-20)",
+        _copy_button_markup_carries_icon_and_label_spans)
+
+    def _copy_button_script_references_label_class_and_1500ms():
+        js_path = os.path.join(HERE, "static", "copy-button.js")
+        with open(js_path) as fh:
+            src = fh.read()
+        if "copy-btn__label" not in src:
+            return False, "expected copy-button.js to reference copy-btn__label"
+        if "copy-btn--copied" not in src:
+            return False, "expected copy-button.js to reference copy-btn--copied"
+        if "1500" not in src:
+            return False, "expected copy-button.js's FEEDBACK_RESET_MS to be 1500"
+        return True, ""
+    check(
+        "copy-button.js references the copy-btn__label/copy-btn--copied class names and the "
+        "1.5s (1500ms) feedback window (D-20)",
+        _copy_button_script_references_label_class_and_1500ms)
+
+    def _style_css_styles_both_copy_feedback_classes():
+        # Cross-file CSS guard, mirroring
+        # _data_table_wrap_scroll_edge_affordance_css()'s own regex-
+        # rule-match technique above - never a regex CSS parser, just a
+        # targeted selector-presence check.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        if re.search(r"\.copy-btn__label\s*\{", css) is None:
+            return False, "expected a .copy-btn__label rule in style.css"
+        if re.search(r"\.copy-btn--copied\s+\.copy-btn__label\s*\{", css) is None:
+            return False, "expected a .copy-btn--copied .copy-btn__label rule in style.css"
+        return True, ""
+    check(
+        "style.css styles both copy-btn__label and copy-btn--copied (D-20)",
+        _style_css_styles_both_copy_feedback_classes)
 
     def _presentation_labels_in_full_render():
         # UXA-05: Task 1's format_event_row()-level fixture, re-asserted

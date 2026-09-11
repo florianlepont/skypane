@@ -231,7 +231,6 @@ def _row_copy_name(callsign, hex_value):
     """
     return callsign or hex_value or NO_CALLSIGN_NOTE_TEXT
 
-
 # D-20: the per-row "View panel near this time" lookup and its shared
 # lightbox. VIEW_PANEL_LABEL is verbatim from D-20. LIGHTBOX_DIALOG_ID,
 # and the three data-view-panel-* attribute names below, must equal
@@ -574,11 +573,25 @@ def _copy_button_html(value, label):
     sibling). `value` is escaped once here (T-06.6.3-11's mitigation:
     built only from the same already-escaped row values this page
     already renders, no separate unescaped derivation path); `label`
-    (the D-23 "Copy {field}" accessible name) is escaped the same way.
+    (the D-23 "Copy {field}" accessible name, already formatted against
+    the row by the caller via `_row_copy_name()` — A-37/D-20) is escaped
+    the same way.
+
+    A-37/D-20: the button's visible content (an SVG icon) is wrapped in
+    a `<span class="copy-btn__icon" aria-hidden="true">`, with an empty
+    `<span class="copy-btn__label"></span>` sibling immediately after
+    it, both inside the button. `companion/static/copy-button.js` writes
+    the transient "Copied" text into that label span's `textContent`
+    only — never into the button element itself, which would destroy
+    the SVG icon and have no way to restore it. This keeps the no-HTML-
+    writing-sink rule intact: only `textContent` on a leaf `<span>`.
     """
     return (
         '<button type="button" class="copy-btn" data-copy-value="%s" '
-        'aria-label="%s">%s</button>'
+        'aria-label="%s">'
+        '<span class="copy-btn__icon" aria-hidden="true">%s</span>'
+        '<span class="copy-btn__label"></span>'
+        '</button>'
         '<span class="visually-hidden" data-copy-feedback role="status" '
         'aria-live="polite"></span>'
     ) % (escape_html(value), escape_html(label), layout.icon_html("icon-copy"))
