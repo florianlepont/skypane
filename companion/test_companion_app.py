@@ -267,6 +267,9 @@ EXPECTED_CHECK_COUNT = 159  # 157 + 2 (13-REVIEW.md WR-11 fix: end-to-end
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 165
 EXPECTED_CHECK_COUNT = 192  # 177 + 15 (phase 18: two more tabs in the per-tab loops (+4), legacy-route redirects (+4), Home/quick-action/scoped-save/split-page/no-store checks (+7)) — was 177 # 165 + 12 (phase 17 plan 04 Task 3, D-06/D-09:
+EXPECTED_CHECK_COUNT = 194  # 192 + 2 (phase 19 plan 02 Task 1, D-15/A-32:
+# the zero-length-window and real-lockout_s self-releasing-lockout checks
+# for LoginThrottle.record_failure()).
 # the save-triggered immediate calendar sync's real-HTTP-round-trip
 # outcomes — plural/singular flight count, a zero-entry feed's distinct
 # success, the single generic failure message with the URL still saved,
@@ -813,6 +816,55 @@ def main():
         check(
             "LoginThrottle allows attempts up to its limit, locks out, then resets on success",
             _login_throttle_allows_locks_and_resets)
+
+        def _login_throttle_self_releases_with_zero_length_window():
+            # A-32/D-15: with lockout_s=0 the window elapses immediately,
+            # so no real sleep is needed to exercise "a lockout releases
+            # itself." The regression this pins: a naive fix that only
+            # checks the failure count (not the elapsed window) would
+            # re-arm the lockout on this 4th failure instead of starting
+            # a fresh count.
+            throttle = auth.LoginThrottle(limit=3, lockout_s=0)
+            for _ in range(3):
+                throttle.record_failure()
+            if throttle.locked_out():
+                return False, "expected locked_out() False once the zero-length window has passed"
+            throttle.record_failure()
+            if throttle.locked_out():
+                return False, (
+                    "one post-window failure should count as 1 of 3 toward a fresh "
+                    "lockout, not immediately re-arm it")
+            return True, ""
+        check(
+            "LoginThrottle with a zero-length window releases itself and a post-window "
+            "failure starts a fresh count (A-32/D-15)",
+            _login_throttle_self_releases_with_zero_length_window)
+
+        def _login_throttle_self_releases_with_real_window():
+            # Same property as above, but with a real non-zero lockout_s,
+            # proven by rewinding _locked_until into the past (mirroring
+            # how _login_throttle_allows_locks_and_resets already drives
+            # this class purely through its public methods plus direct
+            # attribute access for time-travel, since there is no clock
+            # injection point on LoginThrottle).
+            throttle = auth.LoginThrottle(limit=3, lockout_s=60)
+            for _ in range(3):
+                throttle.record_failure()
+            if not throttle.locked_out():
+                return False, "expected locked_out() True immediately after the 3rd failure"
+            throttle._locked_until = time.time() - 1  # simulate the window elapsing
+            if throttle.locked_out():
+                return False, "expected locked_out() False once the window has elapsed"
+            throttle.record_failure()
+            if throttle.locked_out():
+                return False, (
+                    "one post-window failure should count as 1 of 3 toward a fresh "
+                    "lockout, not immediately re-arm it")
+            return True, ""
+        check(
+            "LoginThrottle with a real lockout_s releases itself once the window elapses "
+            "and a post-window failure starts a fresh count (A-32/D-15)",
+            _login_throttle_self_releases_with_real_window)
 
         def _forged_token_different_secret_rejected():
             forged = _sign_with_secret(

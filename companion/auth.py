@@ -176,6 +176,11 @@ class LoginThrottle:
     a courtesy guard for a single-user personal tool, not a defence
     against a distributed attacker; the real strength of this site's
     auth is the length of the operator-generated shared secret.
+
+    Per-IP throttling was considered (19-CONTEXT.md Deferred Ideas) and
+    deliberately deferred — the global counter stays, because there is
+    one shared password and no notion of distinct clients worth
+    tracking separately.
     """
 
     def __init__(self, limit=LOGIN_FAILURE_LIMIT, lockout_s=LOGIN_LOCKOUT_S):
@@ -185,6 +190,13 @@ class LoginThrottle:
         self._locked_until = 0.0
 
     def record_failure(self):
+        # A-32/D-15: once the previous lockout window has fully elapsed,
+        # a new failure must start a fresh count rather than re-arming
+        # the lockout from an already-saturated counter — otherwise one
+        # stray wrong password per window keeps the lockout permanent.
+        # Contract: five fresh failures per window, never permanent.
+        if self._failures >= self._limit and time.time() >= self._locked_until:
+            self._failures = 0
         self._failures += 1
         if self._failures >= self._limit:
             self._locked_until = time.time() + self._lockout_s
