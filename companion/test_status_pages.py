@@ -53,7 +53,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import companion.app as app  # noqa: E402
-from companion import auth, illustration_normalize, layout  # noqa: E402
+from companion import auth, illustration_normalize, layout, prefs  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 import companion.wake as wake  # noqa: E402
 from server import device_config  # noqa: E402
@@ -438,6 +438,17 @@ EXPECTED_CHECK_COUNT = 191  # 190 + 1 (19-09-PLAN.md Task 3, D-02: the new
 # same plan's Tasks 1/2/3, not counted as new. Re-derived by RUNNING the
 # harness (190/191 - the one documented pre-existing root-sandbox
 # anomaly_active() failure), not by arithmetic.
+
+EXPECTED_CHECK_COUNT = 196  # 20-01-PLAN.md Task 3 (D-01..D-09/D-29/D-30):
+# +5 (page_shell()'s <html lang> follows prefs; login_shell()'s
+# <html lang> follows prefs; the three-switch nav footer's ordered,
+# aria-labelled theme-form triplet; the French nav's locked D-09
+# labels; simple mode omitting the Advanced group/health/device
+# hrefs/nav status dot, with full mode proving the omission is
+# mode-gated). 191 + 5 = 196, recomputed directly against the real
+# on-disk check(...) call count at execution time (195/196 pass — the
+# one documented pre-existing root-sandbox anomaly_active() failure,
+# unrelated to this plan), not trusted from arithmetic alone.
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -6318,6 +6329,135 @@ def main():
         "no module anywhere under companion/ defines its own alpha-threshold constant — the threshold "
         "is only ever imported from server.plane.render",
         _no_module_in_companion_redefines_the_alpha_threshold)
+
+    # ======================================================================
+    # Section 1.6: companion/layout.py — <html lang>, the three-switch
+    # nav footer, localised nav labels and simple-mode nav suppression
+    # (D-01..D-09/D-29/D-30, 20-01-PLAN.md Task 3). Pure in-process
+    # unit checks against layout.page_shell()/login_shell() — no
+    # subprocess needed, mirroring this section's own Section 1.5
+    # style. Every check resets prefs' ContextVars in a finally block
+    # so no check's language/mode leaks into the next one.
+    # ======================================================================
+
+    def _page_shell_html_lang_follows_prefs():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_rendered = layout.page_shell(
+                title="Health", active="health", body="", ui_theme="auto")
+            prefs.set_request_prefs(lang="en")
+            en_rendered = layout.page_shell(
+                title="Health", active="health", body="", ui_theme="auto")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if '<html lang="fr"' not in fr_rendered:
+            return False, "expected <html lang=\"fr\" under lang='fr'"
+        if '<html lang="en"' not in en_rendered:
+            return False, "expected <html lang=\"en\" under lang='en'"
+        return True, ""
+    check(
+        "page_shell() renders <html lang=\"fr\" under prefs.set_request_prefs(lang='fr') "
+        "and <html lang=\"en\" otherwise (D-03)",
+        _page_shell_html_lang_follows_prefs)
+
+    def _login_shell_html_lang_follows_prefs():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_rendered = layout.login_shell("", ui_theme="auto")
+            prefs.set_request_prefs(lang="en")
+            en_rendered = layout.login_shell("", ui_theme="auto")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if '<html lang="fr"' not in fr_rendered:
+            return False, "expected <html lang=\"fr\" under lang='fr'"
+        if '<html lang="en"' not in en_rendered:
+            return False, "expected <html lang=\"en\" under lang='en'"
+        return True, ""
+    check(
+        "login_shell() renders <html lang=\"fr\" under prefs.set_request_prefs(lang='fr') "
+        "and <html lang=\"en\" otherwise (D-03)",
+        _login_shell_html_lang_follows_prefs)
+
+    def _shell_has_three_ordered_theme_forms_each_with_aria_label():
+        rendered = layout.page_shell(
+            title="Health", active="health", body="", ui_theme="auto")
+        actions_in_order = re.findall(
+            r'<form class="theme-form" method="post" action="([^"]+)" aria-label="[^"]+"',
+            rendered)
+        if actions_in_order.count("/ui-lang") != 2:
+            # Once in the sidebar footer, once in the mobile-nav dropdown
+            # footer — the same "both copies present" shape the existing
+            # /ui-theme count check already established.
+            return False, "expected exactly 2 /ui-lang forms (sidebar + mobile), got %r" % (
+                actions_in_order.count("/ui-lang"),)
+        if actions_in_order.count("/ui-theme") != 2:
+            return False, "expected exactly 2 /ui-theme forms (sidebar + mobile), got %r" % (
+                actions_in_order.count("/ui-theme"),)
+        if actions_in_order.count("/ui-mode") != 2:
+            return False, "expected exactly 2 /ui-mode forms (sidebar + mobile), got %r" % (
+                actions_in_order.count("/ui-mode"),)
+        # Document order within EACH footer copy must be lang, theme, mode.
+        first_three = actions_in_order[:3]
+        if first_three != ["/ui-lang", "/ui-theme", "/ui-mode"]:
+            return False, "expected the first footer's forms in order lang/theme/mode, got %r" % (
+                first_three,)
+        return True, ""
+    check(
+        "a rendered shell contains exactly three aria-labelled theme-form forms per footer "
+        "copy, actions /ui-lang, /ui-theme, /ui-mode in that document order (D-02/D-29, "
+        "20-UI-SPEC.md §I)",
+        _shell_has_three_ordered_theme_forms_each_with_aria_label)
+
+    def _french_shell_nav_reads_the_locked_french_labels():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            rendered = layout.page_shell(
+                title="Home", active="home", body="", ui_theme="auto")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        for label in ("Accueil", "Affichage", "Vols", "Compagnies",
+                      "Avancé", "État", "Appareil"):
+            if label not in rendered:
+                return False, "expected the French nav label %r in the rendered shell" % (label,)
+        return True, ""
+    check(
+        "under lang='fr' the nav reads Accueil/Affichage/Vols/Compagnies/Avancé/État/"
+        "Appareil (D-09)",
+        _french_shell_nav_reads_the_locked_french_labels)
+
+    def _simple_mode_omits_advanced_group_and_health_dot():
+        try:
+            prefs.set_request_prefs(mode="simple")
+            simple_rendered = layout.page_shell(
+                title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
+            prefs.set_request_prefs(mode="full")
+            full_rendered = layout.page_shell(
+                title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
+        finally:
+            prefs.set_request_prefs(mode="full")
+        if layout.ADVANCED_GROUP_LABEL in simple_rendered:
+            return False, "expected no ADVANCED_GROUP_LABEL text in simple mode"
+        if layout.HEALTH_ROUTE in simple_rendered:
+            return False, "expected no /health href in simple mode's nav"
+        if layout.DEVICE_ROUTE in simple_rendered:
+            return False, "expected no /device href in simple mode's nav"
+        if layout.NAV_NOTIFICATION_CLASS in simple_rendered:
+            return False, "expected no nav status dot in simple mode"
+        # Full mode (the default) must still carry all of the above —
+        # proving the omission is mode-gated, not accidentally missing.
+        if layout.ADVANCED_GROUP_LABEL not in full_rendered:
+            return False, "expected ADVANCED_GROUP_LABEL text in full mode"
+        if layout.HEALTH_ROUTE not in full_rendered:
+            return False, "expected a /health href in full mode's nav"
+        if layout.DEVICE_ROUTE not in full_rendered:
+            return False, "expected a /device href in full mode's nav"
+        if layout.NAV_NOTIFICATION_CLASS not in full_rendered:
+            return False, "expected the nav status dot in full mode (health_alert='warn')"
+        return True, ""
+    check(
+        "in simple mode the shell contains neither the Advanced group label, /health, /device "
+        "nor the nav status dot; full mode carries all four (D-30)",
+        _simple_mode_omits_advanced_group_and_health_dot)
 
     # ======================================================================
     # Section 2: companion/pages/airlines_page.py — the illustration
