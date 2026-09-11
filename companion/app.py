@@ -181,6 +181,10 @@ POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
 # CONFIRM_SUBMIT_SCRIPT_SRC must equal this exactly, mirroring the
 # SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the ninth static script.
 CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
+# 20-08-PLAN.md Task 2 (D-22..D-24/D-32): companion/layout.py's
+# THEME_PREVIEW_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the tenth static script.
+THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -525,6 +529,7 @@ _PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
 _FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
 _POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
 _CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
+_THEME_PREVIEW_JS_PATH = os.path.join(_HERE, "static", "theme-preview.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -731,6 +736,25 @@ def _safe_last_checkin_ts(state_dir):
     except (sqlite3.Error, OSError):
         return None
     return row["ts"] if row else None
+
+
+def _safe_latest_runway_event(state_dir):
+    """The single most recent `runway_events` row (D-23's `?live=1`
+    render source), or `None` on ANY failure — a missing/locked/
+    unreadable database, a malformed row, or simply no event recorded
+    yet. Deliberately a broad `except Exception` (not the narrower
+    `(sqlite3.Error, OSError)` `_safe_last_checkin_ts()` above uses),
+    per this plan's own explicit instruction that ANY exception reading
+    the event must degrade to `live_event=None` (the fixed fictional
+    scene), never a 500 — this route's one query is not allowed to be
+    the reason a preview image fails to render.
+    """
+    try:
+        with history_db.open_db(state_dir) as conn:
+            rows = history_db.recent_runway_events(conn, limit=1)
+    except Exception:
+        return None
+    return rows[0] if rows else None
 
 
 def mark_poll_triggered(state_dir):
@@ -1554,6 +1578,14 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_CONFIRM_SUBMIT_JS_PATH)
 
+    def _serve_theme_preview_script(self):
+        """Serve companion/static/theme-preview.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_confirm_submit_script()'s shape exactly (20-08-PLAN.md
+        Task 2, D-22..D-24/D-32) — the tenth static script.
+        """
+        return self._serve_script_file(_THEME_PREVIEW_JS_PATH)
+
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
         if payload is None:
@@ -1636,25 +1668,43 @@ class Handler(BaseHTTPRequestHandler):
 
     def _serve_theme_preview_image(self, theme_id):
         # T-06.6.4.1.1-01/T-06.6.4.1.1-05: this route's key set is closed
-        # and server-controlled (device_config.THEMES) — the bytes it
-        # serves are always produced by this server itself from vendored
-        # font/illustration assets, never from client input, and the
-        # rendered scene is theme_preview.py's own module-level fixture
-        # (D-06), so no live flight/device data can ever reach an image
-        # served here. Membership test FIRST, before any path is ever
-        # constructed (validate-then-join, never sanitise-then-join —
-        # same shape as _serve_runway_image() above, T-06.6.4.1.1-01);
-        # theme_preview.cache_path() repeats this exact guard at the
-        # boundary itself, so the helper stays safe even if some future
-        # caller forgets to check membership first.
+        # and server-controlled (device_config.THEMES). Membership test
+        # FIRST, before any path is ever constructed (validate-then-join,
+        # never sanitise-then-join — same shape as _serve_runway_image()
+        # above); theme_preview.cache_path() repeats this exact guard at
+        # the boundary itself, so the helper stays safe even if some
+        # future caller forgets to check membership first. D-23 (phase
+        # 20) note, expanded below the guard: a `?live=1` request also
+        # reads a runway_events row — see that block's own comment for
+        # what changed and why it is still safe.
         if theme_id not in device_config.THEMES:
             return self.send_html(404, self._not_found_page())
+        # D-23: the bytes this route serves were, until this phase,
+        # ALWAYS produced from theme_preview.py's own fixed fictional
+        # scene (D-06) — never from client input, never from live flight
+        # data. That guarantee now holds only for the non-live variant.
+        # A `?live=1` request additionally reads the operator's own most
+        # recent runway_events row (server-side data this same session
+        # already sees in full on Home/Flights) and renders it into a
+        # raster, never markup — only its integer id (T-20-14) ever
+        # reaches a filename, and any read/coercion failure degrades to
+        # the fixed fictional scene, never a 500 (see
+        # _safe_latest_runway_event()'s own docstring). Query parsing
+        # uses the same urlsplit()/parse_qs() idiom page_context() uses
+        # (app.py:1162-1163) — this route is not dispatched through
+        # page_context(), so it re-derives `?live=` from self.path itself.
+        parsed = urlsplit(self.path)
+        live_flag = parse_qs(parsed.query).get("live", [None])[0]
+        live_event = None
+        if live_flag == "1":
+            live_event = _safe_latest_runway_event(self.args.state_dir)
         # T-06.6.4.1.1-02: an unknown id (above), a render failure, and an
         # OSError writing/reading the cache file all degrade to this same
         # 404 — a caller can never distinguish "not a real theme" from "no
         # image for a real theme" from "render failed for this one theme".
         try:
-            payload = theme_preview.cached_preview_bytes(self.args.state_dir, theme_id)
+            payload = theme_preview.cached_preview_bytes(
+                self.args.state_dir, theme_id, live_event=live_event)
         except OSError:
             return self.send_html(404, self._not_found_page())
         except Exception:
@@ -2206,6 +2256,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == CONFIRM_SUBMIT_SCRIPT_ROUTE:
             return self._serve_confirm_submit_script()
+
+        if path == THEME_PREVIEW_SCRIPT_ROUTE:
+            return self._serve_theme_preview_script()
 
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:

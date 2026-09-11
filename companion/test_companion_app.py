@@ -365,6 +365,20 @@ EXPECTED_CHECK_COUNT = 233  # 20-08-PLAN.md Task 1 (D-23): +6 (the
 # check(...) call count at execution time (231/233 pass — the two
 # documented WR-11 root-sandbox failures, unrelated to this plan), not
 # trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 238  # 20-08-PLAN.md Task 2 (D-23): +5 (?live=1
+# with no runway_events row falls back to the sample scene; a seeded
+# event renders and a same-event repeat request is served from the
+# cache without growing it; a newer event both changes the served
+# bytes and adds a new cache file; an unknown theme id with ?live=1
+# still 404s before any query is parsed; ?live=0 and a missing query
+# both serve the sample variant). The "GET /static/theme-preview.js"
+# check named in this task's own action text is deferred to Task 3's
+# commit, where that file first exists (Task 2's own <files> list
+# excludes companion/static/theme-preview.js) — see this plan's own
+# SUMMARY.md Deviations section. 233 + 5 = 238, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (236/238 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -4717,6 +4731,122 @@ def main():
             "an unauthenticated GET /theme-preview/white.png redirects to /login, never "
             "returns image bytes",
             _theme_preview_unauthenticated_redirects_to_login)
+
+        # --- 20-08-PLAN.md Task 2 (D-23): the ?live=1 route branch ---
+
+        def _theme_cache_dir(theme_id_glob="*"):
+            import glob
+            return glob.glob(os.path.join(
+                harness.tmpdir, theme_preview.THEME_PREVIEW_CACHE_DIRNAME,
+                "%s*.png" % theme_id_glob))
+
+        def _theme_preview_live_no_events_serves_sample():
+            # No runway_events row exists yet at this point in the suite's
+            # own shared harness.tmpdir — the exact "fresh install" case
+            # D-23 must fall back to the sample scene for.
+            status, headers, body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 with no runway_events row, got %d" % status
+            if headers.get("Content-Type") != "image/png":
+                return False, "expected image/png, got %r" % headers.get("Content-Type")
+            if not body.startswith(PNG_SIGNATURE):
+                return False, "expected a real PNG body"
+            return True, ""
+        check(
+            "GET /theme-preview/white.png?live=1 with no runway_events row at all still "
+            "returns 200/image/png (the sample-scene fallback, D-23)",
+            _theme_preview_live_no_events_serves_sample)
+
+        def _theme_preview_live_seeded_event_and_cache_reuse():
+            with history_db.open_db(harness.tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, hex="3946a1", callsign="AFR1380", confirmed_state="departing",
+                    airline="Air France", origin="ORY", destination="TLS")
+            status, headers, body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 with a seeded runway_events row, got %d" % status
+            if headers.get("Content-Type") != "image/png":
+                return False, "expected image/png, got %r" % headers.get("Content-Type")
+            if not body.startswith(PNG_SIGNATURE):
+                return False, "expected a real PNG body"
+            before = _theme_cache_dir("white-")
+            # A second request for the SAME latest event must be a cache
+            # hit, not grow the cache directory (D-23/Pitfall 7's own
+            # "never renders 16 panels [again for the same flight]" half).
+            status2, _headers2, body2 = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            after = _theme_cache_dir("white-")
+            if status2 != 200 or body2 != body:
+                return False, "expected the second request to serve the identical cached bytes"
+            if len(after) != len(before):
+                return False, (
+                    "expected the cache file count to stay at %d for a repeat request of the "
+                    "same latest event, got %d" % (len(before), len(after)))
+            return True, ""
+        check(
+            "GET /theme-preview/white.png?live=1 with a seeded runway_events row returns "
+            "200/image/png, and a second request for the same latest event is served from "
+            "the cache without growing the cache directory (D-23/Pitfall 7)",
+            _theme_preview_live_seeded_event_and_cache_reuse)
+
+        def _theme_preview_live_newer_event_changes_cache_file():
+            before = set(_theme_cache_dir("white-"))
+            status, _headers, first_body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 before seeding a newer event, got %d" % status
+            with history_db.open_db(harness.tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, hex="3466ab", callsign="VLG9999", confirmed_state="arriving",
+                    airline="Vueling Airlines", origin="BCN", destination="ORY")
+            status2, _headers2, second_body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status2 != 200:
+                return False, "expected 200 after seeding a newer event, got %d" % status2
+            after = set(_theme_cache_dir("white-"))
+            if len(after) <= len(before):
+                return False, "expected a newer runway_events row to add a new cache file, not reuse one"
+            if second_body == first_body:
+                return False, "expected a newer runway_events row to change the served bytes"
+            return True, ""
+        check(
+            "inserting a NEWER runway_events row changes both the served live-preview bytes "
+            "and the cache file it comes from — a newer flight is a cache miss, never a stale "
+            "hit served forever (D-23/Pitfall 7)",
+            _theme_preview_live_newer_event_changes_cache_file)
+
+        def _theme_preview_live_unknown_theme_404():
+            status, _headers, body = http_request(
+                base + "/theme-preview/nope.png?live=1", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for an unknown theme id with ?live=1, got %d" % status
+            if b"Page not found." not in body:
+                return False, "expected the exact 404 copy in the response body"
+            return True, ""
+        check(
+            "GET /theme-preview/nope.png?live=1 returns the same 404 an unknown theme id "
+            "always returns — the membership test still runs before any query is even parsed",
+            _theme_preview_live_unknown_theme_404)
+
+        def _theme_preview_live_zero_and_missing_query_serve_sample_variant():
+            status_zero, _headers_zero, body_zero = http_request(
+                base + "/theme-preview/blue.png?live=0", cookie=session_cookie)
+            status_missing, _headers_missing, body_missing = http_request(
+                base + "/theme-preview/blue.png", cookie=session_cookie)
+            if status_zero != 200 or status_missing != 200:
+                return False, "expected 200 for both ?live=0 and a missing query"
+            sample_only = theme_preview.cached_preview_bytes(harness.tmpdir, "blue")
+            if body_zero != sample_only or body_missing != sample_only:
+                return False, (
+                    "expected ?live=0 and a missing query to both serve the sample variant, "
+                    "not the live one")
+            return True, ""
+        check(
+            "?live=0 and a missing ?live query both serve the sample variant, never the live "
+            "one, even with a runway_events row present (D-23)",
+            _theme_preview_live_zero_and_missing_query_serve_sample_variant)
 
         # --- 260902-v26 Task 3: the live upload round trip, against this ---
         # --- real running companion/app.py subprocess (D-01/D-02/D-03).  ---
