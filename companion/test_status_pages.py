@@ -66,6 +66,13 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
+# 19-05-PLAN.md Task 3 (D-05/A-23): the retired STALE_DEVICE_WARN_S/
+# STALE_DEVICE_ERROR_S module constants are gone from health_page — every
+# fixture below that seeds a device-staleness boundary now ages against
+# these two, the same bare floors wake.device_staleness_thresholds(None)
+# returns for a fixture that seeds no device_config.json and no
+# SKYPANE_SLEEP_S (which is every fixture in this file).
+_DEFAULT_DEVICE_WARN_S, _DEFAULT_DEVICE_ERROR_S = wake.device_staleness_thresholds(None)
 # 44 (pre-06.6-01) + 2 (06.6-01 Task 1: layout timestamp-helper promotion
 # checks) + 1 (06.6-01 Task 2: Battery Trend absolute+relative timestamp check)
 # 49 (pre-06.6.3-04) + 5 (06.6.3-04 Task 1: readings-disclosure ordering, D-10
@@ -284,7 +291,19 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 180  # 176 + 4 (19-05-PLAN.md Task 2: D-04/A-22's fixed
+EXPECTED_CHECK_COUNT = 185  # 180 + 5 (19-05-PLAN.md Task 3: D-05/A-23's
+# widened overall_severity() precedence-table check (including the
+# plan's own acceptance-criteria triple), source_fault-alone/
+# registry-alone/fully-healthy compute_health_state() severity check,
+# collect_anomalies()'s two new items check, and the device-staleness-
+# pinned-from-both-directions-by-cadence check. Three pre-existing checks
+# (battery_status()'s error->warn demotion, the seven-to-nine-keys
+# _read_health_inputs() check, and the battery-trend-section status
+# modifier check) were retargeted in place, not counted as new.
+# Re-derived by RUNNING the harness (184/185 — the one documented
+# pre-existing root-sandbox anomaly_active() failure), not by
+# arithmetic.
+# 180 = 176 + 4 (19-05-PLAN.md Task 2: D-04/A-22's fixed
 # sparkline range and width-derived density checks — a flat series draws
 # at one consistent y level, a 15mV wiggle stays under a tenth of the
 # full canvas excursion, an out-of-range value clamps to the canvas edge
@@ -787,7 +806,7 @@ def main():
         tmp = _mkstate("h-independent")
         try:
             now = _now()
-            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_device_health(tmp, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
 
@@ -797,7 +816,7 @@ def main():
             if "stat-tile--error" not in device_tile_tag:
                 return False, (
                     "expected the Device tile's wrapper to carry the error modifier "
-                    "(STALE_DEVICE_ERROR_S + 60 is past the error threshold), got %r" % device_tile_tag)
+                    "(_DEFAULT_DEVICE_ERROR_S + 60 is past the error threshold), got %r" % device_tile_tag)
 
             pipeline_at = rendered.index(health_page.PIPELINE_FRESHNESS_LABEL)
             pipeline_tile_open = rendered.rindex('<div class="stat-tile ', 0, pipeline_at)
@@ -1271,7 +1290,7 @@ def main():
         tmp = _mkstate("h-banner-pills-page")
         try:
             now = _now()
-            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_device_health(tmp, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{
                 history_db.META_LAST_PIPELINE_RUN: _ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
@@ -1522,13 +1541,16 @@ def main():
             # card's own error modifier — the "dot--error" badge this
             # check used to look for is retired outright; this is the
             # BREAKS-LOUDLY retarget the plan calls for, not a silent
-            # pass-through.
+            # pass-through. 19-05-PLAN.md Task 3 (D-05): retargeted AGAIN
+            # — a >= BATTERY_DROP_WARN_MV drop is now a "warn" modifier,
+            # demoted from "error".
             battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
             battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
-            if "battery-trend-section--error" not in battery_tag:
+            if "battery-trend-section--warn" not in battery_tag:
                 return False, (
-                    "expected the battery-trend section's own tag to carry the error status "
-                    "modifier for a drop >= BATTERY_DROP_WARN_MV, got %r" % battery_tag)
+                    "expected the battery-trend section's own tag to carry the warn status "
+                    "modifier for a drop >= BATTERY_DROP_WARN_MV (demoted from error, D-05), got %r"
+                    % battery_tag)
             count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
             if count != 1:
                 return False, "expected the anomaly banner copy exactly once, found %d" % count
@@ -1560,7 +1582,7 @@ def main():
         tmp = _mkstate("h-no-list-markup")
         try:
             now = _now()
-            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_device_health(tmp, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
             banner_at = rendered.index('<div class="banner ')
@@ -1590,8 +1612,8 @@ def main():
             # pipeline, an abnormal battery drop, and a disagreement
             # recorded within the corroboration window.
             _seed_device_health(tmp, [
-                (_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4200),
-                (_ago(health_page.STALE_DEVICE_ERROR_S + 30),
+                (_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4200),
+                (_ago(_DEFAULT_DEVICE_ERROR_S + 30),
                  4200 - health_page.BATTERY_DROP_WARN_MV),
             ])
             _seed_meta(tmp, **{
@@ -2280,8 +2302,8 @@ def main():
     def _device_tile_verdict_matches_state_at_each_severity():
         cases = (
             (0, "ok"),
-            (health_page.STALE_DEVICE_WARN_S + 60, "warn"),
-            (health_page.STALE_DEVICE_ERROR_S + 60, "error"),
+            (_DEFAULT_DEVICE_WARN_S + 60, "warn"),
+            (_DEFAULT_DEVICE_ERROR_S + 60, "error"),
         )
         for age_s, expected_state in cases:
             tmp = _mkstate("h-device-verdict-%s" % expected_state)
@@ -2539,12 +2561,17 @@ def main():
         # battery_status() takes newest-first rows (matching
         # battery_trend_rows()'s/recent_device_health()'s own ordering) —
         # t2 (newer) sorts before t1 (older) in both fixtures below.
+        #
+        # 19-05-PLAN.md Task 3 (D-05/A-23): retargeted in place — a
+        # >= BATTERY_DROP_WARN_MV drop is now a "warn", demoted from
+        # "error" (a single sampling artefact must not paint the whole
+        # page as an outage).
         drop_rows = [
             {"ts": "t2", "battery_mv": 4200 - health_page.BATTERY_DROP_WARN_MV},
             {"ts": "t1", "battery_mv": 4200},
         ]
-        if health_page.battery_status(drop_rows) != "error":
-            return False, "expected a drop >= BATTERY_DROP_WARN_MV to flag the battery anomaly"
+        if health_page.battery_status(drop_rows) != "warn":
+            return False, "expected a drop >= BATTERY_DROP_WARN_MV to flag a battery warning"
         gentle_rows = [
             {"ts": "t3", "battery_mv": 4190},
             {"ts": "t2", "battery_mv": 4195},
@@ -2554,8 +2581,178 @@ def main():
             return False, "expected a gentle monotonic decline to not flag the battery anomaly"
         return True, ""
     check(
-        "a large consecutive-reading drop flags the battery anomaly; a gentle monotonic decline does not",
+        "a large consecutive-reading drop flags a battery warning (demoted from error, D-05); a gentle "
+        "monotonic decline does not",
         _battery_drop_flags_anomaly_gentle_decline_does_not)
+
+    # --- 19-05-PLAN.md Task 3 (D-05/A-23): overall_severity()'s widened -----
+    # precedence table, and collect_anomalies()'s two matching new items ------
+
+    def _overall_severity_widened_precedence_table():
+        # The full 6-input precedence table, including the 4-argument
+        # backward-compatible call (the two new keyword parameters both
+        # default, so an existing 4-argument caller's behaviour is
+        # byte-for-byte unchanged).
+        if health_page.overall_severity("ok", "ok", "ok", False) != "ok":
+            return False, "expected the healthy 4-argument call to stay ok (backward compatible)"
+        if health_page.overall_severity("warn", "ok", "ok", False) != "warn":
+            return False, "expected any warn state to produce warn"
+        if health_page.overall_severity("error", "ok", "ok", False) != "error":
+            return False, "expected any error state to produce error"
+        if health_page.overall_severity("ok", "ok", "ok", True) != "warn":
+            return False, "expected disagreement_warn alone to produce warn"
+        if health_page.overall_severity("ok", "ok", "ok", False, coverage_state="warn") != "warn":
+            return False, "expected coverage_state='warn' alone to produce warn"
+        if health_page.overall_severity("ok", "ok", "ok", False, source_fault=True) != "error":
+            return False, "expected source_fault=True alone to produce error"
+        if health_page.overall_severity(
+                "error", "ok", "ok", False, coverage_state="warn", source_fault=True) != "error":
+            return False, "expected source_fault to win outright over every other signal"
+        if health_page.overall_severity(
+                "warn", "ok", "ok", False, coverage_state="ok", source_fault=False) != "warn":
+            return False, "expected a warn state with no coverage/source_fault input to stay warn"
+        return True, ""
+    check(
+        "overall_severity()'s widened 6-input precedence table: source_fault wins outright, error states "
+        "win next, then warn states/disagreement_warn/coverage_state=='warn', with the 4-argument call "
+        "staying byte-for-byte backward compatible (19-05-PLAN.md Task 3/D-05)",
+        _overall_severity_widened_precedence_table)
+
+    def _overall_severity_acceptance_criteria_literal():
+        # The plan's own acceptance-criteria one-liner, run as a check
+        # rather than only a shell command.
+        results = (
+            health_page.overall_severity("ok", "ok", "ok", False),
+            health_page.overall_severity("ok", "ok", "ok", False, source_fault=True),
+            health_page.overall_severity("ok", "ok", "ok", False, coverage_state="warn"),
+        )
+        if results != ("ok", "error", "warn"):
+            return False, "expected ('ok', 'error', 'warn'), got %r" % (results,)
+        return True, ""
+    check(
+        "overall_severity()'s plan-cited acceptance triple: ('ok', 'error', 'warn') (19-05-PLAN.md Task 3)",
+        _overall_severity_acceptance_criteria_literal)
+
+    def _source_fault_alone_produces_error_registry_alone_produces_warn():
+        tmp = _mkstate("h-source-fault-alone")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{
+                history_db.META_LAST_PIPELINE_RUN: _iso(now),
+                history_db.META_SOURCE_FAULT: "True",
+            })
+            state = health_page.compute_health_state(tmp, now=_iso(now))
+            if state["severity"] != "error":
+                return False, "expected an active source_fault_raw alone to produce error severity, got %r" % (
+                    state["severity"],)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        tmp2 = _mkstate("h-registry-alone")
+        try:
+            now = _now()
+            _seed_device_health(tmp2, [(_iso(now), 4200)])
+            _seed_meta(tmp2, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_unresolved_prefixes(tmp2, {
+                "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            state = health_page.compute_health_state(tmp2, now=_iso(now))
+            if state["severity"] != "warn":
+                return False, "expected a non-empty registry alone to produce warn severity, got %r" % (
+                    state["severity"],)
+        finally:
+            shutil.rmtree(tmp2, ignore_errors=True)
+
+        tmp3 = _mkstate("h-fully-healthy")
+        try:
+            now = _now()
+            _seed_device_health(tmp3, [(_iso(now), 4200)])
+            _seed_meta(tmp3, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            state = health_page.compute_health_state(tmp3, now=_iso(now))
+            if state["severity"] != "ok":
+                return False, "expected an empty registry with everything else healthy to stay ok, got %r" % (
+                    state["severity"],)
+        finally:
+            shutil.rmtree(tmp3, ignore_errors=True)
+        return True, ""
+    check(
+        "compute_health_state() folds an active source_fault_raw alone into error severity, a non-empty "
+        "registry alone into warn severity, and stays ok when both are clear (19-05-PLAN.md Task 3/D-05)",
+        _source_fault_alone_produces_error_registry_alone_produces_warn)
+
+    def _collect_anomalies_two_new_items():
+        if "Every ADS-B source failed on the last run." not in health_page.collect_anomalies(
+                "ok", "ok", "ok", False, source_fault=True):
+            return False, "expected the source_fault item to appear when source_fault=True"
+        if "Some callsign prefixes are still unidentified." not in health_page.collect_anomalies(
+                "ok", "ok", "ok", False, coverage_state="warn"):
+            return False, "expected the coverage item to appear when coverage_state='warn'"
+        if health_page.collect_anomalies("ok", "ok", "ok", False) != []:
+            return False, "expected a fully healthy 4-argument call to still return no anomalies"
+        return True, ""
+    check(
+        "collect_anomalies()'s two new items (source_fault, coverage_state) appear only when their own "
+        "input is unhealthy, and a fully healthy 4-argument call still returns none (19-05-PLAN.md Task 3)",
+        _collect_anomalies_two_new_items)
+
+    def _device_staleness_pinned_from_both_directions_by_cadence():
+        # A device last seen 400 seconds ago is "warn" at a 30s cadence
+        # (400 > the 300s floor: 3 * 30 = 90, floored up to 300) but "ok"
+        # at a 3600s cadence (400 < 3 * 3600 = 10800) — the A-23 defect,
+        # pinned from both directions against the real
+        # compute_health_state() pipeline. The 30s cadence is deployed via
+        # SKYPANE_SLEEP_S (device_config.save_device_config()'s own
+        # wake_interval_s validation enforces [60, 3600] — 30 can only
+        # reach effective_wake_interval_s() via the env fallback, exactly
+        # like the real shipped SKYPANE_SLEEP_S=30 deployment); the 3600s
+        # cadence is deployed via a seeded device_config.json, at the top
+        # of that same valid range.
+        original_sleep_s = os.environ.get(wake.SLEEP_ENV_VAR)
+        try:
+            tmp = _mkstate("h-cadence-env-30")
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now - timedelta(seconds=400)), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                os.environ[wake.SLEEP_ENV_VAR] = "30"
+                state = health_page.compute_health_state(tmp, now=_iso(now))
+                if state["device_state"] != "warn":
+                    return False, (
+                        "expected device_state='warn' for a 400s-old reading at a 30s cadence, got %r"
+                        % (state["device_state"],))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+
+            tmp2 = _mkstate("h-cadence-cfg-3600")
+            try:
+                now = _now()
+                _seed_device_health(tmp2, [(_iso(now - timedelta(seconds=400)), 4200)])
+                _seed_meta(tmp2, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                if original_sleep_s is None:
+                    os.environ.pop(wake.SLEEP_ENV_VAR, None)
+                else:
+                    os.environ[wake.SLEEP_ENV_VAR] = original_sleep_s
+                device_config.save_device_config(tmp2, wake_interval_s=3600)
+                state = health_page.compute_health_state(tmp2, now=_iso(now))
+                if state["device_state"] != "ok":
+                    return False, (
+                        "expected device_state='ok' for a 400s-old reading at a 3600s cadence, got %r"
+                        % (state["device_state"],))
+            finally:
+                shutil.rmtree(tmp2, ignore_errors=True)
+            return True, ""
+        finally:
+            if original_sleep_s is None:
+                os.environ.pop(wake.SLEEP_ENV_VAR, None)
+            else:
+                os.environ[wake.SLEEP_ENV_VAR] = original_sleep_s
+    check(
+        "a device last seen 400 seconds ago is 'warn' at a 30s wake cadence but 'ok' at a 3600s cadence, "
+        "pinned from both directions through the real compute_health_state() pipeline (19-05-PLAN.md "
+        "Task 3/D-05, A-23)",
+        _device_staleness_pinned_from_both_directions_by_cadence)
 
     def _corroboration_unknown_only_no_error_or_warn():
         tmp = _mkstate("h-corrob-unknown")
@@ -3263,40 +3460,48 @@ def main():
         "vice versa (D-11)",
         _migrated_cards_have_independent_failure_isolation)
 
-    def _read_health_inputs_keeps_registry_stats_separate():
+    def _read_health_inputs_keeps_stats_separate():
         # 260902-l0b: renamed from _read_health_inputs_gained_no_new_key()
         # — that name stopped being true the moment daily_rows joined
         # trend_rows in this dict (a battery-health read, same table, same
         # section builder, same request). Quick task 260903-peo (UIR-14)
-        # retargets this check in place again, six keys to seven:
+        # retargeted this check in place again, six keys to seven:
         # last_detection joins pipeline_ts for the identical reason (same
-        # section builder, same table, same request). D-11's real intent
-        # survives, restated explicitly: the migrated registry/stats
-        # reads must stay their own independent calls in render(), never
-        # folded into _read_health_inputs()'s single dict — that is what
-        # the negative assertion below checks directly, not just the key
-        # count.
+        # section builder, same table, same request).
+        #
+        # 19-05-PLAN.md Task 3 (D-05/A-23): retargeted AGAIN, seven keys
+        # to nine — device_config (for the device's own staleness
+        # thresholds) and registry_rows (for coverage_status(), now an
+        # overall_severity()/collect_anomalies() input) both join this
+        # dict. This is a DELIBERATE partial reopening of D-11's original
+        # "registry stays separate" boundary — see _read_health_inputs()'s
+        # own docstring for why — so the negative assertion below is
+        # retargeted to check only the STATS read (resolution_stats(),
+        # via render()'s own _safe_query() call), which is genuinely
+        # unchanged: still its own independent SQLite call in render(),
+        # never folded into this dict.
         tmp = _mkstate("h-inputs-keys")
         try:
             inputs = health_page._read_health_inputs(tmp, _iso(_now()))
             expected_keys = {
                 "device_health", "pipeline_ts", "last_detection", "source_fault_raw",
                 "trend_rows", "daily_rows", "corroboration_counts",
+                "device_config", "registry_rows",
             }
             if set(inputs.keys()) != expected_keys:
                 return False, (
-                    "expected _read_health_inputs() to carry exactly these seven keys, got %r"
+                    "expected _read_health_inputs() to carry exactly these nine keys, got %r"
                     % (set(inputs.keys()),))
-            if any("registr" in k or "stat" in k for k in inputs.keys()):
-                return False, "D-11: the registry/stats reads must stay separate calls in render(), not join this dict"
+            if any("stat" in k for k in inputs.keys()):
+                return False, "D-11: the stats read must stay a separate call in render(), not join this dict"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "_read_health_inputs() carries exactly seven keys — last_detection joins pipeline_ts in the one "
-        "atomic snapshot (quick task 260903-peo, UIR-14) — while the migrated registry/stats reads stay "
-        "separate calls in render() (D-11)",
-        _read_health_inputs_keeps_registry_stats_separate)
+        "_read_health_inputs() carries exactly nine keys — device_config and registry_rows now join it for "
+        "severity's sake (19-05-PLAN.md Task 3/D-05) — while the stats read alone stays a separate call in "
+        "render() (D-11)",
+        _read_health_inputs_keeps_stats_separate)
 
     def _battery_section_keeps_everything_after_the_move():
         tmp = _mkstate("h-battery-section-intact")
@@ -3431,8 +3636,9 @@ def main():
 
     def _quick_260902_gjj_card_status_borders_render_correct_modifiers():
         # quick task 260902-gjj (ISSUE 2): a real rendered page, with a
-        # seeded battery drop (battery_status() -> "error") and a seeded
-        # non-empty registry (coverage_status() -> "warn"), proves the
+        # seeded battery drop (battery_status() -> "warn", demoted from
+        # "error" by 19-05-PLAN.md Task 3/D-05) and a seeded non-empty
+        # registry (coverage_status() -> "warn"), proves the
         # battery-trend and Unresolved-prefixes cards each carry the
         # modifier layout.card_status_class() derives from the SAME
         # function that used to drive their now-retired status_dot()
@@ -3457,8 +3663,8 @@ def main():
                 {"ts": _iso(now), "battery_mv": readings[1][1]},
                 {"ts": _iso(now - timedelta(minutes=1)), "battery_mv": readings[0][1]},
             ])
-            if battery_state != "error":
-                return False, "expected the seeded battery fixture to compute an error verdict"
+            if battery_state != "warn":
+                return False, "expected the seeded battery fixture to compute a warn verdict (D-05 demotion)"
             battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
             battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
             expected_battery_modifier = layout.card_status_class(
@@ -4788,7 +4994,7 @@ def main():
 
         stale_device = _mkstate("h-agree-stale-device")
         _seed_device_health(
-            stale_device, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            stale_device, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
         _seed_meta(stale_device, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
         fixtures.append((stale_device, _iso(now)))
 
