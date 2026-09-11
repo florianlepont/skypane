@@ -53,6 +53,7 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from companion.layout import escape_html
+import companion.battery as battery
 import companion.layout as layout
 from server import history_db
 import server.poll_loop as poll_loop  # 06.6.4.1-04 (D-11): the migrated
@@ -704,12 +705,29 @@ def _battery_reading_parts(mv, ts, now):
     the seeded readout, each chart point's `<title>` tooltip and
     `aria-label`, and each point's `data-when` attribute.
 
-    `value` is "{mv} mV". `when` copies `layout.concise_timestamp_html()`'s
-    own visible-text shape ("HH:MM UTC (Nx ago)") without its `<span>`
-    markup wrapper — a short clock time plus `layout.relative_age_text()`'s
-    existing suffix — so this page's battery timestamps read in the same
-    humanised format as its Device/Pipeline timestamps, instead of the
-    raw ISO string this finding replaces.
+    `value` is now the estimate then the measurement (D-01/A-19,
+    19-01-PLAN.md): "≈ NN% · {mv} mV" when `battery.battery_percent(mv)`
+    resolves to an int, or bare "{mv} mV" when it does not (a non-numeric
+    or non-positive reading). The estimate is labelled "≈" because it is a
+    linear approximation — D-01 keeps this linear estimate until Phase 5's
+    discharge run yields real calibration data — and it is only the
+    estimate, never the underlying millivolt figure, that carries that
+    label: the frame's own low-battery warning still uses the exact
+    millivolt thresholds in `server/poll_loop.py`. The literal "{mv} mV"
+    substring is preserved in both branches so every existing pinned check
+    on the millivolt figure keeps matching. This one helper, not
+    `_battery_readout_block()`, is deliberately where the estimate is
+    computed — it is what makes the resting readout, each chart point's
+    tooltip, aria-label and `data-when` attribute carry the same estimate
+    BY CONSTRUCTION, with no change needed to `companion/static/
+    battery-trend.js`.
+
+    `when` copies `layout.concise_timestamp_html()`'s own visible-text
+    shape ("HH:MM UTC (Nx ago)") without its `<span>` markup wrapper — a
+    short clock time plus `layout.relative_age_text()`'s existing suffix —
+    so this page's battery timestamps read in the same humanised format
+    as its Device/Pipeline timestamps, instead of the raw ISO string this
+    finding replaces.
 
     Returns PLAIN, UNESCAPED text — inheriting `layout.absolute_and_relative()`'s
     stated contract: every caller escapes at the point of interpolation.
@@ -730,7 +748,8 @@ def _battery_reading_parts(mv, ts, now):
     attacker-supplied timestamp still reaches the tooltip, still through
     `escape_html()`, exactly as before this task.
     """
-    value = "%d mV" % mv
+    pct = battery.battery_percent(mv)
+    value = ("≈ %d%% · %s mV" % (pct, mv)) if pct is not None else ("%s mV" % mv)
     parsed = layout.parse_iso(ts)
     age = layout.age_seconds(ts, now)
     if parsed is None or age is None:

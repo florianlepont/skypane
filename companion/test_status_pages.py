@@ -282,7 +282,15 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 163  # 158 + 5 (phase 14 plan 14-06 Task 1: the
+EXPECTED_CHECK_COUNT = 166  # 163 + 3 (19-01-PLAN.md Task 2: D-01/A-19's
+# percentage-estimate checks — _battery_reading_parts()'s value text
+# leading with the '≈ NN%' estimate for a numeric reading, falling back
+# to the bare millivolt figure with no stray '≈' when
+# battery.battery_percent() returns None, and a real seeded
+# health_page.render() call's readout value span carrying both the
+# estimate and the millivolt figure). Re-derived by RUNNING the harness,
+# not by arithmetic.
+# 163 = 158 + 5 (phase 14 plan 14-06 Task 1: the
 # manual_info=None byte-compat/plain-card check, the active-manual-states
 # (art + needs-artwork) attribute check, the needs-artwork sighting-
 # context conditional-on-live-gap check, the superseded-card
@@ -1955,6 +1963,67 @@ def main():
         "helper builds, split across its value/detail spans, and the retired placeholder prompt no longer "
         "appears (D-09, quick task 260901-uzi finding 3)",
         _battery_readout_seeded_with_latest_reading_not_placeholder)
+
+    def _battery_reading_parts_value_carries_the_percentage_estimate():
+        # D-01/A-19, 19-01-PLAN.md: the value half of the (value, when)
+        # pair now leads with a percentage estimate, still followed by
+        # the exact millivolt figure every existing pinned check keys on.
+        value_text, _when_text = health_page._battery_reading_parts(
+            3750, "2026-09-11T10:00:00+00:00", "2026-09-11T10:05:00+00:00")
+        if not value_text.startswith("≈"):
+            return False, "expected the value text to start with the estimate's ≈ marker, got %r" % value_text
+        if "%" not in value_text:
+            return False, "expected a percentage sign in the value text, got %r" % value_text
+        if "3750 mV" not in value_text:
+            return False, "expected the exact millivolt figure to survive as a substring, got %r" % value_text
+        return True, ""
+    check(
+        "_battery_reading_parts()'s value text leads with a '≈ NN%' estimate ahead of the exact millivolt "
+        "figure, for a numeric reading battery.battery_percent() can estimate (D-01/A-19)",
+        _battery_reading_parts_value_carries_the_percentage_estimate)
+
+    def _battery_reading_parts_value_has_no_estimate_when_percent_is_none():
+        # battery.battery_percent(0) returns None (the non-positive
+        # guard) — the value text must fall back to the bare millivolt
+        # figure, with no stray "≈", rather than raising on a reading
+        # the estimate cannot be computed for.
+        value_text, _when_text = health_page._battery_reading_parts(
+            0, "2026-09-11T10:00:00+00:00", "2026-09-11T10:05:00+00:00")
+        if "≈" in value_text:
+            return False, "expected no ≈ marker when battery.battery_percent() returns None, got %r" % value_text
+        if value_text != "0 mV":
+            return False, "expected the bare millivolt figure with no estimate, got %r" % value_text
+        return True, ""
+    check(
+        "_battery_reading_parts()'s value text stays a bare millivolt figure, with no ≈ marker, when "
+        "battery.battery_percent() cannot estimate the reading (D-01/A-19)",
+        _battery_reading_parts_value_has_no_estimate_when_percent_is_none)
+
+    def _seeded_render_shows_both_the_estimate_and_the_millivolt_figure():
+        tmp = _mkstate("h-readout-percentage")
+        try:
+            base = _now()
+            _seed_device_health(tmp, [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 3750),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
+            value_start = rendered.index('class="battery-readout__value mono"', readout_start)
+            value_tag_end = rendered.index(">", value_start) + 1
+            value_end = rendered.index("</span>", value_tag_end)
+            value_html = rendered[value_tag_end:value_end]
+            if "≈" not in value_html:
+                return False, "expected the ≈ estimate marker inside the readout's value span"
+            if " mV" not in value_html:
+                return False, "expected the millivolt figure inside the readout's value span"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a seeded health_page.render() call's battery-readout__value span carries both the '≈' estimate "
+        "and the ' mV' millivolt figure (D-01/A-19)",
+        _seeded_render_shows_both_the_estimate_and_the_millivolt_figure)
 
     def _single_reading_still_no_chart_no_readout_no_script():
         if health_page.battery_sparkline_svg(
