@@ -79,7 +79,10 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 78  # 76 + 2 (19-08-PLAN.md Task 1: D-21/A-38's "Unidentified airlines" gap
+EXPECTED_CHECK_COUNT = 79  # 78 + 1 (19-08-PLAN.md Task 2: D-21/A-38's resolve-panel back link now
+# names and targets Airlines instead of Health — 1 new check, the back link renders exactly
+# once with href == AIRLINES_ROUTE) — was 78
+# 78 = 76 + 2 (19-08-PLAN.md Task 1: D-21/A-38's "Unidentified airlines" gap
 # strip — 2 new checks: a render with an eligible gap emits the strip's heading/sentence before
 # the filter bar with no gap card in the curated grid, and a render with no gaps emits no strip
 # at all) — was 76
@@ -2649,6 +2652,35 @@ def main():
         "a render with no eligible gaps emits no \"Unidentified airlines\" strip and no empty section "
         "(D-21, 19-08-PLAN.md Task 1)",
         _airlines_gap_strip_absent_with_no_gaps)
+
+    # ======================================================================
+    # 19-08-PLAN.md Task 2 (D-21/A-38): the resolve panel's back link now
+    # names and targets Airlines, not Health.
+    # ======================================================================
+
+    def _airlines_resolve_panel_back_link_names_and_targets_airlines():
+        # No live gap, no manual entry for "XYZ": the stale/invalid
+        # branch, one of the six _resolve_section_html() branches that
+        # all share the same back_link, built once.
+        tmp = _mkstate("a-resolve-back-link")
+        try:
+            rendered = airlines_page.render({"state_dir": tmp, "resolve_prefix": "XYZ"})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        matches = re.findall(
+            r'<a class="text-label" href="([^"]*)">%s</a>' % re.escape(airlines_page.RESOLVE_BACK_LINK_TEXT),
+            rendered)
+        if len(matches) != 1:
+            return False, "expected exactly one resolve-panel back link, found %d" % (len(matches),)
+        if matches[0] != airlines_page.AIRLINES_ROUTE:
+            return False, "expected the back link's href to equal AIRLINES_ROUTE, got %r" % (matches[0],)
+        return True, ""
+    check(
+        "the resolve panel's back link renders exactly once, named \"" +
+        airlines_page.RESOLVE_BACK_LINK_TEXT.replace("\"", "'") +
+        "\" and targeting airlines_page.AIRLINES_ROUTE, superseding the Phase 13 Copy Deck's "
+        "\"Back to Health\" (D-21, A-38, 19-08-PLAN.md Task 2)",
+        _airlines_resolve_panel_back_link_names_and_targets_airlines)
 
     # ======================================================================
     # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's

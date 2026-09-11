@@ -308,10 +308,19 @@ GAP_BLOCK_CAP = 12
 # Phase 13 copy constants, byte-identical to 13-UI-SPEC.md's Full Copy
 # Deck (real U+2014 em dashes, real U+2019 apostrophes, matching every
 # other string in this module).
-RESOLVE_BACK_LINK_TEXT = "← Back to Health"
+#
+# 19-08-PLAN.md Task 2 (D-21/A-38): a deliberate supersession, not
+# drift. The Phase 13 Copy Deck put the resolve flow's entry point on
+# Health — at the time, that page was the only place a coverage gap
+# was ever surfaced. Phase 18 moved the everyday entry point onto
+# Airlines' own gap cards (19-08-PLAN.md Task 1's strip is the current
+# home for them), so "Back to Health" started returning a household
+# member to a page they never visited on the common path. This link
+# now names and targets Airlines instead.
+RESOLVE_BACK_LINK_TEXT = "← Back to Airlines"
 RESOLVE_STALE_BODY = (
     "That coverage gap isn’t there anymore — it may already be "
-    "resolved. Check Health for current gaps.")
+    "resolved. See Health for the complete list of current gaps.")
 RESOLVE_HEADING = "Resolve an unidentified flight"
 # Phase 14 (14-02-PLAN.md Task 1, D-01) reworded this template in place,
 # replacing its Phase 13 wording: one template with no callsign clause,
@@ -1613,7 +1622,9 @@ def _resolve_section_html(ctx):
         return ""
     state_dir = ctx.get("state_dir")
     now = ctx.get("now")
-    back_link = '<a class="text-label" href="/health">%s</a>' % RESOLVE_BACK_LINK_TEXT
+    # 19-08-PLAN.md Task 2 (D-21): AIRLINES_ROUTE, never a retyped "/health"
+    # literal — see RESOLVE_BACK_LINK_TEXT's own comment above for why.
+    back_link = '<a class="text-label" href="%s">%s</a>' % (AIRLINES_ROUTE, RESOLVE_BACK_LINK_TEXT)
 
     row = unresolved_row_for_prefix(state_dir, prefix_raw)
     if row is not None:
