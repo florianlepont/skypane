@@ -199,6 +199,7 @@ ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
 # constant despite carrying no text, so a future non-empty note needs
 # only a value change here, not a markup change.
 LIGHTBOX_NOTE = ""
+LIGHTBOX_ARIA_LABEL = "Airline illustration"
 
 # quick task 260902-v26: the three flash keys `Handler._handle_illustration_
 # replace()` (companion/app.py) can redirect with, defined here — not in
@@ -663,6 +664,15 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     mode = (
         _VIEW_PANEL_MODE_NEEDS_ARTWORK if (has_manual and needs_artwork)
         else _VIEW_PANEL_MODE_ART)
+    # Phase 18 (audit, high): a manually-resolved airline with no artwork
+    # yet used to emit an <img> whose src 404s — the browser painted the
+    # alt text as a broken, link-styled image. Render the same dashed
+    # placeholder a gap card uses instead, and hand the dialog an empty
+    # src so it hides its image too (panel-lookup.js's own empty-src
+    # branch).
+    if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
+        image_html = '<span class="airline-card__placeholder" aria-hidden="true"></span>'
+        busted_image_url = ""
     if has_manual:
         manual_value = (
             _VIEW_PANEL_MANUAL_SUPERSEDED if superseded else _VIEW_PANEL_MANUAL_ACTIVE)
@@ -1096,7 +1106,7 @@ def _lightbox_html():
     resolve_upload_html = _resolve_upload_form_html("", "-dialog")
     delete_html = _manual_delete_form_html("")
     return (
-        '<dialog class="lightbox lightbox--wide" id="%s">'
+        '<dialog class="lightbox lightbox--wide" id="%s" aria-label="%s">'
         '<img class="lightbox__image" src="" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
         '<p class="lightbox__note text-body">%s</p>'
@@ -1110,7 +1120,7 @@ def _lightbox_html():
         '<button type="button" %s>Close</button>'
         "</dialog>"
     ) % (
-        LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_NOTE),
+        LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_ARIA_LABEL), escape_html(LIGHTBOX_NOTE),
         LIGHTBOX_HEADING_CLASS,
         LIGHTBOX_MANUAL_NOTE_CLASS,
         resolve_context_html,
@@ -1539,7 +1549,7 @@ def _resolve_section_html(ctx):
 
     if prefix is None:
         body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
-        return '<div class="page-section">%s%s</div>' % (back_link, body)
+        return '<div class="page-section" data-resolve-fallback>%s%s</div>' % (back_link, body)
 
     escaped_prefix = escape_html(prefix)
 
@@ -1551,14 +1561,14 @@ def _resolve_section_html(ctx):
             # No live gap AND no manual entry for this prefix: genuinely
             # nothing to resolve here.
             body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
-            return '<div class="page-section">%s%s</div>' % (back_link, body)
+            return '<div class="page-section" data-resolve-fallback>%s%s</div>' % (back_link, body)
         # Step A — name not yet saved. No entry exists yet, so no
         # delete form (D-09 amendment).
         heading = '<h2 class="text-heading">%s</h2>' % RESOLVE_HEADING
         caption = '<p class="text-label section-caption">%s</p>' % (
             RESOLVE_CAPTION_TEMPLATE % escaped_prefix)
         form = _resolve_name_form_html(prefix, "")
-        return '<div class="page-section">%s%s%s%s%s</div>' % (
+        return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s</div>' % (
             back_link, heading, caption, context_html, form)
 
     # Entry present. Recompute the key server-side from the *stored* name
@@ -1570,7 +1580,7 @@ def _resolve_section_html(ctx):
         # A stored entry whose name no longer slugs is a corrupt-file
         # case that must not render a form.
         body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
-        return '<div class="page-section">%s%s</div>' % (back_link, body)
+        return '<div class="page-section" data-resolve-fallback>%s%s</div>' % (back_link, body)
 
     escaped_name = escape_html(airline_name)
     heading = '<h2 class="text-heading">%s</h2>' % (STEP_B_HEADING_TEMPLATE % escaped_name)
@@ -1585,14 +1595,14 @@ def _resolve_section_html(ctx):
         upload_zone = _resolve_upload_form_html(upload_action, "")
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
             AIRLINES_ROUTE, STEP_B_SKIP_TEXT)
-        return '<div class="page-section">%s%s%s%s%s%s%s</div>' % (
+        return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s%s%s</div>' % (
             back_link, heading, caption, context_html, upload_zone, skip_link, delete_form)
 
     # Already resolved: a bookmark or a Back press landed on a prefix
     # still listed as a gap, but a manual entry already names an airline
     # that has artwork. No controls except delete.
     body = '<p class="text-body">%s</p>' % (RESOLVE_ALREADY_DONE_TEMPLATE % escaped_name)
-    return '<div class="page-section">%s%s%s%s</div>' % (back_link, heading, body, delete_form)
+    return '<div class="page-section" data-resolve-fallback>%s%s%s%s</div>' % (back_link, heading, body, delete_form)
 
 
 # ---------------------------------------------------------------------

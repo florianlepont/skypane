@@ -49,6 +49,13 @@ from server.plane import render as panel_render
 # page's BATTERY_TREND_LIMIT already documents for device_health.
 HISTORY_ROW_LIMIT = 50
 
+# Phase 18: the tab is "Flights" now — "History" read as a log to a
+# household member, when the page is really "which planes has the frame
+# shown".
+PAGE_TITLE = "Flights"
+PAGE_PURPOSE_TEMPLATE = "The latest %d aircraft the frame has shown."
+LIGHTBOX_ARIA_LABEL = "Picture shown on the frame"
+
 # --- 06.6.4.1-05 (D-18/D-19): moved verbatim from
 # companion/pages/preview_page.py, which stays on disk and stays routed
 # until plan 08 absorbs and retires it — both modules briefly hold these
@@ -116,8 +123,7 @@ _NO_FLIGHTS_BODY = (
 # page module imports another page module, so the string is duplicated
 # here rather than imported).
 _HISTORY_UNAVAILABLE_TEXT = (
-    "Health history is temporarily unavailable — check the companion "
-    "service logs.")
+    "The flight list is temporarily unavailable — try again in a minute.")
 
 # 7 entries, left-to-right order unchanged from the previous 9-column
 # table so a returning user's scanning habit still works. "Callsign" and
@@ -207,7 +213,7 @@ NO_CALLSIGN_NOTE_TEXT = "no callsign"
 # isolation.
 VIEW_PANEL_LABEL = "View panel near this time"
 LIGHTBOX_DIALOG_ID = "panel-lookup-dialog"
-LIGHTBOX_CAPTION_TEMPLATE = "Panel near %s"
+LIGHTBOX_CAPTION_TEMPLATE = "Picture from %s"
 # Quick task 260903-etm: composed from the pre-existing nearest-render
 # sentence plus COLOUR_CAVEAT (verbatim, unreworded) rather than two
 # independent strings — the lightbox is now the only surface on this
@@ -346,6 +352,21 @@ def nearest_gallery_entry(entries, row_ts):
     return best
 
 
+def lightbox_caption_text(iso):
+    """Phase 18 (audit): the lightbox caption for a gallery entry's ISO
+    timestamp — a humanised local-time form ("Picture from 3 Sep 23:38")
+    instead of the raw ISO string, falling back to the ISO value only
+    when it does not parse. Plain text; callers escape it.
+    """
+    parsed = layout.parse_iso(iso)
+    if parsed is None:
+        return LIGHTBOX_CAPTION_TEMPLATE % iso
+    local = parsed.astimezone(layout.LOCAL_TZ) if parsed.tzinfo else parsed
+    when = "%d %s %s" % (
+        local.day, layout._MONTH_ABBR[local.month - 1], layout.local_clock_text(parsed, None))
+    return LIGHTBOX_CAPTION_TEMPLATE % when
+
+
 def _view_panel_button_html(name, iso):
     """A D-20 "View panel near this time" trigger button - one per
     History row that has a nearest render. Reuses `.copy-btn`'s exact
@@ -368,7 +389,7 @@ def _view_panel_button_html(name, iso):
     accessible name.
     """
     src = "%s%s" % (_GALLERY_ROUTE_PREFIX, escape_html(name))
-    caption = LIGHTBOX_CAPTION_TEMPLATE % iso
+    caption = lightbox_caption_text(iso)
     escaped_label = escape_html(VIEW_PANEL_LABEL)
     return (
         '<button type="button" class="copy-btn" %s="%s" %s="%s" '
@@ -391,13 +412,14 @@ def _lightbox_html():
     server-rendered constant the script never writes.
     """
     return (
-        '<dialog class="lightbox" id="%s">'
-        '<img class="lightbox__image" src="" alt="">'
+        '<dialog class="lightbox" id="%s" aria-label="%s">'
+        '<img class="lightbox__image" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
         '<p class="lightbox__note text-body">%s</p>'
         '<button type="button" %s>Close</button>'
         "</dialog>"
-    ) % (LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_NOTE), _VIEW_PANEL_CLOSE_ATTR)
+    ) % (LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_ARIA_LABEL),
+         escape_html(LIGHTBOX_NOTE), _VIEW_PANEL_CLOSE_ATTR)
 
 
 def _safe_query(state_dir, fn):
@@ -822,7 +844,7 @@ def render(ctx):
     # sentence, using the real HISTORY_ROW_LIMIT constant rather than a
     # hardcoded "50".
     header = layout.page_header(
-        "History", purpose="Latest %d detected flights." % HISTORY_ROW_LIMIT)
+        PAGE_TITLE, purpose=PAGE_PURPOSE_TEMPLATE % HISTORY_ROW_LIMIT)
 
     # Quick task 260903-etm: developer redirection, superseding quick task
     # 260903-c4o's own always-visible render-gallery section on this same

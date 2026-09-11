@@ -68,11 +68,25 @@
   if (!document.querySelector(".banner--flash")) {
     return;
   }
-  if (location.search.indexOf("flash") === -1) {
+  if (location.search.indexOf("flash=") === -1) {
     return;
   }
 
-  history.replaceState(null, "", location.pathname);
+  // Phase 18 (audit, high): strip only the flash-related parameters
+  // ("flash", and "rule", which exists solely to fill one flash message)
+  // and keep everything else — ?resolve= on the Airlines page must
+  // survive a reload, and the fragment must not be lost either.
+  var kept = [];
+  var query = location.search.charAt(0) === "?" ? location.search.slice(1) : location.search;
+  var pairs = query ? query.split("&") : [];
+  for (var i = 0; i < pairs.length; i += 1) {
+    var name = pairs[i].split("=")[0];
+    if (name !== "flash" && name !== "rule" && pairs[i] !== "") {
+      kept.push(pairs[i]);
+    }
+  }
+  var cleaned = location.pathname + (kept.length ? "?" + kept.join("&") : "") + location.hash;
+  history.replaceState(null, "", cleaned);
 
   // No DOMContentLoaded wrapper is needed: the <script> tag
   // companion/layout.py's page_shell() emits carries the defer

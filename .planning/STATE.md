@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 17
-status: "Phase 17 COMPLETE — 4/4 plans, security 10/10 with threats_open 0, UAT 2/2. Two blockers found by the first real-calendar run, both fixed."
+current_phase: 18
+status: "Phase 18 COMPLETE — companion audit & UX refactor shipped on claude/web-companion-audit-ux-refactor-bqx7si (46-finding ledger in 18-AUDIT.md, 18 fixed). Previously: Phase 17 COMPLETE — 4/4 plans, security 10/10 with threats_open 0, UAT 2/2. Two blockers found by the first real-calendar run, both fixed."
 stopped_at: "Phase 16 closed 2026-09-08. SEED-003 fully delivered across phases 15 and 16. Two code-review blockers were found and fixed after the security audit passed (nested VEVENT component dropping flights, NaN timestamps bypassing the clock). Branch claude/seed-3-roster-highlight is 55+ commits ahead of main and NOT yet merged or deployed."
 last_updated: "2026-09-08T05:48:19.614Z"
 last_activity: 2026-09-10
-last_activity_desc: Phase 17 complete
+last_activity_desc: Phase 18 complete — companion audit & UX refactor
 progress:
   total_phases: 25
   completed_phases: 24
   total_plans: 158
   completed_plans: 157
   percent: 99
-current_phase_name: connect-a-calendar-from-the-companion-instead-of-over-ssh
+current_phase_name: companion-audit-and-ux-refactor
 ---
 
 ---

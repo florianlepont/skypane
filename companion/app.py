@@ -63,6 +63,7 @@ from companion.pages import (  # noqa: E402
     config_page,
     health_page,
     history_page,
+    home_page,
 )
 # Phase 13 plan 13-06: the module is already imported above
 # (airlines_page); this named import reuses its D-11 membership test
@@ -139,6 +140,25 @@ FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
 # to "/settings"; the old path now 404s by design, no redirect).
 SETTINGS_ROUTE = config_page.SETTINGS_ROUTE
 POLL_ROUTE = "/poll-now"
+
+# Phase 18 (companion audit / UX refactor): the page routes. All six
+# live tabs are declared once, in companion/layout.py's NAV_GROUPS;
+# these aliases exist so this module's dispatch reads by name.
+HOME_ROUTE = layout.HOME_ROUTE
+DISPLAY_ROUTE = layout.DISPLAY_ROUTE
+FLIGHTS_ROUTE = layout.FLIGHTS_ROUTE
+AIRLINES_ROUTE = layout.AIRLINES_ROUTE
+HEALTH_ROUTE = layout.HEALTH_ROUTE
+DEVICE_ROUTE = layout.DEVICE_ROUTE
+# The pre-phase-18 History route, kept as a fixed 303 to FLIGHTS_ROUTE
+# for stale bookmarks — the same treatment PREVIEW_PAGE_ROUTE gets.
+HISTORY_LEGACY_ROUTE = "/history"
+# Quick-action routes the Home page's widgets post to. Must equal
+# companion/pages/home_page.py's own literals (that module cannot
+# import this one).
+QUICK_DISPLAY_ROUTE = home_page.QUICK_DISPLAY_ROUTE
+QUICK_QUIET_HOURS_ROUTE = home_page.QUICK_QUIET_HOURS_ROUTE
+assert POLL_ROUTE == home_page.POLL_ROUTE
 THEME_ROUTE = "/ui-theme"
 LOGOUT_ROUTE = "/logout"
 # D-22 (06.6.4.1-08): the standalone Preview HTML page is retired — its
@@ -229,13 +249,30 @@ FLASH_KEY_CALENDAR_SYNC_DEFERRED = config_page.FLASH_CALENDAR_SYNC_DEFERRED
 # ever renders one of these, never a value taken verbatim from the query
 # string (T-06-05-05). FLASH_KEY_POLL_COOLDOWN's "{n}" is filled in with a
 # server-computed remaining-seconds figure, never anything client-supplied.
+# Phase 18: quick-action outcomes (Home page widgets).
+FLASH_KEY_DISPLAY_ON = "display_on"
+FLASH_KEY_DISPLAY_OFF = "display_off"
+FLASH_KEY_QUIET_ON = "quiet_on"
+FLASH_KEY_QUIET_OFF = "quiet_off"
+FLASH_KEY_QUICK_FAILED = "quick_failed"
+
 FLASH_MESSAGES = {
+    FLASH_KEY_DISPLAY_ON: (
+        "Screen switched on — the frame will wake up and show a picture "
+        "within about five minutes."),
+    FLASH_KEY_DISPLAY_OFF: (
+        "Screen switched off — the frame will blank itself within about "
+        "five minutes."),
+    FLASH_KEY_QUIET_ON: "Quiet hours turned on — applies the next time the frame wakes up.",
+    FLASH_KEY_QUIET_OFF: "Quiet hours turned off — applies the next time the frame wakes up.",
+    FLASH_KEY_QUICK_FAILED: "Couldn't change that — please try again.",
     FLASH_KEY_SAVED: "Saved — will apply on the frame's next scheduled refresh.",
     FLASH_KEY_SAVE_FAILED: (
         "Couldn't save settings — please try again. If this keeps "
         "happening, check the companion service logs."),
     FLASH_KEY_POLL_TRIGGERED: (
-        "Poll triggered — refresh this page in a few seconds to see the result."),
+        "Refreshing — the frame's new picture will appear on Home within a "
+        "few seconds."),
     FLASH_KEY_POLL_COOLDOWN: "Poll triggered recently — try again in {n}s.",
     FLASH_KEY_POLL_FAILED: (
         "Poll trigger failed — please try again. If this keeps happening, "
@@ -448,10 +485,12 @@ LOGIN_THROTTLE = auth.LoginThrottle()
 _POLL_LOCK = threading.Lock()
 
 _PAGE_TITLES = {
-    "/settings": "Settings",
-    "/health": "Health",
-    "/airlines": "Airlines",
-    "/history": "History",
+    layout.HOME_ROUTE: "Home",
+    layout.DISPLAY_ROUTE: "Display",
+    layout.FLIGHTS_ROUTE: "Flights",
+    layout.AIRLINES_ROUTE: "Airlines",
+    layout.HEALTH_ROUTE: "Health",
+    layout.DEVICE_ROUTE: "Device",
     # 06.6.4.1-08 (D-22): "/preview" entry removed — the Preview page is
     # retired (PREVIEW_PAGE_ROUTE now only redirects); NAV_TABS shrinks to
     # match in companion/layout.py.
@@ -832,6 +871,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        # Phase 18 (audit): every HTML page is either session-gated or a
+        # login form — never something a shared cache or the back button
+        # should replay after sign-out.
+        self.send_header("Cache-Control", "no-store")
         self._send_hardening_headers()
         self.end_headers()
         self.wfile.write(body)
@@ -1149,7 +1192,7 @@ class Handler(BaseHTTPRequestHandler):
             health_alert = health_state["severity"] if health_state else "ok"
         body = (
             layout.page_header(NOT_FOUND_TITLE, purpose=NOT_FOUND_PURPOSE_TEXT)
-            + '<p class="text-body"><a href="%s">Back to Settings</a></p>' % SETTINGS_ROUTE
+            + '<p class="text-body"><a href="%s">Back to Home</a></p>' % HOME_ROUTE
         )
         return layout.page_shell(
             title="Not Found", active="", body=body,
@@ -1738,7 +1781,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if result == colour_rules.ADD_OK_NEW:
             return self.redirect(
-                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
+                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
         if result == colour_rules.ADD_OK_REPLACED:
             # Both segments are already known-valid at this point (that is
             # exactly why add_rule() returned ADD_OK_REPLACED rather than
@@ -1749,7 +1792,7 @@ class Handler(BaseHTTPRequestHandler):
                 normalised_kind, submitted_key)
             return self.redirect(
                 "%s?flash=%s&rule=%s"
-                % (SETTINGS_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
+                % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
                    quote(normalised_value, safe="")))
         if result == colour_rules.ADD_REJECTED_KEY:
             flash_key = FLASH_KEY_RULE_KEY_INVALID
@@ -1760,7 +1803,7 @@ class Handler(BaseHTTPRequestHandler):
             # unrecognised result all reuse the generic save-failed key —
             # a result must never fall through to no flash at all.
             flash_key = FLASH_KEY_RULE_SAVE_FAILED
-        return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
+        return self.redirect("%s?flash=%s" % (DEVICE_ROUTE, quote(flash_key)))
 
     def _handle_rule_delete(self, kind, value):
         """POST /settings/rules/{kind}/{value}/delete (Phase 15 D-10,
@@ -1792,11 +1835,11 @@ class Handler(BaseHTTPRequestHandler):
         deleted = colour_rules.delete_rule(state_dir, normalised_kind, normalised_value)
         if deleted:
             return self.redirect(
-                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
+                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
         if existed:
             return self.redirect(
-                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
-        return self.redirect(SETTINGS_ROUTE)
+                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
+        return self.redirect(DEVICE_ROUTE)
 
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
@@ -1805,18 +1848,24 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             path = ""
         allowed = {route for route, _ in layout.NAV_TABS}
-        return path if path in allowed else SETTINGS_ROUTE
+        return path if path in allowed else HOME_ROUTE
 
-    def _render_tab(self, route, page_module):
+    def _render_tab(self, route, render):
+        """Render one authenticated tab: `render(ctx) -> body markup`
+        (a page module's render(), or a lambda binding a scope onto
+        config_page.render()) wrapped in layout.page_shell(). Phase 18
+        revived this from dead code so the six live routes share one
+        body instead of six copies of it.
+        """
         if not self.require_session():
             return None
         ctx = self.page_context()
-        body = page_module.render(ctx)
+        body = render(ctx)
         flash_html = (
             layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
             if ctx["flash"] else None)
         html_doc = layout.page_shell(
-            title=_PAGE_TITLES[route], active=route.lstrip("/"), body=body,
+            title=_PAGE_TITLES[route], active=layout.nav_slug(route), body=body,
             ui_theme=ctx["ui_theme"], flash=flash_html,
             health_alert=ctx["health_severity"])
         return self.send_html(200, html_doc)
@@ -1829,7 +1878,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == LOGIN_ROUTE:
             if self._is_authenticated():
-                return self.redirect(SETTINGS_ROUTE)
+                return self.redirect(HOME_ROUTE)
             # 06.6.2-07 (UXA-03): a `?next=` query value survives the
             # require_session() redirect round-trip; validated here too
             # (not only on the POST path) so an unrecognised value never
@@ -1874,75 +1923,52 @@ class Handler(BaseHTTPRequestHandler):
         if path == FLASH_CLEANUP_SCRIPT_ROUTE:
             return self._serve_flash_cleanup_script()
 
+        # Phase 18: the six live tabs, each through _render_tab() above.
+        if path == HOME_ROUTE:
+            return self._render_tab(HOME_ROUTE, home_page.render)
+
+        if path == DISPLAY_ROUTE:
+            return self._render_tab(
+                DISPLAY_ROUTE,
+                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
+
+        if path == DEVICE_ROUTE:
+            return self._render_tab(
+                DEVICE_ROUTE,
+                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE))
+
+        if path == FLIGHTS_ROUTE:
+            return self._render_tab(FLIGHTS_ROUTE, history_page.render)
+
+        if path == HEALTH_ROUTE:
+            return self._render_tab(HEALTH_ROUTE, health_page.render)
+
+        if path == AIRLINES_ROUTE:
+            return self._render_tab(AIRLINES_ROUTE, airlines_page.render)
+
+        # Phase 18: the pre-refactor page routes survive as fixed 303s so
+        # a stale bookmark or link still lands somewhere useful. The
+        # targets are literals, never derived from any request value —
+        # the same reasoning PREVIEW_PAGE_ROUTE's own redirect below has
+        # always documented.
         if path == SETTINGS_ROUTE:
             if not self.require_session():
                 return None
-            ctx = self.page_context()
-            body = config_page.render(ctx)
-            flash_html = (
-                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
-                if ctx["flash"] else None)
-            return self.send_html(200, layout.page_shell(
-                title="Settings", active="settings", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_severity"]))
+            return self.redirect(DISPLAY_ROUTE)
 
-        if path == "/health":
+        if path == HISTORY_LEGACY_ROUTE:
             if not self.require_session():
                 return None
-            ctx = self.page_context()
-            body = health_page.render(ctx)
-            flash_html = (
-                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
-                if ctx["flash"] else None)
-            return self.send_html(200, layout.page_shell(
-                title="Health", active="health", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_severity"]))
-
-        if path == "/airlines":
-            if not self.require_session():
-                return None
-            ctx = self.page_context()
-            body = airlines_page.render(ctx)
-            flash_html = (
-                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
-                if ctx["flash"] else None)
-            return self.send_html(200, layout.page_shell(
-                title="Airlines", active="airlines", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_severity"]))
-
-        if path == "/history":
-            if not self.require_session():
-                return None
-            ctx = self.page_context()
-            body = history_page.render(ctx)
-            flash_html = (
-                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
-                if ctx["flash"] else None)
-            return self.send_html(200, layout.page_shell(
-                title="History", active="history", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_severity"]))
+            return self.redirect(FLIGHTS_ROUTE)
 
         if path == PREVIEW_PAGE_ROUTE:
             if not self.require_session():
                 return None
-            # D-22: the Preview page is retired — History absorbed all of
-            # its content (06.6.4.1-05) — so this route now exists solely
-            # to send a stale bookmark/link somewhere useful. The
-            # redirect target is a fixed literal, never derived from a
-            # query parameter, form value, Referer header, or
-            # _validated_next_route()'s allowlisted next-route mechanism
-            # above: that mechanism exists to honour a caller's requested
-            # *login* destination and is allowlisted for that reason,
-            # whereas this route has exactly one correct destination, and
-            # consulting any request value here would turn a fixed
-            # redirect into an open one. self.redirect() already emits
-            # this site's one 302-class status for every redirect (303),
-            # matching D-22's requirement.
-            return self.redirect("/history")
+            # D-22: the Preview page is retired — History (now Flights)
+            # absorbed all of its content (06.6.4.1-05) — so this route
+            # exists solely to send a stale bookmark/link somewhere
+            # useful. Fixed literal target, never a request value.
+            return self.redirect(FLIGHTS_ROUTE)
 
         if path.startswith(GALLERY_ROUTE_PREFIX):
             if not self.require_session():
@@ -1987,7 +2013,7 @@ class Handler(BaseHTTPRequestHandler):
             LOGIN_THROTTLE.record_success()
             token = auth.issue_session_token()
             return self.redirect(
-                next_route or SETTINGS_ROUTE,
+                next_route or HOME_ROUTE,
                 set_cookie=auth.session_set_cookie_header(token))
         LOGIN_THROTTLE.record_failure()
         return self.send_html(401, self._render_login_page(
@@ -2090,21 +2116,23 @@ class Handler(BaseHTTPRequestHandler):
         form = self.read_form()
         ctx = self.page_context()
         flash_key = config_page.handle_post(form, ctx)
+        # Phase 18: land back on the scoped page the form came from.
+        back = config_page.submitted_return_route(form)
         if flash_key != FLASH_KEY_SAVED:
-            return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
+            return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
         calendar_signal = config_page.submitted_calendar_signal(form)
         if calendar_signal == config_page.CALENDAR_URL_SIGNAL_CLEAR:
             return self.redirect(
-                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
+                "%s?flash=%s" % (back, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
         if calendar_signal != config_page.CALENDAR_URL_SIGNAL_SET:
             # carry_forward — an unrelated settings save. No fetch, no
             # lock acquisition: byte-identical to today's behaviour.
-            return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_SAVED)))
+            return self.redirect("%s?flash=%s" % (back, quote(FLASH_KEY_SAVED)))
 
         if not _POLL_LOCK.acquire(blocking=False):
             return self.redirect(
-                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
+                "%s?flash=%s" % (back, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
         try:
             result_code, _registry = calendar_rules.refresh_calendar_registry(
                 state_dir, poll_loop.now_s(), min_interval_s=0)
@@ -2113,11 +2141,14 @@ class Handler(BaseHTTPRequestHandler):
 
         if result_code == calendar_rules.FETCH_OK:
             return self.redirect(
-                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECTED)))
+                "%s?flash=%s" % (back, quote(FLASH_KEY_CALENDAR_CONNECTED)))
         return self.redirect(
-            "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+            "%s?flash=%s" % (back, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
 
     def _handle_poll_now(self):
+        # Phase 18: the trigger lives on Home (Refresh now) and on Device
+        # (Poll); redirect back to whichever page posted it.
+        back = self._referring_tab()
         # UXA-15: non-blocking acquire, never a timeout (06.6.2-RESEARCH.md).
         if not _POLL_LOCK.acquire(blocking=False):
             # Two requests arriving before the first has finished must
@@ -2126,13 +2157,13 @@ class Handler(BaseHTTPRequestHandler):
             # running" redirect instead of racing into a second poll
             # cycle or queueing silently behind a blocking acquire.
             return self.redirect(
-                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_ALREADY_RUNNING)))
+                "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_ALREADY_RUNNING)))
         try:
             state_dir = self.args.state_dir
             remaining = poll_cooldown_remaining(state_dir)
             if remaining > 0:
                 return self.redirect(
-                    "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_COOLDOWN)))
+                    "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_COOLDOWN)))
             try:
                 # Pattern 3 (06-RESEARCH.md): the exact production code
                 # path the systemd timer already runs, in-process — never
@@ -2141,16 +2172,45 @@ class Handler(BaseHTTPRequestHandler):
                 poll_loop.run_once(state_dir=state_dir, geofence=self.args.geofence)
             except Exception:
                 return self.redirect(
-                    "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_FAILED)))
+                    "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_FAILED)))
             mark_poll_triggered(state_dir)
             return self.redirect(
-                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_TRIGGERED)))
+                "%s?flash=%s" % (back, quote(FLASH_KEY_POLL_TRIGGERED)))
         finally:
             # Always released — including on the except Exception: branch
             # above, which must stay inside this try so a failed poll
             # still releases the guard for the next attempt (never a
             # permanently wedged trigger, T-06.6.2-05).
             _POLL_LOCK.release()
+
+    def _handle_quick_toggle(self, field):
+        """Phase 18: the Home page's one-tap switches — POST /quick/display
+        and POST /quick/quiet-hours. The body carries exactly one field,
+        `state`, whose value is the state to switch TO ("on"/"off"), so a
+        repeated submission is idempotent. Every other device-config
+        value is carried forward untouched (save_device_config() treats
+        a None keyword as "leave unchanged"), which is what makes this
+        safe to expose to someone who never opens the settings pages.
+        Session-gated in do_POST() like every other state-changing
+        route.
+        """
+        form = self.read_form()
+        state = form.get(home_page.QUICK_STATE_FIELD)
+        if state not in (home_page.QUICK_STATE_ON, home_page.QUICK_STATE_OFF):
+            return self.redirect(
+                "%s?flash=%s" % (HOME_ROUTE, quote(FLASH_KEY_QUICK_FAILED)))
+        enabled = state == home_page.QUICK_STATE_ON
+        if field == "display_enabled":
+            kwargs = {"display_enabled": enabled}
+            flash_key = FLASH_KEY_DISPLAY_ON if enabled else FLASH_KEY_DISPLAY_OFF
+        else:
+            kwargs = {"quiet_hours_enabled": enabled}
+            flash_key = FLASH_KEY_QUIET_ON if enabled else FLASH_KEY_QUIET_OFF
+        try:
+            device_config.save_device_config(self.args.state_dir, **kwargs)
+        except (ValueError, OSError):
+            flash_key = FLASH_KEY_QUICK_FAILED
+        return self.redirect("%s?flash=%s" % (HOME_ROUTE, quote(flash_key)))
 
     def _handle_theme_post(self):
         form = self.read_form()
@@ -2178,6 +2238,16 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._handle_poll_now()
+
+        if path == QUICK_DISPLAY_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_quick_toggle("display_enabled")
+
+        if path == QUICK_QUIET_HOURS_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_quick_toggle("quiet_hours_enabled")
 
         if path == THEME_ROUTE:
             return self._handle_theme_post()

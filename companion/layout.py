@@ -15,33 +15,77 @@ escaping obligation auditable with one grep across the whole package.
 """
 import html
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from companion.auth import UI_THEME_COOKIE_NAME
 
 SITE_TITLE = "SkyPane"
 
+# Phase 18 (audit finding H-3/H-4): every timestamp used to render as a
+# bare UTC clock ("21:50 UTC") with the date hidden in a tooltip. The
+# household this frame hangs in lives on Paris time, so visible
+# timestamps now render in LOCAL_TZ, and carry the day once the value
+# is no longer "today" ("3 Sep 21:50"). The full ISO string stays in the
+# `title` attribute for anyone who needs the exact instant.
+LOCAL_TZ = ZoneInfo("Europe/Paris")
+_MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
 # Ordered (route, label) pairs — 06-UI-SPEC.md's Page Inventory. Login is
 # deliberately absent: it is shown instead of any page when unauthenticated,
 # never as a nav tab.
-NAV_TABS = (
-    # 06.6.4.1-07 (D-26): renamed from "/config"/"Config" to
-    # "/settings"/"Settings". Must equal
-    # companion/pages/config_page.py's own SETTINGS_ROUTE constant
-    # exactly — that module cannot import this one (page modules import
-    # layout, so the reverse would be a cycle), so this literal is
-    # duplicated under the same must-equal discipline this file's other
-    # duplicated script-source constants already carry (see
-    # NAV_DROPDOWN_SCRIPT_SRC and friends). companion/test_companion_app.py
-    # pins the cross-module equality.
-    ("/settings", "Settings"),
-    ("/health", "Health"),
-    ("/airlines", "Airlines"),
-    ("/history", "History"),
-    # 06.6.4.1-08 (D-22): "/preview"/"Preview" removed — the standalone
-    # Preview page is retired, its whole content absorbed into History
-    # (06.6.4.1-05). companion/app.py's PREVIEW_PAGE_ROUTE now redirects
-    # that URL to History's route above rather than rendering a fifth tab.
+# Companion audit / UX refactor (phase 18): the flat four-tab set is
+# replaced by two GROUPS of tabs — the everyday group (no label) that a
+# household member uses without any technical background, and an
+# "Advanced" group for setup, diagnostics and debugging. Each entry is
+# (route, label). NAV_TABS below is DERIVED from this tuple so every
+# existing consumer of the flat (route, label) sequence (the login
+# `?next=` allowlist, `_referring_tab()`, the page-title map guard, both
+# nav renderers) keeps working unchanged.
+HOME_ROUTE = "/"
+DISPLAY_ROUTE = "/display"
+FLIGHTS_ROUTE = "/flights"
+AIRLINES_ROUTE = "/airlines"
+HEALTH_ROUTE = "/health"
+DEVICE_ROUTE = "/device"
+
+ADVANCED_GROUP_LABEL = "Advanced"
+
+NAV_GROUPS = (
+    ("", (
+        (HOME_ROUTE, "Home"),
+        (DISPLAY_ROUTE, "Display"),
+        (FLIGHTS_ROUTE, "Flights"),
+        (AIRLINES_ROUTE, "Airlines"),
+    )),
+    (ADVANCED_GROUP_LABEL, (
+        (HEALTH_ROUTE, "Health"),
+        (DEVICE_ROUTE, "Device"),
+    )),
 )
+
+# Ordered (route, label) pairs, flattened from NAV_GROUPS in display
+# order. Login is deliberately absent: it is shown instead of any page
+# when unauthenticated, never as a nav tab. The old "/settings" and
+# "/history" routes are not tabs any more — companion/app.py keeps both
+# as fixed 303 redirects (to DISPLAY_ROUTE and FLIGHTS_ROUTE) so a stale
+# bookmark still lands somewhere useful.
+NAV_TABS = tuple(
+    (route, label) for _group_label, entries in NAV_GROUPS for route, label in entries)
+
+# The slug a route is identified by inside the nav renderers and by
+# page_shell()'s `active` argument. The home route "/" has no path
+# segment to strip, so it gets an explicit slug rather than "".
+HOME_NAV_SLUG = "home"
+
+
+def nav_slug(route):
+    """The `active` slug for a NAV_TABS route: "home" for HOME_ROUTE,
+    otherwise the route with its leading slash removed."""
+    if route == HOME_ROUTE:
+        return HOME_NAV_SLUG
+    return route.lstrip("/")
+
 
 # --- 06.6.1-05: hamburger nav DOM contract (D-06) -----------------------
 #
@@ -167,6 +211,12 @@ ICON_IDS = (
     # outside this whitelist makes icon_html() silently return "" and the
     # trigger button would render an empty box with no error.
     "icon-nav-preview",
+    "icon-nav-home",
+    "icon-nav-flights",
+    "icon-nav-device",
+    "icon-nav-display",
+    "icon-power",
+    "icon-moon",
 )
 
 # 06.6.3: four more icons for the per-page redesign plans (D-05/D-23/
@@ -271,6 +321,33 @@ ICON_DEFS_HTML = (
     "</symbol>"
     # 06.6.3: four more glyphs (D-05/D-23/D-12/D-20), same viewBox/stroke
     # language as the ten above.
+    '<symbol id="icon-nav-home" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M3 9.5L10 3.5l7 6"/><path d="M5 8.5V16.5h4v-4h2v4h4V8.5"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-flights" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M2.5 12l4-1.5L14 3.5a1.6 1.6 0 0 1 2.3 2.3L9.5 13.5 8 17.5l-1.5-3.5z"/>'
+    '<path d="M6.5 14l-2 2"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-device" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="5" y="5" width="10" height="10" rx="2"/><rect x="8" y="8" width="4" height="4"/>'
+    '<path d="M8 2v3M12 2v3M8 15v3M12 15v3M2 8h3M2 12h3M15 8h3M15 12h3"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-display" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="2.5" y="3.5" width="15" height="11" rx="1.5"/><path d="M7 17.5h6"/>'
+    '<path d="M6 11l2.5-3 2 2.5 1.5-1.5 2 2"/>'
+    "</symbol>"
+    '<symbol id="icon-power" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 3v7"/><path d="M6 6a6 6 0 1 0 8 0"/>'
+    "</symbol>"
+    '<symbol id="icon-moon" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M16 12.5A7 7 0 0 1 7.5 4a7 7 0 1 0 8.5 8.5z"/>'
+    "</symbol>"
     '<symbol id="icon-check" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
     'stroke-linejoin="round">'
@@ -330,24 +407,14 @@ HEALTH_NAV_SLUG = "health"
 # happen for a real NAV_TABS entry) falls through icon_html()'s own
 # whitelist-fallback ("" for an unrecognised id), never a KeyError.
 NAV_ICON_IDS = {
-    # 06.6.4.1-07: key retargeted from "config" to "settings" (the new
-    # route slug, matching NAV_TABS' own rename above). The SVG symbol
-    # id value stays "icon-nav-config" unchanged — it is a gear glyph,
-    # visually correct for Settings, and renaming the symbol itself is
-    # cosmetic churn UI-SPEC §5.0 explicitly marks optional; the icon
-    # whitelist (ICON_IDS below) stays at its current membership.
-    "settings": "icon-nav-config",
-    "health": "icon-nav-health",
+    # Phase 18: keyed by nav_slug(route). "flights" keeps the History
+    # clock glyph; Home/Display/Device get their own symbols above.
+    "home": "icon-nav-home",
+    "display": "icon-nav-display",
+    "flights": "icon-nav-history",
     "airlines": "icon-nav-airlines",
-    "history": "icon-nav-history",
-    # 06.6.4.1-08 (D-22): "preview" key removed along with NAV_TABS' own
-    # preview entry above. "icon-nav-preview" (the eye glyph) itself stays
-    # in ICON_IDS below, unremoved — its consumer is now
-    # companion/pages/history_page.py's View-panel trigger button, not a
-    # nav tab. Removing the glyph from the whitelist (rather than just
-    # this map entry) would make that trigger render an empty box with no
-    # error, since icon_html() silently returns "" for an id outside
-    # ICON_IDS.
+    "health": "icon-nav-health",
+    "device": "icon-nav-device",
 }
 
 # 06.6.2-05 (UXA-10): the fragment id the skip-link's first-focusable
@@ -566,9 +633,31 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet"):
     if parsed is None or age is None:
         return '<span class="mono" title="%s">%s</span>' % (
             escape_html(ts), escape_html(ts))
-    clock = parsed.strftime("%H:%M")
-    return '<span class="mono" title="%s">%s UTC (%s)</span>' % (
-        escape_html(ts), escape_html(clock), escape_html(relative_age_text(age)))
+    return '<span class="mono" title="%s">%s (%s)</span>' % (
+        escape_html(ts), escape_html(local_clock_text(parsed, parse_iso(now_ts))),
+        escape_html(relative_age_text(age)))
+
+
+def local_clock_text(parsed, now_parsed=None):
+    """`parsed` (an aware or naive datetime) rendered on LOCAL_TZ: "HH:MM"
+    when it falls on the same local day as `now_parsed` (or when no `now`
+    is supplied), otherwise "D Mon HH:MM". A naive datetime is taken as
+    UTC, matching history_db.utc_now_iso()'s own output. Never raises.
+    """
+    try:
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=ZoneInfo("UTC"))
+        local = parsed.astimezone(LOCAL_TZ)
+        clock = local.strftime("%H:%M")
+        if now_parsed is not None:
+            if now_parsed.tzinfo is None:
+                now_parsed = now_parsed.replace(tzinfo=ZoneInfo("UTC"))
+            if now_parsed.astimezone(LOCAL_TZ).date() == local.date():
+                return clock
+            return "%d %s %s" % (local.day, _MONTH_ABBR[local.month - 1], clock)
+        return clock
+    except (ValueError, OverflowError, AttributeError):
+        return parsed.strftime("%H:%M") if hasattr(parsed, "strftime") else ""
 
 
 def ui_theme_from_cookie(cookies):
@@ -591,21 +680,37 @@ def _nav_links(active):
 
     This is the single place NAV_TABS is iterated and its route/label
     pair escaped; sidebar_nav() (vertical, >=960px) and _mobile_nav_html()
-    (hamburger dropdown, <960px, 06.6.1-05) both consume this instead of
-    re-iterating NAV_TABS and re-implementing the same escaping/
-    active-state logic twice — two renderers, one shared link-building
-    helper, never a third independent iteration of NAV_TABS. The
-    unescaped route `slug` (06.6.1-04) is now part of what this function
+    (hamburger dropdown, <960px, 06.6.1-05) both consume this (via
+    _nav_groups() below) instead of re-iterating NAV_TABS and
+    re-implementing the same escaping/active-state logic twice. The
+    unescaped route `slug` (06.6.1-04) is part of what this function
     single-sources too, so a renderer can identify a specific link (e.g.
     the Health nav-tab notification dot's target) without re-deriving
     "which link is Health" from an already-escaped route string.
     """
     links = []
     for route, label in NAV_TABS:
-        slug = route.lstrip("/")
+        slug = nav_slug(route)
         is_active = slug == active
         links.append((is_active, escape_html(route), escape_html(label), slug))
     return links
+
+
+def _nav_groups(active):
+    """NAV_GROUPS in display order, each as (escaped_group_label, links)
+    where `links` is the slice of _nav_links(active) belonging to that
+    group. Phase 18: the one place the group structure is walked, so the
+    sidebar and the dropdown can never disagree about which tab sits
+    under the "Advanced" label.
+    """
+    links = _nav_links(active)
+    groups = []
+    offset = 0
+    for group_label, entries in NAV_GROUPS:
+        count = len(entries)
+        groups.append((escape_html(group_label), links[offset:offset + count]))
+        offset += count
+    return groups
 
 
 # 06.6.1-05 (D-06, superseding D-00): the horizontally-scrollable nav
@@ -684,25 +789,37 @@ def sidebar_nav(active, health_alert=None):
     `.sidebar-link--active` rule, not here; the class names themselves
     are unchanged.
     """
-    links = []
-    for is_active, route, label, slug in _nav_links(active):
-        if is_active:
-            css_class = "sidebar-link sidebar-link--active"
-            aria_current = ' aria-current="page"'
+    parts = []
+    for group_label, group_links in _nav_groups(active):
+        links = []
+        for is_active, route, label, slug in group_links:
+            if is_active:
+                css_class = "sidebar-link sidebar-link--active"
+                aria_current = ' aria-current="page"'
+            else:
+                css_class = "sidebar-link"
+                aria_current = ""
+            icon = icon_html(
+                NAV_ICON_IDS.get(slug, ""), extra_class="sidebar-link__icon")
+            alert_html = (
+                _health_alert_markup(health_alert)
+                if health_alert in ("warn", "error") and slug == HEALTH_NAV_SLUG else "")
+            links.append(
+                '<a class="%s" href="%s"%s>%s%s%s</a>'
+                % (css_class, route, aria_current, icon, label, alert_html))
+        # Phase 18: an unlabelled group renders its links bare; a labelled
+        # group ("Advanced") wraps them in a .nav-group carrying a small
+        # uppercase label so the split reads at a glance.
+        if group_label:
+            parts.append(
+                '<div class="nav-group nav-group--advanced">'
+                '<span class="nav-group__label text-label">%s</span>%s</div>'
+                % (group_label, "".join(links)))
         else:
-            css_class = "sidebar-link"
-            aria_current = ""
-        icon = icon_html(
-            NAV_ICON_IDS.get(slug, ""), extra_class="sidebar-link__icon")
-        alert_html = (
-            _health_alert_markup(health_alert)
-            if health_alert in ("warn", "error") and slug == HEALTH_NAV_SLUG else "")
-        links.append(
-            '<a class="%s" href="%s"%s>%s%s%s</a>'
-            % (css_class, route, aria_current, icon, label, alert_html))
+            parts.append("".join(links))
     return (
         '<nav class="sidebar-nav" aria-label="Primary navigation">%s</nav>'
-        % "".join(links))
+        % "".join(parts))
 
 
 def _theme_form_html(resolved_theme):
@@ -771,17 +888,27 @@ def _mobile_nav_html(active, theme_form_html, health_alert=None):
     severity after the Health link's label, mirroring sidebar_nav()'s
     own contract exactly so the two nav renderers can never disagree.
     """
-    links = []
-    for is_active, route, label, slug in _nav_links(active):
-        css_class = (
-            "mobile-nav__link mobile-nav__link--active"
-            if is_active else "mobile-nav__link")
-        alert_html = (
-            _health_alert_markup(health_alert)
-            if health_alert in ("warn", "error") and slug == HEALTH_NAV_SLUG else "")
-        links.append(
-            '<a class="%s" href="%s">%s%s</a>'
-            % (css_class, route, label, alert_html))
+    parts = []
+    for group_label, group_links in _nav_groups(active):
+        links = []
+        for is_active, route, label, slug in group_links:
+            css_class = (
+                "mobile-nav__link mobile-nav__link--active"
+                if is_active else "mobile-nav__link")
+            alert_html = (
+                _health_alert_markup(health_alert)
+                if health_alert in ("warn", "error") and slug == HEALTH_NAV_SLUG else "")
+            links.append(
+                '<a class="%s" href="%s">%s%s</a>'
+                % (css_class, route, label, alert_html))
+        if group_label:
+            parts.append(
+                '<div class="nav-group nav-group--advanced">'
+                '<span class="nav-group__label text-label">%s</span>%s</div>'
+                % (group_label, "".join(links)))
+        else:
+            parts.append("".join(links))
+    links = parts
     toggle_html = (
         '<button type="button" id="%s" class="site-nav-toggle" '
         'aria-label="%s" aria-expanded="false" aria-controls="%s">%s</button>'

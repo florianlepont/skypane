@@ -1739,8 +1739,8 @@ def _battery_section(trend_rows, daily_rows=None):
     # D-08: the raw readings table is collapsed behind a closed-by-default
     # native <details> disclosure — no custom JS toggler needed.
     disclosure_html = (
-        '<details class="readings-disclosure"><summary>View %d readings</summary>%s</details>'
-        % (len(trend_rows), table_html))
+        '<details class="readings-disclosure"><summary>View %d reading%s</summary>%s</details>'
+        % (len(trend_rows), "" if len(trend_rows) == 1 else "s", table_html))
     # 260902-l0b: the series the CHART plots — the daily series when it is
     # usable, the raw series otherwise (the day-1 fallback). Everything
     # above and below this line keeps working from trend_rows unchanged.

@@ -266,7 +266,7 @@ EXPECTED_CHECK_COUNT = 159  # 157 + 2 (13-REVIEW.md WR-11 fix: end-to-end
 # on-disk check(...) call count at execution time (165/165 pass), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 165
-EXPECTED_CHECK_COUNT = 177  # 165 + 12 (phase 17 plan 04 Task 3, D-06/D-09:
+EXPECTED_CHECK_COUNT = 192  # 177 + 15 (phase 18: two more tabs in the per-tab loops (+4), legacy-route redirects (+4), Home/quick-action/scoped-save/split-page/no-store checks (+7)) — was 177 # 165 + 12 (phase 17 plan 04 Task 3, D-06/D-09:
 # the save-triggered immediate calendar sync's real-HTTP-round-trip
 # outcomes — plural/singular flight count, a zero-entry feed's distinct
 # success, the single generic failure message with the URL still saved,
@@ -1057,7 +1057,7 @@ def main():
             _data_table_wrapped_for_horizontal_scroll)
 
         def _sidebar_nav_renders_all_tabs_with_one_active():
-            markup = layout.sidebar_nav("history")
+            markup = layout.sidebar_nav("flights")
             if 'aria-label="Primary navigation"' not in markup:
                 return False, "expected the Primary navigation landmark label"
             for route, label in layout.NAV_TABS:
@@ -1086,9 +1086,11 @@ def main():
             # four — Preview is retired, its whole content absorbed into
             # History (06.6.4.1-05). Order matters: every nav renderer
             # walks NAV_TABS in this exact order.
-            if len(layout.NAV_TABS) != 4:
-                return False, "expected exactly 4 NAV_TABS entries, got %d" % len(layout.NAV_TABS)
-            expected_routes = ("/settings", "/health", "/airlines", "/history")
+            # Phase 18: six tabs in two groups — the everyday four, then
+            # the two under the "Advanced" label — flattened in that order.
+            if len(layout.NAV_TABS) != 6:
+                return False, "expected exactly 6 NAV_TABS entries, got %d" % len(layout.NAV_TABS)
+            expected_routes = ("/", "/display", "/flights", "/airlines", "/health", "/device")
             actual_routes = tuple(route for route, _ in layout.NAV_TABS)
             if actual_routes != expected_routes:
                 return False, (
@@ -1096,29 +1098,29 @@ def main():
                     % (expected_routes, actual_routes))
             return True, ""
         check(
-            "layout.NAV_TABS holds exactly 4 entries, in order settings/health/airlines/history",
+            "layout.NAV_TABS holds exactly 6 entries, in order home/display/flights/airlines/health/device",
             _nav_tabs_shrunk_to_four_settled_order)
 
         def _sidebar_and_dropdown_render_exactly_four_links_one_active_each():
-            sidebar_markup = layout.sidebar_nav("history")
+            sidebar_markup = layout.sidebar_nav("flights")
             sidebar_link_count = sidebar_markup.count('<a class="sidebar-link')
-            if sidebar_link_count != 4:
-                return False, "expected exactly 4 sidebar nav links, got %d" % sidebar_link_count
+            if sidebar_link_count != 6:
+                return False, "expected exactly 6 sidebar nav links, got %d" % sidebar_link_count
             if sidebar_markup.count("sidebar-link--active") != 1:
                 return False, "expected exactly one active sidebar link"
 
-            doc = layout.page_shell(title="T", active="history", body="<p>b</p>")
+            doc = layout.page_shell(title="T", active="flights", body="<p>b</p>")
             panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
             panel = doc[panel_start:doc.index("</header>")]
             dropdown_link_count = panel.count('<a class="mobile-nav__link')
-            if dropdown_link_count != 4:
-                return False, "expected exactly 4 mobile dropdown links, got %d" % dropdown_link_count
+            if dropdown_link_count != 6:
+                return False, "expected exactly 6 mobile dropdown links, got %d" % dropdown_link_count
             if panel.count("mobile-nav__link--active") != 1:
                 return False, "expected exactly one active mobile dropdown link"
             return True, ""
         check(
-            "a rendered authenticated page contains exactly four sidebar nav links and exactly "
-            "four mobile dropdown links, with exactly one marked active in each",
+            "a rendered authenticated page contains exactly six sidebar nav links and exactly "
+            "six mobile dropdown links, with exactly one marked active in each",
             _sidebar_and_dropdown_render_exactly_four_links_one_active_each)
 
         def _eye_glyph_survives_nav_shrink():
@@ -1253,16 +1255,16 @@ def main():
             # ICON_IDS for the supersession note. quick task 260903-df3
             # grew it again, fourteen to fifteen (icon-upload, the
             # Airlines lightbox replace zone's glyph).
-            if len(layout.ICON_IDS) != 15:
-                return False, "expected exactly fifteen ICON_IDS, got %d" % len(layout.ICON_IDS)
-            if len(set(layout.ICON_IDS)) != 15:
+            if len(layout.ICON_IDS) != 21:
+                return False, "expected exactly twenty-one ICON_IDS, got %d" % len(layout.ICON_IDS)
+            if len(set(layout.ICON_IDS)) != 21:
                 return False, "expected ICON_IDS to have no duplicates"
             symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
             if sorted(symbol_ids) != sorted(layout.ICON_IDS):
                 return False, "sprite symbol ids %r do not match ICON_IDS %r" % (
                     symbol_ids, layout.ICON_IDS)
-            if layout.ICON_DEFS_HTML.count("<symbol") != 15:
-                return False, "expected exactly fifteen <symbol occurrences, got %d" % (
+            if layout.ICON_DEFS_HTML.count("<symbol") != 21:
+                return False, "expected exactly twenty-one <symbol occurrences, got %d" % (
                     layout.ICON_DEFS_HTML.count("<symbol"))
             if 'stroke="currentColor"' not in layout.ICON_DEFS_HTML:
                 return False, "expected stroke=\"currentColor\" in the sprite"
@@ -1270,7 +1272,7 @@ def main():
                 return False, "a hard-coded hex fill would defeat the per-status tint"
             return True, ""
         check(
-            "layout.ICON_IDS has exactly fifteen unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
+            "layout.ICON_IDS has exactly twenty-one unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
             _icon_sprite_integrity)
 
         def _icon_html_whitelist_enforcement():
@@ -1317,15 +1319,15 @@ def main():
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             if doc.count("<defs") != 1:
                 return False, "expected exactly one <defs, got %d" % doc.count("<defs")
-            if doc.count("<symbol") != 15:
-                return False, "expected exactly fifteen <symbol, got %d" % doc.count("<symbol")
+            if doc.count("<symbol") != 21:
+                return False, "expected exactly twenty-one <symbol, got %d" % doc.count("<symbol")
             if doc.index("icon-defs") >= doc.index("dashboard-shell"):
                 return False, "expected the sprite to precede the dashboard-shell div"
             if ' style="' in doc:
                 return False, "page_shell() must emit no inline styles"
             return True, ""
         check(
-            "page_shell() emits exactly one sprite (one <defs, fifteen <symbol) before dashboard-shell, "
+            "page_shell() emits exactly one sprite (one <defs, twenty-one <symbol) before dashboard-shell, "
             "no inline styles",
             _page_shell_emits_sprite_once_no_inline_styles)
 
@@ -2411,10 +2413,18 @@ def main():
                 return True, ""
             return _run
 
-        for _tab_path in ("/settings", "/health", "/airlines", "/history"):
+        for _tab_path in ("/", "/display", "/flights", "/airlines", "/health", "/device"):
             check(
                 "unauthenticated GET %s redirects to /login carrying that route as ?next=" % _tab_path,
                 _unauth_redirects_to_login("GET", _tab_path, next_route=_tab_path))
+
+        # Phase 18: the retired page routes keep their session gate but,
+        # no longer being NAV_TABS members, carry no ?next= — the same
+        # contract /preview below has had since D-22.
+        for _legacy_path in ("/settings", "/history"):
+            check(
+                "unauthenticated GET %s (a retired page route) redirects to /login without ?next=" % _legacy_path,
+                _unauth_redirects_to_login("GET", _legacy_path))
 
         check(
             "unauthenticated GET /preview (the retired Preview page's redirect source) redirects "
@@ -2452,11 +2462,10 @@ def main():
             _unauth_redirects_to_login("GET", "/gallery/whatever.png"))
 
         check(
-            "unauthenticated POST /settings redirects to /login carrying /settings as ?next=",
+            "unauthenticated POST /settings redirects to /login (the write route is not a tab, so no ?next=)",
             _unauth_redirects_to_login(
                 "POST", "/settings",
-                data=urllib.parse.urlencode({"ui_theme": "sky"}).encode(),
-                next_route="/settings"))
+                data=urllib.parse.urlencode({"ui_theme": "sky"}).encode()))
 
         check(
             "unauthenticated POST /poll-now redirects to /login without page content "
@@ -2760,15 +2769,15 @@ def main():
                 data=urllib.parse.urlencode({"password": TEST_PASSWORD}).encode())
             if status != 303:
                 return False, "expected a 303 redirect on successful login, got %d" % status
-            if headers.get("Location") != "/settings":
-                return False, "expected a redirect to /settings, got %r" % headers.get("Location")
+            if headers.get("Location") != "/":
+                return False, "expected a redirect to / (Home), got %r" % headers.get("Location")
             set_cookie = headers.get("Set-Cookie", "")
             for needle in ("HttpOnly", "Secure", "SameSite=Strict"):
                 if needle not in set_cookie:
                     return False, "missing %r in the session cookie header: %r" % (needle, set_cookie)
             return True, ""
         check(
-            "a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict and redirects to /settings",
+            "a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict and redirects to / (Home)",
             _login_correct_password)
 
         # --- 06.6.2-07 (UXA-03): deep-link return, open-redirect rejection,
@@ -2807,8 +2816,8 @@ def main():
                 if status != 303:
                     return False, "expected 303 on login POST, got %d" % status
                 location = headers.get("Location", "")
-                if location != "/settings":
-                    return False, "expected the safe /settings fallback, got %r" % location
+                if location != "/":
+                    return False, "expected the safe / (Home) fallback, got %r" % location
                 if "evil.example" in location:
                     return False, "the crafted next value leaked into the redirect Location"
                 return True, ""
@@ -2817,7 +2826,7 @@ def main():
         for _crafted_next in ("https://evil.example", "//evil.example"):
             check(
                 "a login POST with the correct password and next=%r redirects to the "
-                "/settings fallback, never to the crafted value (T-06.6.2-12)" % _crafted_next,
+                "/ (Home) fallback, never to the crafted value (T-06.6.2-12)" % _crafted_next,
                 _open_redirect_rejected(_crafted_next))
 
         def _login_get_with_unrecognised_next_carries_no_hidden_field():
@@ -2883,8 +2892,8 @@ def main():
         # lands. See the dedicated redirect checks just below instead.
 
         for _tab_path, _heading in (
-            ("/settings", "Settings"), ("/health", "Health"),
-            ("/airlines", "Airlines"), ("/history", "History"),
+            ("/", "Home"), ("/display", "Display"), ("/flights", "Flights"),
+            ("/airlines", "Airlines"), ("/health", "Health"), ("/device", "Device"),
         ):
             def _tab_ok(tab_path=_tab_path, heading=_heading):
                 status, _headers, body = http_request(base + tab_path, cookie=session_cookie)
@@ -2905,14 +2914,32 @@ def main():
             status, headers, body = http_request(base + "/preview", cookie=session_cookie)
             if status != 303:
                 return False, "expected a 303 redirect, got %d" % status
-            if headers.get("Location") != "/history":
-                return False, "expected a redirect to /history exactly, got %r" % headers.get("Location")
+            if headers.get("Location") != "/flights":
+                return False, "expected a redirect to /flights exactly, got %r" % headers.get("Location")
             if body:
                 return False, "expected an empty redirect body, got %d bytes of content" % len(body)
             return True, ""
         check(
-            "authenticated GET /preview (the retired Preview page route) redirects to /history (D-22)",
+            "authenticated GET /preview (the retired Preview page route) redirects to /flights (D-22, retargeted by phase 18)",
             _preview_redirects_to_history)
+
+        def _legacy_page_routes_redirect(path, target):
+            def _run():
+                status, headers, body = http_request(base + path, cookie=session_cookie)
+                if status != 303:
+                    return False, "expected a 303 redirect for %s, got %d" % (path, status)
+                if headers.get("Location") != target:
+                    return False, "expected %s to redirect to %s exactly, got %r" % (
+                        path, target, headers.get("Location"))
+                if body:
+                    return False, "expected an empty redirect body"
+                return True, ""
+            return _run
+        for _legacy, _target in (("/settings", "/display"), ("/history", "/flights")):
+            check(
+                "authenticated GET %s (a pre-phase-18 page route) redirects to %s with a fixed literal target"
+                % (_legacy, _target),
+                _legacy_page_routes_redirect(_legacy, _target))
 
         def _preview_redirect_ignores_query_string():
             status, headers, _body = http_request(
@@ -2920,15 +2947,15 @@ def main():
                 cookie=session_cookie)
             if status != 303:
                 return False, "expected a 303 redirect, got %d" % status
-            if headers.get("Location") != "/history":
+            if headers.get("Location") != "/flights":
                 return False, (
-                    "expected the redirect location to stay /history regardless of an "
+                    "expected the redirect location to stay /flights regardless of an "
                     "arbitrary query string, got %r" % headers.get("Location"))
             return True, ""
         check(
             "authenticated GET /preview carrying an arbitrary query string (including a "
             "next=-shaped and an https://evil.example-shaped value) still redirects to the "
-            "identical /history location — no request value influences the target",
+            "identical /flights location — no request value influences the target",
             _preview_redirect_ignores_query_string)
 
         # Session gate on the retired /preview redirect route: covered by
@@ -2972,12 +2999,203 @@ def main():
             if status != 303:
                 return False, "expected a 303 redirect, got %d" % status
             location = headers.get("Location", "")
-            if not location.startswith("/settings?flash="):
-                return False, "expected a redirect to /settings?flash=..., got %r" % location
+            if not location.startswith("/display?flash="):
+                return False, "expected a redirect to /display?flash=..., got %r" % location
             return True, ""
         check(
-            "an authenticated POST /settings redirects to /settings carrying a flash query",
+            "an authenticated POST /settings redirects to /display (the default return page) carrying a flash query",
             _settings_post_redirects_to_settings_with_flash)
+
+        # --- Phase 18: Home page, quick actions, scoped settings saves ---
+
+        def _home_page_renders_widgets():
+            status, _headers, body = http_request(base + "/", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 for GET /, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            for needle in (
+                    '<h1 class="page-title">Home</h1>', "Quick actions",
+                    'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
+                    'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+                    'action="%s"' % app_module.POLL_ROUTE,
+                    "On the frame now", "Recent flights", 'href="/flights"',
+                    'class="nav-group nav-group--advanced"'):
+                if needle not in text:
+                    return False, "expected %r in the Home page" % needle
+            return True, ""
+        check(
+            "authenticated GET / renders the Home page with the status tiles, the three quick-action "
+            "forms (screen, quiet hours, refresh), the current-panel card, the recent-flights list, "
+            "and the grouped Advanced navigation",
+            _home_page_renders_widgets)
+
+        def _quick_display_toggle_round_trip():
+            for state, expected_flash, expected_value in (
+                    ("off", app_module.FLASH_KEY_DISPLAY_OFF, False),
+                    ("on", app_module.FLASH_KEY_DISPLAY_ON, True)):
+                status, headers, _ = http_request(
+                    base + app_module.QUICK_DISPLAY_ROUTE, method="POST",
+                    cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": state}).encode())
+                if status != 303:
+                    return False, "expected 303 for state=%s, got %d" % (state, status)
+                if headers.get("Location") != "/?flash=%s" % expected_flash:
+                    return False, "expected a redirect to /?flash=%s, got %r" % (
+                        expected_flash, headers.get("Location"))
+                on_disk = device_config.load_device_config(harness.tmpdir)
+                if on_disk["display_enabled"] is not expected_value:
+                    return False, "expected display_enabled %r on disk after state=%s, got %r" % (
+                        expected_value, state, on_disk["display_enabled"])
+            status, headers, _ = http_request(
+                base + app_module.QUICK_DISPLAY_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"state": "toggle"}).encode())
+            if status != 303 or headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED:
+                return False, "expected a crafted state value to redirect with the quick_failed flash, got %d/%r" % (
+                    status, headers.get("Location"))
+            if device_config.load_device_config(harness.tmpdir)["display_enabled"] is not True:
+                return False, "expected a rejected quick action to leave display_enabled untouched"
+            return True, ""
+        check(
+            "POST /quick/display with state=off then state=on flips display_enabled on disk and redirects "
+            "to Home with the matching flash; a crafted state value redirects with quick_failed and writes nothing",
+            _quick_display_toggle_round_trip)
+
+        def _quick_quiet_hours_toggle_round_trip():
+            status, headers, _ = http_request(
+                base + app_module.QUICK_QUIET_HOURS_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"state": "on"}).encode())
+            if status != 303 or headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUIET_ON:
+                return False, "expected a redirect to /?flash=quiet_on, got %d/%r" % (status, headers.get("Location"))
+            on_disk = device_config.load_device_config(harness.tmpdir)
+            if on_disk["quiet_hours_enabled"] is not True:
+                return False, "expected quiet_hours_enabled True on disk"
+            if on_disk["display_enabled"] is not True:
+                return False, "expected the quiet-hours toggle to carry display_enabled forward untouched"
+            status, headers, _ = http_request(
+                base + app_module.QUICK_QUIET_HOURS_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"state": "off"}).encode())
+            if headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUIET_OFF:
+                return False, "expected a redirect to /?flash=quiet_off, got %r" % headers.get("Location")
+            if device_config.load_device_config(harness.tmpdir)["quiet_hours_enabled"] is not False:
+                return False, "expected quiet_hours_enabled False on disk"
+            return True, ""
+        check(
+            "POST /quick/quiet-hours with state=on then state=off flips quiet_hours_enabled on disk, "
+            "redirects to Home with the matching flash, and never touches display_enabled",
+            _quick_quiet_hours_toggle_round_trip)
+
+        check(
+            "unauthenticated POST /quick/display redirects to /login without page content",
+            _unauth_redirects_to_login(
+                "POST", app_module.QUICK_DISPLAY_ROUTE,
+                data=urllib.parse.urlencode({"state": "off"}).encode()))
+
+        def _scoped_settings_save_carries_other_page_forward():
+            # A legacy (unscoped) full save first: LED on, display on.
+            status, _headers, _ = http_request(
+                base + "/settings", method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({
+                    "theme": "white", "tracked_runway": "3", "led_enabled": "on",
+                    "display_enabled": "on"}).encode())
+            if status != 303:
+                return False, "expected 303 on the full save, got %d" % status
+            # A Display-page save carries no LED field at all — the LED
+            # must stay ON, not silently flip to off.
+            status, headers, _ = http_request(
+                base + "/settings", method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({
+                    "scope": "display", "return_to": "/display",
+                    "theme": "black", "display_enabled": "on"}).encode())
+            if status != 303 or headers.get("Location") != "/display?flash=saved":
+                return False, "expected a 303 to /display?flash=saved, got %d/%r" % (
+                    status, headers.get("Location"))
+            on_disk = device_config.load_device_config(harness.tmpdir)
+            if on_disk["theme"] != "black":
+                return False, "expected the Display-page save to persist theme=black"
+            if on_disk["led_enabled"] is not True:
+                return False, "expected a Display-page save to leave led_enabled True (out of scope), got %r" % (on_disk["led_enabled"],)
+            # A Device-page save carries no display_enabled field — the
+            # screen must stay ON; its own absent LED box means off.
+            status, headers, _ = http_request(
+                base + "/settings", method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({
+                    "scope": "device", "return_to": "/device",
+                    "tracked_runway": "06-24"}).encode())
+            if status != 303 or headers.get("Location") != "/device?flash=saved":
+                return False, "expected a 303 to /device?flash=saved, got %d/%r" % (
+                    status, headers.get("Location"))
+            on_disk = device_config.load_device_config(harness.tmpdir)
+            if on_disk["tracked_runway"] != "06-24":
+                return False, "expected the Device-page save to persist tracked_runway=06-24"
+            if on_disk["display_enabled"] is not True:
+                return False, "expected a Device-page save to leave display_enabled True (out of scope)"
+            if on_disk["led_enabled"] is not False:
+                return False, "expected the Device-page save's absent LED box to persist led_enabled False"
+            if on_disk["theme"] != "black":
+                return False, "expected the Device-page save to leave the theme untouched"
+            # A crafted return_to never becomes the redirect target.
+            status, headers, _ = http_request(
+                base + "/settings", method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({
+                    "scope": "display", "return_to": "https://evil.example",
+                    "theme": "white"}).encode())
+            if headers.get("Location") != "/display?flash=saved":
+                return False, "expected a crafted return_to to fall back to /display, got %r" % headers.get("Location")
+            return True, ""
+        check(
+            "a scoped POST /settings (scope=display / scope=device) persists only its own page's groups, "
+            "carries the other page's checkbox state forward instead of flipping it off, redirects to the "
+            "page it came from, and never honours a crafted return_to",
+            _scoped_settings_save_carries_other_page_forward)
+
+        def _display_and_device_pages_split_the_groups():
+            _s, _h, display_body = http_request(base + "/display", cookie=session_cookie)
+            _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
+            display_text = display_body.decode("utf-8", errors="replace")
+            device_text = device_body.decode("utf-8", errors="replace")
+            if 'name="theme"' not in display_text or 'name="quiet_hours_enabled"' not in display_text:
+                return False, "expected the Display page to carry the theme and quiet-hours groups"
+            if 'name="tracked_runway"' in display_text or 'name="led_enabled"' in display_text:
+                return False, "expected the Display page NOT to carry the runway or LED groups"
+            if 'name="tracked_runway"' not in device_text or 'name="wake_interval_s"' not in device_text:
+                return False, "expected the Device page to carry the runway and wake-interval groups"
+            if 'name="theme"' in device_text.replace('name="theme_id"', ""):
+                # the rules add-form's own theme select is name="theme_id"; the
+                # settings theme radios are name="theme" and must be absent.
+                if 'name="theme" ' in device_text or 'name="theme">' in device_text:
+                    return False, "expected the Device page NOT to carry the theme chip grid"
+            for text, scope, route in ((display_text, "display", "/display"), (device_text, "device", "/device")):
+                if '<input type="hidden" name="scope" value="%s">' % scope not in text:
+                    return False, "expected the %s page to carry its hidden scope field" % scope
+                if '<input type="hidden" name="return_to" value="%s">' % route not in text:
+                    return False, "expected the %s page to carry its hidden return_to field" % scope
+                if "Screen: Plane frame" not in text:
+                    return False, "expected the %s page to name its screen type" % scope
+            if "Manual refresh" not in device_text or "Per-flight colour rules" not in device_text:
+                return False, "expected the Device page to carry the rules editor and manual refresh"
+            if "Manual refresh" in display_text or "Per-flight colour rules" in display_text:
+                return False, "expected the Display page NOT to carry the rules editor or manual refresh"
+            return True, ""
+        check(
+            "GET /display and GET /device split the settings groups per companion/screens.py, each carrying "
+            "its hidden scope/return_to fields and the screen-type caption; the rules editor and manual "
+            "refresh live on Device only",
+            _display_and_device_pages_split_the_groups)
+
+        def _html_pages_are_no_store():
+            status, headers, _ = http_request(base + "/", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if headers.get("Cache-Control") != "no-store":
+                return False, "expected Cache-Control: no-store on an authenticated HTML page, got %r" % headers.get("Cache-Control")
+            status, headers, _ = http_request(base + "/login")
+            if headers.get("Cache-Control") != "no-store":
+                return False, "expected Cache-Control: no-store on the login page, got %r" % headers.get("Cache-Control")
+            return True, ""
+        check(
+            "every HTML response (an authenticated page and the login page alike) carries Cache-Control: "
+            "no-store, so the back button and shared caches never replay a page after sign-out",
+            _html_pages_are_no_store)
 
         # --- 11-04 end-to-end: the real SKYPANE_SLEEP_S pre-fill, over a  ---
         # --- dedicated Harness instance (the environment must be set     ---
@@ -2998,7 +3216,7 @@ def main():
 
                 # (a) nothing stored on disk -> pre-filled from SKYPANE_SLEEP_S
                 status, _headers, body = http_request(
-                    prefill_base + "/settings", cookie=prefill_cookie)
+                    prefill_base + "/device", cookie=prefill_cookie)
                 if status != 200:
                     return False, "expected 200 for the env-only pre-fill case, got %d" % status
                 if not re.search(rb'name="wake_interval_s"[^>]*value="900"', body):
@@ -3009,7 +3227,7 @@ def main():
                 # (b) an on-disk wake_interval_s always wins over the environment
                 device_config.save_device_config(prefill_harness.tmpdir, wake_interval_s=120)
                 status, _headers, body = http_request(
-                    prefill_base + "/settings", cookie=prefill_cookie)
+                    prefill_base + "/device", cookie=prefill_cookie)
                 if status != 200:
                     return False, "expected 200 after storing wake_interval_s=120, got %d" % status
                 if not re.search(rb'name="wake_interval_s"[^>]*value="120"', body):
@@ -3030,7 +3248,7 @@ def main():
                 else:
                     os.environ.pop(app_module.SLEEP_ENV_VAR, None)
         check(
-            "authenticated GET /settings pre-fills Wake interval with SKYPANE_SLEEP_S=900 "
+            "authenticated GET /device pre-fills Wake interval with SKYPANE_SLEEP_S=900 "
             "when nothing is stored, and a stored wake_interval_s=120 always wins over that "
             "environment value",
             _wake_interval_env_prefill_and_on_disk_precedence)
@@ -3048,7 +3266,7 @@ def main():
                 floor_cookie = _login(floor_harness)
 
                 status, _headers, body = http_request(
-                    floor_base + "/settings", cookie=floor_cookie)
+                    floor_base + "/device", cookie=floor_cookie)
                 if status != 200:
                     return False, "expected 200, got %d" % status
                 if b'name="wake_interval_s"' not in body:
@@ -3071,44 +3289,44 @@ def main():
                 else:
                     os.environ.pop(app_module.SLEEP_ENV_VAR, None)
         check(
-            "authenticated GET /settings degrades a below-floor SKYPANE_SLEEP_S=30 (the "
+            "authenticated GET /device degrades a below-floor SKYPANE_SLEEP_S=30 (the "
             "shipped deploy/skypane.env.example value) to the placeholder empty state, "
             "never a value attribute the form could not submit",
             _wake_interval_below_floor_env_degrades_to_placeholder)
 
         def _login_get_with_settings_next_carries_hidden_field():
-            status, _headers, body = http_request(base + "/login?next=/settings")
+            status, _headers, body = http_request(base + "/login?next=/display")
             if status != 200:
                 return False, "expected 200, got %d" % status
-            if b'name="next" value="/settings"' not in body:
+            if b'name="next" value="/display"' not in body:
                 return False, (
-                    "expected the recognised /settings ?next= value to survive the "
+                    "expected the recognised /display ?next= value to survive the "
                     "round trip as a rendered hidden field")
             return True, ""
         check(
-            "GET /login?next=/settings (a real NAV_TABS member) renders a hidden next "
-            "field carrying /settings, surviving the round trip",
+            "GET /login?next=/display (a real NAV_TABS member) renders a hidden next "
+            "field carrying /display, surviving the round trip",
             _login_get_with_settings_next_carries_hidden_field)
 
         def _settings_route_and_icon_map_cross_module_contract():
             import companion.app as app_module
             from companion.pages import config_page
-            if not (app_module.SETTINGS_ROUTE == config_page.SETTINGS_ROUTE
-                    == layout.NAV_TABS[0][0]):
-                return False, (
-                    "expected app.SETTINGS_ROUTE == config_page.SETTINGS_ROUTE == "
-                    "layout.NAV_TABS[0][0], got %r / %r / %r"
-                    % (app_module.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE,
-                       layout.NAV_TABS[0][0]))
-            nav_slugs = {route.lstrip("/") for route, _ in layout.NAV_TABS}
+            # Phase 18: the settings WRITE route is shared by the Display
+            # and Device pages and is no longer a tab itself; the first tab
+            # is Home.
+            if app_module.SETTINGS_ROUTE != config_page.SETTINGS_ROUTE:
+                return False, "expected app.SETTINGS_ROUTE == config_page.SETTINGS_ROUTE"
+            if layout.NAV_TABS[0][0] != layout.HOME_ROUTE or app_module.HOME_ROUTE != layout.HOME_ROUTE:
+                return False, "expected NAV_TABS[0][0] and app.HOME_ROUTE to both be layout.HOME_ROUTE"
+            nav_slugs = {layout.nav_slug(route) for route, _ in layout.NAV_TABS}
             if set(layout.NAV_ICON_IDS) != nav_slugs:
                 return False, (
                     "expected NAV_ICON_IDS' keys to equal the set of nav route "
                     "slugs, got %r vs %r" % (set(layout.NAV_ICON_IDS), nav_slugs))
             return True, ""
         check(
-            "app.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE, and layout.NAV_TABS[0][0] all "
-            "agree, and NAV_ICON_IDS' keys equal the nav route slugs one-to-one",
+            "app.SETTINGS_ROUTE and config_page.SETTINGS_ROUTE agree, NAV_TABS opens with "
+            "HOME_ROUTE, and NAV_ICON_IDS' keys equal the nav route slugs one-to-one",
             _settings_route_and_icon_map_cross_module_contract)
 
         def _nav_page_titles_icon_route_standing_contract_guard():
@@ -3123,7 +3341,7 @@ def main():
             # page module's own route constant.
             import companion.app as app_module
             nav_routes = [route for route, _ in layout.NAV_TABS]
-            nav_slugs = {route.lstrip("/") for route in nav_routes}
+            nav_slugs = {layout.nav_slug(route) for route in nav_routes}
             page_title_keys = set(app_module._PAGE_TITLES)
             if page_title_keys != set(nav_routes):
                 return False, (
@@ -3139,11 +3357,10 @@ def main():
                 return False, (
                     "expected NAV_ICON_IDS' keys to equal the set of NAV_TABS "
                     "slugs one-to-one, got %r vs %r" % (icon_slugs, nav_slugs))
-            if app_module.SETTINGS_ROUTE != layout.NAV_TABS[0][0]:
+            if layout.NAV_TABS[0][0] != layout.HOME_ROUTE:
                 return False, (
-                    "expected app.SETTINGS_ROUTE to equal NAV_TABS' first "
-                    "route, got %r vs %r"
-                    % (app_module.SETTINGS_ROUTE, layout.NAV_TABS[0][0]))
+                    "expected NAV_TABS' first route to be HOME_ROUTE, got %r"
+                    % (layout.NAV_TABS[0][0],))
             return True, ""
         check(
             "the nav tuple, the page-titles dict, and the slug-to-icon map all agree in size "
@@ -3187,13 +3404,13 @@ def main():
             # cookie at all on the next request, exactly as a browser
             # would - resending the stale cookie value would prove
             # nothing (it would still verify, by design).
-            status, headers, _ = http_request(base + "/settings")
-            # 06.6.2-07 (UXA-03): /settings is a NAV_TABS route (renamed
-            # from /config, 06.6.4.1-07), so require_session() now carries
-            # it as ?next= too — the same allowlisted-return behavior
-            # every other unauthenticated NAV_TABS request gets.
-            if status != 303 or headers.get("Location") != "/login?next=%2Fsettings":
-                return False, "expected a redirect to /login?next=%%2Fsettings for a post-logout request, got %d/%r" % (
+            status, headers, _ = http_request(base + "/display")
+            # 06.6.2-07 (UXA-03): a NAV_TABS route (phase 18: /display),
+            # so require_session() carries it as ?next= too — the same
+            # allowlisted-return behavior every other unauthenticated
+            # NAV_TABS request gets.
+            if status != 303 or headers.get("Location") != "/login?next=%2Fdisplay":
+                return False, "expected a redirect to /login?next=%%2Fdisplay for a post-logout request, got %d/%r" % (
                     status, headers.get("Location"))
             return True, ""
         check(
@@ -4311,9 +4528,9 @@ def main():
                 if add_result != colour_rules.ADD_OK_NEW:
                     return False, "test setup failure: add_rule() returned %r" % (add_result,)
 
-                status, _headers, body = http_request(rbase + "/settings", cookie=rsession)
+                status, _headers, body = http_request(rbase + "/device", cookie=rsession)
                 if status != 200:
-                    return False, "expected 200 GET /settings, got %d" % status
+                    return False, "expected 200 GET /device, got %d" % status
                 page = body.decode("utf-8")
 
                 add_form_marker = 'action="%s"' % config_page.RULES_ADD_ROUTE
@@ -4595,7 +4812,7 @@ def main():
                 rbase = rules_harness.base_url()
                 rsession = _login(rules_harness)
 
-                status, _headers, body = http_request(rbase + "/settings", cookie=rsession)
+                status, _headers, body = http_request(rbase + "/device", cookie=rsession)
                 if status != 200:
                     return False, "expected 200, got %d" % status
                 if b"FRESHRD1" in body:
@@ -4606,7 +4823,7 @@ def main():
                 if add_result != colour_rules.ADD_OK_NEW:
                     return False, "test setup failure: add_rule() returned %r" % (add_result,)
 
-                status, _headers, body = http_request(rbase + "/settings", cookie=rsession)
+                status, _headers, body = http_request(rbase + "/device", cookie=rsession)
                 if status != 200:
                     return False, "expected 200, got %d" % status
                 if b"FRESHRD1" not in body:

@@ -269,7 +269,7 @@ EXPECTED_CHECK_COUNT = 127
 # 127 + 11 = 138, recomputed directly against the real on-disk check(...)
 # call count at execution time (138/138 pass), not trusted from
 # arithmetic alone.
-EXPECTED_CHECK_COUNT = 138
+EXPECTED_CHECK_COUNT = 142  # 138 + 4 (phase 18: page scopes / screens registry)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -751,14 +751,14 @@ def main():
         rendered = config_page.render({"device_config": {}, "state_dir": "/tmp"})
         if rendered.count('name="display_enabled"') != 1:
             return False, "expected exactly one display_enabled input"
-        segment = rendered[rendered.index('%s="Display"' % config_page.DIRTY_SECTION_ATTR):]
+        segment = rendered[rendered.index('%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.DISPLAY_SECTION_HEADING)):]
         segment = segment[:segment.index("</div>")]
         if " checked" not in segment:
             return False, "expected an empty device_config to render the Display box checked (D-09)"
 
         rendered_off = config_page.render({
             "device_config": {"display_enabled": False}, "state_dir": "/tmp"})
-        segment_off = rendered_off[rendered_off.index('%s="Display"' % config_page.DIRTY_SECTION_ATTR):]
+        segment_off = rendered_off[rendered_off.index('%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.DISPLAY_SECTION_HEADING)):]
         segment_off = segment_off[:segment_off.index("</div>")]
         if " checked" in segment_off:
             return False, "expected device_config={'display_enabled': False} to render the box unchecked"
@@ -841,7 +841,7 @@ def main():
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
-        for name in ("Theme", "Runway", "Diagnostic LED", "Poll"):
+        for name in ("Theme", "Runway", "Diagnostic LED", config_page.POLL_SECTION_HEADING):
             heading = '<h2 class="text-heading">%s</h2>' % name
             if rendered.count(heading) != 1:
                 return False, (
@@ -943,7 +943,7 @@ def main():
         bar_pos = rendered.index("data-dirty-bar")
         if bar_pos <= form_end:
             return False, "expected data-dirty-bar to appear AFTER </form> closes, not inside it"
-        poll_heading = '<h2 class="text-heading">Poll</h2>'
+        poll_heading = '<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING
         if poll_heading not in rendered:
             return False, "expected the Poll section heading to be present"
         poll_pos = rendered.index(poll_heading)
@@ -1193,7 +1193,7 @@ def main():
             r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
         expected = [
             "Theme", "Runway", "Diagnostic LED", "Quiet hours",
-            "Wake interval", "Display", "Calendar"]
+            "Wake interval", config_page.DISPLAY_SECTION_HEADING, "Calendar"]
         if found != expected:
             return False, "expected %r in document order, got %r" % (expected, found)
         return True, ""
@@ -1472,7 +1472,7 @@ def main():
             return False, (
                 "expected render() to carry POLL_SECTION_CAPTION "
                 "escaped-verbatim exactly once, got %d" % page.count(poll_caption))
-        heading_pos = page.index('<h2 class="text-heading">Poll</h2>')
+        heading_pos = page.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
         page_caption_pos = page.index(poll_caption)
         poll_now_pos = page.index('action="/poll-now"')
         if not heading_pos < page_caption_pos < poll_now_pos:
@@ -3221,7 +3221,7 @@ def main():
         })
         form_end = rendered.index("</form>")
         rules_pos = rendered.index(config_page.RULES_SECTION_HEADING)
-        poll_pos = rendered.index('<h2 class="text-heading">Poll</h2>')
+        poll_pos = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
         if not (form_end < rules_pos < poll_pos):
             return False, (
                 "expected </form> < Rules heading < Poll heading, got positions %d/%d/%d"
@@ -3239,7 +3239,7 @@ def main():
         }
         rendered = config_page.render(empty_ctx)
         rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
-        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
         rules_segment = rendered[rules_start:poll_start]
         if config_page.RULES_EMPTY_HEADING not in rules_segment:
             return False, "expected the empty-state heading with no rules"
@@ -3261,7 +3261,7 @@ def main():
         filled_ctx["now"] = "2026-01-02T00:00:00+00:00"
         rendered = config_page.render(filled_ctx)
         rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
-        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
         rules_segment = rendered[rules_start:poll_start]
         if config_page.RULES_EMPTY_HEADING in rules_segment:
             return False, "expected the empty state to be replaced once a rule exists"
@@ -3292,7 +3292,7 @@ def main():
             "now": "2026-01-02T00:00:00+00:00",
         })
         rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
-        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
         rules_segment = rendered[rules_start:poll_start]
         if "data-cards" not in rules_segment or "data-table-wrap" not in rules_segment:
             return False, "expected both data-cards and data-table-wrap to be present"
@@ -3424,7 +3424,7 @@ def main():
             "poll_cooldown_remaining": 0,
         })
         rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
-        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
         rules_segment = rendered[rules_start:poll_start]
         if config_page.DIRTY_SECTION_ATTR in rules_segment:
             return False, "expected the rules section to carry no data-dirty-section attribute"
@@ -3679,7 +3679,7 @@ def main():
                 colour_rules=registry)
             rendered = config_page.render(ctx)
             rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
-            poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+            poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
             rules_segment = rendered[rules_start:poll_start]
             if "AFR1234" not in rules_segment:
                 return False, "expected the manually-added rule's key to appear in the rules list"
@@ -4167,6 +4167,128 @@ def main():
     # module, and the persistence layer actually agree end to end.
     # ==================================================================
 
+    # --- Phase 18: page scopes and the screen-type registry ---------------
+
+    def _scope_groups_follow_the_screen_registry():
+        from companion import screens
+        screen = screens.screen_type()
+        if config_page.scope_groups(config_page.SCOPE_DISPLAY) != tuple(screen["everyday_groups"]):
+            return False, "expected the display scope to render the screen's everyday groups"
+        if config_page.scope_groups(config_page.SCOPE_DEVICE) != tuple(screen["advanced_groups"]):
+            return False, "expected the device scope to render the screen's advanced groups"
+        everyday = set(config_page.scope_groups(config_page.SCOPE_DISPLAY))
+        advanced = set(config_page.scope_groups(config_page.SCOPE_DEVICE))
+        if everyday & advanced:
+            return False, "expected no settings group on both pages, got %r" % (everyday & advanced,)
+        if set(config_page.scope_groups(config_page.SCOPE_ALL)) != everyday | advanced:
+            return False, "expected the legacy all-scope to be exactly the union of the two pages"
+        if screens.screen_type("no-such-screen") is not screens.screen_type():
+            return False, "expected an unknown screen id to fall back to the default screen"
+        if screens.current_screen_id({"screen_id": "no-such-screen"}) != screens.DEFAULT_SCREEN_ID:
+            return False, "expected a hostile ctx screen_id to resolve to the default screen"
+        return True, ""
+    check(
+        "scope_groups() renders the display/device pages from companion/screens.py's per-screen "
+        "declaration — disjoint, together equal to the legacy single page — and unknown screen ids "
+        "fall back to the default screen",
+        _scope_groups_follow_the_screen_registry)
+
+    def _submitted_scope_and_return_route_are_allowlisted():
+        if config_page.submitted_scope({}) != config_page.SCOPE_ALL:
+            return False, "expected a form without a scope field to resolve to the legacy all-scope"
+        if config_page.submitted_scope({"scope": "device"}) != config_page.SCOPE_DEVICE:
+            return False, "expected scope=device to resolve to SCOPE_DEVICE"
+        if config_page.submitted_scope({"scope": "<script>"}) != config_page.SCOPE_ALL:
+            return False, "expected a crafted scope to degrade to the all-scope, never be echoed"
+        if config_page.submitted_return_route({"return_to": "/device"}) != "/device":
+            return False, "expected /device to be an allowed return route"
+        for hostile in ("https://evil.example", "//evil.example", "/settings", "/login", ""):
+            if config_page.submitted_return_route({"return_to": hostile}) != "/display":
+                return False, "expected %r to fall back to /display" % hostile
+        return True, ""
+    check(
+        "submitted_scope() and submitted_return_route() are strict allowlists: unknown scopes degrade "
+        "to the legacy all-scope and any non-member return_to falls back to /display",
+        _submitted_scope_and_return_route_are_allowlisted)
+
+    def _scoped_render_carries_hidden_fields_and_omits_other_groups():
+        ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        legacy = config_page.render(ctx)
+        if 'name="scope" value="display"' not in display or 'name="return_to" value="/display"' not in display:
+            return False, "expected the display scope's hidden scope/return_to fields"
+        if 'name="scope" value="device"' not in device or 'name="return_to" value="/device"' not in device:
+            return False, "expected the device scope's hidden scope/return_to fields"
+        if 'name="scope"' in legacy:
+            return False, "expected the legacy all-scope render to carry no scope field"
+        if 'name="tracked_runway"' in display or 'name="led_enabled"' in display:
+            return False, "expected no runway/LED group on the Display page"
+        if 'name="theme_arriving_enabled"' in device or 'name="quiet_hours_enabled"' in device:
+            return False, "expected no theme/quiet-hours group on the Device page"
+        if display.count('<h1 class="page-title">Display</h1>') != 1:
+            return False, "expected the Display page title"
+        if device.count('<h1 class="page-title">Device</h1>') != 1:
+            return False, "expected the Device page title"
+        if config_page.POLL_SECTION_HEADING in display or config_page.RULES_SECTION_HEADING in display:
+            return False, "expected the manual-refresh and rules sections off the Display page"
+        if config_page.POLL_SECTION_HEADING not in device or config_page.RULES_SECTION_HEADING not in device:
+            return False, "expected the manual-refresh and rules sections on the Device page"
+        hostile = config_page.render(ctx, scope="<script>")
+        if 'name="scope"' in hostile or "&lt;script&gt;" in hostile:
+            return False, "expected a hostile scope value to degrade to the legacy all-scope, never to be echoed"
+        return True, ""
+    check(
+        "render(scope=display/device) carries the matching hidden fields and only its own groups; the "
+        "legacy render(ctx) carries no scope field; a hostile scope never reaches the markup",
+        _scoped_render_carries_hidden_fields_and_omits_other_groups)
+
+    def _handle_post_scope_carries_out_of_scope_checkboxes_forward():
+        tmp = tempfile.mkdtemp(prefix="skypane-config-scope-")
+        try:
+            device_config.save_device_config(
+                tmp, led_enabled=True, display_enabled=True, quiet_hours_enabled=True,
+                theme="white", tracked_runway="3")
+            # Display-page save: no LED field on the page -> LED stays True.
+            key = config_page.handle_post(
+                {"scope": "display", "theme": "black", "display_enabled": "on",
+                 "quiet_hours_enabled": "on"}, {"state_dir": tmp})
+            if key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED for the display-page save, got %r" % key
+            cfg = device_config.load_device_config(tmp)
+            if cfg["led_enabled"] is not True or cfg["theme"] != "black":
+                return False, "expected led_enabled carried forward and theme persisted, got %r" % (cfg,)
+            # Device-page save: no display/quiet fields -> both stay True;
+            # its own absent LED box -> False.
+            key = config_page.handle_post(
+                {"scope": "device", "tracked_runway": "06-24"}, {"state_dir": tmp})
+            if key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED for the device-page save, got %r" % key
+            cfg = device_config.load_device_config(tmp)
+            if cfg["display_enabled"] is not True or cfg["quiet_hours_enabled"] is not True:
+                return False, "expected display/quiet-hours carried forward on a device-page save, got %r" % (cfg,)
+            if cfg["led_enabled"] is not False or cfg["tracked_runway"] != "06-24":
+                return False, "expected the device-page save's own fields to persist, got %r" % (cfg,)
+            # A device-page save never means "disconnect the calendar".
+            if config_page.submitted_calendar_signal({"scope": "device"}) != config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD:
+                return False, "expected a device-page submission without calendar fields to carry the calendar forward"
+            if config_page.submitted_calendar_signal({"scope": "display", "calendar_disconnect": "on"}) != config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD:
+                return False, "expected a display-page submission to ignore a stray calendar_disconnect field"
+            # The legacy unscoped body keeps its absent-means-False contract.
+            key = config_page.handle_post({"theme": "white"}, {"state_dir": tmp})
+            cfg = device_config.load_device_config(tmp)
+            if key != config_page.FLASH_SAVED or cfg["display_enabled"] is not False:
+                return False, "expected the legacy unscoped save to keep absent-checkbox-means-False"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "handle_post() treats a checkbox absent from an out-of-scope group as 'leave unchanged' (a Display "
+        "save never flips the LED, a Device save never flips the screen or quiet hours), keeps "
+        "absent-means-False inside the submitted scope and for the legacy unscoped form, and a "
+        "scoped submission without the Calendar group always carries the calendar forward",
+        _handle_post_scope_carries_out_of_scope_checkboxes_forward)
+
     harness = Harness()
     try:
         harness.start()
@@ -4198,6 +4320,10 @@ def main():
                 companion_app.FLASH_MESSAGES[companion_app.FLASH_KEY_SAVED])
             if confirmation.encode() not in body:
                 return False, "expected D-07's exact confirmation copy in the response body"
+            # Phase 18: the runway group lives on the Device page now, so
+            # the newly-saved selection is read back from there.
+            _s, _h, body = http_request(
+                base + companion_app.DEVICE_ROUTE, cookie=session_cookie)
             if b'value="06-24" class="visually-hidden" checked' not in body:
                 return False, "expected the newly-saved runway (06-24) to be shown selected"
             return True, ""
@@ -4219,7 +4345,9 @@ def main():
             if status != 303:
                 return False, "expected a 303 redirect on save, got %d" % status
             location = headers.get("Location", "")
-            expected_location = "%s?flash=saved" % config_page.SETTINGS_ROUTE
+            # Phase 18: a POST with no return_to field lands on the
+            # Display page, the default return route.
+            expected_location = "%s?flash=saved" % companion_app.DISPLAY_ROUTE
             if location != expected_location:
                 return False, (
                     "expected the PRG redirect target to stay exactly %r, got %r — "
@@ -4266,10 +4394,10 @@ def main():
             if on_disk["led_enabled"] is not False:
                 return False, "expected on-disk led_enabled False after an empty-body POST, got %r" % (on_disk["led_enabled"],)
             get_status, _get_headers, body = http_request(
-                base + config_page.SETTINGS_ROUTE, cookie=session_cookie)
+                base + companion_app.DEVICE_ROUTE, cookie=session_cookie)
             if get_status != 200:
                 return False, "expected 200 on the follow-up GET %s, got %d" % (
-                    config_page.SETTINGS_ROUTE, get_status)
+                    companion_app.DEVICE_ROUTE, get_status)
             if b'name="led_enabled" value="on" checked' in body:
                 return False, "expected the LED checkbox to render unchecked after saving False"
             return True, ""
@@ -4442,9 +4570,9 @@ def main():
 
         def _calendar_secret_never_reaches_served_http_bytes():
             status, _headers, body = http_request(
-                calendar_base + config_page.SETTINGS_ROUTE, cookie=calendar_cookie)
+                calendar_base + companion_app.DEVICE_ROUTE, cookie=calendar_cookie)
             if status != 200:
-                return False, "expected 200 on the authenticated Settings page, got %d" % status
+                return False, "expected 200 on the authenticated Device page, got %d" % status
             body_text = body.decode("utf-8", errors="replace")
             if config_page.CALENDAR_STATUS_CONFIGURED_PENDING not in body_text:
                 return False, "expected the configured-pending status (no sync recorded yet)"

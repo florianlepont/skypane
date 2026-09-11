@@ -16,6 +16,7 @@ import json
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
+from companion import screens
 # Phase 15 D-10 (15-05-PLAN.md): the one deliberate exception to this
 # package's own page-module-isolation convention (companion/pages/
 # __init__.py; see airlines_page.py's own precedent comment for the same
@@ -61,6 +62,80 @@ SETTINGS_ROUTE = "/settings"
 # silently submits nothing. Same one-definition-site discipline as
 # RUNWAY_IMAGE_ROUTE_PREFIX/SETTINGS_ROUTE above.
 SETTINGS_FORM_ID = "settings-form"
+
+# --- Phase 18 (companion audit / UX refactor): page scopes -------------
+#
+# The one settings form used to render every group on a single
+# "/settings" page. It now renders as two pages sharing the same POST
+# route and the same handle_post(): the everyday "Display" page (theme,
+# quiet hours, screen on/off) and the advanced "Device" page (runway,
+# diagnostic LED, wake interval, calendar, colour rules, manual
+# refresh). Which groups land on which page is declared per screen type
+# in companion/screens.py, not hard-coded here.
+#
+# `render(ctx)` with no scope keeps rendering the whole legacy page —
+# every group, in the historical order — so existing harness checks
+# against the full form stay meaningful. companion/app.py never uses
+# that scope for a live route any more.
+SCOPE_ALL = "all"
+SCOPE_DISPLAY = "display"
+SCOPE_DEVICE = "device"
+SCOPES = (SCOPE_ALL, SCOPE_DISPLAY, SCOPE_DEVICE)
+
+# Hidden form fields a scoped page submits so handle_post() knows which
+# groups were on the page (absent checkbox => "leave unchanged" for a
+# group that was never rendered, never "switch it off") and where to
+# redirect back to.
+SCOPE_FIELD_NAME = "scope"
+RETURN_TO_FIELD_NAME = "return_to"
+
+DISPLAY_PAGE_TITLE = "Display"
+DISPLAY_PAGE_PURPOSE = (
+    "How the frame looks. Changes reach the frame the next time it wakes up.")
+DEVICE_PAGE_TITLE = "Device"
+DEVICE_PAGE_PURPOSE = (
+    "Hardware, data and diagnostics for the frame. Nothing here needs "
+    "changing day to day.")
+SCREEN_CAPTION_TEMPLATE = "Screen: %s"
+
+
+def scope_groups(scope, screen_id=None):
+    """The ordered tuple of settings-group ids the given scope renders
+    for the given screen type. SCOPE_ALL preserves the historical
+    single-page order; the two live scopes read the screen type's own
+    declaration in companion/screens.py.
+    """
+    screen = screens.screen_type(screen_id)
+    if scope == SCOPE_DISPLAY:
+        return tuple(screen["everyday_groups"])
+    if scope == SCOPE_DEVICE:
+        return tuple(screen["advanced_groups"])
+    return (
+        screens.GROUP_THEME, screens.GROUP_RUNWAY, screens.GROUP_LED,
+        screens.GROUP_QUIET_HOURS, screens.GROUP_WAKE_INTERVAL,
+        screens.GROUP_DISPLAY, screens.GROUP_CALENDAR)
+
+
+def submitted_scope(form):
+    """The scope a submitted settings form was rendered with — SCOPE_ALL
+    when the field is absent (the legacy single-page form) or carries
+    anything outside SCOPES (a crafted value degrades to the widest,
+    most conservative reading rather than being rejected: every group's
+    own validation still runs).
+    """
+    value = form.get(SCOPE_FIELD_NAME)
+    return value if value in SCOPES else SCOPE_ALL
+
+
+def submitted_return_route(form):
+    """Where a settings POST redirects back to: the page it came from,
+    validated byte-for-byte against the two scoped page routes, else
+    the Display page. Never a raw form value.
+    """
+    value = form.get(RETURN_TO_FIELD_NAME)
+    if value in (layout.DISPLAY_ROUTE, layout.DEVICE_ROUTE):
+        return value
+    return layout.DISPLAY_ROUTE
 
 # The sole accepted submitted value for the LED checkbox (D-01) — shared
 # by led_group()'s markup and handle_post()'s validator so the two can
@@ -132,6 +207,7 @@ RUNWAY_SECTION_CAPTION = (
 LED_SECTION_CAPTION = (
     "Lit only during the device's brief wake window, not visible from "
     "the wall side. Applies on the next scheduled poll.")
+POLL_SECTION_HEADING = "Manual refresh"
 POLL_SECTION_CAPTION = (
     "Manually trigger an immediate poll cycle instead of waiting for "
     "the next scheduled one.")
@@ -174,7 +250,7 @@ WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
 # so this field's apply-timing genuinely differs and earns its own honest
 # sentence instead. The caption must never say "instant" or "immediate" —
 # D-02 is explicit the change is not, and the UI must not imply otherwise.
-DISPLAY_SECTION_HEADING = "Display"
+DISPLAY_SECTION_HEADING = "Screen on / off"
 DISPLAY_SECTION_CAPTION = (
     "Turns the physical panel off remotely, without touching the "
     "hardware. Takes effect within about 5 minutes, both switching off "
@@ -1538,7 +1614,7 @@ def _rules_section_html(ctx):
         heading, caption, add_form, cards_html, table_html)
 
 
-def render(ctx):
+def render(ctx, scope=SCOPE_ALL):
     device_cfg = ctx.get("device_config") or {}
     current_theme_id = device_cfg.get("theme", device_config.DEFAULT_THEME_ID)
     # Phase 15 D-04: an explicit `.get()` with no `or` fallback and no
@@ -1643,47 +1719,94 @@ def render(ctx):
     # cannot be a descendant of <form id=SETTINGS_FORM_ID>). Every
     # existing group's DOM nesting above stays byte-identical; only the
     # top-level ordering of the two sections after the form changes.
-    rules_section_html = _rules_section_html(ctx)
+    screen_id = screens.current_screen_id(ctx)
+    screen = screens.screen_type(screen_id)
+    if scope not in SCOPES:
+        scope = SCOPE_ALL
+    groups = scope_groups(scope, screen_id)
+
+    builders = {
+        screens.GROUP_THEME: lambda: theme_fieldset(
+            current_theme_id, current_theme_arriving),
+        screens.GROUP_RUNWAY: lambda: runway_fieldset(
+            current_runway_id, ctx.get("runway_images") or ()),
+        screens.GROUP_LED: lambda: led_group(current_led_enabled),
+        screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
+            current_quiet_enabled, current_quiet_start, current_quiet_end),
+        screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
+            current_wake_interval_s),
+        screens.GROUP_DISPLAY: lambda: display_group(current_display_enabled),
+        screens.GROUP_CALENDAR: lambda: calendar_group(
+            calendar_configured, calendar_drift, calendar_last_synced_at,
+            ctx.get("now"), current_calendar_theme_id, current_theme_id),
+    }
+    groups_html = "".join(builders[g]() for g in groups if g in builders)
+
+    if scope == SCOPE_DISPLAY:
+        header = layout.page_header(
+            DISPLAY_PAGE_TITLE, purpose=DISPLAY_PAGE_PURPOSE,
+            action_html=_screen_caption_html(screen))
+        hidden_html = _scope_fields_html(scope, layout.DISPLAY_ROUTE)
+        show_rules = show_poll = False
+    elif scope == SCOPE_DEVICE:
+        header = layout.page_header(
+            DEVICE_PAGE_TITLE, purpose=DEVICE_PAGE_PURPOSE,
+            action_html=_screen_caption_html(screen))
+        hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
+        show_rules = bool(screen.get("has_colour_rules"))
+        show_poll = bool(screen.get("has_manual_poll"))
+    else:
+        header = layout.page_header("Settings")
+        hidden_html = ""
+        show_rules = show_poll = True
+
+    rules_section_html = _rules_section_html(ctx) if show_rules else ""
+    poll_section_html = (
+        '<section class="page-section">'
+        '<h2 class="text-heading">%s</h2>'
+        "%s"
+        "</section>" % (escape_html(POLL_SECTION_HEADING), poll_trigger_section(cooldown_remaining))
+        if show_poll else "")
 
     return (
-        layout.page_header("Settings")
+        header
         + '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
-        "%s"
-        "%s"
-        "%s"
-        "%s"
-        "%s"
         "%s"
         "%s"
         '<button type="submit" %s>Save settings</button>'
         "</form>"
         "%s"
-        '<section class="page-section">'
-        '<h2 class="text-heading">Poll</h2>'
         "%s"
-        "</section>"
         "%s"
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
-        theme_fieldset(current_theme_id, current_theme_arriving),
-        runway_fieldset(current_runway_id, ctx.get("runway_images") or ()),
-        led_group(current_led_enabled),
-        quiet_hours_group(
-            current_quiet_enabled, current_quiet_start, current_quiet_end),
-        wake_interval_group(current_wake_interval_s),
-        display_group(current_display_enabled),
-        # Phase 16 (16-05-PLAN.md, 16-UI-SPEC.md Section Anatomy's
-        # Placement recommendation): appended as the LAST group inside the
-        # form, immediately after Display and before the static save
-        # fallback button — a pure zero-disruption append.
-        calendar_group(
-            calendar_configured, calendar_drift, calendar_last_synced_at,
-            ctx.get("now"), current_calendar_theme_id, current_theme_id),
+        hidden_html,
+        groups_html,
         STATIC_SAVE_FALLBACK_ATTR,
         rules_section_html,
-        poll_trigger_section(cooldown_remaining),
+        poll_section_html,
         dirty_bar_html,
+    )
+
+
+def _screen_caption_html(screen):
+    """The small "Screen: Plane frame" line under a scoped page's title —
+    the visible end of the companion/screens.py seam. Rendered as an
+    already-safe block for page_header()'s `action_html` slot.
+    """
+    return (
+        '<p class="page-header__screen text-label">%s</p>'
+        % escape_html(SCREEN_CAPTION_TEMPLATE % screen["label"]))
+
+
+def _scope_fields_html(scope, return_route):
+    return (
+        '<input type="hidden" name="%s" value="%s">'
+        '<input type="hidden" name="%s" value="%s">'
+    ) % (
+        SCOPE_FIELD_NAME, escape_html(scope),
+        RETURN_TO_FIELD_NAME, escape_html(return_route),
     )
 
 
@@ -1740,6 +1863,11 @@ def submitted_calendar_signal(form):
     behind the OTHER fields' validation first (the all-or-nothing
     contract) without this function needing to know about them.
     """
+    # Phase 18: a page that never rendered the Calendar group cannot
+    # have meant anything by the field's absence — carry forward before
+    # any other gate is consulted.
+    if screens.GROUP_CALENDAR not in scope_groups(submitted_scope(form)):
+        return CALENDAR_URL_SIGNAL_CARRY_FORWARD
     raw_url = form.get("calendar_url")
     stripped_url = raw_url.strip() if isinstance(raw_url, str) else ""
     disconnect = form.get("calendar_disconnect")
@@ -1919,6 +2047,13 @@ def handle_post(form, ctx):
     that only opens when the state directory is already failing.
     """
     state_dir = ctx["state_dir"]
+    # Phase 18: which groups were actually on the submitted page. A
+    # checkbox belonging to a group that was NOT rendered is absent from
+    # the body for a structural reason, not because the user unticked
+    # it — so for those groups absence resolves to None (carry the
+    # on-disk value forward), never to False.
+    scope = submitted_scope(form)
+    in_scope = set(scope_groups(scope, screens.current_screen_id(ctx)))
     submitted_theme = form.get("theme")
     submitted_theme_arriving = form.get("theme_arriving")
     submitted_theme_arriving_enabled = form.get("theme_arriving_enabled")
@@ -1969,19 +2104,25 @@ def handle_post(form, ctx):
     # carry forward" for every parameter of this write path including
     # this one, so passing it here would make a partial-field save
     # silently wipe a previously-set override.
-    if submitted_theme_arriving_enabled is None:
+    if screens.GROUP_THEME not in in_scope:
+        theme_arriving = None
+    elif submitted_theme_arriving_enabled is None:
         theme_arriving = device_config.CLEAR_THEME_ARRIVING
     elif submitted_theme_arriving_enabled == ARRIVING_CHECKBOX_VALUE:
         theme_arriving = submitted_theme_arriving
     else:
         return FLASH_SAVE_FAILED
-    if submitted_led is None:
+    if screens.GROUP_LED not in in_scope:
+        led_enabled = None
+    elif submitted_led is None:
         led_enabled = False
     elif submitted_led == LED_CHECKBOX_VALUE:
         led_enabled = True
     else:
         return FLASH_SAVE_FAILED
-    if submitted_qh_enabled is None:
+    if screens.GROUP_QUIET_HOURS not in in_scope:
+        quiet_hours_enabled = None
+    elif submitted_qh_enabled is None:
         quiet_hours_enabled = False
     elif submitted_qh_enabled == QUIET_HOURS_CHECKBOX_VALUE:
         quiet_hours_enabled = True
@@ -1994,7 +2135,9 @@ def handle_post(form, ctx):
             wake_interval_s = int(submitted_wake_interval)
         except ValueError:
             return FLASH_SAVE_FAILED
-    if submitted_display is None:
+    if screens.GROUP_DISPLAY not in in_scope:
+        display_enabled = None
+    elif submitted_display is None:
         display_enabled = False
     elif submitted_display == DISPLAY_CHECKBOX_VALUE:
         display_enabled = True

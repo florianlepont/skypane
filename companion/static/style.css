@@ -4771,3 +4771,300 @@ a.airline-card {
   display: flex;
   flex-direction: column;
 }
+
+/* =====================================================================
+ * Phase 18 — companion audit / UX refactor.
+ *
+ * Everything below is appended, in source order after every earlier
+ * rule, so it wins on position wherever specificity ties. Sections:
+ *   1. Grouped navigation ("Advanced" label in the sidebar/dropdown)
+ *   2. Page-header screen caption ("Screen: Plane frame")
+ *   3. Home page widgets (status tiles, quick actions, now-showing,
+ *      recent flights)
+ *   4. Audit fixes: theme chips two-per-row on phones, chip-name
+ *      ellipsis, settings input widths (the truncated "Uses server
+ *      default" placeholder), the save bar pinned on phones too, the
+ *      filter bar's Clear control staying on the count's line, and the
+ *      airline-card placeholder link reset.
+ * No new tokens; every colour is an existing token or an existing
+ * color-mix wash strength. No new accent consumer: the quick-action
+ * "on" state uses the status-ok colour, not the accent.
+ * ===================================================================== */
+
+/* 1. Grouped navigation ------------------------------------------------ */
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.nav-group__label {
+  display: block;
+  padding: 0 var(--space-sm);
+  margin-bottom: var(--space-xs);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.mobile-nav__nav .nav-group {
+  margin-top: var(--space-sm);
+}
+
+/* The dropdown grew two entries and a group label; the old 420px cap
+ * would clip the footer. */
+.js .mobile-nav--open {
+  max-height: 640px;
+}
+
+/* 2. Page-header screen caption --------------------------------------- */
+.page-header__screen {
+  margin: 0 0 var(--space-xs);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* 3. Home page --------------------------------------------------------- */
+.home-section {
+  margin-bottom: var(--space-lg);
+}
+
+.home-section > .text-heading {
+  margin-top: 0;
+}
+
+.home-status-grid {
+  margin-bottom: var(--space-sm);
+}
+
+.widget-verdict {
+  margin: 0 0 var(--space-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.widget-detail {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.home-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-lg);
+}
+
+.home-columns > .home-section {
+  margin-bottom: 0;
+}
+
+.quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.quick-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+}
+
+.quick-action--on {
+  border-left-color: var(--color-status-ok);
+}
+
+.quick-action--off {
+  border-left-color: color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+
+.quick-action--neutral {
+  border-left-color: var(--color-border);
+}
+
+.quick-action__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.quick-action__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.quick-action__icon {
+  flex: none;
+}
+
+.quick-action__state {
+  font-weight: var(--weight-semibold);
+}
+
+.quick-action__form {
+  flex: none;
+  margin: 0;
+}
+
+.quick-action__form button {
+  min-width: 96px;
+}
+
+.now-showing {
+  margin: 0;
+}
+
+.now-showing__image {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  margin: 0 auto var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+}
+
+.now-showing__caption {
+  text-align: center;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.recent-flights {
+  list-style: none;
+  margin: 0 0 var(--space-sm);
+  padding: 0;
+}
+
+.recent-flight {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  gap: var(--space-sm) var(--space-md);
+  align-items: baseline;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.recent-flight:last-child {
+  border-bottom: 0;
+}
+
+.recent-flight__callsign {
+  font-weight: var(--weight-semibold);
+}
+
+.recent-flight__detail,
+.recent-flight__time {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.recent-flight__time {
+  white-space: nowrap;
+}
+
+@media (min-width: 960px) {
+  .home-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* 4. Audit fixes ------------------------------------------------------- */
+
+/* Settings text-like inputs: the number/time/url fields had no width
+ * rule at all and sat at the UA's intrinsic width — which is what
+ * truncated "Uses server default" to "Uses se". */
+.config-form input[type="number"],
+.config-form input[type="url"],
+.config-form input[type="text"] {
+  width: 100%;
+  max-width: 28rem;
+}
+
+.config-form input[type="time"] {
+  min-width: 9rem;
+}
+
+/* Theme-chip names must never wrap and stagger the row. */
+.theme-chip__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The filter bar's count and Clear control stay together on one line
+ * instead of Clear wrapping alone underneath. */
+.filter-bar__count {
+  margin-left: auto;
+}
+
+.filter-bar [data-filter-clear] {
+  white-space: nowrap;
+}
+
+/* A manually-resolved airline with no artwork yet renders the same
+ * dashed placeholder a gap card does; and the zoom trigger, when it is
+ * an <a>, must not paint link styling over its contents. */
+a.airline-card__zoom {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (max-width: 959.98px) {
+  /* Two chips per row on a phone instead of a 36-row single column. */
+  .theme-chip {
+    width: calc(50% - var(--space-sm) / 2);
+  }
+
+  /* The save bar used to sit in normal flow at the very bottom of the
+   * page on phones — below every group, the rules table and the
+   * refresh section — so a change made near the top had no visible way
+   * to be saved. Pin it like the desktop rule already does. */
+  .dirty-bar {
+    position: fixed;
+    left: var(--space-md);
+    right: var(--space-md);
+    bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+    margin: 0;
+    z-index: 20;
+    flex-wrap: wrap;
+  }
+
+  .quick-action {
+    flex-wrap: wrap;
+  }
+}
+
+/* Recent flights on a phone: callsign and time share the first row and
+ * the detail line takes the full width underneath, instead of three
+ * columns fighting over 340px. */
+@media (max-width: 959.98px) {
+  .recent-flight {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .recent-flight__detail {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
