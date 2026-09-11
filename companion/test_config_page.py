@@ -270,6 +270,15 @@ EXPECTED_CHECK_COUNT = 127
 # call count at execution time (138/138 pass), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 142  # 138 + 4 (phase 18: page scopes / screens registry)
+EXPECTED_CHECK_COUNT = 147  # 19-07-PLAN.md Task 1 (D-07/A-25): +5 (the
+# no-errors-arg-byte-identical-flash-keys check, the errors-dict-filled-
+# per-field check across six real-user-error cases, the errors-dict-
+# stays-empty-on-success check, the empty-quiet_hours_start-writes-
+# nothing all-or-nothing pin, and the local HH:MM regex/
+# save_device_config() agreement check over the plan's own input table).
+# 142 + 5 = 147, recomputed directly against the real on-disk check(...)
+# call count at execution time (147/147 pass), not trusted from
+# arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2130,6 +2139,145 @@ def main():
     check(
         "after a save that stored wake_interval_s 120, a later submission with wake_interval_s as the empty string, and another with the key absent entirely, both return the saved flash key and leave the stored value at 120 (11-RESEARCH.md Open Question 2)",
         _handle_post_wake_interval_empty_or_absent_leaves_unchanged)
+
+    # ------------------------------------------------------------------
+    # 19-07-PLAN.md Task 1 (D-07/A-25): handle_post()'s new optional
+    # `errors` dict parameter — the legacy no-errors callers stay
+    # byte-identical, and each new field-level pre-check fills exactly
+    # one keyed message without changing the returned flash-key string.
+    # ------------------------------------------------------------------
+
+    def _handle_post_no_errors_arg_returns_identical_flash_keys():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            valid_flash = config_page.handle_post({"theme": "white"}, ctx)
+            if valid_flash != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED for a representative valid save, got %r" % (valid_flash,)
+            invalid_flash = config_page.handle_post({"theme": "not-a-real-theme"}, ctx)
+            if invalid_flash != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for a representative invalid save, got %r" % (invalid_flash,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post(form, ctx) with no errors argument still returns exactly the same flash keys it did "
+        "before this plan, for both a representative valid save and a representative invalid save",
+        _handle_post_no_errors_arg_returns_identical_flash_keys)
+
+    def _handle_post_errors_dict_filled_for_each_real_user_error_field():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            cases = (
+                ({"wake_interval_s": "7"}, "wake_interval_s", config_page.ERROR_WAKE_INTERVAL_RANGE),
+                ({"wake_interval_s": "abc"}, "wake_interval_s", config_page.ERROR_WAKE_INTERVAL_RANGE),
+                ({"quiet_hours_start": "24:00"}, "quiet_hours_start", config_page.ERROR_QUIET_HOURS_TIME_SHAPE),
+                ({"quiet_hours_start": ""}, "quiet_hours_start", config_page.ERROR_QUIET_HOURS_TIME_SHAPE),
+                ({"quiet_hours_end": "not-a-time"}, "quiet_hours_end", config_page.ERROR_QUIET_HOURS_TIME_SHAPE),
+                (
+                    {
+                        "calendar_url": "https://example.com/feed.ics",
+                        "calendar_disconnect": config_page.CALENDAR_DISCONNECT_CHECKBOX_VALUE,
+                    },
+                    "calendar_url", config_page.ERROR_CALENDAR_URL_INVALID,
+                ),
+            )
+            for form, field, expected_message in cases:
+                errors = {}
+                flash_key = config_page.handle_post(form, ctx, errors=errors)
+                if flash_key != config_page.FLASH_SAVE_FAILED:
+                    return False, "expected FLASH_SAVE_FAILED for form=%r, got %r" % (form, flash_key)
+                if errors != {field: expected_message}:
+                    return False, "expected errors == {%r: %r} for form=%r, got %r" % (
+                        field, expected_message, form, errors)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post(form, ctx, errors=d) fills d with exactly one field-keyed message for each real-user-error "
+        "case (wake_interval_s non-numeric/out-of-range, quiet_hours_start/quiet_hours_end malformed including "
+        "empty, and a contradictory calendar_url+calendar_disconnect submission)",
+        _handle_post_errors_dict_filled_for_each_real_user_error_field)
+
+    def _handle_post_errors_dict_stays_empty_on_a_valid_save():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            errors = {}
+            flash_key = config_page.handle_post(
+                {
+                    "theme": "white", "quiet_hours_start": "22:30",
+                    "quiet_hours_end": "06:15", "wake_interval_s": "120",
+                },
+                ctx, errors=errors)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            if errors != {}:
+                return False, "expected errors to stay empty on a valid save, got %r" % (errors,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post(form, ctx, errors=d) leaves d empty when the save succeeds",
+        _handle_post_errors_dict_stays_empty_on_a_valid_save)
+
+    def _handle_post_empty_quiet_hours_start_writes_nothing():
+        # The all-or-nothing contract's own direct pin for the NEW
+        # pre-check: an empty quiet_hours_start must reject before
+        # save_device_config() is ever called, leaving a pre-existing
+        # config byte-identical - not merely returning the right flash
+        # key.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            errors = {}
+            flash_key = config_page.handle_post(
+                {"theme": "white", "quiet_hours_start": ""}, ctx, errors=errors)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for an empty quiet_hours_start, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to stay byte-identical, it changed"
+            if errors != {"quiet_hours_start": config_page.ERROR_QUIET_HOURS_TIME_SHAPE}:
+                return False, "expected exactly one quiet_hours_start error, got %r" % (errors,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"theme\": \"white\", \"quiet_hours_start\": \"\"}, ctx, errors=d) rejects the whole save, "
+        "writes nothing (the theme must not persist either), and reports the error on quiet_hours_start alone",
+        _handle_post_empty_quiet_hours_start_writes_nothing)
+
+    def _local_quiet_hours_regex_agrees_with_save_device_config():
+        # 19-07-PLAN.md Task 1: this module's own local HH:MM shape gate
+        # (_QUIET_HOURS_TIME_RE) is a UX pre-check only -
+        # save_device_config()'s identical gate stays authoritative. This
+        # pins the two never silently drifting apart, over the exact
+        # table of inputs the plan names.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            for candidate in ("", "7:00", "07:00", "24:00", "abc", "23:59", "00:00"):
+                pre_check_says_ok = bool(config_page._QUIET_HOURS_TIME_RE.match(candidate))
+                try:
+                    device_config.save_device_config(
+                        tmpdir, quiet_hours_start=candidate)
+                    save_device_config_says_ok = True
+                except ValueError:
+                    save_device_config_says_ok = False
+                if pre_check_says_ok != save_device_config_says_ok:
+                    return False, (
+                        "disagreement for %r: pre-check says ok=%r, save_device_config() says ok=%r"
+                        % (candidate, pre_check_says_ok, save_device_config_says_ok))
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "config_page._QUIET_HOURS_TIME_RE agrees with server.device_config.save_device_config()'s own HH:MM "
+        "shape gate over the table \"\"/\"7:00\"/\"07:00\"/\"24:00\"/\"abc\"/\"23:59\"/\"00:00\"",
+        _local_quiet_hours_regex_agrees_with_save_device_config)
 
     # ------------------------------------------------------------------
     # 06.6.4.1-07 (D-05): led_fieldset()/led_section()/handle_led_post()

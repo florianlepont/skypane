@@ -11,6 +11,8 @@ control below is unrelated plumbing owned by companion/app.py (plan
 server.poll_loop.run_once() call all live there, not here — this module
 only renders the button/copy for it.
 """
+import re
+
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
@@ -1714,6 +1716,46 @@ CALENDAR_URL_SIGNAL_SET = "set"
 CALENDAR_URL_SIGNAL_CLEAR = "clear"
 CALENDAR_URL_SIGNAL_INVALID = "invalid"
 
+# D-07 (19-07-PLAN.md, A-25): handle_post()'s per-field error messages —
+# one constant per rejected field, matching this file's
+# constants-at-the-top convention, so the copy exists in exactly one
+# place and _note_error() below never inlines a string literal. Sentence
+# case, no requirement ids, no stack-trace vocabulary, matching the
+# label voice every other user-facing string in this file already uses.
+ERROR_INVALID_CHOICE = "That is not one of the available choices."
+ERROR_UNEXPECTED_SWITCH_VALUE = "That switch sent an unexpected value."
+ERROR_WAKE_INTERVAL_RANGE = "Enter a whole number of seconds between 60 and 3600."
+ERROR_QUIET_HOURS_TIME_SHAPE = "Enter a time as HH:MM, for example 23:00."
+# Covers both the over-length and the contradictory-submission
+# (calendar_url + calendar_disconnect together) cases
+# submitted_calendar_signal() folds into CALENDAR_URL_SIGNAL_INVALID —
+# deliberately worded to never echo any part of the submitted URL back.
+ERROR_CALENDAR_URL_INVALID = (
+    "That link is too long, or conflicts with the disconnect option below.")
+
+# A LOCAL copy of server/device_config.py's private `_HHMM_RE` (24-hour,
+# zero-padded "HH:MM") — deliberately NOT an import of that name, which
+# is private to that module (D-07's own read_first instruction). This is
+# a UX pre-check only: save_device_config()'s own identical gate remains
+# the authoritative one, and companion/test_config_page.py pins the two
+# patterns against the same table of inputs so they cannot silently
+# drift apart.
+_QUIET_HOURS_TIME_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
+
+
+def _note_error(errors, field, message):
+    """No-ops when `errors is None` — every existing caller of
+    handle_post()/render() before this plan, and any future caller that
+    still doesn't care about field-level errors. Otherwise sets
+    `errors[field] = message` only if that field has no message yet:
+    first error per field wins, so a later, more generic gate can never
+    overwrite an earlier, more specific one.
+    """
+    if errors is None:
+        return
+    if field not in errors:
+        errors[field] = message
+
 
 def submitted_calendar_signal(form):
     """The single definition of what a submitted `calendar_url` +
@@ -1779,7 +1821,7 @@ def submitted_calendar_signal(form):
     return CALENDAR_URL_SIGNAL_SET
 
 
-def handle_post(form, ctx):
+def handle_post(form, ctx, errors=None):
     """Validate the submitted theme/runway/LED/quiet-hours/wake-interval/
     display state against `device_config`'s own registries and validators —
     server-side, before any value is used anywhere — and persist all
@@ -1869,6 +1911,19 @@ def handle_post(form, ctx):
     generic flash by the `except (ValueError, OSError)` clause below — no
     field-specific error copy is added (11-UI-SPEC.md's Copywriting
     Contract locks reuse of the existing generic flash).
+
+    Fifth (19-07-PLAN.md, D-07/A-25): `errors` is an optional
+    caller-supplied dict, filled in place via `_note_error()` at every
+    `FLASH_SAVE_FAILED` return site below, keyed on the submitted form
+    field that failed. It is purely additive — the all-or-nothing
+    rejection contract above is unchanged, and the return value is
+    unchanged (still a bare flash-key string, never a tuple) — so every
+    existing caller that does not pass `errors` behaves byte-identically
+    to before this plan. Three new pre-checks join the existing gates
+    below so a real user error (a malformed quiet-hours time, an
+    out-of-range wake interval, an invalid calendar submission) is
+    reported at that field instead of falling through to the generic
+    `except (ValueError, OSError)` clause.
 
     On success, the frame's next scheduled poll cycle (server/poll_loop.py,
     D-06/D-28) is the first place any of the eight changes actually take
@@ -1963,12 +2018,14 @@ def handle_post(form, ctx):
     calendar_signal = submitted_calendar_signal(form)
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
+        _note_error(errors, "theme", ERROR_INVALID_CHOICE)
         return FLASH_SAVE_FAILED
     # Phase 17 plan 03 (D-07): the resolver's own `invalid` outcome joins
     # every other membership/shape gate here, before any write — a
     # crafted checkbox value, a contradictory URL+checkbox submission,
     # and an over-length URL are all rejected the identical way.
     if calendar_signal == CALENDAR_URL_SIGNAL_INVALID:
+        _note_error(errors, "calendar_url", ERROR_CALENDAR_URL_INVALID)
         return FLASH_SAVE_FAILED
     # Phase 16 (16-05-PLAN.md, T-16-TAMPER's HTTP-layer half): same
     # membership-test shape as theme/theme_arriving above. A non-member
@@ -1979,13 +2036,30 @@ def handle_post(form, ctx):
         submitted_calendar_theme_id is not None
         and submitted_calendar_theme_id not in device_config.THEME_IDS
     ):
+        _note_error(errors, "calendar_theme_id", ERROR_INVALID_CHOICE)
         return FLASH_SAVE_FAILED
     if (
         submitted_theme_arriving is not None
         and submitted_theme_arriving not in device_config.THEME_IDS
     ):
+        _note_error(errors, "theme_arriving", ERROR_INVALID_CHOICE)
         return FLASH_SAVE_FAILED
     if submitted_runway is not None and submitted_runway not in device_config.RUNWAY_IDS:
+        _note_error(errors, "tracked_runway", ERROR_INVALID_CHOICE)
+        return FLASH_SAVE_FAILED
+    # 19-07-PLAN.md Task 1 (D-07): a PRESENT-but-invalid quiet-hours time
+    # is a real user error, reported at that field rather than falling
+    # through to the generic save-failed flash via
+    # save_device_config()'s own exception path below. Field ABSENT
+    # (`None`) still means "leave unchanged" — including the structural
+    # absence a scoped page that never rendered this group produces — so
+    # only a submitted-but-malformed value (the empty string counts as
+    # submitted) is checked here.
+    if submitted_qh_start is not None and not _QUIET_HOURS_TIME_RE.match(submitted_qh_start):
+        _note_error(errors, "quiet_hours_start", ERROR_QUIET_HOURS_TIME_SHAPE)
+        return FLASH_SAVE_FAILED
+    if submitted_qh_end is not None and not _QUIET_HOURS_TIME_RE.match(submitted_qh_end):
+        _note_error(errors, "quiet_hours_end", ERROR_QUIET_HOURS_TIME_SHAPE)
         return FLASH_SAVE_FAILED
     # Phase 15 D-05: keyed on the CHECKBOX field, never on
     # theme_arriving's presence. D-05 requires the second (arrivals) grid
@@ -2005,6 +2079,7 @@ def handle_post(form, ctx):
     elif submitted_theme_arriving_enabled == ARRIVING_CHECKBOX_VALUE:
         theme_arriving = submitted_theme_arriving
     else:
+        _note_error(errors, "theme_arriving_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
         return FLASH_SAVE_FAILED
     if screens.GROUP_LED not in in_scope:
         led_enabled = None
@@ -2013,6 +2088,7 @@ def handle_post(form, ctx):
     elif submitted_led == LED_CHECKBOX_VALUE:
         led_enabled = True
     else:
+        _note_error(errors, "led_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
         return FLASH_SAVE_FAILED
     if screens.GROUP_QUIET_HOURS not in in_scope:
         quiet_hours_enabled = None
@@ -2021,6 +2097,7 @@ def handle_post(form, ctx):
     elif submitted_qh_enabled == QUIET_HOURS_CHECKBOX_VALUE:
         quiet_hours_enabled = True
     else:
+        _note_error(errors, "quiet_hours_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
         return FLASH_SAVE_FAILED
     if submitted_wake_interval is None or submitted_wake_interval == "":
         wake_interval_s = None
@@ -2028,6 +2105,18 @@ def handle_post(form, ctx):
         try:
             wake_interval_s = int(submitted_wake_interval)
         except ValueError:
+            _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
+            return FLASH_SAVE_FAILED
+        # 19-07-PLAN.md Task 1 (D-07): a syntactically valid but
+        # out-of-range integer ("7") used to reach save_device_config()'s
+        # own bounded-range ValueError and surface only as the generic
+        # flash — reported at this field instead, before any write.
+        if not (
+            device_config.WAKE_INTERVAL_MIN_S
+            <= wake_interval_s
+            <= device_config.WAKE_INTERVAL_MAX_S
+        ):
+            _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
             return FLASH_SAVE_FAILED
     if screens.GROUP_DISPLAY not in in_scope:
         display_enabled = None
@@ -2036,6 +2125,7 @@ def handle_post(form, ctx):
     elif submitted_display == DISPLAY_CHECKBOX_VALUE:
         display_enabled = True
     else:
+        _note_error(errors, "display_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
         return FLASH_SAVE_FAILED
 
     try:
