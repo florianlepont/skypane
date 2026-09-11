@@ -317,6 +317,16 @@ EXPECTED_CHECK_COUNT = 213  # 19-09-PLAN.md Task 3 (D-02): +2 (freshness.js's
 # count at execution time (211/213 pass — the two documented WR-11
 # root-sandbox failures, unrelated to this plan), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 217  # 19-11-PLAN.md Task 1 (D-08/A-26): +4 (the
+# dedicated POST /settings/calendar/disconnect route's own real-HTTP
+# checks: a bare POST renders the confirmation page and leaves the
+# calendar connected, confirm=maybe does the same, confirm=yes actually
+# disconnects and redirects with the disconnected flash key, and an
+# unauthenticated POST redirects to /login and writes nothing). 213 + 4
+# = 217, recomputed directly against the real on-disk check(...) call
+# count at execution time (215/217 pass — the two documented WR-11
+# root-sandbox failures, unrelated to this plan), not trusted from
+# arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -5699,6 +5709,125 @@ def main():
         check(
             "checking the disconnect box redirects with the disconnected flash key, and the calendar's previously-fetched flights are actually erased from disk (D-04)",
             _calendar_disconnect_reports_deletion_and_erases_entries)
+
+        # ==============================================================
+        # 19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect
+        # action's own dedicated POST /settings/calendar/disconnect
+        # route — a bare/wrong-confirm POST renders the two-step
+        # confirmation page and erases nothing; only confirm=yes
+        # disconnects; the route is session-gated like every other
+        # state-changing route.
+        # ==============================================================
+
+        def _calendar_disconnect_route_bare_post_renders_confirmation_and_touches_nothing():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                url = "https://bare-post.example/feed.ics?token=BAREPOSTTOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, _headers, body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST", data=b"", cookie=session)
+                if status != 200:
+                    return False, "expected a 200 confirmation page for a bare POST, got %d" % status
+                if html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_SENTENCE, quote=True).encode() not in body:
+                    return False, "expected the confirmation copy in the rendered page"
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain connected after a bare POST"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a bare authenticated POST /settings/calendar/disconnect with no confirm field returns 200 "
+            "with the confirmation copy and leaves the calendar connected (D-08/A-26)",
+            _calendar_disconnect_route_bare_post_renders_confirmation_and_touches_nothing)
+
+        def _calendar_disconnect_route_confirm_maybe_renders_confirmation_and_touches_nothing():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                url = "https://confirm-maybe.example/feed.ics?token=MAYBETOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, _headers, body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD: "maybe"}).encode(),
+                    cookie=session)
+                if status != 200:
+                    return False, "expected a 200 confirmation page for confirm=maybe, got %d" % status
+                if html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_SENTENCE, quote=True).encode() not in body:
+                    return False, "expected the confirmation copy in the rendered page"
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain connected after confirm=maybe"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an authenticated POST /settings/calendar/disconnect with confirm=maybe renders the "
+            "confirmation page rather than disconnecting anything (D-08/A-26)",
+            _calendar_disconnect_route_confirm_maybe_renders_confirmation_and_touches_nothing)
+
+        def _calendar_disconnect_route_confirm_yes_disconnects():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                url = "https://confirm-yes.example/feed.ics?token=YESTOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, headers, _body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {
+                            config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD:
+                                config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE,
+                        }).encode(),
+                    cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect for confirm=yes, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=calendar_disconnected" not in location:
+                    return False, "expected the calendar_disconnected flash key, got %r" % location
+                if calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to be disconnected"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an authenticated POST /settings/calendar/disconnect with confirm=yes 303-redirects with the "
+            "disconnected flash key and actually disconnects the calendar (D-08/A-26)",
+            _calendar_disconnect_route_confirm_yes_disconnects)
+
+        def _calendar_disconnect_route_unauthenticated_redirects_to_login():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                url = "https://unauth-disconnect.example/feed.ics?token=UNAUTHTOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, headers, _body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {
+                            config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD:
+                                config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE,
+                        }).encode())
+                if status != 303:
+                    return False, "expected a 303 redirect for an unauthenticated POST, got %d" % status
+                if headers.get("Location") != "/login":
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain connected — nothing should be written"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an unauthenticated POST /settings/calendar/disconnect (even with confirm=yes) redirects to "
+            "/login and writes nothing (D-08/A-26, T-19-41)",
+            _calendar_disconnect_route_unauthenticated_redirects_to_login)
 
         def _calendar_sync_bypasses_the_throttle_via_min_interval_zero():
             """D-06's bypass, proven two ways.

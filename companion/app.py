@@ -226,6 +226,11 @@ THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
 RULES_ADD_ROUTE = config_page.RULES_ADD_ROUTE
 RULES_DELETE_ROUTE_PREFIX = config_page.RULES_DELETE_ROUTE_PREFIX
 RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
+# 19-11-PLAN.md Task 1 (D-08/A-26): single definition site is companion/
+# pages/config_page.py, rebound here exactly like RULES_ADD_ROUTE above
+# rather than retyped as a literal (app.py imports that module, so the
+# reverse import would be a cycle).
+CALENDAR_DISCONNECT_ROUTE = config_page.CALENDAR_DISCONNECT_ROUTE
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -1914,6 +1919,62 @@ class Handler(BaseHTTPRequestHandler):
                 "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
         return self.redirect(DEVICE_ROUTE)
 
+    def _handle_calendar_disconnect_post(self):
+        """POST /settings/calendar/disconnect (19-11-PLAN.md Task 1,
+        D-08/A-26): the calendar disconnect action's own dedicated,
+        session-gated route — a sibling of `_handle_rule_add_post()`/
+        `_handle_rule_delete()` above, following their identical
+        gate-then-dispatch shape in `do_POST()` (`require_session()` is
+        checked there, before this method is ever called).
+
+        Two-step confirmation, server-side: a bare POST, or one carrying
+        any confirm value other than
+        `config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE`, renders
+        `config_page.calendar_disconnect_confirm_page(ctx)` directly at
+        200 and returns WITHOUT touching anything — the native
+        `confirm()` `companion/static/confirm-submit.js` shows (Task 2)
+        is a misclick guard only, never the security control; this
+        branch is what holds against a hand-crafted request or a
+        no-JS/CSP-blocked browser. Only an EXACT match on the accepted
+        confirm value proceeds to call
+        `calendar_rules.save_calendar_url(state_dir, calendar_rules.
+        CLEAR_CALENDAR_URL)` — the single existing disconnect writer
+        (`server/plane/calendar_rules.py`), never a reimplementation.
+        That writer's own identity-only sentinel comparison is what
+        takes the "clear" path rather than the ordinary "set a URL"
+        path.
+
+        The writer's boolean result is branched on explicitly, matching
+        `_handle_rule_add_post()`'s own never-a-dict-lookup discipline:
+        success redirects to the Device page with the existing
+        `FLASH_KEY_CALENDAR_DISCONNECTED` key (already used by the
+        retired in-form path, unchanged copy); failure redirects with
+        the existing generic `FLASH_KEY_CALENDAR_SYNC_FAILED` key rather
+        than inventing a second failure message for what is, from the
+        operator's point of view, the same "couldn't touch the
+        calendar's stored state" failure.
+
+        This route never calls `config_page.submitted_calendar_signal()`:
+        that resolver exists to interpret a `calendar_url`/
+        `calendar_disconnect` PAIR submitted alongside the rest of the
+        settings form, and this route's only possible meaning is
+        "disconnect" once its own confirm gate passes (see that
+        resolver's own docstring for the decision record).
+        """
+        form = self.read_form()
+        confirm = form.get(config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD)
+        if confirm != config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE:
+            ctx = self.page_context()
+            body = config_page.calendar_disconnect_confirm_page(ctx)
+            return self.send_html(200, self._page_shell_for(DEVICE_ROUTE, body, ctx))
+        state_dir = self.args.state_dir
+        if calendar_rules.save_calendar_url(
+                state_dir, calendar_rules.CLEAR_CALENDAR_URL):
+            return self.redirect(
+                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
+        return self.redirect(
+            "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
         try:
@@ -2446,6 +2507,14 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._handle_rule_add_post()
+
+        # 19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect
+        # action's own dedicated route, gated identically to every other
+        # state-changing route above.
+        if path == CALENDAR_DISCONNECT_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_calendar_disconnect_post()
 
         # Mirrors the manual-resolution delete branch's own startswith/
         # endswith shape above, with the one extra step this route's

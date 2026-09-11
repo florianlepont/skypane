@@ -41,6 +41,7 @@ if REPO_ROOT not in sys.path:
 
 from companion import app as companion_app  # noqa: E402
 from companion import auth  # noqa: E402
+import companion.layout as layout  # noqa: E402
 from companion.layout import escape_html  # noqa: E402
 from companion.pages import config_page  # noqa: E402
 from server import device_config  # noqa: E402
@@ -312,6 +313,17 @@ EXPECTED_CHECK_COUNT = 163  # 19-10-PLAN.md Task 3 (D-14/S-04): +7 (the
 # data-preset-* attribute-agreement check). 156 + 7 = 163, recomputed
 # directly against the real on-disk check(...) call count at execution
 # time (163/163 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 167  # 19-11-PLAN.md Task 1 (D-08/A-26): +4 net
+# (the calendar_disconnect checkbox check was retargeted in place from
+# "appears only when expected and unchecked" to "never appears at all",
+# a net-zero rename; four checks were added:
+# calendar_disconnect_section()'s own presence/absence-plus-shape check,
+# calendar_disconnect_confirm_page()'s post-back-with-confirm-preset
+# check, the disconnect form's sibling-not-descendant position check on
+# the Device scope, and the disconnect form's absence when not
+# configured/on the Display scope). 163 + 4 = 167, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (167/167 pass), not trusted from arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -4450,26 +4462,107 @@ def main():
         "leak caught at the function that introduces it)",
         _calendar_containment_at_the_renderer_five_needles)
 
-    def _calendar_disconnect_checkbox_appears_only_when_expected_and_unchecked():
+    def _calendar_disconnect_checkbox_never_appears_in_calendar_group():
+        # 19-11-PLAN.md Task 1 (D-08/A-26): the in-form disconnect
+        # checkbox is retired outright from calendar_group() in EVERY
+        # one of its four distinguishable states — disconnecting is now
+        # calendar_disconnect_section()'s own standalone, confirmed form,
+        # checked separately below.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
             html = config_page.calendar_group(
                 configured, drift, last_synced_at, "2026-09-07T09:12:04+00:00",
                 None, "white")
-            has_box = 'name="calendar_disconnect"' in html
-            expected = configured or drift
-            if has_box != expected:
+            if 'name="calendar_disconnect"' in html:
                 return False, (
-                    "state %r: expected checkbox presence %r, got %r"
-                    % ((configured, drift), expected, has_box))
-            if has_box:
-                after = html.split('name="calendar_disconnect"', 1)[1]
-                if " checked" in after[:200]:
-                    return False, "expected the checkbox to render unchecked in state %r" % ((configured, drift),)
+                    "state %r: expected calendar_group() to render no calendar_disconnect "
+                    "checkbox at all (D-08 retires it)" % ((configured, drift),))
         return True, ""
     check(
-        "the disconnect checkbox appears only when the calendar is connected or drifted, and renders "
-        "unchecked in every state it appears in (D-07 - the safe default is doing nothing)",
-        _calendar_disconnect_checkbox_appears_only_when_expected_and_unchecked)
+        "calendar_group() renders no calendar_disconnect checkbox in any of its four states "
+        "(D-08/A-26: disconnecting is now its own standalone form, not an in-form checkbox)",
+        _calendar_disconnect_checkbox_never_appears_in_calendar_group)
+
+    def _calendar_disconnect_section_appears_only_when_expected():
+        for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
+            html = config_page.calendar_disconnect_section(configured, drift)
+            expected = configured or drift
+            has_form = bool(html)
+            if has_form != expected:
+                return False, (
+                    "state %r: expected disconnect-form presence %r, got %r"
+                    % ((configured, drift), expected, has_form))
+            if has_form:
+                if '<form method="post" action="%s"' % config_page.CALENDAR_DISCONNECT_ROUTE not in html:
+                    return False, "expected the form to post to CALENDAR_DISCONNECT_ROUTE"
+                if 'data-confirm-field' not in html:
+                    return False, "expected the hidden confirm field to carry data-confirm-field"
+                if 'name="%s" value=""' % config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD not in html:
+                    return False, "expected the hidden confirm field to render with an EMPTY value"
+                if "data-confirm=" not in html:
+                    return False, "expected a data-confirm attribute carrying the confirm question"
+        return True, ""
+    check(
+        "calendar_disconnect_section() renders only when the calendar is connected or drifted, posting "
+        "to CALENDAR_DISCONNECT_ROUTE with a hidden, empty, data-confirm-field-carrying confirm field "
+        "(D-08/A-26)",
+        _calendar_disconnect_section_appears_only_when_expected)
+
+    def _calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
+        rendered = config_page.calendar_disconnect_confirm_page({})
+        expected_form = (
+            '<form method="post" action="%s">'
+            '<input type="hidden" name="%s" value="%s">'
+        ) % (
+            config_page.CALENDAR_DISCONNECT_ROUTE,
+            config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD,
+            html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE, quote=True),
+        )
+        if expected_form not in rendered:
+            return False, "expected the confirm page's form to post to the same route with the confirm field pre-set"
+        if 'href="%s"' % layout.DEVICE_ROUTE not in rendered:
+            return False, "expected a cancel link back to the Device page"
+        if "<fieldset" in rendered or "<legend" in rendered:
+            return False, "expected no <fieldset>/<legend> on the confirm page"
+        return True, ""
+    check(
+        "calendar_disconnect_confirm_page() renders a form posting to CALENDAR_DISCONNECT_ROUTE with the "
+        "confirm field pre-set to the accepted value, plus a plain cancel link to Device (D-08/A-26)",
+        _calendar_disconnect_confirm_page_posts_back_with_confirm_preset)
+
+    def _calendar_disconnect_form_is_not_inside_settings_form_on_device_scope():
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        settings_form_close = rendered.find("</form>")
+        disconnect_form_open = rendered.find(
+            '<form method="post" action="%s"' % config_page.CALENDAR_DISCONNECT_ROUTE)
+        if settings_form_close == -1:
+            return False, "expected the settings form to be present"
+        if disconnect_form_open == -1:
+            return False, "expected the disconnect form to be present on the Device scope"
+        if disconnect_form_open < settings_form_close:
+            return False, "expected the disconnect form's opening tag to appear AFTER the settings form's closing tag"
+        return True, ""
+    check(
+        "on the Device scope, the calendar disconnect form's opening tag appears after the settings "
+        "form's own closing tag — it is a sibling, never a descendant (D-08/A-26)",
+        _calendar_disconnect_form_is_not_inside_settings_form_on_device_scope)
+
+    def _calendar_disconnect_form_absent_when_not_configured_or_on_display_scope():
+        not_connected_ctx = dict(
+            _CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
+        device_rendered = config_page.render(not_connected_ctx, scope=config_page.SCOPE_DEVICE)
+        if config_page.CALENDAR_DISCONNECT_ROUTE in device_rendered:
+            return False, "expected no disconnect form when the calendar is not configured or drifted"
+        connected_ctx = dict(
+            _CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        display_rendered = config_page.render(connected_ctx, scope=config_page.SCOPE_DISPLAY)
+        if config_page.CALENDAR_DISCONNECT_ROUTE in display_rendered:
+            return False, "expected no disconnect form on the Display scope, which never renders Calendar"
+        return True, ""
+    check(
+        "the disconnect form is absent when the calendar is neither configured nor drifted, and absent "
+        "from the Display scope, which never renders the Calendar group at all (D-08/A-26)",
+        _calendar_disconnect_form_absent_when_not_configured_or_on_display_scope)
 
     def _calendar_status_drift_is_exclusive_and_precedes_not_configured():
         ctx = dict(

@@ -369,6 +369,16 @@ RULES_ADD_ROUTE = "/settings/rules/add"
 RULES_DELETE_ROUTE_PREFIX = "/settings/rules/"
 RULES_DELETE_ROUTE_SUFFIX = "/delete"
 
+# 19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect action's own
+# route, following RULES_ADD_ROUTE's exact naming/rebinding convention
+# immediately above — companion/app.py rebinds this rather than
+# retyping the literal, since app.py imports this module (the reverse
+# import would be a cycle). An immediate, session-gated POST outside
+# SETTINGS_ROUTE and the settings form's dirty bar, for the identical
+# reason a colour rule's add/delete are: this is a one-step act, not a
+# pending settings edit.
+CALENDAR_DISCONNECT_ROUTE = "/settings/calendar/disconnect"
+
 # Locked-English copy (15-UI-SPEC.md Copywriting Contract, Rules
 # section) - verbatim, do not paraphrase.
 RULES_SECTION_HEADING = "Per-flight colour rules"
@@ -458,17 +468,58 @@ CALENDAR_URL_FIELD_LABEL = "Calendar feed URL"
 CALENDAR_URL_HINT = (
     "Your calendar's private iCal link. Stored on the server and never "
     "shown back here — pasting a new one replaces the old.")
-# Names both halves of what checking the box does (D-07): the operator
-# deserves to see the flights-deletion consequence before they check it,
-# not discover it afterwards.
+# Names both halves of what disconnecting does (D-07): the operator
+# deserves to see the flights-deletion consequence before they act, not
+# discover it afterwards. 19-11-PLAN.md (D-08/A-26): the in-form checkbox
+# this label used to sit beside is retired — the same wording now labels
+# the standalone disconnect button calendar_disconnect_section() renders
+# (below) and, unchanged, the confirmation copy the frame's disconnect
+# promise keeps.
 CALENDAR_DISCONNECT_CHECKBOX_LABEL = (
     "Disconnect this calendar and delete the flights it supplied")
 # Matches the shape of LED_CHECKBOX_VALUE/QUIET_HOURS_CHECKBOX_VALUE/
-# DISPLAY_CHECKBOX_VALUE/ARRIVING_CHECKBOX_VALUE above — the sole
-# accepted submitted value, shared by calendar_group()'s markup and
-# handle_post()'s validator (via submitted_calendar_signal() below) so
-# the two can never drift apart.
+# DISPLAY_CHECKBOX_VALUE/ARRIVING_CHECKBOX_VALUE above. 19-11-PLAN.md
+# (D-08/A-26): the checkbox markup that used to submit this value is
+# retired, but the value itself is NOT — submitted_calendar_signal()'s
+# gates 1-3 below still compare a submitted calendar_disconnect field
+# against it, kept deliberately reachable for a hostile client crafting
+# that field into a /settings POST (19-RESEARCH.md Pitfall 7). The
+# dedicated CALENDAR_DISCONNECT_ROUTE below never reads this value at
+# all — it always means "disconnect", once its own confirm gate passes.
 CALENDAR_DISCONNECT_CHECKBOX_VALUE = "on"
+
+# 19-11-PLAN.md Task 1 (D-08/A-26): the dedicated disconnect route's own
+# confirm gate — the single definition site the markup
+# (calendar_disconnect_section()/calendar_disconnect_confirm_page()
+# below), the client-side misclick guard (companion/static/
+# confirm-submit.js, Task 2), and the handler
+# (companion/app.py's _handle_calendar_disconnect_post()) all read,
+# rather than each retyping the field name/accepted value as a literal.
+# Deliberately a different field name from calendar_disconnect above —
+# the two routes' confirm semantics must never be conflated: this field
+# means "the confirmation step passed", that one meant "the in-form
+# checkbox was ticked".
+CALENDAR_DISCONNECT_CONFIRM_FIELD = "confirm"
+CALENDAR_DISCONNECT_CONFIRM_VALUE = "yes"
+# The question companion/static/confirm-submit.js passes to
+# window.confirm() (a misclick guard only — see that file's own header
+# comment) — carried to the browser via calendar_disconnect_section()'s
+# own data-confirm attribute, never duplicated in the script itself.
+CALENDAR_DISCONNECT_CONFIRM_QUESTION = (
+    "Disconnect this calendar and delete the flights it supplied?")
+# The server-rendered two-step confirmation page's own copy
+# (calendar_disconnect_confirm_page() below) — what a no-JS or
+# CSP-blocked browser sees instead of the native dialog above. States
+# the same consequence in a full sentence, since there is no button
+# label length constraint here the way there is on the standalone
+# button.
+CALENDAR_DISCONNECT_CONFIRM_HEADING = "Disconnect calendar?"
+CALENDAR_DISCONNECT_CONFIRM_SENTENCE = (
+    "This disconnects your calendar and deletes the flights it "
+    "supplied from the server. This can't be undone — you'd need to "
+    "paste the feed URL again to reconnect.")
+CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT = "Disconnect calendar"
+CALENDAR_DISCONNECT_CANCEL_TEXT = "Cancel"
 # D-02's fourth status state: the one string in this interface permitted
 # to reference "the server", because it is the one case where the
 # operator has to act there. Names no path, no filename, no part of the
@@ -1310,34 +1361,27 @@ def calendar_group(
     otherwise-universal escaping discipline is deliberately not applied
     uniformly.
 
-    Phase 17 plan 03 adds the write-only feed-URL field and the
-    disconnect checkbox (D-01/D-02/D-07). This function receives only
-    two booleans (`configured`, `drift`) and two timestamps — never the
-    URL itself — so the stored value cannot leak through this renderer
-    even by accident (T-17-SECRET); the field always renders with no
-    `value` attribute, no populated placeholder, and nothing derived
-    from the stored URL, in every one of the four status states. It is
-    `type="text"`, not `type="url"`, deliberately: a URL-typed input
-    would apply its own native client-side acceptability rule, which
-    could disagree with the server's own — the single arbiter of
-    acceptability stays `calendar_rules._url_is_safe()` and the fetch
-    itself. It is also not a masked input: write-only means the STORED
-    value is never rendered back, not that what the operator is
+    Phase 17 plan 03 adds the write-only feed-URL field (D-01/D-02/D-07).
+    This function receives only two booleans (`configured`, `drift`) and
+    two timestamps — never the URL itself — so the stored value cannot
+    leak through this renderer even by accident (T-17-SECRET); the field
+    always renders with no `value` attribute, no populated placeholder,
+    and nothing derived from the stored URL, in every one of the four
+    status states. It is `type="text"`, not `type="url"`, deliberately: a
+    URL-typed input would apply its own native client-side acceptability
+    rule, which could disagree with the server's own — the single
+    arbiter of acceptability stays `calendar_rules._url_is_safe()` and
+    the fetch itself. It is also not a masked input: write-only means the
+    STORED value is never rendered back, not that what the operator is
     currently typing is hidden from them.
 
-    The disconnect checkbox renders only when `configured or drift` is
-    true — a drifted file still exists and still holds a URL, so the
-    promise that an explicit disconnection removes it must not be
-    blocked by a permissions problem — and it is ALWAYS rendered
-    unchecked; no branch of this function ever computes a `checked`
-    attribute for it. Its polarity is the deliberate mirror image of
-    `theme_fieldset()`'s arrivals checkbox a few hundred lines above:
-    that one renders CHECKED when the override is set and its ABSENCE
-    from the submission means clear; THIS one renders UNCHECKED always
-    and its PRESENCE in the submission means clear. Copying the
-    arrivals checkbox's polarity instead of its shape would disconnect
-    the calendar on every save that leaves the box unchecked — which is
-    every save that doesn't intend to disconnect anything.
+    19-11-PLAN.md (D-08/A-26): the in-form disconnect checkbox that used
+    to render here (rendered only when `configured or drift`, always
+    unchecked) is RETIRED — disconnecting is now
+    `calendar_disconnect_section()`'s own standalone, confirmed form,
+    rendered by `render()` as a sibling of this group on the Device page,
+    never inside `<form id="settings-form">`. This function itself no
+    longer renders anything disconnect-related.
 
     The `<select name="calendar_theme_id">` reuses `_rule_add_form_html()`'s
     exact option-building loop — one option per `device_config.THEME_IDS`
@@ -1380,27 +1424,6 @@ def calendar_group(
         else:
             status_html = escape_html(CALENDAR_STATUS_CONFIGURED_PENDING)
 
-    # D-07: rendered only when a calendar is connected or its stored
-    # link has drifted (a drifted file still exists and still holds a
-    # URL — the disconnect promise must reach it too). ALWAYS unchecked;
-    # never compute a `checked` attribute here. Polarity is the mirror
-    # image of theme_fieldset()'s arrivals checkbox above: that one is
-    # rendered checked-when-set with absence meaning clear; this one is
-    # rendered unchecked-always with PRESENCE in the submission meaning
-    # clear. Copying the arrivals checkbox's polarity instead of its
-    # shape disconnects the calendar on every unrelated save.
-    disconnect_checkbox_html = ""
-    if configured or drift:
-        disconnect_checkbox_html = (
-            '<label class="settings-checkbox">'
-            '<input type="checkbox" name="calendar_disconnect" '
-            'id="calendar-disconnect" value="%s"> %s'
-            "</label>"
-        ) % (
-            escape_html(CALENDAR_DISCONNECT_CHECKBOX_VALUE),
-            escape_html(CALENDAR_DISCONNECT_CHECKBOX_LABEL),
-        )
-
     selected_calendar_theme_id = _submitted_or_current(
         submitted, "calendar_theme_id",
         current_calendar_theme_id if current_calendar_theme_id is not None
@@ -1435,7 +1458,6 @@ def calendar_group(
         '<p class="text-label section-caption">%s</p>'
         "%s"
         "</div>"
-        "%s"
         '<div class="rule-add-form__field">'
         '<label for="calendar-theme">%s</label>'
         '<select id="calendar-theme" name="calendar_theme_id" required%s>%s</select>'
@@ -1452,11 +1474,97 @@ def calendar_group(
         CALENDAR_URL_MAX_LEN, calendar_url_error_attrs,
         escape_html(CALENDAR_URL_HINT),
         calendar_url_error_html,
-        disconnect_checkbox_html,
         escape_html(CALENDAR_THEME_FIELD_LABEL),
         calendar_theme_error_attrs, theme_options,
         escape_html(CALENDAR_THEME_HINT),
         calendar_theme_error_html,
+    )
+
+
+def calendar_disconnect_section(configured, drift):
+    """19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect action's
+    own standalone, confirmed form — a sibling of `calendar_group()`'s
+    `.page-section`, never a descendant of it or of
+    `<form id="{SETTINGS_FORM_ID}">`. `render()` emits this only on the
+    Device page, immediately after the Calendar group, and never inside
+    the merged settings form — HTML forbids nesting a `<form>` inside
+    another `<form>` anyway (the same structural reason
+    `_rules_section_html()`'s own per-flight rule delete forms are
+    siblings of that form, not descendants), and this action additionally
+    needs its OWN confirmation step, which a field inside the shared
+    settings form could never have.
+
+    Rendered only when `configured or drift` is true — the identical
+    condition the retired in-form checkbox used, and for the identical
+    reason (D-02): a drifted file still exists and still holds a URL, so
+    the promise that disconnecting removes it must not be blocked by a
+    permissions problem.
+
+    The hidden `{CALENDAR_DISCONNECT_CONFIRM_FIELD}` field carries an
+    EMPTY value — a bare POST of this form therefore submits no confirm
+    value at all, landing on `_handle_calendar_disconnect_post()`'s own
+    server-rendered confirmation page (`calendar_disconnect_confirm_
+    page()` below) rather than erasing anything. That page IS the real
+    control (19-CONTEXT.md's own D-08 resolution) — the button below
+    additionally carries `data-confirm`/`data-confirm-value` attributes
+    `companion/static/confirm-submit.js` (Task 2) reads to show one
+    native `confirm()` dialog and, on acceptance only, fill this same
+    hidden field with `CALENDAR_DISCONNECT_CONFIRM_VALUE` before letting
+    the submit proceed — a misclick guard layered on top, never a
+    substitute for the server-side gate.
+    """
+    if not (configured or drift):
+        return ""
+    return (
+        '<form method="post" action="%s" data-confirm="%s" '
+        'data-confirm-value="%s">'
+        '<input type="hidden" name="%s" value="" data-confirm-field>'
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (
+        CALENDAR_DISCONNECT_ROUTE,
+        escape_html(CALENDAR_DISCONNECT_CONFIRM_QUESTION),
+        escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
+        CALENDAR_DISCONNECT_CONFIRM_FIELD,
+        escape_html(CALENDAR_DISCONNECT_CHECKBOX_LABEL),
+    )
+
+
+def calendar_disconnect_confirm_page(ctx):
+    """19-11-PLAN.md Task 1 (D-08/A-26): the two-step server-rendered
+    confirmation `_handle_calendar_disconnect_post()` (companion/app.py)
+    renders at 200 whenever the posted confirm field is not exactly
+    `CALENDAR_DISCONNECT_CONFIRM_VALUE` — including a bare POST with no
+    confirm field at all. This page IS the security-relevant control: it
+    holds with JavaScript disabled, with the script blocked by CSP, or
+    against a hand-crafted request that skips
+    `companion/static/confirm-submit.js`'s native `confirm()` entirely.
+
+    The form posts back to the SAME route with the confirm field
+    pre-filled to the accepted value and a real, plain submit button —
+    the one and only way this page itself can cause a disconnect. The
+    cancel path is a plain link back to the Device page, never a second
+    form (nothing to submit, nothing to confirm). Every dynamic value
+    passes through `escape_html()`, matching this file's universal
+    escaping discipline; `ctx` is accepted (unused today) for the same
+    reason `render()`'s own scoped builders all take it — so a future
+    reader adding a ctx-derived detail here never has to widen this
+    function's own signature to do it.
+    """
+    return (
+        layout.page_header(CALENDAR_DISCONNECT_CONFIRM_HEADING)
+        + '<p class="text-body">%s</p>'
+        '<form method="post" action="%s">'
+        '<input type="hidden" name="%s" value="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+        '<p><a class="text-label" href="%s">%s</a></p>'
+    ) % (
+        escape_html(CALENDAR_DISCONNECT_CONFIRM_SENTENCE),
+        CALENDAR_DISCONNECT_ROUTE,
+        CALENDAR_DISCONNECT_CONFIRM_FIELD, escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
+        escape_html(CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT),
+        layout.DEVICE_ROUTE, escape_html(CALENDAR_DISCONNECT_CANCEL_TEXT),
     )
 
 
@@ -1960,7 +2068,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
             DISPLAY_PAGE_TITLE, purpose=DISPLAY_PAGE_PURPOSE,
             action_html=_screen_caption_html(screen))
         hidden_html = _scope_fields_html(scope, layout.DISPLAY_ROUTE)
-        show_rules = show_poll = False
+        show_rules = show_poll = show_calendar_disconnect = False
     elif scope == SCOPE_DEVICE:
         header = layout.page_header(
             DEVICE_PAGE_TITLE, purpose=DEVICE_PAGE_PURPOSE,
@@ -1968,10 +2076,22 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
         show_rules = bool(screen.get("has_colour_rules"))
         show_poll = bool(screen.get("has_manual_poll"))
+        # 19-11-PLAN.md Task 1 (D-08/A-26): the standalone disconnect
+        # form is Device-only, matching screens.GROUP_CALENDAR's own
+        # scoping — a screen type without the Calendar group has nothing
+        # to disconnect either.
+        show_calendar_disconnect = screens.GROUP_CALENDAR in groups
     else:
         header = layout.page_header("Settings")
         hidden_html = ""
         show_rules = show_poll = True
+        # SCOPE_ALL is the legacy whole-page render, kept byte-identical
+        # to its own pre-Phase-19 output for existing harness checks
+        # against the full form — never used by a live app.py route
+        # (render()'s own module comment). The disconnect action's own
+        # confirmed-form flow is new surface Task 1 adds only to the two
+        # live scoped pages; SCOPE_ALL stays exactly as it was.
+        show_calendar_disconnect = False
 
     rules_section_html = _rules_section_html(ctx) if show_rules else ""
     poll_section_html = (
@@ -1980,6 +2100,14 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "</section>" % (escape_html(POLL_SECTION_HEADING), poll_trigger_section(cooldown_remaining))
         if show_poll else "")
+    # 19-11-PLAN.md Task 1 (D-08/A-26): a sibling of the settings <form>,
+    # never a descendant — see calendar_disconnect_section()'s own
+    # docstring for why. Emitted immediately after </form> closes, before
+    # the rules/poll sections, so it reads right after the Calendar group
+    # it acts on despite living outside the form that group is inside.
+    calendar_disconnect_html = (
+        calendar_disconnect_section(calendar_configured, calendar_drift)
+        if show_calendar_disconnect else "")
 
     return (
         header
@@ -1991,12 +2119,14 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "%s"
         "%s"
+        "%s"
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
         hidden_html,
         groups_html,
         STATIC_SAVE_FALLBACK_ATTR,
+        calendar_disconnect_html,
         rules_section_html,
         poll_section_html,
         dirty_bar_html,
@@ -2115,6 +2245,23 @@ def submitted_calendar_signal(form):
     separate steps so `handle_post()` can gate the persistence call
     behind the OTHER fields' validation first (the all-or-nothing
     contract) without this function needing to know about them.
+
+    19-11-PLAN.md (D-08/A-26, 19-RESEARCH.md Pitfall 7): the in-form
+    `calendar_disconnect` checkbox this function's gates 1-3 above were
+    built to interpret is now RETIRED from `calendar_group()`'s own
+    markup — disconnecting is `CALENDAR_DISCONNECT_ROUTE`'s own dedicated
+    route (`companion/app.py`'s `_handle_calendar_disconnect_post()`),
+    which never calls this function at all: that route always means
+    "disconnect", once its own confirm gate passes, so consulting this
+    resolver there would be dead weight. Gates 1-3 are DELIBERATELY LEFT
+    IN PLACE rather than deleted, even though the ordinary rendered form
+    can no longer produce a `calendar_disconnect` field: a hostile client
+    can still craft that field directly into a `/settings` POST body, and
+    `handle_post()`'s existing all-or-nothing rejection (via this
+    function's `invalid` outcome) is what continues to cover that shape.
+    Deleting the gates would not remove any real capability — it would
+    just make a crafted request's outcome unspecified instead of
+    correctly rejected.
     """
     # Phase 18: a page that never rendered the Calendar group cannot
     # have meant anything by the field's absence — carry forward before
