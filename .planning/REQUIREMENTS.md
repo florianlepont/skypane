@@ -36,6 +36,12 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-10**: User can see a live preview of what the physical panel is currently displaying, via the web interface, without needing SSH access to the server
 - [x] **CFG-11**: User can see a gallery of the most recently rendered panel images via the web interface, for quick visual QA without SSH
 - [x] **CFG-12**: User can select which of Orly's three runways the device tracks (currently hardcoded to runway 3; the two neighboring runways, 06/24 and 02/20, already have corridor geometry in `server/plane/detect.py` — added by the runway3-false-positive fix, currently used only to *exclude* their traffic). Generalizes PLANE-01/02/03's runway-3-specific detection to be parameterized by the selected runway. One runway tracked at a time, applied on the device's next scheduled poll (same timing as CFG-01).
+- [ ] **CFG-13**: User can switch the companion between French and English from any page (per browser); every user-visible string, date and script-driven text follows the choice, with English as the source language and a completeness check keeping the French catalogue in step
+- [ ] **CFG-14**: Home is a glanceable page — the current picture, one status card (frame, battery, flight data, next wake) and the recent flights — with no quick-action widgets on it
+- [ ] **CFG-15**: Display carries every everyday setting (theme, flight colours, calendar, runway, screen on/off with an instant switch, quiet hours with an instant switch), with the calendar and flight-colour rules redesigned for a non-technical user; Device keeps only hardware, data and diagnostics
+- [ ] **CFG-16**: The theme picker shows a live preview of the selected theme rendered with the last real flight, following the selection
+- [ ] **CFG-17**: User can receive a push notification (ntfy-style topic) when the battery goes low or the frame stops checking in, and when each condition clears — sent once per transition from the poll loop
+- [ ] **CFG-18**: User can enable a simple mode (per browser) that hides the Advanced pages and every advanced affordance while keeping the everyday pages fully usable
 
 ## v2 Requirements
 
