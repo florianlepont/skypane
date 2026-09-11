@@ -19,6 +19,7 @@ fields than the Flights page.
 Everything dynamic passes through `layout.escape_html()`.
 """
 
+import companion.battery as battery
 import companion.layout as layout
 from companion.layout import escape_html
 from server import device_config, history_db
@@ -103,26 +104,6 @@ BATTERY_STATE_TEXT = {
 }
 NO_READING_TEXT = "No reading yet"
 
-# A rough state-of-charge estimate for a single-cell LiPo: 4.2V full,
-# 3.3V empty, linear in between. It is an estimate, and labelled as one
-# ("≈") — the frame's own low-battery warning still uses the exact
-# millivolt thresholds in server/poll_loop.py.
-BATTERY_FULL_MV = 4200
-BATTERY_EMPTY_MV = 3300
-
-
-def battery_percent(mv):
-    """A clamped 0-100 estimate for `mv`, or None for a non-numeric or
-    non-positive reading. Never raises."""
-    try:
-        value = float(mv)
-    except (TypeError, ValueError):
-        return None
-    if value <= 0:
-        return None
-    ratio = (value - BATTERY_EMPTY_MV) / float(BATTERY_FULL_MV - BATTERY_EMPTY_MV)
-    return int(round(max(0.0, min(1.0, ratio)) * 100))
-
 
 def _safe_query(state_dir, fn):
     try:
@@ -188,7 +169,7 @@ def _status_tiles_html(ctx):
 
     reading = _safe_query(ctx.get("state_dir"), _latest_battery)
     if reading and reading.get("battery_mv"):
-        pct = battery_percent(reading["battery_mv"])
+        pct = battery.battery_percent(reading["battery_mv"])
         pct_text = ("≈ %d%%" % pct) if pct is not None else ""
         battery_html = (
             '<p class="text-body widget-verdict">%s</p>'
