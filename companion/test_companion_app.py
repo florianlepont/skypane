@@ -317,6 +317,24 @@ EXPECTED_CHECK_COUNT = 213  # 19-09-PLAN.md Task 3 (D-02): +2 (freshness.js's
 # count at execution time (211/213 pass — the two documented WR-11
 # root-sandbox failures, unrelated to this plan), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 217  # 19-11-PLAN.md Task 1 (D-08/A-26): +4 (the
+# dedicated POST /settings/calendar/disconnect route's own real-HTTP
+# checks: a bare POST renders the confirmation page and leaves the
+# calendar connected, confirm=maybe does the same, confirm=yes actually
+# disconnects and redirects with the disconnected flash key, and an
+# unauthenticated POST redirects to /login and writes nothing). 213 + 4
+# = 217, recomputed directly against the real on-disk check(...) call
+# count at execution time (215/217 pass — the two documented WR-11
+# root-sandbox failures, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 220  # 19-11-PLAN.md Task 2 (D-08/A-26): +3 (the
+# ninth static script, confirm-submit.js: its own public-serving check,
+# its ES5-safe/no-HTML-writing-sink guard, and its route/src agreement
+# check). The eight-deferred-scripts check was retargeted in place to
+# nine, a net-zero rename. 217 + 3 = 220, recomputed directly against
+# the real on-disk check(...) call count at execution time (218/220
+# pass — the two documented WR-11 root-sandbox failures, unrelated to
+# this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -3055,27 +3073,71 @@ def main():
             "layout.POLL_COOLDOWN_SCRIPT_SRC equals companion.app.POLL_COOLDOWN_SCRIPT_ROUTE",
             _poll_cooldown_script_route_src_agree)
 
-        def _eight_deferred_scripts_before_closing_body():
-            # Retargeted in place from _seven_deferred_scripts_before_
-            # closing_body() (19-04-PLAN.md Task 1, D-18/A-35):
-            # poll-cooldown.js is the eighth unconditional script.
+        # --- 19-11-PLAN.md Task 2 (D-08/A-26): confirm-submit.js ---
+
+        check(
+            "GET /static/confirm-submit.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/confirm-submit.js"))
+
+        def _confirm_submit_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "confirm-submit.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest", "location.assign", "location.replace")
+            for token in banned:
+                if token in src:
+                    return False, "confirm-submit.js must not contain %r" % token
+            required = ("addEventListener", "preventDefault", "confirm(")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in confirm-submit.js" % token
+            return True, ""
+        check(
+            "confirm-submit.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/location.assign/"
+            "location.replace), and carries the native confirm() step (addEventListener/"
+            "preventDefault/confirm() all present) (D-08/A-26)",
+            _confirm_submit_script_es5_safe_and_no_html_write)
+
+        def _confirm_submit_script_route_src_agree():
+            import companion.app as app_module
+            if layout.CONFIRM_SUBMIT_SCRIPT_SRC != app_module.CONFIRM_SUBMIT_SCRIPT_ROUTE:
+                return False, "confirm-submit script route drift: %r vs %r" % (
+                    layout.CONFIRM_SUBMIT_SCRIPT_SRC, app_module.CONFIRM_SUBMIT_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.CONFIRM_SUBMIT_SCRIPT_SRC equals companion.app.CONFIRM_SUBMIT_SCRIPT_ROUTE",
+            _confirm_submit_script_route_src_agree)
+
+        def _nine_deferred_scripts_before_closing_body():
+            # Retargeted in place from _eight_deferred_scripts_before_
+            # closing_body() (19-11-PLAN.md Task 2, D-08/A-26):
+            # confirm-submit.js is the ninth unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 8:
-                return False, "expected exactly 8 deferred <script src= tags before </body>, got %d" % count
+            if count != 9:
+                return False, "expected exactly 9 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
-                    layout.POLL_COOLDOWN_SCRIPT_SRC):
+                    layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly eight deferred <script src= tags "
-            "before the closing body tag, including panel-lookup.js, flash-cleanup.js and "
-            "poll-cooldown.js",
-            _eight_deferred_scripts_before_closing_body)
+            "a rendered authenticated page contains exactly nine deferred <script src= tags "
+            "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
+            "poll-cooldown.js and confirm-submit.js",
+            _nine_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
@@ -5699,6 +5761,125 @@ def main():
         check(
             "checking the disconnect box redirects with the disconnected flash key, and the calendar's previously-fetched flights are actually erased from disk (D-04)",
             _calendar_disconnect_reports_deletion_and_erases_entries)
+
+        # ==============================================================
+        # 19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect
+        # action's own dedicated POST /settings/calendar/disconnect
+        # route — a bare/wrong-confirm POST renders the two-step
+        # confirmation page and erases nothing; only confirm=yes
+        # disconnects; the route is session-gated like every other
+        # state-changing route.
+        # ==============================================================
+
+        def _calendar_disconnect_route_bare_post_renders_confirmation_and_touches_nothing():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                url = "https://bare-post.example/feed.ics?token=BAREPOSTTOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, _headers, body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST", data=b"", cookie=session)
+                if status != 200:
+                    return False, "expected a 200 confirmation page for a bare POST, got %d" % status
+                if html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_SENTENCE, quote=True).encode() not in body:
+                    return False, "expected the confirmation copy in the rendered page"
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain connected after a bare POST"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a bare authenticated POST /settings/calendar/disconnect with no confirm field returns 200 "
+            "with the confirmation copy and leaves the calendar connected (D-08/A-26)",
+            _calendar_disconnect_route_bare_post_renders_confirmation_and_touches_nothing)
+
+        def _calendar_disconnect_route_confirm_maybe_renders_confirmation_and_touches_nothing():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                url = "https://confirm-maybe.example/feed.ics?token=MAYBETOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, _headers, body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD: "maybe"}).encode(),
+                    cookie=session)
+                if status != 200:
+                    return False, "expected a 200 confirmation page for confirm=maybe, got %d" % status
+                if html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_SENTENCE, quote=True).encode() not in body:
+                    return False, "expected the confirmation copy in the rendered page"
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain connected after confirm=maybe"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an authenticated POST /settings/calendar/disconnect with confirm=maybe renders the "
+            "confirmation page rather than disconnecting anything (D-08/A-26)",
+            _calendar_disconnect_route_confirm_maybe_renders_confirmation_and_touches_nothing)
+
+        def _calendar_disconnect_route_confirm_yes_disconnects():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                url = "https://confirm-yes.example/feed.ics?token=YESTOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, headers, _body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {
+                            config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD:
+                                config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE,
+                        }).encode(),
+                    cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect for confirm=yes, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=calendar_disconnected" not in location:
+                    return False, "expected the calendar_disconnected flash key, got %r" % location
+                if calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to be disconnected"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an authenticated POST /settings/calendar/disconnect with confirm=yes 303-redirects with the "
+            "disconnected flash key and actually disconnects the calendar (D-08/A-26)",
+            _calendar_disconnect_route_confirm_yes_disconnects)
+
+        def _calendar_disconnect_route_unauthenticated_redirects_to_login():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                url = "https://unauth-disconnect.example/feed.ics?token=UNAUTHTOKEN"
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                status, headers, _body = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_DISCONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {
+                            config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD:
+                                config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE,
+                        }).encode())
+                if status != 303:
+                    return False, "expected a 303 redirect for an unauthenticated POST, got %d" % status
+                if headers.get("Location") != "/login":
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain connected — nothing should be written"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an unauthenticated POST /settings/calendar/disconnect (even with confirm=yes) redirects to "
+            "/login and writes nothing (D-08/A-26, T-19-41)",
+            _calendar_disconnect_route_unauthenticated_redirects_to_login)
 
         def _calendar_sync_bypasses_the_throttle_via_min_interval_zero():
             """D-06's bypass, proven two ways.

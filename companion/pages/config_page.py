@@ -207,6 +207,22 @@ RUNWAY_SECTION_CAPTION = (
 LED_SECTION_CAPTION = (
     "Lit only during the device's brief wake window, not visible from "
     "the wall side. Applies on the next scheduled poll.")
+
+# 19-11-PLAN.md Task 3 (D-12/A-30): stable DOM ids for the group headings
+# a radiogroup's aria-labelledby points at, and for each hint paragraph
+# an aria-describedby points at — constants here, never a literal at a
+# render site, matching this file's own convention (see e.g.
+# RUNWAY_IMAGE_ROUTE_PREFIX above). Only the groups that actually gain
+# `role="radiogroup"` (the two theme chip grids and the runway row) get
+# a *_GROUP_HEADING_ID; every hint below gets a *_CAPTION_ID/*_HINT_ID
+# regardless, since a hint can describe a single-control field too (a
+# checkbox, a time/number input, a <select>) with no radiogroup at all.
+THEME_SECTION_CAPTION_ID = "theme-caption"
+THEME_GROUP_HEADING_ID = "theme-group-heading"
+THEME_ARRIVING_GROUP_HEADING_ID = "theme-arriving-group-heading"
+RUNWAY_SECTION_CAPTION_ID = "runway-caption"
+RUNWAY_GROUP_HEADING_ID = "runway-group-heading"
+LED_SECTION_CAPTION_ID = "led-caption"
 POLL_SECTION_HEADING = "Manual refresh"
 POLL_SECTION_CAPTION = (
     "Manually trigger an immediate poll cycle instead of waiting for "
@@ -226,6 +242,9 @@ QUIET_HOURS_SECTION_HEADING = "Quiet hours"
 QUIET_HOURS_SECTION_CAPTION = (
     "Pauses the frame's wake, poll and display cycle overnight. Applies "
     "on the next scheduled poll, which may now be hours away.")
+# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
+# comment above.
+QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
 
 # 19-10-PLAN.md (D-14/S-04): three one-tap presets, client-side only - no
 # server change (see quiet_hours_group()'s docstring). The Night preset's
@@ -264,6 +283,9 @@ WAKE_INTERVAL_SECTION_CAPTION = (
     "life and staler info at a glance. Applies on the next scheduled "
     "poll.")
 WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
+# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
+# comment above.
+WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
 
 # 12-UI-SPEC.md Copywriting Contract, locked verbatim (D-02, 12-CONTEXT.md).
 # Unlike every other caption on this page, this one does not reuse the
@@ -278,6 +300,9 @@ DISPLAY_SECTION_CAPTION = (
     "Turns the physical panel off remotely, without touching the "
     "hardware. Takes effect within about 5 minutes, both switching off "
     "and back on.")
+# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
+# comment above.
+DISPLAY_SECTION_CAPTION_ID = "display-caption"
 
 # Read elsewhere, not just here — this module's existing
 # duplicated-not-imported must-equal discipline (matches
@@ -369,6 +394,16 @@ RULES_ADD_ROUTE = "/settings/rules/add"
 RULES_DELETE_ROUTE_PREFIX = "/settings/rules/"
 RULES_DELETE_ROUTE_SUFFIX = "/delete"
 
+# 19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect action's own
+# route, following RULES_ADD_ROUTE's exact naming/rebinding convention
+# immediately above — companion/app.py rebinds this rather than
+# retyping the literal, since app.py imports this module (the reverse
+# import would be a cycle). An immediate, session-gated POST outside
+# SETTINGS_ROUTE and the settings form's dirty bar, for the identical
+# reason a colour rule's add/delete are: this is a one-step act, not a
+# pending settings edit.
+CALENDAR_DISCONNECT_ROUTE = "/settings/calendar/disconnect"
+
 # Locked-English copy (15-UI-SPEC.md Copywriting Contract, Rules
 # section) - verbatim, do not paraphrase.
 RULES_SECTION_HEADING = "Per-flight colour rules"
@@ -446,6 +481,10 @@ CALENDAR_THEME_FIELD_LABEL = "Theme"
 CALENDAR_THEME_HINT = (
     "Used only when a flight from the calendar happens to be the one on "
     "screen.")
+# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
+# comment above — these two calendar hints are per-field, not
+# group-level, but link to their control the identical way.
+CALENDAR_THEME_HINT_ID = "calendar-theme-hint"
 
 # Phase 17 plan 03 (D-01/D-02/D-07) — Claude's-discretion wording, final
 # once written, matching the locked Phase 16 register above: plain,
@@ -458,17 +497,59 @@ CALENDAR_URL_FIELD_LABEL = "Calendar feed URL"
 CALENDAR_URL_HINT = (
     "Your calendar's private iCal link. Stored on the server and never "
     "shown back here — pasting a new one replaces the old.")
-# Names both halves of what checking the box does (D-07): the operator
-# deserves to see the flights-deletion consequence before they check it,
-# not discover it afterwards.
+CALENDAR_URL_HINT_ID = "calendar-url-hint"
+# Names both halves of what disconnecting does (D-07): the operator
+# deserves to see the flights-deletion consequence before they act, not
+# discover it afterwards. 19-11-PLAN.md (D-08/A-26): the in-form checkbox
+# this label used to sit beside is retired — the same wording now labels
+# the standalone disconnect button calendar_disconnect_section() renders
+# (below) and, unchanged, the confirmation copy the frame's disconnect
+# promise keeps.
 CALENDAR_DISCONNECT_CHECKBOX_LABEL = (
     "Disconnect this calendar and delete the flights it supplied")
 # Matches the shape of LED_CHECKBOX_VALUE/QUIET_HOURS_CHECKBOX_VALUE/
-# DISPLAY_CHECKBOX_VALUE/ARRIVING_CHECKBOX_VALUE above — the sole
-# accepted submitted value, shared by calendar_group()'s markup and
-# handle_post()'s validator (via submitted_calendar_signal() below) so
-# the two can never drift apart.
+# DISPLAY_CHECKBOX_VALUE/ARRIVING_CHECKBOX_VALUE above. 19-11-PLAN.md
+# (D-08/A-26): the checkbox markup that used to submit this value is
+# retired, but the value itself is NOT — submitted_calendar_signal()'s
+# gates 1-3 below still compare a submitted calendar_disconnect field
+# against it, kept deliberately reachable for a hostile client crafting
+# that field into a /settings POST (19-RESEARCH.md Pitfall 7). The
+# dedicated CALENDAR_DISCONNECT_ROUTE below never reads this value at
+# all — it always means "disconnect", once its own confirm gate passes.
 CALENDAR_DISCONNECT_CHECKBOX_VALUE = "on"
+
+# 19-11-PLAN.md Task 1 (D-08/A-26): the dedicated disconnect route's own
+# confirm gate — the single definition site the markup
+# (calendar_disconnect_section()/calendar_disconnect_confirm_page()
+# below), the client-side misclick guard (companion/static/
+# confirm-submit.js, Task 2), and the handler
+# (companion/app.py's _handle_calendar_disconnect_post()) all read,
+# rather than each retyping the field name/accepted value as a literal.
+# Deliberately a different field name from calendar_disconnect above —
+# the two routes' confirm semantics must never be conflated: this field
+# means "the confirmation step passed", that one meant "the in-form
+# checkbox was ticked".
+CALENDAR_DISCONNECT_CONFIRM_FIELD = "confirm"
+CALENDAR_DISCONNECT_CONFIRM_VALUE = "yes"
+# The question companion/static/confirm-submit.js passes to
+# window.confirm() (a misclick guard only — see that file's own header
+# comment) — carried to the browser via calendar_disconnect_section()'s
+# own data-confirm attribute, never duplicated in the script itself.
+CALENDAR_DISCONNECT_CONFIRM_QUESTION = (
+    "Disconnect this calendar and delete the flights it supplied?")
+# The server-rendered two-step confirmation page's own copy
+# (calendar_disconnect_confirm_page() below) — what a no-JS or
+# CSP-blocked browser sees instead of the native dialog above. States
+# the same consequence in a full sentence, since there is no button
+# label length constraint here the way there is on the standalone
+# button.
+CALENDAR_DISCONNECT_CONFIRM_HEADING = "Disconnect calendar?"
+CALENDAR_DISCONNECT_CONFIRM_SENTENCE = (
+    "This disconnects your calendar and deletes the flights it "
+    "supplied from the server. This can't be undone — you'd need to "
+    "paste the feed URL again to reconnect.")
+CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT = "Disconnect calendar"
+CALENDAR_DISCONNECT_CANCEL_TEXT = "Cancel"
 # D-02's fourth status state: the one string in this interface permitted
 # to reference "the server", because it is the one case where the
 # operator has to act there. Names no path, no filename, no part of the
@@ -524,20 +605,56 @@ def _field_error_html(errors, field, control_id):
     ) % (escape_html(control_id), escape_html(message))
 
 
-def _field_error_attrs(errors, field, control_id):
-    """The `aria-invalid="true" aria-describedby="{control_id}-error"`
-    attribute fragment for the control `_field_error_html()` above just
-    built an anchor for — the empty string when `field` carries no
-    message in `errors`. Applied to controls that have exactly one
-    natural DOM element to decorate (a text/number/time input, a
-    checkbox, or a `<select>`); the three radio-group fields (theme,
-    theme_arriving, tracked_runway) render their error message the same
-    way but skip this attribute fragment, since no single native input
-    in a same-named radio group is uniquely "the" control to describe.
+def _describedby_attr(*ids):
+    """19-11-PLAN.md Task 3 (D-12/A-30): the single builder of every
+    `aria-describedby` attribute fragment this file emits. Drops every
+    falsy id — so a caller can pass a hint id and an error id (which is
+    often `None`/`""`) side by side with no conditional of its own — and
+    joins the survivors with ONE space, in the order given (this file's
+    own convention below is always hint first, then error). Returns the
+    empty string when no id survives, so no control this file renders
+    ever emits a bare `aria-describedby=""`.
     """
-    if not (errors and errors.get(field)):
+    present = [control_id for control_id in ids if control_id]
+    if not present:
         return ""
-    return ' aria-invalid="true" aria-describedby="%s-error"' % escape_html(control_id)
+    return ' aria-describedby="%s"' % escape_html(" ".join(present))
+
+
+def _field_error_attrs(errors, field, control_id, hint_id=None):
+    """The ARIA attribute fragment for the control `_field_error_html()`
+    above just built an error anchor for, folding in an optional
+    `hint_id` (19-11-PLAN.md Task 3, D-12/A-30) via `_describedby_attr()`
+    above — hint first, then the error id, matching that helper's own
+    documented order. `hint_id` defaults to `None` so every pre-Task-3
+    call site (which never passed it) keeps emitting byte-identical
+    output: with no error and no hint, this still returns `""`.
+
+    Three shapes, depending on what's present:
+      - no error, no `hint_id`: `""` (unchanged since 19-07-PLAN.md).
+      - no error, a `hint_id`: ` aria-describedby="{hint_id}"` alone —
+        no `aria-invalid`, since there is nothing invalid to report.
+      - an error (`hint_id` present or not): ` aria-invalid="true"`
+        plus a combined `aria-describedby` naming the hint (if given)
+        and `{control_id}-error` (`_field_error_html()`'s own anchor
+        id), in that order.
+
+    Applied to controls that have exactly one natural DOM element to
+    decorate (a text/number/time input, a checkbox, or a `<select>`);
+    the three radio-group fields (theme, theme_arriving, tracked_runway)
+    render their error message the same way but skip this attribute
+    fragment entirely — no single native input in a same-named radio
+    group is uniquely "the" control to describe, and (Task 3) their
+    hint linking instead lands on the `role="radiogroup"` CONTAINER via
+    a direct `_describedby_attr(hint_id)` call at each of those two call
+    sites, never through this function.
+    """
+    has_error = bool(errors and errors.get(field))
+    error_id = ("%s-error" % control_id) if has_error else None
+    describedby = _describedby_attr(hint_id, error_id)
+    if has_error:
+        return ' aria-invalid="true"%s' % describedby
+    return describedby
 
 
 def _submitted_or_current(submitted, field, current):
@@ -722,10 +839,28 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
     `THEME_ARRIVING_TOGGLE_ID`. The single-theme read-only branch above
     has no editable control and is therefore never passed a `theme`
     error in practice — this function does not special-case that away.
+
+    19-11-PLAN.md Task 3 (D-12/A-30): this multi-theme branch's two chip
+    grids gain the group semantics a `<fieldset>`/`<legend>` would
+    otherwise supply, WITHOUT adding either element (the four pinned
+    zero-`<fieldset>` checks in `companion/test_config_page.py` forbid
+    it, and this file's own docstrings above already give the reason).
+    `role="radiogroup"` plus `aria-labelledby` — pointing at this
+    group's own `<h2>` (`THEME_GROUP_HEADING_ID`) for the first grid,
+    and at the "Arrivals theme" label (`THEME_ARRIVING_GROUP_HEADING_ID`)
+    for the second — is the compatible alternative D-12 itself names.
+    Both grids ALSO gain `aria-describedby` pointing at the shared
+    `THEME_SECTION_CAPTION_ID` hint (there is only one hint for the
+    whole group, describing both grids identically), via
+    `_theme_chip_grid_html()`'s existing `extra_attr` seam — the exact
+    seam the arrivals grid's own `ARRIVAL_GRID_ATTR` already uses,
+    reused rather than duplicated with a second seam. The single-theme
+    read-only branch below has no radio group at all (a one-option
+    "choice" is not one), so it gains neither attribute.
     """
     caption_html = (
-        '<p class="text-label section-caption">%s</p>'
-        % escape_html(THEME_SECTION_CAPTION))
+        '<p class="text-label section-caption" id="%s">%s</p>'
+        % (escape_html(THEME_SECTION_CAPTION_ID), escape_html(THEME_SECTION_CAPTION)))
     if len(device_config.THEME_IDS) == 1:
         theme_id = (
             current_theme_id if current_theme_id in device_config.THEMES
@@ -753,7 +888,10 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
         )
 
     effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
-    first_grid = _theme_chip_grid_html("theme", effective_theme_id)
+    first_grid_attr = 'role="radiogroup" aria-labelledby="%s"%s' % (
+        escape_html(THEME_GROUP_HEADING_ID), _describedby_attr(THEME_SECTION_CAPTION_ID))
+    first_grid = _theme_chip_grid_html(
+        "theme", effective_theme_id, extra_attr=first_grid_attr)
     theme_error_html = _field_error_html(errors, "theme", "theme")
 
     checkbox_checked = _submitted_checkbox_checked(
@@ -769,9 +907,12 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
     effective_arriving = (
         submitted_theme_arriving if submitted_theme_arriving is not None
         else effective_theme_id)
+    second_grid_attr = 'role="radiogroup" aria-labelledby="%s"%s %s' % (
+        escape_html(THEME_ARRIVING_GROUP_HEADING_ID),
+        _describedby_attr(THEME_SECTION_CAPTION_ID), ARRIVAL_GRID_ATTR)
     second_grid = _theme_chip_grid_html(
         "theme_arriving", effective_arriving,
-        extra_class="theme-chip-grid--arrivals", extra_attr=ARRIVAL_GRID_ATTR)
+        extra_class="theme-chip-grid--arrivals", extra_attr=second_grid_attr)
     theme_arriving_error_html = _field_error_html(errors, "theme_arriving", "theme-arriving")
     # Only the revealed (second) grid gets a label: before the checkbox
     # exists there is exactly one grid and it needs no label (unchanged
@@ -780,20 +921,24 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
     # first grid as the default/departures one — a second "Departures"
     # label on the first grid would be an extra line of chrome that
     # wording already makes redundant (15-UI-SPEC.md Section Anatomy §1).
+    # 19-11-PLAN.md Task 3 (D-12/A-30): this label also carries
+    # THEME_ARRIVING_GROUP_HEADING_ID — the second grid's own
+    # aria-labelledby target above.
     return (
         '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">Theme</h2>'
+        '<h2 class="text-heading" id="%s">Theme</h2>'
         "%s"
         "%s%s"
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="theme_arriving_enabled" id="%s" value="%s"%s%s> %s'
         "</label>"
         "%s"
-        '<p class="text-label theme-direction-label">%s</p>'
+        '<p class="text-label theme-direction-label" id="%s">%s</p>'
         "%s%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Theme"),
+        escape_html(THEME_GROUP_HEADING_ID),
         caption_html,
         first_grid, theme_error_html,
         escape_html(THEME_ARRIVING_TOGGLE_ID),
@@ -802,6 +947,7 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
         theme_arriving_enabled_attrs,
         escape_html(THEME_ARRIVING_CHECKBOX_LABEL),
         theme_arriving_enabled_error_html,
+        escape_html(THEME_ARRIVING_GROUP_HEADING_ID),
         escape_html(THEME_DIRECTION_LABEL),
         second_grid, theme_arriving_error_html,
     )
@@ -871,6 +1017,15 @@ def runway_fieldset(current_runway_id, images_available=(), errors=None, submitt
     `theme` above — no single radio in the group gains
     `aria-invalid`/`aria-describedby`, for the identical reason
     `theme_fieldset()`'s own docstring already gives.
+
+    19-11-PLAN.md Task 3 (D-12/A-30): the `.runway-row` wrapper itself
+    gains `role="radiogroup"` plus `aria-labelledby` (pointing at this
+    group's own `<h2>`, `RUNWAY_GROUP_HEADING_ID`) and `aria-describedby`
+    (pointing at `RUNWAY_SECTION_CAPTION_ID`'s hint) — the identical
+    compatible-with-zero-`<fieldset>` pattern `theme_fieldset()` applies
+    to its two chip grids, for the identical reason (see that function's
+    own Task 3 docstring paragraph and this file's standing
+    fieldset-free-design rationale above).
     """
     effective_runway_id = _submitted_or_current(
         submitted, "tracked_runway", current_runway_id)
@@ -904,16 +1059,20 @@ def runway_fieldset(current_runway_id, images_available=(), errors=None, submitt
             )
         )
     runway_error_html = _field_error_html(errors, "tracked_runway", "tracked-runway")
+    row_attr = 'role="radiogroup" aria-labelledby="%s"%s' % (
+        escape_html(RUNWAY_GROUP_HEADING_ID), _describedby_attr(RUNWAY_SECTION_CAPTION_ID))
     return (
         '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">Runway</h2>'
-        '<p class="text-label section-caption">%s</p>'
-        '<div class="runway-row">%s</div>'
+        '<h2 class="text-heading" id="%s">Runway</h2>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
+        '<div class="runway-row" %s>%s</div>'
         "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Runway"),
-        escape_html(RUNWAY_SECTION_CAPTION),
+        escape_html(RUNWAY_GROUP_HEADING_ID),
+        escape_html(RUNWAY_SECTION_CAPTION_ID), escape_html(RUNWAY_SECTION_CAPTION),
+        row_attr,
         "".join(cards),
         runway_error_html,
     )
@@ -938,6 +1097,16 @@ def led_group(current_led_enabled, errors=None, submitted=None):
     by D-04/D-05 in 06.6.3), it is named the same way they are — an `<h2
     class="text-heading">` — so all three groups read at one consistent
     heading level, matching the Poll section's own heading role.
+
+    19-11-PLAN.md Task 3 (D-12/A-30): this checkbox has exactly one
+    natural DOM element, so it needs no `role="radiogroup"` of its own
+    (unlike Theme's two chip grids and the Runway row) — but the
+    fieldset-free design this whole file follows stands on the same
+    reasoning stated here and at `theme_fieldset()`'s/
+    `runway_fieldset()`'s own Task 3 paragraphs: D-12 supplies missing
+    group semantics via ARIA attributes (`aria-describedby` here,
+    `role="radiogroup"` + `aria-labelledby` there) rather than ever
+    reaching for a literal `<fieldset>`/`<legend>`.
 
     quick task 260901-re6: `LED_SECTION_CAPTION` is a single muted
     caption, styled and positioned identically to Theme's and Runway's
@@ -965,15 +1134,23 @@ def led_group(current_led_enabled, errors=None, submitted=None):
     state from the submission (absent-means-unchecked, matching
     `handle_post()`'s own resolution of this exact field) and render its
     "unexpected switch value" error, anchored on the checkbox itself.
+
+    19-11-PLAN.md Task 3 (D-12/A-30): this checkbox — a single-control
+    group, unlike Theme/Runway's radio groups above — gains
+    `aria-describedby` pointing at `LED_SECTION_CAPTION_ID`'s hint
+    directly, via `_field_error_attrs()`'s own `hint_id` parameter;
+    combined with any error id in one space-separated value (hint
+    first), never a second, competing `aria-describedby`.
     """
     checked = _submitted_checkbox_checked(
         submitted, "led_enabled", LED_CHECKBOX_VALUE, current_led_enabled)
-    error_attrs = _field_error_attrs(errors, "led_enabled", "led-enabled")
+    error_attrs = _field_error_attrs(
+        errors, "led_enabled", "led-enabled", hint_id=LED_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "led_enabled", "led-enabled")
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="led_enabled" value="%s"%s%s> Enable diagnostic LED'
         "</label>"
@@ -982,7 +1159,7 @@ def led_group(current_led_enabled, errors=None, submitted=None):
     ) % (
         DIRTY_SECTION_ATTR, escape_html(LED_SECTION_HEADING),
         escape_html(LED_SECTION_HEADING),
-        escape_html(LED_SECTION_CAPTION),
+        escape_html(LED_SECTION_CAPTION_ID), escape_html(LED_SECTION_CAPTION),
         escape_html(LED_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
         error_html,
     )
@@ -1054,12 +1231,19 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
     enabled_error_attrs = _field_error_attrs(errors, "quiet_hours_enabled", "quiet-hours-enabled")
     enabled_error_html = _field_error_html(errors, "quiet_hours_enabled", "quiet-hours-enabled")
 
+    # 19-11-PLAN.md Task 3 (D-12/A-30): the group's single hint links to
+    # BOTH time inputs (there is no separate per-field hint for Start vs
+    # End) via `_field_error_attrs()`'s `hint_id` parameter — the enable
+    # checkbox above is not in D-12's own named single-control list and
+    # keeps its unlinked (error-only) attrs.
     effective_start = _submitted_or_current(submitted, "quiet_hours_start", current_start)
-    start_error_attrs = _field_error_attrs(errors, "quiet_hours_start", "quiet-hours-start")
+    start_error_attrs = _field_error_attrs(
+        errors, "quiet_hours_start", "quiet-hours-start", hint_id=QUIET_HOURS_SECTION_CAPTION_ID)
     start_error_html = _field_error_html(errors, "quiet_hours_start", "quiet-hours-start")
 
     effective_end = _submitted_or_current(submitted, "quiet_hours_end", current_end)
-    end_error_attrs = _field_error_attrs(errors, "quiet_hours_end", "quiet-hours-end")
+    end_error_attrs = _field_error_attrs(
+        errors, "quiet_hours_end", "quiet-hours-end", hint_id=QUIET_HOURS_SECTION_CAPTION_ID)
     end_error_html = _field_error_html(errors, "quiet_hours_end", "quiet-hours-end")
 
     # 19-10-PLAN.md (D-14/S-04): the preset row. Reuses .runway-row -
@@ -1091,7 +1275,7 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s%s> Enable quiet hours'
         "</label>"
@@ -1105,7 +1289,7 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
     ) % (
         DIRTY_SECTION_ATTR, escape_html(QUIET_HOURS_SECTION_HEADING),
         escape_html(QUIET_HOURS_SECTION_HEADING),
-        escape_html(QUIET_HOURS_SECTION_CAPTION),
+        escape_html(QUIET_HOURS_SECTION_CAPTION_ID), escape_html(QUIET_HOURS_SECTION_CAPTION),
         escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", enabled_error_attrs,
         enabled_error_html,
         preset_row_html,
@@ -1184,12 +1368,13 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None):
                 and not isinstance(current_wake_interval_s, bool)
                 and device_config.WAKE_INTERVAL_MIN_S <= current_wake_interval_s <= device_config.WAKE_INTERVAL_MAX_S
             ) else "")
-    error_attrs = _field_error_attrs(errors, "wake_interval_s", "wake-interval-s")
+    error_attrs = _field_error_attrs(
+        errors, "wake_interval_s", "wake-interval-s", hint_id=WAKE_INTERVAL_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "wake_interval_s", "wake-interval-s")
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         "<label>Wake interval (seconds) "
         '<input type="number" name="wake_interval_s" min="%d" max="%d"'
         ' placeholder="%s"%s%s></label>'
@@ -1198,7 +1383,7 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None):
     ) % (
         DIRTY_SECTION_ATTR, escape_html(WAKE_INTERVAL_SECTION_HEADING),
         escape_html(WAKE_INTERVAL_SECTION_HEADING),
-        escape_html(WAKE_INTERVAL_SECTION_CAPTION),
+        escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID), escape_html(WAKE_INTERVAL_SECTION_CAPTION),
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
         escape_html(WAKE_INTERVAL_PLACEHOLDER_TEXT),
         value_attr, error_attrs,
@@ -1242,12 +1427,13 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     """
     checked = _submitted_checkbox_checked(
         submitted, "display_enabled", DISPLAY_CHECKBOX_VALUE, current_display_enabled)
-    error_attrs = _field_error_attrs(errors, "display_enabled", "display-enabled")
+    error_attrs = _field_error_attrs(
+        errors, "display_enabled", "display-enabled", hint_id=DISPLAY_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "display_enabled", "display-enabled")
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="display_enabled" value="%s"%s%s> Enable display'
         "</label>"
@@ -1256,7 +1442,7 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     ) % (
         DIRTY_SECTION_ATTR, escape_html(DISPLAY_SECTION_HEADING),
         escape_html(DISPLAY_SECTION_HEADING),
-        escape_html(DISPLAY_SECTION_CAPTION),
+        escape_html(DISPLAY_SECTION_CAPTION_ID), escape_html(DISPLAY_SECTION_CAPTION),
         escape_html(DISPLAY_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
         error_html,
     )
@@ -1310,34 +1496,27 @@ def calendar_group(
     otherwise-universal escaping discipline is deliberately not applied
     uniformly.
 
-    Phase 17 plan 03 adds the write-only feed-URL field and the
-    disconnect checkbox (D-01/D-02/D-07). This function receives only
-    two booleans (`configured`, `drift`) and two timestamps — never the
-    URL itself — so the stored value cannot leak through this renderer
-    even by accident (T-17-SECRET); the field always renders with no
-    `value` attribute, no populated placeholder, and nothing derived
-    from the stored URL, in every one of the four status states. It is
-    `type="text"`, not `type="url"`, deliberately: a URL-typed input
-    would apply its own native client-side acceptability rule, which
-    could disagree with the server's own — the single arbiter of
-    acceptability stays `calendar_rules._url_is_safe()` and the fetch
-    itself. It is also not a masked input: write-only means the STORED
-    value is never rendered back, not that what the operator is
+    Phase 17 plan 03 adds the write-only feed-URL field (D-01/D-02/D-07).
+    This function receives only two booleans (`configured`, `drift`) and
+    two timestamps — never the URL itself — so the stored value cannot
+    leak through this renderer even by accident (T-17-SECRET); the field
+    always renders with no `value` attribute, no populated placeholder,
+    and nothing derived from the stored URL, in every one of the four
+    status states. It is `type="text"`, not `type="url"`, deliberately: a
+    URL-typed input would apply its own native client-side acceptability
+    rule, which could disagree with the server's own — the single
+    arbiter of acceptability stays `calendar_rules._url_is_safe()` and
+    the fetch itself. It is also not a masked input: write-only means the
+    STORED value is never rendered back, not that what the operator is
     currently typing is hidden from them.
 
-    The disconnect checkbox renders only when `configured or drift` is
-    true — a drifted file still exists and still holds a URL, so the
-    promise that an explicit disconnection removes it must not be
-    blocked by a permissions problem — and it is ALWAYS rendered
-    unchecked; no branch of this function ever computes a `checked`
-    attribute for it. Its polarity is the deliberate mirror image of
-    `theme_fieldset()`'s arrivals checkbox a few hundred lines above:
-    that one renders CHECKED when the override is set and its ABSENCE
-    from the submission means clear; THIS one renders UNCHECKED always
-    and its PRESENCE in the submission means clear. Copying the
-    arrivals checkbox's polarity instead of its shape would disconnect
-    the calendar on every save that leaves the box unchecked — which is
-    every save that doesn't intend to disconnect anything.
+    19-11-PLAN.md (D-08/A-26): the in-form disconnect checkbox that used
+    to render here (rendered only when `configured or drift`, always
+    unchecked) is RETIRED — disconnecting is now
+    `calendar_disconnect_section()`'s own standalone, confirmed form,
+    rendered by `render()` as a sibling of this group on the Device page,
+    never inside `<form id="settings-form">`. This function itself no
+    longer renders anything disconnect-related.
 
     The `<select name="calendar_theme_id">` reuses `_rule_add_form_html()`'s
     exact option-building loop — one option per `device_config.THEME_IDS`
@@ -1380,27 +1559,6 @@ def calendar_group(
         else:
             status_html = escape_html(CALENDAR_STATUS_CONFIGURED_PENDING)
 
-    # D-07: rendered only when a calendar is connected or its stored
-    # link has drifted (a drifted file still exists and still holds a
-    # URL — the disconnect promise must reach it too). ALWAYS unchecked;
-    # never compute a `checked` attribute here. Polarity is the mirror
-    # image of theme_fieldset()'s arrivals checkbox above: that one is
-    # rendered checked-when-set with absence meaning clear; this one is
-    # rendered unchecked-always with PRESENCE in the submission meaning
-    # clear. Copying the arrivals checkbox's polarity instead of its
-    # shape disconnects the calendar on every unrelated save.
-    disconnect_checkbox_html = ""
-    if configured or drift:
-        disconnect_checkbox_html = (
-            '<label class="settings-checkbox">'
-            '<input type="checkbox" name="calendar_disconnect" '
-            'id="calendar-disconnect" value="%s"> %s'
-            "</label>"
-        ) % (
-            escape_html(CALENDAR_DISCONNECT_CHECKBOX_VALUE),
-            escape_html(CALENDAR_DISCONNECT_CHECKBOX_LABEL),
-        )
-
     selected_calendar_theme_id = _submitted_or_current(
         submitted, "calendar_theme_id",
         current_calendar_theme_id if current_calendar_theme_id is not None
@@ -1414,14 +1572,21 @@ def calendar_group(
         )
         for theme_id in device_config.THEME_IDS
     )
+    # 19-11-PLAN.md Task 3 (D-12/A-30): the calendar theme <select> and
+    # the calendar URL <input> are both single-control fields (D-12's
+    # own named list) — each gains aria-describedby pointing at its OWN
+    # per-field hint (CALENDAR_THEME_HINT/CALENDAR_URL_HINT), not the
+    # group-level CALENDAR_SECTION_CAPTION, via _field_error_attrs()'s
+    # hint_id parameter.
     calendar_theme_error_attrs = _field_error_attrs(
-        errors, "calendar_theme_id", "calendar-theme")
+        errors, "calendar_theme_id", "calendar-theme", hint_id=CALENDAR_THEME_HINT_ID)
     calendar_theme_error_html = _field_error_html(
         errors, "calendar_theme_id", "calendar-theme")
     # T-16-SECRET / T-19-12: the write-only calendar_url input's value
     # stays empty always, never repopulated from `submitted` — see the
     # docstring above. Only the error attrs/message are new here.
-    calendar_url_error_attrs = _field_error_attrs(errors, "calendar_url", "calendar-url")
+    calendar_url_error_attrs = _field_error_attrs(
+        errors, "calendar_url", "calendar-url", hint_id=CALENDAR_URL_HINT_ID)
     calendar_url_error_html = _field_error_html(errors, "calendar_url", "calendar-url")
     return (
         '<div class="page-section" %s="%s">'
@@ -1432,14 +1597,13 @@ def calendar_group(
         '<label for="calendar-url">%s</label>'
         '<input type="text" id="calendar-url" name="calendar_url" '
         'autocomplete="off" spellcheck="false" maxlength="%s"%s>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         "%s"
         "</div>"
-        "%s"
         '<div class="rule-add-form__field">'
         '<label for="calendar-theme">%s</label>'
         '<select id="calendar-theme" name="calendar_theme_id" required%s>%s</select>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         "%s"
         "</div>"
         "</div>"
@@ -1450,13 +1614,99 @@ def calendar_group(
         status_html,
         escape_html(CALENDAR_URL_FIELD_LABEL),
         CALENDAR_URL_MAX_LEN, calendar_url_error_attrs,
-        escape_html(CALENDAR_URL_HINT),
+        escape_html(CALENDAR_URL_HINT_ID), escape_html(CALENDAR_URL_HINT),
         calendar_url_error_html,
-        disconnect_checkbox_html,
         escape_html(CALENDAR_THEME_FIELD_LABEL),
         calendar_theme_error_attrs, theme_options,
-        escape_html(CALENDAR_THEME_HINT),
+        escape_html(CALENDAR_THEME_HINT_ID), escape_html(CALENDAR_THEME_HINT),
         calendar_theme_error_html,
+    )
+
+
+def calendar_disconnect_section(configured, drift):
+    """19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect action's
+    own standalone, confirmed form — a sibling of `calendar_group()`'s
+    `.page-section`, never a descendant of it or of
+    `<form id="{SETTINGS_FORM_ID}">`. `render()` emits this only on the
+    Device page, immediately after the Calendar group, and never inside
+    the merged settings form — HTML forbids nesting a `<form>` inside
+    another `<form>` anyway (the same structural reason
+    `_rules_section_html()`'s own per-flight rule delete forms are
+    siblings of that form, not descendants), and this action additionally
+    needs its OWN confirmation step, which a field inside the shared
+    settings form could never have.
+
+    Rendered only when `configured or drift` is true — the identical
+    condition the retired in-form checkbox used, and for the identical
+    reason (D-02): a drifted file still exists and still holds a URL, so
+    the promise that disconnecting removes it must not be blocked by a
+    permissions problem.
+
+    The hidden `{CALENDAR_DISCONNECT_CONFIRM_FIELD}` field carries an
+    EMPTY value — a bare POST of this form therefore submits no confirm
+    value at all, landing on `_handle_calendar_disconnect_post()`'s own
+    server-rendered confirmation page (`calendar_disconnect_confirm_
+    page()` below) rather than erasing anything. That page IS the real
+    control (19-CONTEXT.md's own D-08 resolution) — the button below
+    additionally carries `data-confirm`/`data-confirm-value` attributes
+    `companion/static/confirm-submit.js` (Task 2) reads to show one
+    native `confirm()` dialog and, on acceptance only, fill this same
+    hidden field with `CALENDAR_DISCONNECT_CONFIRM_VALUE` before letting
+    the submit proceed — a misclick guard layered on top, never a
+    substitute for the server-side gate.
+    """
+    if not (configured or drift):
+        return ""
+    return (
+        '<form method="post" action="%s" data-confirm="%s" '
+        'data-confirm-value="%s">'
+        '<input type="hidden" name="%s" value="" data-confirm-field>'
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (
+        CALENDAR_DISCONNECT_ROUTE,
+        escape_html(CALENDAR_DISCONNECT_CONFIRM_QUESTION),
+        escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
+        CALENDAR_DISCONNECT_CONFIRM_FIELD,
+        escape_html(CALENDAR_DISCONNECT_CHECKBOX_LABEL),
+    )
+
+
+def calendar_disconnect_confirm_page(ctx):
+    """19-11-PLAN.md Task 1 (D-08/A-26): the two-step server-rendered
+    confirmation `_handle_calendar_disconnect_post()` (companion/app.py)
+    renders at 200 whenever the posted confirm field is not exactly
+    `CALENDAR_DISCONNECT_CONFIRM_VALUE` — including a bare POST with no
+    confirm field at all. This page IS the security-relevant control: it
+    holds with JavaScript disabled, with the script blocked by CSP, or
+    against a hand-crafted request that skips
+    `companion/static/confirm-submit.js`'s native `confirm()` entirely.
+
+    The form posts back to the SAME route with the confirm field
+    pre-filled to the accepted value and a real, plain submit button —
+    the one and only way this page itself can cause a disconnect. The
+    cancel path is a plain link back to the Device page, never a second
+    form (nothing to submit, nothing to confirm). Every dynamic value
+    passes through `escape_html()`, matching this file's universal
+    escaping discipline; `ctx` is accepted (unused today) for the same
+    reason `render()`'s own scoped builders all take it — so a future
+    reader adding a ctx-derived detail here never has to widen this
+    function's own signature to do it.
+    """
+    return (
+        layout.page_header(CALENDAR_DISCONNECT_CONFIRM_HEADING)
+        + '<p class="text-body">%s</p>'
+        '<form method="post" action="%s">'
+        '<input type="hidden" name="%s" value="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+        '<p><a class="text-label" href="%s">%s</a></p>'
+    ) % (
+        escape_html(CALENDAR_DISCONNECT_CONFIRM_SENTENCE),
+        CALENDAR_DISCONNECT_ROUTE,
+        CALENDAR_DISCONNECT_CONFIRM_FIELD, escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
+        escape_html(CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT),
+        layout.DEVICE_ROUTE, escape_html(CALENDAR_DISCONNECT_CANCEL_TEXT),
     )
 
 
@@ -1960,7 +2210,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
             DISPLAY_PAGE_TITLE, purpose=DISPLAY_PAGE_PURPOSE,
             action_html=_screen_caption_html(screen))
         hidden_html = _scope_fields_html(scope, layout.DISPLAY_ROUTE)
-        show_rules = show_poll = False
+        show_rules = show_poll = show_calendar_disconnect = False
     elif scope == SCOPE_DEVICE:
         header = layout.page_header(
             DEVICE_PAGE_TITLE, purpose=DEVICE_PAGE_PURPOSE,
@@ -1968,10 +2218,22 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
         show_rules = bool(screen.get("has_colour_rules"))
         show_poll = bool(screen.get("has_manual_poll"))
+        # 19-11-PLAN.md Task 1 (D-08/A-26): the standalone disconnect
+        # form is Device-only, matching screens.GROUP_CALENDAR's own
+        # scoping — a screen type without the Calendar group has nothing
+        # to disconnect either.
+        show_calendar_disconnect = screens.GROUP_CALENDAR in groups
     else:
         header = layout.page_header("Settings")
         hidden_html = ""
         show_rules = show_poll = True
+        # SCOPE_ALL is the legacy whole-page render, kept byte-identical
+        # to its own pre-Phase-19 output for existing harness checks
+        # against the full form — never used by a live app.py route
+        # (render()'s own module comment). The disconnect action's own
+        # confirmed-form flow is new surface Task 1 adds only to the two
+        # live scoped pages; SCOPE_ALL stays exactly as it was.
+        show_calendar_disconnect = False
 
     rules_section_html = _rules_section_html(ctx) if show_rules else ""
     poll_section_html = (
@@ -1980,6 +2242,14 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "</section>" % (escape_html(POLL_SECTION_HEADING), poll_trigger_section(cooldown_remaining))
         if show_poll else "")
+    # 19-11-PLAN.md Task 1 (D-08/A-26): a sibling of the settings <form>,
+    # never a descendant — see calendar_disconnect_section()'s own
+    # docstring for why. Emitted immediately after </form> closes, before
+    # the rules/poll sections, so it reads right after the Calendar group
+    # it acts on despite living outside the form that group is inside.
+    calendar_disconnect_html = (
+        calendar_disconnect_section(calendar_configured, calendar_drift)
+        if show_calendar_disconnect else "")
 
     return (
         header
@@ -1991,12 +2261,14 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "%s"
         "%s"
+        "%s"
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
         hidden_html,
         groups_html,
         STATIC_SAVE_FALLBACK_ATTR,
+        calendar_disconnect_html,
         rules_section_html,
         poll_section_html,
         dirty_bar_html,
@@ -2115,6 +2387,23 @@ def submitted_calendar_signal(form):
     separate steps so `handle_post()` can gate the persistence call
     behind the OTHER fields' validation first (the all-or-nothing
     contract) without this function needing to know about them.
+
+    19-11-PLAN.md (D-08/A-26, 19-RESEARCH.md Pitfall 7): the in-form
+    `calendar_disconnect` checkbox this function's gates 1-3 above were
+    built to interpret is now RETIRED from `calendar_group()`'s own
+    markup — disconnecting is `CALENDAR_DISCONNECT_ROUTE`'s own dedicated
+    route (`companion/app.py`'s `_handle_calendar_disconnect_post()`),
+    which never calls this function at all: that route always means
+    "disconnect", once its own confirm gate passes, so consulting this
+    resolver there would be dead weight. Gates 1-3 are DELIBERATELY LEFT
+    IN PLACE rather than deleted, even though the ordinary rendered form
+    can no longer produce a `calendar_disconnect` field: a hostile client
+    can still craft that field directly into a `/settings` POST body, and
+    `handle_post()`'s existing all-or-nothing rejection (via this
+    function's `invalid` outcome) is what continues to cover that shape.
+    Deleting the gates would not remove any real capability — it would
+    just make a crafted request's outcome unspecified instead of
+    correctly rejected.
     """
     # Phase 18: a page that never rendered the Calendar group cannot
     # have meant anything by the field's absence — carry forward before

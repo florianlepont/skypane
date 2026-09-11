@@ -41,6 +41,7 @@ if REPO_ROOT not in sys.path:
 
 from companion import app as companion_app  # noqa: E402
 from companion import auth  # noqa: E402
+import companion.layout as layout  # noqa: E402
 from companion.layout import escape_html  # noqa: E402
 from companion.pages import config_page  # noqa: E402
 from server import device_config  # noqa: E402
@@ -312,6 +313,30 @@ EXPECTED_CHECK_COUNT = 163  # 19-10-PLAN.md Task 3 (D-14/S-04): +7 (the
 # data-preset-* attribute-agreement check). 156 + 7 = 163, recomputed
 # directly against the real on-disk check(...) call count at execution
 # time (163/163 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 167  # 19-11-PLAN.md Task 1 (D-08/A-26): +4 net
+# (the calendar_disconnect checkbox check was retargeted in place from
+# "appears only when expected and unchecked" to "never appears at all",
+# a net-zero rename; four checks were added:
+# calendar_disconnect_section()'s own presence/absence-plus-shape check,
+# calendar_disconnect_confirm_page()'s post-back-with-confirm-preset
+# check, the disconnect form's sibling-not-descendant position check on
+# the Device scope, and the disconnect form's absence when not
+# configured/on the Display scope). 163 + 4 = 167, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (167/167 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 170  # 19-11-PLAN.md Task 3 (D-12/A-30): +3 (the
+# Display-has-two/Device-has-one role="radiogroup" check, the
+# every-aria-reference-resolves-and-none-is-empty check across all three
+# scopes, and the hint-plus-error-both-ids-in-order check). Several
+# existing checks were also retargeted in place to tolerate the new
+# id="..."/aria-*="..." attributes now present (a net-zero rename, not
+# a new premise): the wake-interval/display caption literals, the
+# runway-row opening-tag literal, the "every settings group named
+# exactly once" heading literals, the wake-interval aria-describedby
+# check, and the calendar-theme select's required-attribute regex.
+# 167 + 3 = 170, recomputed directly against the real on-disk check(...)
+# call count at execution time (170/170 pass), not trusted from
+# arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -530,7 +555,13 @@ def main():
         expected_checked = 'name="led_enabled" value="%s" checked' % led_value
         if expected_checked not in checked_html:
             return False, "expected led_group(True) to carry %r" % (expected_checked,)
-        expected_unchecked = 'name="led_enabled" value="%s">' % led_value
+        # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - with no
+        # error, the input now carries a bare aria-describedby pointing
+        # at LED_SECTION_CAPTION_ID (via _field_error_attrs()'s hint_id)
+        # before the closing '>', not a bare closing '>' any more.
+        expected_unchecked = (
+            'name="led_enabled" value="%s" aria-describedby="%s">'
+            % (led_value, escape_html(config_page.LED_SECTION_CAPTION_ID)))
         if expected_unchecked not in unchecked_html:
             return False, "expected led_group(False) to carry %r with no checked flag" % (expected_unchecked,)
         if "checked" in unchecked_html:
@@ -743,9 +774,14 @@ def main():
             % escape_html(config_page.WAKE_INTERVAL_SECTION_HEADING))
         if rendered.count(expected_heading) != 1:
             return False, "expected exactly one heading %r" % (expected_heading,)
+        # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - the
+        # caption now carries WAKE_INTERVAL_SECTION_CAPTION_ID (the
+        # number input's own aria-describedby target).
         expected_caption = (
-            '<p class="text-label section-caption">%s</p>'
-            % escape_html(config_page.WAKE_INTERVAL_SECTION_CAPTION))
+            '<p class="text-label section-caption" id="%s">%s</p>'
+            % (
+                escape_html(config_page.WAKE_INTERVAL_SECTION_CAPTION_ID),
+                escape_html(config_page.WAKE_INTERVAL_SECTION_CAPTION)))
         if rendered.count(expected_caption) != 1:
             return False, "expected exactly one caption %r" % (expected_caption,)
         if rendered.count('<input type="number" name="wake_interval_s"') != 1:
@@ -849,9 +885,14 @@ def main():
                 % escape_html(config_page.DISPLAY_SECTION_HEADING))
             if rendered.count(expected_heading) != 1:
                 return False, "expected exactly one heading %r" % (expected_heading,)
+            # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - the
+            # caption now carries DISPLAY_SECTION_CAPTION_ID (the
+            # checkbox's own aria-describedby target).
             expected_caption = (
-                '<p class="text-label section-caption">%s</p>'
-                % escape_html(config_page.DISPLAY_SECTION_CAPTION))
+                '<p class="text-label section-caption" id="%s">%s</p>'
+                % (
+                    escape_html(config_page.DISPLAY_SECTION_CAPTION_ID),
+                    escape_html(config_page.DISPLAY_SECTION_CAPTION)))
             if rendered.count(expected_caption) != 1:
                 return False, "expected exactly one caption %r" % (expected_caption,)
             if rendered.count('<label class="settings-checkbox">') != 1:
@@ -990,8 +1031,21 @@ def main():
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
+        # 19-11-PLAN.md Task 3 (D-12/A-30): Theme's and Runway's own <h2>
+        # now carry an id (the two chip grids'/runway row's own
+        # aria-labelledby target) - retargeted in place, not a rename of
+        # this check's own premise (each group is still named exactly once).
+        heading_ids = {
+            "Theme": config_page.THEME_GROUP_HEADING_ID,
+            "Runway": config_page.RUNWAY_GROUP_HEADING_ID,
+        }
         for name in ("Theme", "Runway", "Diagnostic LED", config_page.POLL_SECTION_HEADING):
-            heading = '<h2 class="text-heading">%s</h2>' % name
+            heading_id = heading_ids.get(name)
+            if heading_id:
+                heading = '<h2 class="text-heading" id="%s">%s</h2>' % (
+                    escape_html(heading_id), name)
+            else:
+                heading = '<h2 class="text-heading">%s</h2>' % name
             if rendered.count(heading) != 1:
                 return False, (
                     "expected exactly one %r group heading, got %d"
@@ -1383,9 +1437,14 @@ def main():
         # actual proof the second paragraph is gone, not merely moved.
         rendered = config_page.runway_fieldset("3")
         caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
-        row_open = '<div class="runway-row">'
+        # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - the row
+        # now also carries role="radiogroup"/aria-labelledby/
+        # aria-describedby, so the opening tag itself is no longer a
+        # bare literal; the match still proves there is exactly one
+        # .runway-row element.
+        row_open = '<div class="runway-row" role="radiogroup"'
         if rendered.count(row_open) != 1:
-            return False, "expected exactly one <div class=\"runway-row\"> opening tag, got %d" % rendered.count(row_open)
+            return False, "expected exactly one <div class=\"runway-row\" role=\"radiogroup\"...> opening tag, got %d" % rendered.count(row_open)
         caption_pos = rendered.index(caption)
         row_start = rendered.index(row_open)
         if caption_pos >= row_start:
@@ -2461,9 +2520,18 @@ def main():
         describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
         if not describedby_match:
             return False, "expected an aria-describedby attribute on the errored input"
-        error_id = describedby_match.group(1)
-        if ('id="%s"' % error_id) not in rendered:
-            return False, "expected an element carrying id=%r matching aria-describedby" % (error_id,)
+        # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - the
+        # value is now a SPACE-SEPARATED list (the hint id first, then
+        # the error id), not a single id, so each token must be checked
+        # individually against the rendered page's own ids.
+        ids = describedby_match.group(1).split(" ")
+        if len(ids) != 2:
+            return False, "expected exactly two space-separated ids (hint, then error), got %r" % (ids,)
+        if ids[0] != config_page.WAKE_INTERVAL_SECTION_CAPTION_ID:
+            return False, "expected the hint id to come first, got %r" % (ids,)
+        for token in ids:
+            if ('id="%s"' % token) not in rendered:
+                return False, "expected an element carrying id=%r matching aria-describedby" % (token,)
         return True, ""
     check(
         "render(ctx, errors={\"wake_interval_s\": \"msg\"}, submitted={\"wake_interval_s\": \"7\"}) renders the "
@@ -4227,8 +4295,11 @@ def main():
             return False, (
                 "expected exactly one calendar_theme_id field, got %d"
                 % rendered.count('name="calendar_theme_id"'))
+        # 19-11-PLAN.md Task 3 (D-12/A-30): the select may now also carry
+        # an aria-describedby attribute after required - [^>]* tolerates
+        # it without weakening the "required is present" assertion.
         select_match = re.search(
-            r'<select id="calendar-theme" name="calendar_theme_id" required>(.*?)</select>',
+            r'<select id="calendar-theme" name="calendar_theme_id" required[^>]*>(.*?)</select>',
             rendered, re.S)
         if not select_match:
             return False, "expected a calendar-theme select carrying the required attribute"
@@ -4450,26 +4521,107 @@ def main():
         "leak caught at the function that introduces it)",
         _calendar_containment_at_the_renderer_five_needles)
 
-    def _calendar_disconnect_checkbox_appears_only_when_expected_and_unchecked():
+    def _calendar_disconnect_checkbox_never_appears_in_calendar_group():
+        # 19-11-PLAN.md Task 1 (D-08/A-26): the in-form disconnect
+        # checkbox is retired outright from calendar_group() in EVERY
+        # one of its four distinguishable states — disconnecting is now
+        # calendar_disconnect_section()'s own standalone, confirmed form,
+        # checked separately below.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
             html = config_page.calendar_group(
                 configured, drift, last_synced_at, "2026-09-07T09:12:04+00:00",
                 None, "white")
-            has_box = 'name="calendar_disconnect"' in html
-            expected = configured or drift
-            if has_box != expected:
+            if 'name="calendar_disconnect"' in html:
                 return False, (
-                    "state %r: expected checkbox presence %r, got %r"
-                    % ((configured, drift), expected, has_box))
-            if has_box:
-                after = html.split('name="calendar_disconnect"', 1)[1]
-                if " checked" in after[:200]:
-                    return False, "expected the checkbox to render unchecked in state %r" % ((configured, drift),)
+                    "state %r: expected calendar_group() to render no calendar_disconnect "
+                    "checkbox at all (D-08 retires it)" % ((configured, drift),))
         return True, ""
     check(
-        "the disconnect checkbox appears only when the calendar is connected or drifted, and renders "
-        "unchecked in every state it appears in (D-07 - the safe default is doing nothing)",
-        _calendar_disconnect_checkbox_appears_only_when_expected_and_unchecked)
+        "calendar_group() renders no calendar_disconnect checkbox in any of its four states "
+        "(D-08/A-26: disconnecting is now its own standalone form, not an in-form checkbox)",
+        _calendar_disconnect_checkbox_never_appears_in_calendar_group)
+
+    def _calendar_disconnect_section_appears_only_when_expected():
+        for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
+            html = config_page.calendar_disconnect_section(configured, drift)
+            expected = configured or drift
+            has_form = bool(html)
+            if has_form != expected:
+                return False, (
+                    "state %r: expected disconnect-form presence %r, got %r"
+                    % ((configured, drift), expected, has_form))
+            if has_form:
+                if '<form method="post" action="%s"' % config_page.CALENDAR_DISCONNECT_ROUTE not in html:
+                    return False, "expected the form to post to CALENDAR_DISCONNECT_ROUTE"
+                if 'data-confirm-field' not in html:
+                    return False, "expected the hidden confirm field to carry data-confirm-field"
+                if 'name="%s" value=""' % config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD not in html:
+                    return False, "expected the hidden confirm field to render with an EMPTY value"
+                if "data-confirm=" not in html:
+                    return False, "expected a data-confirm attribute carrying the confirm question"
+        return True, ""
+    check(
+        "calendar_disconnect_section() renders only when the calendar is connected or drifted, posting "
+        "to CALENDAR_DISCONNECT_ROUTE with a hidden, empty, data-confirm-field-carrying confirm field "
+        "(D-08/A-26)",
+        _calendar_disconnect_section_appears_only_when_expected)
+
+    def _calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
+        rendered = config_page.calendar_disconnect_confirm_page({})
+        expected_form = (
+            '<form method="post" action="%s">'
+            '<input type="hidden" name="%s" value="%s">'
+        ) % (
+            config_page.CALENDAR_DISCONNECT_ROUTE,
+            config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD,
+            html.escape(config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE, quote=True),
+        )
+        if expected_form not in rendered:
+            return False, "expected the confirm page's form to post to the same route with the confirm field pre-set"
+        if 'href="%s"' % layout.DEVICE_ROUTE not in rendered:
+            return False, "expected a cancel link back to the Device page"
+        if "<fieldset" in rendered or "<legend" in rendered:
+            return False, "expected no <fieldset>/<legend> on the confirm page"
+        return True, ""
+    check(
+        "calendar_disconnect_confirm_page() renders a form posting to CALENDAR_DISCONNECT_ROUTE with the "
+        "confirm field pre-set to the accepted value, plus a plain cancel link to Device (D-08/A-26)",
+        _calendar_disconnect_confirm_page_posts_back_with_confirm_preset)
+
+    def _calendar_disconnect_form_is_not_inside_settings_form_on_device_scope():
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        settings_form_close = rendered.find("</form>")
+        disconnect_form_open = rendered.find(
+            '<form method="post" action="%s"' % config_page.CALENDAR_DISCONNECT_ROUTE)
+        if settings_form_close == -1:
+            return False, "expected the settings form to be present"
+        if disconnect_form_open == -1:
+            return False, "expected the disconnect form to be present on the Device scope"
+        if disconnect_form_open < settings_form_close:
+            return False, "expected the disconnect form's opening tag to appear AFTER the settings form's closing tag"
+        return True, ""
+    check(
+        "on the Device scope, the calendar disconnect form's opening tag appears after the settings "
+        "form's own closing tag — it is a sibling, never a descendant (D-08/A-26)",
+        _calendar_disconnect_form_is_not_inside_settings_form_on_device_scope)
+
+    def _calendar_disconnect_form_absent_when_not_configured_or_on_display_scope():
+        not_connected_ctx = dict(
+            _CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
+        device_rendered = config_page.render(not_connected_ctx, scope=config_page.SCOPE_DEVICE)
+        if config_page.CALENDAR_DISCONNECT_ROUTE in device_rendered:
+            return False, "expected no disconnect form when the calendar is not configured or drifted"
+        connected_ctx = dict(
+            _CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        display_rendered = config_page.render(connected_ctx, scope=config_page.SCOPE_DISPLAY)
+        if config_page.CALENDAR_DISCONNECT_ROUTE in display_rendered:
+            return False, "expected no disconnect form on the Display scope, which never renders Calendar"
+        return True, ""
+    check(
+        "the disconnect form is absent when the calendar is neither configured nor drifted, and absent "
+        "from the Display scope, which never renders the Calendar group at all (D-08/A-26)",
+        _calendar_disconnect_form_absent_when_not_configured_or_on_display_scope)
 
     def _calendar_status_drift_is_exclusive_and_precedes_not_configured():
         ctx = dict(
@@ -5114,6 +5266,88 @@ def main():
     finally:
         calendar_harness.stop()
         calendar_harness.cleanup()
+
+    # ==================================================================
+    # 19-11-PLAN.md Task 3 (D-12/A-30): the two chip grids and the
+    # runway row as named radiogroups, and every hint linked to its
+    # control via aria-describedby - no dangling ARIA reference, no
+    # empty aria-describedby, and hint+error ids coexisting in order.
+    # ==================================================================
+
+    _TASK3_BASE_CTX = {
+        "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+        "poll_cooldown_remaining": 0,
+    }
+
+    def _display_scope_has_two_radiogroups_device_has_one():
+        display_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        device_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
+        display_count = display_rendered.count('role="radiogroup"')
+        if display_count < 2:
+            return False, (
+                "expected at least two role=\"radiogroup\" occurrences on the Display "
+                "scope (Theme's two chip grids), got %d" % display_count)
+        device_count = device_rendered.count('role="radiogroup"')
+        if device_count < 1:
+            return False, (
+                "expected at least one role=\"radiogroup\" occurrence on the Device "
+                "scope (the Runway row), got %d" % device_count)
+        return True, ""
+    check(
+        "the Display scope renders at least two role=\"radiogroup\" elements (Theme's departures and "
+        "arrivals chip grids) and the Device scope renders at least one (the Runway row) (D-12/A-30)",
+        _display_scope_has_two_radiogroups_device_has_one)
+
+    _ID_RE = re.compile(r'\bid="([^"]*)"')
+    _LABELLEDBY_RE = re.compile(r'aria-labelledby="([^"]*)"')
+    _DESCRIBEDBY_RE = re.compile(r'aria-describedby="([^"]*)"')
+
+    def _every_aria_reference_resolves_and_none_is_empty():
+        for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
+            rendered = config_page.render(_TASK3_BASE_CTX, scope=scope)
+            existing_ids = set(_ID_RE.findall(rendered))
+            for value in _DESCRIBEDBY_RE.findall(rendered):
+                if not value:
+                    return False, "scope %r: expected no empty aria-describedby, found one" % (scope,)
+                for token in value.split(" "):
+                    if token not in existing_ids:
+                        return False, (
+                            "scope %r: aria-describedby token %r does not match any id "
+                            "the same output emits" % (scope, token))
+            for value in _LABELLEDBY_RE.findall(rendered):
+                if not value:
+                    return False, "scope %r: expected no empty aria-labelledby, found one" % (scope,)
+                for token in value.split(" "):
+                    if token not in existing_ids:
+                        return False, (
+                            "scope %r: aria-labelledby token %r does not match any id "
+                            "the same output emits" % (scope, token))
+        return True, ""
+    check(
+        "every aria-labelledby and aria-describedby value render() emits, at every scope, resolves to "
+        "an id the same output actually carries, and no element emits an empty aria-describedby or "
+        "aria-labelledby (D-12/A-30)",
+        _every_aria_reference_resolves_and_none_is_empty)
+
+    def _control_with_both_hint_and_error_carries_both_ids_in_order():
+        rendered = config_page.render(
+            _TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE,
+            errors={"led_enabled": "msg"}, submitted={})
+        input_match = re.search(r'<input type="checkbox" name="led_enabled"[^>]*>', rendered)
+        if not input_match:
+            return False, "expected the led_enabled checkbox to still render"
+        describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
+        if not describedby_match:
+            return False, "expected an aria-describedby on the errored led_enabled checkbox"
+        ids = describedby_match.group(1).split(" ")
+        if ids != [config_page.LED_SECTION_CAPTION_ID, "led-enabled-error"]:
+            return False, "expected the hint id first, then the error id, got %r" % (ids,)
+        return True, ""
+    check(
+        "a control carrying both a hint and an error (led_enabled, rendered with an errors dict) has "
+        "BOTH ids in its aria-describedby, hint first then error, never one overwriting the other "
+        "(D-12/A-30)",
+        _control_with_both_hint_and_error_carries_both_ids_in_order)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
