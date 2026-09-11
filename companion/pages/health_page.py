@@ -1329,7 +1329,7 @@ def collect_anomalies(
     if disagreement_warn:
         anomalies.append("ADS-B sources disagreed on the selected aircraft recently.")
     if coverage_state != "ok":
-        anomalies.append("Some callsign prefixes are still unidentified.")
+        anomalies.append("Some airlines are unidentified.")
     if source_fault:
         anomalies.append("Every ADS-B source failed on the last run.")
     return anomalies

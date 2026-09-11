@@ -2714,7 +2714,7 @@ def main():
         if "Every ADS-B source failed on the last run." not in health_page.collect_anomalies(
                 "ok", "ok", "ok", False, source_fault=True):
             return False, "expected the source_fault item to appear when source_fault=True"
-        if "Some callsign prefixes are still unidentified." not in health_page.collect_anomalies(
+        if "Some airlines are unidentified." not in health_page.collect_anomalies(
                 "ok", "ok", "ok", False, coverage_state="warn"):
             return False, "expected the coverage item to appear when coverage_state='warn'"
         if health_page.collect_anomalies("ok", "ok", "ok", False) != []:
