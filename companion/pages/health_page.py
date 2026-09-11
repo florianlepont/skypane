@@ -55,6 +55,14 @@ from datetime import datetime, timedelta, timezone
 from companion.layout import escape_html
 import companion.battery as battery
 import companion.layout as layout
+import companion.wake as wake  # D-05/A-23, 19-05-PLAN.md Task 3: the
+# shared effective-wake-interval resolver and the derived device-
+# staleness thresholds, replacing this module's own retired
+# STALE_DEVICE_WARN_S/STALE_DEVICE_ERROR_S constants.
+from server import device_config  # D-05/A-23: read-only, for
+# load_device_config() — this module already imports two sibling server
+# modules below (history_db, poll_loop), so this is not a new boundary
+# crossing.
 from server import history_db
 import server.poll_loop as poll_loop  # 06.6.4.1-04 (D-11): the migrated
 # unresolved_rows() below now genuinely reads through this module's own
@@ -77,20 +85,21 @@ STALE_PIPELINE_WARN_S = 180  # 3 minutes — 6x the 30s cadence; one missed
 STALE_PIPELINE_ERROR_S = 900  # 15 minutes — 30x the cadence; well past
 # "the systemd timer is having a rough moment."
 
-# Device check-in: unlike the pipeline, this is genuinely tunable and
-# CURRENTLY a bring-up default, not a production value — deploy/
-# skypane.env.example's SKYPANE_SLEEP_S is 30 seconds today (verified
-# live on the OVH host, STATE.md 2026-08-26), but is explicitly expected
-# to lengthen substantially once Phase 5's real battery-life measurement
-# lands (05-01 Tasks 2-3, deliberately deferred to the end of the
-# project). These two thresholds must therefore be generous enough that
-# lengthening SKYPANE_SLEEP_S does not turn this page permanently red —
-# anchored instead to flightportrait's own documented backoff ceiling
-# (PROJECT.md: "exponential-backoff polling, caps at 6h"), which is the
-# worst-case gap a healthy-but-struggling device can produce on its own
-# before this page should call it an outage.
-STALE_DEVICE_WARN_S = 3600  # 1 hour
-STALE_DEVICE_ERROR_S = 21600  # 6 hours — matches the documented backoff cap.
+# Device check-in: unlike the pipeline, this is genuinely tunable — the
+# device's own effective wake cadence, which can be set on Settings or
+# deployed via SKYPANE_SLEEP_S. RETIRED (D-05/A-23, 19-05-PLAN.md):
+# STALE_DEVICE_WARN_S = 3600 (1 hour) / STALE_DEVICE_ERROR_S = 21600
+# (6 hours, flightportrait's own documented backoff ceiling) used to be
+# two fixed constants here, generous enough that a longer SKYPANE_SLEEP_S
+# would not turn this page permanently red — but "generous enough for
+# any cadence" is also "miscalibrated for every specific cadence": a
+# healthy 30s-cadence device was called "stale" only after a full hour,
+# a genuinely dead one only called an "outage" after six. D-05 replaces
+# the fixed pair with `wake.device_staleness_thresholds(
+# wake.effective_wake_interval_s(device_cfg))` — thresholds derived from
+# the device's OWN cadence (3/12 missed wakes, floored at 5/20 minutes),
+# computed in compute_health_state() and threaded into _device_section()
+# below.
 
 # --- Battery trend (D-12/D-13) ----------------------------------------------
 
@@ -618,6 +627,25 @@ _SPARKLINE_CANVAS_HEIGHT_PX = 160
 # _SPARKLINE_CANVAS_HEIGHT_PX above ever changes.
 _SPARKLINE_VERTICAL_INSET_PERCENT = 3.75
 
+# D-04 (A-22), 19-05-PLAN.md: the sparkline's Y-axis is now a FIXED range
+# — the single-cell LiPo's whole usable window (3.3-4.2V, the same span
+# `companion/battery.py`'s BATTERY_EMPTY_MV/BATTERY_FULL_MV estimate
+# uses), never an auto-scaled `min(values)`/`max(values)` window. Before
+# this task, a flat battery series pinned to the bottom of the canvas
+# (min == max, since nothing else was on screen to compare it against)
+# and a real but tiny 15mV wiggle stretched to fill the WHOLE vertical
+# range, reading as a cliff rather than the noise it actually was. A
+# fixed range fixes both: a flat series now draws flat, a small wiggle
+# now draws small, and the chart's own axis labels agree by construction
+# with the percentage readout `companion/battery.py`'s estimate already
+# shows beside it, since both are now measured against the same span.
+SPARKLINE_Y_MIN_MV = 3000
+SPARKLINE_Y_MAX_MV = 4200
+_SPARKLINE_Y_SPAN_MV = SPARKLINE_Y_MAX_MV - SPARKLINE_Y_MIN_MV  # no `or 1`
+# guard needed here (unlike the retired `span = (hi - lo) or 1`): this is
+# now a fixed, always-nonzero constant, never a per-render min/max that
+# could collide to zero for a flat series.
+
 # 260902-l0b: the cosmetic marker's and the normal hit target's radii,
 # named (they were literals — `r="3"`/`r="8"` — inside the point loop
 # before this task) so the density rule below can reference them instead
@@ -649,18 +677,50 @@ _SPARKLINE_HIT_RADIUS_PX = 8
 # resolves it for one real, cited data point, and this task's own human-
 # verification pass is exactly what surfaced the gap between the
 # estimate and reality.
-#
-# `_point_x()` below spreads `point_count` points evenly across the
-# canvas's full width, so consecutive points sit `226 / (point_count - 1)`
-# CSS pixels apart. They stop reading as separate marks once that gap
-# drops below the cosmetic dot's own diameter (2 * _SPARKLINE_DOT_RADIUS_PX
-# = 6px): `226 / (point_count - 1) < 6` => `point_count > 226 / 6 + 1`
-# => `point_count > 38.67`, so 39 is the first integer point count where
-# suppression is warranted. Re-derive this figure (from a real running
-# instance, not from memory) if the canvas's own measured width, the
-# realistic Y-label digit count, or the cosmetic dot radius above ever
-# changes.
-_SPARKLINE_DENSE_POINT_THRESHOLD = 39
+_SPARKLINE_NARROWEST_CANVAS_PX = 226  # the live-measured figure above —
+# the narrowest canvas width this project has ever actually measured.
+
+
+def _sparkline_dense_threshold(canvas_width_px):
+    """(D-04, 19-05-PLAN.md) The first integer point count at which
+    `_point_x()`'s evenly-spread points sit closer together than the
+    cosmetic dot's own diameter, for a canvas rendered at
+    `canvas_width_px` CSS pixels wide.
+
+    `_point_x()` spreads `point_count` points evenly across the canvas's
+    full width, so consecutive points sit
+    `canvas_width_px / (point_count - 1)` CSS pixels apart. They stop
+    reading as separate marks once that gap drops below the cosmetic
+    dot's own diameter (`2 * _SPARKLINE_DOT_RADIUS_PX`):
+    `canvas_width_px / (point_count - 1) < 2 * _SPARKLINE_DOT_RADIUS_PX`
+    => `point_count > canvas_width_px / (2 * _SPARKLINE_DOT_RADIUS_PX) +
+    1`, and this function returns the first integer above that bound.
+
+    This promotes into code the exact points-per-pixel arithmetic the
+    retired `_SPARKLINE_DENSE_POINT_THRESHOLD = 39` typed constant used
+    to compute once, by hand, for one measured width — expressed this
+    way, the rule re-derives itself automatically if the dot radius or
+    the measured canvas width below ever changes, instead of silently
+    rotting as a magic integer nobody re-checks.
+
+    Honest limitation, not solved here: `battery_sparkline_svg()`'s
+    `<svg>` carries no viewBox (see that function's own docstring for
+    why), so the server genuinely cannot know a particular client's
+    actual rendered canvas width. `_SPARKLINE_DENSE_POINT_THRESHOLD`
+    below always calls this with `_SPARKLINE_NARROWEST_CANVAS_PX`, the
+    narrowest canvas width this project has ever measured, so dots never
+    overlap at any container width this project has actually observed —
+    a deliberately conservative choice, not a guarantee for some
+    unmeasured, still-narrower container.
+    """
+    spacing_ceiling_px = 2 * _SPARKLINE_DOT_RADIUS_PX
+    return int(canvas_width_px / spacing_ceiling_px + 1) + 1
+
+
+# Re-derive this figure (from a real running instance, not from memory)
+# if the canvas's own measured width, the realistic Y-label digit count,
+# or the cosmetic dot radius above ever changes.
+_SPARKLINE_DENSE_POINT_THRESHOLD = _sparkline_dense_threshold(_SPARKLINE_NARROWEST_CANVAS_PX)
 
 # The reduced hit-target radius used at/above the density threshold —
 # smaller than the normal 8px so heavily overlapping hit circles no
@@ -906,9 +966,6 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     ]
     if len(pairs) < 2:
         return ""
-    values = [value for value, _ts, _count in pairs]
-    lo, hi = min(values), max(values)
-    span = (hi - lo) or 1
     point_count = len(pairs)
     inset = _SPARKLINE_VERTICAL_INSET_PERCENT
     # 260902-l0b: the density rule — see _SPARKLINE_DENSE_POINT_THRESHOLD's
@@ -924,11 +981,20 @@ def battery_sparkline_svg(rows, now=None, daily=False):
         return index / (point_count - 1) * 100
 
     def _point_y(value):
+        # D-04 (A-22): every value is clamped into the fixed
+        # [SPARKLINE_Y_MIN_MV, SPARKLINE_Y_MAX_MV] range before its y
+        # position is computed, so an out-of-range reading draws pinned
+        # at the canvas edge rather than escaping it or silently
+        # rescaling the axis (there is no axis left to rescale — the
+        # range is now a constant, not derived from `value` at all).
         # `inset` on both top and bottom keeps every marker's 3-unit
         # radius fully inside the canvas (see _SPARKLINE_VERTICAL_INSET_
         # PERCENT's own derivation above); the y-axis is inverted (higher
         # mV -> smaller y%) to match SVG's top-down coordinate direction.
-        return inset + (1 - (value - lo) / span) * (100 - 2 * inset)
+        clamped = max(SPARKLINE_Y_MIN_MV, min(SPARKLINE_Y_MAX_MV, value))
+        return inset + (
+            1 - (clamped - SPARKLINE_Y_MIN_MV) / _SPARKLINE_Y_SPAN_MV
+        ) * (100 - 2 * inset)
 
     # Axis chrome first (paint order — see the note below the point loop
     # for why order matters at all). Filled <rect> elements, not stroked
@@ -956,8 +1022,8 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     ) % (
         SPARKLINE_AXIS_CLASS,
         SPARKLINE_AXIS_CLASS,
-        SPARKLINE_AXIS_CLASS, _point_y(hi),
-        SPARKLINE_AXIS_CLASS, _point_y(lo),
+        SPARKLINE_AXIS_CLASS, _point_y(SPARKLINE_Y_MAX_MV),
+        SPARKLINE_AXIS_CLASS, _point_y(SPARKLINE_Y_MIN_MV),
         SPARKLINE_AXIS_CLASS, _point_x(0),
         SPARKLINE_AXIS_CLASS, _point_x(point_count - 1),
     )
@@ -1033,12 +1099,18 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     # pair: oldest first, newest second — .sparkline__x is a flex row with
     # the same space-between, so document order left-to-right places
     # oldest before newest.
+    #
+    # D-04 (A-22): these two labels now print the fixed
+    # SPARKLINE_Y_MIN_MV/SPARKLINE_Y_MAX_MV constants, never a per-render
+    # min(values)/max(values) — so the axis always reads "3000 mV"/
+    # "4200 mV" regardless of what the plotted readings actually were,
+    # matching the fixed range _point_y() draws against above.
     y_labels_html = (
         '<div class="sparkline__y">'
         '<span class="sparkline-axis-label" aria-hidden="true">%d mV</span>'
         '<span class="sparkline-axis-label" aria-hidden="true">%d mV</span>'
         "</div>"
-    ) % (hi, lo)
+    ) % (SPARKLINE_Y_MAX_MV, SPARKLINE_Y_MIN_MV)
     x_labels_html = (
         '<div class="sparkline__x">'
         '<span class="sparkline-axis-label" aria-hidden="true">%s</span>'
@@ -1065,12 +1137,20 @@ def battery_sparkline_svg(rows, now=None, daily=False):
 
 
 def battery_status(rows):
-    """`"error"` when any two chronologically-consecutive readings in
+    """`"warn"` when any two chronologically-consecutive readings in
     `rows` (newest-first) drop by more than `BATTERY_DROP_WARN_MV`,
     `"ok"` otherwise (including fewer than two usable readings — nothing
     to compare, so nothing to flag). A row with a missing/non-numeric
     `battery_mv` is skipped rather than compared, never crashing the
     scan or producing a false anomaly from a bad reading.
+
+    D-05/A-23, 19-05-PLAN.md: demoted from `"error"` to `"warn"` — a
+    single sampling artefact (one dropped/noisy reading) must not paint
+    the whole page as an outage. `BATTERY_DROP_WARN_MV`'s own name
+    already said "warn"; this is the behaviour finally agreeing with the
+    name. A sustained decline still shows up in the chart and in the
+    percentage readout — this function's job is only to flag one
+    consecutive-pair anomaly, never to hide a real trend.
     """
     chronological = list(reversed(rows))
     for earlier, later in zip(chronological, chronological[1:]):
@@ -1081,7 +1161,7 @@ def battery_status(rows):
         if not isinstance(later_mv, int) or isinstance(later_mv, bool):
             continue
         if earlier_mv - later_mv >= BATTERY_DROP_WARN_MV:
-            return "error"
+            return "warn"
     return "ok"
 
 
@@ -1105,29 +1185,39 @@ def corroboration_status(counts):
     }
 
 
-def collect_anomalies(device_state, pipeline_state, battery_state, disagreement_warn):
+def collect_anomalies(
+    device_state, pipeline_state, battery_state, disagreement_warn,
+    coverage_state="ok", source_fault=False,
+):
     """A list of short, human-readable strings — one per non-healthy
-    condition among the four D-14 signals this page tracks. An empty
-    list means "render no anomaly banner at all" (D-21's uncluttered
-    all-clear); render() is the only caller that decides what to do with
-    the result.
+    condition among the signals this page tracks. An empty list means
+    "render no anomaly banner at all" (D-21's uncluttered all-clear);
+    render() is the only caller that decides what to do with the result.
 
     Since 06.6.1-03: render() no longer renders this list's contents
     anywhere on the page (the redundant bulleted detail-list markup was
     removed — the Overview tiles already carry the same information via
     colour) — only its emptiness is consumed, to decide whether the
-    banner appears at all. The four item strings below deliberately
-    survive anyway: they remain the readable, greppable definition of
-    what counts as an anomaly.
+    banner appears at all. The item strings below deliberately survive
+    anyway: they remain the readable, greppable definition of what
+    counts as an anomaly.
 
     Since 06.6.2-06 (UXA-14): anomaly_active()/health_severity() no
     longer route their verdict through this exact function directly —
     they route through overall_severity(), which derives a real
-    "ok"/"warn"/"error" severity from the same four state/flag inputs
-    this function takes. This function itself is unchanged and remains
-    the readable, greppable definition of what counts as an anomaly (and
-    test_status_pages.py still calls it directly) — only its role as the
-    presence-gate inside render() was replaced.
+    "ok"/"warn"/"error" severity from the same state/flag inputs this
+    function takes. This function itself remains the readable, greppable
+    definition of what counts as an anomaly (and test_status_pages.py
+    still calls it directly) — only its role as the presence-gate inside
+    render() was replaced.
+
+    D-05/A-23, 19-05-PLAN.md: `coverage_state` (`coverage_status()`'s own
+    "ok"/"warn" verdict on the CFG-04 unresolved-prefix registry) and
+    `source_fault` (the truthiness of `META_SOURCE_FAULT`) are two more
+    fully-defaulted parameters, so every existing 4-argument call site
+    keeps working unchanged. Two more literal strings join the original
+    four — this is A-23's third half: `anomaly_active()`/
+    `health_severity()` now report on two more real signals than before.
     """
     anomalies = []
     if device_state != "ok":
@@ -1138,36 +1228,51 @@ def collect_anomalies(device_state, pipeline_state, battery_state, disagreement_
         anomalies.append("A battery reading shows an abnormal drop.")
     if disagreement_warn:
         anomalies.append("ADS-B sources disagreed on the selected aircraft recently.")
+    if coverage_state != "ok":
+        anomalies.append("Some callsign prefixes are still unidentified.")
+    if source_fault:
+        anomalies.append("Every ADS-B source failed on the last run.")
     return anomalies
 
 
-def overall_severity(device_state, pipeline_state, battery_state, disagreement_warn):
-    """Derive one "ok"/"warn"/"error" severity from the same four D-14
-    signals `collect_anomalies()` tracks — the precedence table UXA-14's
-    own acceptance criteria require documenting explicitly:
+def overall_severity(
+    device_state, pipeline_state, battery_state, disagreement_warn,
+    coverage_state="ok", source_fault=False,
+):
+    """Derive one "ok"/"warn"/"error" severity from the same signals
+    `collect_anomalies()` tracks — the precedence table UXA-14's own
+    acceptance criteria require documenting explicitly:
 
-        1. "error" wins: if any of `device_state`/`pipeline_state`/
+        1. `source_fault` wins outright: every configured ADS-B source
+           failed on the most recent pipeline run — the page's most
+           severe real state — so the overall severity is "error"
+           regardless of anything else.
+        2. Otherwise "error": if any of `device_state`/`pipeline_state`/
            `battery_state` equals "error", the overall severity is
-           "error", regardless of anything else.
-        2. Otherwise "warn": if any of the three states equals "warn",
-           or `disagreement_warn` is true, the overall severity is
-           "warn".
-        3. Otherwise "ok".
+           "error".
+        3. Otherwise "warn": if any of the three states equals "warn",
+           or `disagreement_warn` is true, or `coverage_state` equals
+           "warn", the overall severity is "warn".
+        4. Otherwise "ok".
 
-    Deliberate scope boundary: `_source_fault_block()`'s own
-    always-rendered-when-true section is NOT folded into this
-    precedence. It is not one of the four D-14 signals
-    `collect_anomalies()` tracks (source-fault is a distinct CFG-05
-    signal, rendered as its own block above the Overview grid), and
-    folding it in here would silently change what `anomaly_active()` has
-    always meant for existing callers. If a future phase wants
-    source-fault to also drive nav/banner severity, that is a new
-    decision, not an oversight of this function.
+    D-05/A-23, 19-05-PLAN.md: `coverage_state` and `source_fault` are two
+    new, fully-defaulted keyword parameters (signature widening, never a
+    return-type change — every existing 4-argument call is unaffected).
+    This SUPERSEDES this function's own former "deliberate scope
+    boundary" paragraph, which used to say folding `_source_fault_block()`
+    ('s always-rendered-when-true section) and the CFG-04 registry's
+    coverage state into this precedence would be a new decision, not
+    made here. D-05 IS that decision: `anomaly_active()`/
+    `health_severity()` (both routed through this function) now report
+    on two more real signals than the original four D-14 states —
+    intentionally, not as an oversight of an earlier boundary.
     """
+    if source_fault:
+        return "error"
     states = (device_state, pipeline_state, battery_state)
     if "error" in states:
         return "error"
-    if "warn" in states or disagreement_warn:
+    if "warn" in states or disagreement_warn or coverage_state == "warn":
         return "warn"
     return "ok"
 
@@ -1193,7 +1298,15 @@ def compute_health_state(state_dir, now=None):
     if now is None:
         now = history_db.utc_now_iso()
     inputs = _read_health_inputs(state_dir, now)
-    device_html, device_state = _device_section(inputs["device_health"], now)
+    # D-05/A-23, 19-05-PLAN.md: the device's own effective wake cadence
+    # (screen-off cadence, else a configured wake_interval_s, else the
+    # deployed SKYPANE_SLEEP_S) resolves to this device's own staleness
+    # thresholds — computed once here, never independently re-derived by
+    # _device_section() or any harness fixture that omits them.
+    warn_s, error_s = wake.device_staleness_thresholds(
+        wake.effective_wake_interval_s(inputs["device_config"]))
+    device_html, device_state = _device_section(
+        inputs["device_health"], now, warn_s=warn_s, error_s=error_s)
     pipeline_html, pipeline_state = _pipeline_section(
         inputs["pipeline_ts"], inputs["last_detection"], now)
     battery_html, battery_state = _battery_section(inputs["trend_rows"], inputs["daily_rows"])
@@ -1209,16 +1322,25 @@ def compute_health_state(state_dir, now=None):
     battery_caption = _battery_trend_caption(inputs["trend_rows"], inputs["daily_rows"])
     corroboration_html, disagreement_warn = _corroboration_section(
         inputs["corroboration_counts"])
+    # D-05/A-23: coverage_status() and the source-fault flag now feed
+    # overall_severity()/collect_anomalies() too, not only render()'s own
+    # registry card and _source_fault_block() — see both functions' own
+    # docstrings for the precedence this adds.
+    coverage_state = coverage_status(inputs["registry_rows"])
+    source_fault = _meta_flag_true(inputs["source_fault_raw"])
     severity = overall_severity(
-        device_state, pipeline_state, battery_state, disagreement_warn)
+        device_state, pipeline_state, battery_state, disagreement_warn,
+        coverage_state=coverage_state, source_fault=source_fault)
     # UXA-06/D-18: threaded through to render() so _anomaly_banner_html()
     # can name the real failing category or categories rather than
     # recomputing collect_anomalies() a second time from scratch.
     anomalies = collect_anomalies(
-        device_state, pipeline_state, battery_state, disagreement_warn)
+        device_state, pipeline_state, battery_state, disagreement_warn,
+        coverage_state=coverage_state, source_fault=source_fault)
     return {
         "now": now,
         "source_fault_raw": inputs["source_fault_raw"],
+        "registry_rows": inputs["registry_rows"],
         "device_html": device_html,
         "device_state": device_state,
         "pipeline_html": pipeline_html,
@@ -1444,12 +1566,25 @@ def _section_intro_html(section_id, heading, description):
     ) % (section_id, escape_html(heading), escape_html(description))
 
 
-def _device_section(device_health, now):
+def _device_section(device_health, now, warn_s=None, error_s=None):
+    """D-05/A-23, 19-05-PLAN.md: `warn_s`/`error_s` are the device's own
+    cadence-derived staleness thresholds (`wake.device_staleness_
+    thresholds()`), computed once in `compute_health_state()` and
+    threaded through here — never recomputed independently, so the
+    Device tile and the anomaly banner it feeds can never disagree on
+    what "stale" means for this deployment. Both default to `None` so
+    every existing direct-call harness fixture (and any caller that
+    predates this task) keeps working unchanged: `None` degrades to
+    `wake.device_staleness_thresholds(None)`'s own bare floors, exactly
+    the retired STALE_DEVICE_WARN_S/STALE_DEVICE_ERROR_S replaced.
+    """
     if device_health is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
+    if warn_s is None or error_s is None:
+        warn_s, error_s = wake.device_staleness_thresholds(None)
     ts = (device_health or {}).get("ts")
     age = layout.age_seconds(ts, now)
-    state = staleness_status(age, STALE_DEVICE_WARN_S, STALE_DEVICE_ERROR_S)
+    state = staleness_status(age, warn_s, error_s)
     # quick task 260901-tsa (finding C): this used to be
     # `status_dot(state, DEVICE_FRESHNESS_LABEL) + detail` — but
     # stat_tile()'s own caption already renders DEVICE_FRESHNESS_LABEL,
@@ -2372,10 +2507,10 @@ def _resolution_rate_tile_html(stats):
 
 
 def _read_health_inputs(state_dir, now):
-    """The seven `_safe_query()` reads `render()` and `anomaly_active()`
-    both need, single-sourced into one dict.
+    """The nine reads `render()` and `anomaly_active()` both need,
+    single-sourced into one dict.
 
-    `render()` and `anomaly_active()` must be looking at the same seven
+    `render()` and `anomaly_active()` must be looking at the same nine
     values, or the Health nav-tab dot and the page's own anomaly banner
     can disagree on screen — single-sourcing the *inputs* (not just the
     section-builder calls that consume them) is what removes that whole
@@ -2388,15 +2523,33 @@ def _read_health_inputs(state_dir, now):
     same request. Quick task 260903-peo (UIR-14) grew it again, six to
     seven: `last_detection` joins `pipeline_ts` here for the identical
     reason — it feeds the same section builder (`_pipeline_section()`),
-    from the same table (`meta`), in the same request. This does NOT
-    reopen D-11: the migrated registry/stats reads in `render()` stay
-    their own independent calls, deliberately NOT folded in here, because
-    they are a genuinely DIFFERENT failure mode (filesystem/JSON vs
-    SQLite) feeding a DIFFERENT card that must keep failing independently
-    of this one — see `render()`'s own comment at that call site for the
-    unchanged reasoning.
+    from the same table (`meta`), in the same request.
+
+    D-05/A-23, 19-05-PLAN.md: grew again, seven to nine — `device_config`
+    (`device_config.load_device_config()`, a never-raising config read,
+    consumed by `compute_health_state()` to derive the device's own
+    staleness thresholds) and `registry_rows` (the CFG-04 unresolved-
+    prefix registry, now consumed by `overall_severity()`/
+    `collect_anomalies()` via `coverage_status()`, in addition to its
+    pre-existing consumer, `render()`'s own registry card).
+
+    This PARTIALLY reopens D-11's original "does NOT reopen" boundary,
+    and says so explicitly rather than silently contradicting it:
+    `registry_rows` here is wrapped in its own narrow
+    `(OSError, ValueError)` guard (T-19-23) — a DIFFERENT failure mode
+    from every other key in this dict (SQLite, via `_safe_query()`) — so
+    a registry read failure degrades to "no gaps" for SEVERITY purposes
+    without taking down any other section, preserving the failure-mode
+    isolation `render()`'s own comment demands. `render()`'s registry
+    CARD still degrades independently too (see its own call site's
+    comment for why this key alone is read twice, by design, rather than
+    threading one value through both consumers).
     """
     cutoff = _cutoff_iso(now, _CORROBORATION_WINDOW_DAYS)
+    try:
+        registry_rows = unresolved_rows(state_dir)
+    except (OSError, ValueError):
+        registry_rows = []
     return {
         "device_health": _safe_query(state_dir, history_db.latest_device_health),
         "pipeline_ts": _safe_query(
@@ -2413,6 +2566,8 @@ def _read_health_inputs(state_dir, now):
         "corroboration_counts": _safe_query(
             state_dir,
             lambda conn: history_db.corroboration_counts(conn, since=cutoff)),
+        "device_config": device_config.load_device_config(state_dir),
+        "registry_rows": registry_rows,
     }
 
 
@@ -2472,14 +2627,27 @@ def render(ctx):
     banner_html = (
         _anomaly_banner_html(severity, anomalies) if severity != "ok" else "")
 
-    # D-11: the migrated registry/stats reads are their own independent
-    # calls here, deliberately NOT folded into _read_health_inputs()'s
-    # single dict — the registry read is a filesystem/JSON failure mode
-    # (poll_loop.load_poll_state(), inside unresolved_rows()), the stats
-    # read is a SQLite failure mode (_safe_query()); merging them would
-    # make one query's failure take down a card that used to fail
-    # independently on the page it came from.
-    registry_rows = unresolved_rows(state_dir)
+    # D-11: the registry card's own read is deliberately independent of
+    # the stats read below — the registry read is a filesystem/JSON
+    # failure mode (poll_loop.load_poll_state(), inside
+    # unresolved_rows()), the stats read is a SQLite failure mode
+    # (_safe_query()); merging them would make one query's failure take
+    # down a card that used to fail independently on the page it came
+    # from.
+    #
+    # D-05/A-23, 19-05-PLAN.md: `_read_health_inputs()` now ALSO reads
+    # the registry (for severity's sake — see that function's own
+    # docstring), so `state["registry_rows"]` already carries this
+    # exact value whenever `state` is a real compute_health_state()
+    # result. Reused here rather than re-reading the registry a second
+    # time per request — the same "reuse the precomputed state, fall
+    # back to a fresh read" shape this function already uses for
+    # `health_state` itself, so a caller that builds `ctx["health_state"]`
+    # by hand (bypassing `_read_health_inputs()`) still gets a real
+    # registry card rather than a missing key.
+    registry_rows = state.get("registry_rows")
+    if registry_rows is None:
+        registry_rows = unresolved_rows(state_dir)
     stats = _safe_query(
         state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
 

@@ -55,6 +55,8 @@ if REPO_ROOT not in sys.path:
 import companion.app as app  # noqa: E402
 from companion import auth, illustration_normalize, layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
+import companion.wake as wake  # noqa: E402
+from server import device_config  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import illustrations  # noqa: E402
 from server.plane import manual_resolutions  # noqa: E402
@@ -64,6 +66,13 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
+# 19-05-PLAN.md Task 3 (D-05/A-23): the retired STALE_DEVICE_WARN_S/
+# STALE_DEVICE_ERROR_S module constants are gone from health_page — every
+# fixture below that seeds a device-staleness boundary now ages against
+# these two, the same bare floors wake.device_staleness_thresholds(None)
+# returns for a fixture that seeds no device_config.json and no
+# SKYPANE_SLEEP_S (which is every fixture in this file).
+_DEFAULT_DEVICE_WARN_S, _DEFAULT_DEVICE_ERROR_S = wake.device_staleness_thresholds(None)
 # 44 (pre-06.6-01) + 2 (06.6-01 Task 1: layout timestamp-helper promotion
 # checks) + 1 (06.6-01 Task 2: Battery Trend absolute+relative timestamp check)
 # 49 (pre-06.6.3-04) + 5 (06.6.3-04 Task 1: readings-disclosure ordering, D-10
@@ -282,7 +291,38 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 171  # 166 + 5 (19-01-PLAN.md Task 3: D-03/A-21's
+EXPECTED_CHECK_COUNT = 185  # 180 + 5 (19-05-PLAN.md Task 3: D-05/A-23's
+# widened overall_severity() precedence-table check (including the
+# plan's own acceptance-criteria triple), source_fault-alone/
+# registry-alone/fully-healthy compute_health_state() severity check,
+# collect_anomalies()'s two new items check, and the device-staleness-
+# pinned-from-both-directions-by-cadence check. Three pre-existing checks
+# (battery_status()'s error->warn demotion, the seven-to-nine-keys
+# _read_health_inputs() check, and the battery-trend-section status
+# modifier check) were retargeted in place, not counted as new.
+# Re-derived by RUNNING the harness (184/185 — the one documented
+# pre-existing root-sandbox anomaly_active() failure), not by
+# arithmetic.
+# 180 = 176 + 4 (19-05-PLAN.md Task 2: D-04/A-22's fixed
+# sparkline range and width-derived density checks — a flat series draws
+# at one consistent y level, a 15mV wiggle stays under a tenth of the
+# full canvas excursion, an out-of-range value clamps to the canvas edge
+# without rescaling the fixed axis labels, and _sparkline_dense_
+# threshold() derives two different thresholds for two different canvas
+# widths. The pre-existing axis-label check was retargeted in place (not
+# counted as new) to assert the FIXED SPARKLINE_Y_MIN_MV/MAX_MV labels
+# instead of the fixture's own real min/max. Re-derived by RUNNING the
+# harness (179/180 — the one documented pre-existing root-sandbox
+# anomaly_active() failure), not by arithmetic.
+# 176 = 171 + 5 (19-05-PLAN.md Task 1: companion/wake.py's
+# floors-and-multipliers check, the warn_s < error_s guarantee across six
+# inputs, env_sleep_s()'s unclamped-read-and-degrade check, effective_wake_
+# interval_s()'s screen-off/screen-on/None precedence check, and the
+# source-scan boundary check asserting wake.py never mentions the pages
+# package or app.py). Re-derived by RUNNING the harness (175/176 — the one
+# documented pre-existing root-sandbox anomaly_active() failure), not by
+# arithmetic.
+# 171 = 166 + 5 (19-01-PLAN.md Task 3: D-03/A-21's
 # text-verdict checks — the Device tile's widget-verdict paragraph at
 # each of its three severities, the Pipeline tile's at each of its three
 # severities, the Corroboration tile's at both the agreement and
@@ -629,6 +669,85 @@ def main():
         "staleness_status() returns ok/warn/error at the right boundaries, warn for a never-seen signal",
         _staleness_status_boundaries)
 
+    # --- 19-05-PLAN.md Task 1: companion/wake.py -----------------------
+
+    def _device_staleness_thresholds_floors_and_multipliers():
+        if wake.device_staleness_thresholds(30) != (300, 1200):
+            return False, "expected the floors to bind at the shipped 30s cadence"
+        if wake.device_staleness_thresholds(300) != (900, 3600):
+            return False, "expected the multipliers to bind at a 5-minute cadence"
+        if wake.device_staleness_thresholds(None) != (300, 1200):
+            return False, "expected the bare floors for an undetermined cadence"
+        return True, ""
+    check(
+        "wake.device_staleness_thresholds() floors at (300, 1200), multiplies at a 5-minute cadence, "
+        "and falls back to the floors for None (19-05-PLAN.md D-05/A-23)",
+        _device_staleness_thresholds_floors_and_multipliers)
+
+    def _device_staleness_thresholds_warn_always_under_error():
+        for candidate in (None, 1, 30, 60, 300, 3600):
+            warn_s, error_s = wake.device_staleness_thresholds(candidate)
+            if warn_s >= error_s:
+                return False, (
+                    "expected warn_s < error_s for wake_interval_s=%r, got (%r, %r)"
+                    % (candidate, warn_s, error_s))
+        return True, ""
+    check(
+        "wake.device_staleness_thresholds() guarantees warn_s < error_s for every input",
+        _device_staleness_thresholds_warn_always_under_error)
+
+    def _env_sleep_s_reads_unclamped_and_degrades():
+        original = os.environ.get(wake.SLEEP_ENV_VAR)
+        try:
+            os.environ[wake.SLEEP_ENV_VAR] = "30"
+            if wake.env_sleep_s() != 30:
+                return False, "expected env_sleep_s() to read SKYPANE_SLEEP_S=30 unclamped"
+            for bad in ("", "abc", "0"):
+                os.environ[wake.SLEEP_ENV_VAR] = bad
+                if wake.env_sleep_s() is not None:
+                    return False, "expected env_sleep_s() to degrade to None for %r" % bad
+            del os.environ[wake.SLEEP_ENV_VAR]
+            if wake.env_sleep_s() is not None:
+                return False, "expected env_sleep_s() to degrade to None when unset"
+            return True, ""
+        finally:
+            if original is None:
+                os.environ.pop(wake.SLEEP_ENV_VAR, None)
+            else:
+                os.environ[wake.SLEEP_ENV_VAR] = original
+    check(
+        "wake.env_sleep_s() reads SKYPANE_SLEEP_S unclamped (no [60, 3600] range check) and degrades to "
+        "None for unset/empty/non-numeric/non-positive values",
+        _env_sleep_s_reads_unclamped_and_degrades)
+
+    def _effective_wake_interval_s_precedence():
+        off_cfg = {"display_enabled": False, "wake_interval_s": 900}
+        if wake.effective_wake_interval_s(off_cfg) != device_config.DISPLAY_OFF_SLEEP_S:
+            return False, "expected the screen-off cadence to win over a configured wake_interval_s"
+        on_cfg = {"display_enabled": True, "wake_interval_s": 120}
+        if wake.effective_wake_interval_s(on_cfg) != 120:
+            return False, "expected a screen-on config to return its own wake_interval_s"
+        if wake.effective_wake_interval_s(None) is not None:
+            return False, "expected effective_wake_interval_s(None) to degrade to None without raising"
+        return True, ""
+    check(
+        "wake.effective_wake_interval_s() prefers the screen-off cadence, otherwise a configured "
+        "wake_interval_s, and degrades to None for a missing config",
+        _effective_wake_interval_s_precedence)
+
+    def _wake_module_never_imports_pages_or_app():
+        wake_path = os.path.join(HERE, "wake.py")
+        with open(wake_path) as fh:
+            source = fh.read()
+        if "companion.pages" in source or "companion/pages" in source:
+            return False, "companion/wake.py must never import the pages package"
+        if "companion.app" in source or "companion/app" in source:
+            return False, "companion/wake.py must never import app.py (import cycle)"
+        return True, ""
+    check(
+        "companion/wake.py's source never mentions the pages package or app.py",
+        _wake_module_never_imports_pages_or_app)
+
     def _layout_absolute_and_relative_covers_every_documented_case():
         if layout.absolute_and_relative(
                 "2026-08-28T13:58:02+00:00", "2026-08-28T14:01:02+00:00") != (
@@ -687,7 +806,7 @@ def main():
         tmp = _mkstate("h-independent")
         try:
             now = _now()
-            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_device_health(tmp, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
 
@@ -697,7 +816,7 @@ def main():
             if "stat-tile--error" not in device_tile_tag:
                 return False, (
                     "expected the Device tile's wrapper to carry the error modifier "
-                    "(STALE_DEVICE_ERROR_S + 60 is past the error threshold), got %r" % device_tile_tag)
+                    "(_DEFAULT_DEVICE_ERROR_S + 60 is past the error threshold), got %r" % device_tile_tag)
 
             pipeline_at = rendered.index(health_page.PIPELINE_FRESHNESS_LABEL)
             pipeline_tile_open = rendered.rindex('<div class="stat-tile ', 0, pipeline_at)
@@ -1171,7 +1290,7 @@ def main():
         tmp = _mkstate("h-banner-pills-page")
         try:
             now = _now()
-            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_device_health(tmp, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{
                 history_db.META_LAST_PIPELINE_RUN: _ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
@@ -1422,13 +1541,16 @@ def main():
             # card's own error modifier — the "dot--error" badge this
             # check used to look for is retired outright; this is the
             # BREAKS-LOUDLY retarget the plan calls for, not a silent
-            # pass-through.
+            # pass-through. 19-05-PLAN.md Task 3 (D-05): retargeted AGAIN
+            # — a >= BATTERY_DROP_WARN_MV drop is now a "warn" modifier,
+            # demoted from "error".
             battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
             battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
-            if "battery-trend-section--error" not in battery_tag:
+            if "battery-trend-section--warn" not in battery_tag:
                 return False, (
-                    "expected the battery-trend section's own tag to carry the error status "
-                    "modifier for a drop >= BATTERY_DROP_WARN_MV, got %r" % battery_tag)
+                    "expected the battery-trend section's own tag to carry the warn status "
+                    "modifier for a drop >= BATTERY_DROP_WARN_MV (demoted from error, D-05), got %r"
+                    % battery_tag)
             count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
             if count != 1:
                 return False, "expected the anomaly banner copy exactly once, found %d" % count
@@ -1460,7 +1582,7 @@ def main():
         tmp = _mkstate("h-no-list-markup")
         try:
             now = _now()
-            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_device_health(tmp, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
             banner_at = rendered.index('<div class="banner ')
@@ -1490,8 +1612,8 @@ def main():
             # pipeline, an abnormal battery drop, and a disagreement
             # recorded within the corroboration window.
             _seed_device_health(tmp, [
-                (_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4200),
-                (_ago(health_page.STALE_DEVICE_ERROR_S + 30),
+                (_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4200),
+                (_ago(_DEFAULT_DEVICE_ERROR_S + 30),
                  4200 - health_page.BATTERY_DROP_WARN_MV),
             ])
             _seed_meta(tmp, **{
@@ -1591,16 +1713,18 @@ def main():
         "chronological order, with roving tabindex on the latest point only",
         _sparkline_svg_has_per_point_interactive_markup)
 
-    def _sparkline_axis_labels_present_with_real_min_max():
-        # 06.6.4.1-04 (D-09/§5.3): four aria-hidden axis-label elements,
-        # two carrying the fixture's real min/max mV values. quick task
-        # 260902-ep7 (BUG 4): retargeted in place from SVG `<text
-        # class="sparkline-axis-label"` onto HTML `<span
+    def _sparkline_axis_labels_present_with_fixed_range():
+        # 06.6.4.1-04 (D-09/§5.3): four aria-hidden axis-label elements.
+        # quick task 260902-ep7 (BUG 4): retargeted in place from SVG
+        # `<text class="sparkline-axis-label"` onto HTML `<span
         # class="sparkline-axis-label"` — the labels moved out of the
         # SVG's scaled coordinate space entirely, into an HTML grid
         # column/row sized by the browser's own real text measurement.
-        # The per-tag aria-hidden assertion, the four-label count and the
-        # real-min/max-value assertions are otherwise unchanged.
+        # 19-05-PLAN.md Task 2 (D-04/A-22): retargeted again — the two Y
+        # labels used to print this fixture's own real min/max mV values
+        # (4200/3850); they now print the fixed SPARKLINE_Y_MIN_MV/
+        # SPARKLINE_Y_MAX_MV constants regardless of what the fixture's
+        # readings actually were, since the axis no longer auto-scales.
         rows = [
             {"ts": "2024-01-01T08:00:00", "battery_mv": 4200},
             {"ts": "2024-01-01T09:00:00", "battery_mv": 3850},
@@ -1608,7 +1732,7 @@ def main():
         ]
         svg = health_page.battery_sparkline_svg(rows)
         tag_start = 0
-        label_count = 0
+        label_texts = []
         while True:
             idx = svg.find('<span class="sparkline-axis-label"', tag_start)
             if idx == -1:
@@ -1617,14 +1741,24 @@ def main():
             tag = svg[idx:tag_end + 1]
             if 'aria-hidden="true"' not in tag:
                 return False, "expected every sparkline-axis-label <span> to carry aria-hidden=\"true\" on its own tag"
-            label_count += 1
+            text_end = svg.index("</span>", tag_end)
+            label_texts.append(svg[tag_end + 1:text_end])
             tag_start = tag_end
-        if label_count != 4:
-            return False, "expected exactly four sparkline-axis-label elements, got %d" % label_count
-        if "4200 mV" not in svg:
-            return False, "expected the real maximum mV value in an axis label"
-        if "3850 mV" not in svg:
-            return False, "expected the real minimum mV value in an axis label"
+        if len(label_texts) != 4:
+            return False, "expected exactly four sparkline-axis-label elements, got %d" % len(label_texts)
+        # Document order: max label first, min label second (see the Y-axis
+        # pair's own emission comment above) — asserted against each
+        # label's own isolated text, not a page-wide substring search,
+        # because a per-point tooltip legitimately contains this
+        # fixture's own real mV values elsewhere on the same markup.
+        expected_max_label = "%d mV" % health_page.SPARKLINE_Y_MAX_MV
+        expected_min_label = "%d mV" % health_page.SPARKLINE_Y_MIN_MV
+        if label_texts[0] != expected_max_label:
+            return False, "expected the first Y axis label to be the fixed %r, got %r" % (
+                expected_max_label, label_texts[0])
+        if label_texts[1] != expected_min_label:
+            return False, "expected the second Y axis label to be the fixed %r, got %r" % (
+                expected_min_label, label_texts[1])
         # quick task 260902-ep7 (BUG 4): retargeted in place from the
         # retired single-<polyline> marker onto SPARKLINE_LINE_CLASS — 2
         # trend-line segments (n - 1) for this 3-row fixture.
@@ -1637,9 +1771,133 @@ def main():
                 return False, "found forbidden %r in the axis-labeled sparkline SVG" % forbidden
         return True, ""
     check(
-        "battery_sparkline_svg() emits exactly four aria-hidden axis-label text nodes carrying the fixture's real "
-        "min/max mV values, with every prior no-external-reference guarantee intact (D-09)",
-        _sparkline_axis_labels_present_with_real_min_max)
+        "battery_sparkline_svg() emits exactly four aria-hidden axis-label text nodes carrying the FIXED "
+        "SPARKLINE_Y_MIN_MV/SPARKLINE_Y_MAX_MV values (not the fixture's own real min/max), with every prior "
+        "no-external-reference guarantee intact (D-09, retargeted by 19-05-PLAN.md Task 2/D-04)",
+        _sparkline_axis_labels_present_with_fixed_range)
+
+    def _extract_point_ys(svg):
+        """The cy="%.2f%%" value off every sparkline-hit circle, in
+        document order — the exact y coordinate _point_y() computed for
+        each plotted point, read back out of the rendered markup rather
+        than recomputed independently."""
+        ys = []
+        for match in re.finditer(
+                r'<circle class="%s"[^>]*cy="([0-9.]+)%%"' % health_page.SPARKLINE_HIT_CLASS, svg):
+            ys.append(float(match.group(1)))
+        return ys
+
+    def _sparkline_flat_series_draws_flat_not_pinned_to_bottom():
+        # 19-05-PLAN.md Task 2 (D-04/A-22): the defect this pins — before
+        # the fixed range, a flat series (every value identical) computed
+        # lo == hi, so the retired `span = (hi - lo) or 1` guard forced
+        # span to 1 and every point pinned to the SAME edge of the
+        # canvas, indistinguishable from "no data" rather than reading as
+        # a flat, healthy line at its own real level.
+        rows = [{"ts": "t%d" % i, "battery_mv": 3800} for i in range(4)]
+        svg = health_page.battery_sparkline_svg(rows)
+        ys = _extract_point_ys(svg)
+        if len(ys) != 4:
+            return False, "expected four plotted points for a four-row flat fixture, got %d" % len(ys)
+        if len(set(ys)) != 1:
+            return False, "expected every point of a flat series to share the same y coordinate, got %r" % ys
+        return True, ""
+    check(
+        "battery_sparkline_svg() draws a flat series (every value identical) at one consistent y level, "
+        "never pinned to the canvas edge by a collapsed min==max range (19-05-PLAN.md Task 2/D-04, A-22)",
+        _sparkline_flat_series_draws_flat_not_pinned_to_bottom)
+
+    def _sparkline_small_wiggle_stays_small_not_a_cliff():
+        # 19-05-PLAN.md Task 2 (D-04/A-22): the defect's other half — a
+        # real but tiny 15mV wiggle used to stretch across the WHOLE
+        # auto-scaled range (min==3785, max==3800 => the entire canvas),
+        # reading as a cliff. Against the fixed 1200mV span, a 15mV
+        # wiggle must move the plotted y by a small, bounded fraction of
+        # the canvas height — asserted as a fraction of the full
+        # min-to-max y excursion the fixed range allows end to end.
+        rows = [
+            {"ts": "t0", "battery_mv": 3800},
+            {"ts": "t1", "battery_mv": 3785},
+            {"ts": "t2", "battery_mv": 3800},
+            {"ts": "t3", "battery_mv": 3785},
+        ]
+        svg = health_page.battery_sparkline_svg(rows)
+        ys = _extract_point_ys(svg)
+        if len(ys) != 4:
+            return False, "expected four plotted points for this wiggle fixture, got %d" % len(ys)
+        wiggle_span_percent = max(ys) - min(ys)
+        full_span_percent = (
+            100 - 2 * health_page._SPARKLINE_VERTICAL_INSET_PERCENT)
+        if wiggle_span_percent >= full_span_percent * 0.10:
+            return False, (
+                "expected a 15mV wiggle to move the plotted y by well under 10%% of the full "
+                "min-to-max canvas excursion (%.2f%% of %.2f%%), got %.2f%%"
+                % (10.0, full_span_percent, wiggle_span_percent))
+        return True, ""
+    check(
+        "battery_sparkline_svg() draws a small (15mV) wiggle as a small y movement, well under a tenth of "
+        "the fixed range's full excursion — not a cliff spanning the whole canvas (19-05-PLAN.md Task 2/D-04, A-22)",
+        _sparkline_small_wiggle_stays_small_not_a_cliff)
+
+    def _sparkline_out_of_range_values_clamp_not_rescale():
+        # 19-05-PLAN.md Task 2 (D-04): an out-of-range reading (below
+        # SPARKLINE_Y_MIN_MV or above SPARKLINE_Y_MAX_MV) must draw pinned
+        # at the canvas edge, and the axis labels must stay the fixed
+        # constants — neither escaping the canvas nor rescaling the axis
+        # to accommodate the outlier.
+        # `rows` is newest-first (battery_trend_rows()'s own ordering);
+        # battery_sparkline_svg() plots chronologically (oldest first), so
+        # the 2500mV reading (oldest here) becomes the LEFTMOST point.
+        rows = [
+            {"ts": "t2", "battery_mv": 4500},
+            {"ts": "t1", "battery_mv": 3800},
+            {"ts": "t0", "battery_mv": 2500},
+        ]
+        svg = health_page.battery_sparkline_svg(rows)
+        ys = _extract_point_ys(svg)
+        if len(ys) != 3:
+            return False, "expected three plotted points for this out-of-range fixture, got %d" % len(ys)
+        inset = health_page._SPARKLINE_VERTICAL_INSET_PERCENT
+        clamped_low_y = ys[0]  # 2500mV (oldest, leftmost), below SPARKLINE_Y_MIN_MV -> clamped to the min edge
+        clamped_high_y = ys[2]  # 4500mV (newest, rightmost), above SPARKLINE_Y_MAX_MV -> clamped to the max edge
+        if abs(clamped_low_y - (100 - inset)) > 0.01:
+            return False, "expected the below-range point to clamp to the bottom inset edge, got %r" % clamped_low_y
+        if abs(clamped_high_y - inset) > 0.01:
+            return False, "expected the above-range point to clamp to the top inset edge, got %r" % clamped_high_y
+        if ("%d mV" % health_page.SPARKLINE_Y_MAX_MV) not in svg:
+            return False, "expected the axis max label to stay the fixed constant, not rescale to 4500"
+        if ("%d mV" % health_page.SPARKLINE_Y_MIN_MV) not in svg:
+            return False, "expected the axis min label to stay the fixed constant, not rescale to 2500"
+        if "4500 mV" in svg.split('class="sparkline__y"')[1].split("</div>")[0]:
+            return False, "expected the Y axis label column NOT to rescale to the out-of-range 4500 value"
+        return True, ""
+    check(
+        "battery_sparkline_svg() clamps out-of-range values (2500mV, 4500mV) to the canvas edge rather than "
+        "escaping it or rescaling the fixed axis labels (19-05-PLAN.md Task 2/D-04)",
+        _sparkline_out_of_range_values_clamp_not_rescale)
+
+    def _sparkline_dense_threshold_is_width_derived():
+        # 19-05-PLAN.md Task 2 (D-04): the retired typed constant
+        # (_SPARKLINE_DENSE_POINT_THRESHOLD = 39) is now
+        # _sparkline_dense_threshold(_SPARKLINE_NARROWEST_CANVAS_PX) — two
+        # different widths must produce two different thresholds, both
+        # greater than 1 (never a degenerate "every series is dense" or
+        # "no series is ever dense" constant).
+        narrow = health_page._sparkline_dense_threshold(226)
+        wide = health_page._sparkline_dense_threshold(900)
+        if narrow == wide:
+            return False, "expected two different canvas widths to derive two different thresholds"
+        if narrow <= 1 or wide <= 1:
+            return False, "expected both derived thresholds to be well above 1"
+        if health_page._SPARKLINE_DENSE_POINT_THRESHOLD != narrow:
+            return False, (
+                "expected the module-level _SPARKLINE_DENSE_POINT_THRESHOLD to equal "
+                "_sparkline_dense_threshold(_SPARKLINE_NARROWEST_CANVAS_PX)")
+        return True, ""
+    check(
+        "_sparkline_dense_threshold() derives a different threshold for different canvas widths, proving the "
+        "density rule is width-derived rather than a typed constant (19-05-PLAN.md Task 2/D-04)",
+        _sparkline_dense_threshold_is_width_derived)
 
     def _sparkline_scale_bounded_at_one_across_real_container_widths():
         # quick task 260902-dng (bug 1) wrote this check to prove a
@@ -2044,8 +2302,8 @@ def main():
     def _device_tile_verdict_matches_state_at_each_severity():
         cases = (
             (0, "ok"),
-            (health_page.STALE_DEVICE_WARN_S + 60, "warn"),
-            (health_page.STALE_DEVICE_ERROR_S + 60, "error"),
+            (_DEFAULT_DEVICE_WARN_S + 60, "warn"),
+            (_DEFAULT_DEVICE_ERROR_S + 60, "error"),
         )
         for age_s, expected_state in cases:
             tmp = _mkstate("h-device-verdict-%s" % expected_state)
@@ -2303,12 +2561,17 @@ def main():
         # battery_status() takes newest-first rows (matching
         # battery_trend_rows()'s/recent_device_health()'s own ordering) —
         # t2 (newer) sorts before t1 (older) in both fixtures below.
+        #
+        # 19-05-PLAN.md Task 3 (D-05/A-23): retargeted in place — a
+        # >= BATTERY_DROP_WARN_MV drop is now a "warn", demoted from
+        # "error" (a single sampling artefact must not paint the whole
+        # page as an outage).
         drop_rows = [
             {"ts": "t2", "battery_mv": 4200 - health_page.BATTERY_DROP_WARN_MV},
             {"ts": "t1", "battery_mv": 4200},
         ]
-        if health_page.battery_status(drop_rows) != "error":
-            return False, "expected a drop >= BATTERY_DROP_WARN_MV to flag the battery anomaly"
+        if health_page.battery_status(drop_rows) != "warn":
+            return False, "expected a drop >= BATTERY_DROP_WARN_MV to flag a battery warning"
         gentle_rows = [
             {"ts": "t3", "battery_mv": 4190},
             {"ts": "t2", "battery_mv": 4195},
@@ -2318,8 +2581,178 @@ def main():
             return False, "expected a gentle monotonic decline to not flag the battery anomaly"
         return True, ""
     check(
-        "a large consecutive-reading drop flags the battery anomaly; a gentle monotonic decline does not",
+        "a large consecutive-reading drop flags a battery warning (demoted from error, D-05); a gentle "
+        "monotonic decline does not",
         _battery_drop_flags_anomaly_gentle_decline_does_not)
+
+    # --- 19-05-PLAN.md Task 3 (D-05/A-23): overall_severity()'s widened -----
+    # precedence table, and collect_anomalies()'s two matching new items ------
+
+    def _overall_severity_widened_precedence_table():
+        # The full 6-input precedence table, including the 4-argument
+        # backward-compatible call (the two new keyword parameters both
+        # default, so an existing 4-argument caller's behaviour is
+        # byte-for-byte unchanged).
+        if health_page.overall_severity("ok", "ok", "ok", False) != "ok":
+            return False, "expected the healthy 4-argument call to stay ok (backward compatible)"
+        if health_page.overall_severity("warn", "ok", "ok", False) != "warn":
+            return False, "expected any warn state to produce warn"
+        if health_page.overall_severity("error", "ok", "ok", False) != "error":
+            return False, "expected any error state to produce error"
+        if health_page.overall_severity("ok", "ok", "ok", True) != "warn":
+            return False, "expected disagreement_warn alone to produce warn"
+        if health_page.overall_severity("ok", "ok", "ok", False, coverage_state="warn") != "warn":
+            return False, "expected coverage_state='warn' alone to produce warn"
+        if health_page.overall_severity("ok", "ok", "ok", False, source_fault=True) != "error":
+            return False, "expected source_fault=True alone to produce error"
+        if health_page.overall_severity(
+                "error", "ok", "ok", False, coverage_state="warn", source_fault=True) != "error":
+            return False, "expected source_fault to win outright over every other signal"
+        if health_page.overall_severity(
+                "warn", "ok", "ok", False, coverage_state="ok", source_fault=False) != "warn":
+            return False, "expected a warn state with no coverage/source_fault input to stay warn"
+        return True, ""
+    check(
+        "overall_severity()'s widened 6-input precedence table: source_fault wins outright, error states "
+        "win next, then warn states/disagreement_warn/coverage_state=='warn', with the 4-argument call "
+        "staying byte-for-byte backward compatible (19-05-PLAN.md Task 3/D-05)",
+        _overall_severity_widened_precedence_table)
+
+    def _overall_severity_acceptance_criteria_literal():
+        # The plan's own acceptance-criteria one-liner, run as a check
+        # rather than only a shell command.
+        results = (
+            health_page.overall_severity("ok", "ok", "ok", False),
+            health_page.overall_severity("ok", "ok", "ok", False, source_fault=True),
+            health_page.overall_severity("ok", "ok", "ok", False, coverage_state="warn"),
+        )
+        if results != ("ok", "error", "warn"):
+            return False, "expected ('ok', 'error', 'warn'), got %r" % (results,)
+        return True, ""
+    check(
+        "overall_severity()'s plan-cited acceptance triple: ('ok', 'error', 'warn') (19-05-PLAN.md Task 3)",
+        _overall_severity_acceptance_criteria_literal)
+
+    def _source_fault_alone_produces_error_registry_alone_produces_warn():
+        tmp = _mkstate("h-source-fault-alone")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{
+                history_db.META_LAST_PIPELINE_RUN: _iso(now),
+                history_db.META_SOURCE_FAULT: "True",
+            })
+            state = health_page.compute_health_state(tmp, now=_iso(now))
+            if state["severity"] != "error":
+                return False, "expected an active source_fault_raw alone to produce error severity, got %r" % (
+                    state["severity"],)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        tmp2 = _mkstate("h-registry-alone")
+        try:
+            now = _now()
+            _seed_device_health(tmp2, [(_iso(now), 4200)])
+            _seed_meta(tmp2, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_unresolved_prefixes(tmp2, {
+                "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            state = health_page.compute_health_state(tmp2, now=_iso(now))
+            if state["severity"] != "warn":
+                return False, "expected a non-empty registry alone to produce warn severity, got %r" % (
+                    state["severity"],)
+        finally:
+            shutil.rmtree(tmp2, ignore_errors=True)
+
+        tmp3 = _mkstate("h-fully-healthy")
+        try:
+            now = _now()
+            _seed_device_health(tmp3, [(_iso(now), 4200)])
+            _seed_meta(tmp3, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            state = health_page.compute_health_state(tmp3, now=_iso(now))
+            if state["severity"] != "ok":
+                return False, "expected an empty registry with everything else healthy to stay ok, got %r" % (
+                    state["severity"],)
+        finally:
+            shutil.rmtree(tmp3, ignore_errors=True)
+        return True, ""
+    check(
+        "compute_health_state() folds an active source_fault_raw alone into error severity, a non-empty "
+        "registry alone into warn severity, and stays ok when both are clear (19-05-PLAN.md Task 3/D-05)",
+        _source_fault_alone_produces_error_registry_alone_produces_warn)
+
+    def _collect_anomalies_two_new_items():
+        if "Every ADS-B source failed on the last run." not in health_page.collect_anomalies(
+                "ok", "ok", "ok", False, source_fault=True):
+            return False, "expected the source_fault item to appear when source_fault=True"
+        if "Some callsign prefixes are still unidentified." not in health_page.collect_anomalies(
+                "ok", "ok", "ok", False, coverage_state="warn"):
+            return False, "expected the coverage item to appear when coverage_state='warn'"
+        if health_page.collect_anomalies("ok", "ok", "ok", False) != []:
+            return False, "expected a fully healthy 4-argument call to still return no anomalies"
+        return True, ""
+    check(
+        "collect_anomalies()'s two new items (source_fault, coverage_state) appear only when their own "
+        "input is unhealthy, and a fully healthy 4-argument call still returns none (19-05-PLAN.md Task 3)",
+        _collect_anomalies_two_new_items)
+
+    def _device_staleness_pinned_from_both_directions_by_cadence():
+        # A device last seen 400 seconds ago is "warn" at a 30s cadence
+        # (400 > the 300s floor: 3 * 30 = 90, floored up to 300) but "ok"
+        # at a 3600s cadence (400 < 3 * 3600 = 10800) — the A-23 defect,
+        # pinned from both directions against the real
+        # compute_health_state() pipeline. The 30s cadence is deployed via
+        # SKYPANE_SLEEP_S (device_config.save_device_config()'s own
+        # wake_interval_s validation enforces [60, 3600] — 30 can only
+        # reach effective_wake_interval_s() via the env fallback, exactly
+        # like the real shipped SKYPANE_SLEEP_S=30 deployment); the 3600s
+        # cadence is deployed via a seeded device_config.json, at the top
+        # of that same valid range.
+        original_sleep_s = os.environ.get(wake.SLEEP_ENV_VAR)
+        try:
+            tmp = _mkstate("h-cadence-env-30")
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now - timedelta(seconds=400)), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                os.environ[wake.SLEEP_ENV_VAR] = "30"
+                state = health_page.compute_health_state(tmp, now=_iso(now))
+                if state["device_state"] != "warn":
+                    return False, (
+                        "expected device_state='warn' for a 400s-old reading at a 30s cadence, got %r"
+                        % (state["device_state"],))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+
+            tmp2 = _mkstate("h-cadence-cfg-3600")
+            try:
+                now = _now()
+                _seed_device_health(tmp2, [(_iso(now - timedelta(seconds=400)), 4200)])
+                _seed_meta(tmp2, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                if original_sleep_s is None:
+                    os.environ.pop(wake.SLEEP_ENV_VAR, None)
+                else:
+                    os.environ[wake.SLEEP_ENV_VAR] = original_sleep_s
+                device_config.save_device_config(tmp2, wake_interval_s=3600)
+                state = health_page.compute_health_state(tmp2, now=_iso(now))
+                if state["device_state"] != "ok":
+                    return False, (
+                        "expected device_state='ok' for a 400s-old reading at a 3600s cadence, got %r"
+                        % (state["device_state"],))
+            finally:
+                shutil.rmtree(tmp2, ignore_errors=True)
+            return True, ""
+        finally:
+            if original_sleep_s is None:
+                os.environ.pop(wake.SLEEP_ENV_VAR, None)
+            else:
+                os.environ[wake.SLEEP_ENV_VAR] = original_sleep_s
+    check(
+        "a device last seen 400 seconds ago is 'warn' at a 30s wake cadence but 'ok' at a 3600s cadence, "
+        "pinned from both directions through the real compute_health_state() pipeline (19-05-PLAN.md "
+        "Task 3/D-05, A-23)",
+        _device_staleness_pinned_from_both_directions_by_cadence)
 
     def _corroboration_unknown_only_no_error_or_warn():
         tmp = _mkstate("h-corrob-unknown")
@@ -3027,40 +3460,48 @@ def main():
         "vice versa (D-11)",
         _migrated_cards_have_independent_failure_isolation)
 
-    def _read_health_inputs_keeps_registry_stats_separate():
+    def _read_health_inputs_keeps_stats_separate():
         # 260902-l0b: renamed from _read_health_inputs_gained_no_new_key()
         # — that name stopped being true the moment daily_rows joined
         # trend_rows in this dict (a battery-health read, same table, same
         # section builder, same request). Quick task 260903-peo (UIR-14)
-        # retargets this check in place again, six keys to seven:
+        # retargeted this check in place again, six keys to seven:
         # last_detection joins pipeline_ts for the identical reason (same
-        # section builder, same table, same request). D-11's real intent
-        # survives, restated explicitly: the migrated registry/stats
-        # reads must stay their own independent calls in render(), never
-        # folded into _read_health_inputs()'s single dict — that is what
-        # the negative assertion below checks directly, not just the key
-        # count.
+        # section builder, same table, same request).
+        #
+        # 19-05-PLAN.md Task 3 (D-05/A-23): retargeted AGAIN, seven keys
+        # to nine — device_config (for the device's own staleness
+        # thresholds) and registry_rows (for coverage_status(), now an
+        # overall_severity()/collect_anomalies() input) both join this
+        # dict. This is a DELIBERATE partial reopening of D-11's original
+        # "registry stays separate" boundary — see _read_health_inputs()'s
+        # own docstring for why — so the negative assertion below is
+        # retargeted to check only the STATS read (resolution_stats(),
+        # via render()'s own _safe_query() call), which is genuinely
+        # unchanged: still its own independent SQLite call in render(),
+        # never folded into this dict.
         tmp = _mkstate("h-inputs-keys")
         try:
             inputs = health_page._read_health_inputs(tmp, _iso(_now()))
             expected_keys = {
                 "device_health", "pipeline_ts", "last_detection", "source_fault_raw",
                 "trend_rows", "daily_rows", "corroboration_counts",
+                "device_config", "registry_rows",
             }
             if set(inputs.keys()) != expected_keys:
                 return False, (
-                    "expected _read_health_inputs() to carry exactly these seven keys, got %r"
+                    "expected _read_health_inputs() to carry exactly these nine keys, got %r"
                     % (set(inputs.keys()),))
-            if any("registr" in k or "stat" in k for k in inputs.keys()):
-                return False, "D-11: the registry/stats reads must stay separate calls in render(), not join this dict"
+            if any("stat" in k for k in inputs.keys()):
+                return False, "D-11: the stats read must stay a separate call in render(), not join this dict"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "_read_health_inputs() carries exactly seven keys — last_detection joins pipeline_ts in the one "
-        "atomic snapshot (quick task 260903-peo, UIR-14) — while the migrated registry/stats reads stay "
-        "separate calls in render() (D-11)",
-        _read_health_inputs_keeps_registry_stats_separate)
+        "_read_health_inputs() carries exactly nine keys — device_config and registry_rows now join it for "
+        "severity's sake (19-05-PLAN.md Task 3/D-05) — while the stats read alone stays a separate call in "
+        "render() (D-11)",
+        _read_health_inputs_keeps_stats_separate)
 
     def _battery_section_keeps_everything_after_the_move():
         tmp = _mkstate("h-battery-section-intact")
@@ -3195,8 +3636,9 @@ def main():
 
     def _quick_260902_gjj_card_status_borders_render_correct_modifiers():
         # quick task 260902-gjj (ISSUE 2): a real rendered page, with a
-        # seeded battery drop (battery_status() -> "error") and a seeded
-        # non-empty registry (coverage_status() -> "warn"), proves the
+        # seeded battery drop (battery_status() -> "warn", demoted from
+        # "error" by 19-05-PLAN.md Task 3/D-05) and a seeded non-empty
+        # registry (coverage_status() -> "warn"), proves the
         # battery-trend and Unresolved-prefixes cards each carry the
         # modifier layout.card_status_class() derives from the SAME
         # function that used to drive their now-retired status_dot()
@@ -3221,8 +3663,8 @@ def main():
                 {"ts": _iso(now), "battery_mv": readings[1][1]},
                 {"ts": _iso(now - timedelta(minutes=1)), "battery_mv": readings[0][1]},
             ])
-            if battery_state != "error":
-                return False, "expected the seeded battery fixture to compute an error verdict"
+            if battery_state != "warn":
+                return False, "expected the seeded battery fixture to compute a warn verdict (D-05 demotion)"
             battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
             battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
             expected_battery_modifier = layout.card_status_class(
@@ -4552,7 +4994,7 @@ def main():
 
         stale_device = _mkstate("h-agree-stale-device")
         _seed_device_health(
-            stale_device, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            stale_device, [(_ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
         _seed_meta(stale_device, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
         fixtures.append((stale_device, _iso(now)))
 
