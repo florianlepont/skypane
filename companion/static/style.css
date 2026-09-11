@@ -1640,6 +1640,36 @@ button:hover {
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
+/* A-37/D-20: the "Copied" label rendered beside the icon on a
+ * successful copy. Hidden at rest — .copy-btn's box stays exactly
+ * 22x22px, icon-only, unchanged from before this pair of rules existed. */
+.copy-btn__label {
+  display: none;
+}
+
+/* Positioned to overflow .copy-btn's own fixed-size box (via its
+ * existing `position: relative`) rather than growing it: the button
+ * must keep its 22x22px footprint so the ::before 44x44 hit area and
+ * the table's column widths never shift for the ~1.5s a confirmation
+ * is visible. Colour and label-voice values (12px/semibold/uppercase/
+ * 0.06em, this file's existing label-voice register — see
+ * .theme-direction-label above) are reused verbatim; --color-status-ok
+ * is the existing token, no new custom property, no accent use. */
+.copy-btn--copied .copy-btn__label {
+  display: inline;
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: var(--space-xs);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-status-ok);
+}
+
 /* Disabled/cooldown state (CFG-07/D-17): reduced opacity, not-allowed
  * cursor, no separate colour needed. */
 button:disabled {

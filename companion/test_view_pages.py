@@ -73,7 +73,19 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 67  # 65 + 2 (19-01-PLAN.md Task 1: D-01's battery_percent() move — the
+EXPECTED_CHECK_COUNT = 76  # 73 + 3 (19-03-PLAN.md Task 3: D-20's visible "Copied" swap for 1.5s —
+# 3 new checks: the rendered copy-btn__icon/copy-btn__label span pair with data-copy-feedback
+# intact, copy-button.js referencing copy-btn__label/copy-btn--copied/1500ms, and style.css
+# styling both classes) — was 73
+# 73 = 70 + 3 (19-03-PLAN.md Task 2: A-37/D-20's per-row copy labels and
+# real-success gating — retargeted the raw-label aria-label check in place, plus 3 new checks: 2
+# distinct aria-labels on differently-named rows, each button naming its own row, and
+# copy-button.js propagating execCommand's real result) — was 70
+# 70 = 67 + 3 (19-03-PLAN.md Task 1: A-36/D-19's 7->6 column drop and
+# clock-only Timestamp cell — retargeted the .data-table-wrap exact-match and 7-column checks in
+# place, plus 3 new checks: the runway survives in the <tr title>/mobile details, the scroller is
+# focusable and named, and the desktop Timestamp cell drops its relative-age suffix) — was 67
+# 67 = 65 + 2 (19-01-PLAN.md Task 1: D-01's battery_percent() move — the
 # retargeted battery.battery_percent() check, plus the two new boundary checks proving the
 # function is gone from home_page and that companion/battery.py imports neither companion.pages
 # nor server) — was 65
@@ -735,7 +747,11 @@ def main():
                 {"ts": "2026-08-27T10:00:00+00:00", "hex": "d5", "callsign": "WRAP1"},
             ])
             rendered = history_page.render(_history_ctx(tmp))
-            if '<div class="data-table-wrap">' not in rendered:
+            # A-36/D-19: the wrapper now also carries tabindex/role/
+            # aria-label (see the scroller-focusable checks below), so
+            # this can no longer be an exact-tag match — the substring
+            # keeps checking the same wrapper class is still present.
+            if '<div class="data-table-wrap"' not in rendered:
                 return False, "expected the flight table to be wrapped in .data-table-wrap"
             if '<table class="data-table">' not in rendered:
                 return False, "expected the .data-table itself to still be present"
@@ -748,19 +764,21 @@ def main():
         "History's flight table gains the .data-table-wrap horizontal-scroll wrapper Airlines/Health already have, without disturbing the Corroboration status dot",
         _history_table_wrapped_for_horizontal_scroll_dot_survives)
 
-    def _seven_columns_named_and_ordered():
-        # 06.6.1-02 (D-02): proves the 9->7 column reduction shipped - the
-        # header labels come from history_page._HEADERS itself (the
-        # contract), not a re-typed literal list.
-        tmp = _mkstate("h-7col")
+    def _six_columns_named_and_ordered():
+        # A-36/D-19: proves the 7->6 column reduction shipped (the
+        # Runway column dropped) - the header labels come from
+        # history_page._HEADERS itself (the contract), not a re-typed
+        # literal list. Was _seven_columns_named_and_ordered() /
+        # 06.6.1-02 (D-02)'s own 9->7 pin before this task's drop.
+        tmp = _mkstate("h-6col")
         try:
             _seed_runway_events(tmp, [
                 {"ts": "2026-08-27T10:00:00+00:00", "hex": "d6", "callsign": "SEVEN1"},
             ])
             rendered = history_page.render(_history_ctx(tmp))
             th_count = len(re.findall(r"<th>", rendered))
-            if th_count != 7:
-                return False, "expected exactly 7 <th> cells, got %d" % th_count
+            if th_count != 6:
+                return False, "expected exactly 6 <th> cells, got %d" % th_count
             positions = []
             for header in history_page._HEADERS:
                 idx = rendered.find("<th>%s</th>" % header)
@@ -768,15 +786,120 @@ def main():
                     return False, "expected header %r to appear as a <th>" % header
                 positions.append(idx)
             if positions != sorted(positions):
-                return False, "expected the 7 headers in history_page._HEADERS' own left-to-right order"
+                return False, "expected the 6 headers in history_page._HEADERS' own left-to-right order"
             if "<th>Hex</th>" in rendered or "<th>Airline</th>" in rendered:
                 return False, "did not expect standalone Hex/Airline header cells after the merge"
+            if "<th>Runway</th>" in rendered:
+                return False, "did not expect a standalone Runway header cell after A-36/D-19's drop"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "History renders exactly the 7 headers in history_page._HEADERS, in order, with no standalone Hex/Airline column",
-        _seven_columns_named_and_ordered)
+        "History renders exactly the 6 headers in history_page._HEADERS, in order, with no standalone Hex/Airline/Runway column (A-36/D-19)",
+        _six_columns_named_and_ordered)
+
+    def _runway_survives_in_row_title_and_mobile_details():
+        # A-36/D-19: the dropped Runway column's value must survive
+        # somewhere - the desktop <tr>'s title attribute, and the
+        # mobile card's existing <dt>Runway</dt> disclosure row (which
+        # this task deliberately leaves untouched).
+        tmp = _mkstate("h-runway-title")
+        try:
+            _seed_runway_events(tmp, [
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "rwt01",
+                    "callsign": "RWTITLE", "tracked_runway": "3",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            runway_label = device_config.runway_label("3")
+            # A plain regex, not the shared _row_block() helper (defined
+            # later in this function's own source order — a nested def
+            # is only bound once execution reaches it, and this check
+            # runs earlier): its capture starts AFTER the opening tag's
+            # own ">", so it cannot see an attribute on the <tr> itself
+            # (only its inner content) - the title lives on the tag, so
+            # match the whole opening tag directly instead.
+            tr_tag_match = re.search(
+                r'<tr[^>]*data-filter-group="0"[^>]*>', rendered)
+            li_match = re.search(
+                r'<li[^>]*data-filter-group="0"[^>]*>(.*?)</li>', rendered, re.S)
+            if tr_tag_match is None or li_match is None:
+                return False, "could not locate row block for data-filter-group=0"
+            tr_tag = tr_tag_match.group(0)
+            li_block = li_match.group(1)
+            if ('title="%s"' % layout.escape_html(runway_label)) not in tr_tag:
+                return False, "expected the desktop <tr> to carry the runway in its title attribute"
+            if "<dt>Runway</dt><dd>%s</dd>" % layout.escape_html(runway_label) not in li_block:
+                return False, "expected the mobile card's More details to still show Runway"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the runway value the dropped desktop Runway column used to show survives in the "
+        "<tr title=\"...\"> attribute and, unchanged, in the mobile card's More details (A-36/D-19)",
+        _runway_survives_in_row_title_and_mobile_details)
+
+    def _scroller_focusable_and_named():
+        # A-36/D-19: a keyboard user must be able to Tab to the
+        # .data-table-wrap scroller and arrow-scroll it - tabindex="0"
+        # plus a non-empty accessible name (aria-label).
+        tmp = _mkstate("h-scroller")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "scr01", "callsign": "SCROLL1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            wrap_match = re.search(r'<div class="data-table-wrap"([^>]*)>', rendered)
+            if wrap_match is None:
+                return False, "expected a .data-table-wrap opening tag"
+            attrs = wrap_match.group(1)
+            if 'tabindex="0"' not in attrs:
+                return False, "expected the scroller to carry tabindex=\"0\""
+            if 'role="region"' not in attrs:
+                return False, "expected the scroller to carry role=\"region\""
+            aria_match = re.search(r'aria-label="([^"]*)"', attrs)
+            if aria_match is None or not aria_match.group(1):
+                return False, "expected the scroller to carry a non-empty aria-label"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the .data-table-wrap scroller is focusable (tabindex=\"0\") and carries a non-empty "
+        "aria-label naming what it scrolls (A-36/D-19)",
+        _scroller_focusable_and_named)
+
+    def _desktop_timestamp_cell_clock_only_no_relative_age():
+        # A-36/D-19: the desktop Timestamp cell must drop the relative-
+        # age suffix layout.concise_timestamp_html() adds (that suffix
+        # is what made the column too wide) while still carrying the
+        # full ISO string in a title attribute.
+        tmp = _mkstate("h-clock-only")
+        try:
+            raw_ts = "2026-08-27T10:00:00+00:00"
+            _seed_runway_events(tmp, [
+                {"ts": raw_ts, "hex": "clk01", "callsign": "CLOCK1"},
+            ])
+            now = "2026-08-27T10:05:00+00:00"
+            rendered = history_page.render(_history_ctx(tmp, now=now))
+            # Inlined rather than the shared _row_block() helper, which
+            # is defined later in this function's source order.
+            tr_match = re.search(
+                r'<tr[^>]*data-filter-group="0"[^>]*>(.*?)</tr>', rendered, re.S)
+            if tr_match is None:
+                return False, "could not locate row block for data-filter-group=0"
+            tr_block = tr_match.group(1)
+            if "title=\"%s\"" % layout.escape_html(raw_ts) not in tr_block:
+                return False, "expected the full ISO timestamp in a title attribute"
+            if " ago" in tr_block:
+                return False, "did not expect a relative-age suffix (\" ago\") in the desktop row"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the desktop Timestamp cell shows a local clock with no relative-age suffix, and the "
+        "full ISO timestamp still lives in a title attribute (A-36/D-19)",
+        _desktop_timestamp_cell_clock_only_no_relative_age)
 
     def _merged_values_survive_in_same_cell():
         # The merge removed *columns*, not *data* - and both halves must
@@ -1413,9 +1536,14 @@ def main():
                     "desktop row, got %d" % tr_block.count("data-copy-value"))
             if tr_block.count("data-copy-feedback") != 2:
                 return False, "expected each copy button's data-copy-feedback sibling to survive"
+            # A-37/D-20: the bare _COPY_*_LABEL constants are now %s
+            # templates - format each against this row's own callsign
+            # (history_page._row_copy_name()'s fallback order) rather
+            # than asserting the raw, un-formatted template string.
+            row_name = history_page._row_copy_name("REVEAL", "rev01")
             for label in (history_page._COPY_CALLSIGN_LABEL, history_page._COPY_HEX_LABEL):
-                if layout.escape_html(label) not in tr_block:
-                    return False, "expected %r as an aria-label in the desktop row" % label
+                if layout.escape_html(label % row_name) not in tr_block:
+                    return False, "expected %r as an aria-label in the desktop row" % (label % row_name)
             if "data-view-panel-src" not in tr_block:
                 return False, "expected the row's View-panel/eye trigger to still render"
             view_panel_start = tr_block.index("data-view-panel-src")
@@ -1435,6 +1563,165 @@ def main():
         "data-copy-value — the discriminator the desktop reveal rule depends on "
         "(quick task 260903-peo, UIR-17)",
         _quick_260903_peo_desktop_row_copy_buttons_and_eye_button_discriminator)
+
+    def _copy_buttons_no_longer_share_one_aria_label():
+        # A-37/D-20: the defect this task closes — every one of a
+        # page's ~50 copy buttons used to share one identical
+        # aria-label. Two differently-named rows must now render at
+        # least two distinct aria-label values among their copy
+        # buttons.
+        tmp = _mkstate("h-copy-distinct-labels")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "dl01", "callsign": "DISTINCT1"},
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "dl02", "callsign": "DISTINCT2"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            aria_labels = set(re.findall(r'aria-label="([^"]*)"', rendered))
+            copy_labels = {
+                label for label in aria_labels
+                if "Copy callsign" in label or "Copy hex ID" in label
+                or "Copy timestamp" in label}
+            if len(copy_labels) < 2:
+                return False, (
+                    "expected at least 2 distinct copy-button aria-labels, got %d: %r"
+                    % (len(copy_labels), copy_labels))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with two differently-named rows, at least two distinct copy-button aria-label values "
+        "render on the page — the '50 identical names' defect closed (A-37/D-20)",
+        _copy_buttons_no_longer_share_one_aria_label)
+
+    def _each_copy_button_aria_label_names_its_own_row():
+        # A-37/D-20: each row's copy buttons must name THAT row's own
+        # callsign, not merely differ from each other.
+        tmp = _mkstate("h-copy-own-row")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "or01", "callsign": "OWNROW1"},
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "or02", "callsign": "OWNROW2"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            # Rows render newest-first (history_db.recent_runway_events()'s
+            # own ordering) - the later timestamp (OWNROW2) lands at
+            # data-filter-group=0, the earlier one (OWNROW1) at 1.
+            for index, callsign in ((0, "OWNROW2"), (1, "OWNROW1")):
+                tr_block = _row_block(rendered, "tr", index)
+                if tr_block is None:
+                    return False, "could not locate row block for data-filter-group=%d" % index
+                if callsign not in tr_block:
+                    return False, "expected %r inside its own row's markup" % callsign
+                if ('aria-label="Copy callsign %s"' % callsign) not in tr_block:
+                    return False, (
+                        "expected row %d's callsign copy button to name its own "
+                        "callsign %r" % (index, callsign))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "each row's callsign copy button carries an aria-label naming that row's own "
+        "callsign, not a shared/generic name (A-37/D-20)",
+        _each_copy_button_aria_label_names_its_own_row)
+
+    def _copy_button_script_propagates_execcommand_success():
+        # A-37/D-20's third half: fallbackCopy() used to call
+        # document.execCommand("copy") and discard its boolean return
+        # value, so handleClick() showed "Copied" even when the copy
+        # silently failed. Source-level check, mirroring
+        # test_companion_app.py's own token-ban convention for static
+        # scripts (companion/static/panel-lookup.js et al.).
+        js_path = os.path.join(HERE, "static", "copy-button.js")
+        with open(js_path) as fh:
+            src = fh.read()
+        if "return document.execCommand" not in src:
+            return False, "expected fallbackCopy() to return document.execCommand(...)'s result"
+        banned = (
+            "let ", "const ", "=>", "`", "innerHTML", "insertAdjacentHTML",
+            "document.write", "eval(",
+        )
+        for token in banned:
+            if token in src:
+                return False, "copy-button.js must not contain %r" % token
+        return True, ""
+    check(
+        "copy-button.js propagates fallbackCopy()'s real document.execCommand(...) result "
+        "instead of discarding it, and stays ES5-safe/sink-free (A-37/D-20)",
+        _copy_button_script_propagates_execcommand_success)
+
+    def _copy_button_markup_carries_icon_and_label_spans():
+        # D-20: every rendered copy button must carry exactly one
+        # .copy-btn__icon span (wrapping the SVG, aria-hidden) and one
+        # .copy-btn__label span (empty at rest, copy-button.js's own
+        # write target) - and the data-copy-feedback sibling contract
+        # copy-button.js depends on must survive unchanged.
+        tmp = _mkstate("h-copy-spans")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "sp01", "callsign": "SPANS1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            button_count = rendered.count("data-copy-value")
+            if button_count == 0:
+                return False, "expected at least one copy button to render"
+            icon_count = rendered.count('<span class="copy-btn__icon" aria-hidden="true">')
+            if icon_count != button_count:
+                return False, (
+                    "expected exactly one copy-btn__icon span per copy button, got %d for %d buttons"
+                    % (icon_count, button_count))
+            label_count = rendered.count('<span class="copy-btn__label"></span>')
+            if label_count != button_count:
+                return False, (
+                    "expected exactly one empty copy-btn__label span per copy button, got %d for %d buttons"
+                    % (label_count, button_count))
+            feedback_pairs = len(re.findall(r"</button><span[^>]*data-copy-feedback", rendered))
+            if feedback_pairs != button_count:
+                return False, (
+                    "expected every copy button to still be immediately followed by its "
+                    "data-copy-feedback sibling, found %d pairs for %d buttons"
+                    % (feedback_pairs, button_count))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every rendered copy button carries exactly one copy-btn__icon span and one empty "
+        "copy-btn__label span, and its data-copy-feedback sibling still immediately follows "
+        "the button (D-20)",
+        _copy_button_markup_carries_icon_and_label_spans)
+
+    def _copy_button_script_references_label_class_and_1500ms():
+        js_path = os.path.join(HERE, "static", "copy-button.js")
+        with open(js_path) as fh:
+            src = fh.read()
+        if "copy-btn__label" not in src:
+            return False, "expected copy-button.js to reference copy-btn__label"
+        if "copy-btn--copied" not in src:
+            return False, "expected copy-button.js to reference copy-btn--copied"
+        if "1500" not in src:
+            return False, "expected copy-button.js's FEEDBACK_RESET_MS to be 1500"
+        return True, ""
+    check(
+        "copy-button.js references the copy-btn__label/copy-btn--copied class names and the "
+        "1.5s (1500ms) feedback window (D-20)",
+        _copy_button_script_references_label_class_and_1500ms)
+
+    def _style_css_styles_both_copy_feedback_classes():
+        # Cross-file CSS guard, mirroring
+        # _data_table_wrap_scroll_edge_affordance_css()'s own regex-
+        # rule-match technique above - never a regex CSS parser, just a
+        # targeted selector-presence check.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        if re.search(r"\.copy-btn__label\s*\{", css) is None:
+            return False, "expected a .copy-btn__label rule in style.css"
+        if re.search(r"\.copy-btn--copied\s+\.copy-btn__label\s*\{", css) is None:
+            return False, "expected a .copy-btn--copied .copy-btn__label rule in style.css"
+        return True, ""
+    check(
+        "style.css styles both copy-btn__label and copy-btn--copied (D-20)",
+        _style_css_styles_both_copy_feedback_classes)
 
     def _presentation_labels_in_full_render():
         # UXA-05: Task 1's format_event_row()-level fixture, re-asserted

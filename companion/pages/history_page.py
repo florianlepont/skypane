@@ -22,10 +22,11 @@ matching `data_table()`'s CSS classes exactly for visual consistency,
 escaping every other cell through `companion.layout.escape_html()`.
 Only the escaping had to be hand-rolled, not the scroll container: this
 table is still wrapped in the same horizontal-scroll container
-`data_table()` itself emits, so History's 7-column table matches
-Airlines and Health's phone behaviour (D-03) — dropping that wrapper
-along with the escaping, when this table was first hand-built, was the
-original defect this module now closes.
+`data_table()` itself emits, so History's 6-column table (dropped from
+7 by A-36/D-19 — see the note above `_HEADERS`) matches Airlines and
+Health's phone behaviour (D-03) — dropping that wrapper along with the
+escaping, when this table was first hand-built, was the original defect
+this module now closes.
 
 Callsign+Hex and Aircraft type+Airline are each rendered as one merged,
 one-line cell (`_merged_cell()`, 06.6.1 D-02/data-density.md sketch 003
@@ -125,14 +126,26 @@ _NO_FLIGHTS_BODY = (
 _HISTORY_UNAVAILABLE_TEXT = (
     "The flight list is temporarily unavailable — try again in a minute.")
 
-# 7 entries, left-to-right order unchanged from the previous 9-column
-# table so a returning user's scanning habit still works. "Callsign" and
-# "Type" are now merged columns: each carries a secondary value (hex,
-# airline) rendered on the same line via _merged_cell() (06.6.1 D-02).
+# 6 entries (A-36/D-19: dropped from 7 — one runway is tracked at a
+# time, so the Runway column carried the same value on every row while
+# costing ~90px of a 1,305px table that had to fit an 880px column. The
+# value now lives in each rendered <tr>'s title attribute and in the
+# mobile card's More details, so nothing is lost by dropping the
+# desktop column). Left-to-right order is otherwise unchanged from the
+# previous 9-column table so a returning user's scanning habit still
+# works. "Callsign" and "Type" are still merged columns: each carries a
+# secondary value (hex, airline) rendered on the same line via
+# _merged_cell() (06.6.1 D-02).
 _HEADERS = (
     "Timestamp", "Callsign", "Type", "Route", "State", "Corroboration",
-    "Runway",
 )
+
+# A-36/D-19: names the .data-table-wrap scroller for keyboard users — at
+# 1,305px inside an 880px column the table scrolled behind a 12px
+# shadow that a keyboard-only user had no way to reach at all.
+# tabindex="0" plus this label turn the wrapper itself into a focusable,
+# named region a keyboard user can Tab to and arrow-scroll.
+SCROLLER_ARIA_LABEL = "Recent flights table, scrollable"
 
 # Class names styled by companion/static/style.css (plan 06.6.1-01, same
 # wave). Duplicated here rather than imported because a page module has
@@ -191,15 +204,32 @@ _FILTER_EMPTY_BODY_TEMPLATE = (
 
 # D-23: the copy-to-clipboard accessible-name contract
 # (06.6.3-UI-SPEC.md's Copywriting Contract: "Copy {field}").
-_COPY_CALLSIGN_LABEL = "Copy callsign"
-_COPY_HEX_LABEL = "Copy hex ID"
-_COPY_TIMESTAMP_LABEL = "Copy timestamp"
+# A-37/D-20: each is now a %s template naming the row (a callsign, or a
+# hex/NO_CALLSIGN_NOTE_TEXT fallback via _row_copy_name() below) — the
+# bare constants used to leave every one of a page's ~50 copy buttons
+# sharing one identical accessible name. Constant names are unchanged so
+# no unrelated reference breaks.
+_COPY_CALLSIGN_LABEL = "Copy callsign %s"
+_COPY_HEX_LABEL = "Copy hex ID for %s"
+_COPY_TIMESTAMP_LABEL = "Copy timestamp for %s"
 
 # quick task 260902-w4t (UIR-06): the presentational note shown beside a
 # promoted hex when a row has no callsign - a module-level constant so
 # the desktop cell (_callsign_hex_cell()) and the mobile card
 # (_history_cards_html()) cannot drift onto two different wordings.
 NO_CALLSIGN_NOTE_TEXT = "no callsign"
+
+
+def _row_copy_name(callsign, hex_value):
+    """The value substituted for the `%s` in each `_COPY_*_LABEL`
+    template (A-37/D-20): the row's callsign, falling back to its hex
+    when the callsign is absent, and finally to NO_CALLSIGN_NOTE_TEXT so
+    a row with neither never leaves the accessible name with a dangling
+    "for ". Mirrors _callsign_hex_cell()'s own three-branch fallback
+    order exactly — a future edit to one is visibly obliged to touch
+    the other.
+    """
+    return callsign or hex_value or NO_CALLSIGN_NOTE_TEXT
 
 # D-20: the per-row "View panel near this time" lookup and its shared
 # lightbox. VIEW_PANEL_LABEL is verbatim from D-20. LIGHTBOX_DIALOG_ID,
@@ -543,11 +573,25 @@ def _copy_button_html(value, label):
     sibling). `value` is escaped once here (T-06.6.3-11's mitigation:
     built only from the same already-escaped row values this page
     already renders, no separate unescaped derivation path); `label`
-    (the D-23 "Copy {field}" accessible name) is escaped the same way.
+    (the D-23 "Copy {field}" accessible name, already formatted against
+    the row by the caller via `_row_copy_name()` — A-37/D-20) is escaped
+    the same way.
+
+    A-37/D-20: the button's visible content (an SVG icon) is wrapped in
+    a `<span class="copy-btn__icon" aria-hidden="true">`, with an empty
+    `<span class="copy-btn__label"></span>` sibling immediately after
+    it, both inside the button. `companion/static/copy-button.js` writes
+    the transient "Copied" text into that label span's `textContent`
+    only — never into the button element itself, which would destroy
+    the SVG icon and have no way to restore it. This keeps the no-HTML-
+    writing-sink rule intact: only `textContent` on a leaf `<span>`.
     """
     return (
         '<button type="button" class="copy-btn" data-copy-value="%s" '
-        'aria-label="%s">%s</button>'
+        'aria-label="%s">'
+        '<span class="copy-btn__icon" aria-hidden="true">%s</span>'
+        '<span class="copy-btn__label"></span>'
+        '</button>'
         '<span class="visually-hidden" data-copy-feedback role="status" '
         'aria-live="polite"></span>'
     ) % (escape_html(value), escape_html(label), layout.icon_html("icon-copy"))
@@ -577,19 +621,20 @@ def _callsign_hex_cell(callsign, hex_value):
       no secondary — a button that would copy `""` is exactly the dead
       affordance UIR-06 reported, so this branch emits none of it.
     """
+    row_name = _row_copy_name(callsign, hex_value)
     if callsign:
         html = '<span class="%s">%s</span>%s' % (
             CELL_PRIMARY_CLASS, escape_html(callsign),
-            _copy_button_html(callsign, _COPY_CALLSIGN_LABEL))
+            _copy_button_html(callsign, _COPY_CALLSIGN_LABEL % row_name))
         if hex_value:
             html += '<span class="%s">%s</span><span class="%s">%s</span>%s' % (
                 CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
                 CELL_SECONDARY_CLASS, escape_html(hex_value),
-                _copy_button_html(hex_value, _COPY_HEX_LABEL))
+                _copy_button_html(hex_value, _COPY_HEX_LABEL % row_name))
     elif hex_value:
         html = '<span class="%s">%s</span>%s' % (
             CELL_PRIMARY_CLASS, escape_html(hex_value),
-            _copy_button_html(hex_value, _COPY_HEX_LABEL))
+            _copy_button_html(hex_value, _COPY_HEX_LABEL % row_name))
         html += '<span class="%s">%s</span><span class="%s">%s</span>' % (
             CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
             CELL_SECONDARY_CLASS, escape_html(NO_CALLSIGN_NOTE_TEXT))
@@ -665,6 +710,42 @@ def _filter_bar_html(total):
     )
 
 
+# A-36/D-19: mirrors layout.concise_timestamp_html()'s own default
+# fallback string exactly, so a caller can never tell the two functions
+# apart by their empty-value behaviour.
+_CLOCK_CELL_FALLBACK = "no reading yet"
+
+
+def _clock_cell_html(raw_ts, now):
+    """The desktop table's clock-only Timestamp cell (A-36/D-19): a
+    local clock ("HH:MM", or "D Mon HH:MM" once the row is no longer
+    from today — layout.local_clock_text(), Europe/Paris, Phase 18
+    D-06) with the full ISO still carried in the `title` attribute, and
+    no relative-age suffix — that suffix is exactly what made
+    layout.concise_timestamp_html()'s own rendering too wide for this
+    column. Built directly from layout.parse_iso() +
+    layout.local_clock_text() rather than calling
+    concise_timestamp_html() itself, and this function must never be
+    used as a reason to edit companion/layout.py — plan 19-04 owns that
+    file in this same wave.
+
+    Degrades exactly the way concise_timestamp_html() does: a falsy
+    raw_ts returns the escaped fallback text (never markup); an
+    unparseable raw_ts returns a span carrying the raw value in both
+    the title and the visible text. Never raises.
+    """
+    if not raw_ts:
+        return escape_html(_CLOCK_CELL_FALLBACK)
+    parsed = layout.parse_iso(raw_ts)
+    if parsed is None:
+        return '<span class="mono" title="%s">%s</span>' % (
+            escape_html(raw_ts), escape_html(raw_ts))
+    now_parsed = layout.parse_iso(now)
+    return '<span class="mono" title="%s">%s</span>' % (
+        escape_html(raw_ts),
+        escape_html(layout.local_clock_text(parsed, now_parsed)))
+
+
 def _history_table_html(formatted_rows, now=None):
     if not formatted_rows:
         return layout.empty_state(_NO_FLIGHTS_HEADING, _NO_FLIGHTS_BODY)
@@ -674,19 +755,19 @@ def _history_table_html(formatted_rows, now=None):
     body_rows = []
     for index, row in enumerate(formatted_rows):
         row_class = "row-alt" if index % 2 else "row"
-        # D-09: layout.concise_timestamp_html() already returns
-        # already-safe <span class="mono" title="..."> markup - this
-        # file hand-rolls its own <td> cells (it does not call
-        # layout.data_table()), so the return value is interpolated
-        # directly with no wrapping escape_html() call, matching
-        # _merged_cell()'s own documented "do not double-escape
-        # already-safe markup" discipline. D-20's View-panel trigger
-        # (already-safe markup, or "" for a row with no nearest render -
-        # render() computes this once per row and both representations
-        # share it) is appended after the timestamp markup.
+        # A-36/D-19: _clock_cell_html() already returns already-safe
+        # <span class="mono" title="..."> markup - this file hand-rolls
+        # its own <td> cells (it does not call layout.data_table()), so
+        # the return value is interpolated directly with no wrapping
+        # escape_html() call, matching _merged_cell()'s own documented
+        # "do not double-escape already-safe markup" discipline. D-20's
+        # View-panel trigger (already-safe markup, or "" for a row with
+        # no nearest render - render() computes this once per row and
+        # both representations share it) is appended after the
+        # timestamp markup.
         cells = (
             "<td>%s%s</td>" % (
-                layout.concise_timestamp_html(row["raw_ts"], now),
+                _clock_cell_html(row["raw_ts"], now),
                 row.get("view_panel_html", "")),
             _callsign_hex_cell(row["callsign"], row["hex"]),
             _type_airline_cell(row),
@@ -695,7 +776,6 @@ def _history_table_html(formatted_rows, now=None):
             "<td>%s</td>" % layout.status_dot(
                 row["corroboration_status"], row["corroboration_label"],
                 row["corroboration_title"]),
-            "<td>%s</td>" % escape_html(row["tracked_runway"]),
         )
         # D-20: data-filter-text drives companion/static/list-filter.js's
         # match — the same value the mobile <li> for this same row also
@@ -705,18 +785,25 @@ def _history_table_html(formatted_rows, now=None):
         # index in _history_cards_html(), since render() feeds both
         # functions the identical formatted_rows list) so list-filter.js
         # can count logical rows once instead of once per representation.
+        # A-36/D-19: title carries the row's runway — the value the
+        # dropped Runway column used to show — escaped through
+        # escape_html() at this point of interpolation, same as every
+        # other attribute value this function builds.
         body_rows.append(
-            '<tr class="%s" data-filter-text="%s" data-filter-group="%d">%s</tr>'
-            % (row_class, _filter_text_attr(row), index, "".join(cells)))
+            '<tr class="%s" data-filter-text="%s" data-filter-group="%d" '
+            'title="%s">%s</tr>'
+            % (row_class, _filter_text_attr(row), index,
+               escape_html(row["tracked_runway"]), "".join(cells)))
 
     return (
-        '<div class="data-table-wrap">'
+        '<div class="data-table-wrap" tabindex="0" role="region" '
+        'aria-label="%s">'
         '<table class="data-table">'
         "<thead><tr>%s</tr></thead>"
         "<tbody>%s</tbody>"
         "</table>"
         "</div>"
-    ) % (header_cells, "".join(body_rows))
+    ) % (escape_html(SCROLLER_ARIA_LABEL), header_cells, "".join(body_rows))
 
 
 def _history_cards_html(formatted_rows, now=None):
@@ -800,6 +887,10 @@ def _history_cards_html(formatted_rows, now=None):
         unresolved_link = (
             _unresolved_link_html()
             if row["airline_label"] == AIRLINE_FALLBACK_TEXT else "")
+        # A-37/D-20: the mobile disclosure's three copy buttons name
+        # their own row too, via the same _row_copy_name() fallback
+        # order the desktop cell uses.
+        row_name = _row_copy_name(row["callsign"], row["hex"])
         details = (
             '<details class="history-card__details">'
             "<summary>More details</summary>"
@@ -814,7 +905,7 @@ def _history_cards_html(formatted_rows, now=None):
             "</details>"
         ) % (
             escape_html(row["callsign"]),
-            _copy_button_html(row["callsign"], _COPY_CALLSIGN_LABEL),
+            _copy_button_html(row["callsign"], _COPY_CALLSIGN_LABEL % row_name),
             escape_html(row["aircraft_type_label"]),
             escape_html(CELL_SEPARATOR_TEXT),
             escape_html(row["airline_label"]),
@@ -824,9 +915,9 @@ def _history_cards_html(formatted_rows, now=None):
                 row["corroboration_title"]),
             escape_html(row["tracked_runway"]),
             escape_html(row["hex"]),
-            _copy_button_html(row["hex"], _COPY_HEX_LABEL),
+            _copy_button_html(row["hex"], _COPY_HEX_LABEL % row_name),
             escape_html(row["raw_ts"]),
-            _copy_button_html(row["raw_ts"], _COPY_TIMESTAMP_LABEL),
+            _copy_button_html(row["raw_ts"], _COPY_TIMESTAMP_LABEL % row_name),
         )
         items.append(
             '<li class="history-card" data-filter-text="%s" '
