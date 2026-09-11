@@ -5,15 +5,14 @@
 separate process, its own systemd unit — it never touches that vendored
 device-protocol server).
 
-Whole-site auth gate (D-02): every route except the login routes, the
-stylesheet, and the theme-toggle POST calls `Handler.require_session()`
-as its first statement and returns immediately when the session is
-invalid — this file is the single place that gate is enforced, not each
-page module. This same exemption list also decides the caching scope on
-byte-served responses (`Handler.send_bytes()`'s `public` parameter): a
-route not in this list must never be advertised to a shared/intermediary
-cache as storable, so the two lists are not allowed to silently drift
-apart.
+Whole-site auth gate (D-02): every route except the login routes and the
+stylesheet calls `Handler.require_session()` as its first statement and
+returns immediately when the session is invalid — this file is the
+single place that gate is enforced, not each page module. This same
+exemption list also decides the caching scope on byte-served responses
+(`Handler.send_bytes()`'s `public` parameter): a route not in this list
+must never be advertised to a shared/intermediary cache as storable, so
+the two lists are not allowed to silently drift apart.
 
 This service binds all interfaces (0.0.0.0), exactly like
 `stub-server/byos_server.py` already does in production — loopback
@@ -1381,10 +1380,10 @@ class Handler(BaseHTTPRequestHandler):
                 payload = fh.read()
         except OSError:
             return self.send_html(404, self._not_found_page())
-        # One of the three D-02 gate exemptions named in this module's
-        # docstring (login routes, stylesheet, theme-toggle POST): no
-        # per-user content, identical for every client, so it is
-        # legitimately shared-cacheable.
+        # One of the two D-02 gate exemptions named in this module's
+        # docstring (login routes, stylesheet): no per-user content,
+        # identical for every client, so it is legitimately
+        # shared-cacheable.
         return self.send_bytes(200, "text/css", payload, cache_seconds=300, public=True)
 
     def _serve_script_file(self, abs_path):
