@@ -139,6 +139,16 @@ None - no external service configuration required.
 
 Every CSS class the phase's five markup plans (Home, Display regroup, Calendar/Flight-colours redesign, live theme preview, Airlines toggle) depend on now exists in `companion/static/style.css`, using only pre-existing tokens. The warn-on-card contrast question is resolved with a measured, traceable verdict rather than an assumption, so `home_page.py`'s own D-17 rebuild (a separate plan) can safely render `.status-card__headline--warn` knowing it will never carry the failing light-mode colour. No blockers for the other four plans in this wave.
 
+## Self-Check: PASSED
+
+- FOUND: companion/static/style.css
+- FOUND: companion/contrast_check.py
+- FOUND: companion/test_contrast_check.py
+- FOUND: .planning/phases/20-companion-suggestions-from-the-audit-french-localisation-liv/20-04-SUMMARY.md
+- FOUND commit 3366339 (Task 1)
+- FOUND commit 3af9291 (Task 2)
+- FOUND commit 63a1dc2 (Task 3)
+
 ---
 *Phase: 20-companion-suggestions-from-the-audit-french-localisation-liv*
 *Completed: 2026-09-11*
