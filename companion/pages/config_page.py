@@ -25,7 +25,12 @@ from companion import screens
 # rules list's per-row Delete button reuses it rather than minting a
 # second string, exactly as the plan directs. This does not create an
 # import cycle: airlines_page.py never imports config_page.py.
-from companion.pages.airlines_page import DELETE_BUTTON_TEXT
+#
+# 19-12-PLAN.md Task 2 (D-22, Device-page half): EDIT_QUERY_PARAM joins
+# the same deliberate exception, for the identical reason — the Device
+# page's "Edit artwork" link is built from airlines_page's own query-
+# param constant rather than a retyped "edit" literal.
+from companion.pages.airlines_page import DELETE_BUTTON_TEXT, EDIT_QUERY_PARAM
 from server import device_config, panel_format
 from server.plane import calendar_rules, colour_rules
 
@@ -97,6 +102,17 @@ DEVICE_PAGE_PURPOSE = (
     "Hardware, data and diagnostics for the frame. Nothing here needs "
     "changing day to day.")
 SCREEN_CAPTION_TEMPLATE = "Screen: %s"
+# 19-12-PLAN.md Task 2 (D-23): the conditional screen-type <select> — an
+# element id (not a class) because its own <label> targets it via `for`.
+SCREEN_SELECTOR_ID = "screen-id-selector"
+SCREEN_SELECTOR_LABEL_TEXT = "Screen type"
+# The Device-page-only link to the artwork editor (D-22's Device-page
+# half, 19-12-PLAN.md Task 2). Built from airlines_page.AIRLINES_ROUTE
+# (rebound below as layout.AIRLINES_ROUTE, already duplicated there) and
+# airlines_page.EDIT_QUERY_PARAM — never a retyped "/airlines?edit=1"
+# literal.
+EDIT_ARTWORK_LINK_TEXT = "Edit artwork"
+EDIT_ARTWORK_LINK_CAPTION = "Opens Airlines with the artwork-editing forms available."
 
 
 def scope_groups(scope, screen_id=None):
@@ -2205,16 +2221,25 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     }
     groups_html = "".join(builders[g]() for g in groups if g in builders)
 
+    # 19-12-PLAN.md Task 2 (D-23): the conditional selector joins the
+    # screen caption in BOTH scoped headers' action_html slot — with
+    # today's single-member registry it renders as "", so both headers
+    # stay byte-identical to their pre-D-23 output.
     if scope == SCOPE_DISPLAY:
         header = layout.page_header(
             DISPLAY_PAGE_TITLE, purpose=DISPLAY_PAGE_PURPOSE,
-            action_html=_screen_caption_html(screen))
+            action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id))
         hidden_html = _scope_fields_html(scope, layout.DISPLAY_ROUTE)
         show_rules = show_poll = show_calendar_disconnect = False
     elif scope == SCOPE_DEVICE:
+        # 19-12-PLAN.md Task 2 (D-22, Device-page half): the Edit
+        # artwork link is Device-only, joining the screen caption/
+        # selector in the same action_html slot.
         header = layout.page_header(
             DEVICE_PAGE_TITLE, purpose=DEVICE_PAGE_PURPOSE,
-            action_html=_screen_caption_html(screen))
+            action_html=(
+                _screen_caption_html(screen) + _screen_selector_html(screen_id)
+                + _edit_artwork_link_html()))
         hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
         show_rules = bool(screen.get("has_colour_rules"))
         show_poll = bool(screen.get("has_manual_poll"))
@@ -2283,6 +2308,71 @@ def _screen_caption_html(screen):
     return (
         '<p class="page-header__screen text-label">%s</p>'
         % escape_html(SCREEN_CAPTION_TEMPLATE % screen["label"]))
+
+
+def _screen_selector_html(current_screen_id):
+    """A `<select name="screen_id">` letting the operator switch which
+    registered screen type this settings page edits — 19-12-PLAN.md Task
+    2 (D-23)'s explicit condition: returns the EMPTY STRING when
+    `len(screens.SCREEN_IDS) <= 1` (a one-option "choice" has no real
+    decision value, the same reasoning `theme_fieldset()`'s single-theme
+    branch already applies), so with today's single-screen registry the
+    Display/Device headers stay byte-identical to their pre-D-23 output.
+
+    Rendered inside `layout.page_header()`'s `action_html` slot — i.e.
+    visually and structurally BEFORE `<form id="{SETTINGS_FORM_ID}">`
+    opens — but it must still submit with that form. The
+    `form="{SETTINGS_FORM_ID}"` attribute is what makes that possible,
+    the same "control lives outside the form's own DOM nesting but
+    submits with it anyway" idiom `render()`'s own dirty-bar Save button
+    already uses (see its own comment above).
+
+    Every option's value and label are escaped at their interpolation
+    point (labels come from the fixed `screens.SCREEN_TYPES` registry,
+    never request data, but this file's universal escaping discipline
+    applies with no exceptions). A visually-hidden `<label for=...>`
+    supplies the control's accessible name, matching this file's
+    settings-checkbox `<label>` convention rather than an `aria-label`
+    attribute.
+    """
+    if len(screens.SCREEN_IDS) <= 1:
+        return ""
+    options = []
+    for screen_id in screens.SCREEN_IDS:
+        selected = " selected" if screen_id == current_screen_id else ""
+        label = screens.screen_type(screen_id)["label"]
+        options.append(
+            '<option value="%s"%s>%s</option>'
+            % (escape_html(screen_id), selected, escape_html(label)))
+    return (
+        '<label class="visually-hidden" for="%s">%s</label>'
+        '<select name="screen_id" id="%s" form="%s">%s</select>'
+    ) % (
+        SCREEN_SELECTOR_ID, escape_html(SCREEN_SELECTOR_LABEL_TEXT),
+        SCREEN_SELECTOR_ID, SETTINGS_FORM_ID, "".join(options),
+    )
+
+
+def _edit_artwork_link_html():
+    """The Device page's own "Edit artwork" link to `/airlines?edit=1`
+    (D-22's Device-page half, 19-12-PLAN.md Task 2) — built from
+    `layout.AIRLINES_ROUTE` (already duplicated there, the same
+    duplicated-not-imported route this file's other cross-page
+    constants use) and `EDIT_QUERY_PARAM` (imported from airlines_page,
+    the deliberate exception this file's own import comment above
+    documents), never a retyped "/airlines?edit=1" literal. Rendered as
+    an already-safe block for `layout.page_header()`'s `action_html`
+    slot, in the section-caption voice.
+    """
+    return (
+        '<p class="page-header__screen text-label">'
+        '<a class="text-label" href="%s?%s=1">%s</a></p>'
+        '<p class="text-label section-caption">%s</p>'
+    ) % (
+        layout.AIRLINES_ROUTE, EDIT_QUERY_PARAM,
+        escape_html(EDIT_ARTWORK_LINK_TEXT),
+        escape_html(EDIT_ARTWORK_LINK_CAPTION),
+    )
 
 
 def _scope_fields_html(scope, return_route):
@@ -2600,6 +2690,19 @@ def handle_post(form, ctx, errors=None):
     alternative — writing the secret first — would perturb the ordering
     of every save in this handler, existing or new, to close a window
     that only opens when the state directory is already failing.
+
+    19-12-PLAN.md Task 2 (D-23) adds one more form field, `screen_id`,
+    submitted only by `_screen_selector_html()`'s `<select>` (itself
+    only rendered once a second screen type is registered). It follows
+    the exact membership-test-before-use shape every other
+    hostile-request-shape gate above already uses: a non-`None` value
+    outside `screens.SCREEN_IDS` rejects the whole save via
+    `FLASH_SAVE_FAILED` before `save_device_config()` is ever called,
+    and the validated value is passed through as one more keyword
+    argument on the SAME, still-singular `save_device_config()` call —
+    never a second write path. With today's single-member registry the
+    field is never actually submitted by the real form, so this gate is
+    exercised only by a crafted request.
     """
     state_dir = ctx["state_dir"]
     # Phase 18: which groups were actually on the submitted page. A
@@ -2621,10 +2724,16 @@ def handle_post(form, ctx, errors=None):
     submitted_display = form.get("display_enabled")
     submitted_calendar_theme_id = form.get("calendar_theme_id")
     submitted_calendar_url = form.get("calendar_url")
+    submitted_screen_id = form.get("screen_id")
     calendar_signal = submitted_calendar_signal(form)
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
         _note_error(errors, "theme", ERROR_INVALID_CHOICE)
+        return FLASH_SAVE_FAILED
+    # 19-12-PLAN.md Task 2 (D-23): the same membership-test-before-use
+    # shape every sibling gate here already uses.
+    if submitted_screen_id is not None and submitted_screen_id not in screens.SCREEN_IDS:
+        _note_error(errors, "screen_id", ERROR_INVALID_CHOICE)
         return FLASH_SAVE_FAILED
     # Phase 17 plan 03 (D-07): the resolver's own `invalid` outcome joins
     # every other membership/shape gate here, before any write — a
@@ -2741,7 +2850,8 @@ def handle_post(form, ctx, errors=None):
             led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
             quiet_hours_start=submitted_qh_start, quiet_hours_end=submitted_qh_end,
             wake_interval_s=wake_interval_s, display_enabled=display_enabled,
-            calendar_theme_id=submitted_calendar_theme_id)
+            calendar_theme_id=submitted_calendar_theme_id,
+            screen_id=submitted_screen_id)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
 

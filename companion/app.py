@@ -1103,10 +1103,23 @@ class Handler(BaseHTTPRequestHandler):
         # exact same DB-read snapshot instead of re-deriving it from a
         # second, non-atomic set of reads when the user is on /health.
         health_state = health_page.safe_health_state(state_dir, now)
+        # 19-12-PLAN.md Task 2 (D-23): loaded ONCE per request and reused
+        # for both the "device_config" and "screen_id" ctx keys below,
+        # rather than calling load_device_config() a second time —
+        # screens.current_screen_id(ctx) already membership-tests this
+        # value and falls back to DEFAULT_SCREEN_ID, so no second
+        # validation is needed at this layer.
+        device_cfg = device_config.load_device_config(state_dir)
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
-            "device_config": device_config.load_device_config(state_dir),
+            "device_config": device_cfg,
+            # 19-12-PLAN.md Task 2 (D-23): the persisted screen_id, read
+            # from the SAME device_config dict already loaded above —
+            # config_page.py's render()/handle_post() consume this via
+            # companion.screens.current_screen_id(ctx), which already
+            # falls back to DEFAULT_SCREEN_ID for a missing/unknown value.
+            "screen_id": device_cfg.get("screen_id"),
             # D-07 (11-04): the deployed SKYPANE_SLEEP_S, read fresh from
             # this process's own environment on every request — an int in
             # [WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S] or None. An

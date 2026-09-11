@@ -335,6 +335,14 @@ EXPECTED_CHECK_COUNT = 220  # 19-11-PLAN.md Task 2 (D-08/A-26): +3 (the
 # the real on-disk check(...) call count at execution time (218/220
 # pass — the two documented WR-11 root-sandbox failures, unrelated to
 # this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 221  # 19-12-PLAN.md Task 2 (D-22, Device-page
+# half): +1 (a real authenticated GET of the Device page contains the
+# Edit-artwork href, and following it returns 200 with the
+# artwork-editing forms present — the end-to-end link between plan
+# 19-08's ?edit=1 gate and this plan's link). 220 + 1 = 221, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (219/221 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -3610,6 +3618,32 @@ def main():
             "its hidden scope/return_to fields and the screen-type caption; the rules editor and manual "
             "refresh live on Device only",
             _display_and_device_pages_split_the_groups)
+
+        def _device_page_edit_artwork_link_opens_airlines_with_edit_forms():
+            # 19-12-PLAN.md Task 2 (D-22, Device-page half): the real-HTTP
+            # end-to-end link between plan 19-08's ?edit=1 gate and this
+            # plan's Device-page anchor.
+            _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
+            device_text = device_body.decode("utf-8", errors="replace")
+            if "/airlines?edit=1" not in device_text:
+                return False, "expected the Device page to carry an Edit-artwork link to /airlines?edit=1"
+            status, _headers, body = http_request(
+                base + "/airlines?edit=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 following the Edit-artwork link, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            # Exact class="{token}" match, matching companion/
+            # test_view_pages.py's own precise-marker discipline for
+            # these same three edit-only forms (LIGHTBOX_REPLACE_FORM_
+            # CLASS is itself a prefix of several sibling classes).
+            for token in ("lightbox__replace", "resolve-upload-zone", "lightbox__delete"):
+                if ('class="%s"' % token) not in text:
+                    return False, "expected the edit-only form carrying class=%r on the followed page" % token
+            return True, ""
+        check(
+            "the Device page's Edit-artwork link opens /airlines?edit=1, and following it returns 200 with "
+            "the artwork-editing forms present (D-22, Device-page half)",
+            _device_page_edit_artwork_link_opens_airlines_with_edit_forms)
 
         def _html_pages_are_no_store():
             status, headers, _ = http_request(base + "/", cookie=session_cookie)

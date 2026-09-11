@@ -337,6 +337,14 @@ EXPECTED_CHECK_COUNT = 170  # 19-11-PLAN.md Task 3 (D-12/A-30): +3 (the
 # 167 + 3 = 170, recomputed directly against the real on-disk check(...)
 # call count at execution time (170/170 pass), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 176  # 19-12-PLAN.md Task 2 (D-23/D-22): +6 (the
+# empty-string-for-the-real-registry check, the monkeypatched
+# multi-member-registry <select>/<option>/selected/accessible-name check,
+# the render()-carries-no-selector-today check, the crafted-screen_id
+# rejection check, the valid-screen_id round-trip check, and the
+# Device-has-one/Display-has-none Edit-artwork-anchor check). 170 + 6 =
+# 176, recomputed directly against the real on-disk check(...) call count
+# at execution time (176/176 pass), not trusted from arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1893,7 +1901,11 @@ def main():
             # and for the same reason — a new always-returned key changes what
             # this exact-dict comparison must expect. Still an exact-dict
             # comparison, deliberately not loosened to a subset check.
-            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None}:
+            # 19-12-PLAN.md Task 1 (D-23): load_device_config() now always
+            # returns screen_id too, "plane-frame" (DEFAULT_SCREEN_ID) here
+            # because this post carries no screen_id field. Same mechanical
+            # update as the two lines above.
+            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None, "screen_id": "plane-frame"}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -4966,6 +4978,115 @@ def main():
         "absent-means-False inside the submitted scope and for the legacy unscoped form, and a "
         "scoped submission without the Calendar group always carries the calendar forward",
         _handle_post_scope_carries_out_of_scope_checkboxes_forward)
+
+    # --- 19-12-PLAN.md Task 2 (D-23/D-22): the conditional screen selector
+    # and the Device-page Edit artwork link -------------------------------
+
+    def _screen_selector_empty_for_the_real_single_member_registry():
+        html = config_page._screen_selector_html("plane-frame")
+        if html != "":
+            return False, "expected the empty string for today's single-member registry, got %r" % (html,)
+        return True, ""
+    check(
+        "_screen_selector_html() returns the empty string for the real single-member screens registry",
+        _screen_selector_empty_for_the_real_single_member_registry)
+
+    def _screen_selector_renders_for_a_multi_member_registry():
+        from companion import screens
+        saved_types, saved_ids = dict(screens.SCREEN_TYPES), screens.SCREEN_IDS
+        try:
+            screens.SCREEN_TYPES["rer-board"] = {
+                "label": "RER board", "description": "d",
+                "everyday_groups": (), "advanced_groups": (),
+                "has_colour_rules": False, "has_manual_poll": False,
+            }
+            screens.SCREEN_IDS = tuple(screens.SCREEN_TYPES)
+            html = config_page._screen_selector_html("plane-frame")
+            if '<select name="screen_id"' not in html:
+                return False, "expected a <select name=\"screen_id\"> once a second screen type is registered"
+            if html.count("<option") != 2:
+                return False, "expected exactly one <option> per registered screen type, got %r" % (html,)
+            if 'value="plane-frame" selected' not in html:
+                return False, "expected the current screen id's option to carry the selected attribute"
+            if 'value="rer-board" selected' in html:
+                return False, "expected only the current screen id's option to carry selected"
+            if "<label" not in html or 'for="screen-id-selector"' not in html:
+                return False, "expected a <label for=...> supplying the control's accessible name"
+            return True, ""
+        finally:
+            screens.SCREEN_TYPES.clear()
+            screens.SCREEN_TYPES.update(saved_types)
+            screens.SCREEN_IDS = saved_ids
+    check(
+        "_screen_selector_html() emits exactly one <select name=\"screen_id\"> with one <option> per "
+        "registered screen type, the current one selected, and a non-empty accessible name once a "
+        "second screen type is registered",
+        _screen_selector_renders_for_a_multi_member_registry)
+
+    def _render_carries_no_screen_selector_today():
+        ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        if '<select name="screen_id"' in display or '<select name="screen_id"' in device:
+            return False, "expected no screen selector with today's single-member registry"
+        return True, ""
+    check(
+        "render() at Display and Device scope contains no <select name=\"screen_id\"> today (a "
+        "single-member registry has no real choice to offer)",
+        _render_carries_no_screen_selector_today)
+
+    def _handle_post_rejects_a_crafted_screen_id():
+        tmp = tempfile.mkdtemp(prefix="skypane-config-screen-id-")
+        try:
+            device_config.save_device_config(tmp, theme="white")
+            errors = {}
+            key = config_page.handle_post(
+                {"theme": "black", "screen_id": "not-a-real-screen"}, {"state_dir": tmp}, errors=errors)
+            if key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for a crafted screen_id, got %r" % (key,)
+            if "screen_id" not in errors:
+                return False, "expected a field error noted for screen_id"
+            cfg = device_config.load_device_config(tmp)
+            if cfg["theme"] != "white":
+                return False, "expected the whole save rejected — theme must not have changed to 'black'"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "handle_post() rejects a crafted screen_id with FLASH_SAVE_FAILED, notes a field error, and "
+        "writes nothing (all-or-nothing)",
+        _handle_post_rejects_a_crafted_screen_id)
+
+    def _valid_screen_id_round_trips():
+        tmp = tempfile.mkdtemp(prefix="skypane-config-screen-id-")
+        try:
+            key = config_page.handle_post({"screen_id": "plane-frame"}, {"state_dir": tmp})
+            if key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED for a valid screen_id, got %r" % (key,)
+            cfg = device_config.load_device_config(tmp)
+            if cfg["screen_id"] != "plane-frame":
+                return False, "expected screen_id='plane-frame' to round-trip, got %r" % (cfg["screen_id"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a valid screen_id round-trips through save_device_config()",
+        _valid_screen_id_round_trips)
+
+    def _device_scope_has_one_edit_artwork_link_display_has_none():
+        ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        href_fragment = "/airlines?edit=1"
+        if href_fragment in display:
+            return False, "expected no Edit-artwork link on the Display page"
+        if device.count(href_fragment) != 1:
+            return False, "expected exactly one Edit-artwork anchor on the Device page, got %d" % device.count(href_fragment)
+        return True, ""
+    check(
+        "the Device scope renders exactly one Edit-artwork anchor whose href contains edit=1, while the "
+        "Display scope renders none (D-22, Device-page half)",
+        _device_scope_has_one_edit_artwork_link_display_has_none)
 
     harness = Harness()
     try:

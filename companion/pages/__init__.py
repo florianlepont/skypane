@@ -112,6 +112,17 @@ Every page module in this package exposes:
           is a long-running `ThreadingHTTPServer`; a companion-side save
           landing mid-request must always be visible on the very next
           request, not just the next poll cycle
+        - screen_id: the persisted `device_config.json` `screen_id` value
+          (added by 19-12-PLAN.md Task 2, D-23), read from the SAME
+          `device_config` dict already loaded above — companion/app.py
+          never calls `device_config.load_device_config()` twice per
+          request for this. May be `None`, an unknown string, or a real
+          `companion.screens.SCREEN_IDS` member; every consumer reaches
+          this value through `companion.screens.current_screen_id(ctx)`,
+          which already membership-tests it and falls back to
+          `DEFAULT_SCREEN_ID` — no second validation is needed at this
+          layer. companion/pages/config_page.py's render()/handle_post()
+          are the two consumers today.
         - edit_mode: a bool, `True` only for an exact `?edit=1` query
           value (added by 19-08-PLAN.md Task 3, D-22) — computed by
           companion/app.py's `page_context()` as
