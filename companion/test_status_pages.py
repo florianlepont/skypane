@@ -300,9 +300,23 @@ EXPECTED_CHECK_COUNT = 185  # 180 + 5 (19-05-PLAN.md Task 3: D-05/A-23's
 # (battery_status()'s error->warn demotion, the seven-to-nine-keys
 # _read_health_inputs() check, and the battery-trend-section status
 # modifier check) were retargeted in place, not counted as new.
-# Re-derived by RUNNING the harness (184/185 — the one documented
-# pre-existing root-sandbox anomaly_active() failure), not by
-# arithmetic.
+EXPECTED_CHECK_COUNT = 190  # 189 + 1 (19-06-PLAN.md Task 3, D-06: the
+# combined no-adsbdb/no-requirement-id full-render check, seeded with a
+# non-empty unresolved registry AND stats rows so every branch renders.
+# The pre-existing _read_only_note_reworded_to_point_at_airlines_not_
+# the_runbook() check was retargeted in place, not counted as new).
+# 189 = 188 + 1 (19-06-PLAN.md Task 2, D-06: the
+# combined plain-language/tooltip check — Health's stat tiles and
+# corroboration rows carry no banned jargon in visible text, and the
+# Pipeline/Corroboration/Resolution-rate tiles' caption elements each
+# carry a title attribute equal to their matching technical constant.
+# The pre-existing Corroboration-tile lookup in the D-01-reversal
+# dot-removal-scoped check was retargeted in place, not counted as new).
+# 188 = 185 + 3 (19-06-PLAN.md Task 1, D-06:
+# layout.stat_tile()'s new caption_title parameter — the byte-identical-
+# when-unused check, the renders-as-a-title-on-the-caption-only check,
+# and the escaped-when-hostile check).
+# Re-derived by RUNNING the harness (187/188), not by arithmetic.
 # 180 = 176 + 4 (19-05-PLAN.md Task 2: D-04/A-22's fixed
 # sparkline range and width-derived density checks — a flat series draws
 # at one consistent y level, a 15mV wiggle stays under a tenth of the
@@ -3191,10 +3205,12 @@ def main():
             for marker in ("data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty"):
                 if marker not in rendered:
                     return False, "expected the migrated filter bar's %r marker to survive the move" % marker
-            # phase 13 (D-10) reworded this note to include two
-            # apostrophes ("row's", "prefix's"), which escape_html()'s
-            # quote=True mode renders as &#x27; — compare against the
-            # escaped form, matching this module's own single-escaping-
+            # phase 13 (D-10) reworded this note to include an
+            # apostrophe ("row's" — 19-06-PLAN.md Task 3, D-06 dropped
+            # the note's second apostrophe, "prefix's", along with the
+            # word "prefix" itself), which escape_html()'s quote=True
+            # mode renders as &#x27; — compare against the escaped
+            # form, matching this module's own single-escaping-
             # choke-point discipline, not the raw Python literal.
             if layout.escape_html(health_page._READ_ONLY_NOTE) not in rendered:
                 return False, "expected the read-only note to survive the move verbatim (escaped)"
@@ -3219,20 +3235,26 @@ def main():
         # history, belongs only here — never back in health_page.py,
         # since the acceptance gate greps the page module for its
         # absence.
+        #
+        # 19-06-PLAN.md Task 3 (D-06): retargeted in place — "that
+        # prefix's airline" reworded to "that airline", dropping the
+        # word "prefix" from this visible sentence entirely.
         old_note_closing_phrase = "following the existing coverage-gap runbook."
         expected_note = (
             "This list is read-only here — each row's Resolve link opens "
-            "the Airlines page to name that prefix's airline (and add "
+            "the Airlines page to name that airline (and add "
             "artwork, if it needs one).")
         if health_page._READ_ONLY_NOTE != expected_note:
             return False, (
-                "expected _READ_ONLY_NOTE to equal the UI-SPEC's exact new "
+                "expected _READ_ONLY_NOTE to equal the D-06 plain-language "
                 "string, got %r" % (health_page._READ_ONLY_NOTE,))
+        if "prefix" in health_page._READ_ONLY_NOTE.lower():
+            return False, "expected _READ_ONLY_NOTE to contain no occurrence of 'prefix'"
         tmp = _mkstate("h-read-only-note-reworded")
         try:
             rendered = health_page.render(_ctx(tmp))
-            # The note contains two apostrophes ("row's", "prefix's"),
-            # which escape_html()'s quote=True mode renders as &#x27; —
+            # The note contains an apostrophe ("row's"), which
+            # escape_html()'s quote=True mode renders as &#x27; —
             # compare against the escaped form, the module's own single
             # escaping choke-point discipline.
             if layout.escape_html(expected_note) not in rendered:
@@ -3243,8 +3265,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the read-only note is reworded to name Airlines as the resolution surface and no longer points at "
-        "the manual runbook (phase 13 D-10)",
+        "the read-only note is reworded to name Airlines as the resolution surface, no longer points at "
+        "the manual runbook (phase 13 D-10), and (19-06-PLAN.md Task 3, D-06) no longer says 'prefix' in "
+        "its visible sentence",
         _read_only_note_reworded_to_point_at_airlines_not_the_runbook)
 
     def _source_rows_gains_fifth_manual_entry():
@@ -3801,7 +3824,12 @@ def main():
             if "dot-label" in registry_slice:
                 return False, "the Unresolved-prefixes card must render no dot-label — its own dot is retired"
 
-            corrob_at = rendered.index(">Corroboration<")
+            # 19-06-PLAN.md Task 2 (D-06): retargeted in place — the tile's
+            # visible caption is now the plain-language CORROBORATION_TILE_LABEL,
+            # not the literal "Corroboration" (which now only survives as this
+            # tile's caption_title tooltip).
+            corrob_at = rendered.index(
+                ">%s<" % layout.escape_html(health_page.CORROBORATION_TILE_LABEL))
             corrob_open = rendered.rindex('<div class="stat-tile ', 0, corrob_at)
             corrob_close = rendered.index("</div>", corrob_open) + len("</div>")
             corrob_slice = rendered[corrob_open:corrob_close]
@@ -5887,6 +5915,140 @@ def main():
         "own literal value — this guard's failure mode is silence, so this check is the only thing "
         "that would notice a drift",
         _quick_260902_chc_skip_guard_cross_file_contract)
+
+    # --- 19-06-PLAN.md Task 1: layout.stat_tile()'s caption_title tooltip
+    # (D-06) ------------------------------------------------------------
+
+    def _stat_tile_caption_title_byte_identical_when_unused():
+        default_call = layout.stat_tile("C", "<p>x</p>", "ok", None)
+        explicit_none = layout.stat_tile("C", "<p>x</p>", "ok", None, caption_title=None)
+        explicit_empty = layout.stat_tile("C", "<p>x</p>", "ok", None, caption_title="")
+        if default_call != explicit_none or default_call != explicit_empty:
+            return False, (
+                "expected stat_tile()'s output to be byte-identical whether caption_title is "
+                "omitted, None, or the empty string")
+        if "title=" in default_call:
+            return False, "expected no title attribute anywhere in the unused-caption_title output"
+        return True, ""
+    check(
+        "layout.stat_tile()'s new caption_title parameter is byte-identical to the pre-existing output "
+        "when omitted, None, or '' (19-06-PLAN.md Task 1, D-06)",
+        _stat_tile_caption_title_byte_identical_when_unused)
+
+    def _stat_tile_caption_title_renders_as_tooltip_on_caption_only():
+        markup = layout.stat_tile("Cap", "<p>y</p>", "ok", None, caption_title="Tech Term")
+        if markup.count('title="Tech Term"') != 1:
+            return False, (
+                "expected exactly one title=\"Tech Term\" attribute in the output, got %d"
+                % markup.count('title="Tech Term"'))
+        caption_open = markup.index('<p class="text-label stat-tile__caption"')
+        caption_close = markup.index(">", caption_open)
+        caption_tag = markup[caption_open:caption_close]
+        if 'title="Tech Term"' not in caption_tag:
+            return False, "expected the title attribute on the caption <p> element itself, got %r" % caption_tag
+        return True, ""
+    check(
+        "layout.stat_tile()'s caption_title renders as a title attribute on the caption <p> element, and "
+        "nowhere else (19-06-PLAN.md Task 1, D-06)",
+        _stat_tile_caption_title_renders_as_tooltip_on_caption_only)
+
+    def _stat_tile_caption_title_is_escaped():
+        hostile = 'a<b"c'
+        markup = layout.stat_tile("Cap", "<p>y</p>", "ok", None, caption_title=hostile)
+        if hostile in markup:
+            return False, "expected the hostile caption_title to be escaped, not interpolated raw"
+        if "&lt;" not in markup or "&quot;" not in markup:
+            return False, "expected the escaped caption_title to carry &lt; and &quot;"
+        return True, ""
+    check(
+        "layout.stat_tile()'s caption_title is escaped through escape_html(), matching every other "
+        "attribute value this module emits (19-06-PLAN.md Task 1, D-06/T-19-08)",
+        _stat_tile_caption_title_is_escaped)
+
+    # --- 19-06-PLAN.md Task 2: Health's stat tiles and corroboration rows
+    # read in plain language (D-06) --------------------------------------
+
+    def _visible_text_outside_title_attributes(markup):
+        # A title="..." attribute IS the sanctioned home for a technical
+        # term under D-06 — strip every such attribute's value before
+        # scanning for banned jargon, so this guard only ever fires on a
+        # real leak into visible text.
+        return re.sub(r'\btitle="[^"]*"', "", markup)
+
+    def _health_tiles_and_rows_read_in_plain_language():
+        tmp = _mkstate("h-plain-language-tiles")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_runway_events(tmp, [{"ts": _iso(now), "hex": "abc123", "corroborated": True}])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        visible = _visible_text_outside_title_attributes(rendered)
+        for banned in ("Corroboration", "Single-source (uncorroborated)", "pipeline last ran"):
+            if banned in visible:
+                return False, "expected %r to be absent from visible text (outside a title attribute)" % banned
+
+        for label, expected_title in (
+                (health_page.PIPELINE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_TITLE),
+                (health_page.CORROBORATION_TILE_LABEL, health_page.CORROBORATION_TILE_TITLE),
+                (health_page.RESOLUTION_RATE_LABEL, health_page.RESOLUTION_RATE_TITLE)):
+            needle = ">%s<" % layout.escape_html(label)
+            at = rendered.index(needle)
+            caption_open = rendered.rindex('<p class="text-label stat-tile__caption"', 0, at)
+            caption_close = rendered.index(">", caption_open)
+            caption_tag = rendered[caption_open:caption_close]
+            expected_attr = 'title="%s"' % layout.escape_html(expected_title)
+            if expected_attr not in caption_tag:
+                return False, (
+                    "expected the %r tile's caption element to carry %s, got %r"
+                    % (label, expected_attr, caption_tag))
+        return True, ""
+    check(
+        "Health's stat tiles and corroboration rows read in plain language: 'Corroboration', "
+        "'Single-source (uncorroborated)' and 'pipeline last ran' are all absent from visible text, and the "
+        "Pipeline/Corroboration/Resolution-rate tiles' caption elements each carry a title attribute equal "
+        "to their matching technical constant (19-06-PLAN.md Task 2, D-06)",
+        _health_tiles_and_rows_read_in_plain_language)
+
+    # --- 19-06-PLAN.md Task 3: registry/statistics prose de-jargoned
+    # (D-06, CFG-04/CFG-08 surfaces) --------------------------------------
+
+    def _health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id():
+        tmp = _mkstate("h-no-jargon-full-render")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {"count": 3, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            events = []
+            for source in ("fresh_hit", "cache_hit", "airline_only", "miss", "manual"):
+                events.append({"ts": _iso(now), "hex": "abc123", "route_source": source})
+            _seed_runway_events(tmp, events)
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        if health_page.UNRESOLVED_SECTION_HEADING not in rendered or "data-filter-input" not in rendered:
+            return False, "fixture gap: expected the registry card to actually render"
+        if health_page.STATS_SECTION_HEADING not in rendered or "% resolved" not in rendered:
+            return False, "fixture gap: expected the resolution-statistics card to actually render"
+        if "adsbdb" in rendered:
+            return False, "expected no occurrence of 'adsbdb' anywhere in a full render"
+        visible = _visible_text_outside_title_attributes(rendered)
+        if re.search(r"CFG-\d", visible):
+            return False, "expected no requirement id (CFG-\\d) in visible text"
+        return True, ""
+    check(
+        "a full Health render with a non-empty unresolved registry and stats rows (every branch rendered) "
+        "contains no 'adsbdb' and no CFG-\\d requirement id outside a title attribute "
+        "(19-06-PLAN.md Task 3, D-06/T-19-24)",
+        _health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id)
 
     # ======================================================================
     # Section 1.5: companion/illustration_normalize.py — the shared

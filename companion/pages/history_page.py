@@ -165,8 +165,14 @@ CELL_SEPARATOR_TEXT = "·"
 # companion/pages/health_page.py's own _CORROBORATION_ROWS uses (D-15) —
 # so the two pages read consistently. An unrecognised/legacy value falls
 # back to the warning class rather than a fabricated label.
+#
+# 19-06-PLAN.md Task 2 (D-06): health_page._CORROBORATION_ROWS' True/
+# False labels were rewritten into plain language ("Agreement"/
+# "Disagreement" -> "Both agree"/"They disagree") — retargeted here in
+# the same pass, exactly what test_view_pages.py's cross-file drift
+# guard (_corroboration_copy_agrees_with_health_page()) exists to force.
 _CORROBORATION_LABELS = {
-    "True": ("ok", "Agreement"),
+    "True": ("ok", "Both agree"),
     # quick task 260902-w4t (UIR-04): shortened from "Single-source
     # (uncorroborated)" - the parenthetical made History's Corroboration
     # column an overlong 253px. The long form survives below as a
@@ -176,15 +182,19 @@ _CORROBORATION_LABELS = {
     # test_view_pages.py's restated drift guard is what keeps this
     # constant's tooltip text honest against Health's copy.
     "None": ("ok", "Single-source"),
-    "False": ("warn", "Disagreement"),
+    "False": ("warn", "They disagree"),
 }
 _DEFAULT_CORROBORATION = ("warn", "Unknown")
 
 # quick task 260902-w4t (UIR-04): the long form moved out of the visible
 # "None" label above. Keys absent from this dict resolve via .get(key,
 # "") to no tooltip at all (True/False need none).
+#
+# 19-06-PLAN.md Task 2 (D-06): kept equal to health_page's own "None"
+# visible label ("Only one saw it", not the retired "Single-source
+# (uncorroborated)"), per test_view_pages.py's own drift guard.
 _CORROBORATION_TITLES = {
-    "None": "Single-source (uncorroborated)",
+    "None": "Only one saw it",
 }
 
 _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
