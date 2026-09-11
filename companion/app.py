@@ -57,7 +57,8 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from companion import auth, illustration_normalize, layout, theme_preview, wake  # noqa: E402
+from companion import (  # noqa: E402
+    auth, i18n, illustration_normalize, layout, prefs, theme_preview, wake)
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
@@ -81,6 +82,12 @@ GALLERY_DIRNAME = "gallery"
 GALLERY_DEFAULT_LIMIT = 30
 POLL_COOLDOWN_S = 45  # D-17: tens of seconds, a double-click guard, not an abuse rate-limit.
 THEME_COOKIE_MAX_AGE_S = 365 * 24 * 3600
+# D-02/D-29 (20-01-PLAN.md Task 2): the language/mode cookies reuse
+# THEME_COOKIE_MAX_AGE_S's own value and reasoning (a per-browser
+# preference the site should remember indefinitely) rather than a
+# second literal.
+LANG_COOKIE_MAX_AGE_S = THEME_COOKIE_MAX_AGE_S
+MODE_COOKIE_MAX_AGE_S = THEME_COOKIE_MAX_AGE_S
 MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06-05-07).
 # quick task 260902-v26: comfortably above any real high-resolution
 # transparent aircraft PNG — every vendored asset in
@@ -201,6 +208,10 @@ QUICK_DISPLAY_ROUTE = home_page.QUICK_DISPLAY_ROUTE
 QUICK_QUIET_HOURS_ROUTE = home_page.QUICK_QUIET_HOURS_ROUTE
 assert POLL_ROUTE == home_page.POLL_ROUTE
 THEME_ROUTE = "/ui-theme"
+# D-02/D-29 (20-01-PLAN.md Task 2): the two new nav-footer switch
+# routes, byte-for-byte siblings of THEME_ROUTE above.
+LANG_ROUTE = "/ui-lang"
+MODE_ROUTE = "/ui-mode"
 LOGOUT_ROUTE = "/logout"
 # D-22 (06.6.4.1-08): the standalone Preview HTML page is retired — its
 # entire content moved into History (06.6.4.1-05) — so this route is kept
@@ -1039,6 +1050,38 @@ class Handler(BaseHTTPRequestHandler):
         cookies = auth.parse_cookies(self.headers.get("Cookie"))
         return layout.ui_theme_from_cookie(cookies)
 
+    def _lang_from_request(self):
+        """D-03 (20-01-PLAN.md Task 2): the cookie set by POST /ui-lang
+        wins when present and valid; otherwise the first supported
+        entry in Accept-Language decides ("fr*" -> French, anything
+        else -> English). Never interpolates a header byte into the
+        page — the return value is always a member of
+        prefs.LANG_CHOICES (T-20-04).
+        """
+        cookies = auth.parse_cookies(self.headers.get("Cookie"))
+        cookie_value = cookies.get(auth.UI_LANG_COOKIE_NAME)
+        if cookie_value in prefs.LANG_CHOICES:
+            return cookie_value
+        header = self.headers.get("Accept-Language", "")
+        for entry in header.split(","):
+            tag = entry.split(";", 1)[0].strip().lower()
+            if not tag:
+                continue
+            return "fr" if tag.startswith("fr") else "en"
+        return prefs.DEFAULT_LANG
+
+    def _mode_from_request(self):
+        """D-29 (20-01-PLAN.md Task 2): the cookie set by POST /ui-mode
+        wins when present and valid; otherwise the default ("full").
+        No header-derived fallback exists for simple mode — unlike
+        language, there is no browser signal to read it from.
+        """
+        cookies = auth.parse_cookies(self.headers.get("Cookie"))
+        cookie_value = cookies.get(auth.UI_MODE_COOKIE_NAME)
+        if cookie_value in prefs.MODE_CHOICES:
+            return cookie_value
+        return prefs.DEFAULT_MODE
+
     # --- form / query parsing -------------------------------------------
 
     def read_form(self):
@@ -1141,9 +1184,18 @@ class Handler(BaseHTTPRequestHandler):
         # value and falls back to DEFAULT_SCREEN_ID, so no second
         # validation is needed at this layer.
         device_cfg = device_config.load_device_config(state_dir)
+        # D-04/D-29 (20-01-PLAN.md Task 2): resolve this request's
+        # language and simple-mode preference exactly once, immediately
+        # alongside ui_theme above, and publish both through prefs so
+        # layout.py's readers (Task 3) and this dict's own "lang"/
+        # "simple_mode" keys below can never disagree.
+        prefs.set_request_prefs(
+            lang=self._lang_from_request(), mode=self._mode_from_request())
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
+            "lang": prefs.current_lang(),
+            "simple_mode": prefs.simple_mode(),
             "device_config": device_cfg,
             # 19-12-PLAN.md Task 2 (D-23): the persisted screen_id, read
             # from the SAME device_config dict already loaded above —
@@ -1311,14 +1363,20 @@ class Handler(BaseHTTPRequestHandler):
         reads, a device-config load and a filesystem scan for a single
         value on what is, structurally, an error path.
         """
+        # D-03 (20-01-PLAN.md Task 2): this route renders before any
+        # session check, so the language is resolved from the cookie
+        # (if any) or Accept-Language, exactly like the login page
+        # below — never left at the ContextVar's bare default.
+        prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = None
         if self._is_authenticated():
             health_state = health_page.safe_health_state(
                 self.args.state_dir, history_db.utc_now_iso())
             health_alert = health_state["severity"] if health_state else "ok"
         body = (
-            layout.page_header(NOT_FOUND_TITLE, purpose=NOT_FOUND_PURPOSE_TEXT)
-            + '<p class="text-body"><a href="%s">Back to Home</a></p>' % HOME_ROUTE
+            layout.page_header(i18n.t(NOT_FOUND_TITLE), purpose=i18n.t(NOT_FOUND_PURPOSE_TEXT))
+            + '<p class="text-body"><a href="%s">%s</a></p>'
+            % (HOME_ROUTE, layout.escape_html(i18n.t("Back to Home")))
         )
         return layout.page_shell(
             title="Not Found", active="", body=body,
@@ -1344,32 +1402,39 @@ class Handler(BaseHTTPRequestHandler):
         """
         parts = [
             '<h1 class="page-title">SkyPane</h1>',
-            '<p class="text-body">%s</p>' % layout.escape_html(LOGIN_EXPLANATION_TEXT),
+            '<p class="text-body">%s</p>' % layout.escape_html(i18n.t(LOGIN_EXPLANATION_TEXT)),
         ]
         if lockout_seconds:
             parts.append(
                 '<p class="text-body" role="alert">%s</p>'
                 % layout.escape_html(
-                    "Too many attempts — try again in %ds." % lockout_seconds))
+                    i18n.t("Too many attempts — try again in %ds.") % lockout_seconds))
         elif error:
             parts.append(
                 '<p class="text-body" role="alert">%s</p>'
-                % layout.escape_html(error))
+                % layout.escape_html(i18n.t(error)))
         next_field_html = (
             '<input type="hidden" name="next" value="%s">'
             % layout.escape_html(next_route)) if next_route else ""
         parts.append(
             '<form method="post" action="%s">'
             "%s"
-            '<label for="password">Password</label>'
+            '<label for="password">%s</label>'
             '<input type="password" id="password" name="password" '
             'autocomplete="current-password" autofocus required>'
-            '<button type="submit">Sign in</button>'
-            "</form>" % (LOGIN_ROUTE, next_field_html)
+            '<button type="submit">%s</button>'
+            "</form>" % (
+                LOGIN_ROUTE, next_field_html,
+                layout.escape_html(i18n.t("Password")),
+                layout.escape_html(i18n.t("Sign in")))
         )
         return "".join(parts)
 
     def _render_login_page(self, error=None, lockout_seconds=None, next_route=None):
+        # D-03 (20-01-PLAN.md Task 2): pre-session, exactly like
+        # _not_found_page() above — resolved from the cookie or
+        # Accept-Language, never left at the ContextVar's bare default.
+        prefs.set_request_prefs(lang=self._lang_from_request())
         body = self._login_body(
             error=error, lockout_seconds=lockout_seconds, next_route=next_route)
         return layout.login_shell(body, ui_theme=self._resolved_ui_theme())
@@ -2457,13 +2522,25 @@ class Handler(BaseHTTPRequestHandler):
         safe to expose to someone who never opens the settings pages.
         Session-gated in do_POST() like every other state-changing
         route.
+
+        D-16 (20-01-PLAN.md Task 2): every redirect target below is
+        layout.DISPLAY_ROUTE, no longer the bare Home route — the
+        switches themselves move to Display in a later plan
+        (20-06/20-07), but the routes,
+        their flash keys and their tests stay; only `return_to` changes.
+        The field constants (QUICK_STATE_FIELD/QUICK_STATE_ON/
+        QUICK_STATE_OFF) now live in companion/layout.py, a shared
+        module both this file and, from 20-07, config_page.py may
+        import — home_page.py keeps its own identical copies untouched
+        until 20-06 deletes them with the rest of Home's quick-action
+        code.
         """
         form = self.read_form()
-        state = form.get(home_page.QUICK_STATE_FIELD)
-        if state not in (home_page.QUICK_STATE_ON, home_page.QUICK_STATE_OFF):
+        state = form.get(layout.QUICK_STATE_FIELD)
+        if state not in (layout.QUICK_STATE_ON, layout.QUICK_STATE_OFF):
             return self.redirect(
-                "%s?flash=%s" % (HOME_ROUTE, quote(FLASH_KEY_QUICK_FAILED)))
-        enabled = state == home_page.QUICK_STATE_ON
+                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_QUICK_FAILED)))
+        enabled = state == layout.QUICK_STATE_ON
         if field == "display_enabled":
             kwargs = {"display_enabled": enabled}
             flash_key = FLASH_KEY_DISPLAY_ON if enabled else FLASH_KEY_DISPLAY_OFF
@@ -2474,7 +2551,7 @@ class Handler(BaseHTTPRequestHandler):
             device_config.save_device_config(self.args.state_dir, **kwargs)
         except (ValueError, OSError):
             flash_key = FLASH_KEY_QUICK_FAILED
-        return self.redirect("%s?flash=%s" % (HOME_ROUTE, quote(flash_key)))
+        return self.redirect("%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(flash_key)))
 
     def _handle_theme_post(self):
         form = self.read_form()
@@ -2487,6 +2564,36 @@ class Handler(BaseHTTPRequestHandler):
                 "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
                 % (auth.UI_THEME_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
                    THEME_COOKIE_MAX_AGE_S))
+        return self.redirect(self._referring_tab(), set_cookie=cookie_header)
+
+    def _handle_lang_post(self):
+        """POST /ui-lang (D-02, 20-01-PLAN.md Task 2) — byte-for-byte
+        sibling of _handle_theme_post() above. An unrecognised value
+        sets no cookie and still redirects, exactly like the theme
+        route already behaves.
+        """
+        form = self.read_form()
+        submitted = form.get("ui_lang")
+        cookie_header = None
+        if submitted in prefs.LANG_CHOICES:
+            cookie_header = (
+                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
+                % (auth.UI_LANG_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
+                   LANG_COOKIE_MAX_AGE_S))
+        return self.redirect(self._referring_tab(), set_cookie=cookie_header)
+
+    def _handle_mode_post(self):
+        """POST /ui-mode (D-29, 20-01-PLAN.md Task 2) — byte-for-byte
+        sibling of _handle_theme_post() above.
+        """
+        form = self.read_form()
+        submitted = form.get("ui_mode")
+        cookie_header = None
+        if submitted in prefs.MODE_CHOICES:
+            cookie_header = (
+                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
+                % (auth.UI_MODE_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
+                   MODE_COOKIE_MAX_AGE_S))
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
     def do_POST(self):
@@ -2524,6 +2631,19 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._handle_theme_post()
+
+        # D-02/D-29 (20-01-PLAN.md Task 2): gated identically to
+        # THEME_ROUTE above — T-20-01, neither route may be reachable
+        # without a session.
+        if path == LANG_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_lang_post()
+
+        if path == MODE_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_mode_post()
 
         # 19-04-PLAN.md (D-18/A-35, T-19-04): gated too, even though an
         # unauthenticated POST /logout looks harmless at first glance —

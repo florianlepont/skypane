@@ -18,6 +18,12 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from companion.auth import UI_THEME_COOKIE_NAME
+# 20-01-PLAN.md Task 2/3 (D-01..D-09): companion.prefs is a shared,
+# page-independent module (like companion.auth above) — layout.py
+# importing it carries no cycle, since it imports nothing from this
+# module or from companion.app (companion.app is the one that imports
+# layout.py, never the reverse).
+import companion.prefs as prefs
 
 SITE_TITLE = "SkyPane"
 
@@ -147,6 +153,17 @@ POLL_COOLDOWN_SCRIPT_SRC = "/static/poll-cooldown.js"
 CONFIRM_SUBMIT_SCRIPT_SRC = "/static/confirm-submit.js"
 
 UI_THEME_CHOICES = ("auto", "light", "dark")
+
+# D-16/D-19 (20-01-PLAN.md Task 2): the quick-action form protocol,
+# moved here from companion/pages/home_page.py's own identical
+# constants so both companion/app.py and, from 20-07, config_page.py
+# can share one home for it — a page module may never import another
+# page module. home_page.py keeps its own copies untouched until
+# 20-06 deletes them with the rest of Home's quick-action code; the
+# two definitions are byte-identical in the meantime.
+QUICK_STATE_FIELD = "state"
+QUICK_STATE_ON = "on"
+QUICK_STATE_OFF = "off"
 
 _STATUS_DOT_CLASSES = {
     "ok": "dot--ok",
@@ -937,7 +954,7 @@ def _mobile_nav_html(active, theme_form_html, health_alert=None):
     return toggle_html + panel_html
 
 
-def login_shell(body, ui_theme="auto"):
+def login_shell(body, ui_theme="auto", lang=None):
     """A dedicated, minimal HTML5 document for the pre-authentication
     login page — 06.6.2-07 (UXA-03).
 
@@ -962,11 +979,20 @@ def login_shell(body, ui_theme="auto"):
     other body-accepting builder in this module follows (page_shell(),
     stat_tile(), etc.) — and is interpolated verbatim into
     `<div class="login-card">`.
+
+    `lang` (D-03, 20-01-PLAN.md Task 3): defaults to `None`, resolved
+    to `prefs.current_lang()` — always one of `prefs.LANG_CHOICES`, so
+    the `<html lang="...">` attribute is never built from an
+    unvalidated value. `companion/app.py`'s pre-session callers
+    (login, 404) call `prefs.set_request_prefs(lang=...)` themselves
+    before rendering, exactly like the login route already does for
+    `ui_theme` via `_resolved_ui_theme()`.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
+    resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
     return (
         "<!DOCTYPE html>\n"
-        '<html lang="en" data-ui-theme="%s">\n'
+        '<html lang="%s" data-ui-theme="%s">\n'
         "<head>\n"
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
@@ -983,6 +1009,7 @@ def login_shell(body, ui_theme="auto"):
         "</body>\n"
         "</html>\n"
     ) % (
+        escape_html(resolved_lang),
         escape_html(resolved_theme),
         escape_html(SITE_TITLE),
         FAVICON_LINK_HTML,
@@ -1002,7 +1029,7 @@ FLASH_SLOT_MARKER = "<!--flash-slot-->"
 
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
-        health_alert=None):
+        health_alert=None, lang=None):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and every nav label are escaped here. `body`, `flash` and
@@ -1018,8 +1045,16 @@ def page_shell(
     signal only, defaulting to no dot, so any caller without a request
     context — login, 404, the preview-image error pages — draws no dot,
     which is correct rather than merely convenient.
+
+    `lang` (D-03, 20-01-PLAN.md Task 3): defaults to `None`, resolved
+    to `prefs.current_lang()` — always one of `prefs.LANG_CHOICES`. A
+    `None` default is deliberate: no existing page-module call site
+    (~40 of them) has to change, since `companion/app.py`'s
+    `page_context()` already calls `prefs.set_request_prefs()` once
+    per request before any page module renders.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
+    resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
     sidebar_html = sidebar_nav(active, health_alert=health_alert)
     theme_form_html = _theme_form_html(resolved_theme)
     mobile_nav_html = _mobile_nav_html(
@@ -1092,7 +1127,7 @@ def page_shell(
     # NAV_DROPDOWN_SCRIPT_SRC, is emitted immediately before </body>.
     return (
         "<!DOCTYPE html>\n"
-        '<html lang="en" data-ui-theme="%s">\n'
+        '<html lang="%s" data-ui-theme="%s">\n'
         "<head>\n"
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
@@ -1129,6 +1164,7 @@ def page_shell(
         "</body>\n"
         "</html>\n"
     ) % (
+        escape_html(resolved_lang),
         escape_html(resolved_theme),
         escape_html(title), escape_html(SITE_TITLE),
         FAVICON_LINK_HTML,

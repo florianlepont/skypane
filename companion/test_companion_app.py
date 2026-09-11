@@ -343,6 +343,16 @@ EXPECTED_CHECK_COUNT = 221  # 19-12-PLAN.md Task 2 (D-22, Device-page
 # directly against the real on-disk check(...) call count at execution
 # time (219/221 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 227  # 20-01-PLAN.md Task 2 (D-02/D-29/D-03):
+# +6 (POST /ui-lang's fr/en/garbage cookie round trip, its no-session
+# gate; POST /ui-mode's simple/full/garbage cookie round trip, its
+# no-session gate; the Accept-Language-resolves-<html-lang> pair; the
+# sp_ui_lang cookie beating Accept-Language). The quick-toggle
+# redirect-target retarget (Home -> Display, D-16) is a net-zero
+# in-place edit, not a new check. 221 + 6 = 227, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (225/227 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -380,7 +390,9 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 _OPENER = urllib.request.build_opener(_NoRedirectHandler)
 
 
-def http_request(url, method="GET", data=None, cookie=None, timeout=10, content_type=None):
+def http_request(
+        url, method="GET", data=None, cookie=None, timeout=10,
+        content_type=None, extra_headers=None):
     """Minimal stdlib HTTP client (mirrors
     stub-server/test_poll_cycle.py's http_request()): returns
     (status, headers_dict, raw_bytes) for both success and HTTP-error
@@ -391,6 +403,11 @@ def http_request(url, method="GET", data=None, cookie=None, timeout=10, content_
     to send `multipart/form-data; boundary=...` instead of the default
     urlencoded type a POST otherwise gets. `None` (the default) preserves
     every existing caller's behaviour exactly.
+
+    `extra_headers` (20-01-PLAN.md Task 2): an optional {name: value}
+    dict merged into the request headers — used by the D-03
+    Accept-Language checks. `None` (the default) preserves every
+    existing caller's behaviour exactly.
     """
     headers = {}
     if cookie:
@@ -399,6 +416,8 @@ def http_request(url, method="GET", data=None, cookie=None, timeout=10, content_
         headers["Content-Type"] = content_type
     elif data is not None and method == "POST":
         headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+    if extra_headers:
+        headers.update(extra_headers)
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with _OPENER.open(req, timeout=timeout) as resp:
@@ -2247,6 +2266,15 @@ def main():
             def _resolved_ui_theme(self):
                 return "auto"
 
+            # 20-01-PLAN.md Task 2: page_context() now also resolves
+            # lang/simple_mode via these two methods — a minimal stand-in
+            # matching the real Handler's own cookie-then-default shape.
+            def _lang_from_request(self):
+                return "en"
+
+            def _mode_from_request(self):
+                return "full"
+
         def _page_context_threads_wake_interval_env_default():
             tmp = tempfile.mkdtemp(prefix="skypane-page-context-")
             fake_self = _FakePageContextHandler(tmp)
@@ -2588,6 +2616,8 @@ def main():
                 "poll_cooldown_remaining", "gallery_entries", "runway_images",
                 "health_severity", "now",
                 "resolve_prefix", "manual_resolutions",
+                # 20-01-PLAN.md Task 2 (D-04/D-29):
+                "lang", "simple_mode",
             )
             docstring = pages_package.__doc__
             for key in documented_keys:
@@ -3476,8 +3506,11 @@ def main():
                     data=urllib.parse.urlencode({"state": state}).encode())
                 if status != 303:
                     return False, "expected 303 for state=%s, got %d" % (state, status)
-                if headers.get("Location") != "/?flash=%s" % expected_flash:
-                    return False, "expected a redirect to /?flash=%s, got %r" % (
+                # D-16 (20-01-PLAN.md Task 2): retargeted from "/" to
+                # "/display" — the switches now live on Display, not
+                # Home; the flash keys themselves are unchanged.
+                if headers.get("Location") != "/display?flash=%s" % expected_flash:
+                    return False, "expected a redirect to /display?flash=%s, got %r" % (
                         expected_flash, headers.get("Location"))
                 on_disk = device_config.load_device_config(harness.tmpdir)
                 if on_disk["display_enabled"] is not expected_value:
@@ -3486,7 +3519,7 @@ def main():
             status, headers, _ = http_request(
                 base + app_module.QUICK_DISPLAY_ROUTE, method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode({"state": "toggle"}).encode())
-            if status != 303 or headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED:
+            if status != 303 or headers.get("Location") != "/display?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED:
                 return False, "expected a crafted state value to redirect with the quick_failed flash, got %d/%r" % (
                     status, headers.get("Location"))
             if device_config.load_device_config(harness.tmpdir)["display_enabled"] is not True:
@@ -3494,15 +3527,16 @@ def main():
             return True, ""
         check(
             "POST /quick/display with state=off then state=on flips display_enabled on disk and redirects "
-            "to Home with the matching flash; a crafted state value redirects with quick_failed and writes nothing",
+            "to Display (D-16) with the matching flash; a crafted state value redirects with quick_failed "
+            "and writes nothing",
             _quick_display_toggle_round_trip)
 
         def _quick_quiet_hours_toggle_round_trip():
             status, headers, _ = http_request(
                 base + app_module.QUICK_QUIET_HOURS_ROUTE, method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode({"state": "on"}).encode())
-            if status != 303 or headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUIET_ON:
-                return False, "expected a redirect to /?flash=quiet_on, got %d/%r" % (status, headers.get("Location"))
+            if status != 303 or headers.get("Location") != "/display?flash=%s" % app_module.FLASH_KEY_QUIET_ON:
+                return False, "expected a redirect to /display?flash=quiet_on, got %d/%r" % (status, headers.get("Location"))
             on_disk = device_config.load_device_config(harness.tmpdir)
             if on_disk["quiet_hours_enabled"] is not True:
                 return False, "expected quiet_hours_enabled True on disk"
@@ -3511,14 +3545,14 @@ def main():
             status, headers, _ = http_request(
                 base + app_module.QUICK_QUIET_HOURS_ROUTE, method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode({"state": "off"}).encode())
-            if headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUIET_OFF:
-                return False, "expected a redirect to /?flash=quiet_off, got %r" % headers.get("Location")
+            if headers.get("Location") != "/display?flash=%s" % app_module.FLASH_KEY_QUIET_OFF:
+                return False, "expected a redirect to /display?flash=quiet_off, got %r" % headers.get("Location")
             if device_config.load_device_config(harness.tmpdir)["quiet_hours_enabled"] is not False:
                 return False, "expected quiet_hours_enabled False on disk"
             return True, ""
         check(
             "POST /quick/quiet-hours with state=on then state=off flips quiet_hours_enabled on disk, "
-            "redirects to Home with the matching flash, and never touches display_enabled",
+            "redirects to Display (D-16) with the matching flash, and never touches display_enabled",
             _quick_quiet_hours_toggle_round_trip)
 
         check(
@@ -3755,6 +3789,156 @@ def main():
             "POST /logout with no session cookie redirects to /login (T-19-04: gating a "
             "logout costs a signed-out caller nothing)",
             _logout_post_without_session_redirects_to_login)
+
+        # --- 20-01-PLAN.md Task 2 (D-02/D-29, T-20-01/T-20-02): the two ---
+        # --- new nav-footer switch routes, POST /ui-lang and             ---
+        # --- POST /ui-mode — byte-for-byte siblings of the /ui-theme     ---
+        # --- family above.                                               ---
+
+        def _ui_lang_post_round_trip():
+            for submitted, expect_cookie in (("fr", True), ("en", True), ("de", False)):
+                status, headers, _ = http_request(
+                    base + "/ui-lang", method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"ui_lang": submitted}).encode())
+                if status != 303:
+                    return False, "expected 303 for ui_lang=%s, got %d" % (submitted, status)
+                if headers.get("Location") != "/":
+                    return False, (
+                        "expected a redirect to the referring tab (default /), got %r"
+                        % headers.get("Location"))
+                set_cookie = headers.get("Set-Cookie", "")
+                if expect_cookie:
+                    if "%s=%s" % (auth.UI_LANG_COOKIE_NAME, submitted) not in set_cookie:
+                        return False, "expected %s=%s in %r" % (
+                            auth.UI_LANG_COOKIE_NAME, submitted, set_cookie)
+                    for needle in ("HttpOnly", "SameSite=Strict"):
+                        if needle not in set_cookie:
+                            return False, "expected %r in the sp_ui_lang cookie header: %r" % (
+                                needle, set_cookie)
+                else:
+                    if auth.UI_LANG_COOKIE_NAME in set_cookie:
+                        return False, (
+                            "expected no sp_ui_lang Set-Cookie header for an unrecognised "
+                            "ui_lang=%s, got %r" % (submitted, set_cookie))
+            return True, ""
+        check(
+            "POST /ui-lang with ui_lang=fr/en sets the sp_ui_lang cookie (HttpOnly, "
+            "SameSite=Strict) and redirects to the referring tab; ui_lang=de sets no cookie",
+            _ui_lang_post_round_trip)
+
+        def _ui_lang_post_without_session_redirects_to_login():
+            status, headers, _ = http_request(
+                base + "/ui-lang", method="POST", data=b"ui_lang=fr")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, (
+                    "expected an unauthenticated POST /ui-lang to redirect to /login, "
+                    "got %d/%r" % (status, headers.get("Location")))
+            set_cookie = headers.get("Set-Cookie", "")
+            if auth.UI_LANG_COOKIE_NAME in set_cookie:
+                return False, (
+                    "expected no sp_ui_lang Set-Cookie header on an unauthenticated "
+                    "POST /ui-lang, got %r" % set_cookie)
+            return True, ""
+        check(
+            "POST /ui-lang with no session cookie redirects to /login and does not set a "
+            "sp_ui_lang cookie (T-20-01)",
+            _ui_lang_post_without_session_redirects_to_login)
+
+        def _ui_mode_post_round_trip():
+            for submitted, expect_cookie in (("simple", True), ("full", True), ("garbage", False)):
+                status, headers, _ = http_request(
+                    base + "/ui-mode", method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"ui_mode": submitted}).encode())
+                if status != 303:
+                    return False, "expected 303 for ui_mode=%s, got %d" % (submitted, status)
+                if headers.get("Location") != "/":
+                    return False, (
+                        "expected a redirect to the referring tab (default /), got %r"
+                        % headers.get("Location"))
+                set_cookie = headers.get("Set-Cookie", "")
+                if expect_cookie:
+                    if "%s=%s" % (auth.UI_MODE_COOKIE_NAME, submitted) not in set_cookie:
+                        return False, "expected %s=%s in %r" % (
+                            auth.UI_MODE_COOKIE_NAME, submitted, set_cookie)
+                    for needle in ("HttpOnly", "SameSite=Strict"):
+                        if needle not in set_cookie:
+                            return False, "expected %r in the sp_ui_mode cookie header: %r" % (
+                                needle, set_cookie)
+                else:
+                    if auth.UI_MODE_COOKIE_NAME in set_cookie:
+                        return False, (
+                            "expected no sp_ui_mode Set-Cookie header for an unrecognised "
+                            "ui_mode=%s, got %r" % (submitted, set_cookie))
+            return True, ""
+        check(
+            "POST /ui-mode with ui_mode=simple/full sets the sp_ui_mode cookie (HttpOnly, "
+            "SameSite=Strict) and redirects to the referring tab; ui_mode=garbage sets no cookie",
+            _ui_mode_post_round_trip)
+
+        def _ui_mode_post_without_session_redirects_to_login():
+            status, headers, _ = http_request(
+                base + "/ui-mode", method="POST", data=b"ui_mode=simple")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, (
+                    "expected an unauthenticated POST /ui-mode to redirect to /login, "
+                    "got %d/%r" % (status, headers.get("Location")))
+            set_cookie = headers.get("Set-Cookie", "")
+            if auth.UI_MODE_COOKIE_NAME in set_cookie:
+                return False, (
+                    "expected no sp_ui_mode Set-Cookie header on an unauthenticated "
+                    "POST /ui-mode, got %r" % set_cookie)
+            return True, ""
+        check(
+            "POST /ui-mode with no session cookie redirects to /login and does not set a "
+            "sp_ui_mode cookie (T-20-01)",
+            _ui_mode_post_without_session_redirects_to_login)
+
+        # --- D-03: language resolution from cookie / Accept-Language ---
+
+        def _accept_language_resolves_html_lang_with_no_cookie():
+            status, _headers, body = http_request(
+                base + "/", cookie=session_cookie,
+                extra_headers={"Accept-Language": "fr-FR,fr;q=0.9"})
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if b'<html lang="fr"' not in body:
+                return False, "expected <html lang=\"fr\" with Accept-Language: fr-FR,fr;q=0.9"
+            status, _headers, body = http_request(
+                base + "/", cookie=session_cookie,
+                extra_headers={"Accept-Language": "en-GB"})
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if b'<html lang="en"' not in body:
+                return False, "expected <html lang=\"en\" with Accept-Language: en-GB"
+            return True, ""
+        check(
+            "a cookie-free GET (session cookie only, no sp_ui_lang) with "
+            "Accept-Language: fr-FR,fr;q=0.9 renders <html lang=\"fr\"; with "
+            "Accept-Language: en-GB renders <html lang=\"en\" (D-03)",
+            _accept_language_resolves_html_lang_with_no_cookie)
+
+        def _ui_lang_cookie_beats_accept_language():
+            status, headers, _ = http_request(
+                base + "/ui-lang", method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"ui_lang": "en"}).encode())
+            lang_cookie = _cookie_value(headers)
+            if status != 303 or not lang_cookie:
+                return False, "expected a 303 with a sp_ui_lang Set-Cookie, got %d/%r" % (
+                    status, headers.get("Set-Cookie"))
+            combined_cookie = "%s; %s" % (session_cookie, lang_cookie)
+            status, _headers, body = http_request(
+                base + "/", cookie=combined_cookie,
+                extra_headers={"Accept-Language": "fr-FR,fr;q=0.9"})
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if b'<html lang="en"' not in body:
+                return False, (
+                    "expected the sp_ui_lang=en cookie to beat a French "
+                    "Accept-Language header, got a body without <html lang=\"en\"")
+            return True, ""
+        check(
+            "the sp_ui_lang cookie beats Accept-Language when both are present (D-03)",
+            _ui_lang_cookie_beats_accept_language)
 
         # --- 11-04 end-to-end: the real SKYPANE_SLEEP_S pre-fill, over a  ---
         # --- dedicated Harness instance (the environment must be set     ---

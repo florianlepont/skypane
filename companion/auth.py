@@ -56,6 +56,12 @@ PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
 SESSION_TTL_S = 12 * 3600
 SESSION_COOKIE_NAME = "sp_session"
 UI_THEME_COOKIE_NAME = "sp_ui_theme"
+# D-02/D-29 (20-01-PLAN.md Task 2): the language and simple-mode
+# per-browser cookies, added directly beside UI_THEME_COOKIE_NAME —
+# all three share secure_cookie_flag() below, so the Secure flag can
+# never drift between them.
+UI_LANG_COOKIE_NAME = "sp_ui_lang"
+UI_MODE_COOKIE_NAME = "sp_ui_mode"
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_LOCKOUT_S = 300
 INSECURE_COOKIES_ENV_VAR = "SKYPANE_COMPANION_INSECURE_COOKIES"
