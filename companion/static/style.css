@@ -5329,9 +5329,20 @@ a.airline-card__zoom {
  * var(--color-status-warn)` directly on this modifier for the overdue
  * "Expected since" headline — a genuinely new use of a status colour as
  * body text (every existing status use is a dot, a border or a card
- * edge). 20-04-PLAN.md Task 3 gates that specific choice through
- * companion/contrast_check.py before it ships; see this rule's own
- * follow-up comment (added by that task) for the measured verdict. */
+ * edge). 20-04-PLAN.md Task 3 gated that specific choice through
+ * companion/contrast_check.py's WCAG_AA_NORMAL_TEXT (4.5) check before
+ * shipping: measured at this file's own :root hex literals for
+ * --color-status-warn as text against --color-dominant (the card
+ * surface .status-card sits on), light measured 3.19:1 — BELOW the
+ * threshold — while dark measured 10.54:1, comfortably above it. Per
+ * the gate's own documented fallback, the threshold was not weakened
+ * and no new colour was introduced: this modifier stays on
+ * --color-text in both themes, and the overdue state is carried by the
+ * wording itself ("Expected since…" vs "Next update ≈…", home_page.py)
+ * plus a leading warn dot — never by this text's own colour. See
+ * companion/contrast_check.py's STATUS_WARN_ON_CARD_PAIRS and
+ * companion/test_contrast_check.py's Section 4 for the pinned
+ * regression pair. */
 .status-card__headline--warn {
   color: var(--color-text);
 }
