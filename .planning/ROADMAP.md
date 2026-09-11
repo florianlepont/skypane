@@ -975,10 +975,21 @@ Plans:
 **Goal:** Close every defect still open in 18-AUDIT.md (A-19 through A-39, plus the remainder of A-40) and the two small suggestions that belong with them (S-02 next-wake countdown, S-04 quiet-hours presets), keeping the everyday pages plain-language and the design contract intact — see 19-CONTEXT.md D-01..D-23.
 **Requirements**: CFG-01, CFG-03, CFG-04, CFG-06, CFG-08
 **Depends on:** Phase 18
-**Plans:** 0 plans
+**Plans:** 12 plans in 6 waves
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 19 to break down)
+- [ ] 19-01-PLAN.md — Health: shared battery estimate + tile text verdicts (D-01, D-03)
+- [ ] 19-02-PLAN.md — Auth hardening: lockout reset, derived signing key + revocation, conditional Secure (D-15, D-16, D-17)
+- [ ] 19-03-PLAN.md — Flights: 6-column table, focusable scroller, honest copy feedback (D-19, D-20)
+- [ ] 19-04-PLAN.md — Shell: CSP everywhere, hardened redirects, gated routes, inline scripts externalised (D-18)
+- [ ] 19-05-PLAN.md — Health: fixed-range sparkline + wake-derived staleness and severity (D-04, D-05)
+- [ ] 19-06-PLAN.md — Health: plain-language labels, rows and prose with technical terms in tooltips (D-06)
+- [ ] 19-07-PLAN.md — Settings: field-level save errors with repopulation (D-07)
+- [ ] 19-08-PLAN.md — Airlines: Unidentified-airlines strip, Airlines back link, view-only lightbox (D-21, D-22)
+- [ ] 19-09-PLAN.md — Health: fetch-and-swap live refresh with a Pause control (D-02)
+- [ ] 19-10-PLAN.md — Settings: dirty-ready fallback gating, unload guard, quiet-hours presets (D-09, D-10, D-14)
+- [ ] 19-11-PLAN.md — Settings: dedicated confirmed calendar disconnect + radiogroup/aria semantics (D-08, D-12)
+- [ ] 19-12-PLAN.md — Runway labels, screen_id seam, next-wake countdown, Edit artwork link (D-11, D-13, D-23, D-22)
 
 ### Phase 20: Companion suggestions from the audit: French localisation, live theme preview, notifications, simple mode
 
