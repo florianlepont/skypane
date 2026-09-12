@@ -3517,20 +3517,30 @@ def main():
             banned = (
                 "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
                 "insertAdjacentHTML", "document.write", "eval(", "fetch(",
-                "XMLHttpRequest", "setTimeout(", "setInterval(")
+                "XMLHttpRequest", "setTimeout(", "setInterval(",
+                # 21-05-PLAN.md Task 3 (D-08/R-11): the retired page-wide
+                # single-grid lookup this rewrite replaces — a genuine
+                # rewrite of the selector strategy, never a patch that
+                # keeps binding to only the first of several chip grids.
+                'querySelector(".theme-chip-grid")')
             for token in banned:
                 if token in src:
                     return False, "theme-preview.js must not contain %r" % token
-            required = ("addEventListener", "querySelector", "getAttribute", "data-preview-src")
+            required = (
+                "addEventListener", "querySelector", "getAttribute", "data-preview-src",
+                # 21-05-PLAN.md Task 3 (D-08/D-12): the row->panel->chip
+                # attribute contract this rewrite depends on.
+                "data-usage-panel")
             for token in required:
                 if token not in src:
                     return False, "expected %r in theme-preview.js" % token
             return True, ""
         check(
             "theme-preview.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
-            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers), and "
-            "carries the chip-selection src swap (addEventListener/querySelector/getAttribute/"
-            "data-preview-src all present) (D-22..D-24)",
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers/a page-wide "
+            "single-grid lookup), and carries the row->panel->chip src-swap contract (addEventListener/"
+            "querySelector/getAttribute/data-preview-src/data-usage-panel all present) (D-08/D-12/R-11, "
+            "extended by 21-05-PLAN.md Task 3 from D-22..D-24's own original single-grid version)",
             _theme_preview_script_es5_safe_and_no_html_write)
 
         def _theme_preview_script_route_src_agree():
@@ -3934,11 +3944,20 @@ def main():
         # field-level message, and persists nothing ---
 
         def _rejected_settings_save_rerenders_200_with_input_and_error_persists_nothing():
+            # 21-05-PLAN.md Task 1 (D-06): retargeted to a real
+            # scope="display" submission — a genuine browser's Display
+            # save always carries the hidden scope/return_to fields
+            # (_scope_fields_html()), and theme's own repopulated chip
+            # grid now lives exclusively inside the Frame colours card,
+            # which only ever renders on the Display scope, never on
+            # the legacy unscoped SCOPE_ALL render this check used to
+            # post against.
             from companion.pages import config_page
             before = device_config.load_device_config(harness.tmpdir)
             status, headers, body = http_request(
                 base + "/settings", method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode({
+                    "scope": "display", "return_to": "/display",
                     "theme": "black", "tracked_runway": before["tracked_runway"],
                     "quiet_hours_start": "",
                 }).encode())
@@ -4220,15 +4239,19 @@ def main():
                     return False, "expected the %s page to carry its hidden return_to field" % scope
                 if "Screen: Plane frame" not in text:
                     return False, "expected the %s page to name its screen type" % scope
-            # 20-07 (D-10/D-11) moved the rules editor (renamed "Flight
-            # colours" by 20-09-PLAN.md Task 3/D-15a; was "Per-flight
-            # colour rules") to Display alongside Calendar and Runway;
-            # Manual refresh stayed on Device.
+            # 20-07 (D-10/D-11) moved the rules editor to Display
+            # alongside Calendar and Runway; Manual refresh stayed on
+            # Device. 21-05-PLAN.md Task 1 (D-06/D-10): the rules
+            # editor's own standalone "Flight colours" card/heading is
+            # retired outright — it now lives inside the Frame colours
+            # card's own "Per-flight rules" usage panel, located here
+            # via its own data-usage-panel-target attribute.
             if "Manual refresh" not in device_text:
                 return False, "expected the Device page to carry Manual refresh"
-            if "Flight colours" in device_text:
+            rules_panel_marker = 'data-usage-panel-target="rules"'
+            if rules_panel_marker in device_text:
                 return False, "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)"
-            if "Flight colours" not in display_text:
+            if rules_panel_marker not in display_text:
                 return False, "expected the Display page to carry the rules editor (moved from Device, 20-07/D-10)"
             if "Manual refresh" in display_text:
                 return False, "expected the Display page NOT to carry Manual refresh"
