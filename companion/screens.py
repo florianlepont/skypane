@@ -31,12 +31,31 @@ GROUP_RUNWAY = "runway"
 GROUP_LED = "led"
 GROUP_WAKE_INTERVAL = "wake_interval"
 GROUP_CALENDAR = "calendar"
+# 20-11-PLAN.md Task 1 (D-26/D-28): the Notifications group — a Device-
+# page-only group (never everyday), positioned per D-10's list (LED,
+# wake interval, notifications, manual refresh). "Manual refresh" is not
+# a group in this registry (it is a plain `.page-section` `render()`
+# renders directly, gated by `has_manual_poll` below), so this tuple's
+# own trailing member is this one.
+GROUP_NOTIFICATIONS = "notifications"
 
 # Everyday groups render on the Display page; advanced groups on the
 # Device page. The split is a property of the GROUP, not of the screen
 # type: a screen type simply lists which groups it has.
-EVERYDAY_GROUPS = (GROUP_THEME, GROUP_QUIET_HOURS, GROUP_DISPLAY)
-ADVANCED_GROUPS = (GROUP_RUNWAY, GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_CALENDAR)
+#
+# 20-07-PLAN.md Task 1 (D-10/D-11): Runway and Calendar move here from
+# ADVANCED_GROUPS — a household member finds every everyday setting on
+# Display now (Look/What it watches/When it is on), and Device keeps
+# only hardware, data and diagnostics groups. grep-confirmed (2026-09-11)
+# unused by any production code or test — kept here for documentation/
+# honesty only; these two module-level tuples gate nothing themselves,
+# unlike each screen type's own "everyday_groups"/"advanced_groups" keys
+# below, which config_page.scope_groups() actually reads.
+EVERYDAY_GROUPS = (GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_DISPLAY, GROUP_QUIET_HOURS)
+# 20-11-PLAN.md Task 1 (D-26): GROUP_NOTIFICATIONS joins this documentation-
+# only tuple too, for the same "kept for honesty, gates nothing itself"
+# reason the comment above already states.
+ADVANCED_GROUPS = (GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_NOTIFICATIONS)
 
 DEFAULT_SCREEN_ID = "plane-frame"
 
@@ -46,10 +65,21 @@ SCREEN_TYPES = {
         "description": (
             "The e-ink frame showing the aircraft currently using the "
             "watched Orly runway."),
-        # Display-page groups, in render order.
-        "everyday_groups": (GROUP_THEME, GROUP_QUIET_HOURS, GROUP_DISPLAY),
-        # Device-page groups, in render order.
-        "advanced_groups": (GROUP_RUNWAY, GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_CALENDAR),
+        # Display-page groups, in render order (20-07-PLAN.md Task 1,
+        # D-10/D-11: Runway and Calendar joined this tuple this phase —
+        # the per-supersection grouping (Look/What it watches/When it is
+        # on) is config_page.render()'s own concern, but this order does
+        # not contradict it: theme and calendar under "Look", runway
+        # under "What it watches", display and quiet_hours under "When
+        # it is on").
+        "everyday_groups": (
+            GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_DISPLAY, GROUP_QUIET_HOURS),
+        # Device-page groups, in render order. 20-11-PLAN.md Task 1
+        # (D-26/D-28): GROUP_NOTIFICATIONS joins after GROUP_WAKE_INTERVAL —
+        # D-10's list order is LED, wake interval, notifications, manual
+        # refresh, and "manual refresh" is rendered directly by render()'s
+        # own has_manual_poll branch below, never through this tuple.
+        "advanced_groups": (GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_NOTIFICATIONS),
         # Whether the Device page also shows the per-flight colour rules
         # editor and the manual refresh ("poll now") control — both are
         # plane-specific today.

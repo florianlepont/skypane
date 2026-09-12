@@ -39,8 +39,10 @@ import re
 import sqlite3
 from datetime import datetime
 
+import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
+import companion.prefs as prefs
 from server import device_config
 from server import history_db
 from server.plane import render as panel_render
@@ -239,7 +241,7 @@ def _row_copy_name(callsign, hex_value):
     order exactly — a future edit to one is visibly obliged to touch
     the other.
     """
-    return callsign or hex_value or NO_CALLSIGN_NOTE_TEXT
+    return callsign or hex_value or i18n.t(NO_CALLSIGN_NOTE_TEXT)
 
 # D-20: the per-row "View panel near this time" lookup and its shared
 # lightbox. VIEW_PANEL_LABEL is verbatim from D-20. LIGHTBOX_DIALOG_ID,
@@ -339,9 +341,15 @@ def _runway_label(raw):
     than raising, matching this module's "never raise, degrade to a
     documented fallback" discipline throughout. Falsy input renders as
     an empty string, same as before this helper existed.
+
+    Polish fix 5 (D-05): the resolved label is translated at this
+    display site via i18n.t() — companion/i18n_fr/registry.py supplies
+    the French entries; the raw id (and the untranslated fallback for
+    an unrecognised id, which is data, not a registry label) are never
+    touched.
     """
     if raw and raw in device_config.RUNWAY_IDS:
-        return device_config.runway_label(raw)
+        return i18n.t(device_config.runway_label(raw))
     return raw or ""
 
 
@@ -397,14 +405,24 @@ def lightbox_caption_text(iso):
     timestamp — a humanised local-time form ("Picture from 3 Sep 23:38")
     instead of the raw ISO string, falling back to the ISO value only
     when it does not parse. Plain text; callers escape it.
+
+    20-10-PLAN.md Task 3 (D-07): the day/month prefix is built here
+    rather than through `layout.local_clock_text()` (called below with
+    `now_parsed=None` for the clock portion only, exactly as before —
+    that function's own day/month branch never runs without a `now`),
+    so this function selects `layout._MONTH_ABBR`/`_MONTH_ABBR_FR`
+    itself from `prefs.current_lang()`, the identical membership test
+    `local_clock_text()` applies internally — never a second,
+    independently-derived language rule.
     """
     parsed = layout.parse_iso(iso)
     if parsed is None:
-        return LIGHTBOX_CAPTION_TEMPLATE % iso
+        return i18n.t(LIGHTBOX_CAPTION_TEMPLATE) % iso
     local = parsed.astimezone(layout.LOCAL_TZ) if parsed.tzinfo else parsed
+    month_abbr = layout._MONTH_ABBR_FR if prefs.current_lang() == "fr" else layout._MONTH_ABBR
     when = "%d %s %s" % (
-        local.day, layout._MONTH_ABBR[local.month - 1], layout.local_clock_text(parsed, None))
-    return LIGHTBOX_CAPTION_TEMPLATE % when
+        local.day, month_abbr[local.month - 1], layout.local_clock_text(parsed, None))
+    return i18n.t(LIGHTBOX_CAPTION_TEMPLATE) % when
 
 
 def _view_panel_button_html(name, iso):
@@ -430,7 +448,7 @@ def _view_panel_button_html(name, iso):
     """
     src = "%s%s" % (_GALLERY_ROUTE_PREFIX, escape_html(name))
     caption = lightbox_caption_text(iso)
-    escaped_label = escape_html(VIEW_PANEL_LABEL)
+    escaped_label = escape_html(i18n.t(VIEW_PANEL_LABEL))
     return (
         '<button type="button" class="copy-btn" %s="%s" %s="%s" '
         'title="%s" aria-label="%s">%s</button>'
@@ -456,10 +474,10 @@ def _lightbox_html():
         '<img class="lightbox__image" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
         '<p class="lightbox__note text-body">%s</p>'
-        '<button type="button" %s>Close</button>'
+        '<button type="button" %s>%s</button>'
         "</dialog>"
-    ) % (LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_ARIA_LABEL),
-         escape_html(LIGHTBOX_NOTE), _VIEW_PANEL_CLOSE_ATTR)
+    ) % (LIGHTBOX_DIALOG_ID, escape_html(i18n.t(LIGHTBOX_ARIA_LABEL)),
+         escape_html(i18n.t(LIGHTBOX_NOTE)), _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t("Close")))
 
 
 def _safe_query(state_dir, fn):
@@ -494,6 +512,13 @@ def format_event_row(row, now=None):
         aircraft_type_label = ""
 
     airline = row.get("airline")
+    # 20-10-PLAN.md Task 3 (D-05): kept in ENGLISH here, deliberately —
+    # _type_airline_cell() and _history_cards_html() both compare this
+    # value against the module's own AIRLINE_FALLBACK_TEXT constant to
+    # decide whether to append the unresolved-airline link, and i18n.t()
+    # is applied at THEIR render sites instead, so that membership test
+    # never has to compare a translated string against an untranslated
+    # constant under a French request.
     airline_label = (
         panel_render.display_airline_name(airline) if airline
         else AIRLINE_FALLBACK_TEXT)
@@ -506,6 +531,7 @@ def format_event_row(row, now=None):
 
     corroboration_status, corroboration_label = _CORROBORATION_LABELS.get(
         row.get("corroborated"), _DEFAULT_CORROBORATION)
+    corroboration_label = i18n.t(corroboration_label)
 
     return {
         # Plain-text "ISO (Nm ago)" form, kept under its own distinct key
@@ -525,13 +551,13 @@ def format_event_row(row, now=None):
         "aircraft_type_label": aircraft_type_label,
         "airline_label": airline_label,
         "route_label": route_label,
-        "confirmed_state": _confirmed_state_label(row.get("confirmed_state")),
+        "confirmed_state": i18n.t(_confirmed_state_label(row.get("confirmed_state"))),
         "corroboration_status": corroboration_status,
         "corroboration_label": corroboration_label,
         # quick task 260902-w4t (UIR-04): the long form for the "None"
         # (single-source) state, rendered as status_dot()'s optional
         # tooltip - "" (no tooltip) for True/False, which need none.
-        "corroboration_title": _CORROBORATION_TITLES.get(row.get("corroborated"), ""),
+        "corroboration_title": i18n.t(_CORROBORATION_TITLES.get(row.get("corroborated"), "")),
         "tracked_runway": _runway_label(row.get("tracked_runway")),
     }
 
@@ -591,20 +617,28 @@ def _copy_button_html(value, label):
     a `<span class="copy-btn__icon" aria-hidden="true">`, with an empty
     `<span class="copy-btn__label"></span>` sibling immediately after
     it, both inside the button. `companion/static/copy-button.js` writes
-    the transient "Copied" text into that label span's `textContent`
+    the transient success text into that label span's `textContent`
     only — never into the button element itself, which would destroy
     the SVG icon and have no way to restore it. This keeps the no-HTML-
     writing-sink rule intact: only `textContent` on a leaf `<span>`.
+
+    D-06 (20-11-PLAN.md Task 3): the button carries a new attribute
+    naming the translated success text `companion/static/copy-button.js`
+    reads at click time instead of a hardcoded English literal — the
+    same shape `freshness.js`'s `data-pause-text`/`data-resume-text`
+    already use.
     """
     return (
         '<button type="button" class="copy-btn" data-copy-value="%s" '
-        'aria-label="%s">'
+        'aria-label="%s" data-copied-text="%s">'
         '<span class="copy-btn__icon" aria-hidden="true">%s</span>'
         '<span class="copy-btn__label"></span>'
         '</button>'
         '<span class="visually-hidden" data-copy-feedback role="status" '
         'aria-live="polite"></span>'
-    ) % (escape_html(value), escape_html(label), layout.icon_html("icon-copy"))
+    ) % (
+        escape_html(value), escape_html(label), escape_html(i18n.t("Copied")),
+        layout.icon_html("icon-copy"))
 
 
 def _callsign_hex_cell(callsign, hex_value):
@@ -635,19 +669,19 @@ def _callsign_hex_cell(callsign, hex_value):
     if callsign:
         html = '<span class="%s">%s</span>%s' % (
             CELL_PRIMARY_CLASS, escape_html(callsign),
-            _copy_button_html(callsign, _COPY_CALLSIGN_LABEL % row_name))
+            _copy_button_html(callsign, i18n.t(_COPY_CALLSIGN_LABEL) % row_name))
         if hex_value:
             html += '<span class="%s">%s</span><span class="%s">%s</span>%s' % (
                 CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
                 CELL_SECONDARY_CLASS, escape_html(hex_value),
-                _copy_button_html(hex_value, _COPY_HEX_LABEL % row_name))
+                _copy_button_html(hex_value, i18n.t(_COPY_HEX_LABEL) % row_name))
     elif hex_value:
         html = '<span class="%s">%s</span>%s' % (
             CELL_PRIMARY_CLASS, escape_html(hex_value),
-            _copy_button_html(hex_value, _COPY_HEX_LABEL % row_name))
+            _copy_button_html(hex_value, i18n.t(_COPY_HEX_LABEL) % row_name))
         html += '<span class="%s">%s</span><span class="%s">%s</span>' % (
             CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
-            CELL_SECONDARY_CLASS, escape_html(NO_CALLSIGN_NOTE_TEXT))
+            CELL_SECONDARY_CLASS, escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
     else:
         html = '<span class="%s"></span>' % CELL_PRIMARY_CLASS
     return "<td>%s</td>" % html
@@ -663,7 +697,7 @@ def _unresolved_link_html():
     """
     return '<a class="%s" href="%s">%s</a>' % (
         escape_html(UNRESOLVED_LINK_CLASS),
-        escape_html(UNRESOLVED_LINK_HREF), escape_html(UNRESOLVED_LINK_TEXT))
+        escape_html(UNRESOLVED_LINK_HREF), escape_html(i18n.t(UNRESOLVED_LINK_TEXT)))
 
 
 def _type_airline_cell(row):
@@ -679,8 +713,10 @@ def _type_airline_cell(row):
     precedent: the Route column also calls the shared `_merged_cell()`
     and must never gain this link.
     """
-    html = _merged_cell(row["aircraft_type_label"], row["airline_label"])
-    if row["airline_label"] == AIRLINE_FALLBACK_TEXT:
+    is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
+    airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
+    html = _merged_cell(row["aircraft_type_label"], airline_display)
+    if is_unresolved:
         html = html[:-len("</td>")] + _unresolved_link_html() + "</td>"
     return html
 
@@ -693,9 +729,18 @@ def _filter_bar_html(total):
     `companion/static/list-filter.js`'s own early-return guard means the
     full unfiltered table/card list underneath stays completely usable
     if the script never loads.
+
+    D-06 (20-11-PLAN.md Task 3): `data-filter-count` also carries a
+    `data-filter-count-template` attribute — the SAME translated
+    template this function's own initial `count_text` is built from,
+    with its two `%d` placeholders left unformatted — so
+    `companion/static/list-filter.js` can re-render the live count on
+    every keystroke without ever hardcoding the English words "of"/
+    "shown" itself.
     """
-    count_text = "%d of %d shown" % (total, total)
-    empty_body = _FILTER_EMPTY_BODY_TEMPLATE % total
+    count_template = i18n.t("%d of %d shown")
+    count_text = count_template % (total, total)
+    empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
     return (
         '<div class="filter-bar">'
         '<label class="text-label" for="%s">%s</label>'
@@ -703,19 +748,22 @@ def _filter_bar_html(total):
         "%s"
         '<input type="search" id="%s" data-filter-input>'
         "</div>"
-        '<span class="filter-bar__count" data-filter-count>%s</span>'
-        '<button type="button" data-filter-clear>Clear</button>'
+        '<span class="filter-bar__count" data-filter-count '
+        'data-filter-count-template="%s">%s</span>'
+        '<button type="button" data-filter-clear>%s</button>'
         "</div>"
         '<div class="empty-state" data-filter-empty hidden>'
         '<p class="empty-state__heading text-heading">%s</p>'
         '<p class="empty-state__body text-body">%s</p>'
         "</div>"
     ) % (
-        _FILTER_INPUT_ID, escape_html(_FILTER_LABEL_TEXT),
+        _FILTER_INPUT_ID, escape_html(i18n.t(_FILTER_LABEL_TEXT)),
         layout.icon_html("icon-search"),
         _FILTER_INPUT_ID,
+        escape_html(count_template),
         escape_html(count_text),
-        escape_html(_FILTER_EMPTY_HEADING),
+        escape_html(i18n.t("Clear")),
+        escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
         escape_html(empty_body),
     )
 
@@ -745,7 +793,7 @@ def _clock_cell_html(raw_ts, now):
     the title and the visible text. Never raises.
     """
     if not raw_ts:
-        return escape_html(_CLOCK_CELL_FALLBACK)
+        return escape_html(i18n.t(_CLOCK_CELL_FALLBACK))
     parsed = layout.parse_iso(raw_ts)
     if parsed is None:
         return '<span class="mono" title="%s">%s</span>' % (
@@ -758,9 +806,9 @@ def _clock_cell_html(raw_ts, now):
 
 def _history_table_html(formatted_rows, now=None):
     if not formatted_rows:
-        return layout.empty_state(_NO_FLIGHTS_HEADING, _NO_FLIGHTS_BODY)
+        return layout.empty_state(i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY))
 
-    header_cells = "".join("<th>%s</th>" % escape_html(h) for h in _HEADERS)
+    header_cells = "".join("<th>%s</th>" % escape_html(i18n.t(h)) for h in _HEADERS)
 
     body_rows = []
     for index, row in enumerate(formatted_rows):
@@ -813,7 +861,7 @@ def _history_table_html(formatted_rows, now=None):
         "<tbody>%s</tbody>"
         "</table>"
         "</div>"
-    ) % (escape_html(SCROLLER_ARIA_LABEL), header_cells, "".join(body_rows))
+    ) % (escape_html(i18n.t(SCROLLER_ARIA_LABEL)), header_cells, "".join(body_rows))
 
 
 def _history_cards_html(formatted_rows, now=None):
@@ -863,7 +911,7 @@ def _history_cards_html(formatted_rows, now=None):
             primary_value_html = (
                 '<span class="cell-primary mono">%s</span>'
                 '<span class="cell-secondary">%s</span>'
-            ) % (escape_html(row["hex"]), escape_html(NO_CALLSIGN_NOTE_TEXT))
+            ) % (escape_html(row["hex"]), escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
         else:
             primary_value_html = '<span class="cell-primary mono"></span>'
         primary = (
@@ -894,40 +942,47 @@ def _history_cards_html(formatted_rows, now=None):
         # on the same airline_label/AIRLINE_FALLBACK_TEXT comparison
         # (quick task 260902-w4t, UIR-05 — was ROUTE_FALLBACK_TEXT), so
         # the mobile representation never silently loses the affordance.
-        unresolved_link = (
-            _unresolved_link_html()
-            if row["airline_label"] == AIRLINE_FALLBACK_TEXT else "")
+        is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
+        airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
+        unresolved_link = _unresolved_link_html() if is_unresolved else ""
         # A-37/D-20: the mobile disclosure's three copy buttons name
         # their own row too, via the same _row_copy_name() fallback
         # order the desktop cell uses.
         row_name = _row_copy_name(row["callsign"], row["hex"])
         details = (
             '<details class="history-card__details">'
-            "<summary>More details</summary>"
+            "<summary>%s</summary>"
             "<dl>"
-            '<dt>Callsign</dt><dd class="mono">%s%s</dd>'
-            "<dt>Aircraft</dt><dd>%s %s %s%s</dd>"
-            "<dt>Corroboration</dt><dd>%s</dd>"
-            "<dt>Runway</dt><dd>%s</dd>"
-            '<dt>Hex</dt><dd class="mono">%s%s</dd>'
-            '<dt>Full timestamp</dt><dd class="mono">%s%s</dd>'
+            '<dt>%s</dt><dd class="mono">%s%s</dd>'
+            "<dt>%s</dt><dd>%s %s %s%s</dd>"
+            "<dt>%s</dt><dd>%s</dd>"
+            "<dt>%s</dt><dd>%s</dd>"
+            '<dt>%s</dt><dd class="mono">%s%s</dd>'
+            '<dt>%s</dt><dd class="mono">%s%s</dd>'
             "</dl>"
             "</details>"
         ) % (
+            escape_html(i18n.t("More details")),
+            escape_html(i18n.t("Callsign")),
             escape_html(row["callsign"]),
-            _copy_button_html(row["callsign"], _COPY_CALLSIGN_LABEL % row_name),
+            _copy_button_html(row["callsign"], i18n.t(_COPY_CALLSIGN_LABEL) % row_name),
+            escape_html(i18n.t("Aircraft")),
             escape_html(row["aircraft_type_label"]),
             escape_html(CELL_SEPARATOR_TEXT),
-            escape_html(row["airline_label"]),
+            escape_html(airline_display),
             unresolved_link,
+            escape_html(i18n.t("Corroboration")),
             layout.status_dot(
                 row["corroboration_status"], row["corroboration_label"],
                 row["corroboration_title"]),
+            escape_html(i18n.t("Runway")),
             escape_html(row["tracked_runway"]),
+            escape_html(i18n.t("Hex")),
             escape_html(row["hex"]),
-            _copy_button_html(row["hex"], _COPY_HEX_LABEL % row_name),
+            _copy_button_html(row["hex"], i18n.t(_COPY_HEX_LABEL) % row_name),
+            escape_html(i18n.t("Full timestamp")),
             escape_html(row["raw_ts"]),
-            _copy_button_html(row["raw_ts"], _COPY_TIMESTAMP_LABEL % row_name),
+            _copy_button_html(row["raw_ts"], i18n.t(_COPY_TIMESTAMP_LABEL) % row_name),
         )
         items.append(
             '<li class="history-card" data-filter-text="%s" '
@@ -945,7 +1000,7 @@ def render(ctx):
     # sentence, using the real HISTORY_ROW_LIMIT constant rather than a
     # hardcoded "50".
     header = layout.page_header(
-        PAGE_TITLE, purpose=PAGE_PURPOSE_TEMPLATE % HISTORY_ROW_LIMIT)
+        i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE_TEMPLATE) % HISTORY_ROW_LIMIT)
 
     # Quick task 260903-etm: developer redirection, superseding quick task
     # 260903-c4o's own always-visible render-gallery section on this same
@@ -964,7 +1019,7 @@ def render(ctx):
     gallery_entries_list = ctx.get("gallery_entries") or []
 
     if rows is _DB_UNAVAILABLE:
-        body = '<p class="text-body">%s</p>' % escape_html(_HISTORY_UNAVAILABLE_TEXT)
+        body = '<p class="text-body">%s</p>' % escape_html(i18n.t(_HISTORY_UNAVAILABLE_TEXT))
         lightbox_html = ""
     else:
         formatted_rows = [format_event_row(row, now) for row in rows]

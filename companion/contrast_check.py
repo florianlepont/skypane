@@ -82,6 +82,31 @@ MIN_SIGNAL_PERCEPTUAL_DISTANCE = 28.0
 # two collided.
 MIN_SIGNAL_HUE_SEPARATION = 24.0
 
+# --- Named token pairs --------------------------------------------------
+#
+# 20-04-PLAN.md Task 3: the "Expected since" overdue headline is this
+# phase's one genuinely new use of a status colour as body text (every
+# earlier status use in this codebase is a dot, a border or a card edge —
+# never text). Named here, in the module itself, rather than only inline
+# in companion/test_contrast_check.py's own live_pairs tuple, so a future
+# --color-status-warn or --color-dominant token change is caught even by
+# a reader who never opens the test file — that file's own "the pair is
+# present in this table" check asserts membership against this constant
+# directly, per the module's docstring's own "extend, do not duplicate"
+# convention for callers sourcing token values from here.
+#
+# Measured at these exact hex literals (companion/static/style.css's own
+# :root values): light 3.19:1 — BELOW WCAG_AA_NORMAL_TEXT (4.5); dark
+# 10.54:1 — comfortably above it. The threshold was not weakened and no
+# new colour was introduced to pass it: style.css's own
+# .status-card__headline--warn stays on --color-text in both themes, and
+# the overdue state is carried by the wording and a leading warn dot
+# instead. See that rule's own comment for the full account.
+STATUS_WARN_ON_CARD_PAIRS = (
+    ("light", "#D97706", "#FFFFFF"),
+    ("dark", "#FBBF24", "#151922"),
+)
+
 
 def _linearize_channel(value_0_255):
     """Convert one 0-255 sRGB channel to its linear-light value per the

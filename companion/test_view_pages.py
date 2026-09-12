@@ -256,12 +256,105 @@ EXPECTED_CHECK_COUNT = 83  # 79 + 4 (19-08-PLAN.md Task 3: D-22's edit-gated lig
 # 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History Timestamp column reads
 # "ISO (Nm ago)"; Task 2: Preview's Captured caption reads "Captured ISO
 # (Nm ago)"; Task 3: corroboration copy cross-page drift guard, D-03)
-EXPECTED_CHECK_COUNT = 85  # 19-12-PLAN.md Task 3 (D-13/S-02): +2 (wake.
+EXPECTED_CHECK_COUNT = 92  # 20-06-PLAN.md Task 3 (D-05/D-09): +2 (90 -> 92)
+# — a fully-seeded Home render under lang='fr' end to end (page title,
+# section headings, status-row labels, next-update headline, no English
+# leaking in, callsign/airline data untranslated) plus the identical
+# render under the default language re-asserting every pre-existing
+# English needle, and a check that every key in companion/i18n_fr/
+# home.py's own CATALOG is also a key of the merged companion.i18n_fr.
+# CATALOG (proving the auto-merge package picked the module up).
+# Recomputed directly against the real on-disk check(...) call count at
+# execution time (92/92 pass), not trusted from arithmetic alone.
+# 90 = 20-06-PLAN.md Task 2 (D-17.2/D-18/D-20): +3
+# (87 -> 90) — the recent-flights thumbnail resolved-vs-placeholder check,
+# the hero's flight-one-liner presence/absence plus .preview-frame-before-
+# .status-card document-order check, and a French-render check proving
+# Home's headings and a thumbnail's alt text translate while the
+# callsign/airline data itself stays untranslated. Recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (90/90 pass), not trusted from arithmetic alone.
+# 87 = 20-06-PLAN.md Task 1 (D-16/D-17/D-21): net +2
+# (85 -> 87) — retargeted the seeded-render check and the empty-ctx check
+# off the deleted Quick-actions/stat_tile markup, replaced the single
+# _home_page_renders_next_wake_figure_only_when_known() check (-1) with
+# three new checks (+3): no quick-action markup/no /quick/ action
+# anywhere plus exactly three status-row blocks with the Frame verdict
+# appearing exactly once (the 20-RESEARCH.md Pitfall 3 regression test),
+# the status card's "Next update ≈"/"Expected since" headline across
+# future/past/never-checked-in next-wake states, and the "See details on
+# Health" link's simple_mode gating (D-30). Recomputed directly against
+# the real on-disk check(...) call count at execution time (87/87 pass),
+# not trusted from arithmetic alone.
+# 85 = 19-12-PLAN.md Task 3 (D-13/S-02): +2 (wake.
 # next_wake_at_iso()'s None-for-falsy/unparseable/unknown-interval contract
 # plus the screen-on/screen-off arithmetic, and Home rendering the ≈
 # figure only when both a check-in and an interval are known). 83 + 2 =
 # 85, recomputed directly against the real on-disk check(...) call count
 # at execution time (85/85 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 97  # 20-10-PLAN.md Task 1 (D-36): +5 (92 -> 97) — a
+# default render carries exactly one "Change pictures" toggle linking to
+# /airlines?edit=1 plus its explanatory sentence, an edit_mode=True render
+# shows "Done" linking back to /airlines with no query, a simple_mode=True
+# render carries neither the toggle nor its sentence, a simple_mode=True
+# AND edit_mode=True render still carries every edit-only lightbox form
+# (D-30's presentation-not-access-control gate proven directly, not just
+# asserted), and a French render shows "Modifier les images"/"Terminé".
+# Recomputed directly against the real on-disk check(...) call count at
+# execution time (97/97 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 100  # 20-10-PLAN.md Task 2 (D-05): +3 (97 -> 100) —
+# a French render translates the page title, filter label, lightbox
+# aria-label and toggle text while a real curated airline name stays
+# untranslated data; a fully-seeded French render (gap strip + resolve
+# panel) shows every new French string with no English leaking in, the
+# seeded example callsign stays untranslated, and the identical seeded
+# render under the default language still carries every pre-existing
+# English needle; and every key of companion/i18n_fr/airlines.py is a
+# key of the merged CATALOG. Recomputed directly against the real
+# on-disk check(...) call count at execution time (100/100 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 103  # 20-10-PLAN.md Task 3 (D-05): +3 (100 -> 103) —
+# a French render of Flights translates the page title, column headers
+# and filter label while a seeded callsign stays untranslated data; a
+# fully-seeded French render shows the direction words, the unresolved-
+# airline fallback, the no-callsign note, the disclosure summary and the
+# filter's Clear button with no English leaking in, the seeded callsign
+# stays untranslated, and the identical seeded render under the default
+# language still carries every pre-existing English needle; and every
+# key of companion/i18n_fr/flights.py is a key of the merged CATALOG.
+# Recomputed directly against the real on-disk check(...) call count at
+# execution time (103/103 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 104  # 20-11-PLAN.md Task 3 (D-06): +1 (a Flights
+# render's copy buttons carry data-copied-text="Copied" under the
+# default language and data-copied-text="Copié" under lang='fr' — the
+# feedback text companion/static/copy-button.js reads at click time
+# instead of a hardcoded English literal). 103 + 1 = 104, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (104/104 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 105  # 20-11-PLAN.md Task 3/D-06 orchestrator
+# addendum: +1 (History's filter bar carries data-filter-count-
+# template="%d of %d shown" under the default language and the French
+# "%d sur %d affichés" under lang='fr' — companion/static/list-filter.js
+# reads this attribute instead of hardcoding the English words "of"/
+# "shown"). 104 + 1 = 105, recomputed directly against the real on-disk
+# check(...) call count at execution time (105/105 pass), not trusted
+# from arithmetic alone.
+EXPECTED_CHECK_COUNT = 106  # Polish fix 2 (French Home status rows):
+# +1 (Home's status card, fed a REAL health_page.compute_health_state()
+# result computed under lang='fr', fully localises the Frame/Flight-
+# data rows' timestamps — no English month abbreviation or ' ago'
+# survives — and joins the Flight-data row's separate clauses with
+# ' · ' instead of running them together; the regression guard for the
+# companion/app.py page_context() request-ordering bug this fix
+# closes). 105 + 1 = 106, recomputed directly against the real on-disk
+# check(...) call count at execution time (106/106 pass), not trusted
+# from arithmetic alone.
+EXPECTED_CHECK_COUNT = 107  # Polish fix 5 (Registry labels shown in
+# French, D-05): +1 (a French Flights render translates the
+# tracked_runway cell's registry label — "Runway 3 (07/25)" ->
+# "Piste 3 (07/25)" — with no English label leaking in). 106 + 1 = 107,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (107/107 pass), not trusted from arithmetic alone.
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1314,7 +1407,12 @@ def main():
                 "data-filter-input", "data-filter-count", "data-filter-clear",
                 "data-filter-empty",
             ):
-                count = rendered.count(marker)
+                # 20-11-PLAN.md Task 3 (D-06): a negative lookahead excludes
+                # data-filter-count's own new sibling attribute, data-
+                # filter-count-template — a real second attribute (the
+                # server-rendered "%d of %d shown" template list-filter.js
+                # now reads), not a second occurrence of this marker.
+                count = len(re.findall(r"%s(?!-template)" % re.escape(marker), rendered))
                 if count != 1:
                     return False, "expected exactly one %r marker, got %d" % (marker, count)
             return True, ""
@@ -1323,6 +1421,38 @@ def main():
     check(
         "History's filter bar carries exactly one data-filter-input/-count/-clear/-empty marker each",
         _filter_bar_markers_present_once)
+
+    def _filter_count_template_attribute_english_and_french():
+        # 20-11-PLAN.md Task 3 (D-06): companion/static/list-filter.js
+        # reads its live "X of Y shown" count text from
+        # data-filter-count-template instead of hardcoding the English
+        # words "of"/"shown" — this is that attribute's own translated
+        # value, under each language in turn, with both "%d" placeholders
+        # left unformatted for the script to fill in.
+        import companion.prefs as _prefs
+        tmp = _mkstate("h-filter-count-template")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FC1"},
+            ])
+            rendered_en = history_page.render(_history_ctx(tmp))
+            if 'data-filter-count-template="%d of %d shown"' not in rendered_en:
+                return False, "expected the English filter-count template under the default language"
+
+            _prefs.set_request_prefs(lang="fr")
+            try:
+                rendered_fr = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            if 'data-filter-count-template="%d sur %d affichés"' not in rendered_fr:
+                return False, "expected the French filter-count template under lang='fr'"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's filter bar carries data-filter-count-template=\"%d of %d shown\" under the "
+        "default language and the French \"%d sur %d affichés\" under lang='fr' (D-06)",
+        _filter_count_template_attribute_english_and_french)
 
     def _clear_control_shared_attribute_contract():
         # 06.6.4-05 (D-08): History's Clear <button> and Airlines' Clear
@@ -1474,6 +1604,37 @@ def main():
     check(
         "the mobile card's details region contains exactly 3 copy buttons (callsign, hex, full timestamp), each immediately followed by its data-copy-feedback sibling",
         _mobile_details_three_copy_buttons)
+
+    def _copy_button_carries_data_copied_text_english_and_french():
+        # 20-11-PLAN.md Task 3 (D-06): copy-button.js reads its
+        # on-success feedback text from each button's own
+        # data-copied-text attribute instead of a hardcoded English
+        # literal — this is that attribute's own translated value, under
+        # each language in turn.
+        import companion.prefs as _prefs
+        tmp = _mkstate("h-copy-data-attr")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "cd01", "callsign": "CDONE"},
+            ])
+            rendered_en = history_page.render(_history_ctx(tmp))
+            if 'data-copied-text="Copied"' not in rendered_en:
+                return False, "expected data-copied-text=\"Copied\" under the default (English) language"
+
+            _prefs.set_request_prefs(lang="fr")
+            try:
+                rendered_fr = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            if 'data-copied-text="Copié"' not in rendered_fr:
+                return False, "expected data-copied-text=\"Copié\" under lang='fr'"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a Flights render's copy buttons carry data-copied-text=\"Copied\" under the default "
+        "language and data-copied-text=\"Copié\" under lang='fr' (D-06)",
+        _copy_button_carries_data_copied_text_english_and_french)
 
     def _quick_260903_peo_desktop_copy_reveal_stylesheet_contract():
         # UIR-17: the desktop-only reveal rule lives inside the shared
@@ -1793,6 +1954,40 @@ def main():
     check(
         "confirmed_state/tracked_runway presentation labels (Task 1's format_event_row() fixture) also appear correctly through the full render() output",
         _presentation_labels_in_full_render)
+
+    def _french_render_translates_the_runway_cell_label():
+        # Polish fix 5 (D-05): history_page._runway_label() now
+        # translates device_config.runway_label()'s registry text via
+        # i18n.t() (companion/i18n_fr/registry.py) — the runway id
+        # itself ("3") is data, never translated.
+        import companion.prefs as _prefs
+        tmp = _mkstate("h-labels-fr")
+        try:
+            _seed_runway_events(tmp, [
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "pl03", "callsign": "PL3",
+                    "confirmed_state": "departing", "tracked_runway": "3",
+                },
+            ])
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            if "Piste 3 (07/25)" not in rendered:
+                return False, "expected the French runway label 'Piste 3 (07/25)' in the rendered page"
+            if device_config.runway_label("3") in rendered:
+                return False, (
+                    "expected the English runway label %r to be absent from the French render"
+                    % (device_config.runway_label("3"),))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a French Flights render translates the tracked_runway cell's registry label "
+        "('Runway 3 (07/25)' -> 'Piste 3 (07/25)'), with no English label leaking in "
+        "(Polish fix 5, D-05)",
+        _french_render_translates_the_runway_cell_label)
 
     # ======================================================================
     # Section 1b: quick task 260903-etm - History's top-of-page render-
@@ -2756,6 +2951,185 @@ def main():
         _airlines_edit_mode_render_has_exactly_one_of_each_edit_only_form)
 
     # ======================================================================
+    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle -
+    # gated on simple_mode, never touching D-22's own ctx["edit_mode"]
+    # gate on the lightbox forms checked just above.
+    # ======================================================================
+
+    def _airlines_default_render_has_one_change_pictures_toggle():
+        rendered = airlines_page.render({})
+        count = rendered.count('class="airlines-edit-toggle"')
+        if count != 1:
+            return False, "expected exactly one airlines-edit-toggle anchor in a default render, got %d" % count
+        if 'href="/airlines?edit=1"' not in rendered:
+            return False, "expected the toggle's href to be /airlines?edit=1 in a default render"
+        if airlines_page.CHANGE_PICTURES_TEXT not in rendered:
+            return False, "expected the toggle's text to read 'Change pictures'"
+        if airlines_page.EDIT_TOGGLE_CAPTION not in rendered:
+            return False, "expected the explanatory sentence under the toggle"
+        return True, ""
+    check(
+        "a default airlines_page.render({}) call contains exactly one airlines-edit-toggle anchor, "
+        "linking to /airlines?edit=1 and reading 'Change pictures', plus its explanatory sentence "
+        "(D-36, 20-10-PLAN.md Task 1)",
+        _airlines_default_render_has_one_change_pictures_toggle)
+
+    def _airlines_edit_mode_render_shows_done_toggle_with_no_query():
+        rendered = airlines_page.render({"edit_mode": True})
+        count = rendered.count('class="airlines-edit-toggle"')
+        if count != 1:
+            return False, "expected exactly one airlines-edit-toggle anchor under edit_mode=True, got %d" % count
+        if 'href="/airlines"' not in rendered or 'href="/airlines?edit=1"' in rendered:
+            return False, "expected the toggle's href to be /airlines (no query) under edit_mode=True"
+        if airlines_page.DONE_TEXT not in rendered:
+            return False, "expected the toggle's text to read 'Done' under edit_mode=True"
+        return True, ""
+    check(
+        "airlines_page.render({\"edit_mode\": True}) shows the toggle reading 'Done' and linking "
+        "back to /airlines with no query (D-36, 20-10-PLAN.md Task 1)",
+        _airlines_edit_mode_render_shows_done_toggle_with_no_query)
+
+    def _airlines_simple_mode_render_has_no_toggle_or_caption():
+        rendered = airlines_page.render({"simple_mode": True})
+        if "airlines-edit-toggle" in rendered:
+            return False, "expected no airlines-edit-toggle anchor when simple_mode is on (D-30)"
+        if airlines_page.EDIT_TOGGLE_CAPTION in rendered:
+            return False, "expected no explanatory sentence when simple_mode is on (D-30)"
+        return True, ""
+    check(
+        "a render with simple_mode=True contains no airlines-edit-toggle anchor and no "
+        "explanatory sentence (D-30, 20-10-PLAN.md Task 1)",
+        _airlines_simple_mode_render_has_no_toggle_or_caption)
+
+    def _airlines_simple_mode_and_edit_mode_still_renders_lightbox_forms():
+        # D-30: simple mode hides only the entry point (this toggle),
+        # never the ?edit=1-gated forms it links to - typing the URL by
+        # hand must still work, so this is a pinned check, not an
+        # assumption.
+        rendered = airlines_page.render({"simple_mode": True, "edit_mode": True})
+        if "airlines-edit-toggle" in rendered:
+            return False, "expected no airlines-edit-toggle anchor even with edit_mode=True, when simple_mode is on"
+        for token in (
+                airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
+                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
+                airlines_page.LIGHTBOX_DELETE_CLASS):
+            if token not in rendered:
+                return False, (
+                    "expected the %r edit-only form to still render with simple_mode=True, "
+                    "edit_mode=True" % (token,))
+        return True, ""
+    check(
+        "a render with simple_mode=True AND edit_mode=True hides the toggle but still renders "
+        "every edit-only lightbox form - the ?edit=1 gating stays untouched by simple mode "
+        "(D-30, 20-10-PLAN.md Task 1)",
+        _airlines_simple_mode_and_edit_mode_still_renders_lightbox_forms)
+
+    def _airlines_french_render_shows_translated_toggle_labels():
+        import companion.prefs as _prefs
+        try:
+            _prefs.set_request_prefs(lang="fr")
+            rendered_closed = airlines_page.render({})
+            rendered_open = airlines_page.render({"edit_mode": True})
+        finally:
+            _prefs.set_request_prefs(lang="en")
+        if "Modifier les images" not in rendered_closed:
+            return False, "expected the French 'Modifier les images' label in a closed, French render"
+        if "Terminé" not in rendered_open:
+            return False, "expected the French 'Terminé' label in an open, French render"
+        return True, ""
+    check(
+        "a French render of Airlines shows 'Modifier les images' when closed and 'Terminé' when "
+        "open (D-05, D-09, D-36, 20-10-PLAN.md Task 1)",
+        _airlines_french_render_shows_translated_toggle_labels)
+
+    # ======================================================================
+    # 20-10-PLAN.md Task 2 (D-05): the rest of Airlines through i18n.t(),
+    # with companion/i18n_fr/airlines.py's own French catalogue.
+    # ======================================================================
+
+    def _airlines_french_render_translates_headings_not_data():
+        import companion.prefs as _prefs
+        try:
+            _prefs.set_request_prefs(lang="fr")
+            rendered = airlines_page.render({})
+        finally:
+            _prefs.set_request_prefs(lang="en")
+        for needle in (
+                ">Compagnies<", "Filtrer par compagnie ou indicatif",
+                "Illustration de la compagnie", "Modifier les images"):
+            if needle not in rendered:
+                return False, "expected the French %r in a French Airlines render" % (needle,)
+        if "Air France" not in rendered:
+            return False, "expected the seeded/curated airline name 'Air France' to stay untranslated data"
+        return True, ""
+    check(
+        "a French render of Airlines shows the French page title, filter label, lightbox aria-label "
+        "and toggle text, while a real airline name ('Air France') stays untranslated data (D-05, "
+        "20-10-PLAN.md Task 2)",
+        _airlines_french_render_translates_headings_not_data)
+
+    def _airlines_full_seeded_render_french_end_to_end():
+        import companion.prefs as _prefs
+        tmp = _mkstate("airlines-fr")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 5, "first_seen": "2026-01-01T00:00:00+00:00",
+                    "last_seen": "2026-01-02T00:00:00+00:00", "example_callsign": "XYZ123",
+                },
+            })
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered_fr = airlines_page.render({"state_dir": tmp})
+                resolve_fr = airlines_page.render(
+                    {"state_dir": tmp, "resolve_prefix": "XYZ", "edit_mode": True})
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            for needle in (
+                    ">Compagnies<", "Compagnies non identifiées",
+                    "Le cadre a vu ces indicatifs mais ne connaît pas la compagnie",
+                    "Modifier les images"):
+                if needle not in rendered_fr:
+                    return False, "expected the French %r in the French Airlines render" % (needle,)
+            for needle in (
+                    "Identifier un vol non reconnu", "Nom de la compagnie",
+                    "Enregistrer le nom de la compagnie"):
+                if needle not in resolve_fr:
+                    return False, "expected the French %r in the French resolve-panel render" % (needle,)
+            if "XYZ123" not in rendered_fr and "XYZ123" not in resolve_fr:
+                return False, "expected the seeded example callsign to stay untranslated data"
+
+            rendered_en = airlines_page.render({"state_dir": tmp})
+            for needle in (
+                    '<h1 class="page-title">Airlines</h1>', airlines_page.GAP_STRIP_HEADING,
+                    airlines_page.GAP_STRIP_BODY, airlines_page.CHANGE_PICTURES_TEXT):
+                if needle not in rendered_en:
+                    return False, "expected the English %r in the default-language Airlines render" % (
+                        needle,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a fully-seeded Airlines render under lang='fr' shows the French gap-strip heading/sentence, "
+        "toggle label and resolve-panel copy with no English leaking in, the seeded example callsign "
+        "stays untranslated data, and the identical seeded render under the default language still "
+        "carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 2)",
+        _airlines_full_seeded_render_french_end_to_end)
+
+    def _airlines_catalog_keys_all_present_in_merged_catalog():
+        import companion.i18n_fr as i18n_fr
+        import companion.i18n_fr.airlines as i18n_fr_airlines
+        missing = [k for k in i18n_fr_airlines.CATALOG if k not in i18n_fr.CATALOG]
+        if missing:
+            return False, "keys missing from the merged CATALOG: %r" % (missing,)
+        return True, ""
+    check(
+        "every key in companion/i18n_fr/airlines.py's own CATALOG is also a key of the merged "
+        "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up "
+        "(20-10-PLAN.md Task 2)",
+        _airlines_catalog_keys_all_present_in_merged_catalog)
+
+    # ======================================================================
     # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's
     # Server & data anchor (D-21).
     # ======================================================================
@@ -2997,6 +3371,102 @@ def main():
         _no_prefix_registry_duplicated_on_history)
 
     # ======================================================================
+    # 20-10-PLAN.md Task 3 (D-05): the Flights page through i18n.t(), with
+    # companion/i18n_fr/flights.py's own French catalogue.
+    # ======================================================================
+
+    def _flights_french_render_translates_headings_not_data():
+        import companion.prefs as _prefs
+        tmp = _mkstate("flights-fr-headings")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "aaa111", "callsign": "FLT1",
+                 "airline": "AFR", "origin": "LFPO", "destination": "LFPG",
+                 "confirmed_state": "departing", "corroborated": "True"},
+            ])
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        for needle in (
+                ">Vols<", "Modèle", "Trajet", "Sens", "Indicatif",
+                "Filtrer par indicatif ou code hex"):
+            if needle not in rendered:
+                return False, "expected the French %r in a French Flights render" % (needle,)
+        if "FLT1" not in rendered:
+            return False, "expected the seeded callsign 'FLT1' to stay untranslated data"
+        return True, ""
+    check(
+        "a French render of Flights shows the French page title, column headers and filter label, "
+        "while a seeded callsign stays untranslated data (D-05, 20-10-PLAN.md Task 3)",
+        _flights_french_render_translates_headings_not_data)
+
+    def _flights_full_seeded_render_french_end_to_end():
+        import companion.prefs as _prefs
+        tmp = _mkstate("flights-fr-full")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "aaa111", "callsign": "FLT1",
+                 "airline": None, "confirmed_state": "departing", "corroborated": "True"},
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "bbb222", "callsign": "",
+                 "airline": None, "confirmed_state": "arriving", "corroborated": "False"},
+            ])
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered_fr = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            for needle in (
+                    ">Vols<", "Compagnie inconnue", "aucun indicatif",
+                    "Au départ", "À l’arrivée", "Modèle", "Trajet", "Sens",
+                    "Plus de détails", "Effacer"):
+                if needle not in rendered_fr:
+                    return False, "expected the French %r in the French Flights render" % (needle,)
+            for english_only in (
+                    "Airline unknown", "no callsign", "Departing", "Arriving",
+                    ">Type<", ">Route<", ">State<"):
+                if english_only in rendered_fr:
+                    return False, "expected no English %r leaking into the French render" % (
+                        english_only,)
+            if "FLT1" not in rendered_fr:
+                return False, "expected the seeded callsign to stay untranslated data"
+
+            rendered_en = history_page.render(_history_ctx(tmp))
+            for needle in (
+                    '<h1 class="page-title">Flights</h1>', history_page.AIRLINE_FALLBACK_TEXT,
+                    history_page.NO_CALLSIGN_NOTE_TEXT, "Departing", "Arriving",
+                    ">Type<", ">Route<", ">State<"):
+                if needle not in rendered_en:
+                    return False, "expected the English %r in the default-language Flights render" % (
+                        needle,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a fully-seeded Flights render under lang='fr' shows every new French string (column "
+        "headers, direction words, the unresolved-airline fallback, the no-callsign note, the "
+        "disclosure summary and the filter's Clear button) with no English leaking in, the seeded "
+        "callsign stays untranslated data, and the identical seeded render under the default "
+        "language still carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 3)",
+        _flights_full_seeded_render_french_end_to_end)
+
+    def _flights_catalog_keys_all_present_in_merged_catalog():
+        import companion.i18n_fr as i18n_fr
+        import companion.i18n_fr.flights as i18n_fr_flights
+        missing = [k for k in i18n_fr_flights.CATALOG if k not in i18n_fr.CATALOG]
+        if missing:
+            return False, "keys missing from the merged CATALOG: %r" % (missing,)
+        return True, ""
+    check(
+        "every key in companion/i18n_fr/flights.py's own CATALOG is also a key of the merged "
+        "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up "
+        "(20-10-PLAN.md Task 3)",
+        _flights_catalog_keys_all_present_in_merged_catalog)
+
+    # ======================================================================
     # Section 3: one end-to-end check - a real companion/app.py subprocess,
     # logged in, fetching /history, the retired /preview redirect, the
     # retired /preview.png route (now 404), and a real /gallery/{name}.png
@@ -3024,44 +3494,378 @@ def main():
             ctx = {
                 "state_dir": tmp, "now": now,
                 "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
-                "device_config": {"display_enabled": False, "quiet_hours_enabled": True,
-                                  "quiet_hours_start": "22:00", "quiet_hours_end": "06:30"},
+                "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+                "device_config": {"wake_interval_s": 900, "display_enabled": True},
                 "health_state": {"device_state": "ok", "pipeline_state": "warn",
-                                 "battery_state": "ok", "device_html": "<b>d</b>",
-                                 "pipeline_html": "<b>p</b>"},
-                "poll_cooldown_remaining": 0,
+                                 "battery_state": "ok",
+                                 "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
+                                 "pipeline_html": "<p>A little stale</p>"},
+                "simple_mode": False,
             }
             rendered = home_page.render(ctx)
             for needle in (
                     '<h1 class="page-title">Home</h1>', "AFR1380", "Air France", "ORY → TLS",
-                    'src="/gallery/2026-08-27T11-50-00+00-00.png"', "Switch on",
-                    "On — 22:00 to 06:30", "Turn off", "Refresh now", "3750 mV",
-                    'value="on"', "quick-action--off", "quick-action--on",
-                    "≈ 50%"):
+                    'src="/gallery/2026-08-27T11-50-00+00-00.png"', "3750 mV",
+                    "≈ 50%", "Next update ≈"):
                 if needle not in rendered:
                     return False, "expected %r in the Home page" % needle
             if "<XYZ>" in rendered or "&lt;XYZ&gt;" not in rendered:
                 return False, "expected the hostile callsign to be escaped"
-            if rendered.count("recent-flight ") != 2 and rendered.count('class="recent-flight"') != 2:
+            if rendered.count('class="recent-flight"') != 2:
                 return False, "expected exactly two recent-flight rows"
-            cooled = home_page.render(dict(ctx, poll_cooldown_remaining=12))
-            if "try again in 12s" not in cooled or "<button type=\"submit\" disabled>" not in cooled:
-                return False, "expected the refresh widget to honour the cooldown"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "home_page.render() with seeded flights, a battery reading and a gallery entry renders the "
-        "status tiles (with a battery percentage estimate), the current-panel image, the three "
-        "quick-action widgets reflecting the saved state, escaped recent flights, and a disabled "
-        "refresh control during the cooldown",
+        "home_page.render() with seeded flights, a battery reading and a gallery entry renders "
+        "the hero picture, the battery percentage estimate, escaped recent flights, and the "
+        "Next-update headline",
         _home_page_render_with_seeded_state)
+
+    def _recent_flight_thumb_resolved_vs_placeholder():
+        # Polish fix 1 (Home thumbnails only when artwork exists, D-17):
+        # _recent_flight_thumb_html() now takes a state_dir and checks
+        # illustrations.resolved_illustration_path() before ever
+        # emitting an <img> — retargeted from the pre-fix signature
+        # (which rendered any truthy key unconditionally, 404ing on an
+        # airline with no artwork file on disk). No state_dir exists on
+        # disk for any of these three cases; "air-france" resolves from
+        # the vendored illustration directory regardless (state_dir only
+        # matters for a per-installation override file).
+        from companion.pages import home_page
+        no_state_dir = "/tmp/skypane-no-such-state-dir"
+        resolved_row = {"callsign": "AFR1380", "airline": "Air France"}
+        thumb_resolved = home_page._recent_flight_thumb_html(resolved_row, no_state_dir)
+        if thumb_resolved.count("<img") != 1:
+            return False, "expected exactly one <img> for a resolved airline"
+        if 'loading="lazy"' not in thumb_resolved:
+            return False, "expected the thumbnail <img> to be lazily loaded"
+        if "/illustration/air-france.png" not in thumb_resolved:
+            return False, "expected the resolved illustration route in the <img> src"
+        unresolved_row = {"callsign": "XYZ", "airline": None}
+        thumb_placeholder = home_page._recent_flight_thumb_html(unresolved_row, no_state_dir)
+        if "<img" in thumb_placeholder:
+            return False, "expected no <img> at all for a null/unrecognised airline"
+        if "recent-flight__thumb--placeholder" not in thumb_placeholder:
+            return False, "expected the dashed placeholder span for a null/unrecognised airline"
+        # A key that normalises truthily but resolves to no file on disk
+        # anywhere (override or vendored) — the exact "easyJet Europe"
+        # regression this fix closes — must ALSO fall back to the
+        # placeholder, never a broken-image <img src="...404...">.
+        no_artwork_row = {"callsign": "EZS123", "airline": "easyJet Europe"}
+        thumb_no_artwork = home_page._recent_flight_thumb_html(no_artwork_row, no_state_dir)
+        if "<img" in thumb_no_artwork:
+            return False, (
+                "expected no <img> for an airline whose normalised key resolves to no file "
+                "on disk (D-17 fix: a truthy key alone must never be enough)")
+        if "recent-flight__thumb--placeholder" not in thumb_no_artwork:
+            return False, "expected the dashed placeholder span for an airline with no artwork file"
+        return True, ""
+    check(
+        "a recent-flight row whose airline resolves to a real illustration file renders exactly "
+        "one lazily-loaded /illustration/ thumbnail <img>; a null/unrecognised airline AND an "
+        "airline whose normalised key resolves to no file on disk anywhere (override or "
+        "vendored) both render the dashed placeholder span with no <img> at all (D-17 fix)",
+        _recent_flight_thumb_resolved_vs_placeholder)
+
+    def _hero_figure_precedes_status_card_with_flight_one_liner_when_known():
+        from companion.pages import home_page
+        hero_ctx = {
+            "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+            "now": "2026-08-27T12:00:00+00:00",
+        }
+        current_flight_row = {
+            "callsign": "AFR1380", "airline": "Air France", "origin": "ORY",
+            "destination": "TLS", "confirmed_state": "departing",
+        }
+        hero_with_flight = home_page._hero_figure_html(hero_ctx, current_flight_row)
+        if "preview-frame__flight" not in hero_with_flight:
+            return False, "expected the flight one-liner when the current flight is known"
+        if '<span class="mono">AFR1380</span> · Air France · ORY → TLS' not in hero_with_flight:
+            return False, "expected the callsign/airline/route flight one-liner text"
+        hero_without_flight = home_page._hero_figure_html(hero_ctx, None)
+        if "preview-frame__flight" in hero_without_flight:
+            return False, "expected no flight one-liner when there is no current flight"
+
+        full_ctx = {
+            "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+            "now": "2026-08-27T12:00:00+00:00", "health_state": {}, "device_config": {},
+            "state_dir": "/tmp/skypane-no-such-state-dir",
+        }
+        rendered = home_page.render(full_ctx)
+        if rendered.index('<figure class="preview-frame">') > rendered.index(
+                'class="page-section status-card"'):
+            return False, "expected .preview-frame before .status-card in document order (D-18)"
+        return True, ""
+    check(
+        "the hero's flight one-liner (callsign in .mono, then airline, then the route) appears "
+        "when the current flight is known and is absent otherwise, and .preview-frame precedes "
+        ".status-card in document order (D-18's picture-first stacking)",
+        _hero_figure_precedes_status_card_with_flight_one_liner_when_known)
+
+    def _home_page_french_render_translates_headings_and_alt_text_not_data():
+        from companion.pages import home_page
+        import companion.prefs as _prefs
+        ctx = {
+            "gallery_entries": [],
+            "now": "2026-08-27T12:00:00+00:00", "health_state": {}, "device_config": {},
+            "state_dir": "/tmp/skypane-no-such-state-dir",
+        }
+        row = {"callsign": "AFR1380", "airline": "Air France"}
+        try:
+            _prefs.set_request_prefs(lang="fr")
+            rendered = home_page.render(ctx)
+            thumb = home_page._recent_flight_thumb_html(row, ctx["state_dir"])
+        finally:
+            _prefs.set_request_prefs(lang="en")
+        for needle in ("Vols récents", "Voir tous les vols"):
+            if needle not in rendered:
+                return False, "expected the French heading/link %r" % (needle,)
+        if "Illustration Air France" not in thumb:
+            return False, "expected the French alt-text template applied to the untranslated airline name"
+        if "Air France" not in thumb:
+            return False, "expected the airline name itself to stay untranslated data"
+        return True, ""
+    check(
+        "under a French request Home's headings ('Vols récents'/'Voir tous les vols') and a "
+        "thumbnail's alt text translate while the callsign/airline name stay untranslated data "
+        "(D-05)",
+        _home_page_french_render_translates_headings_and_alt_text_not_data)
+
+    def _home_page_full_seeded_render_french_end_to_end():
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        import companion.prefs as _prefs
+        tmp = _mkstate("home-fr")
+        try:
+            now = "2026-08-27T12:00:00+00:00"
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T11:50:00+00:00", "hex": "3c6444", "callsign": "AFR1380",
+                 "airline": "Air France", "origin": "ORY", "destination": "TLS",
+                 "confirmed_state": "departing"},
+            ])
+            with _hdb.open_db(tmp) as conn:
+                _hdb.record_device_health(conn, "2026-08-27T11:55:00+00:00", battery_mv=3750)
+            ctx = {
+                "state_dir": tmp, "now": now,
+                "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+                "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+                "device_config": {"wake_interval_s": 900, "display_enabled": True},
+                "health_state": {"device_state": "ok", "pipeline_state": "warn",
+                                 "battery_state": "ok",
+                                 "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
+                                 "pipeline_html": "<p>A little stale</p>"},
+                "simple_mode": False,
+            }
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered_fr = home_page.render(ctx)
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            for needle in (
+                    ">Accueil<", "Vols récents", "Voir tous les vols", "Cadre", "Batterie",
+                    "Données de vol", "Au départ"):
+                if needle not in rendered_fr:
+                    return False, "expected the French %r in the French Home render" % (needle,)
+            if "Prochaine mise à jour" not in rendered_fr and "Attendue depuis" not in rendered_fr:
+                return False, "expected either French next-update headline wording"
+            for english_only in (
+                    "Recent flights", "See all flights", ">Frame<", ">Battery<", "Departing"):
+                if english_only in rendered_fr:
+                    return False, "expected no English %r leaking into the French render" % (
+                        english_only,)
+            if "AFR1380" not in rendered_fr or "Air France" not in rendered_fr:
+                return False, "expected the callsign/airline data to stay untranslated in French"
+
+            rendered_en = home_page.render(ctx)
+            for needle in (
+                    '<h1 class="page-title">Home</h1>', "Recent flights", "See all flights",
+                    home_page.FRAME_ROW_LABEL, home_page.BATTERY_ROW_LABEL,
+                    home_page.DATA_ROW_LABEL, "Next update ≈"):
+                if needle not in rendered_en:
+                    return False, "expected the English %r in the default-language Home render" % (
+                        needle,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a fully-seeded Home render under lang='fr' shows the French page title, section "
+        "headings, status-row labels and next-update headline with no English string leaking "
+        "in (while the callsign/airline data stays untranslated), and the identical seeded "
+        "render under the default language still carries every pre-existing English needle",
+        _home_page_full_seeded_render_french_end_to_end)
+
+    def _home_status_card_localises_real_health_state_timestamps_under_french():
+        # Polish fix 2: unlike the check above (which hand-builds
+        # ctx["health_state"] with already-English literal fragments,
+        # never exercising the real timestamp-formatting path), this
+        # check derives ctx["health_state"] from a REAL health_page.
+        # compute_health_state() call — the exact value companion/
+        # app.py's page_context() threads into every authenticated
+        # page's ctx — with `now` on a different calendar day from
+        # every seeded timestamp, so a surviving English month
+        # abbreviation or "ago" is unmistakable. Also proves the
+        # Flight-data row's detail joins its verdict/timestamp/last-
+        # detection clauses with " · " rather than running them
+        # together with no punctuation at all.
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        import companion.prefs as _prefs
+        tmp = _mkstate("home-fr-health")
+        try:
+            now = "2026-09-12T00:00:00+00:00"
+            device_ts = "2026-09-10T23:58:00+00:00"
+            with _hdb.open_db(tmp) as conn:
+                _hdb.record_device_health(conn, device_ts, battery_mv=3800)
+                _hdb.set_meta(conn, _hdb.META_LAST_PIPELINE_RUN, device_ts)
+                _hdb.set_meta(conn, _hdb.META_LAST_DETECTION, device_ts)
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                health_state = health_page.compute_health_state(tmp, now=now)
+                ctx = {
+                    "state_dir": tmp, "now": now, "gallery_entries": [],
+                    "last_checkin_ts": device_ts,
+                    "device_config": {"wake_interval_s": 900, "display_enabled": True},
+                    "health_state": health_state, "simple_mode": False,
+                }
+                rendered = home_page.render(ctx)
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            if "sept." not in rendered:
+                return False, "expected the French month abbreviation 'sept.' in the Home render"
+            if " ago" in rendered:
+                return False, "expected no English ' ago' in the Home render"
+            for english_month in (
+                    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+                    "Oct", "Nov", "Dec"):
+                if english_month in rendered:
+                    return False, "expected no English month abbreviation %r in the Home render" % (
+                        english_month,)
+            # "Données de vol" is companion/i18n_fr/home.py's own French
+            # translation of DATA_ROW_LABEL ("Flight data") — the label
+            # itself is French text by this point in the render, so the
+            # anchor must be too.
+            data_row_start = rendered.index("Données de vol")
+            data_row_end = rendered.index("</div>", data_row_start)
+            data_row = rendered[data_row_start:data_row_end]
+            if data_row.count(" · ") < 2:
+                return False, (
+                    "expected the Flight-data row's detail to join its verdict/timestamp/"
+                    "last-detection clauses with ' · ' (got %r)" % (data_row,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home's status card, fed a REAL health_page.compute_health_state() result computed "
+        "under lang='fr', fully localises the Frame/Flight-data rows' timestamps (no English "
+        "month abbreviation or ' ago' survives) and joins the Flight-data row's separate "
+        "clauses with ' · ' instead of running them together (Polish fix 2)",
+        _home_status_card_localises_real_health_state_timestamps_under_french)
+
+    def _home_catalog_keys_all_present_in_merged_catalog():
+        import companion.i18n_fr as i18n_fr
+        import companion.i18n_fr.home as i18n_fr_home
+        missing = [k for k in i18n_fr_home.CATALOG if k not in i18n_fr.CATALOG]
+        if missing:
+            return False, "keys missing from the merged CATALOG: %r" % (missing,)
+        return True, ""
+    check(
+        "every key in companion/i18n_fr/home.py's own CATALOG is also a key of the merged "
+        "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up",
+        _home_catalog_keys_all_present_in_merged_catalog)
+
+    def _home_page_full_render_has_no_quick_actions_and_three_status_rows():
+        from companion.pages import home_page
+        ctx = {
+            "health_state": {"device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"},
+            "device_config": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
+            "now": "2026-08-27T12:00:00+00:00", "simple_mode": False,
+        }
+        rendered = home_page.render(ctx)
+        if "quick-action" in rendered or "/quick/" in rendered:
+            return False, "expected no quick-action markup or /quick/ action anywhere on Home (D-16)"
+        if rendered.count('<div class="status-row') != 3:
+            return False, "expected exactly three status-row blocks"
+        for label in (home_page.FRAME_ROW_LABEL, home_page.BATTERY_ROW_LABEL,
+                      home_page.DATA_ROW_LABEL):
+            if label not in rendered:
+                return False, "expected the %r status-row label" % (label,)
+        if rendered.count(home_page.FRAME_STATE_TEXT["ok"]) != 1:
+            return False, (
+                "expected the Frame state sentence to appear exactly once — the "
+                "20-RESEARCH.md Pitfall 3 duplicated-verdict regression test")
+        return True, ""
+    check(
+        "a rendered Home page carries no quick-action markup and no /quick/ action anywhere "
+        "(D-16), exactly three status-row blocks labelled Frame/Battery/Flight data, and the "
+        "Frame verdict sentence exactly once",
+        _home_page_full_render_has_no_quick_actions_and_three_status_rows)
+
+    def _home_status_card_headline_next_update_or_expected_since():
+        from companion.pages import home_page
+        base_ctx = {
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "health_state": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
+        }
+        future_ctx = dict(
+            base_ctx, last_checkin_ts="2026-08-27T11:55:00+00:00", now="2026-08-27T12:00:00+00:00")
+        rendered_future = home_page._status_card_html(future_ctx)
+        # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
+        # UTC+2, in effect in late August) — still AFTER the 12:00 UTC
+        # "now", so this is the not-yet-due branch.
+        if "Next update ≈ 14:10" not in rendered_future:
+            return False, "expected the future next-update headline"
+        if "status-card__headline--warn" in rendered_future:
+            return False, "expected no warn modifier for a future next-update"
+
+        past_ctx = dict(
+            base_ctx, last_checkin_ts="2026-08-27T11:00:00+00:00", now="2026-08-27T12:00:00+00:00")
+        rendered_past = home_page._status_card_html(past_ctx)
+        # 11:00 UTC + 15 minutes = 11:15 UTC, already BEFORE the 12:00 UTC
+        # "now" — the overdue, warn-treatment branch.
+        if "Expected since" not in rendered_past:
+            return False, "expected the overdue headline wording"
+        if "status-card__headline--warn" not in rendered_past:
+            return False, "expected the warn modifier for an overdue next-update"
+
+        missing_checkin = dict(base_ctx, last_checkin_ts=None, now="2026-08-27T12:00:00+00:00")
+        if "status-card__headline" in home_page._status_card_html(missing_checkin):
+            return False, "expected no headline at all when there is no check-in yet"
+        missing_interval = dict(
+            base_ctx, device_config={}, last_checkin_ts="2026-08-27T11:55:00+00:00",
+            now="2026-08-27T12:00:00+00:00")
+        if "status-card__headline" in home_page._status_card_html(missing_interval):
+            return False, "expected no headline at all when the wake interval is unknown"
+        return True, ""
+    check(
+        "the status card's headline reads 'Next update ≈ HH:MM' for a future next-update, "
+        "'Expected since HH:MM' in the warn treatment for a past one, and renders no headline "
+        "at all when either the check-in or the wake interval is unknown (D-17)",
+        _home_status_card_headline_next_update_or_expected_since)
+
+    def _home_status_card_health_link_gated_by_simple_mode():
+        from companion.pages import home_page
+        ctx = {
+            "health_state": {}, "device_config": {},
+            "state_dir": "/tmp/skypane-no-such-state-dir", "now": "2026-08-27T12:00:00+00:00",
+        }
+        full_mode_rendered = home_page._status_card_html(dict(ctx, simple_mode=False))
+        simple_mode_rendered = home_page._status_card_html(dict(ctx, simple_mode=True))
+        if home_page.HEALTH_LINK_TEXT not in full_mode_rendered:
+            return False, "expected the Health link when simple_mode is off"
+        if home_page.HEALTH_LINK_TEXT in simple_mode_rendered:
+            return False, "expected no Health link when simple_mode is on (D-30)"
+        return True, ""
+    check(
+        "the status card's 'See details on Health' link is present with simple_mode off and "
+        "absent with it on (D-30)",
+        _home_status_card_health_link_gated_by_simple_mode)
 
     def _home_page_render_degrades_with_nothing():
         from companion.pages import home_page
         rendered = home_page.render({})
         for needle in (home_page.NO_FLIGHTS_HEADING, home_page.NO_PANEL_HEADING,
-                       home_page.NO_READING_TEXT, "Quick actions"):
+                       home_page.NO_READING_TEXT):
             if needle not in rendered:
                 return False, "expected %r for an empty ctx" % needle
         if battery.battery_percent(4200) != 100 or battery.battery_percent(3300) != 0:
@@ -3123,35 +3927,6 @@ def main():
         "last_checkin + wake_interval_s for a screen-on config, and last_checkin + DISPLAY_OFF_SLEEP_S "
         "for a screen-off config (D-13's screen-off rule)",
         _wake_next_wake_at_iso_contract)
-
-    def _home_page_renders_next_wake_figure_only_when_known():
-        from companion.pages import home_page
-        base_ctx = {
-            "device_config": {"wake_interval_s": 900, "display_enabled": True},
-            "health_state": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
-        }
-        with_both = dict(base_ctx, last_checkin_ts="2026-08-27T11:55:00+00:00", now="2026-08-27T12:00:00+00:00")
-        rendered_both = home_page._status_tiles_html(with_both)
-        # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
-        # UTC+2, in effect in late August) — layout.local_clock_text()
-        # renders in local time, matching D-13's "Paris local time" wording.
-        if "Next wake" not in rendered_both or "≈ 14:10" not in rendered_both:
-            return False, "expected the Next wake figure when a check-in and an interval are both present"
-        missing_checkin = dict(base_ctx, last_checkin_ts=None, now="2026-08-27T12:00:00+00:00")
-        rendered_missing_checkin = home_page._status_tiles_html(missing_checkin)
-        if "Next wake" in rendered_missing_checkin:
-            return False, "expected no Next wake label at all when there is no check-in yet"
-        missing_interval = dict(
-            base_ctx, device_config={}, last_checkin_ts="2026-08-27T11:55:00+00:00",
-            now="2026-08-27T12:00:00+00:00")
-        rendered_missing_interval = home_page._status_tiles_html(missing_interval)
-        if "Next wake" in rendered_missing_interval:
-            return False, "expected no Next wake label at all when the wake interval is unknown"
-        return True, ""
-    check(
-        "Home renders the ≈ Next-wake figure only when a check-in and an interval are both known, "
-        "and renders no Next-wake label at all when either is missing (D-13)",
-        _home_page_renders_next_wake_figure_only_when_known)
 
     def _battery_module_never_imports_pages_or_server():
         battery_path = os.path.join(REPO_ROOT, "companion", "battery.py")

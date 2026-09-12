@@ -57,6 +57,26 @@
  * attributes and writing into the same form's time inputs and enable
  * checkbox, then reusing notifyDirty()/updateBar() to mark the form
  * dirty - never a synthetic change event.
+ *
+ * D-06 (20-11-PLAN.md Task 3): updateBar()'s own connector words are now
+ * read once from the dirty-bar element itself, via five data-* attributes
+ * server-rendered and translated by config_page.py's dirty_bar_html — the
+ * same shape freshness.js already uses for data-pause-text/
+ * data-resume-text:
+ *   data-dirty-changed-suffix   — the word appended after a section-label
+ *                                 list names what happened to it
+ *   data-dirty-and              — the two-item list joiner
+ *   data-dirty-list-and         — the final joiner for three or more
+ *                                 items, distinct from the two-item one
+ *   data-dirty-unsaved-singular — the whole sentence for the raw-count
+ *                                 fallback (exactly one differing field
+ *                                 outside every section wrapper)
+ *   data-dirty-unsaved-plural   — that same fallback's own suffix,
+ *                                 appended after the live count
+ * Each var declaration below documents its own hardcoded fallback
+ * literal, used only when the corresponding attribute is missing, so
+ * the bar can never render empty; the pluralisation LOGIC itself
+ * (which branch runs) stays in this file — only the words move.
  */
 (function () {
   "use strict";
@@ -124,6 +144,17 @@
   if (!bar || !countEl) {
     return;
   }
+
+  // D-06 (20-11-PLAN.md Task 3): read once, off the dirty-bar element
+  // itself, now that it is proven present — see this file's own header
+  // comment for what each attribute means. Each fallback literal below
+  // is this file's pre-D-06 English wording, used only when the
+  // corresponding attribute is absent.
+  var dirtyChangedSuffix = bar.getAttribute("data-dirty-changed-suffix") || " changed";
+  var dirtyAnd = bar.getAttribute("data-dirty-and") || " and ";
+  var dirtyListAnd = bar.getAttribute("data-dirty-list-and") || ", and ";
+  var dirtyUnsavedSingular = bar.getAttribute("data-dirty-unsaved-singular") || "1 unsaved change";
+  var dirtyUnsavedPlural = bar.getAttribute("data-dirty-unsaved-plural") || " unsaved changes";
 
   // D-09/A-27: the bar is now proven present — set the marker
   // style.css's fallback-hide rule keys on. Mirrors nav-dropdown.js's
@@ -231,22 +262,24 @@
       // shipped before D-03's section-naming so the bar can never go
       // silent while unsaved edits exist.
       countEl.textContent = count === 1
-        ? "1 unsaved change"
-        : count + " unsaved changes";
+        ? dirtyUnsavedSingular
+        : count + dirtyUnsavedPlural;
       return;
     }
     if (labels.length === 1) {
-      countEl.textContent = labels[0] + " changed";
+      countEl.textContent = labels[0] + dirtyChangedSuffix;
       return;
     }
     if (labels.length === 2) {
-      countEl.textContent = labels[0] + " and " + labels[1] + " changed";
+      countEl.textContent = labels[0] + dirtyAnd + labels[1] + dirtyChangedSuffix;
       return;
     }
-    // Three or more: every label but the last joined with ", ", the
-    // last one prefixed with ", and " — UI-SPEC §5.1's table.
+    // Three or more: every label but the last joined with ", " (a
+    // punctuation mark, not a translatable word — French list-commas
+    // read identically), the last one prefixed with the final joiner —
+    // UI-SPEC §5.1's table.
     var head = labels.slice(0, labels.length - 1).join(", ");
-    countEl.textContent = head + ", and " + labels[labels.length - 1] + " changed";
+    countEl.textContent = head + dirtyListAnd + labels[labels.length - 1] + dirtyChangedSuffix;
   }
 
   var suppressGuard = false;

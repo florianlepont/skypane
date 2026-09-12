@@ -51,14 +51,19 @@ REPO_ROOT = os.path.dirname(HERE)
 # companion/test_contrast_check.py; phase 13 plan 01 added
 # server/test_manual_resolutions.py; phase 14 plan 01 added
 # server/test_colour_rules.py; phase 16 plan 01 added
-# server/test_calendar_rules.py). 04-CONTEXT.md's D-07 list is 7 files
-# and is known-stale — do NOT "correct" this list back down to match it.
-# This list is the single source of truth CI (04-04) and README.md
-# (04-05) both defer to.
+# server/test_calendar_rules.py; phase 20 plan 02 added the two new
+# harnesses this phase's notifications and i18n work needed — the
+# companion one is created by a sibling plan in the same wave; this
+# file's own owning plan registers both entries below so the two
+# plans never edit this file together). 04-CONTEXT.md's D-07 list is
+# 7 files and is known-stale — do NOT "correct" this list back down to
+# match it. This list is the single source of truth CI (04-04) and
+# README.md (04-05) both defer to.
 HARNESSES = [
     "server/test_config_history.py",
     "server/test_colour_rules.py",
     "server/test_calendar_rules.py",
+    "server/test_notify.py",
     "server/test_dither.py",
     "server/test_enrich.py",
     "server/test_illustrations.py",
@@ -73,6 +78,7 @@ HARNESSES = [
     "companion/test_companion_app.py",
     "companion/test_config_page.py",
     "companion/test_contrast_check.py",
+    "companion/test_i18n.py",
     "companion/test_status_pages.py",
     "companion/test_view_pages.py",
 ]

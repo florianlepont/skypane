@@ -60,16 +60,16 @@
 | A-37 | Flights | low | fixed (phase 19) | Copy confirmation is invisible to sighted users; all 50 rows share identical accessible names; execCommand result ignored | Backlog. |
 | A-39 | Airlines | low | fixed (phase 19) | Illustration replace/upload/delete forms live in the everyday Airlines lightbox | Backlog: show the replace zone only from Device (or behind an "Edit artwork" toggle). |
 
-## Suggestions (6 — S-02 and S-04 shipped in phase 19; S-01/S-03/S-05/S-06 deferred to phase 20)
+## Suggestions (6 — all six shipped: S-02 and S-04 in phase 19, S-01/S-03/S-05/S-06 in phase 20)
 
 | ID | Area | Severity | Status | Finding | Fix / next step |
 |---|---|---|---|---|---|
-| S-01 | Suggestion | suggestion | open | French localisation | A small gettext-style dictionary keyed by the existing constants, with a language toggle in the nav footer next to the theme picker. |
+| S-01 | Suggestion | suggestion | fixed (phase 20) | French localisation | A small gettext-style dictionary keyed by the existing constants, with a language toggle in the nav footer next to the theme picker. |
 | S-02 | Suggestion | suggestion | fixed (phase 19) | Next-wake countdown on Home | Derive from the last check-in + wake_interval_s (or DISPLAY_OFF_SLEEP_S while off). |
-| S-03 | Suggestion | suggestion | open | Theme picker as a carousel with a live preview of the current flight | Reuse theme_preview.py with the latest runway_events row. |
+| S-03 | Suggestion | suggestion | fixed (phase 20) | Theme picker as a carousel with a live preview of the current flight | Reuse theme_preview.py with the latest runway_events row. |
 | S-04 | Suggestion | suggestion | fixed (phase 19) | Schedule presets for quiet hours |  |
-| S-05 | Suggestion | suggestion | open | Notifications for the two things that matter: battery low and frame silent | A daily digest e-mail or a ntfy/Pushover hook from the poll loop. |
-| S-06 | Suggestion | suggestion | open | Per-person entry point |  |
+| S-05 | Suggestion | suggestion | fixed (phase 20) | Notifications for the two things that matter: battery low and frame silent | A daily digest e-mail or a ntfy/Pushover hook from the poll loop. |
+| S-06 | Suggestion | suggestion | fixed (phase 20) | Per-person entry point |  |
 
 ## Pre-existing harness failures (not this phase's)
 

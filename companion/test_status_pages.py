@@ -53,7 +53,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import companion.app as app  # noqa: E402
-from companion import auth, illustration_normalize, layout  # noqa: E402
+from companion import auth, illustration_normalize, layout, prefs  # noqa: E402
+import companion.i18n_fr.health as i18n_fr_health  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 import companion.wake as wake  # noqa: E402
 from server import device_config  # noqa: E402
@@ -438,6 +439,73 @@ EXPECTED_CHECK_COUNT = 191  # 190 + 1 (19-09-PLAN.md Task 3, D-02: the new
 # same plan's Tasks 1/2/3, not counted as new. Re-derived by RUNNING the
 # harness (190/191 - the one documented pre-existing root-sandbox
 # anomaly_active() failure), not by arithmetic.
+
+EXPECTED_CHECK_COUNT = 196  # 20-01-PLAN.md Task 3 (D-01..D-09/D-29/D-30):
+# +5 (page_shell()'s <html lang> follows prefs; login_shell()'s
+# <html lang> follows prefs; the three-switch nav footer's ordered,
+# aria-labelled theme-form triplet; the French nav's locked D-09
+# labels; simple mode omitting the Advanced group/health/device
+# hrefs/nav status dot, with full mode proving the omission is
+# mode-gated). 191 + 5 = 196, recomputed directly against the real
+# on-disk check(...) call count at execution time (195/196 pass — the
+# one documented pre-existing root-sandbox anomaly_active() failure,
+# unrelated to this plan), not trusted from arithmetic alone.
+
+EXPECTED_CHECK_COUNT = 204  # 20-03-PLAN.md Task 1 (D-21/D-17/§C): +8
+# (status_row() dot/label/verdict/detail happy path; status_row('', ...)
+# omits the label span; status_row(state='nonsense') falls back safely
+# with no attacker-influenceable class; status_row() escapes a hostile
+# <script>-shaped verdict/detail; layout.section_intro_html()'s
+# byte-identical-to-the-promoted-markup pin; health_page no longer
+# defines its own _section_intro_html; _device_timestamp_only() carries
+# no widget-verdict/DEVICE_STATE_TEXT text while _device_section() still
+# carries exactly one; compute_health_state()'s device_detail_html key).
+# 196 + 8 = 204, recomputed directly against the real on-disk check(...)
+# call count at execution time (203/204 pass — the one documented
+# pre-existing root-sandbox anomaly_active() failure, unrelated to this
+# plan), not trusted from arithmetic alone.
+
+EXPECTED_CHECK_COUNT = 208  # 20-03-PLAN.md Task 2 (D-07): +4
+# (relative_age_text()'s French seconds-bucket/'à l’instant' and
+# day-bucket/'il y a 1 j' pair; relative_age_text()'s English
+# output unchanged under lang='en'; local_clock_text()'s French/
+# English month-abbreviation pair with an identical HH:MM in both;
+# the positional-signature-unchanged source guard). 204 + 4 = 208,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (207/208 pass — the one documented pre-existing
+# root-sandbox anomaly_active() failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+
+EXPECTED_CHECK_COUNT = 212  # Polish fix 2 (French Home status rows):
+# +1 (compute_health_state()'s device_html/device_detail_html/
+# pipeline_html fields, and health_page.render()'s own page, fully
+# localise their timestamps under lang='fr' with no English month
+# abbreviation or ' ago' surviving — the regression guard for the
+# companion/app.py page_context() request-ordering bug this fix
+# closes). 211 + 1 = 212, recomputed directly against the real
+# on-disk check(...) call count at execution time (211/212 pass — the
+# one documented pre-existing root-sandbox anomaly_active() failure,
+# unrelated to this fix), not
+# trusted from arithmetic alone.
+# was: EXPECTED_CHECK_COUNT = 211  # 20-03-PLAN.md Task 3 (D-05): +3
+# (health_page.render() under lang='fr' carries the French page title
+# and at least three other French strings, and none of a short list
+# of English source strings with distinct French forms; the same
+# render under lang='en' is byte-for-byte unchanged for a seeded state,
+# pinned by representative substrings; every key/value of companion/
+# i18n_fr/health.py's own CATALOG is a non-empty str). 208 + 3 = 211,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (210/211 pass — the one documented pre-existing
+# root-sandbox anomaly_active() failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+
+EXPECTED_CHECK_COUNT = 213  # WR-03 fix (20-REVIEW.md): +1
+# (layout.section_intro_html() escapes a hostile section_id argument,
+# never writing it raw into the id="..." attribute). 212 + 1 = 213,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (212/213 pass — the one documented pre-existing
+# root-sandbox anomaly_active() failure, unrelated to this fix), not
+# trusted from arithmetic alone.
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -949,7 +1017,7 @@ def main():
     def _battery_trend_shows_all_readings_and_one_sparkline():
         tmp = _mkstate("h-battery-trend")
         try:
-            base = _now()
+            base = _now().replace(hour=12, minute=0, second=0, microsecond=0)  # fixed noon: readings minutes apart must never straddle a UTC day boundary
             readings = [
                 (_iso(base - timedelta(minutes=2)), 4200),
                 (_iso(base - timedelta(minutes=1)), 4190),
@@ -1142,7 +1210,7 @@ def main():
         # gates the readout and script tag together.
         tmp = _mkstate("h-day-one-fallback")
         try:
-            base = _now()
+            base = _now().replace(hour=12, minute=0, second=0, microsecond=0)  # fixed noon: readings minutes apart must never straddle a UTC day boundary
             readings = [
                 (_iso(base - timedelta(minutes=2)), 4200),
                 (_iso(base - timedelta(minutes=1)), 4190),
@@ -1269,8 +1337,8 @@ def main():
         # reads as a run of sentences again.
         ordinary = health_page._anomaly_category_text(
             ["Device check-in is stale.",
-             "A battery reading shows an abnormal drop."])
-        if "a battery reading" not in ordinary:
+             "Battery dropped abnormally."])
+        if "battery dropped abnormally" not in ordinary:
             return False, (
                 "expected an ordinary non-acronym phrase to still be "
                 "lower-cased mid-sentence, got %r" % (ordinary,))
@@ -1547,7 +1615,7 @@ def main():
                     "modifier with a single, healthy battery reading, got %r" % battery_tag)
             if health_page.ANOMALY_BANNER_TEXT in rendered:
                 return False, "did not expect the anomaly banner with a single, healthy battery reading"
-            if "A battery reading shows an abnormal drop." in rendered:
+            if "Battery dropped abnormally." in rendered:
                 return False, "did not expect the abnormal-drop copy with a single battery reading"
             return True, ""
         finally:
@@ -1590,10 +1658,10 @@ def main():
             count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
             if count != 1:
                 return False, "expected the anomaly banner copy exactly once, found %d" % count
-            if "A battery reading shows an abnormal drop." in rendered:
+            if "Battery dropped abnormally." in rendered:
                 return False, "the abnormal-drop detail copy must no longer be rendered on the page"
             if health_page.collect_anomalies("ok", "ok", "error", False) != [
-                    "A battery reading shows an abnormal drop."]:
+                    "Battery dropped abnormally."]:
                 return False, "collect_anomalies() must still compute the abnormal-drop item directly"
             return True, ""
         finally:
@@ -4952,7 +5020,7 @@ def main():
         # this check exists to catch.
         tmp = _mkstate("h-humanised-readout-e2e")
         try:
-            base = _now()
+            base = _now().replace(hour=12, minute=0, second=0, microsecond=0)  # fixed noon: readings minutes apart must never straddle a UTC day boundary
             readings = [
                 (_iso(base - timedelta(minutes=6)), 4210),
                 (_iso(base - timedelta(minutes=3)), 4200),
@@ -6318,6 +6386,496 @@ def main():
         "no module anywhere under companion/ defines its own alpha-threshold constant — the threshold "
         "is only ever imported from server.plane.render",
         _no_module_in_companion_redefines_the_alpha_threshold)
+
+    # ======================================================================
+    # Section 1.6: companion/layout.py — <html lang>, the three-switch
+    # nav footer, localised nav labels and simple-mode nav suppression
+    # (D-01..D-09/D-29/D-30, 20-01-PLAN.md Task 3). Pure in-process
+    # unit checks against layout.page_shell()/login_shell() — no
+    # subprocess needed, mirroring this section's own Section 1.5
+    # style. Every check resets prefs' ContextVars in a finally block
+    # so no check's language/mode leaks into the next one.
+    # ======================================================================
+
+    def _page_shell_html_lang_follows_prefs():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_rendered = layout.page_shell(
+                title="Health", active="health", body="", ui_theme="auto")
+            prefs.set_request_prefs(lang="en")
+            en_rendered = layout.page_shell(
+                title="Health", active="health", body="", ui_theme="auto")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if '<html lang="fr"' not in fr_rendered:
+            return False, "expected <html lang=\"fr\" under lang='fr'"
+        if '<html lang="en"' not in en_rendered:
+            return False, "expected <html lang=\"en\" under lang='en'"
+        return True, ""
+    check(
+        "page_shell() renders <html lang=\"fr\" under prefs.set_request_prefs(lang='fr') "
+        "and <html lang=\"en\" otherwise (D-03)",
+        _page_shell_html_lang_follows_prefs)
+
+    def _login_shell_html_lang_follows_prefs():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_rendered = layout.login_shell("", ui_theme="auto")
+            prefs.set_request_prefs(lang="en")
+            en_rendered = layout.login_shell("", ui_theme="auto")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if '<html lang="fr"' not in fr_rendered:
+            return False, "expected <html lang=\"fr\" under lang='fr'"
+        if '<html lang="en"' not in en_rendered:
+            return False, "expected <html lang=\"en\" under lang='en'"
+        return True, ""
+    check(
+        "login_shell() renders <html lang=\"fr\" under prefs.set_request_prefs(lang='fr') "
+        "and <html lang=\"en\" otherwise (D-03)",
+        _login_shell_html_lang_follows_prefs)
+
+    def _shell_has_three_ordered_theme_forms_each_with_aria_label():
+        rendered = layout.page_shell(
+            title="Health", active="health", body="", ui_theme="auto")
+        actions_in_order = re.findall(
+            r'<form class="theme-form" method="post" action="([^"]+)" aria-label="[^"]+"',
+            rendered)
+        if actions_in_order.count("/ui-lang") != 2:
+            # Once in the sidebar footer, once in the mobile-nav dropdown
+            # footer — the same "both copies present" shape the existing
+            # /ui-theme count check already established.
+            return False, "expected exactly 2 /ui-lang forms (sidebar + mobile), got %r" % (
+                actions_in_order.count("/ui-lang"),)
+        if actions_in_order.count("/ui-theme") != 2:
+            return False, "expected exactly 2 /ui-theme forms (sidebar + mobile), got %r" % (
+                actions_in_order.count("/ui-theme"),)
+        if actions_in_order.count("/ui-mode") != 2:
+            return False, "expected exactly 2 /ui-mode forms (sidebar + mobile), got %r" % (
+                actions_in_order.count("/ui-mode"),)
+        # Document order within EACH footer copy must be lang, theme, mode.
+        first_three = actions_in_order[:3]
+        if first_three != ["/ui-lang", "/ui-theme", "/ui-mode"]:
+            return False, "expected the first footer's forms in order lang/theme/mode, got %r" % (
+                first_three,)
+        return True, ""
+    check(
+        "a rendered shell contains exactly three aria-labelled theme-form forms per footer "
+        "copy, actions /ui-lang, /ui-theme, /ui-mode in that document order (D-02/D-29, "
+        "20-UI-SPEC.md §I)",
+        _shell_has_three_ordered_theme_forms_each_with_aria_label)
+
+    def _french_shell_nav_reads_the_locked_french_labels():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            rendered = layout.page_shell(
+                title="Home", active="home", body="", ui_theme="auto")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        for label in ("Accueil", "Affichage", "Vols", "Compagnies",
+                      "Avancé", "État", "Appareil"):
+            if label not in rendered:
+                return False, "expected the French nav label %r in the rendered shell" % (label,)
+        return True, ""
+    check(
+        "under lang='fr' the nav reads Accueil/Affichage/Vols/Compagnies/Avancé/État/"
+        "Appareil (D-09)",
+        _french_shell_nav_reads_the_locked_french_labels)
+
+    def _simple_mode_omits_advanced_group_and_health_dot():
+        try:
+            prefs.set_request_prefs(mode="simple")
+            simple_rendered = layout.page_shell(
+                title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
+            prefs.set_request_prefs(mode="full")
+            full_rendered = layout.page_shell(
+                title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
+        finally:
+            prefs.set_request_prefs(mode="full")
+        if layout.ADVANCED_GROUP_LABEL in simple_rendered:
+            return False, "expected no ADVANCED_GROUP_LABEL text in simple mode"
+        if layout.HEALTH_ROUTE in simple_rendered:
+            return False, "expected no /health href in simple mode's nav"
+        if layout.DEVICE_ROUTE in simple_rendered:
+            return False, "expected no /device href in simple mode's nav"
+        if layout.NAV_NOTIFICATION_CLASS in simple_rendered:
+            return False, "expected no nav status dot in simple mode"
+        # Full mode (the default) must still carry all of the above —
+        # proving the omission is mode-gated, not accidentally missing.
+        if layout.ADVANCED_GROUP_LABEL not in full_rendered:
+            return False, "expected ADVANCED_GROUP_LABEL text in full mode"
+        if layout.HEALTH_ROUTE not in full_rendered:
+            return False, "expected a /health href in full mode's nav"
+        if layout.DEVICE_ROUTE not in full_rendered:
+            return False, "expected a /device href in full mode's nav"
+        if layout.NAV_NOTIFICATION_CLASS not in full_rendered:
+            return False, "expected the nav status dot in full mode (health_alert='warn')"
+        return True, ""
+    check(
+        "in simple mode the shell contains neither the Advanced group label, /health, /device "
+        "nor the nav status dot; full mode carries all four (D-30)",
+        _simple_mode_omits_advanced_group_and_health_dot)
+
+    # ======================================================================
+    # Section 1.7: companion/layout.py's new status_row()/
+    # section_intro_html() primitives, and health_page.py's verdict-free
+    # _device_timestamp_only()/device_detail_html (D-21/D-17/§C,
+    # 20-03-PLAN.md Task 1).
+    # ======================================================================
+
+    def _status_row_renders_dot_label_verdict_detail():
+        rendered = layout.status_row(
+            "Frame", "Checking in normally", "Last check-in 2m ago", "ok")
+        if "status-row--ok" not in rendered:
+            return False, "expected the status-row--ok modifier class"
+        if "dot--ok" not in rendered:
+            return False, "expected the dot--ok class"
+        for text in ("Frame", "Checking in normally", "Last check-in 2m ago"):
+            if text not in rendered:
+                return False, "expected %r in the rendered row" % (text,)
+        if rendered.count("status-row__label") != 1:
+            return False, (
+                "expected exactly one status-row__label occurrence, got %d"
+                % rendered.count("status-row__label"))
+        return True, ""
+    check(
+        "status_row('Frame', 'Checking in normally', 'Last check-in 2m ago', 'ok') carries "
+        "status-row--ok, dot--ok, all three texts and exactly one status-row__label (D-21)",
+        _status_row_renders_dot_label_verdict_detail)
+
+    def _status_row_empty_label_omits_the_label_span():
+        rendered = layout.status_row("", "Not connected", "checked 10 min ago", "warn")
+        if "status-row__label" in rendered:
+            return False, "expected no status-row__label span when label=''"
+        return True, ""
+    check(
+        "status_row('', ..., 'warn') omits the status-row__label span entirely, not merely "
+        "its text (D-21, 20-UI-SPEC.md Section Anatomy A)",
+        _status_row_empty_label_omits_the_label_span)
+
+    def _status_row_unrecognised_state_falls_back_safely():
+        rendered = layout.status_row("Frame", "Verdict", "Detail", "nonsense")
+        if "status-row--nonsense" in rendered:
+            return False, "expected no status-row--nonsense modifier class to ever be emitted"
+        if layout._DEFAULT_STATUS_DOT_CLASS not in rendered:
+            return False, "expected the default dot class as the fallback"
+        return True, ""
+    check(
+        "status_row(..., state='nonsense') falls back to the default dot class and emits no "
+        "status-row--nonsense class (T-20-18)",
+        _status_row_unrecognised_state_falls_back_safely)
+
+    def _status_row_escapes_hostile_verdict_and_detail():
+        rendered = layout.status_row(
+            "Frame", "<script>alert(1)</script>", "<img src=x onerror=alert(1)>", "error")
+        if "<script>" in rendered or "<img " in rendered:
+            return False, "expected the hostile verdict/detail to come back escaped"
+        if "&lt;script&gt;" not in rendered:
+            return False, "expected the escaped verdict to be present"
+        return True, ""
+    check(
+        "status_row() with a hostile <script>-shaped verdict/detail comes back escaped, never "
+        "raw markup (T-20-03)",
+        _status_row_escapes_hostile_verdict_and_detail)
+
+    def _section_intro_html_is_byte_identical_to_the_promoted_markup():
+        rendered = layout.section_intro_html("test-id", "Heading", "Description")
+        expected = (
+            '<div class="section-intro">'
+            '<h2 id="test-id" class="text-heading">Heading</h2>'
+            '<p class="text-label section-caption">Description</p>'
+            "</div>")
+        if rendered != expected:
+            return False, "expected %r, got %r" % (expected, rendered)
+        return True, ""
+    check(
+        "layout.section_intro_html() emits the byte-identical markup health_page.py's own "
+        "former private _section_intro_html() rendered before the promotion (20-UI-SPEC.md "
+        "Section Anatomy C)",
+        _section_intro_html_is_byte_identical_to_the_promoted_markup)
+
+    def _section_intro_html_escapes_hostile_section_id():
+        rendered = layout.section_intro_html('"><script>alert(1)</script>', "Heading", "Description")
+        if "<script>" in rendered:
+            return False, "expected a hostile section_id to be escaped, got raw markup: %r" % (rendered,)
+        if "&lt;script&gt;" not in rendered:
+            return False, "expected the escaped section_id to be present: %r" % (rendered,)
+        return True, ""
+    check(
+        "layout.section_intro_html() escapes a hostile section_id argument, never writing it raw "
+        "into the id=\"...\" attribute (WR-03, 20-REVIEW.md)",
+        _section_intro_html_escapes_hostile_section_id)
+
+    def _health_page_no_longer_defines_section_intro_html():
+        if hasattr(health_page, "_section_intro_html"):
+            return False, "expected health_page._section_intro_html to be gone after the promotion"
+        return True, ""
+    check(
+        "health_page no longer defines its own _section_intro_html — layout.section_intro_html "
+        "is the one definition",
+        _health_page_no_longer_defines_section_intro_html)
+
+    def _device_timestamp_only_carries_no_verdict_text():
+        now = _iso(_now())
+        ts = _ago(120)
+        detail_only = health_page._device_timestamp_only({"ts": ts}, now)
+        if "widget-verdict" in detail_only:
+            return False, "expected no widget-verdict class in the detail-only fragment"
+        for verdict_text in health_page.DEVICE_STATE_TEXT.values():
+            if verdict_text in detail_only:
+                return False, "expected no DEVICE_STATE_TEXT verdict text (%r) in the detail-only fragment" % (
+                    verdict_text,)
+        full_row, _state = health_page._device_section({"ts": ts}, now)
+        verdict_occurrences = sum(
+            1 for verdict_text in health_page.DEVICE_STATE_TEXT.values()
+            if verdict_text in full_row)
+        if verdict_occurrences != 1:
+            return False, (
+                "expected _device_section() to still carry exactly one DEVICE_STATE_TEXT "
+                "verdict, got %d" % verdict_occurrences)
+        return True, ""
+    check(
+        "_device_timestamp_only() emits no widget-verdict class and no DEVICE_STATE_TEXT "
+        "value, while _device_section() still carries exactly one (D-17)",
+        _device_timestamp_only_carries_no_verdict_text)
+
+    def _compute_health_state_carries_device_detail_html():
+        tmp = _mkstate("device-detail-html")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_ago(120), 3800)])
+            state = health_page.compute_health_state(tmp, now=_iso(now))
+            if "device_detail_html" not in state:
+                return False, "expected a device_detail_html key on compute_health_state()'s dict"
+            detail_only = state["device_detail_html"]
+            if "widget-verdict" in detail_only:
+                return False, "expected device_detail_html to carry no widget-verdict class"
+            for verdict_text in health_page.DEVICE_STATE_TEXT.values():
+                if verdict_text in detail_only:
+                    return False, "expected device_detail_html to carry no DEVICE_STATE_TEXT verdict text"
+            if detail_only not in state["device_html"]:
+                return False, (
+                    "expected device_detail_html to be the exact verdict-free fragment "
+                    "embedded inside device_html")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "compute_health_state()'s returned dict carries a device_detail_html key holding the "
+        "verdict-free fragment also embedded (once) inside device_html (D-17)",
+        _compute_health_state_carries_device_detail_html)
+
+    # ======================================================================
+    # Section 1.8: companion/layout.py's language-aware relative_age_
+    # text()/local_clock_text() (D-07, 20-03-PLAN.md Task 2). Every
+    # check resets prefs' ContextVars in a finally block so no check's
+    # language leaks into the next one.
+    # ======================================================================
+
+    def _relative_age_text_french_seconds_bucket_reads_a_linstant():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            thirty_s = layout.relative_age_text(30)
+            one_day = layout.relative_age_text(90000)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if thirty_s != "à l’instant":
+            return False, "expected relative_age_text(30) under fr to be 'à l’instant', got %r" % (thirty_s,)
+        if not one_day.startswith("il y a 1"):
+            return False, "expected relative_age_text(90000) under fr to start with 'il y a 1', got %r" % (one_day,)
+        if " " not in one_day:
+            return False, "expected a real U+00A0 between the number and the unit (D-09), got %r" % (one_day,)
+        return True, ""
+    check(
+        "under lang='fr', relative_age_text(30) reads 'à l’instant' and relative_age_text(90000) "
+        "reads 'il y a 1\\u00a0j' (D-07)",
+        _relative_age_text_french_seconds_bucket_reads_a_linstant)
+
+    def _relative_age_text_english_unchanged_under_default_lang():
+        try:
+            prefs.set_request_prefs(lang="en")
+            thirty_s = layout.relative_age_text(30)
+            one_day = layout.relative_age_text(90000)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if thirty_s != "30s ago":
+            return False, "expected the unchanged English '30s ago', got %r" % (thirty_s,)
+        if one_day != "1d ago":
+            return False, "expected the unchanged English '1d ago', got %r" % (one_day,)
+        return True, ""
+    check(
+        "under lang='en' (the default), relative_age_text()'s English output is byte-for-byte "
+        "unchanged — '30s ago'/'1d ago' (D-07)",
+        _relative_age_text_english_unchanged_under_default_lang)
+
+    def _local_clock_text_french_month_abbreviation():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            september = datetime(2026, 9, 10, 11, 53, tzinfo=timezone.utc)
+            now = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
+            fr_rendered = layout.local_clock_text(september, now)
+            prefs.set_request_prefs(lang="en")
+            en_rendered = layout.local_clock_text(september, now)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if "sept." not in fr_rendered:
+            return False, "expected the French month abbreviation 'sept.' in %r" % (fr_rendered,)
+        if "Sep" not in en_rendered:
+            return False, "expected the English month abbreviation 'Sep' in %r" % (en_rendered,)
+        fr_clock = fr_rendered.rsplit(" ", 1)[-1]
+        en_clock = en_rendered.rsplit(" ", 1)[-1]
+        if fr_clock != en_clock:
+            return False, "expected an identical HH:MM in both languages, got %r vs %r" % (
+                fr_clock, en_clock)
+        return True, ""
+    check(
+        "local_clock_text() on a September timestamp reads 'sept.' under fr and 'Sep' under en, "
+        "with an identical HH:MM in both (D-07)",
+        _local_clock_text_french_month_abbreviation)
+
+    def _relative_age_text_signature_unchanged_positionally():
+        source = inspect.getsource(layout.relative_age_text)
+        if not source.startswith("def relative_age_text(age_seconds"):
+            return False, "expected relative_age_text()'s positional signature to stay untouched"
+        return True, ""
+    check(
+        "relative_age_text()'s positional signature (age_seconds first) is untouched — lang is a "
+        "trailing keyword only",
+        _relative_age_text_signature_unchanged_positionally)
+
+    # ======================================================================
+    # Section 1.9: companion/pages/health_page.py rendered through t(),
+    # with its French catalogue (D-05, 20-03-PLAN.md Task 3). Every
+    # check resets prefs' ContextVars in a finally block so no check's
+    # language leaks into the next one.
+    # ======================================================================
+
+    def _health_page_renders_in_french():
+        tmp = _mkstate("health-fr")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_ago(120), 3800)])
+            _seed_runway_events(tmp, [{
+                "ts": _ago(300), "callsign": "AFR1234", "icao24": "abc123",
+                "corroborated": "True"}])
+            try:
+                prefs.set_request_prefs(lang="fr")
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            if "État" not in rendered:
+                return False, "expected the French page title (État, via the shared nav catalogue)"
+            for french_text in ("Écran", "Serveur et données", "Se connecte normalement"):
+                if french_text not in rendered:
+                    return False, "expected the French string %r in the rendered page" % (french_text,)
+            for english_text in (
+                "Screen status and server data quality, in one place.",
+                "Battery trend", "Checking in normally", "Server & data"):
+                if english_text in rendered:
+                    return False, "expected no English source string %r to leak into the French render" % (
+                        english_text,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "health_page.render() under lang='fr' carries the French page title and at least three "
+        "other French strings, and none of a short list of English source strings with distinct "
+        "French forms (D-05)",
+        _health_page_renders_in_french)
+
+    def _health_page_renders_byte_identical_in_english():
+        tmp = _mkstate("health-en")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_ago(120), 3800)])
+            try:
+                prefs.set_request_prefs(lang="en")
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            for english_text in (
+                health_page.PAGE_PURPOSE_TEXT, health_page.SCREEN_SECTION_HEADING,
+                layout.escape_html(health_page.SERVER_DATA_SECTION_HEADING),
+                health_page.BATTERY_SECTION_HEADING,
+                health_page.DEVICE_STATE_TEXT["ok"], "Health"):
+                if english_text not in rendered:
+                    return False, "expected the unchanged English string %r under lang='en'" % (
+                        english_text,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "health_page.render() under lang='en' (the default) is byte-for-byte unchanged for a "
+        "seeded state — pinned representative substrings (D-05)",
+        _health_page_renders_byte_identical_in_english)
+
+    def _health_page_device_and_pipeline_timestamps_fully_localise_under_french():
+        # Polish fix 2: the real production defect was companion/app.py's
+        # page_context() calling health_page.safe_health_state() BEFORE
+        # prefs.set_request_prefs() — every request's device/pipeline
+        # timestamp markup was built under the ContextVar's bare English
+        # default regardless of the requester's own language. This check
+        # exercises compute_health_state() itself (the function whose
+        # OWN readers — layout.local_clock_text()/relative_age_text() —
+        # must resolve the CURRENT request's language at call time) with
+        # `now` on a different calendar day from every seeded timestamp,
+        # so a surviving English month abbreviation or "ago" would be
+        # unmistakable rather than accidentally masked by a same-day
+        # clock-only render.
+        tmp = _mkstate("health-fr-dates")
+        try:
+            now_iso = "2026-09-12T00:00:00+00:00"
+            device_ts = "2026-09-10T23:58:00+00:00"
+            _seed_device_health(tmp, [(device_ts, 3800)])
+            _seed_meta(tmp, **{
+                history_db.META_LAST_PIPELINE_RUN: device_ts,
+                history_db.META_LAST_DETECTION: device_ts})
+            try:
+                prefs.set_request_prefs(lang="fr")
+                state = health_page.compute_health_state(tmp, now=now_iso)
+                rendered = health_page.render(dict(_ctx(tmp, now=now_iso), health_state=state))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            fragments = (
+                state["device_html"], state["device_detail_html"],
+                state["pipeline_html"], rendered)
+            for fragment in fragments:
+                if "sept." not in fragment:
+                    return False, (
+                        "expected the French month abbreviation 'sept.' in %r" % (fragment,))
+                if " ago" in fragment:
+                    return False, "expected no English ' ago' in %r" % (fragment,)
+                for english_month in (
+                        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+                        "Oct", "Nov", "Dec"):
+                    if english_month in fragment:
+                        return False, (
+                            "expected no English month abbreviation %r in %r"
+                            % (english_month, fragment))
+            if "il y a 1" not in state["device_detail_html"]:
+                return False, "expected the French relative-age connector 'il y a 1' in device_detail_html"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "compute_health_state()'s device_html/device_detail_html/pipeline_html fields (and "
+        "health_page.render()'s own page) fully localise their timestamps under lang='fr' — no "
+        "English month abbreviation or ' ago' survives — proving the request-language ContextVar "
+        "is resolved at the correct point relative to when this state is computed (Polish fix 2)",
+        _health_page_device_and_pipeline_timestamps_fully_localise_under_french)
+
+    def _health_catalog_every_key_and_value_is_a_nonempty_str():
+        bad = [
+            (key, value) for key, value in i18n_fr_health.CATALOG.items()
+            if not isinstance(key, str) or not key
+            or not isinstance(value, str) or not value]
+        if bad:
+            return False, "expected every CATALOG key/value to be a non-empty str, found: %r" % (bad,)
+        return True, ""
+    check(
+        "every key of companion/i18n_fr/health.py's own CATALOG is a non-empty str mapping to a "
+        "non-empty str",
+        _health_catalog_every_key_and_value_is_a_nonempty_str)
 
     # ======================================================================
     # Section 2: companion/pages/airlines_page.py — the illustration

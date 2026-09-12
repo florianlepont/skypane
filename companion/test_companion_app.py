@@ -343,6 +343,102 @@ EXPECTED_CHECK_COUNT = 221  # 19-12-PLAN.md Task 2 (D-22, Device-page
 # directly against the real on-disk check(...) call count at execution
 # time (219/221 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 227  # 20-01-PLAN.md Task 2 (D-02/D-29/D-03):
+# +6 (POST /ui-lang's fr/en/garbage cookie round trip, its no-session
+# gate; POST /ui-mode's simple/full/garbage cookie round trip, its
+# no-session gate; the Accept-Language-resolves-<html-lang> pair; the
+# sp_ui_lang cookie beating Accept-Language). The quick-toggle
+# redirect-target retarget (Home -> Display, D-16) is a net-zero
+# in-place edit, not a new check. 221 + 6 = 227, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (225/227 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 233  # 20-08-PLAN.md Task 1 (D-23): +6 (the
+# no-event cache path is stable and distinct from a live-event path;
+# two different event ids give two different paths and the same event
+# id twice gives the same path; a hostile/non-integer event id degrades
+# to the sample path; preview_png_bytes() renders a full and a partial
+# live-event row without raising; cached_preview_bytes() with no event
+# is unchanged; cached_preview_bytes() keys its cache on the event row
+# id, serving a same-event repeat from disk and missing on a newer
+# event). 227 + 6 = 233, recomputed directly against the real on-disk
+# check(...) call count at execution time (231/233 pass — the two
+# documented WR-11 root-sandbox failures, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 238  # 20-08-PLAN.md Task 2 (D-23): +5 (?live=1
+# with no runway_events row falls back to the sample scene; a seeded
+# event renders and a same-event repeat request is served from the
+# cache without growing it; a newer event both changes the served
+# bytes and adds a new cache file; an unknown theme id with ?live=1
+# still 404s before any query is parsed; ?live=0 and a missing query
+# both serve the sample variant). The "GET /static/theme-preview.js"
+# check named in this task's own action text is deferred to Task 3's
+# commit, where that file first exists (Task 2's own <files> list
+# excludes companion/static/theme-preview.js) — see this plan's own
+# SUMMARY.md Deviations section. 233 + 5 = 238, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (236/238 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 242  # 20-08-PLAN.md Task 3 (D-22..D-24/D-32): +4
+# (the tenth static script, theme-preview.js: its own public-serving
+# check, its ES5-safe/no-HTML-writing-sink guard, its route/src
+# agreement check, and the exactly-one-script-tag/no-bare-inline-script
+# shell check). The nine-deferred-scripts check was retargeted in place
+# to ten, a net-zero rename. 238 + 4 = 242, recomputed directly against
+# the real on-disk check(...) call count at execution time (240/242
+# pass — the two documented WR-11 root-sandbox failures, unrelated to
+# this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 241  # post-wave-3 retarget (20-07/D-36): -1 — the
+# Device page's Edit-artwork link was deleted outright, so
+# _device_page_edit_artwork_link_opens_airlines_with_edit_forms() (which
+# exercised it end to end) is removed rather than retargeted; no
+# replacement link exists to assert against. 242 - 1 = 241.
+EXPECTED_CHECK_COUNT = 244  # 20-09-PLAN.md Task 2 (D-14c): +3 (a valid
+# POST /settings/calendar/connect 303-redirects to Display with the
+# calendar_connect_ok flash key, persists the URL, triggers exactly one
+# registry refresh, and leaves quiet_hours_enabled/display_enabled
+# exactly as they were seeded — the T-20-11 pinned regression; an empty
+# calendar_url rejects with calendar_connect_invalid and persists
+# nothing; an unauthenticated POST redirects to /login and writes
+# nothing). Two pre-existing checks retargeted in place with no count
+# change: the FLASH_MESSAGES-interpolation-exemption check widened for
+# FLASH_KEY_CALENDAR_CONNECT_OK's own "{n}" placeholder, and the
+# Display/Device group-split check's "Per-flight colour rules" needle
+# updated to "Flight colours" (20-09-PLAN.md Task 3/D-15a's rename).
+# 241 + 3 = 244, recomputed directly against the real on-disk check(...)
+# call count at execution time (242/244 pass — the two documented WR-11
+# root-sandbox failures, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 249  # 20-11-PLAN.md Task 1 (D-26/T-20-13): +5 (an
+# unauthenticated POST /settings/notifications/test redirects to /login;
+# with no stored topic URL it redirects with the notifications_test_
+# failed flash key and never calls notify.send_notification(); with a
+# stored URL it calls that function exactly once with the STORED url and
+# redirects with notifications_test_ok; a sender returning False
+# redirects with notifications_test_failed; a POST carrying its own
+# topic_url field is ignored in favour of the stored one). 244 + 5 = 249,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (247/249 pass — the two documented WR-11 root-sandbox
+# failures, unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 251  # 20-11-PLAN.md Task 3 (D-06): +2 (copy-
+# button.js/dirty-state.js each stay ES5-safe with no forbidden HTML-
+# writing/eval/network sink, copy-button.js reads its on-success
+# feedback text from data-copied-text, dirty-state.js reads its five
+# connector words from the dirty-bar element's own data-dirty-*
+# attributes, and each file's removed hardcoded literal survives only
+# as its own documented fallback). 249 + 2 = 251, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (249/251 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 267  # 20-12-PLAN.md Task 2 (D-30/D-31): +16
+# (Section 5, end-to-end simple mode over real HTTP: the nav's
+# Advanced-group/health-link/device-link/status-dot omission on four
+# tabs, Home's Health link, Airlines' "Change pictures" button,
+# Display's two disclosures collapsing to one sentence, Display's own
+# six everyday groups staying present, /health and /device staying
+# reachable by URL, Flights/Airlines keeping their full content, the
+# mode surviving three sequential requests, and the full-mode mirror
+# of each toggled behaviour). 251 + 16 = 267.
 
 
 def _ago_iso(seconds):
@@ -380,7 +476,9 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 _OPENER = urllib.request.build_opener(_NoRedirectHandler)
 
 
-def http_request(url, method="GET", data=None, cookie=None, timeout=10, content_type=None):
+def http_request(
+        url, method="GET", data=None, cookie=None, timeout=10,
+        content_type=None, extra_headers=None):
     """Minimal stdlib HTTP client (mirrors
     stub-server/test_poll_cycle.py's http_request()): returns
     (status, headers_dict, raw_bytes) for both success and HTTP-error
@@ -391,6 +489,11 @@ def http_request(url, method="GET", data=None, cookie=None, timeout=10, content_
     to send `multipart/form-data; boundary=...` instead of the default
     urlencoded type a POST otherwise gets. `None` (the default) preserves
     every existing caller's behaviour exactly.
+
+    `extra_headers` (20-01-PLAN.md Task 2): an optional {name: value}
+    dict merged into the request headers — used by the D-03
+    Accept-Language checks. `None` (the default) preserves every
+    existing caller's behaviour exactly.
     """
     headers = {}
     if cookie:
@@ -399,6 +502,8 @@ def http_request(url, method="GET", data=None, cookie=None, timeout=10, content_
         headers["Content-Type"] = content_type
     elif data is not None and method == "POST":
         headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+    if extra_headers:
+        headers.update(extra_headers)
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with _OPENER.open(req, timeout=timeout) as resp:
@@ -2247,6 +2352,15 @@ def main():
             def _resolved_ui_theme(self):
                 return "auto"
 
+            # 20-01-PLAN.md Task 2: page_context() now also resolves
+            # lang/simple_mode via these two methods — a minimal stand-in
+            # matching the real Handler's own cookie-then-default shape.
+            def _lang_from_request(self):
+                return "en"
+
+            def _mode_from_request(self):
+                return "full"
+
         def _page_context_threads_wake_interval_env_default():
             tmp = tempfile.mkdtemp(prefix="skypane-page-context-")
             fake_self = _FakePageContextHandler(tmp)
@@ -2400,6 +2514,135 @@ def main():
         _theme_preview_signature_changes_with_cache_version)
 
     # ==================================================================
+    # Section 2.5b: companion/theme_preview.py's D-23 live-event render
+    # path and event-aware cache key (20-08-PLAN.md Task 1).
+    # ==================================================================
+
+    def _theme_preview_cache_path_no_event_is_stable_and_distinct_from_live():
+        with tempfile.TemporaryDirectory() as state_dir:
+            no_event_first = theme_preview.cache_path(state_dir, "white")
+            no_event_second = theme_preview.cache_path(state_dir, "white")
+            if no_event_first != no_event_second:
+                return False, "expected the no-event path to be deterministic across two calls"
+            live_path = theme_preview.cache_path(state_dir, "white", live_event_id=41)
+            if no_event_first == live_path:
+                return False, "expected the no-event path to differ from a live-event path"
+            if "41" not in live_path:
+                return False, "expected the live-event path to contain the event id"
+        return True, ""
+    check(
+        "cache_path() with no event returns a stable, deterministic filename that differs "
+        "from the same theme's live-event filename (which contains the event id) — the "
+        "existing 2-argument call site (the chip grid) keeps working unmodified, D-23",
+        _theme_preview_cache_path_no_event_is_stable_and_distinct_from_live)
+
+    def _theme_preview_cache_path_distinct_event_ids_distinct_paths():
+        with tempfile.TemporaryDirectory() as state_dir:
+            path_41 = theme_preview.cache_path(state_dir, "white", live_event_id=41)
+            path_42 = theme_preview.cache_path(state_dir, "white", live_event_id=42)
+            path_41_again = theme_preview.cache_path(state_dir, "white", live_event_id=41)
+            if path_41 == path_42:
+                return False, "expected two different event ids to give two different paths"
+            if path_41 != path_41_again:
+                return False, "expected the same event id twice to give the same path"
+        return True, ""
+    check(
+        "cache_path() gives two different event ids two different paths, and the same event "
+        "id twice the same path (D-23/Pitfall 7)",
+        _theme_preview_cache_path_distinct_event_ids_distinct_paths)
+
+    def _theme_preview_cache_path_hostile_event_id_degrades_to_sample():
+        with tempfile.TemporaryDirectory() as state_dir:
+            sample_path = theme_preview.cache_path(state_dir, "white")
+            for hostile in ("../../etc/passwd", "not-a-number", object()):
+                degraded = theme_preview.cache_path(state_dir, "white", live_event_id=hostile)
+                if degraded != sample_path:
+                    return False, (
+                        "expected a non-integer event id (%r) to degrade to the sample path, "
+                        "got %r" % (hostile, degraded))
+                if isinstance(hostile, str) and hostile in os.path.basename(degraded):
+                    return False, "hostile event id string leaked into the filename"
+        return True, ""
+    check(
+        "cache_path() degrades a non-integer or hostile event id to the same sample path as "
+        "no event at all, never reaching the filename (T-20-14)",
+        _theme_preview_cache_path_hostile_event_id_degrades_to_sample)
+
+    def _theme_preview_png_bytes_live_event_full_and_partial_row():
+        full_row = {
+            "id": 5, "hex": "3946a1", "callsign": "AFR1380", "airline": "Air France",
+            "origin": "ORY", "destination": "TLS", "confirmed_state": "departing",
+        }
+        partial_row = {"id": 6}
+        for row in (full_row, partial_row):
+            payload = theme_preview.preview_png_bytes("white", live_event=row)
+            img = Image.open(io.BytesIO(payload))
+            if img.format != "PNG":
+                return False, "expected a PNG for live_event=%r, got %r" % (row, img.format)
+            if img.size != theme_preview.THEME_PREVIEW_SIZE:
+                return False, "expected size %r for live_event=%r, got %r" % (
+                    theme_preview.THEME_PREVIEW_SIZE, row, img.size)
+        return True, ""
+    check(
+        "preview_png_bytes(theme_id, live_event=row) returns a well-formed PNG for a full "
+        "runway_events row and for a row missing half its fields (partial rows never raise, "
+        "D-23)",
+        _theme_preview_png_bytes_live_event_full_and_partial_row)
+
+    def _theme_preview_cached_bytes_no_event_unchanged():
+        with tempfile.TemporaryDirectory() as state_dir:
+            direct = theme_preview.preview_png_bytes("blue")
+            cached = theme_preview.cached_preview_bytes(state_dir, "blue")
+            path = theme_preview.cache_path(state_dir, "blue")
+            if not os.path.isfile(path):
+                return False, "expected cached_preview_bytes() to create %r" % (path,)
+            if cached != direct:
+                return False, "expected the no-event cached render to still match preview_png_bytes()"
+        return True, ""
+    check(
+        "cached_preview_bytes() with no live_event still creates the cache file and returns "
+        "exactly what preview_png_bytes(theme_id) returns, unchanged by this task (D-23)",
+        _theme_preview_cached_bytes_no_event_unchanged)
+
+    def _theme_preview_cached_bytes_live_event_keyed_by_id():
+        with tempfile.TemporaryDirectory() as state_dir:
+            event_5 = {
+                "id": 5, "hex": "3946a1", "callsign": "AFR1380", "airline": "Air France",
+                "origin": "ORY", "destination": "TLS", "confirmed_state": "departing",
+            }
+            event_6 = dict(event_5, id=6, callsign="AFR9999")
+            theme_preview.cached_preview_bytes(state_dir, "white", live_event=event_5)
+            path_5 = theme_preview.cache_path(state_dir, "white", live_event_id=5)
+            if not os.path.isfile(path_5):
+                return False, "expected cached_preview_bytes() to create %r" % (path_5,)
+            # A cache HIT for the same event id must not re-render — mutate the
+            # on-disk bytes and confirm the second call serves them unchanged,
+            # the same proof _theme_preview_cached_bytes_second_call_serves_
+            # from_disk() already applies to the no-event path.
+            marker = b"mutated-cache-fixture-not-a-real-render"
+            with open(path_5, "wb") as fh:
+                fh.write(marker)
+            second_same_event = theme_preview.cached_preview_bytes(
+                state_dir, "white", live_event=event_5)
+            if second_same_event != marker:
+                return False, "expected a same-event second call to be served from disk, not re-rendered"
+            # A NEWER event (a different id) must be a cache MISS, not the
+            # stale mutated bytes above — this is D-23/Pitfall 7's entire point.
+            third_newer_event = theme_preview.cached_preview_bytes(
+                state_dir, "white", live_event=event_6)
+            if third_newer_event == marker:
+                return False, "expected a newer event id to be a cache miss, not the stale marker bytes"
+            path_6 = theme_preview.cache_path(state_dir, "white", live_event_id=6)
+            if path_5 == path_6:
+                return False, "expected two different event ids to produce two different cache files"
+            return True, ""
+    check(
+        "cached_preview_bytes() keys its cache on the live event's row id: a repeat request "
+        "for the SAME event serves the on-disk file unchanged (no re-render), and a NEWER "
+        "event is a cache miss rather than the stale first render (D-23/Pitfall 7)",
+        _theme_preview_cached_bytes_live_event_keyed_by_id)
+
+    # ==================================================================
     # Section 2.6: companion/app.py's _illustration_filenames() (phase 13
     # plan 13-06 Task 1, D-09) — pure in-process module checks against the
     # widened per-request union helper, no subprocess needed.
@@ -2518,11 +2761,15 @@ def main():
         # widened in place, not loosened. Phase 17 plan 04 (D-06) widens
         # it again for FLASH_KEY_CALENDAR_CONNECTED's server-computed
         # "{n}"/"{s}" (the on-disk entry count, never anything
-        # client-supplied) — every other FLASH_MESSAGES value still
-        # carries no runtime placeholder at all.
+        # client-supplied). 20-09-PLAN.md Task 2 (D-14c) widens it once
+        # more for FLASH_KEY_CALENDAR_CONNECT_OK's own server-computed
+        # "{n}" — the connect route's own success flash, distinct from
+        # (and never sharing a key with) the older save-triggered-sync
+        # flash — every other FLASH_MESSAGES value still carries no
+        # runtime placeholder at all.
         _interpolated_keys = (
             app_module.FLASH_KEY_POLL_COOLDOWN, app_module.FLASH_KEY_RULE_REPLACED,
-            app_module.FLASH_KEY_CALENDAR_CONNECTED)
+            app_module.FLASH_KEY_CALENDAR_CONNECTED, app_module.FLASH_KEY_CALENDAR_CONNECT_OK)
         for key, text in app_module.FLASH_MESSAGES.items():
             if key in _interpolated_keys:
                 continue
@@ -2530,16 +2777,17 @@ def main():
                 return False, (
                     "expected no runtime interpolation in FLASH_MESSAGES[%r], got %r "
                     "(UI-SPEC Autonomous Decision 6: flash copy is fixed, never "
-                    "interpolated, except the cooldown, rule_replaced and "
-                    "calendar_connected keys)" % (key, text))
+                    "interpolated, except the cooldown, rule_replaced, "
+                    "calendar_connected and calendar_connect_ok keys)" % (key, text))
         return True, ""
     check(
         "every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six "
         "UI-SPEC deck strings resolve byte for byte through _resolve_flash_text(), an "
         "unknown key still resolves to None, and no FLASH_MESSAGES value carries a "
-        "runtime placeholder except the cooldown, rule_replaced and calendar_connected "
-        "keys (Phase 15 D-10 widened this in place, not loosened; Phase 17 plan 04 "
-        "widens it again for the same reason)",
+        "runtime placeholder except the cooldown, rule_replaced, calendar_connected and "
+        "calendar_connect_ok keys (Phase 15 D-10 widened this in place, not loosened; "
+        "Phase 17 plan 04 and 20-09-PLAN.md Task 2 each widen it again for the same "
+        "reason)",
         _flash_manual_keys_complete_and_byte_identical)
 
     class _FakeResolveCtxHandler(_FakePageContextHandler):
@@ -2588,6 +2836,8 @@ def main():
                 "poll_cooldown_remaining", "gallery_entries", "runway_images",
                 "health_severity", "now",
                 "resolve_prefix", "manual_resolutions",
+                # 20-01-PLAN.md Task 2 (D-04/D-29):
+                "lang", "simple_mode",
             )
             docstring = pages_package.__doc__
             for key in documented_keys:
@@ -2828,6 +3078,83 @@ def main():
             "companion.app.py's 4 new *_SCRIPT_ROUTE constants equal companion/layout.py's 4 new "
             "*_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each",
             _four_new_static_routes_dom_contract_guard)
+
+        # --- 20-11-PLAN.md Task 3 (D-06): copy-button.js/dirty-state.js's
+        # own screen-bound connector words move to server-rendered data-*
+        # attributes ---
+
+        def _copy_button_script_es5_safe_reads_data_copied_text():
+            js_path = os.path.join(HERE, "static", "copy-button.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "copy-button.js must not contain %r" % token
+            required = ("textContent", "addEventListener", "getAttribute")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in copy-button.js" % token
+            if "data-copied-text" not in src:
+                return False, "expected copy-button.js to read data-copied-text"
+            # D-06: the removed hardcoded literal survives ONLY as the
+            # documented fallback — exactly one occurrence of the quoted
+            # string, on the FALLBACK_FEEDBACK_TEXT declaration itself.
+            if src.count('"Copied"') != 1:
+                return False, (
+                    "expected exactly one \"Copied\" literal (the documented fallback), got %d"
+                    % src.count('"Copied"'))
+            return True, ""
+        check(
+            "copy-button.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/"
+            "insertAdjacentHTML/document.write/eval/fetch/XHR), reads its on-success feedback "
+            "text from each button's own data-copied-text attribute, and the removed hardcoded "
+            "\"Copied\" literal survives only as the one documented fallback (D-06)",
+            _copy_button_script_es5_safe_reads_data_copied_text)
+
+        def _dirty_state_script_es5_safe_reads_five_connector_attributes():
+            js_path = os.path.join(HERE, "static", "dirty-state.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "dirty-state.js must not contain %r" % token
+            required = ("textContent", "addEventListener", "getAttribute", "querySelector")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in dirty-state.js" % token
+            for attr in (
+                    "data-dirty-changed-suffix", "data-dirty-and", "data-dirty-list-and",
+                    "data-dirty-unsaved-singular", "data-dirty-unsaved-plural"):
+                if attr not in src:
+                    return False, "expected dirty-state.js to read %r" % attr
+            # D-06: each removed hardcoded connector word survives ONLY as
+            # its own documented fallback literal, never a second inline
+            # occurrence elsewhere in updateBar().
+            if src.count('"1 unsaved change"') != 1:
+                return False, "expected exactly one \"1 unsaved change\" literal (the fallback)"
+            if src.count('" unsaved changes"') != 1:
+                return False, "expected exactly one \" unsaved changes\" literal (the fallback)"
+            return True, ""
+        check(
+            "dirty-state.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/"
+            "insertAdjacentHTML/document.write/eval/fetch/XHR), reads all five connector words "
+            "from the dirty-bar element's own data-dirty-* attributes, and each removed "
+            "hardcoded literal survives only as its own documented fallback (D-06)",
+            _dirty_state_script_es5_safe_reads_five_connector_attributes)
 
         # --- 19-09-PLAN.md Task 3: freshness.js's own named guard (D-02) ---
 
@@ -3125,27 +3452,89 @@ def main():
             "layout.CONFIRM_SUBMIT_SCRIPT_SRC equals companion.app.CONFIRM_SUBMIT_SCRIPT_ROUTE",
             _confirm_submit_script_route_src_agree)
 
-        def _nine_deferred_scripts_before_closing_body():
-            # Retargeted in place from _eight_deferred_scripts_before_
-            # closing_body() (19-11-PLAN.md Task 2, D-08/A-26):
-            # confirm-submit.js is the ninth unconditional script.
+        # --- 20-08-PLAN.md Task 3 (D-22..D-24/D-32): theme-preview.js ---
+
+        check(
+            "GET /static/theme-preview.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/theme-preview.js"))
+
+        def _theme_preview_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "theme-preview.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest", "setTimeout(", "setInterval(")
+            for token in banned:
+                if token in src:
+                    return False, "theme-preview.js must not contain %r" % token
+            required = ("addEventListener", "querySelector", "getAttribute", "data-preview-src")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in theme-preview.js" % token
+            return True, ""
+        check(
+            "theme-preview.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers), and "
+            "carries the chip-selection src swap (addEventListener/querySelector/getAttribute/"
+            "data-preview-src all present) (D-22..D-24)",
+            _theme_preview_script_es5_safe_and_no_html_write)
+
+        def _theme_preview_script_route_src_agree():
+            import companion.app as app_module
+            if layout.THEME_PREVIEW_SCRIPT_SRC != app_module.THEME_PREVIEW_SCRIPT_ROUTE:
+                return False, "theme-preview script route drift: %r vs %r" % (
+                    layout.THEME_PREVIEW_SCRIPT_SRC, app_module.THEME_PREVIEW_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.THEME_PREVIEW_SCRIPT_SRC equals companion.app.THEME_PREVIEW_SCRIPT_ROUTE",
+            _theme_preview_script_route_src_agree)
+
+        def _theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.THEME_PREVIEW_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            # No inline <script> without a src anywhere in a rendered page —
+            # the CSP's own "no inline script" rule (D-32), pinned here so a
+            # future change cannot silently reintroduce one.
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one theme-preview.js <script> tag "
+            "and no inline <script> without a src (D-32)",
+            _theme_preview_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _ten_deferred_scripts_before_closing_body():
+            # Retargeted in place from _nine_deferred_scripts_before_
+            # closing_body() (20-08-PLAN.md Task 3, D-22..D-24/D-32):
+            # theme-preview.js is the tenth unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 9:
-                return False, "expected exactly 9 deferred <script src= tags before </body>, got %d" % count
+            if count != 10:
+                return False, "expected exactly 10 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
-                    layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC):
+                    layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
+                    layout.THEME_PREVIEW_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly nine deferred <script src= tags "
+            "a rendered authenticated page contains exactly ten deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
-            "poll-cooldown.js and confirm-submit.js",
-            _nine_deferred_scripts_before_closing_body)
+            "poll-cooldown.js, confirm-submit.js and theme-preview.js",
+            _ten_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
@@ -3446,24 +3835,43 @@ def main():
         # --- Phase 18: Home page, quick actions, scoped settings saves ---
 
         def _home_page_renders_widgets():
+            # 20-06 (D-16) rebuilt Home: the Quick-actions card is gone
+            # (the screen/quiet-hours switches moved to Display, the
+            # Refresh-now button moved to Device), replaced by a hero
+            # row (the current picture in a `.preview-frame` figure
+            # beside a `.status-card` built on `layout.status_row()`)
+            # plus a full-width recent-flights section. Retargeted per
+            # 20-06-SUMMARY.md/20-12-PLAN.md (20-06/D-16).
             status, _headers, body = http_request(base + "/", cookie=session_cookie)
             if status != 200:
                 return False, "expected 200 for GET /, got %d" % status
             text = body.decode("utf-8", errors="replace")
             for needle in (
-                    '<h1 class="page-title">Home</h1>', "Quick actions",
-                    'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
-                    'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
-                    'action="%s"' % app_module.POLL_ROUTE,
-                    "On the frame now", "Recent flights", 'href="/flights"',
+                    '<h1 class="page-title">Home</h1>',
+                    'status-card" aria-labelledby="home-status-heading"',
+                    'class="status-row', 'class="home-hero"',
+                    "Recent flights", 'href="/flights"',
                     'class="nav-group nav-group--advanced"'):
                 if needle not in text:
                     return False, "expected %r in the Home page" % needle
+            # The hero's left half renders either the .preview-frame
+            # figure (a gallery entry exists) or the shared empty-state
+            # block (none does yet, as in this fresh harness) — either
+            # is proof the hero row itself renders.
+            if 'class="preview-frame"' not in text and "Nothing rendered yet." not in text:
+                return False, "expected either the preview-frame figure or its empty state in the Home hero"
+            for absent in (
+                    "Quick actions", "On the frame now",
+                    'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
+                    'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+                    'action="%s"' % app_module.POLL_ROUTE):
+                if absent in text:
+                    return False, "expected %r to be absent from the rebuilt Home page (20-06/D-16)" % absent
             return True, ""
         check(
-            "authenticated GET / renders the Home page with the status tiles, the three quick-action "
-            "forms (screen, quiet hours, refresh), the current-panel card, the recent-flights list, "
-            "and the grouped Advanced navigation",
+            "authenticated GET / renders the rebuilt Home page (20-06/D-16) with the hero preview-frame "
+            "figure, the status-card's status-row markup, and the recent-flights list under the grouped "
+            "Advanced navigation, and carries none of the retired quick-action forms",
             _home_page_renders_widgets)
 
         def _quick_display_toggle_round_trip():
@@ -3476,8 +3884,11 @@ def main():
                     data=urllib.parse.urlencode({"state": state}).encode())
                 if status != 303:
                     return False, "expected 303 for state=%s, got %d" % (state, status)
-                if headers.get("Location") != "/?flash=%s" % expected_flash:
-                    return False, "expected a redirect to /?flash=%s, got %r" % (
+                # D-16 (20-01-PLAN.md Task 2): retargeted from "/" to
+                # "/display" — the switches now live on Display, not
+                # Home; the flash keys themselves are unchanged.
+                if headers.get("Location") != "/display?flash=%s" % expected_flash:
+                    return False, "expected a redirect to /display?flash=%s, got %r" % (
                         expected_flash, headers.get("Location"))
                 on_disk = device_config.load_device_config(harness.tmpdir)
                 if on_disk["display_enabled"] is not expected_value:
@@ -3486,7 +3897,7 @@ def main():
             status, headers, _ = http_request(
                 base + app_module.QUICK_DISPLAY_ROUTE, method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode({"state": "toggle"}).encode())
-            if status != 303 or headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED:
+            if status != 303 or headers.get("Location") != "/display?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED:
                 return False, "expected a crafted state value to redirect with the quick_failed flash, got %d/%r" % (
                     status, headers.get("Location"))
             if device_config.load_device_config(harness.tmpdir)["display_enabled"] is not True:
@@ -3494,15 +3905,16 @@ def main():
             return True, ""
         check(
             "POST /quick/display with state=off then state=on flips display_enabled on disk and redirects "
-            "to Home with the matching flash; a crafted state value redirects with quick_failed and writes nothing",
+            "to Display (D-16) with the matching flash; a crafted state value redirects with quick_failed "
+            "and writes nothing",
             _quick_display_toggle_round_trip)
 
         def _quick_quiet_hours_toggle_round_trip():
             status, headers, _ = http_request(
                 base + app_module.QUICK_QUIET_HOURS_ROUTE, method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode({"state": "on"}).encode())
-            if status != 303 or headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUIET_ON:
-                return False, "expected a redirect to /?flash=quiet_on, got %d/%r" % (status, headers.get("Location"))
+            if status != 303 or headers.get("Location") != "/display?flash=%s" % app_module.FLASH_KEY_QUIET_ON:
+                return False, "expected a redirect to /display?flash=quiet_on, got %d/%r" % (status, headers.get("Location"))
             on_disk = device_config.load_device_config(harness.tmpdir)
             if on_disk["quiet_hours_enabled"] is not True:
                 return False, "expected quiet_hours_enabled True on disk"
@@ -3511,14 +3923,14 @@ def main():
             status, headers, _ = http_request(
                 base + app_module.QUICK_QUIET_HOURS_ROUTE, method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode({"state": "off"}).encode())
-            if headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUIET_OFF:
-                return False, "expected a redirect to /?flash=quiet_off, got %r" % headers.get("Location")
+            if headers.get("Location") != "/display?flash=%s" % app_module.FLASH_KEY_QUIET_OFF:
+                return False, "expected a redirect to /display?flash=quiet_off, got %r" % headers.get("Location")
             if device_config.load_device_config(harness.tmpdir)["quiet_hours_enabled"] is not False:
                 return False, "expected quiet_hours_enabled False on disk"
             return True, ""
         check(
             "POST /quick/quiet-hours with state=on then state=off flips quiet_hours_enabled on disk, "
-            "redirects to Home with the matching flash, and never touches display_enabled",
+            "redirects to Display (D-16) with the matching flash, and never touches display_enabled",
             _quick_quiet_hours_toggle_round_trip)
 
         check(
@@ -3592,10 +4004,18 @@ def main():
             device_text = device_body.decode("utf-8", errors="replace")
             if 'name="theme"' not in display_text or 'name="quiet_hours_enabled"' not in display_text:
                 return False, "expected the Display page to carry the theme and quiet-hours groups"
-            if 'name="tracked_runway"' in display_text or 'name="led_enabled"' in display_text:
-                return False, "expected the Display page NOT to carry the runway or LED groups"
-            if 'name="tracked_runway"' not in device_text or 'name="wake_interval_s"' not in device_text:
-                return False, "expected the Device page to carry the runway and wake-interval groups"
+            # 20-07 (D-10/D-11) moved Runway (and Calendar/the rules
+            # editor) from Device to Display; only the LED group stayed
+            # on Device — Display carries tracked_runway but never
+            # led_enabled.
+            if 'name="tracked_runway"' not in display_text:
+                return False, "expected the Display page to carry the runway group (moved from Device, 20-07/D-10)"
+            if 'name="led_enabled"' in display_text:
+                return False, "expected the Display page NOT to carry the LED group"
+            if 'name="tracked_runway"' in device_text:
+                return False, "expected the Device page NOT to carry the runway group (moved to Display, 20-07/D-10)"
+            if 'name="wake_interval_s"' not in device_text:
+                return False, "expected the Device page to carry the wake-interval group"
             if 'name="theme"' in device_text.replace('name="theme_id"', ""):
                 # the rules add-form's own theme select is name="theme_id"; the
                 # settings theme radios are name="theme" and must be absent.
@@ -3608,42 +4028,32 @@ def main():
                     return False, "expected the %s page to carry its hidden return_to field" % scope
                 if "Screen: Plane frame" not in text:
                     return False, "expected the %s page to name its screen type" % scope
-            if "Manual refresh" not in device_text or "Per-flight colour rules" not in device_text:
-                return False, "expected the Device page to carry the rules editor and manual refresh"
-            if "Manual refresh" in display_text or "Per-flight colour rules" in display_text:
-                return False, "expected the Display page NOT to carry the rules editor or manual refresh"
+            # 20-07 (D-10/D-11) moved the rules editor (renamed "Flight
+            # colours" by 20-09-PLAN.md Task 3/D-15a; was "Per-flight
+            # colour rules") to Display alongside Calendar and Runway;
+            # Manual refresh stayed on Device.
+            if "Manual refresh" not in device_text:
+                return False, "expected the Device page to carry Manual refresh"
+            if "Flight colours" in device_text:
+                return False, "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)"
+            if "Flight colours" not in display_text:
+                return False, "expected the Display page to carry the rules editor (moved from Device, 20-07/D-10)"
+            if "Manual refresh" in display_text:
+                return False, "expected the Display page NOT to carry Manual refresh"
             return True, ""
         check(
-            "GET /display and GET /device split the settings groups per companion/screens.py, each carrying "
-            "its hidden scope/return_to fields and the screen-type caption; the rules editor and manual "
-            "refresh live on Device only",
+            "GET /display and GET /device split the settings groups per companion/screens.py (20-07 moved "
+            "Runway/Calendar/the rules editor to Display, D-10/D-11), each carrying its hidden "
+            "scope/return_to fields and the screen-type caption; Manual refresh lives on Device only",
             _display_and_device_pages_split_the_groups)
 
-        def _device_page_edit_artwork_link_opens_airlines_with_edit_forms():
-            # 19-12-PLAN.md Task 2 (D-22, Device-page half): the real-HTTP
-            # end-to-end link between plan 19-08's ?edit=1 gate and this
-            # plan's Device-page anchor.
-            _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
-            device_text = device_body.decode("utf-8", errors="replace")
-            if "/airlines?edit=1" not in device_text:
-                return False, "expected the Device page to carry an Edit-artwork link to /airlines?edit=1"
-            status, _headers, body = http_request(
-                base + "/airlines?edit=1", cookie=session_cookie)
-            if status != 200:
-                return False, "expected 200 following the Edit-artwork link, got %d" % status
-            text = body.decode("utf-8", errors="replace")
-            # Exact class="{token}" match, matching companion/
-            # test_view_pages.py's own precise-marker discipline for
-            # these same three edit-only forms (LIGHTBOX_REPLACE_FORM_
-            # CLASS is itself a prefix of several sibling classes).
-            for token in ("lightbox__replace", "resolve-upload-zone", "lightbox__delete"):
-                if ('class="%s"' % token) not in text:
-                    return False, "expected the edit-only form carrying class=%r on the followed page" % token
-            return True, ""
-        check(
-            "the Device page's Edit-artwork link opens /airlines?edit=1, and following it returns 200 with "
-            "the artwork-editing forms present (D-22, Device-page half)",
-            _device_page_edit_artwork_link_opens_airlines_with_edit_forms)
+        # 20-07-PLAN.md (D-36) deleted the Device page's Edit-artwork
+        # link outright (_edit_artwork_link_html() and its call site are
+        # gone from companion/pages/config_page.py) — the check that
+        # used to exercise it end to end,
+        # _device_page_edit_artwork_link_opens_airlines_with_edit_forms(),
+        # is removed rather than retargeted; there is no replacement
+        # link on either Display or Device to assert against.
 
         def _html_pages_are_no_store():
             status, headers, _ = http_request(base + "/", cookie=session_cookie)
@@ -3755,6 +4165,156 @@ def main():
             "POST /logout with no session cookie redirects to /login (T-19-04: gating a "
             "logout costs a signed-out caller nothing)",
             _logout_post_without_session_redirects_to_login)
+
+        # --- 20-01-PLAN.md Task 2 (D-02/D-29, T-20-01/T-20-02): the two ---
+        # --- new nav-footer switch routes, POST /ui-lang and             ---
+        # --- POST /ui-mode — byte-for-byte siblings of the /ui-theme     ---
+        # --- family above.                                               ---
+
+        def _ui_lang_post_round_trip():
+            for submitted, expect_cookie in (("fr", True), ("en", True), ("de", False)):
+                status, headers, _ = http_request(
+                    base + "/ui-lang", method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"ui_lang": submitted}).encode())
+                if status != 303:
+                    return False, "expected 303 for ui_lang=%s, got %d" % (submitted, status)
+                if headers.get("Location") != "/":
+                    return False, (
+                        "expected a redirect to the referring tab (default /), got %r"
+                        % headers.get("Location"))
+                set_cookie = headers.get("Set-Cookie", "")
+                if expect_cookie:
+                    if "%s=%s" % (auth.UI_LANG_COOKIE_NAME, submitted) not in set_cookie:
+                        return False, "expected %s=%s in %r" % (
+                            auth.UI_LANG_COOKIE_NAME, submitted, set_cookie)
+                    for needle in ("HttpOnly", "SameSite=Strict"):
+                        if needle not in set_cookie:
+                            return False, "expected %r in the sp_ui_lang cookie header: %r" % (
+                                needle, set_cookie)
+                else:
+                    if auth.UI_LANG_COOKIE_NAME in set_cookie:
+                        return False, (
+                            "expected no sp_ui_lang Set-Cookie header for an unrecognised "
+                            "ui_lang=%s, got %r" % (submitted, set_cookie))
+            return True, ""
+        check(
+            "POST /ui-lang with ui_lang=fr/en sets the sp_ui_lang cookie (HttpOnly, "
+            "SameSite=Strict) and redirects to the referring tab; ui_lang=de sets no cookie",
+            _ui_lang_post_round_trip)
+
+        def _ui_lang_post_without_session_redirects_to_login():
+            status, headers, _ = http_request(
+                base + "/ui-lang", method="POST", data=b"ui_lang=fr")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, (
+                    "expected an unauthenticated POST /ui-lang to redirect to /login, "
+                    "got %d/%r" % (status, headers.get("Location")))
+            set_cookie = headers.get("Set-Cookie", "")
+            if auth.UI_LANG_COOKIE_NAME in set_cookie:
+                return False, (
+                    "expected no sp_ui_lang Set-Cookie header on an unauthenticated "
+                    "POST /ui-lang, got %r" % set_cookie)
+            return True, ""
+        check(
+            "POST /ui-lang with no session cookie redirects to /login and does not set a "
+            "sp_ui_lang cookie (T-20-01)",
+            _ui_lang_post_without_session_redirects_to_login)
+
+        def _ui_mode_post_round_trip():
+            for submitted, expect_cookie in (("simple", True), ("full", True), ("garbage", False)):
+                status, headers, _ = http_request(
+                    base + "/ui-mode", method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"ui_mode": submitted}).encode())
+                if status != 303:
+                    return False, "expected 303 for ui_mode=%s, got %d" % (submitted, status)
+                if headers.get("Location") != "/":
+                    return False, (
+                        "expected a redirect to the referring tab (default /), got %r"
+                        % headers.get("Location"))
+                set_cookie = headers.get("Set-Cookie", "")
+                if expect_cookie:
+                    if "%s=%s" % (auth.UI_MODE_COOKIE_NAME, submitted) not in set_cookie:
+                        return False, "expected %s=%s in %r" % (
+                            auth.UI_MODE_COOKIE_NAME, submitted, set_cookie)
+                    for needle in ("HttpOnly", "SameSite=Strict"):
+                        if needle not in set_cookie:
+                            return False, "expected %r in the sp_ui_mode cookie header: %r" % (
+                                needle, set_cookie)
+                else:
+                    if auth.UI_MODE_COOKIE_NAME in set_cookie:
+                        return False, (
+                            "expected no sp_ui_mode Set-Cookie header for an unrecognised "
+                            "ui_mode=%s, got %r" % (submitted, set_cookie))
+            return True, ""
+        check(
+            "POST /ui-mode with ui_mode=simple/full sets the sp_ui_mode cookie (HttpOnly, "
+            "SameSite=Strict) and redirects to the referring tab; ui_mode=garbage sets no cookie",
+            _ui_mode_post_round_trip)
+
+        def _ui_mode_post_without_session_redirects_to_login():
+            status, headers, _ = http_request(
+                base + "/ui-mode", method="POST", data=b"ui_mode=simple")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, (
+                    "expected an unauthenticated POST /ui-mode to redirect to /login, "
+                    "got %d/%r" % (status, headers.get("Location")))
+            set_cookie = headers.get("Set-Cookie", "")
+            if auth.UI_MODE_COOKIE_NAME in set_cookie:
+                return False, (
+                    "expected no sp_ui_mode Set-Cookie header on an unauthenticated "
+                    "POST /ui-mode, got %r" % set_cookie)
+            return True, ""
+        check(
+            "POST /ui-mode with no session cookie redirects to /login and does not set a "
+            "sp_ui_mode cookie (T-20-01)",
+            _ui_mode_post_without_session_redirects_to_login)
+
+        # --- D-03: language resolution from cookie / Accept-Language ---
+
+        def _accept_language_resolves_html_lang_with_no_cookie():
+            status, _headers, body = http_request(
+                base + "/", cookie=session_cookie,
+                extra_headers={"Accept-Language": "fr-FR,fr;q=0.9"})
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if b'<html lang="fr"' not in body:
+                return False, "expected <html lang=\"fr\" with Accept-Language: fr-FR,fr;q=0.9"
+            status, _headers, body = http_request(
+                base + "/", cookie=session_cookie,
+                extra_headers={"Accept-Language": "en-GB"})
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if b'<html lang="en"' not in body:
+                return False, "expected <html lang=\"en\" with Accept-Language: en-GB"
+            return True, ""
+        check(
+            "a cookie-free GET (session cookie only, no sp_ui_lang) with "
+            "Accept-Language: fr-FR,fr;q=0.9 renders <html lang=\"fr\"; with "
+            "Accept-Language: en-GB renders <html lang=\"en\" (D-03)",
+            _accept_language_resolves_html_lang_with_no_cookie)
+
+        def _ui_lang_cookie_beats_accept_language():
+            status, headers, _ = http_request(
+                base + "/ui-lang", method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"ui_lang": "en"}).encode())
+            lang_cookie = _cookie_value(headers)
+            if status != 303 or not lang_cookie:
+                return False, "expected a 303 with a sp_ui_lang Set-Cookie, got %d/%r" % (
+                    status, headers.get("Set-Cookie"))
+            combined_cookie = "%s; %s" % (session_cookie, lang_cookie)
+            status, _headers, body = http_request(
+                base + "/", cookie=combined_cookie,
+                extra_headers={"Accept-Language": "fr-FR,fr;q=0.9"})
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if b'<html lang="en"' not in body:
+                return False, (
+                    "expected the sp_ui_lang=en cookie to beat a French "
+                    "Accept-Language header, got a body without <html lang=\"en\"")
+            return True, ""
+        check(
+            "the sp_ui_lang cookie beats Accept-Language when both are present (D-03)",
+            _ui_lang_cookie_beats_accept_language)
 
         # --- 11-04 end-to-end: the real SKYPANE_SLEEP_S pre-fill, over a  ---
         # --- dedicated Harness instance (the environment must be set     ---
@@ -4392,6 +4952,122 @@ def main():
             "an unauthenticated GET /theme-preview/white.png redirects to /login, never "
             "returns image bytes",
             _theme_preview_unauthenticated_redirects_to_login)
+
+        # --- 20-08-PLAN.md Task 2 (D-23): the ?live=1 route branch ---
+
+        def _theme_cache_dir(theme_id_glob="*"):
+            import glob
+            return glob.glob(os.path.join(
+                harness.tmpdir, theme_preview.THEME_PREVIEW_CACHE_DIRNAME,
+                "%s*.png" % theme_id_glob))
+
+        def _theme_preview_live_no_events_serves_sample():
+            # No runway_events row exists yet at this point in the suite's
+            # own shared harness.tmpdir — the exact "fresh install" case
+            # D-23 must fall back to the sample scene for.
+            status, headers, body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 with no runway_events row, got %d" % status
+            if headers.get("Content-Type") != "image/png":
+                return False, "expected image/png, got %r" % headers.get("Content-Type")
+            if not body.startswith(PNG_SIGNATURE):
+                return False, "expected a real PNG body"
+            return True, ""
+        check(
+            "GET /theme-preview/white.png?live=1 with no runway_events row at all still "
+            "returns 200/image/png (the sample-scene fallback, D-23)",
+            _theme_preview_live_no_events_serves_sample)
+
+        def _theme_preview_live_seeded_event_and_cache_reuse():
+            with history_db.open_db(harness.tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, hex="3946a1", callsign="AFR1380", confirmed_state="departing",
+                    airline="Air France", origin="ORY", destination="TLS")
+            status, headers, body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 with a seeded runway_events row, got %d" % status
+            if headers.get("Content-Type") != "image/png":
+                return False, "expected image/png, got %r" % headers.get("Content-Type")
+            if not body.startswith(PNG_SIGNATURE):
+                return False, "expected a real PNG body"
+            before = _theme_cache_dir("white-")
+            # A second request for the SAME latest event must be a cache
+            # hit, not grow the cache directory (D-23/Pitfall 7's own
+            # "never renders 16 panels [again for the same flight]" half).
+            status2, _headers2, body2 = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            after = _theme_cache_dir("white-")
+            if status2 != 200 or body2 != body:
+                return False, "expected the second request to serve the identical cached bytes"
+            if len(after) != len(before):
+                return False, (
+                    "expected the cache file count to stay at %d for a repeat request of the "
+                    "same latest event, got %d" % (len(before), len(after)))
+            return True, ""
+        check(
+            "GET /theme-preview/white.png?live=1 with a seeded runway_events row returns "
+            "200/image/png, and a second request for the same latest event is served from "
+            "the cache without growing the cache directory (D-23/Pitfall 7)",
+            _theme_preview_live_seeded_event_and_cache_reuse)
+
+        def _theme_preview_live_newer_event_changes_cache_file():
+            before = set(_theme_cache_dir("white-"))
+            status, _headers, first_body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 before seeding a newer event, got %d" % status
+            with history_db.open_db(harness.tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, hex="3466ab", callsign="VLG9999", confirmed_state="arriving",
+                    airline="Vueling Airlines", origin="BCN", destination="ORY")
+            status2, _headers2, second_body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status2 != 200:
+                return False, "expected 200 after seeding a newer event, got %d" % status2
+            after = set(_theme_cache_dir("white-"))
+            if len(after) <= len(before):
+                return False, "expected a newer runway_events row to add a new cache file, not reuse one"
+            if second_body == first_body:
+                return False, "expected a newer runway_events row to change the served bytes"
+            return True, ""
+        check(
+            "inserting a NEWER runway_events row changes both the served live-preview bytes "
+            "and the cache file it comes from — a newer flight is a cache miss, never a stale "
+            "hit served forever (D-23/Pitfall 7)",
+            _theme_preview_live_newer_event_changes_cache_file)
+
+        def _theme_preview_live_unknown_theme_404():
+            status, _headers, body = http_request(
+                base + "/theme-preview/nope.png?live=1", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for an unknown theme id with ?live=1, got %d" % status
+            if b"Page not found." not in body:
+                return False, "expected the exact 404 copy in the response body"
+            return True, ""
+        check(
+            "GET /theme-preview/nope.png?live=1 returns the same 404 an unknown theme id "
+            "always returns — the membership test still runs before any query is even parsed",
+            _theme_preview_live_unknown_theme_404)
+
+        def _theme_preview_live_zero_and_missing_query_serve_sample_variant():
+            status_zero, _headers_zero, body_zero = http_request(
+                base + "/theme-preview/blue.png?live=0", cookie=session_cookie)
+            status_missing, _headers_missing, body_missing = http_request(
+                base + "/theme-preview/blue.png", cookie=session_cookie)
+            if status_zero != 200 or status_missing != 200:
+                return False, "expected 200 for both ?live=0 and a missing query"
+            sample_only = theme_preview.cached_preview_bytes(harness.tmpdir, "blue")
+            if body_zero != sample_only or body_missing != sample_only:
+                return False, (
+                    "expected ?live=0 and a missing query to both serve the sample variant, "
+                    "not the live one")
+            return True, ""
+        check(
+            "?live=0 and a missing ?live query both serve the sample variant, never the live "
+            "one, even with a runway_events row present (D-23)",
+            _theme_preview_live_zero_and_missing_query_serve_sample_variant)
 
         # --- 260902-v26 Task 3: the live upload round trip, against this ---
         # --- real running companion/app.py subprocess (D-01/D-02/D-03).  ---
@@ -5104,9 +5780,10 @@ def main():
                 if add_result != colour_rules.ADD_OK_NEW:
                     return False, "test setup failure: add_rule() returned %r" % (add_result,)
 
-                status, _headers, body = http_request(rbase + "/device", cookie=rsession)
+                # 20-07 (D-10/D-11) moved the rules editor to Display.
+                status, _headers, body = http_request(rbase + "/display", cookie=rsession)
                 if status != 200:
-                    return False, "expected 200 GET /device, got %d" % status
+                    return False, "expected 200 GET /display, got %d" % status
                 page = body.decode("utf-8")
 
                 add_form_marker = 'action="%s"' % config_page.RULES_ADD_ROUTE
@@ -5388,7 +6065,8 @@ def main():
                 rbase = rules_harness.base_url()
                 rsession = _login(rules_harness)
 
-                status, _headers, body = http_request(rbase + "/device", cookie=rsession)
+                # 20-07 (D-10/D-11) moved the rules editor to Display.
+                status, _headers, body = http_request(rbase + "/display", cookie=rsession)
                 if status != 200:
                     return False, "expected 200, got %d" % status
                 if b"FRESHRD1" in body:
@@ -5399,7 +6077,7 @@ def main():
                 if add_result != colour_rules.ADD_OK_NEW:
                     return False, "test setup failure: add_rule() returned %r" % (add_result,)
 
-                status, _headers, body = http_request(rbase + "/device", cookie=rsession)
+                status, _headers, body = http_request(rbase + "/display", cookie=rsession)
                 if status != 200:
                     return False, "expected 200, got %d" % status
                 if b"FRESHRD1" not in body:
@@ -5915,6 +6593,296 @@ def main():
             "/login and writes nothing (D-08/A-26, T-19-41)",
             _calendar_disconnect_route_unauthenticated_redirects_to_login)
 
+        # ==============================================================
+        # 20-09-PLAN.md Task 2 (D-14c): the calendar connect action's own
+        # dedicated POST /settings/calendar/connect route — never through
+        # config_page.handle_post()'s scope/in_scope machinery (T-20-11),
+        # session-gated like every other state-changing route (T-20-10).
+        # ==============================================================
+
+        def _calendar_connect_route_valid_url_persists_syncs_once_and_leaves_other_settings_alone():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                # T-20-11's own pinned regression: seed Quiet hours and
+                # the screen ON, connect a calendar, and assert both are
+                # STILL on afterwards — a scoped POST through the settings
+                # handler would read their absent checkboxes as an
+                # explicit OFF and silently switch both off.
+                device_config.save_device_config(
+                    calendar_harness.tmpdir, quiet_hours_enabled=True, display_enabled=True)
+                session = _login(calendar_harness)
+                hostname = "connect-route.example"
+                url = "https://%s/feed.ics?token=CONNECTROUTETOKEN" % hostname
+                body = _ics_body([("AFR1234", "ORY", "TLS", 2), ("AFR5678", "ORY", "NCE", 3)])
+                calls = []
+                with _stubbed_calendar_transport(
+                        _make_calendar_transport(body=body, calls=calls)), \
+                        _fake_public_hostname(hostname):
+                    status, headers, _b = http_request(
+                        calendar_harness.base_url() + config_page.CALENDAR_CONNECT_ROUTE,
+                        method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if not location.startswith("/display"):
+                    return False, "expected a redirect to Display, got %r" % location
+                if "flash=calendar_connect_ok" not in location:
+                    return False, "expected the calendar_connect_ok flash key, got %r" % location
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to be configured"
+                if calendar_rules.configured_calendar_url(calendar_harness.tmpdir) != url:
+                    return False, "expected the submitted URL to be stored"
+                if len(calls) != 1:
+                    return False, "expected exactly one registry refresh (one transport call), got %d" % len(calls)
+                registry = calendar_rules.load_calendar_registry(calendar_harness.tmpdir)
+                if len(registry["entries"]) != 2:
+                    return False, "expected two fetched entries, got %r" % (registry["entries"],)
+                on_disk = device_config.load_device_config(calendar_harness.tmpdir)
+                if on_disk.get("quiet_hours_enabled") is not True:
+                    return False, "expected quiet_hours_enabled to remain True (T-20-11 regression)"
+                if on_disk.get("display_enabled") is not True:
+                    return False, "expected display_enabled to remain True (T-20-11 regression)"
+                status2, _h2, page_body = http_request(
+                    calendar_harness.base_url() + location, cookie=session)
+                if b"2 flights found" not in page_body:
+                    return False, "expected the success flash text to include the flight count"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a valid POST /settings/calendar/connect 303-redirects to Display with the "
+            "calendar_connect_ok flash key, persists the URL, triggers exactly one registry refresh, "
+            "and leaves quiet_hours_enabled/display_enabled exactly as they were (D-14c, T-20-11 "
+            "pinned regression)",
+            _calendar_connect_route_valid_url_persists_syncs_once_and_leaves_other_settings_alone)
+
+        def _calendar_connect_route_invalid_url_rejects_and_persists_nothing():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                status, headers, _b = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_CONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode({"calendar_url": ""}).encode(),
+                    cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=calendar_connect_invalid" not in location:
+                    return False, "expected the calendar_connect_invalid flash key, got %r" % location
+                if calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain unconfigured — nothing should be written"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an empty calendar_url on POST /settings/calendar/connect 303-redirects with the "
+            "calendar_connect_invalid flash key and persists nothing (D-14c)",
+            _calendar_connect_route_invalid_url_rejects_and_persists_nothing)
+
+        def _calendar_connect_route_unauthenticated_redirects_to_login():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                status, headers, _b = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_CONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {"calendar_url": "https://unauth-connect.example/feed.ics"}).encode())
+                if status != 303:
+                    return False, "expected a 303 redirect for an unauthenticated POST, got %d" % status
+                if headers.get("Location") != "/login":
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                if calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected nothing to be written for an unauthenticated POST"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an unauthenticated POST /settings/calendar/connect redirects to /login and writes nothing "
+            "(D-14c, T-20-10)",
+            _calendar_connect_route_unauthenticated_redirects_to_login)
+
+        # ==============================================================
+        # 20-11-PLAN.md Task 1 (D-26/T-20-13): "Send a test"'s own
+        # dedicated POST /settings/notifications/test route — session-
+        # gated, reads the topic URL from the stored config only, and
+        # never trusts a submitted topic_url field.
+        # ==============================================================
+
+        def _notifications_test_route_unauthenticated_redirects_to_login():
+            from companion.pages import config_page
+            harness = _InProcessHarness()
+            try:
+                status, headers, _b = http_request(
+                    harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                    method="POST", data=b"")
+                if status != 303:
+                    return False, "expected a 303 redirect for an unauthenticated POST, got %d" % status
+                if headers.get("Location") != "/login":
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "an unauthenticated POST /settings/notifications/test redirects to /login (D-26, T-20-10)",
+            _notifications_test_route_unauthenticated_redirects_to_login)
+
+        def _notifications_test_route_unconfigured_flashes_failure_and_never_calls_sender():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                session = _login(harness)
+                calls = []
+                original = notify_module.send_notification
+
+                def _fake_send(topic_url, title, body, timeout=5, transport=None):
+                    calls.append(topic_url)
+                    return True
+
+                notify_module.send_notification = _fake_send
+                try:
+                    status, headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST", data=b"", cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_FAILED) not in location:
+                    return False, "expected the notifications_test_failed flash key, got %r" % location
+                if calls:
+                    return False, "expected send_notification() to never be called with no stored URL"
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "with no stored topic URL, POST /settings/notifications/test redirects with the "
+            "notifications_test_failed flash key and never calls notify.send_notification() (D-26)",
+            _notifications_test_route_unconfigured_flashes_failure_and_never_calls_sender)
+
+        def _notifications_test_route_configured_calls_sender_once_and_flashes_success():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                stored_url = "https://ntfy.sh/skypane-test-topic-abc"
+                device_config.save_device_config(
+                    harness.tmpdir, notifications={
+                        "topic_url": stored_url, "battery_low": True,
+                        "frame_silent": True, "lang": "en"})
+                session = _login(harness)
+                calls = []
+                original = notify_module.send_notification
+
+                def _fake_send(topic_url, title, body, timeout=5, transport=None):
+                    calls.append(topic_url)
+                    return True
+
+                notify_module.send_notification = _fake_send
+                try:
+                    status, headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST", data=b"", cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_OK) not in location:
+                    return False, "expected the notifications_test_ok flash key, got %r" % location
+                if calls != [stored_url]:
+                    return False, (
+                        "expected send_notification() to be called exactly once with the stored "
+                        "url, got %r" % (calls,))
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "with a stored topic URL, POST /settings/notifications/test calls "
+            "notify.send_notification() exactly once with the stored URL and redirects with the "
+            "notifications_test_ok flash key (D-26)",
+            _notifications_test_route_configured_calls_sender_once_and_flashes_success)
+
+        def _notifications_test_route_sender_returning_false_flashes_failure():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                stored_url = "https://ntfy.sh/skypane-test-topic-def"
+                device_config.save_device_config(
+                    harness.tmpdir, notifications={
+                        "topic_url": stored_url, "battery_low": True,
+                        "frame_silent": True, "lang": "en"})
+                session = _login(harness)
+                original = notify_module.send_notification
+                notify_module.send_notification = lambda *a, **k: False
+                try:
+                    status, headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST", data=b"", cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_FAILED) not in location:
+                    return False, "expected the notifications_test_failed flash key, got %r" % location
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "a sender returning False redirects with the notifications_test_failed flash key (D-26)",
+            _notifications_test_route_sender_returning_false_flashes_failure)
+
+        def _notifications_test_route_ignores_a_submitted_topic_url_field():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                stored_url = "https://ntfy.sh/skypane-test-topic-ghi"
+                device_config.save_device_config(
+                    harness.tmpdir, notifications={
+                        "topic_url": stored_url, "battery_low": True,
+                        "frame_silent": True, "lang": "en"})
+                session = _login(harness)
+                calls = []
+                original = notify_module.send_notification
+
+                def _fake_send(topic_url, title, body, timeout=5, transport=None):
+                    calls.append(topic_url)
+                    return True
+
+                notify_module.send_notification = _fake_send
+                try:
+                    status, _headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST",
+                        data=urllib.parse.urlencode(
+                            {"topic_url": "https://attacker.example/forward-me"}).encode(),
+                        cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                if calls != [stored_url]:
+                    return False, (
+                        "expected send_notification() to receive the STORED url only, got %r"
+                        % (calls,))
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "a POST /settings/notifications/test carrying its own topic_url field is ignored in "
+            "favour of the stored one — the field is never read from the request body (T-20-13)",
+            _notifications_test_route_ignores_a_submitted_topic_url_field)
+
         def _calendar_sync_bypasses_the_throttle_via_min_interval_zero():
             """D-06's bypass, proven two ways.
 
@@ -6141,6 +7109,228 @@ def main():
         check(
             "a calendar save immediately followed by a manual poll trigger does not hit the poll cooldown - the two mechanisms are independent",
             _calendar_save_does_not_touch_the_manual_poll_cooldown)
+
+        # ==============================================================
+        # Section 5 (20-12-PLAN.md Task 2, D-30/D-31): simple mode, end
+        # to end over real HTTP, with the sp_ui_mode=simple cookie set
+        # on a real signed-in session — never the layout.sidebar_nav()/
+        # config_page.render() unit-level calls 20-01/20-09's own
+        # checks already cover in companion/test_status_pages.py/
+        # companion/test_config_page.py. Every check below reuses this
+        # section's own fresh session (never a prior check's mutated
+        # settings state).
+        # ==============================================================
+
+        simple_session = _login(harness)
+        simple_cookie = "%s; %s=simple" % (simple_session, auth.UI_MODE_COOKIE_NAME)
+        full_cookie = "%s; %s=full" % (simple_session, auth.UI_MODE_COOKIE_NAME)
+
+        _NAV_FOOTER_SWITCH_ACTIONS = ('action="/ui-lang"', 'action="/ui-theme"', 'action="/ui-mode"')
+
+        def _make_simple_mode_nav_hidden_check(route):
+            def _fn():
+                status, _headers, body = http_request(base + route, cookie=simple_cookie)
+                text = body.decode("utf-8", "replace")
+                if status != 200:
+                    return False, "GET %s under sp_ui_mode=simple returned %d" % (route, status)
+                if "Advanced" in text:
+                    return False, "GET %s under sp_ui_mode=simple still shows the Advanced nav group" % route
+                if 'href="/health"' in text:
+                    return False, "GET %s under sp_ui_mode=simple still links to /health" % route
+                if 'href="/device"' in text:
+                    return False, "GET %s under sp_ui_mode=simple still links to /device" % route
+                if layout.NAV_NOTIFICATION_CLASS in text:
+                    return False, "GET %s under sp_ui_mode=simple still shows the nav status dot" % route
+                for action in _NAV_FOOTER_SWITCH_ACTIONS:
+                    if action not in text:
+                        return False, "GET %s under sp_ui_mode=simple is missing the %s nav-footer switch" % (route, action)
+                return True, ""
+            return _fn
+
+        for _simple_route in ("/", "/display", "/flights", "/airlines"):
+            check(
+                "GET %s under sp_ui_mode=simple hides the Advanced nav group, the /health and "
+                "/device links, the nav status dot, and still carries the three nav-footer switches (D-30)"
+                % _simple_route,
+                _make_simple_mode_nav_hidden_check(_simple_route))
+
+        def _home_hides_health_link_in_simple_mode():
+            status, _headers, body = http_request(base + "/", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET / under sp_ui_mode=simple returned %d" % status
+            if "See details on Health" in text:
+                return False, "GET / under sp_ui_mode=simple still shows the Health link"
+            return True, ""
+
+        check(
+            "Home hides the \"See details on Health\" link under sp_ui_mode=simple (D-30)",
+            _home_hides_health_link_in_simple_mode)
+
+        def _airlines_hides_change_pictures_button_in_simple_mode():
+            status, _headers, body = http_request(base + "/airlines", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET /airlines under sp_ui_mode=simple returned %d" % status
+            if "Change pictures" in text:
+                return False, "GET /airlines under sp_ui_mode=simple still shows the \"Change pictures\" button"
+            return True, ""
+
+        check(
+            "Airlines hides the \"Change pictures\" button under sp_ui_mode=simple (D-30/D-36)",
+            _airlines_hides_change_pictures_button_in_simple_mode)
+
+        def _display_disclosures_collapse_to_one_sentence_in_simple_mode():
+            status, _headers, body = http_request(base + "/display", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET /display under sp_ui_mode=simple returned %d" % status
+            if "<summary>How it works</summary>" in text:
+                return False, "the Calendar card's disclosure is still a <details> in simple mode"
+            if "<summary>How rules combine</summary>" in text:
+                return False, "the Flight-colours disclosure is still a <details> in simple mode"
+            if "It only colours a flight already on screen." not in text:
+                return False, "the Calendar card's own one-sentence simple-mode copy is missing"
+            if "The most specific match wins." not in text:
+                return False, "the Flight-colours section's own one-sentence simple-mode copy is missing"
+            return True, ""
+
+        check(
+            "Display collapses both \"How it works\"/\"How rules combine\" disclosures to one "
+            "plain sentence under sp_ui_mode=simple (D-30)",
+            _display_disclosures_collapse_to_one_sentence_in_simple_mode)
+
+        def _display_still_carries_all_six_everyday_groups_in_simple_mode():
+            status, _headers, body = http_request(base + "/display", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET /display under sp_ui_mode=simple returned %d" % status
+            needles = (
+                'data-dirty-section="Theme"', 'data-dirty-section="Calendar"',
+                'data-dirty-section="Runway"', 'data-dirty-section="Screen on / off"',
+                'data-dirty-section="Quiet hours"', "Flight colours")
+            missing = [n for n in needles if n not in text]
+            if missing:
+                return False, "GET /display under sp_ui_mode=simple is missing group(s): %r" % (missing,)
+            return True, ""
+
+        check(
+            "Display still renders all six everyday groups under sp_ui_mode=simple (D-31)",
+            _display_still_carries_all_six_everyday_groups_in_simple_mode)
+
+        def _health_and_device_still_reachable_by_url_in_simple_mode():
+            for route in ("/health", "/device"):
+                status, _headers, _body = http_request(base + route, cookie=simple_cookie)
+                if status != 200:
+                    return False, (
+                        "GET %s under sp_ui_mode=simple returned %d, expected 200 - simple "
+                        "mode is presentation only, never access control (D-30)" % (route, status))
+            return True, ""
+
+        check(
+            "GET /health and GET /device still return 200 for a signed-in session under "
+            "sp_ui_mode=simple (D-30: presentation, not access control)",
+            _health_and_device_still_reachable_by_url_in_simple_mode)
+
+        def _flights_and_airlines_keep_their_full_content_in_simple_mode():
+            status, _headers, body = http_request(base + "/flights", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200 or "Recent flights table, scrollable" not in text:
+                return False, "GET /flights under sp_ui_mode=simple lost its own table (D-31)"
+            status, _headers, body = http_request(base + "/airlines", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200 or "Illustration reference for every airline" not in text:
+                return False, "GET /airlines under sp_ui_mode=simple lost its own gallery (D-31)"
+            return True, ""
+
+        check(
+            "Flights and Airlines keep their full content under sp_ui_mode=simple (D-31)",
+            _flights_and_airlines_keep_their_full_content_in_simple_mode)
+
+        def _simple_mode_survives_three_sequential_requests():
+            for route in ("/", "/display", "/flights"):
+                status, _headers, body = http_request(base + route, cookie=simple_cookie)
+                text = body.decode("utf-8", "replace")
+                if status != 200:
+                    return False, "GET %s under sp_ui_mode=simple returned %d" % (route, status)
+                if "Advanced" in text:
+                    return False, (
+                        "GET %s under sp_ui_mode=simple showed the Advanced nav group after a "
+                        "prior request in the same cookie session - the mode did not survive "
+                        "navigation" % route)
+            return True, ""
+
+        check(
+            "sp_ui_mode=simple survives navigation across three sequential requests",
+            _simple_mode_survives_three_sequential_requests)
+
+        # --- The full-mode mirror: everything D-30 hides comes back ---------
+
+        def _make_full_mode_nav_shown_check(route):
+            def _fn():
+                status, _headers, body = http_request(base + route, cookie=full_cookie)
+                text = body.decode("utf-8", "replace")
+                if status != 200:
+                    return False, "GET %s under sp_ui_mode=full returned %d" % (route, status)
+                if "Advanced" not in text:
+                    return False, "GET %s under sp_ui_mode=full is missing the Advanced nav group" % route
+                if 'href="/health"' not in text:
+                    return False, "GET %s under sp_ui_mode=full is missing the /health nav link" % route
+                if 'href="/device"' not in text:
+                    return False, "GET %s under sp_ui_mode=full is missing the /device nav link" % route
+                for action in _NAV_FOOTER_SWITCH_ACTIONS:
+                    if action not in text:
+                        return False, "GET %s under sp_ui_mode=full is missing the %s nav-footer switch" % (route, action)
+                return True, ""
+            return _fn
+
+        for _full_route in ("/", "/display"):
+            check(
+                "GET %s under sp_ui_mode=full shows the Advanced nav group, the /health and "
+                "/device links, and still carries the three nav-footer switches"
+                % _full_route,
+                _make_full_mode_nav_shown_check(_full_route))
+
+        def _home_shows_health_link_in_full_mode():
+            status, _headers, body = http_request(base + "/", cookie=full_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET / under sp_ui_mode=full returned %d" % status
+            if "See details on Health" not in text:
+                return False, "GET / under sp_ui_mode=full is missing the Health link"
+            return True, ""
+
+        check(
+            "Home shows the \"See details on Health\" link under sp_ui_mode=full",
+            _home_shows_health_link_in_full_mode)
+
+        def _airlines_shows_change_pictures_button_in_full_mode():
+            status, _headers, body = http_request(base + "/airlines", cookie=full_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET /airlines under sp_ui_mode=full returned %d" % status
+            if "Change pictures" not in text:
+                return False, "GET /airlines under sp_ui_mode=full is missing the \"Change pictures\" button"
+            return True, ""
+
+        check(
+            "Airlines shows the \"Change pictures\" button under sp_ui_mode=full",
+            _airlines_shows_change_pictures_button_in_full_mode)
+
+        def _display_disclosures_are_full_details_in_full_mode():
+            status, _headers, body = http_request(base + "/display", cookie=full_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET /display under sp_ui_mode=full returned %d" % status
+            if "<summary>How it works</summary>" not in text:
+                return False, "the Calendar card's disclosure is not a <details> under sp_ui_mode=full"
+            if "<summary>How rules combine</summary>" not in text:
+                return False, "the Flight-colours disclosure is not a <details> under sp_ui_mode=full"
+            return True, ""
+
+        check(
+            "Display shows both disclosures as full <details> under sp_ui_mode=full",
+            _display_disclosures_are_full_details_in_full_mode)
 
     finally:
         harness.stop()

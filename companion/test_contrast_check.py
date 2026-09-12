@@ -39,6 +39,7 @@ if REPO_ROOT not in sys.path:
 from companion.contrast_check import (  # noqa: E402
     MIN_SIGNAL_HUE_SEPARATION,
     MIN_SIGNAL_PERCEPTUAL_DISTANCE,
+    STATUS_WARN_ON_CARD_PAIRS,
     WCAG_AA_NORMAL_TEXT,
     WCAG_AA_UI_COMPONENT,
     contrast_ratio,
@@ -52,6 +53,12 @@ from companion.contrast_check import (  # noqa: E402
 # already pinned; it was not, so it is added here rather than shipping
 # an under-contrast trailing detail unguarded.
 EXPECTED_CHECK_COUNT = 36
+
+# 20-04-PLAN.md Task 3: +3 (the warn-on-card-surface pair — one check
+# per theme, plus one asserting the pair is present in
+# contrast_check.STATUS_WARN_ON_CARD_PAIRS so a future token edit cannot
+# silently drop it unguarded).
+EXPECTED_CHECK_COUNT = 39
 
 
 def main():
@@ -306,6 +313,79 @@ def main():
         "hue_separation() takes the shorter arc, including across the "
         "0/360 wrap point",
         _hue_separation_wraps_around_zero)
+
+    # ==================================================================
+    # Section 4 (20-04-PLAN.md Task 3): the warn-coloured "Expected
+    # since" headline's own contrast gate. Unlike Section 2's live_pairs
+    # (every entry there is required to PASS WCAG AA), this pair's own
+    # two per-theme checks assert the ACTUAL measured verdict in each
+    # theme — dark clears WCAG_AA_NORMAL_TEXT, light does not — because
+    # that asymmetry is exactly what justifies style.css's own
+    # non-colour fallback (.status-card__headline--warn stays on
+    # --color-text in both themes rather than shipping
+    # --color-status-warn as body text). Weakening either check to
+    # merely assert "some ratio was computed" would make this section
+    # decorative; asserting the known pass/fail split is what keeps it a
+    # real regression guard, mirroring the file's own SUPERSEDED_ERROR
+    # "guard against a decorative threshold" checks above.
+    # ==================================================================
+
+    def _find_pair(theme):
+        for pair_theme, fg, bg in STATUS_WARN_ON_CARD_PAIRS:
+            if pair_theme == theme:
+                return fg, bg
+        return None, None
+
+    def _make_warn_on_card_pass_check(theme):
+        def _check():
+            fg, bg = _find_pair(theme)
+            if fg is None:
+                return False, "no %s entry in STATUS_WARN_ON_CARD_PAIRS" % theme
+            ratio = contrast_ratio(fg, bg)
+            if ratio < WCAG_AA_NORMAL_TEXT:
+                return False, (
+                    "%s: contrast_ratio(%r, %r) = %.2f, below WCAG_AA_NORMAL_TEXT (%.1f)"
+                    % (theme, fg, bg, ratio, WCAG_AA_NORMAL_TEXT))
+            return True, ""
+        return _check
+
+    def _make_warn_on_card_fail_check(theme):
+        def _check():
+            fg, bg = _find_pair(theme)
+            if fg is None:
+                return False, "no %s entry in STATUS_WARN_ON_CARD_PAIRS" % theme
+            ratio = contrast_ratio(fg, bg)
+            if ratio >= WCAG_AA_NORMAL_TEXT:
+                return False, (
+                    "%s: contrast_ratio(%r, %r) = %.2f, no longer below "
+                    "WCAG_AA_NORMAL_TEXT (%.1f) — the non-colour fallback on "
+                    ".status-card__headline--warn may no longer be justified; "
+                    "re-check before reverting to a warn-coloured headline"
+                    % (theme, fg, bg, ratio, WCAG_AA_NORMAL_TEXT))
+            return True, ""
+        return _check
+
+    check(
+        "dark: warn-coloured headline on card surface meets WCAG AA "
+        "normal-text contrast (>= 4.5:1)",
+        _make_warn_on_card_pass_check("dark"))
+    check(
+        "light: warn-coloured headline on card surface correctly falls "
+        "below WCAG AA normal-text contrast, confirming style.css's "
+        "non-colour status-warn fallback is required",
+        _make_warn_on_card_fail_check("light"))
+
+    def _warn_on_card_pair_is_present_in_the_table():
+        themes_present = {theme for theme, _fg, _bg in STATUS_WARN_ON_CARD_PAIRS}
+        if themes_present != {"light", "dark"}:
+            return False, (
+                "expected STATUS_WARN_ON_CARD_PAIRS to carry exactly light "
+                "and dark entries, got %r" % (themes_present,))
+        return True, ""
+    check(
+        "the status-warn-on-card pair is present in "
+        "contrast_check.STATUS_WARN_ON_CARD_PAIRS for both themes",
+        _warn_on_card_pair_is_present_in_the_table)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

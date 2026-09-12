@@ -29,6 +29,14 @@
  * already establishes, never a second filtering implementation. A page
  * with no [data-filter-set] element (History) is unaffected: the lookup
  * returns an empty list and no listener is attached.
+ *
+ * D-06 (20-11-PLAN.md Task 3): the live "X of Y shown" count text is
+ * built from the [data-filter-count] element's own data-filter-count-
+ * template attribute — server-rendered and translated, with both "%d"
+ * placeholders left unformatted for this file to fill in at each
+ * keystroke — instead of hardcoding the English words "of"/"shown"
+ * here. A short, hardcoded fallback covers an un-updated caller whose
+ * markup does not yet carry the attribute.
  */
 (function () {
   "use strict";
@@ -88,7 +96,11 @@
       }
     }
     if (countEl) {
-      countEl.textContent = visibleCount + " of " + totalCount + " shown";
+      var countTemplate = countEl.getAttribute("data-filter-count-template")
+        || "%d of %d shown";
+      countEl.textContent = countTemplate
+        .replace("%d", String(visibleCount))
+        .replace("%d", String(totalCount));
     }
     if (emptyEl) {
       emptyEl.hidden = !(query !== "" && visibleCount === 0);

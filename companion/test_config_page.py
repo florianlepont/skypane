@@ -41,10 +41,13 @@ if REPO_ROOT not in sys.path:
 
 from companion import app as companion_app  # noqa: E402
 from companion import auth  # noqa: E402
+import companion.i18n_fr as i18n_fr  # noqa: E402
 import companion.layout as layout  # noqa: E402
 from companion.layout import escape_html  # noqa: E402
+import companion.prefs as prefs  # noqa: E402
 from companion.pages import config_page  # noqa: E402
-from server import device_config  # noqa: E402
+import companion.i18n_fr.display as i18n_fr_display  # noqa: E402
+from server import device_config, history_db  # noqa: E402
 from server.plane import calendar_rules, colour_rules  # noqa: E402
 
 TEST_PASSWORD = "config-page-test-password-please-ignore"
@@ -357,6 +360,116 @@ EXPECTED_CHECK_COUNT = 181  # 19-REVIEW.md WR-01 fix: +1 (the
 # 181, recomputed directly against the real on-disk check(...) call
 # count at execution time (181/181 pass), not trusted from arithmetic
 # alone.
+EXPECTED_CHECK_COUNT = 184  # 20-07-PLAN.md Task 1 (D-10/D-11/D-12): +3
+# (scope_groups(SCOPE_DISPLAY) carries Runway/Calendar and
+# scope_groups(SCOPE_DEVICE) carries neither; the three section-intro
+# headings render on Display in the locked order and none on Device;
+# every grouped card under a Display supersection carries a --nested
+# class) net of retargeting seven pre-existing checks in place (the
+# calendar-disconnect confirm page's cancel link, the disconnect-form
+# placement/absence pair, the scoped-render runway/LED/rules/poll
+# assertions, the out-of-scope calendar-signal assertions, the HTTP
+# round-trip's runway/calendar GETs, and the radiogroup count) — no
+# count change from those seven, since each replaces its own prior
+# assertion rather than adding a new check(...) call. 181 + 3 = 184,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (184/184 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 190  # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): +6
+# (a Display render carries exactly one action="/quick/display" form and
+# one action="/quick/quiet-hours" form; neither is a descendant of
+# <form id=settings-form>; the rendered Display page contains no <form>
+# nested inside another <form> anywhere — the pinned regression test for
+# Pitfall 1; all four scheduled inputs carry form="settings-form"; the
+# shared "Applies the next time the frame wakes up." sentence appears
+# exactly twice; a POST through handle_post() with the same field set as
+# before this task still saves identically) net of retargeting four
+# pre-existing checks that this task's own restructuring of display_
+# group()/quiet_hours_group() genuinely broke (running the whole suite
+# BEFORE writing any new check, per this task's own instruction, found
+# these four: the Display-checkbox-checked-state check, the dirty-bar-
+# sibling-of-form check, and two Calendar-placement checks — all four
+# had assumed the FIRST "</form>" in a SCOPE_ALL/legacy render was the
+# settings form's own closing tag, which stopped holding once display_
+# group()/quiet_hours_group() started embedding their own small
+# quick-action <form> ahead of it). 184 + 6 = 190, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (190/190 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 194  # 20-07-PLAN.md Task 3 (D-05/D-36): +4 (a
+# French Display render carries the three supersection headings, the
+# purpose sentence and the instant-switch sentence in French with none
+# of their English counterparts; an English render still carries every
+# pre-existing pinned English string; the Device render carries no
+# edit-artwork markup or ?edit=1 link in either language; every key of
+# companion/i18n_fr/display.py is a key of the merged companion.i18n_fr
+# .CATALOG) net of retargeting the pre-existing Edit-artwork-anchor
+# check in place (D-36: the link and its builder are deleted outright,
+# so the check now asserts absence on both scopes instead of one
+# anchor on Device) — no count change from that retarget, since it
+# replaces its own prior assertion rather than adding a new check(...)
+# call. 190 + 4 = 194, recomputed directly against the real on-disk
+# check(...) call count at execution time (194/194 pass), not trusted
+# from arithmetic alone.
+EXPECTED_CHECK_COUNT = 200  # 20-09-PLAN.md Task 1 (D-14a..d) and Task 3
+# (D-15a..e): the Calendar card and Flight colours section were both
+# rebuilt in this same continuous editing pass, so their test retargets
+# land together here rather than as two separate counts. Net effect:
+# every render()-shape check against the old <select>-based calendar
+# theme picker, the old one-piece calendar-status sentence, the old
+# calendar_url-inside-calendar_group() field, and the old table/card
+# rules list was retargeted in place to the new status_row()/compact-
+# chip-grid/calendar_connect_section()/.rule-list shapes; new checks
+# were added for the native-radio "Match by" segmented control, the
+# rule-row kind badge/data-confirm Remove form, the plain-sans empty
+# state, the suggestion chips, both disclosures' simple-mode collapse,
+# and a French render of each section. Recomputed directly against the
+# real on-disk check(...) call count at execution time (200/200 pass),
+# not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 205  # 20-11-PLAN.md Task 1 (D-26/D-28): +5 (the
+# Notifications group's status row reads Configured/Not configured and
+# never leaks a substring of the stored URL; the write-only topic-URL
+# input never carries a value attribute; the two checkboxes reflect
+# stored state; a handle_post() round trip with a URL and both boxes
+# persists the whole group and writes lang from ctx["lang"]; an empty
+# URL submission leaves the stored URL intact; and the page carries no
+# notifications_lang control). 200 + 5 = 205, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (205/205 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 209  # 20-11-PLAN.md Task 2 (D-22..D-24): +4 (a
+# Display render carries exactly one .theme-live-preview figure whose
+# <img> src ends in the saved theme's ?live=1 URL, loading="eager" and
+# explicit width/height; every chip's own <label> carries a
+# data-preview-src ending in .png?live=1 while each chip's own <img>
+# keeps loading="lazy" and the fixed, non-live src; the caption names a
+# seeded event's callsign and falls back to the sample wording with no
+# events; a French render's live preview shows the seeded callsign
+# after "Aperçu avec votre dernier vol : "). 205 + 4 = 209, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (209/209 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 210  # Polish fix 4 (Calendar connect form belongs
+# with its card, D-14c): +1 (on the Display scope,
+# calendar_connect_section()'s own <form> opening tag renders
+# immediately after the Calendar card and strictly before the Runway
+# card's own radio input, never after the whole page's groups).
+# 209 + 1 = 210, recomputed directly against the real on-disk check(...)
+# call count at execution time (210/210 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 211  # Polish fix 5 (Registry labels shown in
+# French, D-05): +1 (a French Display render translates the default
+# theme name and default runway label, and both scopes' screen
+# caption translates "Plane frame" -> "Cadre avion", while the theme/
+# runway ids stay untranslated attribute values). 210 + 1 = 211,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (211/211 pass), not trusted from arithmetic alone.
+
+EXPECTED_CHECK_COUNT = 212  # D-12 fix (20-REVIEW.md verification gap):
+# +1 (the Display scope's rendered <h2> order is exactly Look, Theme,
+# Flight colours, Calendar, What it watches, Runway, When it is on,
+# Screen on / off, Quiet hours - restoring D-12's locked Theme ->
+# Flight colours -> Calendar reading order inside "Look" - and every
+# calendar_theme_id radio carries a form="settings-form" attribute).
+# 211 + 1 = 212, recomputed directly against the real on-disk check(...)
+# call count at execution time (212/212 pass), not trusted from
+# arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -533,9 +646,14 @@ def main():
         # wrapped groups — the count below is 5, not the pre-Phase-10/11
         # value of 3, for that reason alone, not a rename.
         #
-        # 12-05-PLAN.md: Display joins as the sixth and last .theme-status-
-        # wrapped group — the count below is 6, not 5, for that reason
-        # alone, not a rename.
+        # 12-05-PLAN.md: Display joins as the sixth .theme-status-wrapped
+        # group — the count was 6, not 5, for that reason alone, not a
+        # rename.
+        #
+        # 20-11-PLAN.md Task 1 (D-26): Notifications joins as the seventh
+        # and last .theme-status-wrapped group on the legacy SCOPE_ALL
+        # render — the count below is 7, not 6, for that reason alone,
+        # not a rename.
         ctx = {
             "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -545,8 +663,8 @@ def main():
             return False, "expected zero <fieldset> elements anywhere on the page, found one"
         if "<legend" in rendered:
             return False, "expected zero <legend> elements anywhere on the page, found one"
-        if rendered.count('class="theme-status"') != 6:
-            return False, "expected exactly 6 theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display), got %d" % rendered.count('class="theme-status"')
+        if rendered.count('class="theme-status"') != 7:
+            return False, "expected exactly 7 theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Notifications), got %d" % rendered.count('class="theme-status"')
         if "theme-chip-grid" not in rendered:
             return False, "expected the Theme group to render a .theme-chip-grid"
         if rendered.count('<label class="runway-card') != 3:
@@ -555,7 +673,7 @@ def main():
             return False, "expected the 'Save settings' submit button copy"
         return True, ""
     check(
-        "render() emits Theme's .theme-chip-grid (no <fieldset>, D-01), six theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display), three runway-card labels, and a Save settings submit button",
+        "render() emits Theme's .theme-chip-grid (no <fieldset>, D-01), seven theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Notifications), three runway-card labels, and a Save settings submit button",
         _render_shape_theme_chip_grid_runway_cards_groups_and_save_button)
 
     def _led_group_carries_classed_label_and_unchanged_input_attrs():
@@ -958,19 +1076,27 @@ def main():
         # Bullet 3: render() with an empty device_config produces a
         # checked box (D-09 reaching the page, not just the loader), and
         # {"display_enabled": False} produces an unchecked one.
+        #
+        # 20-07-PLAN.md Task 2 (D-19): display_group()'s own quick-action
+        # slot now renders several nested <div>s BEFORE the checkbox
+        # inside the same outer wrapper — the old "slice to the first
+        # </div> after the dirty-section marker" no longer reaches the
+        # checkbox at all (it now closes an inner quick-action <div>
+        # instead). Retargeted to find the checkbox's own <input> tag
+        # directly, which is robust to whatever precedes it in the card.
         rendered = config_page.render({"device_config": {}, "state_dir": "/tmp"})
         if rendered.count('name="display_enabled"') != 1:
             return False, "expected exactly one display_enabled input"
-        segment = rendered[rendered.index('%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.DISPLAY_SECTION_HEADING)):]
-        segment = segment[:segment.index("</div>")]
-        if " checked" not in segment:
+        checkbox_marker = rendered.index('<input type="checkbox" name="display_enabled"')
+        checkbox_tag = rendered[checkbox_marker:rendered.index(">", checkbox_marker) + 1]
+        if " checked" not in checkbox_tag:
             return False, "expected an empty device_config to render the Display box checked (D-09)"
 
         rendered_off = config_page.render({
             "device_config": {"display_enabled": False}, "state_dir": "/tmp"})
-        segment_off = rendered_off[rendered_off.index('%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.DISPLAY_SECTION_HEADING)):]
-        segment_off = segment_off[:segment_off.index("</div>")]
-        if " checked" in segment_off:
+        checkbox_marker_off = rendered_off.index('<input type="checkbox" name="display_enabled"')
+        checkbox_tag_off = rendered_off[checkbox_marker_off:rendered_off.index(">", checkbox_marker_off) + 1]
+        if " checked" in checkbox_tag_off:
             return False, "expected device_config={'display_enabled': False} to render the box unchecked"
         return True, ""
     check(
@@ -1160,10 +1286,24 @@ def main():
             return False, "expected exactly one config-form <form>, no duplicate"
         if "</form>" not in rendered:
             return False, "expected a closing </form> tag"
-        form_end = rendered.index("</form>")
         if "data-dirty-bar" not in rendered:
             return False, "expected data-dirty-bar to appear in render()'s output"
         bar_pos = rendered.index("data-dirty-bar")
+        # 20-07-PLAN.md Task 2 (D-19): SCOPE_ALL's legacy flat join still
+        # calls the now-restructured display_group()/quiet_hours_group()
+        # (both are still members of scope_groups(SCOPE_ALL)'s own fixed
+        # tuple), and each now embeds its own small quick-action <form>
+        # ahead of the settings form's real closing tag — so the FIRST
+        # "</form>" in the document is no longer necessarily the settings
+        # form's own. The bottom static Save button is the last thing the
+        # settings form itself emits before its own closing tag (render()'s
+        # own template: "...Save settings</button></form>"), so the
+        # settings form's real "</form>" is the first one AFTER that
+        # button's own text.
+        save_button_pos = rendered.index("Save settings")
+        if save_button_pos >= bar_pos:
+            return False, "expected the bottom Save settings button to appear before the dirty bar"
+        form_end = rendered.index("</form>", save_button_pos)
         if bar_pos <= form_end:
             return False, "expected data-dirty-bar to appear AFTER </form> closes, not inside it"
         poll_heading = '<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING
@@ -1366,8 +1506,13 @@ def main():
             return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
         if rendered.count("runway-card--selected") != 1:
             return False, "expected exactly one runway-card--selected modifier"
-        if 'value="3" class="visually-hidden" checked' not in rendered:
-            return False, "expected the selected card's radio to carry class=\"visually-hidden\" and checked"
+        # Polish fix 4 (D-14c): each radio now also carries an explicit
+        # form="settings-form" attribute (config_page.SETTINGS_FORM_ID),
+        # inserted between class="visually-hidden" and checked.
+        if 'value="3" class="visually-hidden" form="%s" checked' % config_page.SETTINGS_FORM_ID not in rendered:
+            return False, (
+                "expected the selected card's radio to carry class=\"visually-hidden\", "
+                "form=\"settings-form\" and checked")
         if "display:none" in rendered or "display: none" in rendered:
             return False, "expected the radio hidden via the visually-hidden utility class, never display:none"
         if rendered.count('class="visually-hidden"') < 3:
@@ -1399,15 +1544,19 @@ def main():
 
     def _render_exactly_five_dirty_sections_in_order():
         # Acceptance criterion: the rendered output contains exactly
-        # seven elements carrying data-dirty-section, whose attribute
+        # eight elements carrying data-dirty-section, whose attribute
         # values in document order are "Theme", "Runway", "Diagnostic
-        # LED", "Quiet hours", "Wake interval", "Display", "Calendar" —
-        # 10-05-PLAN.md Task 1 wired Quiet hours in as the fourth group
-        # after Diagnostic LED, 11-03-PLAN.md Task 1 wired Wake interval
-        # in as the fifth, after Quiet hours, 12-05-PLAN.md Task 1 wired
-        # Display in as the sixth, after Wake interval, and 16-05-PLAN.md
-        # Task 1 wires Calendar in as the seventh and last, after Display
-        # (16-UI-SPEC.md Section Anatomy's Placement recommendation).
+        # LED", "Quiet hours", "Wake interval", "Display", "Calendar",
+        # "Notifications" — 10-05-PLAN.md Task 1 wired Quiet hours in as
+        # the fourth group after Diagnostic LED, 11-03-PLAN.md Task 1
+        # wired Wake interval in as the fifth, after Quiet hours,
+        # 12-05-PLAN.md Task 1 wired Display in as the sixth, after Wake
+        # interval, 16-05-PLAN.md Task 1 wired Calendar in as the
+        # seventh, after Display (16-UI-SPEC.md Section Anatomy's
+        # Placement recommendation), and 20-11-PLAN.md Task 1 wires
+        # Notifications in as the eighth and last, after Calendar — the
+        # legacy SCOPE_ALL tuple's own trailing position for the group
+        # (scope_groups()'s own D-26 comment).
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -1416,12 +1565,13 @@ def main():
             r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
         expected = [
             "Theme", "Runway", "Diagnostic LED", "Quiet hours",
-            "Wake interval", config_page.DISPLAY_SECTION_HEADING, "Calendar"]
+            "Wake interval", config_page.DISPLAY_SECTION_HEADING, "Calendar",
+            "Notifications"]
         if found != expected:
             return False, "expected %r in document order, got %r" % (expected, found)
         return True, ""
     check(
-        "render() carries exactly seven data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar",
+        "render() carries exactly eight data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar/Notifications",
         _render_exactly_five_dirty_sections_in_order)
 
     def _runway_fieldset_returns_single_top_level_div():
@@ -1611,9 +1761,14 @@ def main():
             "device_config": {"theme": "black", "tracked_runway": "06-24"},
             "poll_cooldown_remaining": 0,
         })
-        if 'value="06-24" class="visually-hidden" checked' not in rendered:
+        # Polish fix 4 (D-14c): each runway radio now also carries an
+        # explicit form="settings-form" attribute, inserted between
+        # class="visually-hidden" and checked.
+        if ('value="06-24" class="visually-hidden" form="%s" checked'
+                % config_page.SETTINGS_FORM_ID) not in rendered:
             return False, "expected the non-default saved runway (06-24) to be marked selected"
-        if 'value="3" class="visually-hidden" checked' in rendered:
+        if ('value="3" class="visually-hidden" form="%s" checked'
+                % config_page.SETTINGS_FORM_ID) in rendered:
             return False, "expected runway 3 (not the saved value) to NOT be marked selected"
         if rendered.count("runway-card--selected") != 1:
             return False, "expected exactly one runway-card--selected modifier"
@@ -1623,12 +1778,21 @@ def main():
         # theme_fieldset()'s second (arrivals) grid pre-selects the SAME
         # effective theme as the first (departures) grid — doubling this
         # count from 1 to 2, one per grid, both landing on "black".
-        if rendered.count("theme-chip--selected") != 2:
-            return False, "expected exactly two theme-chip--selected modifiers (one per grid), got %d" % rendered.count("theme-chip--selected")
+        # 20-09-PLAN.md Tasks 1/3 (D-14d/D-15b): SCOPE_ALL's legacy render
+        # also carries Calendar's own compact chip grid and the Flight-
+        # colours add form's compact chip grid — two more single-
+        # selection compact grids, +2 more (one each), for 4 total.
+        if rendered.count("theme-chip--selected") != 4:
+            return False, (
+                "expected exactly four theme-chip--selected modifiers (Theme's two grids plus "
+                "Calendar's and Flight-colours' own compact grids), got %d"
+                % rendered.count("theme-chip--selected"))
         return True, ""
     check(
-        "the currently-saved theme is shown current in both chip grids (Phase 15 D-05 doubles this from 1 to 2 "
-        "absent an arrivals override) and the (non-default) saved runway card is the one marked selected",
+        "the currently-saved theme is shown current in both of Theme's own chip grids (Phase 15 D-05 "
+        "doubles this from 1 to 2 absent an arrivals override), Calendar's and Flight-colours' own "
+        "compact chip grids each mark their own default selection too (4 total), and the (non-default) "
+        "saved runway card is the one marked selected",
         _current_theme_and_runway_are_selected)
 
     def _poll_trigger_enabled_at_zero_cooldown():
@@ -1917,7 +2081,18 @@ def main():
             # returns screen_id too, "plane-frame" (DEFAULT_SCREEN_ID) here
             # because this post carries no screen_id field. Same mechanical
             # update as the two lines above.
-            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None, "screen_id": "plane-frame"}:
+            # 20-02-PLAN.md Task 3 (D-26): load_device_config() now always
+            # returns notifications too.
+            # 20-11-PLAN.md Task 1 (D-26): screens.GROUP_NOTIFICATIONS now
+            # joins the legacy SCOPE_ALL tuple this un-scoped post resolves
+            # to (submitted_scope(form) with no "scope" field present
+            # returns SCOPE_ALL), so the group is now IN SCOPE for this
+            # post — its two checkboxes resolve absent-means-False, like
+            # every other in-scope checkbox this handler owns, rather than
+            # DEFAULT_NOTIFICATIONS's own True/True. The topic URL still
+            # carries forward the (here, never-set) on-disk value, and lang
+            # falls back to "en" (this test's ctx carries no "lang" key).
+            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -2590,21 +2765,27 @@ def main():
         "both quiet-hours time inputs carry required in the rendered Settings page",
         _render_both_quiet_hours_time_inputs_carry_required)
 
-    def _render_calendar_url_error_never_echoes_the_submitted_secret():
-        rendered = config_page.render(
-            _TASK2_BASE_CTX, errors={"calendar_url": "msg"},
-            submitted={"calendar_url": "https://secret.example/abc?token=xyz"})
+    def _calendar_connect_url_error_never_echoes_the_submitted_secret():
+        # 20-09-PLAN.md Task 1 (D-14c): the write-only calendar_url field
+        # moved out of render()'s own errors/submitted plumbing entirely,
+        # into calendar_connect_section()'s own `errors` parameter — this
+        # function never accepts `submitted` at all (nothing to
+        # repopulate: the one field it renders is write-only), so there
+        # is no submitted URL for it to echo in the first place.
+        rendered = config_page.calendar_connect_section(False, errors={"calendar_url": "msg"})
         if "msg" not in rendered:
             return False, "expected the calendar_url error message to render"
-        for needle in ("secret.example", "abc", "token", "xyz"):
-            if needle in rendered:
-                return False, "expected %r never to appear in the re-rendered page (T-19-12/T-16-SECRET)" % (needle,)
+        if 'name="calendar_url"' not in rendered:
+            return False, "expected the calendar_url field itself to still render"
+        after_name = rendered.split('name="calendar_url"', 1)[1].split(">", 1)[0]
+        if "value=" in after_name:
+            return False, "expected no value attribute on the calendar_url field even with an error present"
         return True, ""
     check(
-        "render(ctx, errors={\"calendar_url\": \"msg\"}, submitted={\"calendar_url\": \"https://secret.example/"
-        "abc?token=xyz\"}) renders the message but contains none of the submitted URL's host, path, query-"
-        "parameter name, or token — the write-only field is never repopulated (D-07/T-19-12)",
-        _render_calendar_url_error_never_echoes_the_submitted_secret)
+        "calendar_connect_section(False, errors={\"calendar_url\": \"msg\"}) renders the error message "
+        "under the field while the write-only field itself still carries no value attribute at all "
+        "(D-07/T-19-12/D-14c)",
+        _calendar_connect_url_error_never_echoes_the_submitted_secret)
 
     def _style_css_styles_field_error():
         style_path = os.path.join(REPO_ROOT, "companion", "static", "style.css")
@@ -3188,17 +3369,26 @@ def main():
         label_end = rendered.index("</label>", label_start)
         if not (label_start < toggle_match.start() < label_end):
             return False, "expected the toggle to be nested inside a <label class=\"settings-checkbox\">"
-        expected_preview_count = 2 * theme_count
+        # 20-09-PLAN.md Tasks 1/3 (D-14d/D-15b): this ctx carries no
+        # calendar/colour_rules keys, but SCOPE_ALL's legacy render still
+        # calls calendar_group() and _rules_section_html() unconditionally
+        # (show_rules/GROUP_CALENDAR both always present on that scope) —
+        # each contributes its OWN compact theme-chip grid (one full set
+        # of preview images apiece), so the total is FOUR grids' worth,
+        # not two.
+        expected_preview_count = 4 * theme_count
         if rendered.count('class="theme-chip__preview"') != expected_preview_count:
             return False, (
-                "expected exactly %d theme-chip__preview <img> occurrences (one per theme, per grid), got %d"
+                "expected exactly %d theme-chip__preview <img> occurrences (Theme's two grids plus "
+                "Calendar's and Flight-colours' own compact grids, one full theme set each), got %d"
                 % (expected_preview_count, rendered.count('class="theme-chip__preview"')))
         return True, ""
     check(
         "the rendered Settings page carries both theme chip grids (the plain .theme-chip-grid and its "
         ".theme-chip-grid--arrivals/[data-arrival-grid] sibling), the arrivals checkbox nested in a "
         "settings-checkbox label with id=theme-arriving-toggle, both new copy strings escaped-verbatim, and "
-        "exactly 2*len(THEME_IDS) theme-chip__preview images (Phase 15 D-05)",
+        "exactly 4*len(THEME_IDS) theme-chip__preview images (Theme's two grids plus Calendar's and "
+        "Flight-colours' own compact grids, Phase 15 D-05 / 20-09-PLAN.md D-14d/D-15b)",
         _theme_arriving_markup_both_grids_copy_and_checkbox_present)
 
     def _theme_arriving_override_preselects_second_grid_and_checks_the_box():
@@ -3436,6 +3626,9 @@ def main():
         # 16-05-PLAN.md: the count is 7, not 6, now that Calendar joined
         # as the seventh and last group — again not a rename of this
         # check's own premise.
+        # 20-11-PLAN.md Task 1: the count is 8, not 7, now that
+        # Notifications joined as the eighth and last group — again not
+        # a rename of this check's own premise.
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -3444,14 +3637,14 @@ def main():
             return False, "expected zero <fieldset> elements on the rendered Settings page"
         if "<legend" in rendered:
             return False, "expected zero <legend> elements on the rendered Settings page"
-        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 7:
+        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 8:
             return False, (
-                "expected exactly 7 %s occurrences (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar), got %d"
+                "expected exactly 8 %s occurrences (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar/Notifications), got %d"
                 % (config_page.DIRTY_SECTION_ATTR, rendered.count(config_page.DIRTY_SECTION_ATTR)))
         return True, ""
     check(
-        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly seven "
-        "data-dirty-section groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar)",
+        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly eight "
+        "data-dirty-section groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar/Notifications)",
         _settings_page_has_zero_fieldsets_and_five_dirty_sections)
 
     def _selected_runway_card_and_theme_chip_carry_a_background_wash():
@@ -3861,7 +4054,9 @@ def main():
         rules_segment = rendered[rules_start:poll_start]
         if config_page.RULES_EMPTY_HEADING not in rules_segment:
             return False, "expected the empty-state heading with no rules"
-        if "data-table-wrap" in rules_segment or "data-cards" in rules_segment:
+        # 20-09-PLAN.md Task 3 (D-15c/d): the retired table/card split is
+        # gone outright — a plain .rule-list, never a table.
+        if "rule-list" in rules_segment or "<table" in rules_segment:
             return False, "expected no list markup in the empty-state branch"
 
         tmp = tempfile.mkdtemp(prefix="skypane-rules-markup-")
@@ -3883,97 +4078,30 @@ def main():
         rules_segment = rendered[rules_start:poll_start]
         if config_page.RULES_EMPTY_HEADING in rules_segment:
             return False, "expected the empty state to be replaced once a rule exists"
-        if "data-table-wrap" not in rules_segment or "data-cards" not in rules_segment:
-            return False, "expected both the card list and the table once a rule exists"
+        if '<ul class="rule-list">' not in rules_segment:
+            return False, "expected the .rule-list once a rule exists"
         if "AFR1234" not in rules_segment:
             return False, "expected the seeded rule's key to appear in the rendered list"
         return True, ""
     check(
         "the rules section renders the empty state with no rules, and the empty state is replaced by "
-        "the cards-then-table list once a rule exists (Phase 15 D-10)",
+        "the .rule-list once a rule exists (D-15c/d, retargeted from the retired cards-then-table shape)",
         _rules_section_empty_state_then_list_once_a_rule_exists)
 
-    def _rules_list_cards_precede_table_in_dom_order():
+    def _rules_list_orders_most_specific_first_then_alphabetically():
+        # D-15c: rows ordered callsign, then hex, then prefix - and
+        # alphabetically within each kind. colour_rules.rule_rows() itself
+        # already guarantees this order (RULE_KINDS order, then sorted
+        # value) - this check pins _rule_list_html()'s own consumption of
+        # that order at the rendered-markup level, not just at the data
+        # layer.
         tmp = tempfile.mkdtemp(prefix="skypane-rules-order-")
         try:
-            result = colour_rules.add_rule(
-                tmp, "hex", "3944F2", "blue", now="2026-01-01T00:00:00+00:00")
-            if result != colour_rules.ADD_OK_NEW:
-                return False, "test setup failure: add_rule() returned %r" % (result,)
-            registry = colour_rules.load_colour_rules(tmp)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-        rendered = config_page.render({
-            "device_config": {"theme": "white", "tracked_runway": "3"},
-            "colour_rules": registry,
-            "poll_cooldown_remaining": 0,
-            "now": "2026-01-02T00:00:00+00:00",
-        })
-        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
-        poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
-        rules_segment = rendered[rules_start:poll_start]
-        if "data-cards" not in rules_segment or "data-table-wrap" not in rules_segment:
-            return False, "expected both data-cards and data-table-wrap to be present"
-        if rules_segment.index("data-cards") >= rules_segment.index("data-table-wrap"):
-            return False, "expected data-cards to precede data-table-wrap in DOM order"
-        return True, ""
-    check(
-        "the rules list's .data-cards precede its .data-table-wrap in DOM order (the sibling-combinator "
-        "toggle depends on this exact order)",
-        _rules_list_cards_precede_table_in_dom_order)
-
-    def _rules_copy_appears_escaped_verbatim():
-        rendered = config_page.render({
-            "device_config": {"theme": "white", "tracked_runway": "3"},
-            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-            "poll_cooldown_remaining": 0,
-        })
-        copy_strings = (
-            config_page.RULES_SECTION_HEADING,
-            config_page.RULES_SECTION_CAPTION,
-            config_page.RULE_KIND_FIELD_LABEL,
-            config_page.RULE_VALUE_FIELD_LABEL,
-            config_page.RULE_THEME_FIELD_LABEL,
-            config_page.RULE_ADD_BUTTON_TEXT,
-            config_page.RULE_VALUE_HINT,
-            config_page.RULES_EMPTY_HEADING,
-            config_page.RULES_EMPTY_BODY,
-        )
-        for text in copy_strings:
-            if escape_html(text) not in rendered:
-                return False, "expected %r to appear escaped-verbatim in the rendered page" % (text,)
-        for kind, label in config_page.RULE_KIND_LABELS.items():
-            if escape_html(label) not in rendered:
-                return False, "expected the kind label %r (for %r) to appear escaped-verbatim" % (label, kind)
-        return True, ""
-    check(
-        "every rules-section copy string (heading, caption, field labels, kind labels, value hint, "
-        "empty-state heading/body) appears escaped-verbatim, matching 15-UI-SPEC.md's Copywriting "
-        "Contract byte for byte",
-        _rules_copy_appears_escaped_verbatim)
-
-    def _rules_section_heading_locked_verbatim():
-        # Exact equality is a stronger gate than a substring check, and
-        # pins the section heading against 15-UI-SPEC.md's Copywriting
-        # Contract literally — "Per-flight colour rules" — rather than
-        # only via the RULES_SECTION_HEADING constant every check above
-        # already reuses.
-        if config_page.RULES_SECTION_HEADING != "Per-flight colour rules":
-            return False, (
-                "expected RULES_SECTION_HEADING to equal the locked heading exactly, got %r"
-                % (config_page.RULES_SECTION_HEADING,))
-        return True, ""
-    check(
-        "RULES_SECTION_HEADING equals 15-UI-SPEC.md's locked \"Per-flight colour rules\" heading exactly",
-        _rules_section_heading_locked_verbatim)
-
-    def _rules_kind_cell_and_add_form_option_share_one_mapping():
-        tmp = tempfile.mkdtemp(prefix="skypane-rules-kind-")
-        try:
             for kind, value, theme_id in (
-                ("callsign", "AFR1234", "white"),
-                ("hex", "3944F2", "blue"),
                 ("prefix", "AFR", "red"),
+                ("callsign", "BAW1234", "blue"),
+                ("hex", "3944F2", "white"),
+                ("callsign", "AFR1234", "black"),
             ):
                 result = colour_rules.add_rule(
                     tmp, kind, value, theme_id, now="2026-01-01T00:00:00+00:00")
@@ -3988,26 +4116,114 @@ def main():
             "poll_cooldown_remaining": 0,
             "now": "2026-01-02T00:00:00+00:00",
         })
-        add_form_start = rendered.index('name="rule_kind"')
-        add_form_segment = rendered[add_form_start:rendered.index("</select>", add_form_start)]
-        for kind in colour_rules.RULE_KINDS:
-            label = config_page.RULE_KIND_LABELS[kind]
-            option_needle = '<option value="%s">%s</option>' % (
-                escape_html(kind), escape_html(label))
-            if option_needle not in add_form_segment:
-                return False, "expected the add form's %r option to carry %r" % (kind, label)
-            # The list's Kind cell for that same kind's row carries the
-            # identical label text, never abbreviated differently.
-            if "<td>%s</td>" % escape_html(label) not in rendered:
-                return False, "expected a Kind cell carrying %r for kind %r" % (label, kind)
+        list_match = re.search(r'<ul class="rule-list">(.*?)</ul>', rendered, re.S)
+        if not list_match:
+            return False, "expected a .rule-list"
+        list_segment = list_match.group(1)
+        expected_order = ["AFR1234", "BAW1234", "3944F2", "AFR"]
+        positions = [
+            list_segment.index('<span class="rule-row__key mono">%s</span>' % value)
+            for value in expected_order
+        ]
+        if positions != sorted(positions):
+            return False, (
+                "expected callsign(alpha)/hex/prefix order %r, got positions %r"
+                % (expected_order, positions))
         return True, ""
     check(
-        "the add form's kind <option> text and the list's Kind cell text come from the same "
-        "RULE_KIND_LABELS mapping, so the two can never disagree",
-        _rules_kind_cell_and_add_form_option_share_one_mapping)
+        "a seeded set of rules of every kind renders most-specific first (callsign, then hex, then "
+        "prefix), alphabetically within each kind (D-15c)",
+        _rules_list_orders_most_specific_first_then_alphabetically)
 
-    def _rules_swatch_is_computed_never_a_hardcoded_hex_literal():
-        tmp = tempfile.mkdtemp(prefix="skypane-rules-swatch-")
+    def _rules_copy_appears_escaped_verbatim():
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        })
+        copy_strings = (
+            config_page.RULES_SECTION_HEADING,
+            config_page.RULES_SECTION_CAPTION,
+            config_page.RULE_KIND_FIELD_LABEL,
+            config_page.RULE_VALUE_FIELD_LABEL,
+            config_page.RULE_ADD_BUTTON_TEXT,
+            config_page.RULES_EMPTY_HEADING,
+            config_page.RULES_EMPTY_BODY,
+            config_page.RULES_HOW_RULES_COMBINE_SUMMARY,
+            config_page.RULES_HOW_RULES_COMBINE_BODY,
+        )
+        for text in copy_strings:
+            if escape_html(text) not in rendered:
+                return False, "expected %r to appear escaped-verbatim in the rendered page" % (text,)
+        for kind, label in config_page.RULE_KIND_LABELS.items():
+            if escape_html(label) not in rendered:
+                return False, "expected the kind label %r (for %r) to appear escaped-verbatim" % (label, kind)
+        for kind, title in config_page.RULE_KIND_TITLES.items():
+            if escape_html(title) not in rendered:
+                return False, "expected the kind title %r (for %r) to appear escaped-verbatim" % (title, kind)
+        return True, ""
+    check(
+        "every Flight-colours copy string (heading, caption, field labels, kind labels/titles, "
+        "empty-state heading/body, the How-rules-combine disclosure) appears escaped-verbatim, "
+        "matching 20-UI-SPEC.md's Copywriting Contract byte for byte",
+        _rules_copy_appears_escaped_verbatim)
+
+    def _rules_section_heading_locked_verbatim():
+        # Exact equality is a stronger gate than a substring check, and
+        # pins the section heading against 20-UI-SPEC.md's Copywriting
+        # Contract literally — "Flight colours" (D-15a) — rather than
+        # only via the RULES_SECTION_HEADING constant every check above
+        # already reuses.
+        if config_page.RULES_SECTION_HEADING != "Flight colours":
+            return False, (
+                "expected RULES_SECTION_HEADING to equal the locked heading exactly, got %r"
+                % (config_page.RULES_SECTION_HEADING,))
+        return True, ""
+    check(
+        "RULES_SECTION_HEADING equals 20-UI-SPEC.md's locked \"Flight colours\" heading exactly (D-15a)",
+        _rules_section_heading_locked_verbatim)
+
+    def _rules_no_select_and_three_named_radios_one_checked():
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        })
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
+        rules_segment = rendered[rules_start:poll_start]
+        if "<select" in rules_segment:
+            return False, "expected no <select> anywhere in the Flight-colours section (D-15b)"
+        radio_count = rules_segment.count('name="rule_kind"')
+        if radio_count != len(colour_rules.RULE_KINDS):
+            return False, "expected %d rule_kind radios, got %d" % (len(colour_rules.RULE_KINDS), radio_count)
+        for kind in colour_rules.RULE_KINDS:
+            if 'id="rule-kind-%s"' % kind not in rules_segment:
+                return False, "expected a rule_kind radio with id rule-kind-%s" % kind
+            if 'title="%s"' % escape_html(config_page.RULE_KIND_TITLES[kind]) not in rules_segment:
+                return False, "expected the %s radio's label to carry the technical title" % kind
+        # Scoped to just the three rule_kind <input> tags themselves — the
+        # compact theme-chip grid immediately below also uses " checked"
+        # for its own selected chip, which a whole-segment count would
+        # wrongly fold in.
+        kind_inputs = re.findall(r'<input type="radio" name="rule_kind"[^>]*>', rules_segment)
+        if len(kind_inputs) != len(colour_rules.RULE_KINDS):
+            return False, "expected %d rule_kind <input> tags, got %d" % (
+                len(colour_rules.RULE_KINDS), len(kind_inputs))
+        checked_inputs = [tag for tag in kind_inputs if " checked" in tag]
+        if len(checked_inputs) != 1:
+            return False, "expected exactly one checked rule_kind radio by default, got %d" % len(checked_inputs)
+        if 'value="%s"' % colour_rules.RULE_KIND_CALLSIGN not in checked_inputs[0]:
+            return False, "expected the callsign/Flight radio to be the one checked by default"
+        return True, ""
+    check(
+        "the Flight-colours section carries no <select>, and its add form's three rule_kind radios "
+        "carry the three kind ids and the three technical titles, exactly one checked by default "
+        "(D-15b)",
+        _rules_no_select_and_three_named_radios_one_checked)
+
+    def _rules_row_carries_pill_badge_and_confirmed_remove_form():
+        tmp = tempfile.mkdtemp(prefix="skypane-rules-row-")
         try:
             result = colour_rules.add_rule(
                 tmp, "callsign", "AFR1234", "white", now="2026-01-01T00:00:00+00:00")
@@ -4022,18 +4238,109 @@ def main():
             "poll_cooldown_remaining": 0,
             "now": "2026-01-02T00:00:00+00:00",
         })
+        row_match = re.search(r'<li class="rule-row">(.*?)</li>', rendered, re.S)
+        if not row_match:
+            return False, "expected a .rule-row list item"
+        row = row_match.group(1)
+        if 'class="rule-row__kind banner__pill"' not in row:
+            return False, "expected the kind badge to compose .banner__pill"
+        if escape_html(config_page.RULE_KIND_LABELS["callsign"]) not in row:
+            return False, "expected the plain-language kind word in the badge"
+        if "data-confirm=" not in row:
+            return False, "expected the Remove form to carry data-confirm (D-15c, locked)"
+        if escape_html(config_page.RULE_REMOVE_BUTTON_TEXT) not in row:
+            return False, "expected the Remove button's own text, not the airlines gallery's Delete"
         expected_hex = config_page._palette_hex(device_config.THEMES["white"]["departing_index"])
-        expected_swatch = (
-            '<span class="theme-swatch__chip" style="background:%s">'
-            % escape_html(expected_hex))
-        if expected_swatch not in rendered:
-            return False, (
-                "expected the rule row's swatch to carry the real _palette_hex() value %r"
-                % (expected_hex,))
+        if 'class="theme-chip__dot" style="background:%s"' % escape_html(expected_hex) not in row:
+            return False, "expected the row's swatch dot to carry the real _palette_hex() value"
         return True, ""
     check(
-        "the rule row's theme swatch is a computed _palette_hex() value, not a hardcoded hex literal",
-        _rules_swatch_is_computed_never_a_hardcoded_hex_literal)
+        "a rendered rule row carries a .banner__pill kind badge with the plain-language word, a "
+        "computed _palette_hex() swatch dot, and a data-confirm Remove form (D-15c)",
+        _rules_row_carries_pill_badge_and_confirmed_remove_form)
+
+    def _rules_empty_state_carries_no_heading_element():
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        })
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
+        rules_segment = rendered[rules_start:poll_start]
+        empty_match = re.search(r'<div class="empty-state-plain">(.*?)</div>', rules_segment, re.S)
+        if not empty_match:
+            return False, "expected the .empty-state-plain wrapper"
+        if "<h" in empty_match.group(1):
+            return False, "expected the empty state to carry no heading element, muted sans only (D-15d)"
+        if escape_html(config_page.RULES_EMPTY_HEADING) not in empty_match.group(1):
+            return False, "expected the empty-state heading sentence"
+        return True, ""
+    check(
+        "the empty state is muted sans copy in .empty-state-plain and carries no <h*> heading element, "
+        "never the serif empty_state() heading (D-15d)",
+        _rules_empty_state_carries_no_heading_element)
+
+    def _rules_suggestion_chips_present_with_data_and_absent_with_no_events():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-rules-suggestions-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, ts="2026-09-07T09:00:00+00:00", hex="3944F2",
+                    callsign="AFR1380")
+            rendered = config_page.render({
+                "device_config": {"theme": "white", "tracked_runway": "3"},
+                "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+                "poll_cooldown_remaining": 0,
+                "state_dir": tmpdir,
+            })
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
+        rules_segment = rendered[rules_start:poll_start]
+        if 'class="rule-suggestion-chip" data-kind="callsign" data-value="AFR1380"' not in rules_segment:
+            return False, "expected a suggestion chip for the seeded callsign"
+
+        empty_rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+            "state_dir": None,
+        })
+        rules_start = empty_rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = empty_rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
+        empty_segment = empty_rendered[rules_start:poll_start]
+        if "rule-suggestion-chip" in empty_segment:
+            return False, "expected no suggestion chips when there are no recent events"
+        return True, ""
+    check(
+        "up to five suggestion chips render with data-kind/data-value from recent runway events, and "
+        "none render when there are no events (D-15e)",
+        _rules_suggestion_chips_present_with_data_and_absent_with_no_events)
+
+    def _rules_simple_mode_collapses_disclosure_to_one_sentence():
+        ctx = {
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+            "simple_mode": True,
+        }
+        rendered = config_page.render(ctx)
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
+        rules_segment = rendered[rules_start:poll_start]
+        if escape_html(config_page.RULES_HOW_RULES_COMBINE_SIMPLE) not in rules_segment:
+            return False, "expected the simple-mode one-sentence disclosure"
+        if "<details>" in rules_segment:
+            return False, "expected no <details> disclosure in simple mode (D-30)"
+        if escape_html(config_page.RULES_HOW_RULES_COMBINE_BODY) in rules_segment:
+            return False, "expected the long disclosure body to be absent in simple mode"
+        return True, ""
+    check(
+        "in simple mode, the 'How rules combine' disclosure collapses to its one plain sentence, "
+        "server-side (D-30)",
+        _rules_simple_mode_collapses_disclosure_to_one_sentence)
 
     def _rules_section_carries_no_dirty_section_attr():
         rendered = config_page.render({
@@ -4052,6 +4359,27 @@ def main():
         "settings form, exactly like the Poll section",
         _rules_section_carries_no_dirty_section_attr)
 
+    def _rules_french_render_shows_french_heading_and_button():
+        ctx = {
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        }
+        try:
+            prefs.set_request_prefs(lang="fr")
+            rendered = config_page.render(ctx)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if "Couleurs de vol" not in rendered:
+            return False, "expected the French heading 'Couleurs de vol'"
+        if "Ajouter la règle" not in rendered:
+            return False, "expected the French Add-rule button 'Ajouter la règle'"
+        return True, ""
+    check(
+        "a French render of the Flight-colours section shows 'Couleurs de vol' and 'Ajouter la règle' "
+        "(D-05)",
+        _rules_french_render_shows_french_heading_and_button)
+
     # ==================================================================
     # Section 1b (16-05-PLAN.md Task 3): the Calendar settings group -
     # render() copy/status/theme-select checks, plus handle_post()'s
@@ -4065,125 +4393,133 @@ def main():
         "now": "2026-09-07T09:12:04+00:00",
     }
 
-    def _calendar_status_text(rendered):
-        match = re.search(r'<p class="calendar-status">(.*?)</p>', rendered, re.S)
+    def _calendar_status_parts(rendered):
+        # 20-09-PLAN.md Task 1 (D-14b): the status sentence is now
+        # layout.status_row()'s verdict/detail pair, not a single
+        # <p class="calendar-status"> (retired).
+        match = re.search(
+            r'<span class="status-row__verdict">(.*?)</span>'
+            r'<span class="status-row__detail">(.*?)</span>',
+            rendered, re.S)
         if not match:
-            raise AssertionError('expected a <p class="calendar-status"> element')
-        return match.group(1)
+            raise AssertionError("expected a .status-row element")
+        return match.group(1), match.group(2)
 
-    # Phase 17 plan 02's rewritten CALENDAR_STATUS_NOT_CONFIGURED carries an
-    # apostrophe ("calendar's"), and calendar_group() interpolates it through
-    # layout.escape_html() - html.escape(value, quote=True) - like every
-    # other status string, so a comparison against the raw constant would
-    # look for an apostrophe that the rendered HTML never contains (it is
-    # &#x27; there instead). Escape here the identical way, once, rather
-    # than at each of the three call sites below.
-    _CALENDAR_STATUS_NOT_CONFIGURED_ESCAPED = html.escape(
-        config_page.CALENDAR_STATUS_NOT_CONFIGURED, quote=True)
+    _CALENDAR_CONNECTED_ESCAPED = html.escape(config_page.CALENDAR_STATUS_CONNECTED_VERDICT, quote=True)
+    _CALENDAR_NOT_CONNECTED_ESCAPED = html.escape(config_page.CALENDAR_STATUS_NOT_CONNECTED_VERDICT, quote=True)
 
     def _calendar_status_not_configured_is_exclusive():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
-        status = _calendar_status_text(config_page.render(ctx))
-        if _CALENDAR_STATUS_NOT_CONFIGURED_ESCAPED not in status:
-            return False, "expected the not-configured status string"
-        if config_page.CALENDAR_STATUS_CONFIGURED_PENDING in status:
-            return False, "expected the pending status string to be absent"
-        if config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX in status:
-            return False, "expected the synced status prefix to be absent"
+        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        if verdict != _CALENDAR_NOT_CONNECTED_ESCAPED:
+            return False, "expected the 'Not connected' verdict, got %r" % (verdict,)
+        if detail:
+            return False, "expected an empty detail when not configured, got %r" % (detail,)
         return True, ""
     check(
-        "with no calendar configured, render() emits only the not-configured status string",
+        "with no calendar configured, render() emits the 'Not connected' verdict with an empty detail "
+        "(D-14b)",
         _calendar_status_not_configured_is_exclusive)
 
     def _calendar_status_configured_pending_is_exclusive():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
-        status = _calendar_status_text(config_page.render(ctx))
-        if config_page.CALENDAR_STATUS_CONFIGURED_PENDING not in status:
-            return False, "expected the pending status string"
-        if _CALENDAR_STATUS_NOT_CONFIGURED_ESCAPED in status:
-            return False, "expected the not-configured status string to be absent"
-        if config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX in status:
-            return False, "expected the synced status prefix to be absent"
+        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        if verdict != _CALENDAR_CONNECTED_ESCAPED:
+            return False, "expected the 'Connected' verdict, got %r" % (verdict,)
+        if detail:
+            return False, (
+                "expected an empty detail when configured with no attempt recorded yet, got %r" % (detail,))
         return True, ""
     check(
-        "with a calendar configured and no successful sync recorded, render() emits only the pending status string",
+        "with a calendar configured and no fetch attempt recorded yet, render() emits the 'Connected' "
+        "verdict with an empty detail (D-14b)",
         _calendar_status_configured_pending_is_exclusive)
+
+    def _calendar_status_configured_fetch_failed_is_exclusive():
+        # D-14b/T-20-30: at least one attempt recorded with no usable
+        # sync yet is the one derivable failed-fetch category — the
+        # fixed, mapped sentence, never a caught exception's own text.
+        ctx = dict(
+            _CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None,
+            calendar_last_attempt_at=1893456000.0)
+        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        if verdict != _CALENDAR_CONNECTED_ESCAPED:
+            return False, "expected the 'Connected' verdict, got %r" % (verdict,)
+        if detail != escape_html(config_page.CALENDAR_STATUS_FETCH_FAILED_DETAIL):
+            return False, "expected the mapped fetch-failed sentence, got %r" % (detail,)
+        return True, ""
+    check(
+        "with a calendar configured, an attempt recorded, and no usable sync, render() emits the mapped "
+        "'The feed could not be read' detail — never an exception's own text (D-14b/T-20-30)",
+        _calendar_status_configured_fetch_failed_is_exclusive)
 
     def _calendar_status_configured_synced_is_exclusive_with_relative_age():
         ctx = dict(
             _CALENDAR_BASE_CTX, calendar_configured=True,
-            calendar_last_synced_at="2026-09-07T09:00:00+00:00")
-        status = _calendar_status_text(config_page.render(ctx))
-        if config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX not in status:
-            return False, "expected the synced status prefix"
-        if "ago)" not in status:
-            return False, "expected a relative-age fragment, proving concise_timestamp_html() was used"
-        if _CALENDAR_STATUS_NOT_CONFIGURED_ESCAPED in status:
-            return False, "expected the not-configured status string to be absent"
-        if config_page.CALENDAR_STATUS_CONFIGURED_PENDING in status:
-            return False, "expected the pending status string to be absent"
+            calendar_last_synced_at="2026-09-07T09:00:00+00:00", calendar_entry_count=12)
+        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        if verdict != _CALENDAR_CONNECTED_ESCAPED:
+            return False, "expected the 'Connected' verdict, got %r" % (verdict,)
+        if "12" not in detail:
+            return False, "expected the entry count '12' in the detail, got %r" % (detail,)
+        if "ago" not in detail:
+            return False, "expected a relative-age fragment, proving relative_age_text() was used"
         return True, ""
     check(
-        "with a calendar configured and a last_synced_at present, render() emits the synced status with an "
-        "absolute-plus-relative timestamp fragment, never a bare ISO string",
+        "with a calendar configured and a last_synced_at present, render() emits the 'Connected' verdict "
+        "with a detail carrying the entry count and a relative-age fragment, never a bare ISO string "
+        "(D-14b)",
         _calendar_status_configured_synced_is_exclusive_with_relative_age)
 
-    def _calendar_status_unparseable_synced_falls_back_to_pending():
+    def _calendar_status_unparseable_synced_falls_back_to_no_detail():
         ctx = dict(
             _CALENDAR_BASE_CTX, calendar_configured=True,
             calendar_last_synced_at="not-a-real-timestamp")
-        status = _calendar_status_text(config_page.render(ctx))
-        if config_page.CALENDAR_STATUS_CONFIGURED_PENDING not in status:
-            return False, "expected the pending status string as the honest fallback"
-        if 'class="mono"' in status:
-            return False, "expected no timestamp markup for an unparseable stored value"
+        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        if verdict != _CALENDAR_CONNECTED_ESCAPED:
+            return False, "expected the 'Connected' verdict, got %r" % (verdict,)
+        if detail:
+            return False, "expected an empty detail for an unparseable stored value, got %r" % (detail,)
         return True, ""
     check(
-        "with a calendar configured and a last_synced_at that is present but unparseable, the pending string "
-        "is used rather than a fabricated time",
-        _calendar_status_unparseable_synced_falls_back_to_pending)
+        "with a calendar configured and a last_synced_at that is present but unparseable, the empty "
+        "detail is used rather than a fabricated time (D-14b)",
+        _calendar_status_unparseable_synced_falls_back_to_no_detail)
 
     def _calendar_copy_fidelity_against_ui_spec():
         spec_path = os.path.join(
             REPO_ROOT, ".planning", "phases",
-            "16-calendar-linked-flight-highlighting-a-connected-calendar-sou",
-            "16-UI-SPEC.md")
+            "20-companion-suggestions-from-the-audit-french-localisation-liv",
+            "20-UI-SPEC.md")
         with open(spec_path, encoding="utf-8") as fh:
             spec = fh.read()
         for name in (
-                "CALENDAR_SECTION_CAPTION",
-                "CALENDAR_STATUS_CONFIGURED_PENDING",
-                "CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX",
-                "CALENDAR_THEME_HINT"):
+                "CALENDAR_CAPTION",
+                "CALENDAR_STATUS_DETAIL_TEMPLATE",
+                "CALENDAR_STATUS_FETCH_FAILED_DETAIL",
+                "CALENDAR_CONNECT_BUTTON_TEXT",
+                "CALENDAR_REPLACE_URL_SUMMARY"):
             value = getattr(config_page, name)
             if value not in spec:
-                return False, "%s is not a contiguous substring of 16-UI-SPEC.md: %r" % (name, value)
+                return False, "%s is not a contiguous substring of 20-UI-SPEC.md: %r" % (name, value)
         return True, ""
     check(
-        "the section caption, both configured-state strings, and the theme hint are each a contiguous "
-        "substring of 16-UI-SPEC.md, so a paraphrase fails rather than merely looking different",
+        "the caption, the status detail template, the fetch-failed sentence, the Connect button text, "
+        "and the Replace-URL disclosure summary are each a contiguous substring of 20-UI-SPEC.md, so a "
+        "paraphrase fails rather than merely looking different (D-14a..c)",
         _calendar_copy_fidelity_against_ui_spec)
 
     def _calendar_forbidden_vocabulary_absent():
         # 16-UI-SPEC.md's own "What this section deliberately does NOT
-        # say" section bans AFFIRMATIVE real-time-awareness claims and
-        # person/role/employer/crew-function nouns - it does not ban the
-        # word "track" outright, and the locked Copywriting Contract's
-        # own CALENDAR_SECTION_CAPTION requires the NEGATED construction
-        # "it does not track or announce anything on its own" verbatim. A
-        # bare substring check for "track" would therefore reject the
-        # spec's own mandated copy; this check asserts the negated
-        # construction is present (proving the caption's core promise
-        # survives) and that no AFFIRMATIVE tracking/watching/real-time
-        # claim or crew-role noun is present.
+        # say" section (carried forward, unaffected by this plan's
+        # rewording) bans AFFIRMATIVE real-time-awareness claims and
+        # person/role/employer/crew-function nouns.
         blob = " ".join([
             config_page.CALENDAR_SECTION_HEADING,
-            config_page.CALENDAR_SECTION_CAPTION,
-            config_page.CALENDAR_STATUS_NOT_CONFIGURED,
-            config_page.CALENDAR_STATUS_CONFIGURED_PENDING,
-            config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX,
-            config_page.CALENDAR_THEME_FIELD_LABEL,
-            config_page.CALENDAR_THEME_HINT,
+            config_page.CALENDAR_CAPTION,
+            config_page.CALENDAR_HOW_IT_WORKS_BODY,
+            config_page.CALENDAR_STATUS_NOT_CONNECTED_VERDICT,
+            config_page.CALENDAR_STATUS_CONNECTED_VERDICT,
         ]).lower()
         forbidden_phrases = (
             "watches", "watch for", "follows", "monitors", "notifies",
@@ -4199,7 +4535,7 @@ def main():
             return False, "expected the mandated negated 'does not track ... on its own' construction"
         return True, ""
     check(
-        "the Calendar group's copy carries none of the phase's banned affirmative real-time-awareness or "
+        "the Calendar card's copy carries none of the phase's banned affirmative real-time-awareness or "
         "crew-role vocabulary, while still carrying the mandated negated 'does not track' construction "
         "verbatim",
         _calendar_forbidden_vocabulary_absent)
@@ -4255,20 +4591,25 @@ def main():
             ctx = dict(
                 _CALENDAR_BASE_CTX, calendar_configured=True,
                 calendar_last_synced_at="2026-09-07T09:00:00+00:00",
+                calendar_entry_count=len(entries),
                 colour_rules={kind: {} for kind in colour_rules.RULE_KINDS})
             rendered = config_page.render(ctx)
             for code_pattern in (r"\bORY\b", r"\bTLS\b", r"\bNCE\b", r"\bLHR\b", r"\bAF\b", r"\bBA\b"):
                 if re.search(code_pattern, rendered):
                     return False, "expected no calendar-derived code matching %r anywhere on the rendered page" % (code_pattern,)
-            if re.search(r"\b3\s+(upcoming\s+)?flights?\b", rendered.lower()):
-                return False, "expected no derived flight-count phrase"
+            # D-14b (this plan's own status row) deliberately DOES show a
+            # derived flight count now — the old prohibition on a count
+            # is retired; only the specific airport/airline codes stay
+            # forbidden (16-UI-SPEC.md's own D-01 isolation, unaffected).
+            if not re.search(r"\b3\s+upcoming\s+flights?\b", rendered.lower()):
+                return False, "expected the D-14b status detail's own flight-count phrase"
             return True, ""
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
     check(
-        "a populated calendar registry (real-shaped routes/airline codes) never surfaces any airport code, "
-        "airline code, or a derived flight count anywhere on the rendered Settings page (16-UI-SPEC.md "
-        "Configured / Not Configured State)",
+        "a populated calendar registry (real-shaped routes/airline codes) never surfaces any airport "
+        "code or airline code, while the status row's own entry count DOES appear (D-14b; 16-UI-SPEC.md "
+        "D-01's code-isolation half carried forward, its count-prohibition half retired)",
         _calendar_no_preview_no_count_in_rendered_page)
 
     def _calendar_d01_registry_entries_never_appear_in_rules_list():
@@ -4312,68 +4653,86 @@ def main():
         "shows exactly the manual rule and no calendar-sourced row (16-VALIDATION.md registry row, D-01)",
         _calendar_d01_registry_entries_never_appear_in_rules_list)
 
-    def _calendar_theme_select_exactly_one_and_populated_in_order():
+    def _calendar_theme_chip_grid_exactly_one_compact_radiogroup_populated_in_order():
+        # 20-09-PLAN.md Task 1 (D-14d): the retired <select> is replaced
+        # by the compact theme-chip grid — the third consumer of
+        # _theme_chip_grid_html(), after Theme's own two grids.
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
         rendered = config_page.render(ctx)
-        if rendered.count('name="calendar_theme_id"') != 1:
+        if rendered.count('name="calendar_theme_id"') != len(device_config.THEME_IDS):
             return False, (
-                "expected exactly one calendar_theme_id field, got %d"
+                "expected one calendar_theme_id radio per THEME_IDS member, got %d"
                 % rendered.count('name="calendar_theme_id"'))
-        # 19-11-PLAN.md Task 3 (D-12/A-30): the select may now also carry
-        # an aria-describedby attribute after required - [^>]* tolerates
-        # it without weakening the "required is present" assertion.
-        select_match = re.search(
-            r'<select id="calendar-theme" name="calendar_theme_id" required[^>]*>(.*?)</select>',
+        grid_match = re.search(
+            r'<div class="theme-chip-grid theme-chip-grid--compact" role="radiogroup" '
+            r'aria-labelledby="%s">(.*?)</div>\s*(?:<p|<details|</div>)'
+            % re.escape(config_page.CALENDAR_HEADING_ID),
             rendered, re.S)
-        if not select_match:
-            return False, "expected a calendar-theme select carrying the required attribute"
-        options = re.findall(r'<option value="([^"]*)"', select_match.group(1))
+        if not grid_match:
+            return False, "expected the calendar theme grid carrying role=radiogroup and aria-labelledby"
+        options = re.findall(r'name="calendar_theme_id" value="([^"]*)"', grid_match.group(1))
         if options != list(device_config.THEME_IDS):
-            return False, "expected options in THEME_IDS order, got %r" % (options,)
-        if "swatch" in select_match.group(1):
-            return False, "expected no swatch inside any option"
+            return False, "expected radios in THEME_IDS order, got %r" % (options,)
         return True, ""
     check(
-        "the Calendar group's <select> carries exactly one calendar_theme_id field, with one <option> per "
-        "THEME_IDS member in order, required, and no swatch inside any option",
-        _calendar_theme_select_exactly_one_and_populated_in_order)
+        "the Calendar card's compact theme-chip grid carries exactly one calendar_theme_id radio per "
+        "THEME_IDS member in order, with role=radiogroup and aria-labelledby pointing at the card's own "
+        "heading (D-14d)",
+        _calendar_theme_chip_grid_exactly_one_compact_radiogroup_populated_in_order)
 
-    def _calendar_theme_select_saved_value_is_selected():
+    def _calendar_theme_chip_grid_saved_value_is_checked():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
         ctx["device_config"] = dict(ctx["device_config"], calendar_theme_id="black")
         rendered = config_page.render(ctx)
-        select_match = re.search(
-            r'<select id="calendar-theme"[^>]*>(.*?)</select>', rendered, re.S)
-        if not re.search(r'<option value="black" selected>', select_match.group(1)):
-            return False, "expected the saved calendar_theme_id ('black') to render selected"
-        if select_match.group(1).count(" selected>") != 1:
-            return False, "expected exactly one selected option"
+        # D-12 fix (20-REVIEW.md verification gap): every calendar_theme_id
+        # radio now also carries a form="settings-form" attribute between
+        # class="visually-hidden" and checked - see the Display <h2>-order
+        # check further below for the full form= assertion.
+        checked_ids = re.findall(
+            r'name="calendar_theme_id" value="([^"]*)" class="visually-hidden" form="settings-form" checked',
+            rendered)
+        if checked_ids != ["black"]:
+            return False, "expected exactly the saved calendar_theme_id ('black') checked, got %r" % (checked_ids,)
         return True, ""
     check(
-        "with a saved calendar_theme_id, that option carries the selected attribute and no other option does",
-        _calendar_theme_select_saved_value_is_selected)
+        "with a saved calendar_theme_id, that chip's radio carries checked and no other calendar_theme_id "
+        "radio does (D-14d)",
+        _calendar_theme_chip_grid_saved_value_is_checked)
 
-    def _calendar_theme_select_defaults_to_base_theme_when_unset():
+    def _calendar_theme_chip_grid_defaults_to_base_theme_when_unset():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
         ctx["device_config"] = dict(ctx["device_config"], theme="black")
         rendered = config_page.render(ctx)
-        select_match = re.search(
-            r'<select id="calendar-theme"[^>]*>(.*?)</select>', rendered, re.S)
-        if not re.search(r'<option value="black" selected>', select_match.group(1)):
-            return False, "expected the currently-selected base theme ('black') to render selected by default"
+        checked_ids = re.findall(
+            r'name="calendar_theme_id" value="([^"]*)" class="visually-hidden" form="settings-form" checked',
+            rendered)
+        if checked_ids != ["black"]:
+            return False, (
+                "expected the currently-selected base theme ('black') checked by default, got %r"
+                % (checked_ids,))
         return True, ""
     check(
-        "with no saved calendar_theme_id, the option matching the currently-selected base theme is selected",
-        _calendar_theme_select_defaults_to_base_theme_when_unset)
+        "with no saved calendar_theme_id, the chip matching the currently-selected base theme is checked "
+        "by default (D-14d)",
+        _calendar_theme_chip_grid_defaults_to_base_theme_when_unset)
 
     def _calendar_placement_after_display_before_form_close_with_dirty_attr():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
         rendered = config_page.render(ctx)
         display_index = rendered.index(
             '<h2 class="text-heading">%s</h2>' % config_page.DISPLAY_SECTION_HEADING)
+        # 20-09-PLAN.md Task 1 (D-14d): the Calendar heading now carries
+        # its own id (the compact chip grid's aria-labelledby target).
         calendar_index = rendered.index(
-            '<h2 class="text-heading">%s</h2>' % config_page.CALENDAR_SECTION_HEADING)
-        form_close_index = rendered.index("</form>")
+            '<h2 class="text-heading" id="%s">%s</h2>'
+            % (config_page.CALENDAR_HEADING_ID, config_page.CALENDAR_SECTION_HEADING))
+        # 20-07-PLAN.md Task 2 (D-19): display_group() now embeds its own
+        # small quick-action <form>, which closes well before the
+        # settings form's own closing tag — the FIRST "</form>" in the
+        # whole document is that inner form's, not the settings form's.
+        # The real one is the first "</form>" AFTER the Calendar heading
+        # (Calendar itself embeds no form of its own).
+        form_close_index = rendered.index("</form>", calendar_index)
         if not (display_index < calendar_index < form_close_index):
             return False, (
                 "expected Display < Calendar < </form>, got %d, %d, %d"
@@ -4386,14 +4745,20 @@ def main():
         "tag, and the group carries the dirty-section attribute",
         _calendar_placement_after_display_before_form_close_with_dirty_attr)
 
-    def _calendar_group_no_inline_js_and_select_within_form():
+    def _calendar_group_no_inline_js_and_chip_grid_within_form():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
         rendered = config_page.render(ctx)
         form_start = rendered.index('<form class="config-form"')
-        form_end = rendered.index("</form>") + len("</form>")
-        select_index = rendered.index('name="calendar_theme_id"')
-        if not (form_start < select_index < form_end):
-            return False, "expected the calendar_theme_id select to sit inside the settings form"
+        grid_index = rendered.index('name="calendar_theme_id"')
+        # 20-07-PLAN.md Task 2 (D-19): the first "</form>" in the whole
+        # document is now display_group()'s own small quick-action
+        # <form>, which closes before the calendar_theme_id chip grid
+        # even renders (Calendar follows Display in SCOPE_ALL's fixed
+        # order) — the real settings-form closing tag is the first
+        # "</form>" AFTER the chip grid itself.
+        form_end = rendered.index("</form>", grid_index) + len("</form>")
+        if not (form_start < grid_index < form_end):
+            return False, "expected the calendar_theme_id chip grid to sit inside the settings form"
         calendar_start = rendered.index(
             '%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.CALENDAR_SECTION_HEADING))
         calendar_segment = rendered[calendar_start:form_end]
@@ -4401,9 +4766,9 @@ def main():
             return False, "expected no inline event-handler attribute or script tag in the Calendar group"
         return True, ""
     check(
-        "the Calendar group renders no inline event-handler attribute and no script tag, and its select "
-        "sits inside the settings form's markup range (no-JS correctness)",
-        _calendar_group_no_inline_js_and_select_within_form)
+        "the Calendar group renders no inline event-handler attribute and no script tag, and its "
+        "compact chip grid sits inside the settings form's markup range (no-JS correctness)",
+        _calendar_group_no_inline_js_and_chip_grid_within_form)
 
     def _handle_post_calendar_theme_id_valid_persists_and_carries_forward():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
@@ -4496,31 +4861,63 @@ def main():
         (False, True, None),
     )
 
-    def _calendar_field_never_carries_value_in_any_state():
-        for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-            html = config_page.calendar_group(
-                configured, drift, last_synced_at, "2026-09-07T09:12:04+00:00",
-                None, "white")
+    def _calendar_group_call(configured, drift, last_synced_at):
+        # 20-09-PLAN.md Task 1: calendar_group()'s widened signature —
+        # last_attempt_at/entry_count are the two new parameters D-14b
+        # needs, both harmlessly None/0 for these markup-shape checks.
+        return config_page.calendar_group(
+            configured, drift, last_synced_at, None, "2026-09-07T09:12:04+00:00",
+            0, None, "white")
+
+    def _calendar_connect_field_never_carries_value_in_either_state():
+        # 20-09-PLAN.md Task 1/2 (D-14c): the write-only feed-URL field
+        # moved OUT of calendar_group() entirely, into its own
+        # calendar_connect_section() — calendar_group() itself no longer
+        # receives the URL at all (T-20-12: the function that would
+        # introduce a leak now structurally cannot).
+        for configured in (False, True):
+            html = config_page.calendar_connect_section(configured)
             if 'name="calendar_url"' not in html:
-                return False, "expected the calendar_url field in state %r" % ((configured, drift),)
+                return False, "expected the calendar_url field when configured=%r" % (configured,)
             after_name = html.split('name="calendar_url"', 1)[1].split(">", 1)[0]
             if "value=" in after_name:
                 return False, (
-                    "expected no value attribute on the calendar_url field in state %r"
-                    % ((configured, drift),))
+                    "expected no value attribute on the calendar_url field when configured=%r"
+                    % (configured,))
         return True, ""
     check(
-        "the write-only calendar_url field renders in all four calendar_group() states and never carries "
-        "a value attribute",
-        _calendar_field_never_carries_value_in_any_state)
+        "the write-only calendar_url field renders in calendar_connect_section()'s own markup for both "
+        "the connected and not-connected states and never carries a value attribute (D-14c)",
+        _calendar_connect_field_never_carries_value_in_either_state)
+
+    def _calendar_connect_wraps_in_details_only_when_configured():
+        # D-14c: "While connected, the URL input is hidden behind a
+        # 'Replace the feed URL' disclosure; while not connected, render
+        # it unwrapped."
+        connected_html = config_page.calendar_connect_section(True)
+        if "<details" not in connected_html:
+            return False, "expected the connect form wrapped in <details> when configured"
+        if escape_html(config_page.CALENDAR_REPLACE_URL_SUMMARY) not in connected_html:
+            return False, "expected the Replace-the-feed-URL summary when configured"
+        not_connected_html = config_page.calendar_connect_section(False)
+        if "<details" in not_connected_html:
+            return False, "expected the connect form unwrapped when not configured"
+        if 'action="%s"' % config_page.CALENDAR_CONNECT_ROUTE not in not_connected_html:
+            return False, "expected the connect form to post to CALENDAR_CONNECT_ROUTE either way"
+        return True, ""
+    check(
+        "calendar_connect_section() wraps its form in <details>'Replace the feed URL' only when "
+        "configured, and renders it unwrapped, posting to CALENDAR_CONNECT_ROUTE, when not (D-14c)",
+        _calendar_connect_wraps_in_details_only_when_configured)
 
     def _calendar_containment_at_the_renderer_five_needles():
         # The same five needles _calendar_secret_never_reaches_served_
         # http_bytes() (Section 3, below) uses, applied directly at
-        # calendar_group() - the function that would introduce a leak -
-        # rather than only at the served-HTTP-bytes boundary or the
-        # whole-page render() boundary the two other T-17-SECRET checks
-        # already cover.
+        # calendar_group() AND calendar_connect_section() - the two
+        # functions that together render everything the Calendar card
+        # shows - rather than only at the served-HTTP-bytes boundary or
+        # the whole-page render() boundary the two other T-17-SECRET
+        # checks already cover.
         token = "sk1-distinctive-token-9fq2"
         host = "private-roster-calendar.example.internal"
         path = "feeds/duty-export"
@@ -4531,18 +4928,18 @@ def main():
             assert calendar_rules.save_calendar_url(tmpdir, url) is True
             configured = calendar_rules.calendar_is_configured(tmpdir)
             drift = calendar_rules.calendar_secret_mode_is_unsafe(tmpdir)
-            html = config_page.calendar_group(
-                configured, drift, None, "2026-09-07T09:12:04+00:00", None, "white")
+            group_html = _calendar_group_call(configured, drift, None)
+            connect_html = config_page.calendar_connect_section(configured)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         for needle in (token, host, path, query_param, url):
-            if needle in html:
-                return False, "expected %r never to appear in calendar_group()'s own markup" % (needle,)
+            if needle in group_html or needle in connect_html:
+                return False, "expected %r never to appear in calendar_group()/calendar_connect_section()'s own markup" % (needle,)
         return True, ""
     check(
-        "calendar_group() itself, called directly rather than through render(), never emits the token, "
-        "host, path segment, query-parameter name, or whole URL of a configured calendar (T-17-SECRET, "
-        "leak caught at the function that introduces it)",
+        "calendar_group() and calendar_connect_section(), called directly rather than through render(), "
+        "never emit the token, host, path segment, query-parameter name, or whole URL of a configured "
+        "calendar (T-17-SECRET, leak caught at the functions that introduce it)",
         _calendar_containment_at_the_renderer_five_needles)
 
     def _calendar_disconnect_checkbox_never_appears_in_calendar_group():
@@ -4552,9 +4949,7 @@ def main():
         # calendar_disconnect_section()'s own standalone, confirmed form,
         # checked separately below.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-            html = config_page.calendar_group(
-                configured, drift, last_synced_at, "2026-09-07T09:12:04+00:00",
-                None, "white")
+            html = _calendar_group_call(configured, drift, last_synced_at)
             if 'name="calendar_disconnect"' in html:
                 return False, (
                     "state %r: expected calendar_group() to render no calendar_disconnect "
@@ -4602,69 +4997,106 @@ def main():
         )
         if expected_form not in rendered:
             return False, "expected the confirm page's form to post to the same route with the confirm field pre-set"
-        if 'href="%s"' % layout.DEVICE_ROUTE not in rendered:
-            return False, "expected a cancel link back to the Device page"
+        # 20-07-PLAN.md Task 1 (D-11): Calendar moved from Device to
+        # Display this phase, so the cancel link now points back to the
+        # page the disconnect action itself lives on.
+        if 'href="%s"' % layout.DISPLAY_ROUTE not in rendered:
+            return False, "expected a cancel link back to the Display page"
         if "<fieldset" in rendered or "<legend" in rendered:
             return False, "expected no <fieldset>/<legend> on the confirm page"
         return True, ""
     check(
         "calendar_disconnect_confirm_page() renders a form posting to CALENDAR_DISCONNECT_ROUTE with the "
-        "confirm field pre-set to the accepted value, plus a plain cancel link to Device (D-08/A-26)",
+        "confirm field pre-set to the accepted value, plus a plain cancel link to Display (D-08/A-26, "
+        "retargeted from Device by 20-07-PLAN.md Task 1/D-11)",
         _calendar_disconnect_confirm_page_posts_back_with_confirm_preset)
 
-    def _calendar_disconnect_form_is_not_inside_settings_form_on_device_scope():
+    def _calendar_disconnect_form_is_not_inside_settings_form_on_display_scope():
+        # 20-07-PLAN.md Task 1 (D-11): Calendar (and its disconnect
+        # action) moved from Device to Display this phase — retargeted
+        # from SCOPE_DEVICE to SCOPE_DISPLAY in place.
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
-        rendered = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         settings_form_close = rendered.find("</form>")
         disconnect_form_open = rendered.find(
             '<form method="post" action="%s"' % config_page.CALENDAR_DISCONNECT_ROUTE)
         if settings_form_close == -1:
             return False, "expected the settings form to be present"
         if disconnect_form_open == -1:
-            return False, "expected the disconnect form to be present on the Device scope"
+            return False, "expected the disconnect form to be present on the Display scope"
         if disconnect_form_open < settings_form_close:
             return False, "expected the disconnect form's opening tag to appear AFTER the settings form's closing tag"
         return True, ""
     check(
-        "on the Device scope, the calendar disconnect form's opening tag appears after the settings "
-        "form's own closing tag — it is a sibling, never a descendant (D-08/A-26)",
-        _calendar_disconnect_form_is_not_inside_settings_form_on_device_scope)
+        "on the Display scope, the calendar disconnect form's opening tag appears after the settings "
+        "form's own closing tag — it is a sibling, never a descendant (D-08/A-26, retargeted from "
+        "Device by 20-07-PLAN.md Task 1/D-11)",
+        _calendar_disconnect_form_is_not_inside_settings_form_on_display_scope)
 
-    def _calendar_disconnect_form_absent_when_not_configured_or_on_display_scope():
+    def _calendar_connect_form_appears_before_the_runway_card_on_display_scope():
+        # Polish fix 4 (D-14c): calendar_connect_section() used to render
+        # after the WHOLE Display scope — below Runway and Flight
+        # colours — far from the Calendar card. It now renders
+        # immediately after </form> closes (which itself now closes
+        # right after the Calendar card, since "What it watches"/Runway
+        # moved to a later sibling supersection), so its own <form>'s
+        # opening tag appears strictly BEFORE the Runway card's own
+        # radio input in document order.
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        calendar_heading_index = rendered.index(
+            '<h2 class="text-heading" id="%s">%s</h2>'
+            % (config_page.CALENDAR_HEADING_ID, config_page.CALENDAR_SECTION_HEADING))
+        connect_form_index = rendered.index(
+            '<form method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
+        runway_index = rendered.index('name="tracked_runway"')
+        if not (calendar_heading_index < connect_form_index < runway_index):
+            return False, (
+                "expected Calendar heading < connect form < Runway card, got %d, %d, %d"
+                % (calendar_heading_index, connect_form_index, runway_index))
+        return True, ""
+    check(
+        "on the Display scope, calendar_connect_section()'s own <form> opening tag renders "
+        "immediately after the Calendar card and strictly before the Runway card's own radio "
+        "input, never after the whole page's groups (Polish fix 4, D-14c)",
+        _calendar_connect_form_appears_before_the_runway_card_on_display_scope)
+
+    def _calendar_disconnect_form_absent_when_not_configured_or_on_device_scope():
+        # 20-07-PLAN.md Task 1 (D-11): Calendar never renders on Device
+        # any more — retargeted in place (was: "...or on Display scope,
+        # which never renders Calendar", the exact inverse, before this
+        # phase moved the group).
         not_connected_ctx = dict(
             _CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
-        device_rendered = config_page.render(not_connected_ctx, scope=config_page.SCOPE_DEVICE)
-        if config_page.CALENDAR_DISCONNECT_ROUTE in device_rendered:
+        display_rendered = config_page.render(not_connected_ctx, scope=config_page.SCOPE_DISPLAY)
+        if config_page.CALENDAR_DISCONNECT_ROUTE in display_rendered:
             return False, "expected no disconnect form when the calendar is not configured or drifted"
         connected_ctx = dict(
             _CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
-        display_rendered = config_page.render(connected_ctx, scope=config_page.SCOPE_DISPLAY)
-        if config_page.CALENDAR_DISCONNECT_ROUTE in display_rendered:
-            return False, "expected no disconnect form on the Display scope, which never renders Calendar"
+        device_rendered = config_page.render(connected_ctx, scope=config_page.SCOPE_DEVICE)
+        if config_page.CALENDAR_DISCONNECT_ROUTE in device_rendered:
+            return False, "expected no disconnect form on the Device scope, which never renders Calendar"
         return True, ""
     check(
         "the disconnect form is absent when the calendar is neither configured nor drifted, and absent "
-        "from the Display scope, which never renders the Calendar group at all (D-08/A-26)",
-        _calendar_disconnect_form_absent_when_not_configured_or_on_display_scope)
+        "from the Device scope, which never renders the Calendar group at all (D-08/A-26, retargeted "
+        "from Display by 20-07-PLAN.md Task 1/D-11)",
+        _calendar_disconnect_form_absent_when_not_configured_or_on_device_scope)
 
     def _calendar_status_drift_is_exclusive_and_precedes_not_configured():
         ctx = dict(
             _CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None,
             calendar_drift=True)
-        status = _calendar_status_text(config_page.render(ctx))
-        if config_page.CALENDAR_STATUS_PERMISSION_UNSAFE not in status:
-            return False, "expected the drift status string"
-        if _CALENDAR_STATUS_NOT_CONFIGURED_ESCAPED in status:
-            return False, "expected the not-configured status string to be absent when drifted (D-02 ordering)"
-        if config_page.CALENDAR_STATUS_CONFIGURED_PENDING in status:
-            return False, "expected the pending status string to be absent"
-        if config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX in status:
-            return False, "expected the synced status prefix to be absent"
+        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        if verdict != _CALENDAR_NOT_CONNECTED_ESCAPED:
+            return False, "expected the 'Not connected' verdict when drifted, got %r" % (verdict,)
+        if detail != escape_html(config_page.CALENDAR_STATUS_PERMISSION_UNSAFE):
+            return False, "expected the drift detail sentence, got %r" % (detail,)
         return True, ""
     check(
-        "with the stored calendar link's permissions drifted, render() emits only the drift status string "
-        "- not the not-configured string a drifted configured=False would otherwise produce (D-02 "
-        "ordering)",
+        "with the stored calendar link's permissions drifted, render() emits the 'Not connected' verdict "
+        "with the drift detail sentence — the drift branch, checked before 'not configured', still wins "
+        "(D-02 ordering, D-14b)",
         _calendar_status_drift_is_exclusive_and_precedes_not_configured)
 
     def _calendar_status_drift_names_remedy_and_nothing_forbidden():
@@ -4895,6 +5327,359 @@ def main():
         "fall back to the default screen",
         _scope_groups_follow_the_screen_registry)
 
+    def _display_scope_carries_runway_and_calendar_device_carries_neither():
+        # 20-07-PLAN.md Task 1 (D-10/D-11): the group move itself, at the
+        # registry level.
+        display_groups = config_page.scope_groups(config_page.SCOPE_DISPLAY)
+        device_groups = config_page.scope_groups(config_page.SCOPE_DEVICE)
+        from companion import screens
+        if screens.GROUP_RUNWAY not in display_groups or screens.GROUP_CALENDAR not in display_groups:
+            return False, "expected Runway and Calendar in scope_groups(SCOPE_DISPLAY), got %r" % (display_groups,)
+        if screens.GROUP_RUNWAY in device_groups or screens.GROUP_CALENDAR in device_groups:
+            return False, "expected neither Runway nor Calendar in scope_groups(SCOPE_DEVICE), got %r" % (device_groups,)
+        return True, ""
+    check(
+        "scope_groups(SCOPE_DISPLAY) contains Runway and Calendar, and scope_groups(SCOPE_DEVICE) "
+        "contains neither (D-10/D-11)",
+        _display_scope_carries_runway_and_calendar_device_carries_neither)
+
+    def _display_render_carries_three_section_intros_in_locked_order():
+        # 20-07-PLAN.md Task 1 (D-12): Look, What it watches, When it is
+        # on, in that document order, and nowhere on the Device scope
+        # (Device's own intro sentence/caption are explicitly unchanged,
+        # per D-12 — no supersection tier there at all).
+        ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        if display.count("section-intro") != 3:
+            return False, "expected exactly three section-intro occurrences on Display, got %d" % display.count("section-intro")
+        look_pos = display.find('id="%s"' % config_page.DISPLAY_LOOK_SECTION_ID)
+        watches_pos = display.find('id="%s"' % config_page.DISPLAY_WATCHES_SECTION_ID)
+        on_pos = display.find('id="%s"' % config_page.DISPLAY_ON_SECTION_ID)
+        if -1 in (look_pos, watches_pos, on_pos):
+            return False, "expected all three supersection heading ids to be present"
+        if not (look_pos < watches_pos < on_pos):
+            return False, "expected Look < What it watches < When it is on in document order"
+        if "section-intro" in device:
+            return False, "expected no section-intro on the Device scope (D-12: unchanged intro/caption)"
+        return True, ""
+    check(
+        "the Display scope renders exactly three section-intro headings, in the locked Look/What it "
+        "watches/When it is on order, and the Device scope renders none (D-12)",
+        _display_render_carries_three_section_intros_in_locked_order)
+
+    def _every_grouped_card_under_a_display_supersection_carries_nested_class():
+        # 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C):
+        # Theme, Calendar, Runway, Display and Quiet hours each gain the
+        # --nested modifier so their own <h2> renders at the extended
+        # .theme-status--nested/.page-section--nested > h2 tier
+        # (20-04-PLAN.md Task 1's own CSS selector).
+        ctx = {
+            "device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+            "calendar_configured": True, "calendar_last_synced_at": None,
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+        }
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        for needle in ("theme-status theme-status--nested", "page-section page-section--nested"):
+            if needle not in display:
+                return False, "expected %r on the Display scope" % (needle,)
+        nested_count = display.count("theme-status--nested") + display.count("page-section--nested")
+        if nested_count < 5:
+            return False, "expected at least 5 --nested occurrences on Display, got %d" % nested_count
+        return True, ""
+    check(
+        "every grouped card the Display scope renders under one of its three supersections carries "
+        "a --nested modifier class (D-12)",
+        _every_grouped_card_under_a_display_supersection_carries_nested_class)
+
+    def _display_h2_order_matches_d12_after_calendar_placement_fix():
+        # D-12 fix (20-REVIEW.md verification gap): before this fix, the
+        # physical <form id="settings-form"> closed right after the
+        # Calendar card, which forced Flight colours (a real <form> that
+        # cannot nest inside another <form>) to render after "What it
+        # watches" instead of between Theme and Calendar. This pins the
+        # exact <h2> order the fix restores, and that Calendar's compact
+        # chip-grid radios still post through the physical form despite
+        # the card itself no longer being a literal descendant of it.
+        ctx = {
+            "device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+            "calendar_configured": True, "calendar_last_synced_at": None,
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+        }
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        headings = re.findall(r'<h2[^>]*>(.*?)</h2>', display)
+        expected = [
+            config_page.DISPLAY_LOOK_HEADING, "Theme", config_page.RULES_SECTION_HEADING,
+            config_page.CALENDAR_SECTION_HEADING, config_page.DISPLAY_WATCHES_HEADING,
+            "Runway", config_page.DISPLAY_ON_HEADING, config_page.DISPLAY_SECTION_HEADING,
+            config_page.QUIET_HOURS_SECTION_HEADING,
+        ]
+        if headings != expected:
+            return False, "expected <h2> order %r, got %r" % (expected, headings)
+        calendar_radio_count = display.count('name="calendar_theme_id"')
+        calendar_radio_with_form_count = len(
+            re.findall(r'name="calendar_theme_id"[^>]*form="%s"' % config_page.SETTINGS_FORM_ID, display))
+        if calendar_radio_count == 0 or calendar_radio_with_form_count != calendar_radio_count:
+            return False, (
+                "expected every one of the %d calendar_theme_id radios to carry form=\"%s\", got %d"
+                % (calendar_radio_count, config_page.SETTINGS_FORM_ID, calendar_radio_with_form_count))
+        return True, ""
+    check(
+        "the Display scope's rendered <h2> order is exactly Look, Theme, Flight colours, Calendar, "
+        "What it watches, Runway, When it is on, Screen on / off, Quiet hours, and every "
+        "calendar_theme_id radio carries a form=\"settings-form\" attribute (D-12 fix, "
+        "20-REVIEW.md verification gap)",
+        _display_h2_order_matches_d12_after_calendar_placement_fix)
+
+    # ==================================================================
+    # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): the instant switches, and
+    # the form restructure that makes them valid HTML.
+    # ==================================================================
+
+    _TASK2_BASE_CTX = {
+        "device_config": {
+            "display_enabled": True, "quiet_hours_enabled": True,
+            "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
+        },
+        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+    }
+
+    def _display_render_carries_exactly_two_quick_action_forms():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        if rendered.count('action="%s"' % config_page.QUICK_DISPLAY_ROUTE) != 1:
+            return False, "expected exactly one action=\"/quick/display\" form"
+        if rendered.count('action="%s"' % config_page.QUICK_QUIET_HOURS_ROUTE) != 1:
+            return False, "expected exactly one action=\"/quick/quiet-hours\" form"
+        return True, ""
+    check(
+        "a Display render contains exactly one action=\"/quick/display\" form and one "
+        "action=\"/quick/quiet-hours\" form (D-19)",
+        _display_render_carries_exactly_two_quick_action_forms)
+
+    def _quick_action_forms_are_not_descendants_of_settings_form():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        settings_form_close = rendered.index("</form>", rendered.index("Save settings"))
+        for route in (config_page.QUICK_DISPLAY_ROUTE, config_page.QUICK_QUIET_HOURS_ROUTE):
+            quick_form_pos = rendered.index('action="%s"' % route)
+            if quick_form_pos < settings_form_close:
+                return False, (
+                    "expected the %s quick-action form to appear after the settings "
+                    "form's own closing tag, not nested inside it" % route)
+        return True, ""
+    check(
+        "neither quick-action form is a descendant of <form id=settings-form> — both appear after "
+        "its own closing tag (D-19/Pitfall 1)",
+        _quick_action_forms_are_not_descendants_of_settings_form)
+
+    def _display_render_carries_no_form_nested_inside_a_form():
+        # The pinned regression test for Pitfall 1: a whole-body scan
+        # for any "<form" whose nearest preceding unclosed "<form" has
+        # not yet been closed — i.e. no <form> is ever a descendant of
+        # another <form> anywhere in the rendered Display page.
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        depth = 0
+        pos = 0
+        while True:
+            open_pos = rendered.find("<form", pos)
+            close_pos = rendered.find("</form>", pos)
+            if open_pos == -1 and close_pos == -1:
+                break
+            if open_pos != -1 and (close_pos == -1 or open_pos < close_pos):
+                if depth >= 1:
+                    return False, (
+                        "expected no <form> nested inside another <form>, found one "
+                        "opening at offset %d" % open_pos)
+                depth += 1
+                pos = open_pos + len("<form")
+            else:
+                depth -= 1
+                pos = close_pos + len("</form>")
+        if depth != 0:
+            return False, "expected every <form> to be closed, got an unbalanced depth of %d" % depth
+        return True, ""
+    check(
+        "the rendered Display page contains no <form> nested inside another <form> anywhere "
+        "(D-19/Pitfall 1, the required structural fix)",
+        _display_render_carries_no_form_nested_inside_a_form)
+
+    def _four_scheduled_inputs_carry_form_settings_form():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        for needle in (
+                '<input type="checkbox" name="display_enabled" value="on" checked form="settings-form"',
+                '<input type="checkbox" name="quiet_hours_enabled" value="on" checked form="settings-form"',
+                '<input type="time" name="quiet_hours_start" value="22:00" required form="settings-form"',
+                '<input type="time" name="quiet_hours_end" value="06:00" required form="settings-form"'):
+            if needle not in rendered:
+                return False, "expected %r in the rendered Display page" % (needle,)
+        return True, ""
+    check(
+        "all four scheduled inputs (display_enabled, quiet_hours_enabled, quiet_hours_start, "
+        "quiet_hours_end) carry form=\"settings-form\" via the SETTINGS_FORM_ID constant (D-19)",
+        _four_scheduled_inputs_carry_form_settings_form)
+
+    def _applies_next_wake_sentence_appears_exactly_twice():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        count = rendered.count(escape_html(config_page.QUICK_ACTION_APPLIES_SENTENCE))
+        if count != 2:
+            return False, (
+                "expected the shared instant-switch sentence to appear exactly twice, got %d" % count)
+        return True, ""
+    check(
+        "the shared \"Applies the next time the frame wakes up.\" sentence appears exactly twice on "
+        "the Display page — once per instant switch (D-19)",
+        _applies_next_wake_sentence_appears_exactly_twice)
+
+    def _handle_post_same_field_set_after_restructure_saves_the_same_config():
+        # D-13: only the DOM position of display_group()/quiet_hours_
+        # group() changed — handle_post()'s own field set and its
+        # absent-checkbox carry-forward are untouched, so a POST with
+        # the same field set as before this task still saves identically.
+        tmp = tempfile.mkdtemp(prefix="skypane-config-task2-")
+        try:
+            key = config_page.handle_post(
+                {
+                    "scope": "display", "theme": "black", "display_enabled": "on",
+                    "quiet_hours_enabled": "on", "quiet_hours_start": "23:00",
+                    "quiet_hours_end": "07:00",
+                },
+                {"state_dir": tmp})
+            if key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (key,)
+            cfg = device_config.load_device_config(tmp)
+            if (
+                cfg["theme"] != "black" or cfg["display_enabled"] is not True
+                or cfg["quiet_hours_enabled"] is not True
+                or cfg["quiet_hours_start"] != "23:00" or cfg["quiet_hours_end"] != "07:00"
+            ):
+                return False, "expected the same field set to persist identically, got %r" % (cfg,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a POST through handle_post() with the same field set as before the Task 2 restructure "
+        "still produces the same saved config (D-13/T-20-26)",
+        _handle_post_same_field_set_after_restructure_saves_the_same_config)
+
+    # ==================================================================
+    # 20-07-PLAN.md Task 3 (D-05): config_page.py through t(), and its
+    # French catalogue (companion/i18n_fr/display.py).
+    # ==================================================================
+
+    _TASK3_I18N_CTX = {
+        "device_config": {
+            "display_enabled": True, "quiet_hours_enabled": True,
+            "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
+        },
+        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        "calendar_configured": True, "calendar_last_synced_at": None,
+        "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+    }
+
+    def _french_display_render_carries_french_headings_no_english():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_rendered = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        for french_text in ("Aspect", "Ce qu’il surveille", "Quand il est allumé",
+                             "Tout ce que le cadre affiche, et quand.",
+                             "S’applique la prochaine fois que le cadre se réveille."):
+            if french_text not in fr_rendered:
+                return False, "expected %r in the French Display render" % (french_text,)
+        for english_text in ("Look", "What it watches", "When it is on",
+                              "Everything about what the frame shows and when.",
+                              "Applies the next time the frame wakes up."):
+            if english_text in fr_rendered:
+                return False, "expected %r to be absent from the French Display render" % (english_text,)
+        return True, ""
+    check(
+        "a French Display render (prefs.set_request_prefs(lang='fr')) carries the three "
+        "supersection headings, the purpose sentence and the instant-switch sentence in French, "
+        "and none of their English counterparts (D-05)",
+        _french_display_render_carries_french_headings_no_english)
+
+    def _french_display_and_device_render_translate_registry_labels():
+        # Polish fix 5 (D-05): device_config.theme_label()/runway_
+        # label()'s registry text and screens.py's screen label are
+        # translated at their config_page.py display sites via
+        # i18n.t(), backed by companion/i18n_fr/registry.py — the
+        # default theme ("white" -> "White"/"Blanc") and default
+        # runway ("3" -> "Runway 3 (07/25)"/"Piste 3 (07/25)") both
+        # apply here since _TASK3_I18N_CTX's device_config carries
+        # neither key. The ids themselves ("white", "3") are never
+        # translated, so they must still appear as attribute values.
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_display = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
+            fr_device = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DEVICE)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        for french_text in ("Blanc", "Piste 3 (07/25)", "Cadre avion"):
+            if french_text not in fr_display:
+                return False, "expected the French %r in the French Display render" % (french_text,)
+        if "Cadre avion" not in fr_device:
+            return False, "expected the French screen label in the French Device render"
+        for english_text in ("Runway 3 (07/25)",):
+            if english_text in fr_display:
+                return False, "expected %r to be absent from the French Display render" % (english_text,)
+        if 'value="white"' not in fr_display or 'value="3"' not in fr_display:
+            return False, "expected the theme/runway ids themselves to stay untranslated attribute values"
+        return True, ""
+    check(
+        "a French Display render translates the default theme name ('White' -> 'Blanc') and "
+        "default runway label ('Runway 3 (07/25)' -> 'Piste 3 (07/25)'), and both scopes' screen "
+        "caption translates 'Plane frame' -> 'Cadre avion', while the theme/runway ids stay "
+        "untranslated attribute values (Polish fix 5, D-05)",
+        _french_display_and_device_render_translate_registry_labels)
+
+    def _english_display_render_still_carries_every_pinned_english_string():
+        # The default (no prefs override) render must stay byte-identical
+        # to every pre-existing English-language check in this file —
+        # t()'s own fallback-to-English-unchanged contract, exercised at
+        # the whole-page level rather than per-string.
+        rendered = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
+        for english_text in (
+                config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
+                config_page.DISPLAY_ON_HEADING, config_page.DISPLAY_PAGE_PURPOSE,
+                config_page.QUICK_ACTION_APPLIES_SENTENCE, config_page.THEME_SECTION_CAPTION,
+                config_page.RUNWAY_SECTION_CAPTION, config_page.CALENDAR_CAPTION):
+            if escape_html(english_text) not in rendered:
+                return False, "expected the English constant %r to still render verbatim" % (english_text,)
+        return True, ""
+    check(
+        "an English (default) Display render still contains every pre-existing English string this "
+        "file's own checks assert — t() never touches the default-language render (D-05)",
+        _english_display_render_still_carries_every_pinned_english_string)
+
+    def _device_render_carries_no_edit_artwork_markup_in_either_language():
+        for lang in ("en", "fr"):
+            try:
+                prefs.set_request_prefs(lang=lang)
+                rendered = config_page.render(
+                    {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0},
+                    scope=config_page.SCOPE_DEVICE)
+            finally:
+                prefs.set_request_prefs(lang="en")
+            if "edit-artwork" in rendered:
+                return False, "lang=%r: expected no edit-artwork markup on the Device page (D-36)" % (lang,)
+            if "?edit=1" in rendered:
+                return False, "lang=%r: expected no ?edit=1 link on the Device page (D-36)" % (lang,)
+        return True, ""
+    check(
+        "the Device render contains no edit-artwork markup and no ?edit=1 link, in either language "
+        "(D-36)",
+        _device_render_carries_no_edit_artwork_markup_in_either_language)
+
+    def _every_display_catalogue_key_is_a_key_of_the_merged_catalog():
+        missing = [key for key in i18n_fr_display.CATALOG if key not in i18n_fr.CATALOG]
+        if missing:
+            return False, "expected every companion/i18n_fr/display.py key in the merged CATALOG, missing %r" % (missing,)
+        return True, ""
+    check(
+        "every key of companion/i18n_fr/display.py is a key of the merged companion.i18n_fr.CATALOG "
+        "(the auto-merge package actually picked this module up)",
+        _every_display_catalogue_key_is_a_key_of_the_merged_catalog)
+
     def _submitted_scope_and_return_route_are_allowlisted():
         if config_page.submitted_scope({}) != config_page.SCOPE_ALL:
             return False, "expected a form without a scope field to resolve to the legacy all-scope"
@@ -4924,18 +5709,32 @@ def main():
             return False, "expected the device scope's hidden scope/return_to fields"
         if 'name="scope"' in legacy:
             return False, "expected the legacy all-scope render to carry no scope field"
-        if 'name="tracked_runway"' in display or 'name="led_enabled"' in display:
-            return False, "expected no runway/LED group on the Display page"
+        # 20-07-PLAN.md Task 1 (D-10): Runway moved from Device's
+        # advanced_groups to Display's everyday_groups this phase — LED
+        # stays Device-only, unaffected.
+        if 'name="led_enabled"' in display:
+            return False, "expected no LED group on the Display page"
+        if 'name="tracked_runway"' not in display:
+            return False, "expected the runway group to render on the Display page (D-10)"
+        if 'name="tracked_runway"' in device:
+            return False, "expected no runway group on the Device page (D-10)"
         if 'name="theme_arriving_enabled"' in device or 'name="quiet_hours_enabled"' in device:
             return False, "expected no theme/quiet-hours group on the Device page"
         if display.count('<h1 class="page-title">Display</h1>') != 1:
             return False, "expected the Display page title"
         if device.count('<h1 class="page-title">Device</h1>') != 1:
             return False, "expected the Device page title"
-        if config_page.POLL_SECTION_HEADING in display or config_page.RULES_SECTION_HEADING in display:
-            return False, "expected the manual-refresh and rules sections off the Display page"
-        if config_page.POLL_SECTION_HEADING not in device or config_page.RULES_SECTION_HEADING not in device:
-            return False, "expected the manual-refresh and rules sections on the Device page"
+        # 20-07-PLAN.md Task 1 (D-11): Flight colours (the rules section)
+        # moved from Device to Display with its Calendar group — Manual
+        # refresh (the Poll section) stays Device-only, unaffected.
+        if config_page.POLL_SECTION_HEADING in display:
+            return False, "expected the manual-refresh section off the Display page"
+        if config_page.RULES_SECTION_HEADING not in display:
+            return False, "expected the rules (Flight colours) section on the Display page (D-11)"
+        if config_page.POLL_SECTION_HEADING not in device:
+            return False, "expected the manual-refresh section on the Device page"
+        if config_page.RULES_SECTION_HEADING in device:
+            return False, "expected the rules (Flight colours) section off the Device page (D-11)"
         hostile = config_page.render(ctx, scope="<script>")
         if 'name="scope"' in hostile or "&lt;script&gt;" in hostile:
             return False, "expected a hostile scope value to degrade to the legacy all-scope, never to be echoed"
@@ -4971,11 +5770,20 @@ def main():
                 return False, "expected display/quiet-hours carried forward on a device-page save, got %r" % (cfg,)
             if cfg["led_enabled"] is not False or cfg["tracked_runway"] != "06-24":
                 return False, "expected the device-page save's own fields to persist, got %r" % (cfg,)
-            # A device-page save never means "disconnect the calendar".
+            # 20-07-PLAN.md Task 1 (D-11): Calendar moved from Device to
+            # Display's everyday_groups this phase — a device-page
+            # submission now ignores even a stray calendar_disconnect
+            # field (its own scope no longer renders the Calendar group
+            # at all), while a display-page submission's calendar
+            # fields are live, resolving per submitted_calendar_signal()'s
+            # own per-field gates. Retargeted in place from the exact
+            # inverse (pre-phase, Calendar was Device-only).
             if config_page.submitted_calendar_signal({"scope": "device"}) != config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD:
                 return False, "expected a device-page submission without calendar fields to carry the calendar forward"
-            if config_page.submitted_calendar_signal({"scope": "display", "calendar_disconnect": "on"}) != config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD:
-                return False, "expected a display-page submission to ignore a stray calendar_disconnect field"
+            if config_page.submitted_calendar_signal({"scope": "device", "calendar_disconnect": "on"}) != config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD:
+                return False, "expected a device-page submission to ignore a stray calendar_disconnect field (D-11)"
+            if config_page.submitted_calendar_signal({"scope": "display", "calendar_disconnect": "on"}) != config_page.CALENDAR_URL_SIGNAL_CLEAR:
+                return False, "expected a display-page submission's calendar_disconnect field to resolve clear now that Calendar renders there (D-11)"
             # The legacy unscoped body keeps its absent-means-False contract.
             key = config_page.handle_post({"theme": "white"}, {"state_dir": tmp})
             cfg = device_config.load_device_config(tmp)
@@ -5117,20 +5925,28 @@ def main():
         "errors carries one",
         _screen_selector_renders_the_field_error_message)
 
-    def _device_scope_has_one_edit_artwork_link_display_has_none():
+    def _neither_scope_renders_an_edit_artwork_link():
+        # 20-07-PLAN.md Task 3 (D-36): the Device page's "Edit artwork"
+        # link is deleted outright — retargeted in place from "the
+        # Device scope renders exactly one... Display renders none" to
+        # its own inverse, now that neither scope renders it at all.
         ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
         href_fragment = "/airlines?edit=1"
         if href_fragment in display:
             return False, "expected no Edit-artwork link on the Display page"
-        if device.count(href_fragment) != 1:
-            return False, "expected exactly one Edit-artwork anchor on the Device page, got %d" % device.count(href_fragment)
+        if href_fragment in device:
+            return False, "expected no Edit-artwork link on the Device page (D-36)"
+        if "edit-artwork" in display or "edit-artwork" in device:
+            return False, "expected no edit-artwork markup on either scope (D-36)"
+        if "_edit_artwork_link_html" in dir(config_page):
+            return False, "expected _edit_artwork_link_html() to be deleted outright (D-36)"
         return True, ""
     check(
-        "the Device scope renders exactly one Edit-artwork anchor whose href contains edit=1, while the "
-        "Display scope renders none (D-22, Device-page half)",
-        _device_scope_has_one_edit_artwork_link_display_has_none)
+        "neither the Display nor the Device scope renders an Edit-artwork link or markup any more — "
+        "the link and its builder are deleted outright (D-36)",
+        _neither_scope_renders_an_edit_artwork_link)
 
     # --- 19-12-PLAN.md Task 3 (D-13/S-02): "next wake ≈ HH:MM" caption
     # suffixes on Display/Device -------------------------------------------
@@ -5254,11 +6070,15 @@ def main():
                 companion_app.FLASH_MESSAGES[companion_app.FLASH_KEY_SAVED])
             if confirmation.encode() not in body:
                 return False, "expected D-07's exact confirmation copy in the response body"
-            # Phase 18: the runway group lives on the Device page now, so
-            # the newly-saved selection is read back from there.
+            # 20-07-PLAN.md Task 1 (D-10): the runway group moved from
+            # Device to Display this phase, so the newly-saved selection
+            # is read back from there now (retargeted from DEVICE_ROUTE).
             _s, _h, body = http_request(
-                base + companion_app.DEVICE_ROUTE, cookie=session_cookie)
-            if b'value="06-24" class="visually-hidden" checked' not in body:
+                base + companion_app.DISPLAY_ROUTE, cookie=session_cookie)
+            # Polish fix 4 (D-14c): each runway radio now also carries an
+            # explicit form="settings-form" attribute.
+            if (b'value="06-24" class="visually-hidden" form="%s" checked'
+                    % config_page.SETTINGS_FORM_ID.encode()) not in body:
                 return False, "expected the newly-saved runway (06-24) to be shown selected"
             return True, ""
         check(
@@ -5503,13 +6323,18 @@ def main():
         calendar_cookie = _login(calendar_harness)
 
         def _calendar_secret_never_reaches_served_http_bytes():
+            # 20-07-PLAN.md Task 1 (D-11): Calendar moved from Device to
+            # Display this phase — retargeted from DEVICE_ROUTE.
             status, _headers, body = http_request(
-                calendar_base + companion_app.DEVICE_ROUTE, cookie=calendar_cookie)
+                calendar_base + companion_app.DISPLAY_ROUTE, cookie=calendar_cookie)
             if status != 200:
-                return False, "expected 200 on the authenticated Device page, got %d" % status
+                return False, "expected 200 on the authenticated Display page, got %d" % status
             body_text = body.decode("utf-8", errors="replace")
-            if config_page.CALENDAR_STATUS_CONFIGURED_PENDING not in body_text:
-                return False, "expected the configured-pending status (no sync recorded yet)"
+            # 20-09-PLAN.md Task 1 (D-14b): the old one-piece "pending"
+            # sentence is retired — a configured calendar with no sync
+            # recorded yet now renders the bare "Connected" verdict.
+            if config_page.CALENDAR_STATUS_CONNECTED_VERDICT not in body_text:
+                return False, "expected the 'Connected' verdict (no sync recorded yet)"
             for needle in (calendar_token, calendar_host, calendar_path, calendar_query_param, calendar_url):
                 if needle in body_text:
                     return False, "expected %r never to appear in the served response body" % (needle,)
@@ -5535,24 +6360,30 @@ def main():
         "poll_cooldown_remaining": 0,
     }
 
-    def _display_scope_has_two_radiogroups_device_has_one():
+    def _display_scope_has_three_radiogroups_device_has_none():
+        # 20-07-PLAN.md Task 1 (D-10): Runway moved from Device to
+        # Display this phase — Display now carries Theme's two chip
+        # grids PLUS the Runway row's own radiogroup (three), while
+        # Device (LED, Wake interval only) carries none. Retargeted from
+        # "Display >= 2, Device >= 1 (the Runway row)" in place.
         display_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
         device_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
         display_count = display_rendered.count('role="radiogroup"')
-        if display_count < 2:
+        if display_count < 3:
             return False, (
-                "expected at least two role=\"radiogroup\" occurrences on the Display "
-                "scope (Theme's two chip grids), got %d" % display_count)
+                "expected at least three role=\"radiogroup\" occurrences on the Display "
+                "scope (Theme's two chip grids plus the Runway row), got %d" % display_count)
         device_count = device_rendered.count('role="radiogroup"')
-        if device_count < 1:
+        if device_count != 0:
             return False, (
-                "expected at least one role=\"radiogroup\" occurrence on the Device "
-                "scope (the Runway row), got %d" % device_count)
+                "expected no role=\"radiogroup\" occurrence on the Device scope "
+                "(LED and Wake interval have no radio groups), got %d" % device_count)
         return True, ""
     check(
-        "the Display scope renders at least two role=\"radiogroup\" elements (Theme's departures and "
-        "arrivals chip grids) and the Device scope renders at least one (the Runway row) (D-12/A-30)",
-        _display_scope_has_two_radiogroups_device_has_one)
+        "the Display scope renders at least three role=\"radiogroup\" elements (Theme's departures and "
+        "arrivals chip grids, plus the Runway row) and the Device scope renders none (D-12/A-30, "
+        "retargeted by 20-07-PLAN.md Task 1/D-10)",
+        _display_scope_has_three_radiogroups_device_has_none)
 
     _ID_RE = re.compile(r'\bid="([^"]*)"')
     _LABELLEDBY_RE = re.compile(r'aria-labelledby="([^"]*)"')
@@ -5604,6 +6435,260 @@ def main():
         "BOTH ids in its aria-describedby, hint first then error, never one overwriting the other "
         "(D-12/A-30)",
         _control_with_both_hint_and_error_carries_both_ids_in_order)
+
+    # ==================================================================
+    # 20-11-PLAN.md Task 1 (D-26/D-28): the Notifications group — a
+    # write-only topic URL, two checkboxes, no language selector.
+    # ==================================================================
+
+    def _notifications_group_status_row_configured_vs_not_and_write_only_url():
+        rendered_unconfigured = config_page.render(
+            {"device_config": {}, "poll_cooldown_remaining": 0}, scope=config_page.SCOPE_DEVICE)
+        if config_page.NOTIFICATIONS_SECTION_HEADING not in rendered_unconfigured:
+            return False, "expected the Notifications heading on the Device scope"
+        if config_page.NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT not in rendered_unconfigured:
+            return False, "expected the 'Not configured' verdict with no topic URL stored"
+        if config_page.NOTIFICATIONS_STATUS_CONFIGURED_VERDICT in rendered_unconfigured:
+            return False, "expected no 'Configured' verdict with no topic URL stored"
+
+        seeded_url = "https://ntfy.sh/skypane-secret-token-xyz"
+        rendered_configured = config_page.render(
+            {
+                "device_config": {
+                    "notifications": {
+                        "topic_url": seeded_url, "battery_low": True,
+                        "frame_silent": False, "lang": "en"}},
+                "poll_cooldown_remaining": 0,
+            },
+            scope=config_page.SCOPE_DEVICE)
+        if config_page.NOTIFICATIONS_STATUS_CONFIGURED_VERDICT not in rendered_configured:
+            return False, "expected the 'Configured' verdict with a topic URL stored"
+        if config_page.NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT in rendered_configured:
+            return False, "expected no 'Not configured' verdict with a topic URL stored"
+        if seeded_url in rendered_configured or "secret-token-xyz" in rendered_configured:
+            return False, "expected no substring of the stored topic URL anywhere in the rendered page"
+        for rendered in (rendered_unconfigured, rendered_configured):
+            match = re.search(r'<input[^>]*name="notifications_topic_url"[^>]*>', rendered)
+            if not match:
+                return False, "expected the notifications_topic_url input to render"
+            if "value=" in match.group(0):
+                return False, "expected no value attribute on the write-only topic-URL input"
+        return True, ""
+    check(
+        "notifications_group()'s status row reads 'Not configured' with no URL stored and "
+        "'Configured' with one, the topic-URL input never carries a value attribute in either "
+        "state, and no substring of a seeded URL appears anywhere in the rendered page (T-20-12)",
+        _notifications_group_status_row_configured_vs_not_and_write_only_url)
+
+    def _notifications_checkboxes_reflect_stored_state():
+        rendered = config_page.render(
+            {
+                "device_config": {
+                    "notifications": {
+                        "topic_url": "https://ntfy.sh/x", "battery_low": False,
+                        "frame_silent": True, "lang": "fr"}},
+                "poll_cooldown_remaining": 0,
+            },
+            scope=config_page.SCOPE_DEVICE)
+        battery_match = re.search(
+            r'<input type="checkbox" name="notifications_battery"[^>]*>', rendered)
+        silent_match = re.search(
+            r'<input type="checkbox" name="notifications_silent"[^>]*>', rendered)
+        if not battery_match or not silent_match:
+            return False, "expected both notifications checkboxes to render"
+        if " checked" in battery_match.group(0):
+            return False, "expected notifications_battery unchecked when stored False"
+        if " checked" not in silent_match.group(0):
+            return False, "expected notifications_silent checked when stored True"
+        return True, ""
+    check(
+        "notifications_group()'s two checkboxes reflect the stored battery_low/frame_silent "
+        "booleans",
+        _notifications_checkboxes_reflect_stored_state)
+
+    def _notifications_group_has_no_lang_selector():
+        rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
+        if "notifications_lang" in rendered:
+            return False, "expected no notifications_lang control anywhere on the page"
+        return True, ""
+    check(
+        "the Device page contains no notifications_lang control anywhere (D-28: lang travels "
+        "silently, never through a <select>)",
+        _notifications_group_has_no_lang_selector)
+
+    def _handle_post_notifications_round_trip_writes_lang_from_ctx():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir, "lang": "fr"}
+            flash_key = config_page.handle_post(
+                {
+                    "scope": config_page.SCOPE_DEVICE,
+                    "notifications_topic_url": "https://ntfy.sh/skypane-abc123",
+                    "notifications_battery": config_page.NOTIFICATIONS_BATTERY_CHECKBOX_VALUE,
+                    "notifications_silent": config_page.NOTIFICATIONS_SILENT_CHECKBOX_VALUE,
+                },
+                ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)["notifications"]
+            expected = {
+                "topic_url": "https://ntfy.sh/skypane-abc123",
+                "battery_low": True, "frame_silent": True, "lang": "fr"}
+            if on_disk != expected:
+                return False, "expected %r, got %r" % (expected, on_disk)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post() with scope=device, a topic URL and both checkboxes persists the whole "
+        "notifications group and writes lang from ctx['lang'] (D-26/D-28)",
+        _handle_post_notifications_round_trip_writes_lang_from_ctx)
+
+    def _handle_post_empty_notifications_url_leaves_stored_url_intact():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            device_config.save_device_config(
+                tmpdir, notifications={
+                    "topic_url": "https://ntfy.sh/skypane-seeded",
+                    "battery_low": True, "frame_silent": True, "lang": "en"})
+            flash_key = config_page.handle_post(
+                {"scope": config_page.SCOPE_DEVICE, "notifications_topic_url": ""}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)["notifications"]
+            if on_disk["topic_url"] != "https://ntfy.sh/skypane-seeded":
+                return False, (
+                    "expected the stored URL to survive an empty submission, got %r"
+                    % (on_disk["topic_url"],))
+            if on_disk["battery_low"] is not False or on_disk["frame_silent"] is not False:
+                return False, "expected both checkboxes to resolve absent-means-False"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post() with an empty notifications_topic_url leaves the previously stored URL "
+        "unchanged (D-26: empty means 'leave unchanged', never 'clear it')",
+        _handle_post_empty_notifications_url_leaves_stored_url_intact)
+
+    # ==================================================================
+    # 20-11-PLAN.md Task 2 (D-22..D-24): the live theme preview above
+    # the chip grid.
+    # ==================================================================
+
+    def _display_render_has_exactly_one_live_preview_figure_eager_with_dimensions():
+        rendered = config_page.render(
+            {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
+            scope=config_page.SCOPE_DISPLAY)
+        if rendered.count('class="theme-live-preview"') != 1:
+            return False, (
+                "expected exactly one .theme-live-preview figure, got %d"
+                % rendered.count('class="theme-live-preview"'))
+        match = re.search(r'<img class="theme-live-preview__image"[^>]*>', rendered)
+        if not match:
+            return False, "expected the live preview's own <img> element"
+        tag = match.group(0)
+        if 'src="%sblue.png?live=1"' % config_page.THEME_PREVIEW_ROUTE_PREFIX not in tag:
+            return False, "expected the live preview's src to end in the saved theme's ?live=1 URL"
+        if 'loading="eager"' not in tag:
+            return False, 'expected the live preview\'s own <img> to carry loading="eager"'
+        if 'width="%d"' % config_page.THEME_LIVE_PREVIEW_WIDTH not in tag:
+            return False, "expected an explicit width attribute"
+        if 'height="%d"' % config_page.THEME_LIVE_PREVIEW_HEIGHT not in tag:
+            return False, "expected an explicit height attribute"
+        return True, ""
+    check(
+        "a Display render contains exactly one .theme-live-preview figure whose <img> src ends in "
+        'the saved theme\'s ?live=1 URL, carries loading="eager" and explicit width/height '
+        "(D-22..D-24)",
+        _display_render_has_exactly_one_live_preview_figure_eager_with_dimensions)
+
+    def _every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
+        rendered = config_page.render(
+            {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
+            scope=config_page.SCOPE_DISPLAY)
+        labels = re.findall(r'<label class="theme-chip[^>]*data-preview-src="([^"]+)"', rendered)
+        if len(labels) < len(device_config.THEME_IDS):
+            return False, (
+                "expected at least one data-preview-src per registered theme, got %d"
+                % len(labels))
+        for src in labels:
+            if not src.endswith(".png?live=1"):
+                return False, "expected every data-preview-src to end in .png?live=1, got %r" % (src,)
+        chip_images = re.findall(r'<img class="theme-chip__preview"[^>]*>', rendered)
+        if not chip_images:
+            return False, "expected at least one chip <img>"
+        for tag in chip_images:
+            if 'loading="lazy"' not in tag:
+                return False, 'expected every chip <img> to keep loading="lazy"'
+            if "?live=1" in tag:
+                return False, "expected the chip's own <img> src to stay the fixed, non-live preview"
+        return True, ""
+    check(
+        'every chip\'s own <label> carries a data-preview-src ending in .png?live=1, while each '
+        'chip\'s own <img> keeps loading="lazy" and the fixed, non-live src (D-24)',
+        _every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy)
+
+    def _live_preview_caption_names_seeded_callsign_and_falls_back_to_sample():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-theme-live-preview-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, ts="2026-09-07T09:00:00+00:00", hex="3944F2",
+                    callsign="AFR1380")
+            with_event = config_page.render(
+                {
+                    "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
+                    "state_dir": tmpdir,
+                },
+                scope=config_page.SCOPE_DISPLAY)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        expected_caption = (
+            config_page.THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE % "AFR1380")
+        if escape_html(expected_caption) not in with_event:
+            return False, "expected the caption to name the seeded event's callsign"
+
+        without_event = config_page.render(
+            {
+                "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
+                "state_dir": None,
+            },
+            scope=config_page.SCOPE_DISPLAY)
+        if escape_html(config_page.THEME_LIVE_PREVIEW_CAPTION_SAMPLE) not in without_event:
+            return False, "expected the sample-flight caption with no events/no state_dir"
+        return True, ""
+    check(
+        "the live preview's caption names the seeded event's callsign, and falls back to the "
+        "sample-flight wording with no events (D-24)",
+        _live_preview_caption_names_seeded_callsign_and_falls_back_to_sample)
+
+    def _french_display_render_shows_the_live_preview_caption_with_flight_in_french():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-theme-live-preview-fr-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, ts="2026-09-07T09:00:00+00:00", hex="3944F2",
+                    callsign="AFR1380")
+            prefs.set_request_prefs(lang="fr")
+            try:
+                rendered = config_page.render(
+                    {
+                        "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
+                        "state_dir": tmpdir,
+                    },
+                    scope=config_page.SCOPE_DISPLAY)
+            finally:
+                prefs.set_request_prefs(lang="en")
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        if "Aperçu avec votre dernier vol : AFR1380" not in rendered:
+            return False, "expected the French live-preview caption naming the seeded callsign"
+        return True, ""
+    check(
+        "a French Display render's live preview shows ‘Aperçu avec votre dernier "
+        "vol : ’ followed by the seeded event's callsign (D-24/D-05)",
+        _french_display_render_shows_the_live_preview_caption_with_flight_in_french)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

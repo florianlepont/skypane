@@ -59,6 +59,19 @@ EXPECTED_CHECK_COUNT = 60
 # pinned equal to companion.screens's own values - re-derived by running
 # the harness, not by arithmetic)
 EXPECTED_CHECK_COUNT = 64
+# 20-02-PLAN.md Task 3 (D-26/D-28): 64 -> 69, +5 (the notifications config
+# group, this registry's first dict-valued field: a pre-phase-20 file with
+# no notifications key resolves to DEFAULT_NOTIFICATIONS and is never
+# rewritten on read; normalise_notifications() degrades a non-dict value
+# wholesale and degrades each hostile sub-field independently while a real
+# sibling field survives; save_device_config(notifications={...}) round-
+# trips leaving every sibling field unchanged; a non-dict, a non-str
+# topic_url, a non-bool battery_low/frame_silent, and a lang outside
+# ('en', 'fr') each raise ValueError leaving a pre-existing file byte-
+# identical; and server/device_config.py introduces no print()/logging
+# call for the new field, preserving the module's own print-free-by-design
+# contract - re-derived by running the harness, not by arithmetic)
+EXPECTED_CHECK_COUNT = 69
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -106,7 +119,7 @@ def main():
         try:
             missing = os.path.join(tmpdir, "does-not-exist")
             config = device_config.load_device_config(missing)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
@@ -122,7 +135,7 @@ def main():
                 with open(path, "w") as fh:
                     fh.write(bad_content)
                 config = device_config.load_device_config(tmpdir)
-                if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+                if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
@@ -137,7 +150,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -150,7 +163,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+            if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -199,7 +212,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
                 return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -231,7 +244,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, led_enabled=False)
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame"}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -630,6 +643,7 @@ def main():
                 "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
                 "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame",
+                "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"},
             }:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
@@ -828,6 +842,7 @@ def main():
                 "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
                 "wake_interval_s": 120, "display_enabled": True, "calendar_theme_id": None, "screen_id": "plane-frame",
+                "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"},
             }:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
@@ -1105,6 +1120,7 @@ def main():
                 "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
                 "wake_interval_s": None, "display_enabled": False, "calendar_theme_id": None, "screen_id": "plane-frame",
+                "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"},
             }:
                 return False, "round-trip produced %r" % (config,)
             device_config.save_device_config(tmpdir, theme="black")
@@ -1423,6 +1439,150 @@ def main():
     check(
         "device_config.SCREEN_IDS/DEFAULT_SCREEN_ID stay pinned equal to companion.screens's own duplicated-not-imported values",
         _screen_id_registry_agrees_with_companion_screens,
+    )
+
+    # --- notifications (D-26/D-28, 20-02-PLAN.md Task 3) ---------------------
+
+    def _notifications_absent_from_disk_resolves_to_default_with_no_migration():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            pre_phase_20_doc = {
+                "theme": "blue", "tracked_runway": "06-24", "led_enabled": False,
+                "quiet_hours_enabled": True, "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
+                "wake_interval_s": 300, "display_enabled": False,
+            }
+            with open(path, "w") as fh:
+                json.dump(pre_phase_20_doc, fh)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            config = device_config.load_device_config(tmpdir)
+            if config["notifications"] != device_config.DEFAULT_NOTIFICATIONS:
+                return False, "a file with no notifications key produced %r, expected DEFAULT_NOTIFICATIONS" % (config["notifications"],)
+            with open(path, "rb") as fh:
+                after = fh.read()
+            if before != after:
+                return False, "load_device_config() rewrote a pre-phase-20 file on disk - no migration is permitted"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a device_config.json written before this phase (no notifications key at all) resolves notifications to DEFAULT_NOTIFICATIONS and is not rewritten on disk by load_device_config() - no migration",
+        _notifications_absent_from_disk_resolves_to_default_with_no_migration,
+    )
+
+    def _normalise_notifications_degrades_hostile_shapes_per_field():
+        for hostile in ("x", [], 7, None):
+            got = device_config.normalise_notifications(hostile)
+            if got != device_config.DEFAULT_NOTIFICATIONS:
+                return False, "normalise_notifications(%r) returned %r, expected a copy of DEFAULT_NOTIFICATIONS wholesale" % (hostile, got)
+        got_partial = device_config.normalise_notifications({"lang": "de"})
+        if got_partial != {
+            "topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en",
+        }:
+            return False, "normalise_notifications({'lang': 'de'}) returned %r, expected every field at its own default" % (got_partial,)
+        got_mixed = device_config.normalise_notifications({
+            "topic_url": 7, "battery_low": "yes", "frame_silent": 1, "lang": "fr",
+        })
+        if got_mixed != {
+            "topic_url": None, "battery_low": True, "frame_silent": True, "lang": "fr",
+        }:
+            return False, "normalise_notifications() with a wrong-typed topic_url/battery_low/frame_silent returned %r - each hostile sub-field must degrade independently, and the real lang='fr' must survive" % (got_mixed,)
+        return True, ""
+
+    check(
+        "normalise_notifications() degrades a non-dict value ('x', [], 7, None) to a copy of DEFAULT_NOTIFICATIONS wholesale, and degrades each hostile sub-field ({'lang': 'de'}, or a wrong-typed topic_url/battery_low/frame_silent) independently while a real sibling field survives",
+        _normalise_notifications_degrades_hostile_shapes_per_field,
+    )
+
+    def _save_notifications_round_trips():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, notifications={
+                "topic_url": "https://ntfy.sh/skypane-xyz", "battery_low": False,
+                "frame_silent": True, "lang": "fr",
+            })
+            config = device_config.load_device_config(tmpdir)
+            if config["notifications"] != {
+                "topic_url": "https://ntfy.sh/skypane-xyz", "battery_low": False,
+                "frame_silent": True, "lang": "fr",
+            }:
+                return False, "round-trip produced %r" % (config["notifications"],)
+            if config["theme"] != device_config.DEFAULT_THEME_ID:
+                return False, "a notifications-only save disturbed theme, got %r" % (config["theme"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(notifications={...}) round-trips through load_device_config() unchanged, leaving every sibling field at its prior (default) value",
+        _save_notifications_round_trips,
+    )
+
+    def _save_notifications_rejects_every_malformed_shape():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme="black")
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            hostile_groups = (
+                "not-a-dict",
+                {"topic_url": 7, "battery_low": True, "frame_silent": True, "lang": "en"},
+                {"topic_url": None, "battery_low": "yes", "frame_silent": True, "lang": "en"},
+                {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "de"},
+            )
+            for hostile in hostile_groups:
+                raised = False
+                try:
+                    device_config.save_device_config(tmpdir, notifications=hostile)
+                except ValueError:
+                    raised = True
+                if not raised:
+                    return False, "save_device_config(notifications=%r) did not raise ValueError" % (hostile,)
+                with open(path, "rb") as fh:
+                    after = fh.read()
+                if before != after:
+                    return False, "save_device_config(notifications=%r) changed a pre-existing file's bytes" % (hostile,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config() rejects a non-dict notifications value, a non-str topic_url, a non-bool battery_low/frame_silent, and a lang outside ('en', 'fr') with ValueError, leaving a pre-existing, legitimately-saved file byte-identical across every rejection",
+        _save_notifications_rejects_every_malformed_shape,
+    )
+
+    def _saved_topic_url_never_appears_in_a_rejected_writes_bytes_or_this_modules_own_source():
+        # T-20-12: this module stores topic_url verbatim in
+        # device_config.json (server/notify.py needs the real value to
+        # send a push, D-25's own boundary) - there is no separate
+        # config-history/audit log in this codebase for ANY field to
+        # hook into (confirmed by inspection: no sibling field - theme,
+        # led_enabled, the calendar URL in server/plane/calendar_rules.py
+        # - writes to any such log either). What IS real and pinned here
+        # is device_config.py's own "print-free by design" contract
+        # (this module's own top-of-file docstring): adding notifications
+        # introduces no new print()/logging call anywhere in this module,
+        # so a hostile or legitimate topic_url can never reach a log this
+        # module itself controls - the same proof
+        # server/test_calendar_rules.py's T-16-SECRET checks pin for the
+        # calendar feed URL, applied here by source inspection since this
+        # module (unlike calendar_rules.fetch_ics()) has no failure path
+        # that logs at all.
+        src_path = os.path.join(REPO_ROOT, "server", "device_config.py")
+        with open(src_path) as fh:
+            src = fh.read()
+        if "print(" in src:
+            return False, "server/device_config.py must stay print-free by design; found a print( call"
+        if re.search(r'\blogging\.', src):
+            return False, "server/device_config.py must stay print-free by design; found a logging module call"
+        return True, ""
+
+    check(
+        "server/device_config.py introduces no print()/logging call for the notifications group, preserving this module's own print-free-by-design contract (T-20-12: a topic_url can never reach a log this module controls)",
+        _saved_topic_url_never_appears_in_a_rejected_writes_bytes_or_this_modules_own_source,
     )
 
     # --- history_db.py ------------------------------------------------------

@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: verifying
 stopped_at: Phase 16 context gathered
-last_updated: "2026-09-11T17:15:08.166Z"
+last_updated: "2026-09-12T04:38:40.811Z"
 last_activity: 2026-09-11
 progress:
   total_phases: 32
-  completed_phases: 28
-  total_plans: 167
-  completed_plans: 154
-  percent: 88
+  completed_phases: 29
+  total_plans: 179
+  completed_plans: 166
+  percent: 91
 ---
 
 ---
@@ -20,11 +20,11 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Phase 19 executed (12/12 plans, verification 23/23 must-haves, code review fixed) — awaiting human UAT (19-HUMAN-UAT.md) and merge of PR #62
+status: Phase 20 executed and verified (12/12 plans, 35/35 must-haves, review CR-01/WR-01..04 fixed) — awaiting human UAT (20-HUMAN-UAT.md) and merge of PR #63
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
-last_activity_desc: Phase 19 execute-phase complete: 12 plans merged, verifier human_needed (10 browser-only checks in 19-HUMAN-UAT.md), review WR-01..03/IN-02 fixed, draft PR #62 opened
+last_activity_desc: Phase 20 complete: bilingual FR/EN, Home redesigned, Display regrouped, live theme preview, notifications, simple mode; draft PR #63 opened, CI green
 progress:
   [██████████] 95%
   completed_phases: 22
@@ -39,11 +39,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 19 — companion-audit-follow-through-fix-the-open-findings-from-18
+**Current focus:** Phase 20 — companion-suggestions-from-the-audit-french-localisation-liv
 
 ## Current Position
 
-Phase: 19 (companion-audit-follow-through-fix-the-open-findings-from-18) — EXECUTING
+Phase: 20 (companion-suggestions-from-the-audit-french-localisation-liv) — EXECUTING
 Plan: 1 of 12
 
 **14-06 executed (2026-09-06), wave 3, the last plan in this wave to touch `companion/pages/airlines_page.py` before Wave 4's closing verification — absorbs Phase 13's standalone "Manually resolved prefixes" table into the gallery cards themselves.** Task 1 widened `_airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None)`: `manual_info=None` is byte-identical to the pre-existing plain curated card; present as `(prefix, superseded, needs_artwork)` — the exact trailing three fields of one `_manual_resolution_rows()` row, sliced by `render()` and consumed here, never re-derived (RESEARCH.md Pitfall 6) — it derives `mode`/`manual`/`heading`/`upload-action`/`delete-action`/`manual-note`/sighting-context attributes and generalises the trigger-tag rule so any card carrying a resolve prefix is a real `<a href="/airlines?resolve={prefix}">` (a plain curated card keeps its `<button>`). A superseded card's image/mode reflect the BUILT-IN airline's own current state (D-10) via one `enrich.static_airline_name_for_prefix()` call. `render()` gained an additive grid-injection step: `manual_info_by_name` keys a superseded row by the built-in name (the card the frame actually renders under) and an active row by its own stored name, and `injected_pairs` adds exactly one card for a genuinely novel active manual name not already curated. Task 2 deleted the standalone management table and its six now-orphaned rendering functions plus nine copy/class constants (the plan's own eight, plus `SUPERSEDED_CAPTION`, a ninth genuinely-orphaned one its enumeration missed), replacing it with `_manual_summary_html(manual_rows)` — a one-line, clickable `data-filter-set="manual"` summary reusing `list-filter.js`'s plan-14-03 hook — and deleted the now-dead `.manual-resolution__status--superseded` CSS rule. Four `test_status_pages.py` checks were retargeted in place (zero net count change) plus one pre-existing 14-03 check flipped from asserting the CSS rule's survival to its absence; 5 new Task-1 checks brought `EXPECTED_CHECK_COUNT` 158 → 163. Two Rule-1 bugs were auto-fixed along the way: a missing pair of format-string placeholders that crashed every card render (caught immediately by `test_view_pages.py`'s `render({})` regression check), and a superseded card's manual-note interpolating the built-in name into its own "the name you gave it" slot instead of the operator's actual stored name (fixed with one `manual_resolutions.load_manual_resolutions()` lookup scoped to that branch, caught by a pre-existing check's assertion going red). External gap-closure per 14-05-SUMMARY.md's own documented finding: `_resolve_name_form_html()` now emits `<p class="lightbox__resolve-scope"></p>`, and `panel-lookup.js`'s previously-discarded `data-view-panel-scope` read now writes into it. `scripts/run-all-tests.sh`: `Result: PASS`, 93% coverage. `git diff --name-only` against this plan's start: `companion/pages/airlines_page.py`, `companion/static/panel-lookup.js`, `companion/static/style.css`, `companion/test_status_pages.py` — zero files under `server/`, no new dependency. Wave 3 (14-04 through 14-06) is now complete; 14-08 (Wave 4's closing verification) is next.

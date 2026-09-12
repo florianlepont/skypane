@@ -53,6 +53,7 @@ from companion.illustration_normalize import (
     ILLUSTRATION_TARGET_HEIGHT,
     ILLUSTRATION_TARGET_WIDTH,
 )
+import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
 from server.plane import illustrations
@@ -80,6 +81,16 @@ GALLERY_PURPOSE_TEXT = (
     "Illustration reference for every airline this frame can recognize.")
 
 CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
+
+# 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle that
+# replaces the Device page's now-deleted "Edit artwork" link
+# (config_page._edit_artwork_link_html(), removed by 20-07-PLAN.md
+# Task 3) with an entry point that lives on the page it acts on.
+CHANGE_PICTURES_TEXT = "Change pictures"
+DONE_TEXT = "Done"
+EDIT_TOGGLE_CAPTION = (
+    "Replace an airline’s picture or add one for an airline that has "
+    "none.")
 
 # 19-08-PLAN.md Task 1 (D-21/A-38): the coverage-gap cards' own explained
 # strip, byte-identical-style copy convention to health_page.py's
@@ -597,11 +608,11 @@ def _lightbox_replace_form_html():
         LIGHTBOX_REPLACE_ZONE_CLASS,
         icon_html,
         REPLACE_INPUT_ID,
-        REPLACE_LABEL_TEXT,
+        i18n.t(REPLACE_LABEL_TEXT),
         REPLACE_HINT_CLASS,
-        REPLACE_HINT_TEXT,
+        i18n.t(REPLACE_HINT_TEXT),
         REPLACE_INPUT_ID,
-        REPLACE_BUTTON_TEXT,
+        i18n.t(REPLACE_BUTTON_TEXT),
     )
 
 
@@ -678,7 +689,7 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     ) % (
         busted_image_url,
         ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
-        escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
+        escape_html(i18n.t(CARD_IMAGE_ALT_TEMPLATE) % airline_name),
     )
     # Phase 14 (14-06-PLAN.md Task 1): derive every manual-info-dependent
     # attribute value once, here, from the sliced (prefix, superseded,
@@ -712,7 +723,7 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     heading_value = ""
     upload_action_value = ""
     if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
-        heading_value = STEP_B_HEADING_TEMPLATE % escape_html(airline_name)
+        heading_value = i18n.t(STEP_B_HEADING_TEMPLATE) % escape_html(airline_name)
         upload_action_value = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
 
     delete_action_value = _manual_delete_action(prefix) if has_manual else ""
@@ -736,7 +747,7 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         # value read, not a re-derivation of either boolean.
         stored_entry = manual_resolutions.load_manual_resolutions(state_dir).get(prefix) or {}
         operator_name = stored_entry.get("airline_name") or airline_name
-        manual_note_value = MANUAL_SUPERSEDED_NOTE_TEMPLATE % (
+        manual_note_value = i18n.t(MANUAL_SUPERSEDED_NOTE_TEMPLATE) % (
             escape_html(prefix), escaped_built_in_name,
             escape_html(operator_name), escaped_built_in_name,
         )
@@ -798,7 +809,7 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         'aria-label="%s">%s%s'
     ) % (
         _VIEW_PANEL_SRC_ATTR, busted_image_url,
-        _VIEW_PANEL_CAPTION_ATTR, escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
+        _VIEW_PANEL_CAPTION_ATTR, escape_html(i18n.t(CARD_IMAGE_ALT_TEMPLATE) % airline_name),
         _VIEW_PANEL_MODE_ATTR, mode,
         _VIEW_PANEL_REPLACE_ACTION_ATTR, image_url,
         _VIEW_PANEL_HEADING_ATTR, heading_value,
@@ -811,7 +822,7 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         _VIEW_PANEL_UPLOAD_ACTION_ATTR, upload_action_value,
         _VIEW_PANEL_DELETE_ACTION_ATTR, delete_action_value,
         _VIEW_PANEL_MANUAL_NOTE_ATTR, manual_note_value,
-        escape_html(ZOOM_LABEL_TEMPLATE % airline_name),
+        escape_html(i18n.t(ZOOM_LABEL_TEMPLATE) % airline_name),
         image_html,
         closing_tag,
     )
@@ -822,7 +833,7 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
             for shape in shapes
         )
     if has_manual:
-        chip_text = SUPERSEDED_MARKER_TEXT if superseded else MANUAL_CHIP_ACTIVE_TEXT
+        chip_text = i18n.t(SUPERSEDED_MARKER_TEXT) if superseded else i18n.t(MANUAL_CHIP_ACTIVE_TEXT)
         chip_parts.append('<span class="airline-card__chip">%s</span>' % escape_html(chip_text))
     chips_html = '<div class="airline-card__chips">%s</div>' % "".join(chip_parts) if chip_parts else ""
     base_filter_text = (
@@ -1062,16 +1073,16 @@ def _gap_card_html(index, row):
         AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, escaped_prefix,
         _VIEW_PANEL_SRC_ATTR,
         _VIEW_PANEL_CAPTION_ATTR, escaped_callsign,
-        _VIEW_PANEL_HEADING_ATTR, RESOLVE_HEADING,
+        _VIEW_PANEL_HEADING_ATTR, i18n.t(RESOLVE_HEADING),
         _VIEW_PANEL_MODE_ATTR, _VIEW_PANEL_MODE_GAP,
         _VIEW_PANEL_MANUAL_ATTR,
-        _VIEW_PANEL_SCOPE_ATTR, RESOLVE_CAPTION_TEMPLATE % escaped_prefix,
+        _VIEW_PANEL_SCOPE_ATTR, i18n.t(RESOLVE_CAPTION_TEMPLATE) % escaped_prefix,
         _VIEW_PANEL_RESOLVE_PREFIX_ATTR, escaped_prefix,
         _VIEW_PANEL_FIRST_SEEN_ATTR, escape_html(first_seen),
         _VIEW_PANEL_LAST_SEEN_ATTR, escape_html(last_seen),
         _VIEW_PANEL_COUNT_ATTR, escape_html(count),
         filter_text, index,
-        GAP_CARD_ARIA_TEMPLATE % (escaped_prefix, escaped_callsign),
+        i18n.t(GAP_CARD_ARIA_TEMPLATE) % (escaped_prefix, escaped_callsign),
         escaped_callsign,
     )
 
@@ -1096,7 +1107,7 @@ def _gap_overflow_html(overflow_count):
     if not overflow_count:
         return ""
     return '<p class="text-label section-caption">%s<a href="/health">%s</a>.</p>' % (
-        MANUAL_OVERFLOW_TEMPLATE % overflow_count, MANUAL_OVERFLOW_LINK_TEXT)
+        i18n.t(MANUAL_OVERFLOW_TEMPLATE) % overflow_count, i18n.t(MANUAL_OVERFLOW_LINK_TEXT))
 
 
 def _gap_strip_html(gap_cards_html, overflow_html):
@@ -1139,8 +1150,8 @@ def _gap_strip_html(gap_cards_html, overflow_html):
         "%s"
         "</section>"
     ) % (
-        escape_html(GAP_STRIP_HEADING),
-        escape_html(GAP_STRIP_BODY),
+        escape_html(i18n.t(GAP_STRIP_HEADING)),
+        escape_html(i18n.t(GAP_STRIP_BODY)),
         gap_cards_html,
         overflow_html,
     )
@@ -1229,10 +1240,10 @@ def _lightbox_html(edit_mode=False):
         "%s"
         "%s"
         "%s"
-        '<button type="button" %s>Close</button>'
+        '<button type="button" %s>%s</button>'
         "</dialog>"
     ) % (
-        LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_ARIA_LABEL), escape_html(LIGHTBOX_NOTE),
+        LIGHTBOX_DIALOG_ID, escape_html(i18n.t(LIGHTBOX_ARIA_LABEL)), escape_html(i18n.t(LIGHTBOX_NOTE)),
         LIGHTBOX_HEADING_CLASS,
         LIGHTBOX_MANUAL_NOTE_CLASS,
         resolve_context_html,
@@ -1240,7 +1251,7 @@ def _lightbox_html(edit_mode=False):
         resolve_upload_html,
         replace_html,
         delete_html,
-        _VIEW_PANEL_CLOSE_ATTR,
+        _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t("Close")),
     )
 
 
@@ -1273,8 +1284,8 @@ def _filter_bar_html(total):
     means the full unfiltered card grid underneath stays completely
     usable if the script never loads.
     """
-    count_text = "%d of %d shown" % (total, total)
-    empty_body = _FILTER_EMPTY_BODY_TEMPLATE % total
+    count_text = i18n.t("%d of %d shown") % (total, total)
+    empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
     return (
         '<div class="filter-bar">'
         '<label class="text-label" for="%s">%s</label>'
@@ -1283,18 +1294,19 @@ def _filter_bar_html(total):
         '<input type="search" id="%s" data-filter-input>'
         "</div>"
         '<span class="filter-bar__count" data-filter-count>%s</span>'
-        '<button type="button" data-filter-clear>Clear</button>'
+        '<button type="button" data-filter-clear>%s</button>'
         "</div>"
         '<div class="empty-state" data-filter-empty hidden>'
         '<p class="empty-state__heading text-heading">%s</p>'
         '<p class="empty-state__body text-body">%s</p>'
         "</div>"
     ) % (
-        _FILTER_INPUT_ID, escape_html(_FILTER_LABEL_TEXT),
+        _FILTER_INPUT_ID, escape_html(i18n.t(_FILTER_LABEL_TEXT)),
         layout.icon_html("icon-search"),
         _FILTER_INPUT_ID,
         escape_html(count_text),
-        escape_html(_FILTER_EMPTY_HEADING),
+        escape_html(i18n.t("Clear")),
+        escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
         escape_html(empty_body),
     )
 
@@ -1415,7 +1427,7 @@ def _resolve_context_html(row, now, id_suffix=""):
             RESOLVE_CONTEXT_DD_CLASSES[4], escape_html(example_callsign))),
     )
     items = "".join(
-        '<dt class="text-label">%s</dt>%s' % (escape_html(label), dd)
+        '<dt class="text-label">%s</dt>%s' % (escape_html(i18n.t(label)), dd)
         for label, dd in zip(RESOLVE_CONTEXT_LABELS, pairs)
     )
     return '<dl class="%s">%s</dl>' % (RESOLVE_CONTEXT_CLASS, items)
@@ -1501,10 +1513,10 @@ def _resolve_name_form_html(prefix_value, id_suffix):
         '<p class="text-label section-caption">%s</p>'
         "</div>"
     ) % (
-        name_input_id, NAME_LABEL_TEXT,
+        name_input_id, i18n.t(NAME_LABEL_TEXT),
         name_input_id, MANUAL_DATALIST_ID + id_suffix,
         datalist_html,
-        NAME_HINT_TEXT,
+        i18n.t(NAME_HINT_TEXT),
     )
     return (
         '<form class="%s" method="post" action="%s">'
@@ -1517,7 +1529,7 @@ def _resolve_name_form_html(prefix_value, id_suffix):
         LIGHTBOX_RESOLVE_NAME_CLASS, RESOLVE_ROUTE,
         escape_html(prefix_value),
         name_field,
-        SAVE_BUTTON_TEXT,
+        i18n.t(SAVE_BUTTON_TEXT),
     )
 
 
@@ -1549,7 +1561,7 @@ def _resolve_upload_form_html(action, id_suffix):
     return (
         '<div class="%s">'
         "%s"
-        '<label for="%s">Choose an image</label>'
+        '<label for="%s">%s</label>'
         '<p class="%s">%s</p>'
         '<form method="post" enctype="multipart/form-data" action="%s">'
         '<input type="file" id="%s" name="image" accept="image/png" required>'
@@ -1559,11 +1571,11 @@ def _resolve_upload_form_html(action, id_suffix):
     ) % (
         RESOLVE_UPLOAD_ZONE_CLASS,
         icon_html,
-        upload_input_id,
-        REPLACE_HINT_CLASS, REPLACE_HINT_TEXT,
+        upload_input_id, i18n.t("Choose an image"),
+        REPLACE_HINT_CLASS, i18n.t(REPLACE_HINT_TEXT),
         action,
         upload_input_id,
-        REPLACE_BUTTON_TEXT,
+        i18n.t(REPLACE_BUTTON_TEXT),
     )
 
 
@@ -1590,7 +1602,7 @@ def _manual_delete_form_html(action):
         '<p class="text-label section-caption">%s</p>'
         '<button type="submit">%s</button>'
         "</form>"
-    ) % (LIGHTBOX_DELETE_CLASS, action, MANUAL_DELETE_CAPTION, DELETE_BUTTON_TEXT)
+    ) % (LIGHTBOX_DELETE_CLASS, action, i18n.t(MANUAL_DELETE_CAPTION), i18n.t(DELETE_BUTTON_TEXT))
 
 
 def _resolve_section_html(ctx, edit_mode=False):
@@ -1660,7 +1672,8 @@ def _resolve_section_html(ctx, edit_mode=False):
     now = ctx.get("now")
     # 19-08-PLAN.md Task 2 (D-21): AIRLINES_ROUTE, never a retyped "/health"
     # literal — see RESOLVE_BACK_LINK_TEXT's own comment above for why.
-    back_link = '<a class="text-label" href="%s">%s</a>' % (AIRLINES_ROUTE, RESOLVE_BACK_LINK_TEXT)
+    back_link = '<a class="text-label" href="%s">%s</a>' % (
+        AIRLINES_ROUTE, i18n.t(RESOLVE_BACK_LINK_TEXT))
 
     row = unresolved_row_for_prefix(state_dir, prefix_raw)
     if row is not None:
@@ -1671,7 +1684,7 @@ def _resolve_section_html(ctx, edit_mode=False):
         context_html = ""
 
     if prefix is None:
-        body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
+        body = '<p class="text-body">%s</p>' % i18n.t(RESOLVE_STALE_BODY)
         return '<div class="page-section" data-resolve-fallback>%s%s</div>' % (back_link, body)
 
     escaped_prefix = escape_html(prefix)
@@ -1683,13 +1696,13 @@ def _resolve_section_html(ctx, edit_mode=False):
         if row is None:
             # No live gap AND no manual entry for this prefix: genuinely
             # nothing to resolve here.
-            body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
+            body = '<p class="text-body">%s</p>' % i18n.t(RESOLVE_STALE_BODY)
             return '<div class="page-section" data-resolve-fallback>%s%s</div>' % (back_link, body)
         # Step A — name not yet saved. No entry exists yet, so no
         # delete form (D-09 amendment).
-        heading = '<h2 class="text-heading">%s</h2>' % RESOLVE_HEADING
+        heading = '<h2 class="text-heading">%s</h2>' % i18n.t(RESOLVE_HEADING)
         caption = '<p class="text-label section-caption">%s</p>' % (
-            RESOLVE_CAPTION_TEMPLATE % escaped_prefix)
+            i18n.t(RESOLVE_CAPTION_TEMPLATE) % escaped_prefix)
         form = _resolve_name_form_html(prefix, "")
         return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s</div>' % (
             back_link, heading, caption, context_html, form)
@@ -1702,11 +1715,11 @@ def _resolve_section_html(ctx, edit_mode=False):
     if not key:
         # A stored entry whose name no longer slugs is a corrupt-file
         # case that must not render a form.
-        body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
+        body = '<p class="text-body">%s</p>' % i18n.t(RESOLVE_STALE_BODY)
         return '<div class="page-section" data-resolve-fallback>%s%s</div>' % (back_link, body)
 
     escaped_name = escape_html(airline_name)
-    heading = '<h2 class="text-heading">%s</h2>' % (STEP_B_HEADING_TEMPLATE % escaped_name)
+    heading = '<h2 class="text-heading">%s</h2>' % (i18n.t(STEP_B_HEADING_TEMPLATE) % escaped_name)
     # D-09 amendment: an entry exists past this point in every remaining
     # branch, so the delete form is eligible to render in both of them.
     # 19-08-PLAN.md Task 3 (D-22): eligible does not mean unconditional
@@ -1715,18 +1728,18 @@ def _resolve_section_html(ctx, edit_mode=False):
 
     if illustrations.resolved_illustration_path(key, state_dir) is None:
         # Step B — name already saved, no artwork exists yet.
-        caption = '<p class="text-label section-caption">%s</p>' % STEP_B_CAPTION
+        caption = '<p class="text-label section-caption">%s</p>' % i18n.t(STEP_B_CAPTION)
         upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
         upload_zone = _resolve_upload_form_html(upload_action, "") if edit_mode else ""
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
-            AIRLINES_ROUTE, STEP_B_SKIP_TEXT)
+            AIRLINES_ROUTE, i18n.t(STEP_B_SKIP_TEXT))
         return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s%s%s</div>' % (
             back_link, heading, caption, context_html, upload_zone, skip_link, delete_form)
 
     # Already resolved: a bookmark or a Back press landed on a prefix
     # still listed as a gap, but a manual entry already names an airline
     # that has artwork. No controls except delete.
-    body = '<p class="text-body">%s</p>' % (RESOLVE_ALREADY_DONE_TEMPLATE % escaped_name)
+    body = '<p class="text-body">%s</p>' % (i18n.t(RESOLVE_ALREADY_DONE_TEMPLATE) % escaped_name)
     return '<div class="page-section" data-resolve-fallback>%s%s%s%s</div>' % (back_link, heading, body, delete_form)
 
 
@@ -1808,9 +1821,47 @@ def _manual_summary_html(manual_rows):
     total = len(manual_rows)
     superseded_count = sum(1 for row in manual_rows if row[3])
     summary_text = (
-        MANUAL_SUMMARY_TEMPLATE % (total, superseded_count) if superseded_count
-        else MANUAL_SUMMARY_TEMPLATE_NONE % total)
+        i18n.t(MANUAL_SUMMARY_TEMPLATE) % (total, superseded_count) if superseded_count
+        else i18n.t(MANUAL_SUMMARY_TEMPLATE_NONE) % total)
     return '<button type="button" class="manual-summary" data-filter-set="manual">%s</button>' % summary_text
+
+
+def _edit_toggle_html(ctx, edit_mode):
+    """The "Change pictures"/"Done" toggle (D-36, 20-UI-SPEC.md §K) —
+    the Airlines-side replacement for the Device page's now-deleted
+    "Edit artwork" link. Reuses the `.page-header__screen` wrapper
+    shape that deleted link used (`config_page.py`'s former
+    `_edit_artwork_link_html()`, removed by 20-07-PLAN.md Task 3), so
+    the two look alike wherever a household member has seen one
+    before. One literal `<a class="airlines-edit-toggle">` per branch,
+    two literal hrefs — never a script, a GET form or a runtime
+    query-string builder.
+
+    Gated on `not ctx.get("simple_mode")` (D-30): the anchor and its
+    explanatory sentence are BOTH omitted in simple mode. The
+    `?edit=1` lightbox forms this toggle links to keep their OWN,
+    separate `ctx["edit_mode"]` gate exactly as phase 19 shipped it
+    (D-22) — simple mode hides only this entry point, never the forms
+    themselves, so typing `/airlines?edit=1` by hand still works in
+    simple mode: simple mode is a presentation choice, not access
+    control (D-30). Do not "fix" this into an access-control check.
+    """
+    if ctx.get("simple_mode"):
+        return ""
+    if edit_mode:
+        toggle_html = (
+            '<a href="/airlines" class="airlines-edit-toggle">%s</a>'
+        ) % escape_html(i18n.t(DONE_TEXT))
+    else:
+        toggle_html = (
+            '<a href="/airlines?edit=1" class="airlines-edit-toggle">%s</a>'
+        ) % escape_html(i18n.t(CHANGE_PICTURES_TEXT))
+    return (
+        '<div class="page-header__screen">'
+        "%s"
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (toggle_html, escape_html(i18n.t(EDIT_TOGGLE_CAPTION)))
 
 
 def render(ctx):
@@ -1977,8 +2028,14 @@ def render(ctx):
     # (its own "" default), so the curated grid renders byte-identically
     # to a no-gaps render today.
     summary_html = _manual_summary_html(manual_rows)
+    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle is
+    # the first element inside the gallery section, directly under the
+    # page's own heading/purpose block — not in page_header()'s own
+    # action_html slot, which Airlines has no precedent for using.
+    edit_toggle_html = _edit_toggle_html(ctx, edit_mode)
     return (
-        layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
+        layout.page_header(i18n.t("Airlines"), purpose=i18n.t(GALLERY_PURPOSE_TEXT))
+        + edit_toggle_html
         + gap_strip_html
         + filter_html
         + summary_html

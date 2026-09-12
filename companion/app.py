@@ -57,7 +57,8 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from companion import auth, illustration_normalize, layout, theme_preview, wake  # noqa: E402
+from companion import (  # noqa: E402
+    auth, i18n, illustration_normalize, layout, prefs, theme_preview, wake)
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
@@ -71,7 +72,7 @@ from companion.pages import (  # noqa: E402
 # (airlines_page.render()) and the write path
 # (Handler._handle_manual_resolve_post() below) can never diverge.
 from companion.pages.airlines_page import unresolved_row_for_prefix  # noqa: E402
-from server import device_config, history_db  # noqa: E402
+from server import device_config, history_db, notify  # noqa: E402
 from server.plane import (  # noqa: E402
     calendar_rules, colour_rules, illustrations, manual_resolutions)
 import server.poll_loop as poll_loop  # noqa: E402
@@ -81,6 +82,12 @@ GALLERY_DIRNAME = "gallery"
 GALLERY_DEFAULT_LIMIT = 30
 POLL_COOLDOWN_S = 45  # D-17: tens of seconds, a double-click guard, not an abuse rate-limit.
 THEME_COOKIE_MAX_AGE_S = 365 * 24 * 3600
+# D-02/D-29 (20-01-PLAN.md Task 2): the language/mode cookies reuse
+# THEME_COOKIE_MAX_AGE_S's own value and reasoning (a per-browser
+# preference the site should remember indefinitely) rather than a
+# second literal.
+LANG_COOKIE_MAX_AGE_S = THEME_COOKIE_MAX_AGE_S
+MODE_COOKIE_MAX_AGE_S = THEME_COOKIE_MAX_AGE_S
 MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06-05-07).
 # quick task 260902-v26: comfortably above any real high-resolution
 # transparent aircraft PNG — every vendored asset in
@@ -174,6 +181,10 @@ POLL_COOLDOWN_SCRIPT_ROUTE = "/static/poll-cooldown.js"
 # CONFIRM_SUBMIT_SCRIPT_SRC must equal this exactly, mirroring the
 # SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the ninth static script.
 CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
+# 20-08-PLAN.md Task 2 (D-22..D-24/D-32): companion/layout.py's
+# THEME_PREVIEW_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the tenth static script.
+THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -194,13 +205,19 @@ DEVICE_ROUTE = layout.DEVICE_ROUTE
 # The pre-phase-18 History route, kept as a fixed 303 to FLIGHTS_ROUTE
 # for stale bookmarks — the same treatment PREVIEW_PAGE_ROUTE gets.
 HISTORY_LEGACY_ROUTE = "/history"
-# Quick-action routes the Home page's widgets post to. Must equal
-# companion/pages/home_page.py's own literals (that module cannot
-# import this one).
-QUICK_DISPLAY_ROUTE = home_page.QUICK_DISPLAY_ROUTE
-QUICK_QUIET_HOURS_ROUTE = home_page.QUICK_QUIET_HOURS_ROUTE
-assert POLL_ROUTE == home_page.POLL_ROUTE
+# Quick-action routes the Screen on/off and Quiet-hours instant
+# switches post to. D-16 (20-06-PLAN.md) moved those switches off Home
+# onto Display (20-07-PLAN.md) and deleted home_page.py's own copies of
+# these two route literals along with the widgets that posted to them —
+# literal here now, byte-identical to the values home_page.py used to
+# define, since this module can never import a page module either.
+QUICK_DISPLAY_ROUTE = "/quick/display"
+QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
 THEME_ROUTE = "/ui-theme"
+# D-02/D-29 (20-01-PLAN.md Task 2): the two new nav-footer switch
+# routes, byte-for-byte siblings of THEME_ROUTE above.
+LANG_ROUTE = "/ui-lang"
+MODE_ROUTE = "/ui-mode"
 LOGOUT_ROUTE = "/logout"
 # D-22 (06.6.4.1-08): the standalone Preview HTML page is retired — its
 # entire content moved into History (06.6.4.1-05) — so this route is kept
@@ -235,6 +252,14 @@ RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
 # rather than retyped as a literal (app.py imports that module, so the
 # reverse import would be a cycle).
 CALENDAR_DISCONNECT_ROUTE = config_page.CALENDAR_DISCONNECT_ROUTE
+# 20-09-PLAN.md Task 2 (D-14c): single definition site is companion/
+# pages/config_page.py, rebound here exactly like CALENDAR_DISCONNECT_
+# ROUTE immediately above.
+CALENDAR_CONNECT_ROUTE = config_page.CALENDAR_CONNECT_ROUTE
+# 20-11-PLAN.md Task 1 (D-26): single definition site is companion/
+# pages/config_page.py, rebound here exactly like CALENDAR_CONNECT_ROUTE
+# immediately above.
+NOTIFICATIONS_TEST_ROUTE = config_page.NOTIFICATIONS_TEST_ROUTE
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -290,6 +315,16 @@ FLASH_KEY_CALENDAR_CONNECTED = config_page.FLASH_CALENDAR_CONNECTED
 FLASH_KEY_CALENDAR_SYNC_FAILED = config_page.FLASH_CALENDAR_SYNC_FAILED
 FLASH_KEY_CALENDAR_DISCONNECTED = config_page.FLASH_CALENDAR_DISCONNECTED
 FLASH_KEY_CALENDAR_SYNC_DEFERRED = config_page.FLASH_CALENDAR_SYNC_DEFERRED
+# 20-09-PLAN.md Task 2 (D-14c): the two outcomes POST /settings/calendar/
+# connect can produce, rebound here for the identical reason the four
+# FLASH_KEY_CALENDAR_* keys immediately above are.
+FLASH_KEY_CALENDAR_CONNECT_OK = config_page.FLASH_CALENDAR_CONNECT_OK
+FLASH_KEY_CALENDAR_CONNECT_INVALID = config_page.FLASH_CALENDAR_CONNECT_INVALID
+# 20-11-PLAN.md Task 1 (D-26): the two outcomes POST /settings/
+# notifications/test can produce, rebound here for the identical reason
+# the two FLASH_KEY_CALENDAR_CONNECT_* keys immediately above are.
+FLASH_KEY_NOTIFICATIONS_TEST_OK = config_page.FLASH_NOTIFICATIONS_TEST_OK
+FLASH_KEY_NOTIFICATIONS_TEST_FAILED = config_page.FLASH_NOTIFICATIONS_TEST_FAILED
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query
@@ -445,6 +480,26 @@ FLASH_MESSAGES = {
     FLASH_KEY_CALENDAR_SYNC_DEFERRED: (
         "Saved — a poll was already running, so this calendar will "
         "sync on the frame's next scheduled poll."),
+    # 20-09-PLAN.md Task 2 (D-14c): POST /settings/calendar/connect's own
+    # success message — distinct wording from FLASH_KEY_CALENDAR_
+    # CONNECTED above (that key's own template is the save-triggered
+    # sync's historical copy; this one matches 20-UI-SPEC.md's copy
+    # table verbatim). "{n}" is filled by _resolve_flash_text()'s own
+    # fourth special case below, read fresh from disk at render time —
+    # never carried through the redirect's query string, mirroring
+    # FLASH_KEY_CALENDAR_CONNECTED's own established reasoning.
+    FLASH_KEY_CALENDAR_CONNECT_OK: "Calendar connected — {n} flights found.",
+    # A rejected connect attempt (an empty, over-length, or otherwise
+    # unacceptable URL) — never echoes anything the operator submitted,
+    # matching FLASH_KEY_CALENDAR_SYNC_FAILED's own established posture.
+    FLASH_KEY_CALENDAR_CONNECT_INVALID: (
+        "Paste a valid calendar feed URL to connect one."),
+    # 20-11-PLAN.md Task 1 (D-26, 20-UI-SPEC.md copy table G): "Send a
+    # test"'s own two outcomes — never echoes the stored URL or any part
+    # of server.notify's own transport-exception text (T-20-06's logging
+    # discipline extends to this flash too).
+    FLASH_KEY_NOTIFICATIONS_TEST_OK: "Test notification sent.",
+    FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "Couldn't reach that topic — check the URL.",
 }
 
 # 06.6.2-06 (UXA-07): every FLASH_KEY_* -> the ARIA role its rendered
@@ -501,6 +556,16 @@ FLASH_ROLES = {
     FLASH_KEY_CALENDAR_SYNC_FAILED: "alert",
     FLASH_KEY_CALENDAR_DISCONNECTED: "status",
     FLASH_KEY_CALENDAR_SYNC_DEFERRED: "status",
+    # 20-09-PLAN.md Task 2 (D-14c): a normal connect outcome takes
+    # "status"; a rejected URL takes "alert", matching this dict's usual
+    # success/rejection split above.
+    FLASH_KEY_CALENDAR_CONNECT_OK: "status",
+    FLASH_KEY_CALENDAR_CONNECT_INVALID: "alert",
+    # 20-11-PLAN.md Task 1: success takes "status", the generic failure
+    # (unset URL or a genuine send failure, both mapped to the same flash
+    # key above) takes "alert", matching this dict's usual split.
+    FLASH_KEY_NOTIFICATIONS_TEST_OK: "status",
+    FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "alert",
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
@@ -514,6 +579,7 @@ _PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
 _FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
 _POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
 _CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
+_THEME_PREVIEW_JS_PATH = os.path.join(_HERE, "static", "theme-preview.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -628,6 +694,14 @@ def _resolve_flash_text(flash_key, state_dir, rule_key=None):
         # key.
         count = len(calendar_rules.load_calendar_registry(state_dir)["entries"])
         return template.format(n=count, s="" if count == 1 else "s")
+    if flash_key == FLASH_KEY_CALENDAR_CONNECT_OK:
+        # 20-09-PLAN.md Task 2 (D-14c): the fourth special case, mirroring
+        # FLASH_KEY_CALENDAR_CONNECTED's own read-fresh-from-disk
+        # reasoning immediately above — this key's own template has no
+        # singular/plural "{s}" slot (20-UI-SPEC.md's copy table gives
+        # only the one, always-plural wording).
+        count = len(calendar_rules.load_calendar_registry(state_dir)["entries"])
+        return template.format(n=count)
     if flash_key == FLASH_KEY_RULE_REPLACED:
         normalised_key = colour_rules.normalise_rule_callsign(rule_key)
         if normalised_key is None:
@@ -720,6 +794,25 @@ def _safe_last_checkin_ts(state_dir):
     except (sqlite3.Error, OSError):
         return None
     return row["ts"] if row else None
+
+
+def _safe_latest_runway_event(state_dir):
+    """The single most recent `runway_events` row (D-23's `?live=1`
+    render source), or `None` on ANY failure — a missing/locked/
+    unreadable database, a malformed row, or simply no event recorded
+    yet. Deliberately a broad `except Exception` (not the narrower
+    `(sqlite3.Error, OSError)` `_safe_last_checkin_ts()` above uses),
+    per this plan's own explicit instruction that ANY exception reading
+    the event must degrade to `live_event=None` (the fixed fictional
+    scene), never a 500 — this route's one query is not allowed to be
+    the reason a preview image fails to render.
+    """
+    try:
+        with history_db.open_db(state_dir) as conn:
+            rows = history_db.recent_runway_events(conn, limit=1)
+    except Exception:
+        return None
+    return rows[0] if rows else None
 
 
 def mark_poll_triggered(state_dir):
@@ -1039,6 +1132,38 @@ class Handler(BaseHTTPRequestHandler):
         cookies = auth.parse_cookies(self.headers.get("Cookie"))
         return layout.ui_theme_from_cookie(cookies)
 
+    def _lang_from_request(self):
+        """D-03 (20-01-PLAN.md Task 2): the cookie set by POST /ui-lang
+        wins when present and valid; otherwise the first supported
+        entry in Accept-Language decides ("fr*" -> French, anything
+        else -> English). Never interpolates a header byte into the
+        page — the return value is always a member of
+        prefs.LANG_CHOICES (T-20-04).
+        """
+        cookies = auth.parse_cookies(self.headers.get("Cookie"))
+        cookie_value = cookies.get(auth.UI_LANG_COOKIE_NAME)
+        if cookie_value in prefs.LANG_CHOICES:
+            return cookie_value
+        header = self.headers.get("Accept-Language", "")
+        for entry in header.split(","):
+            tag = entry.split(";", 1)[0].strip().lower()
+            if not tag:
+                continue
+            return "fr" if tag.startswith("fr") else "en"
+        return prefs.DEFAULT_LANG
+
+    def _mode_from_request(self):
+        """D-29 (20-01-PLAN.md Task 2): the cookie set by POST /ui-mode
+        wins when present and valid; otherwise the default ("full").
+        No header-derived fallback exists for simple mode — unlike
+        language, there is no browser signal to read it from.
+        """
+        cookies = auth.parse_cookies(self.headers.get("Cookie"))
+        cookie_value = cookies.get(auth.UI_MODE_COOKIE_NAME)
+        if cookie_value in prefs.MODE_CHOICES:
+            return cookie_value
+        return prefs.DEFAULT_MODE
+
     # --- form / query parsing -------------------------------------------
 
     def read_form(self):
@@ -1127,6 +1252,28 @@ class Handler(BaseHTTPRequestHandler):
         rule_key = params.get("rule", [None])[0]
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()
+        # D-04/D-29 (20-01-PLAN.md Task 2): resolve this request's
+        # language and simple-mode preference exactly once, immediately,
+        # and publish both through prefs so layout.py's readers (Task 3)
+        # and this dict's own "lang"/"simple_mode" keys below can never
+        # disagree.
+        #
+        # Polish fix 2 (French Home status rows): this MUST run before
+        # health_page.safe_health_state() below — that call's own
+        # section builders (_device_timestamp_only()/_pipeline_section())
+        # format timestamps and verdicts through layout.local_clock_
+        # text()/relative_age_text(), both of which resolve their own
+        # `lang=None` default via prefs.current_lang() at call time, not
+        # at read time. A `ThreadingHTTPServer` request handler runs in a
+        # brand-new native thread with a fresh contextvars.Context (never
+        # copied from any other request's thread), so calling
+        # safe_health_state() before this line meant every request's
+        # health-state markup was built under the ContextVar's bare
+        # default (English) regardless of the requester's own language —
+        # the exact mechanism behind French Home's Frame/Flight-data rows
+        # still showing an English month abbreviation and "ago" (D-07).
+        prefs.set_request_prefs(
+            lang=self._lang_from_request(), mode=self._mode_from_request())
         # WR-04: compute once per request (fail-closed to None on any
         # unanticipated exception — see health_page.safe_health_state()'s
         # docstring) and thread both the derived severity and the full
@@ -1141,9 +1288,20 @@ class Handler(BaseHTTPRequestHandler):
         # value and falls back to DEFAULT_SCREEN_ID, so no second
         # validation is needed at this layer.
         device_cfg = device_config.load_device_config(state_dir)
+        # 20-09-PLAN.md Task 1 (D-14b): loaded ONCE per request and reused
+        # for three ctx keys below (calendar_last_synced_at, the new
+        # calendar_last_attempt_at/calendar_entry_count), rather than
+        # calling load_calendar_registry() three times — mirrors device_
+        # cfg's own "load once, reuse for two keys" precedent immediately
+        # above. load_calendar_registry() is contractually never-raising
+        # (plan 16-03), which is what makes this safe to call
+        # unconditionally on every authenticated page render (T-16-DOS).
+        calendar_registry = calendar_rules.load_calendar_registry(state_dir)
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
+            "lang": prefs.current_lang(),
+            "simple_mode": prefs.simple_mode(),
             "device_config": device_cfg,
             # 19-12-PLAN.md Task 2 (D-23): the persisted screen_id, read
             # from the SAME device_config dict already loaded above —
@@ -1274,8 +1432,17 @@ class Handler(BaseHTTPRequestHandler):
             # never-raising (plan 16-03), which is what makes it safe to
             # call unconditionally on every authenticated page render
             # (T-16-DOS).
-            "calendar_last_synced_at": calendar_rules.load_calendar_registry(
-                state_dir)["last_synced_at"],
+            "calendar_last_synced_at": calendar_registry["last_synced_at"],
+            # 20-09-PLAN.md Task 1 (D-14b): the derived failed-fetch
+            # signal config_page.calendar_group()'s status row needs — at
+            # least one fetch has been attempted since connecting when
+            # this is not None, distinguishing "just connected, no sync
+            # yet" from "has been failing" without a new server-side
+            # field (both read from the SAME calendar_registry loaded
+            # once above).
+            "calendar_last_attempt_at": calendar_registry["last_attempt_at"],
+            # The status row's own flight-count detail (D-14b).
+            "calendar_entry_count": len(calendar_registry["entries"]),
             # Phase 17 plan 04 (D-02/D-08): the narrow predicate plan
             # 17-01 added, read fresh on every request for the identical
             # reason calendar_configured/calendar_last_synced_at above
@@ -1311,14 +1478,20 @@ class Handler(BaseHTTPRequestHandler):
         reads, a device-config load and a filesystem scan for a single
         value on what is, structurally, an error path.
         """
+        # D-03 (20-01-PLAN.md Task 2): this route renders before any
+        # session check, so the language is resolved from the cookie
+        # (if any) or Accept-Language, exactly like the login page
+        # below — never left at the ContextVar's bare default.
+        prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = None
         if self._is_authenticated():
             health_state = health_page.safe_health_state(
                 self.args.state_dir, history_db.utc_now_iso())
             health_alert = health_state["severity"] if health_state else "ok"
         body = (
-            layout.page_header(NOT_FOUND_TITLE, purpose=NOT_FOUND_PURPOSE_TEXT)
-            + '<p class="text-body"><a href="%s">Back to Home</a></p>' % HOME_ROUTE
+            layout.page_header(i18n.t(NOT_FOUND_TITLE), purpose=i18n.t(NOT_FOUND_PURPOSE_TEXT))
+            + '<p class="text-body"><a href="%s">%s</a></p>'
+            % (HOME_ROUTE, layout.escape_html(i18n.t("Back to Home")))
         )
         return layout.page_shell(
             title="Not Found", active="", body=body,
@@ -1344,32 +1517,39 @@ class Handler(BaseHTTPRequestHandler):
         """
         parts = [
             '<h1 class="page-title">SkyPane</h1>',
-            '<p class="text-body">%s</p>' % layout.escape_html(LOGIN_EXPLANATION_TEXT),
+            '<p class="text-body">%s</p>' % layout.escape_html(i18n.t(LOGIN_EXPLANATION_TEXT)),
         ]
         if lockout_seconds:
             parts.append(
                 '<p class="text-body" role="alert">%s</p>'
                 % layout.escape_html(
-                    "Too many attempts — try again in %ds." % lockout_seconds))
+                    i18n.t("Too many attempts — try again in %ds.") % lockout_seconds))
         elif error:
             parts.append(
                 '<p class="text-body" role="alert">%s</p>'
-                % layout.escape_html(error))
+                % layout.escape_html(i18n.t(error)))
         next_field_html = (
             '<input type="hidden" name="next" value="%s">'
             % layout.escape_html(next_route)) if next_route else ""
         parts.append(
             '<form method="post" action="%s">'
             "%s"
-            '<label for="password">Password</label>'
+            '<label for="password">%s</label>'
             '<input type="password" id="password" name="password" '
             'autocomplete="current-password" autofocus required>'
-            '<button type="submit">Sign in</button>'
-            "</form>" % (LOGIN_ROUTE, next_field_html)
+            '<button type="submit">%s</button>'
+            "</form>" % (
+                LOGIN_ROUTE, next_field_html,
+                layout.escape_html(i18n.t("Password")),
+                layout.escape_html(i18n.t("Sign in")))
         )
         return "".join(parts)
 
     def _render_login_page(self, error=None, lockout_seconds=None, next_route=None):
+        # D-03 (20-01-PLAN.md Task 2): pre-session, exactly like
+        # _not_found_page() above — resolved from the cookie or
+        # Accept-Language, never left at the ContextVar's bare default.
+        prefs.set_request_prefs(lang=self._lang_from_request())
         body = self._login_body(
             error=error, lockout_seconds=lockout_seconds, next_route=next_route)
         return layout.login_shell(body, ui_theme=self._resolved_ui_theme())
@@ -1489,6 +1669,14 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_CONFIRM_SUBMIT_JS_PATH)
 
+    def _serve_theme_preview_script(self):
+        """Serve companion/static/theme-preview.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_confirm_submit_script()'s shape exactly (20-08-PLAN.md
+        Task 2, D-22..D-24/D-32) — the tenth static script.
+        """
+        return self._serve_script_file(_THEME_PREVIEW_JS_PATH)
+
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
         if payload is None:
@@ -1571,25 +1759,43 @@ class Handler(BaseHTTPRequestHandler):
 
     def _serve_theme_preview_image(self, theme_id):
         # T-06.6.4.1.1-01/T-06.6.4.1.1-05: this route's key set is closed
-        # and server-controlled (device_config.THEMES) — the bytes it
-        # serves are always produced by this server itself from vendored
-        # font/illustration assets, never from client input, and the
-        # rendered scene is theme_preview.py's own module-level fixture
-        # (D-06), so no live flight/device data can ever reach an image
-        # served here. Membership test FIRST, before any path is ever
-        # constructed (validate-then-join, never sanitise-then-join —
-        # same shape as _serve_runway_image() above, T-06.6.4.1.1-01);
-        # theme_preview.cache_path() repeats this exact guard at the
-        # boundary itself, so the helper stays safe even if some future
-        # caller forgets to check membership first.
+        # and server-controlled (device_config.THEMES). Membership test
+        # FIRST, before any path is ever constructed (validate-then-join,
+        # never sanitise-then-join — same shape as _serve_runway_image()
+        # above); theme_preview.cache_path() repeats this exact guard at
+        # the boundary itself, so the helper stays safe even if some
+        # future caller forgets to check membership first. D-23 (phase
+        # 20) note, expanded below the guard: a `?live=1` request also
+        # reads a runway_events row — see that block's own comment for
+        # what changed and why it is still safe.
         if theme_id not in device_config.THEMES:
             return self.send_html(404, self._not_found_page())
+        # D-23: the bytes this route serves were, until this phase,
+        # ALWAYS produced from theme_preview.py's own fixed fictional
+        # scene (D-06) — never from client input, never from live flight
+        # data. That guarantee now holds only for the non-live variant.
+        # A `?live=1` request additionally reads the operator's own most
+        # recent runway_events row (server-side data this same session
+        # already sees in full on Home/Flights) and renders it into a
+        # raster, never markup — only its integer id (T-20-14) ever
+        # reaches a filename, and any read/coercion failure degrades to
+        # the fixed fictional scene, never a 500 (see
+        # _safe_latest_runway_event()'s own docstring). Query parsing
+        # uses the same urlsplit()/parse_qs() idiom page_context() uses
+        # (app.py:1162-1163) — this route is not dispatched through
+        # page_context(), so it re-derives `?live=` from self.path itself.
+        parsed = urlsplit(self.path)
+        live_flag = parse_qs(parsed.query).get("live", [None])[0]
+        live_event = None
+        if live_flag == "1":
+            live_event = _safe_latest_runway_event(self.args.state_dir)
         # T-06.6.4.1.1-02: an unknown id (above), a render failure, and an
         # OSError writing/reading the cache file all degrade to this same
         # 404 — a caller can never distinguish "not a real theme" from "no
         # image for a real theme" from "render failed for this one theme".
         try:
-            payload = theme_preview.cached_preview_bytes(self.args.state_dir, theme_id)
+            payload = theme_preview.cached_preview_bytes(
+                self.args.state_dir, theme_id, live_event=live_event)
         except OSError:
             return self.send_html(404, self._not_found_page())
         except Exception:
@@ -1923,7 +2129,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if result == colour_rules.ADD_OK_NEW:
             return self.redirect(
-                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
         if result == colour_rules.ADD_OK_REPLACED:
             # Both segments are already known-valid at this point (that is
             # exactly why add_rule() returned ADD_OK_REPLACED rather than
@@ -1934,7 +2140,7 @@ class Handler(BaseHTTPRequestHandler):
                 normalised_kind, submitted_key)
             return self.redirect(
                 "%s?flash=%s&rule=%s"
-                % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
+                % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
                    quote(normalised_value, safe="")))
         if result == colour_rules.ADD_REJECTED_KEY:
             flash_key = FLASH_KEY_RULE_KEY_INVALID
@@ -1945,7 +2151,7 @@ class Handler(BaseHTTPRequestHandler):
             # unrecognised result all reuse the generic save-failed key —
             # a result must never fall through to no flash at all.
             flash_key = FLASH_KEY_RULE_SAVE_FAILED
-        return self.redirect("%s?flash=%s" % (DEVICE_ROUTE, quote(flash_key)))
+        return self.redirect("%s?flash=%s" % (DISPLAY_ROUTE, quote(flash_key)))
 
     def _handle_rule_delete(self, kind, value):
         """POST /settings/rules/{kind}/{value}/delete (Phase 15 D-10,
@@ -1977,11 +2183,11 @@ class Handler(BaseHTTPRequestHandler):
         deleted = colour_rules.delete_rule(state_dir, normalised_kind, normalised_value)
         if deleted:
             return self.redirect(
-                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
         if existed:
             return self.redirect(
-                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
-        return self.redirect(DEVICE_ROUTE)
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
+        return self.redirect(DISPLAY_ROUTE)
 
     def _handle_calendar_disconnect_post(self):
         """POST /settings/calendar/disconnect (19-11-PLAN.md Task 1,
@@ -2030,14 +2236,142 @@ class Handler(BaseHTTPRequestHandler):
         if confirm != config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE:
             ctx = self.page_context()
             body = config_page.calendar_disconnect_confirm_page(ctx)
-            return self.send_html(200, self._page_shell_for(DEVICE_ROUTE, body, ctx))
+            return self.send_html(200, self._page_shell_for(DISPLAY_ROUTE, body, ctx))
         state_dir = self.args.state_dir
         if calendar_rules.save_calendar_url(
                 state_dir, calendar_rules.CLEAR_CALENDAR_URL):
             return self.redirect(
-                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
         return self.redirect(
-            "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+            "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+
+    def _handle_calendar_connect_post(self):
+        """POST /settings/calendar/connect (20-09-PLAN.md Task 2, D-14c):
+        the Calendar card's own dedicated Connect/Replace route, a
+        sibling of `_handle_calendar_disconnect_post()` above, following
+        that method's identical gate-then-dispatch shape in `do_POST()`
+        (`require_session()` is checked there, before this method is
+        ever called, T-20-10).
+
+        This route must NEVER reach the scoped settings handler's own
+        scope/`in_scope` machinery: once Calendar shares Display's
+        scope, a scoped POST carrying only a `calendar_url` field would
+        read every absent checkbox on that page (Screen on/off, Quiet
+        hours) as an explicit OFF and silently switch off both
+        (T-20-11) — exactly the defect a dedicated route exists to
+        prevent. This method calls neither that handler nor the page
+        module's own renderer with this form; it touches only
+        `server/plane/calendar_rules.py`'s own writer pair, the same
+        pair `_handle_settings_post()`'s calendar branch already calls
+        for the save-triggered sync (below, byte for byte).
+
+        Validation reuses `config_page.submitted_calendar_signal()` —
+        the SAME resolver `_handle_settings_post()` consults, never a
+        second URL-shape validator. Its `CLEAR`/`CARRY_FORWARD` outcomes
+        cannot mean what they mean there: this form carries no
+        `calendar_disconnect` field (so `CLEAR` cannot occur), and an
+        empty `calendar_url` here is a genuine rejection, not "an
+        unrelated settings save that didn't touch this field" (this
+        route's only possible intent is a connect attempt) — both
+        `CARRY_FORWARD` and `INVALID` therefore redirect with the same
+        rejection flash key.
+
+        On acceptance: the URL is written via the same writer used below,
+        then, under `_POLL_LOCK` (the SAME lock `_handle_settings_post()`
+        uses, never a second one — T-20-05's fetch-time SSRF gate is
+        unaffected either way, this only serialises against a concurrent
+        request in THIS process), `calendar_rules.refresh_calendar_
+        registry(state_dir, poll_loop.now_s(), min_interval_s=0)`. A
+        successful fetch redirects with `FLASH_KEY_CALENDAR_CONNECT_OK`
+        (its own "{n} flights found" text, resolved fresh from disk by
+        `_resolve_flash_text()`); a lock contention or a failed fetch
+        both redirect with the existing generic
+        `FLASH_KEY_CALENDAR_SYNC_FAILED`/`FLASH_KEY_CALENDAR_SYNC_
+        DEFERRED` keys rather than earning a third/fourth failure
+        message for what is, from the operator's point of view, the
+        same "couldn't sync right now" outcome.
+        """
+        form = self.read_form()
+        signal = config_page.submitted_calendar_signal(form)
+        if signal in (
+                config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD,
+                config_page.CALENDAR_URL_SIGNAL_INVALID,
+                config_page.CALENDAR_URL_SIGNAL_CLEAR):
+            return self.redirect(
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_INVALID)))
+        state_dir = self.args.state_dir
+        stripped_url = (form.get("calendar_url") or "").strip()
+        if not calendar_rules.save_calendar_url(state_dir, stripped_url):
+            return self.redirect(
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+        if not _POLL_LOCK.acquire(blocking=False):
+            return self.redirect(
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
+        try:
+            result_code, _registry = calendar_rules.refresh_calendar_registry(
+                state_dir, poll_loop.now_s(), min_interval_s=0)
+        finally:
+            _POLL_LOCK.release()
+        if result_code == calendar_rules.FETCH_OK:
+            return self.redirect(
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_OK)))
+        return self.redirect(
+            "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+
+    def _handle_notifications_test_post(self):
+        """POST /settings/notifications/test (20-11-PLAN.md Task 1,
+        D-26): the Notifications group's own dedicated, session-gated
+        immediate-action route — a sibling of `_handle_calendar_connect_
+        post()` above, following that method's identical gate-then-
+        dispatch shape in `do_POST()` (`require_session()` is checked
+        there, before this method is ever called).
+
+        T-20-13 (Elevation of Privilege / SSRF-by-proxy): the topic URL
+        is read from `device_config.load_device_config(state_dir)
+        ["notifications"]` — the STORED value — and NEVER from the
+        submitted form body. A submitted `topic_url` field, if any, is
+        never even looked at: accepting one here would turn this button
+        into an open request-forwarder, sending an attacker-supplied URL
+        through this server's own outbound network path on every click.
+
+        With no topic URL stored, this redirects with the generic
+        `FLASH_KEY_NOTIFICATIONS_TEST_FAILED` flash and never calls
+        `notify.send_notification()` at all — there is nothing to test.
+        Otherwise it calls that function with the fixed "Send a test"
+        title/body pair (`notify.TEST_NOTIFICATION_TITLE`/
+        `TEST_NOTIFICATION_BODY`), translated into the stored group's own
+        `lang` (D-28) via `notify.body_for_lang()` — never the
+        requesting browser's own per-request language, which
+        `server/poll_loop.py`'s real battery/silence transition pushes
+        have no way to read either (WR-04 fix, 20-REVIEW.md: those use
+        their own `notify.ALERT_TITLE` constant instead, never this
+        button's `TEST_NOTIFICATION_TITLE`). `send_notification()`'s own
+        boolean result is branched on explicitly, matching
+        `_handle_calendar_connect_
+        post()`'s own never-a-dict-lookup discipline: `True` redirects
+        with the success flash, `False` (an unsafe URL, a timeout, a
+        non-2xx response, or a transport exception — all folded into one
+        bool by that function's own never-raising contract) redirects
+        with the identical generic failure flash the unset-URL branch
+        above already uses, matching 20-UI-SPEC.md copy table G's own
+        two-row (not per-cause) shape.
+        """
+        state_dir = self.args.state_dir
+        stored_notifications = device_config.load_device_config(state_dir)["notifications"]
+        topic_url = stored_notifications.get("topic_url")
+        if not topic_url:
+            return self.redirect(
+                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_FAILED)))
+        lang = stored_notifications.get("lang") or "en"
+        sent = notify.send_notification(
+            topic_url,
+            notify.body_for_lang(notify.TEST_NOTIFICATION_TITLE, lang),
+            notify.body_for_lang(notify.TEST_NOTIFICATION_BODY, lang))
+        if sent:
+            return self.redirect(
+                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_OK)))
+        return self.redirect(
+            "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_FAILED)))
 
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
@@ -2141,6 +2475,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == CONFIRM_SUBMIT_SCRIPT_ROUTE:
             return self._serve_confirm_submit_script()
+
+        if path == THEME_PREVIEW_SCRIPT_ROUTE:
+            return self._serve_theme_preview_script()
 
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:
@@ -2457,13 +2794,25 @@ class Handler(BaseHTTPRequestHandler):
         safe to expose to someone who never opens the settings pages.
         Session-gated in do_POST() like every other state-changing
         route.
+
+        D-16 (20-01-PLAN.md Task 2): every redirect target below is
+        layout.DISPLAY_ROUTE, no longer the bare Home route — the
+        switches themselves move to Display in a later plan
+        (20-06/20-07), but the routes,
+        their flash keys and their tests stay; only `return_to` changes.
+        The field constants (QUICK_STATE_FIELD/QUICK_STATE_ON/
+        QUICK_STATE_OFF) now live in companion/layout.py, a shared
+        module both this file and, from 20-07, config_page.py may
+        import — home_page.py keeps its own identical copies untouched
+        until 20-06 deletes them with the rest of Home's quick-action
+        code.
         """
         form = self.read_form()
-        state = form.get(home_page.QUICK_STATE_FIELD)
-        if state not in (home_page.QUICK_STATE_ON, home_page.QUICK_STATE_OFF):
+        state = form.get(layout.QUICK_STATE_FIELD)
+        if state not in (layout.QUICK_STATE_ON, layout.QUICK_STATE_OFF):
             return self.redirect(
-                "%s?flash=%s" % (HOME_ROUTE, quote(FLASH_KEY_QUICK_FAILED)))
-        enabled = state == home_page.QUICK_STATE_ON
+                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_QUICK_FAILED)))
+        enabled = state == layout.QUICK_STATE_ON
         if field == "display_enabled":
             kwargs = {"display_enabled": enabled}
             flash_key = FLASH_KEY_DISPLAY_ON if enabled else FLASH_KEY_DISPLAY_OFF
@@ -2474,7 +2823,7 @@ class Handler(BaseHTTPRequestHandler):
             device_config.save_device_config(self.args.state_dir, **kwargs)
         except (ValueError, OSError):
             flash_key = FLASH_KEY_QUICK_FAILED
-        return self.redirect("%s?flash=%s" % (HOME_ROUTE, quote(flash_key)))
+        return self.redirect("%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(flash_key)))
 
     def _handle_theme_post(self):
         form = self.read_form()
@@ -2487,6 +2836,36 @@ class Handler(BaseHTTPRequestHandler):
                 "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
                 % (auth.UI_THEME_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
                    THEME_COOKIE_MAX_AGE_S))
+        return self.redirect(self._referring_tab(), set_cookie=cookie_header)
+
+    def _handle_lang_post(self):
+        """POST /ui-lang (D-02, 20-01-PLAN.md Task 2) — byte-for-byte
+        sibling of _handle_theme_post() above. An unrecognised value
+        sets no cookie and still redirects, exactly like the theme
+        route already behaves.
+        """
+        form = self.read_form()
+        submitted = form.get("ui_lang")
+        cookie_header = None
+        if submitted in prefs.LANG_CHOICES:
+            cookie_header = (
+                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
+                % (auth.UI_LANG_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
+                   LANG_COOKIE_MAX_AGE_S))
+        return self.redirect(self._referring_tab(), set_cookie=cookie_header)
+
+    def _handle_mode_post(self):
+        """POST /ui-mode (D-29, 20-01-PLAN.md Task 2) — byte-for-byte
+        sibling of _handle_theme_post() above.
+        """
+        form = self.read_form()
+        submitted = form.get("ui_mode")
+        cookie_header = None
+        if submitted in prefs.MODE_CHOICES:
+            cookie_header = (
+                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
+                % (auth.UI_MODE_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
+                   MODE_COOKIE_MAX_AGE_S))
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
     def do_POST(self):
@@ -2524,6 +2903,19 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._handle_theme_post()
+
+        # D-02/D-29 (20-01-PLAN.md Task 2): gated identically to
+        # THEME_ROUTE above — T-20-01, neither route may be reachable
+        # without a session.
+        if path == LANG_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_lang_post()
+
+        if path == MODE_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_mode_post()
 
         # 19-04-PLAN.md (D-18/A-35, T-19-04): gated too, even though an
         # unauthenticated POST /logout looks harmless at first glance —
@@ -2589,6 +2981,19 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._handle_calendar_disconnect_post()
+
+        # 20-09-PLAN.md Task 2 (D-14c): POST /settings/calendar/connect, gated like every route above.
+        if path == CALENDAR_CONNECT_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_calendar_connect_post()
+
+        # 20-11-PLAN.md Task 1 (D-26): POST /settings/notifications/test,
+        # gated like every route above.
+        if path == NOTIFICATIONS_TEST_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_notifications_test_post()
 
         # Mirrors the manual-resolution delete branch's own startswith/
         # endswith shape above, with the one extra step this route's

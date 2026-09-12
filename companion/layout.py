@@ -18,6 +18,14 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from companion.auth import UI_THEME_COOKIE_NAME
+# 20-01-PLAN.md Task 2/3 (D-01..D-09): companion.i18n/companion.prefs
+# are both shared, page-independent modules (like companion.auth
+# above) — layout.py importing them carries no cycle, since neither
+# imports anything from this module or from companion.app
+# (companion.app is the one that imports layout.py, never the
+# reverse).
+import companion.i18n as i18n
+import companion.prefs as prefs
 
 SITE_TITLE = "SkyPane"
 
@@ -30,6 +38,11 @@ SITE_TITLE = "SkyPane"
 LOCAL_TZ = ZoneInfo("Europe/Paris")
 _MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+# D-07, 20-03-PLAN.md Task 2: the French month-abbreviation table
+# local_clock_text() selects instead of _MONTH_ABBR above under a
+# French request — same twelve-entry shape, parallel index.
+_MONTH_ABBR_FR = ("janv.", "févr.", "mars", "avr.", "mai", "juin",
+                   "juil.", "août", "sept.", "oct.", "nov.", "déc.")
 
 # Ordered (route, label) pairs — 06-UI-SPEC.md's Page Inventory. Login is
 # deliberately absent: it is shown instead of any page when unauthenticated,
@@ -107,7 +120,9 @@ MOBILE_NAV_OPEN_CLASS = "mobile-nav--open"
 # entirely through aria-expanded, which is the correct ARIA disclosure
 # pattern — swapping this label to a close verb on open would make the
 # announced name change under the user mid-interaction. Do not add logic
-# that varies it.
+# that varies it BY STATE — it is still translated through i18n.t() at
+# its one render site (D-05, 20-12-PLAN.md Task 1: a real completeness
+# gap this constant's own render site had left un-wrapped).
 NAV_TOGGLE_LABEL = "Open menu"
 
 # Must equal companion/app.py's NAV_SCRIPT_ROUTE exactly. Duplicated
@@ -146,7 +161,23 @@ POLL_COOLDOWN_SCRIPT_SRC = "/static/poll-cooldown.js"
 # contract as the constants above — the ninth static script.
 CONFIRM_SUBMIT_SCRIPT_SRC = "/static/confirm-submit.js"
 
+# 20-08-PLAN.md Task 3 (D-22..D-24/D-32): must equal companion/app.py's
+# THEME_PREVIEW_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above — the tenth static script.
+THEME_PREVIEW_SCRIPT_SRC = "/static/theme-preview.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
+
+# D-16/D-19 (20-01-PLAN.md Task 2): the quick-action form protocol,
+# moved here from companion/pages/home_page.py's own identical
+# constants so both companion/app.py and, from 20-07, config_page.py
+# can share one home for it — a page module may never import another
+# page module. home_page.py keeps its own copies untouched until
+# 20-06 deletes them with the rest of Home's quick-action code; the
+# two definitions are byte-identical in the meantime.
+QUICK_STATE_FIELD = "state"
+QUICK_STATE_ON = "on"
+QUICK_STATE_OFF = "off"
 
 _STATUS_DOT_CLASSES = {
     "ok": "dot--ok",
@@ -458,7 +489,10 @@ NAV_NOTIFICATION_CLASS = "nav-notification"
 # 06.6.1-UI-SPEC.md's Copywriting Contract, verbatim: appended (not
 # substituted) after the "Health" nav label text via a visually-hidden
 # span, so assistive tech announces "Health — attention needed" rather
-# than losing the word "Health" to an aria-label override.
+# than losing the word "Health" to an aria-label override. Translated
+# through i18n.t() at its one render site (D-05, 20-12-PLAN.md Task 1:
+# a real completeness gap this constant's own render site had left
+# un-wrapped).
 HEALTH_ALERT_SUFFIX_TEXT = " — attention needed"
 
 
@@ -562,13 +596,61 @@ def age_seconds(ts, now_ts):
         return None
 
 
-def relative_age_text(age_seconds):
+# D-07, 20-03-PLAN.md Task 2: the French unit-suffix table
+# relative_age_text()'s French branch consumes below, in the same
+# "fixed dict, membership lookup, documented fallback" shape
+# _STATUS_DOT_CLASSES already uses. Kept complete (all four English
+# unit letters) even though the "s" entry is never actually reached
+# (the seconds bucket always short-circuits to "à l'instant" before
+# consulting this table) — the same audit-by-grep discipline every
+# other fixed-vocabulary dict in this module follows.
+_AGE_UNIT_SUFFIX_FR = {
+    "s": "s",
+    "m": "min",
+    "h": "h",
+    "d": "j",
+}
+
+
+def relative_age_text(age_seconds, lang=None):
     """"Ns ago"/"Nm ago"/"Nh ago"/"Nd ago" using the s/m/h/d threshold
     ladder this app already ships on the Device/Pipeline rows. A
     negative age (clock skew) is clamped to 0 rather than read as
     "in the future".
+
+    `lang` (D-07, 20-03-PLAN.md Task 2) is a trailing keyword whose
+    `None` resolves to `prefs.current_lang()` — every pre-existing call
+    site passes only the positional `age_seconds` and keeps getting the
+    identical English string this function has always returned; the
+    English branch below is byte-for-byte unchanged. Only a French
+    request (an explicit `lang="fr"`, or a request whose
+    `prefs.current_lang()` resolves to `"fr"`) takes the French branch.
+
+    French collapses the whole under-a-minute bucket into one
+    "à l'instant" ("just now") regardless of the exact second count —
+    the idiomatic French phrasing 20-CONTEXT.md's D-07 names, rather
+    than a literal "il y a %d secondes". The minute/hour/day buckets
+    read "il y a N <unit>" (a real U+00A0 non-breaking space
+    between the number and the unit, per D-09), with the unit taken
+    from `_AGE_UNIT_SUFFIX_FR` above and the connector taken from the
+    `"%s ago"` catalogue entry — the copy for both lives in
+    `companion/i18n_fr/health.py`, read here through `i18n.t_lang()`
+    rather than duplicated as a module literal.
     """
     age_seconds = max(0, int(age_seconds))
+    if lang is None:
+        lang = prefs.current_lang()
+    if lang == "fr":
+        if age_seconds < 60:
+            return i18n.t_lang("just now", "fr")
+        if age_seconds < 3600:
+            value, unit = age_seconds // 60, "m"
+        elif age_seconds < 86400:
+            value, unit = age_seconds // 3600, "h"
+        else:
+            value, unit = age_seconds // 86400, "d"
+        quantity = "%d %s" % (value, _AGE_UNIT_SUFFIX_FR[unit])
+        return i18n.t_lang("%s ago", "fr") % quantity
     if age_seconds < 60:
         return "%ds ago" % age_seconds
     if age_seconds < 3600:
@@ -578,7 +660,7 @@ def relative_age_text(age_seconds):
     return "%dd ago" % (age_seconds // 86400)
 
 
-def absolute_and_relative(ts, now_ts, fallback="no reading yet"):
+def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
     """"<ts> (<relative age> ago)" — the house "absolute + relative"
     timestamp format (D-02), already shipped on this page's Device
     check-in and ADS-B pipeline rows and now shared for every caller.
@@ -601,16 +683,26 @@ def absolute_and_relative(ts, now_ts, fallback="no reading yet"):
     not be reversed — 06.3-UI-SPEC.md's Typography section shows a
     relative-first example, but that is illustrative prose no 06.3 plan
     task implements or depends on (06.6-RESEARCH.md Open Question 1).
+
+    `lang` (Polish fix 2, mirroring local_clock_text()'s own trailing
+    keyword, D-07): `None` resolves via `relative_age_text()`'s own
+    `prefs.current_lang()` default, so every pre-existing call site
+    (passing only `ts`/`now_ts`) keeps its identical English output. An
+    explicit `lang` is threaded straight through to `relative_age_text()`
+    for a caller that needs a specific language regardless of the
+    current request's own ContextVar-resolved language — e.g. a
+    server-side notification body (D-28) rendered with no request
+    context to read from at all.
     """
     if not ts:
         return fallback
     age = age_seconds(ts, now_ts)
     if age is None:
         return ts
-    return "%s (%s)" % (ts, relative_age_text(age))
+    return "%s (%s)" % (ts, relative_age_text(age, lang=lang))
 
 
-def concise_timestamp_html(ts, now_ts, fallback="no reading yet"):
+def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
     """"<span class="mono" title="<full ISO>"><HH:MM> UTC (<relative>)</span>"
     — D-09's concise-timestamp-by-default format (06.6.3-UI-SPEC.md's New
     Component Contracts). The full ISO string is demoted to the `title`
@@ -635,6 +727,14 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet"):
     it remains the right choice for any plain-text-only call site (e.g.
     Preview's no-panel caption); do not replace those call sites with
     this function.
+
+    `lang` (Polish fix 2, mirroring local_clock_text()'s own trailing
+    keyword, D-07): `None` resolves via `local_clock_text()`'s/
+    `relative_age_text()`'s own `prefs.current_lang()` default, so every
+    pre-existing call site (passing only `ts`/`now_ts`) keeps its
+    identical English output — the French month table/relative-age
+    connector only apply when the CURRENT REQUEST's language is French
+    (or an explicit `lang="fr"` is passed here), never unconditionally.
     """
     if not ts:
         return escape_html(fallback)
@@ -644,15 +744,25 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet"):
         return '<span class="mono" title="%s">%s</span>' % (
             escape_html(ts), escape_html(ts))
     return '<span class="mono" title="%s">%s (%s)</span>' % (
-        escape_html(ts), escape_html(local_clock_text(parsed, parse_iso(now_ts))),
-        escape_html(relative_age_text(age)))
+        escape_html(ts),
+        escape_html(local_clock_text(parsed, parse_iso(now_ts), lang=lang)),
+        escape_html(relative_age_text(age, lang=lang)))
 
 
-def local_clock_text(parsed, now_parsed=None):
+def local_clock_text(parsed, now_parsed=None, lang=None):
     """`parsed` (an aware or naive datetime) rendered on LOCAL_TZ: "HH:MM"
     when it falls on the same local day as `now_parsed` (or when no `now`
     is supplied), otherwise "D Mon HH:MM". A naive datetime is taken as
     UTC, matching history_db.utc_now_iso()'s own output. Never raises.
+
+    `lang` (D-07, 20-03-PLAN.md Task 2) is a trailing keyword whose
+    `None` resolves to `prefs.current_lang()` — every pre-existing call
+    site passes only `parsed` (and, at most, `now_parsed` by keyword),
+    so the English month table (`_MONTH_ABBR`) and this function's
+    English output are unchanged. Under a French request, the month
+    abbreviation comes from `_MONTH_ABBR_FR` instead; the clock itself
+    stays 24-hour Europe/Paris in both languages — no locale module,
+    no `%p`, no change to the timezone handling.
     """
     try:
         if parsed.tzinfo is None:
@@ -664,7 +774,10 @@ def local_clock_text(parsed, now_parsed=None):
                 now_parsed = now_parsed.replace(tzinfo=ZoneInfo("UTC"))
             if now_parsed.astimezone(LOCAL_TZ).date() == local.date():
                 return clock
-            return "%d %s %s" % (local.day, _MONTH_ABBR[local.month - 1], clock)
+            if lang is None:
+                lang = prefs.current_lang()
+            month_abbr = _MONTH_ABBR_FR if lang == "fr" else _MONTH_ABBR
+            return "%d %s %s" % (local.day, month_abbr[local.month - 1], clock)
         return clock
     except (ValueError, OverflowError, AttributeError):
         return parsed.strftime("%H:%M") if hasattr(parsed, "strftime") else ""
@@ -702,7 +815,11 @@ def _nav_links(active):
     for route, label in NAV_TABS:
         slug = nav_slug(route)
         is_active = slug == active
-        links.append((is_active, escape_html(route), escape_html(label), slug))
+        # D-05/D-09 (20-01-PLAN.md Task 3): the label is looked up
+        # through i18n.t() at render time — NAV_TABS/NAV_GROUPS keep
+        # their English values (D-01); escape_html() still wraps the
+        # result, exactly like any other t() call site.
+        links.append((is_active, escape_html(route), escape_html(i18n.t(label)), slug))
     return links
 
 
@@ -712,14 +829,32 @@ def _nav_groups(active):
     group. Phase 18: the one place the group structure is walked, so the
     sidebar and the dropdown can never disagree about which tab sits
     under the "Advanced" label.
+
+    D-30 (20-01-PLAN.md Task 3): in simple mode, the group whose label
+    is ADVANCED_GROUP_LABEL (Health, Device) is omitted from the
+    returned list entirely — server-side omission, not a CSS
+    `display:none` (20-UI-SPEC.md Structural Note 6: this is the
+    choice that also lets a later plan's disclosures render *different
+    text* in simple mode, not two copies of the same markup). This is
+    presentation only: `/health` and `/device` stay reachable by URL
+    and stay session-gated (companion/pages/__init__.py's ctx contract
+    states the same thing for ctx["simple_mode"] itself). Because the
+    Health link is omitted along with the rest of its group, the
+    Health nav-tab notification dot (drawn from `health_alert` at each
+    renderer's own call site) is never emitted either — one omission,
+    not two independent suppressions to keep in sync.
     """
     links = _nav_links(active)
     groups = []
     offset = 0
+    simple = prefs.simple_mode()
     for group_label, entries in NAV_GROUPS:
         count = len(entries)
-        groups.append((escape_html(group_label), links[offset:offset + count]))
+        group_links = links[offset:offset + count]
         offset += count
+        if simple and group_label == ADVANCED_GROUP_LABEL:
+            continue
+        groups.append((escape_html(i18n.t(group_label)), group_links))
     return groups
 
 
@@ -765,7 +900,7 @@ def _health_alert_markup(severity):
     return (
         '<span class="dot %s %s"></span>'
         '<span class="visually-hidden">%s</span>'
-    ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(HEALTH_ALERT_SUFFIX_TEXT))
+    ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(i18n.t(HEALTH_ALERT_SUFFIX_TEXT)))
 
 
 def sidebar_nav(active, health_alert=None):
@@ -843,9 +978,56 @@ def _theme_form_html(resolved_theme):
             '<button type="submit" name="ui_theme" value="%s" class="%s" aria-pressed="%s">%s</button>'
             % (escape_html(choice), css_class, "true" if is_active else "false",
                escape_html(choice.capitalize())))
+    # D-02/D-29 (20-01-PLAN.md Task 3, 20-UI-SPEC.md §I): an aria-label
+    # disambiguates this now-identical-looking segmented group from the
+    # two new siblings below — the theme ids ("Auto"/"Light"/"Dark")
+    # are identifiers already, so only the group label is translated.
     return (
-        '<form class="theme-form" method="post" action="/ui-theme">%s</form>'
-        % "".join(options))
+        '<form class="theme-form" method="post" action="/ui-theme" aria-label="%s">%s</form>'
+        % (escape_html(i18n.t("Theme")), "".join(options)))
+
+
+def _lang_form_html(resolved_lang):
+    """The FR/EN language switch (D-02, 20-01-PLAN.md Task 3) — a
+    sibling of _theme_form_html() above, identical in shape. "FR"/"EN"
+    are identifiers (D-05) and are never passed through i18n.t().
+    """
+    options = []
+    for choice in prefs.LANG_CHOICES:
+        is_active = choice == resolved_lang
+        css_class = (
+            "theme-option theme-option--active"
+            if is_active else "theme-option")
+        options.append(
+            '<button type="submit" name="ui_lang" value="%s" class="%s" aria-pressed="%s">%s</button>'
+            % (escape_html(choice), css_class, "true" if is_active else "false",
+               escape_html(choice.upper())))
+    return (
+        '<form class="theme-form" method="post" action="/ui-lang" aria-label="%s">%s</form>'
+        % (escape_html(i18n.t("Language")), "".join(options)))
+
+
+def _mode_form_html(resolved_mode):
+    """The Simple/Full simple-mode switch (D-29, 20-01-PLAN.md Task 3)
+    — a sibling of _theme_form_html() above, identical in shape. The
+    button labels are the mode names themselves ("Simple"/"Full"),
+    translated through i18n.t() — unlike the language switch's "FR"/
+    "EN", these are real words, not identifiers (20-UI-SPEC.md §I).
+    """
+    options = []
+    labels = {"simple": "Simple", "full": "Full"}
+    for choice in prefs.MODE_CHOICES:
+        is_active = choice == resolved_mode
+        css_class = (
+            "theme-option theme-option--active"
+            if is_active else "theme-option")
+        options.append(
+            '<button type="submit" name="ui_mode" value="%s" class="%s" aria-pressed="%s">%s</button>'
+            % (escape_html(choice), css_class, "true" if is_active else "false",
+               escape_html(i18n.t(labels[choice]))))
+    return (
+        '<form class="theme-form" method="post" action="/ui-mode" aria-label="%s">%s</form>'
+        % (escape_html(i18n.t("Simple mode")), "".join(options)))
 
 
 def _logout_form_html():
@@ -867,12 +1049,14 @@ def _logout_form_html():
     """
     return (
         '<form method="post" action="/logout" class="logout-form">'
-        '<button type="submit">Sign out</button>'
+        '<button type="submit">%s</button>'
         "</form>"
-    )
+    ) % escape_html(i18n.t("Sign out"))
 
 
-def _mobile_nav_html(active, theme_form_html, health_alert=None):
+def _mobile_nav_html(
+        active, theme_form_html, health_alert=None,
+        lang_form_html="", mode_form_html=""):
     """The hamburger toggle button plus the dropdown panel it controls —
     the <960px nav renderer (D-06, 06.6.1-UI-SPEC.md's Layout Contract).
 
@@ -884,7 +1068,10 @@ def _mobile_nav_html(active, theme_form_html, health_alert=None):
     _theme_form_html(), so page_shell() keeps building it exactly once
     and passing the same string to both copies — this is what makes the
     "both theme-form copies present" check meaningful rather than an
-    accident.
+    accident. `lang_form_html`/`mode_form_html` (D-02/D-29, 20-01-PLAN.md
+    Task 3) follow the identical discipline — page_shell() builds all
+    three exactly once and passes the same strings to both footer
+    copies, so they can never drift.
 
     The panel is always rendered without MOBILE_NAV_OPEN_CLASS — the
     server never renders it open. A server-rendered open state would
@@ -923,11 +1110,13 @@ def _mobile_nav_html(active, theme_form_html, health_alert=None):
         '<button type="button" id="%s" class="site-nav-toggle" '
         'aria-label="%s" aria-expanded="false" aria-controls="%s">%s</button>'
     ) % (
-        NAV_TOGGLE_ID, escape_html(NAV_TOGGLE_LABEL), MOBILE_NAV_ID,
+        NAV_TOGGLE_ID, escape_html(i18n.t(NAV_TOGGLE_LABEL)), MOBILE_NAV_ID,
         icon_html("icon-hamburger", size=24))
+    # D-02/D-29 (20-01-PLAN.md Task 3, 20-UI-SPEC.md §I): resolved
+    # order — language, theme, simple mode, Sign out.
     footer_html = (
-        '<div class="mobile-nav__footer">%s%s</div>'
-        % (theme_form_html, _logout_form_html()))
+        '<div class="mobile-nav__footer">%s%s%s%s</div>'
+        % (lang_form_html, theme_form_html, mode_form_html, _logout_form_html()))
     panel_html = (
         '<div id="%s" class="mobile-nav">'
         '<nav class="mobile-nav__nav" aria-label="Primary navigation">%s</nav>'
@@ -937,7 +1126,7 @@ def _mobile_nav_html(active, theme_form_html, health_alert=None):
     return toggle_html + panel_html
 
 
-def login_shell(body, ui_theme="auto"):
+def login_shell(body, ui_theme="auto", lang=None):
     """A dedicated, minimal HTML5 document for the pre-authentication
     login page — 06.6.2-07 (UXA-03).
 
@@ -949,7 +1138,7 @@ def login_shell(body, ui_theme="auto"):
     usable before signing in). login_shell() is a deliberately
     separate, smaller sibling of page_shell(), not a parameterized
     branch inside it — it shares page_shell()'s outer document
-    structure (doctype, `<html lang="en" data-ui-theme="...">`,
+    structure (doctype, `<html lang="..." data-ui-theme="...">`,
     `<head>` with charset/viewport/title/stylesheet link/
     FAVICON_LINK_HTML, reusing that constant rather than duplicating
     the data-URI literal) but its `<body>` contains only the login
@@ -962,11 +1151,20 @@ def login_shell(body, ui_theme="auto"):
     other body-accepting builder in this module follows (page_shell(),
     stat_tile(), etc.) — and is interpolated verbatim into
     `<div class="login-card">`.
+
+    `lang` (D-03, 20-01-PLAN.md Task 3): defaults to `None`, resolved
+    to `prefs.current_lang()` — always one of `prefs.LANG_CHOICES`, so
+    the `<html lang="...">` attribute is never built from an
+    unvalidated value. `companion/app.py`'s pre-session callers
+    (login, 404) call `prefs.set_request_prefs(lang=...)` themselves
+    before rendering, exactly like the login route already does for
+    `ui_theme` via `_resolved_ui_theme()`.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
+    resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
     return (
         "<!DOCTYPE html>\n"
-        '<html lang="en" data-ui-theme="%s">\n'
+        '<html lang="%s" data-ui-theme="%s">\n'
         "<head>\n"
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
@@ -983,6 +1181,7 @@ def login_shell(body, ui_theme="auto"):
         "</body>\n"
         "</html>\n"
     ) % (
+        escape_html(resolved_lang),
         escape_html(resolved_theme),
         escape_html(SITE_TITLE),
         FAVICON_LINK_HTML,
@@ -1002,7 +1201,7 @@ FLASH_SLOT_MARKER = "<!--flash-slot-->"
 
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
-        health_alert=None):
+        health_alert=None, lang=None):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and every nav label are escaped here. `body`, `flash` and
@@ -1018,12 +1217,24 @@ def page_shell(
     signal only, defaulting to no dot, so any caller without a request
     context — login, 404, the preview-image error pages — draws no dot,
     which is correct rather than merely convenient.
+
+    `lang` (D-03, 20-01-PLAN.md Task 3): defaults to `None`, resolved
+    to `prefs.current_lang()` — always one of `prefs.LANG_CHOICES`. A
+    `None` default is deliberate: no existing page-module call site
+    (~40 of them) has to change, since `companion/app.py`'s
+    `page_context()` already calls `prefs.set_request_prefs()` once
+    per request before any page module renders.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
+    resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
+    resolved_mode = "simple" if prefs.simple_mode() else "full"
     sidebar_html = sidebar_nav(active, health_alert=health_alert)
     theme_form_html = _theme_form_html(resolved_theme)
+    lang_form_html = _lang_form_html(resolved_lang)
+    mode_form_html = _mode_form_html(resolved_mode)
     mobile_nav_html = _mobile_nav_html(
-        active, theme_form_html, health_alert=health_alert)
+        active, theme_form_html, health_alert=health_alert,
+        lang_form_html=lang_form_html, mode_form_html=mode_form_html)
     flash_html = flash or ""
     banner_html = banner or ""
 
@@ -1054,10 +1265,13 @@ def page_shell(
     # 06.6.2-05 (D-17): the sidebar's theme picker and Sign out control,
     # grouped into one footer region — the exact artifact Phase 06.6.3
     # was told to expect by name (a .sidebar-footer wrapper). Replaces
-    # the previous bare theme_form_html-only slot.
+    # the previous bare theme_form_html-only slot. D-02/D-29
+    # (20-01-PLAN.md Task 3, 20-UI-SPEC.md §I): resolved order —
+    # language, theme, simple mode, Sign out; this and
+    # _mobile_nav_html()'s own footer_html must change together.
     sidebar_footer_html = (
-        '<div class="sidebar-footer">%s%s</div>'
-        % (theme_form_html, _logout_form_html()))
+        '<div class="sidebar-footer">%s%s%s%s</div>'
+        % (lang_form_html, theme_form_html, mode_form_html, _logout_form_html()))
 
     # 06.6.2-05 (UXA-10): the first focusable element in <body>, before
     # even ICON_DEFS_HTML — a keyboard/screen-reader user's very first
@@ -1092,7 +1306,7 @@ def page_shell(
     # NAV_DROPDOWN_SCRIPT_SRC, is emitted immediately before </body>.
     return (
         "<!DOCTYPE html>\n"
-        '<html lang="en" data-ui-theme="%s">\n'
+        '<html lang="%s" data-ui-theme="%s">\n'
         "<head>\n"
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
@@ -1126,9 +1340,11 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
+        escape_html(resolved_lang),
         escape_html(resolved_theme),
         escape_html(title), escape_html(SITE_TITLE),
         FAVICON_LINK_HTML,
@@ -1169,6 +1385,11 @@ def page_shell(
         # page, since only the Device page renders a
         # form[data-confirm] (the calendar disconnect form).
         CONFIRM_SUBMIT_SCRIPT_SRC,
+        # 20-08-PLAN.md Task 3 (D-22..D-24): tenth script, same
+        # unconditional/no-op-via-guard-clause convention — served every
+        # page, since only Display (from 20-11) renders
+        # .theme-live-preview img plus a .theme-chip-grid.
+        THEME_PREVIEW_SCRIPT_SRC,
     )
 
 
@@ -1325,6 +1546,92 @@ def card_status_class(base_class, status):
     """
     suffix = _CARD_STATUS_SUFFIXES.get(status)
     return base_class + suffix if suffix else ""
+
+
+def status_row(label, verdict, detail, state):
+    """<div class="status-row status-row--ok|warn|error"> — D-21's one
+    shared row primitive (dot + optional label + verdict + detail),
+    consumed by Home's status card (20-06) and the Calendar status row
+    (20-07) alike (20-UI-SPEC.md Section Anatomy A).
+
+    `label` is optional: a falsy value omits the `<span>` element
+    entirely, not merely its text — Calendar's own status row passes
+    "" because its surrounding `<h2>Calendar</h2>` already names the
+    subject, and a repeated "CALENDAR" label would be redundant
+    chrome. `verdict` and `detail` must carry two DIFFERENT pieces of
+    information — a state word versus a freshness/detail clause — by
+    contract: this primitive exists specifically to fix the Home
+    Frame-tile defect where `DEVICE_STATE_TEXT`/`FRAME_STATE_TEXT`'s
+    verdict sentence used to be rendered twice, once as the tile's own
+    verdict paragraph and once again inside `health_state["device_
+    html"]`'s own embedded verdict paragraph.
+
+    `state` maps through the SAME `_STATUS_DOT_CLASSES`/
+    `_DEFAULT_STATUS_DOT_CLASS` fallback `status_dot()`/`stat_tile()`
+    already use for the dot, and through `card_status_class()`'s own
+    three-key whitelist for the outer modifier class — never a second,
+    bare `%s` interpolation of an unvalidated `state` (T-20-18): an
+    unrecognised state degrades to the default (warn) dot and to NO
+    outer modifier class at all, rather than emitting an arbitrary,
+    attacker-influenceable class name. `verdict` and `detail` are both
+    escaped here (T-20-03) — `label` is escaped too, inside the
+    optional span.
+
+    The caller is responsible for translating `label`/`verdict`/
+    `detail` through `i18n.t()` BEFORE calling this — status_row()
+    itself calls no `t()` and treats every argument as already-
+    resolved display text.
+    """
+    dot_class = _STATUS_DOT_CLASSES.get(state, _DEFAULT_STATUS_DOT_CLASS)
+    modifier = card_status_class("status-row", state)
+    css_class = "status-row" + ((" " + modifier) if modifier else "")
+    label_html = (
+        '<span class="status-row__label text-label">%s</span>' % escape_html(label)
+        if label else "")
+    return (
+        '<div class="%s">'
+        '<span class="dot %s"></span>%s'
+        '<span class="status-row__verdict">%s</span>'
+        '<span class="status-row__detail">%s</span>'
+        "</div>"
+    ) % (css_class, dot_class, label_html, escape_html(verdict), escape_html(detail))
+
+
+def section_intro_html(section_id, heading, description):
+    """A `<div class="section-intro">` wrapping one id-anchored `<h2>`
+    plus a muted one-sentence description on the same baseline.
+
+    Promoted here, byte-identical (markup and CSS class unchanged),
+    from `companion/pages/health_page.py`'s own former private copy,
+    `_section_intro_html()` (20-UI-SPEC.md Section Anatomy C):
+    `companion/pages/__init__.py` forbids one page module importing
+    another, so a helper both `health_page.py` and `config_page.py`
+    (20-07's Display supersections) need must live in this shared
+    layer instead — the same reasoning D-21's `status_row()` above is
+    added here for, in the same phase.
+
+    The `<h2 id="..." class="text-heading">...</h2>` this emits keeps
+    the same attribute order (`id` then `class`) and the same
+    `escape_html()` call on the heading text health_page.py's own
+    pinned structural checks already match literally — this builder
+    must never drift from that shape. The description keeps the
+    `text-label section-caption` pairing already established for this
+    "muted one-sentence-under-a-heading" role.
+
+    WR-03 fix (20-REVIEW.md): `section_id` is escaped too, like every
+    other string this file interpolates into an HTML attribute or text
+    node — this was the one exception to that "escape everything,
+    unconditionally" invariant. Every current call site passes a fixed
+    module-level string constant, so this was not exploitable today,
+    but this helper is shared across page modules going forward and
+    must not be the one place a caller is trusted.
+    """
+    return (
+        '<div class="section-intro">'
+        '<h2 id="%s" class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (escape_html(section_id), escape_html(heading), escape_html(description))
 
 
 def empty_state(heading, body):
