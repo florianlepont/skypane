@@ -252,6 +252,10 @@ RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
 # rather than retyped as a literal (app.py imports that module, so the
 # reverse import would be a cycle).
 CALENDAR_DISCONNECT_ROUTE = config_page.CALENDAR_DISCONNECT_ROUTE
+# 20-09-PLAN.md Task 2 (D-14c): single definition site is companion/
+# pages/config_page.py, rebound here exactly like CALENDAR_DISCONNECT_
+# ROUTE immediately above.
+CALENDAR_CONNECT_ROUTE = config_page.CALENDAR_CONNECT_ROUTE
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -307,6 +311,11 @@ FLASH_KEY_CALENDAR_CONNECTED = config_page.FLASH_CALENDAR_CONNECTED
 FLASH_KEY_CALENDAR_SYNC_FAILED = config_page.FLASH_CALENDAR_SYNC_FAILED
 FLASH_KEY_CALENDAR_DISCONNECTED = config_page.FLASH_CALENDAR_DISCONNECTED
 FLASH_KEY_CALENDAR_SYNC_DEFERRED = config_page.FLASH_CALENDAR_SYNC_DEFERRED
+# 20-09-PLAN.md Task 2 (D-14c): the two outcomes POST /settings/calendar/
+# connect can produce, rebound here for the identical reason the four
+# FLASH_KEY_CALENDAR_* keys immediately above are.
+FLASH_KEY_CALENDAR_CONNECT_OK = config_page.FLASH_CALENDAR_CONNECT_OK
+FLASH_KEY_CALENDAR_CONNECT_INVALID = config_page.FLASH_CALENDAR_CONNECT_INVALID
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query
@@ -462,6 +471,20 @@ FLASH_MESSAGES = {
     FLASH_KEY_CALENDAR_SYNC_DEFERRED: (
         "Saved — a poll was already running, so this calendar will "
         "sync on the frame's next scheduled poll."),
+    # 20-09-PLAN.md Task 2 (D-14c): POST /settings/calendar/connect's own
+    # success message — distinct wording from FLASH_KEY_CALENDAR_
+    # CONNECTED above (that key's own template is the save-triggered
+    # sync's historical copy; this one matches 20-UI-SPEC.md's copy
+    # table verbatim). "{n}" is filled by _resolve_flash_text()'s own
+    # fourth special case below, read fresh from disk at render time —
+    # never carried through the redirect's query string, mirroring
+    # FLASH_KEY_CALENDAR_CONNECTED's own established reasoning.
+    FLASH_KEY_CALENDAR_CONNECT_OK: "Calendar connected — {n} flights found.",
+    # A rejected connect attempt (an empty, over-length, or otherwise
+    # unacceptable URL) — never echoes anything the operator submitted,
+    # matching FLASH_KEY_CALENDAR_SYNC_FAILED's own established posture.
+    FLASH_KEY_CALENDAR_CONNECT_INVALID: (
+        "Paste a valid calendar feed URL to connect one."),
 }
 
 # 06.6.2-06 (UXA-07): every FLASH_KEY_* -> the ARIA role its rendered
@@ -518,6 +541,11 @@ FLASH_ROLES = {
     FLASH_KEY_CALENDAR_SYNC_FAILED: "alert",
     FLASH_KEY_CALENDAR_DISCONNECTED: "status",
     FLASH_KEY_CALENDAR_SYNC_DEFERRED: "status",
+    # 20-09-PLAN.md Task 2 (D-14c): a normal connect outcome takes
+    # "status"; a rejected URL takes "alert", matching this dict's usual
+    # success/rejection split above.
+    FLASH_KEY_CALENDAR_CONNECT_OK: "status",
+    FLASH_KEY_CALENDAR_CONNECT_INVALID: "alert",
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
@@ -646,6 +674,14 @@ def _resolve_flash_text(flash_key, state_dir, rule_key=None):
         # key.
         count = len(calendar_rules.load_calendar_registry(state_dir)["entries"])
         return template.format(n=count, s="" if count == 1 else "s")
+    if flash_key == FLASH_KEY_CALENDAR_CONNECT_OK:
+        # 20-09-PLAN.md Task 2 (D-14c): the fourth special case, mirroring
+        # FLASH_KEY_CALENDAR_CONNECTED's own read-fresh-from-disk
+        # reasoning immediately above — this key's own template has no
+        # singular/plural "{s}" slot (20-UI-SPEC.md's copy table gives
+        # only the one, always-plural wording).
+        count = len(calendar_rules.load_calendar_registry(state_dir)["entries"])
+        return template.format(n=count)
     if flash_key == FLASH_KEY_RULE_REPLACED:
         normalised_key = colour_rules.normalise_rule_callsign(rule_key)
         if normalised_key is None:
@@ -1217,6 +1253,15 @@ class Handler(BaseHTTPRequestHandler):
         # "simple_mode" keys below can never disagree.
         prefs.set_request_prefs(
             lang=self._lang_from_request(), mode=self._mode_from_request())
+        # 20-09-PLAN.md Task 1 (D-14b): loaded ONCE per request and reused
+        # for three ctx keys below (calendar_last_synced_at, the new
+        # calendar_last_attempt_at/calendar_entry_count), rather than
+        # calling load_calendar_registry() three times — mirrors device_
+        # cfg's own "load once, reuse for two keys" precedent immediately
+        # above. load_calendar_registry() is contractually never-raising
+        # (plan 16-03), which is what makes this safe to call
+        # unconditionally on every authenticated page render (T-16-DOS).
+        calendar_registry = calendar_rules.load_calendar_registry(state_dir)
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
@@ -1352,8 +1397,17 @@ class Handler(BaseHTTPRequestHandler):
             # never-raising (plan 16-03), which is what makes it safe to
             # call unconditionally on every authenticated page render
             # (T-16-DOS).
-            "calendar_last_synced_at": calendar_rules.load_calendar_registry(
-                state_dir)["last_synced_at"],
+            "calendar_last_synced_at": calendar_registry["last_synced_at"],
+            # 20-09-PLAN.md Task 1 (D-14b): the derived failed-fetch
+            # signal config_page.calendar_group()'s status row needs — at
+            # least one fetch has been attempted since connecting when
+            # this is not None, distinguishing "just connected, no sync
+            # yet" from "has been failing" without a new server-side
+            # field (both read from the SAME calendar_registry loaded
+            # once above).
+            "calendar_last_attempt_at": calendar_registry["last_attempt_at"],
+            # The status row's own flight-count detail (D-14b).
+            "calendar_entry_count": len(calendar_registry["entries"]),
             # Phase 17 plan 04 (D-02/D-08): the narrow predicate plan
             # 17-01 added, read fresh on every request for the identical
             # reason calendar_configured/calendar_last_synced_at above
@@ -2156,6 +2210,79 @@ class Handler(BaseHTTPRequestHandler):
         return self.redirect(
             "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
 
+    def _handle_calendar_connect_post(self):
+        """POST /settings/calendar/connect (20-09-PLAN.md Task 2, D-14c):
+        the Calendar card's own dedicated Connect/Replace route, a
+        sibling of `_handle_calendar_disconnect_post()` above, following
+        that method's identical gate-then-dispatch shape in `do_POST()`
+        (`require_session()` is checked there, before this method is
+        ever called, T-20-10).
+
+        This route must NEVER reach the scoped settings handler's own
+        scope/`in_scope` machinery: once Calendar shares Display's
+        scope, a scoped POST carrying only a `calendar_url` field would
+        read every absent checkbox on that page (Screen on/off, Quiet
+        hours) as an explicit OFF and silently switch off both
+        (T-20-11) — exactly the defect a dedicated route exists to
+        prevent. This method calls neither that handler nor the page
+        module's own renderer with this form; it touches only
+        `server/plane/calendar_rules.py`'s own writer pair, the same
+        pair `_handle_settings_post()`'s calendar branch already calls
+        for the save-triggered sync (below, byte for byte).
+
+        Validation reuses `config_page.submitted_calendar_signal()` —
+        the SAME resolver `_handle_settings_post()` consults, never a
+        second URL-shape validator. Its `CLEAR`/`CARRY_FORWARD` outcomes
+        cannot mean what they mean there: this form carries no
+        `calendar_disconnect` field (so `CLEAR` cannot occur), and an
+        empty `calendar_url` here is a genuine rejection, not "an
+        unrelated settings save that didn't touch this field" (this
+        route's only possible intent is a connect attempt) — both
+        `CARRY_FORWARD` and `INVALID` therefore redirect with the same
+        rejection flash key.
+
+        On acceptance: the URL is written via the same writer used below,
+        then, under `_POLL_LOCK` (the SAME lock `_handle_settings_post()`
+        uses, never a second one — T-20-05's fetch-time SSRF gate is
+        unaffected either way, this only serialises against a concurrent
+        request in THIS process), `calendar_rules.refresh_calendar_
+        registry(state_dir, poll_loop.now_s(), min_interval_s=0)`. A
+        successful fetch redirects with `FLASH_KEY_CALENDAR_CONNECT_OK`
+        (its own "{n} flights found" text, resolved fresh from disk by
+        `_resolve_flash_text()`); a lock contention or a failed fetch
+        both redirect with the existing generic
+        `FLASH_KEY_CALENDAR_SYNC_FAILED`/`FLASH_KEY_CALENDAR_SYNC_
+        DEFERRED` keys rather than earning a third/fourth failure
+        message for what is, from the operator's point of view, the
+        same "couldn't sync right now" outcome.
+        """
+        form = self.read_form()
+        signal = config_page.submitted_calendar_signal(form)
+        if signal in (
+                config_page.CALENDAR_URL_SIGNAL_CARRY_FORWARD,
+                config_page.CALENDAR_URL_SIGNAL_INVALID,
+                config_page.CALENDAR_URL_SIGNAL_CLEAR):
+            return self.redirect(
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_INVALID)))
+        state_dir = self.args.state_dir
+        stripped_url = (form.get("calendar_url") or "").strip()
+        if not calendar_rules.save_calendar_url(state_dir, stripped_url):
+            return self.redirect(
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+        if not _POLL_LOCK.acquire(blocking=False):
+            return self.redirect(
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
+        try:
+            result_code, _registry = calendar_rules.refresh_calendar_registry(
+                state_dir, poll_loop.now_s(), min_interval_s=0)
+        finally:
+            _POLL_LOCK.release()
+        if result_code == calendar_rules.FETCH_OK:
+            return self.redirect(
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_OK)))
+        return self.redirect(
+            "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
         try:
@@ -2764,6 +2891,12 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._handle_calendar_disconnect_post()
+
+        # 20-09-PLAN.md Task 2 (D-14c): POST /settings/calendar/connect, gated like every route above.
+        if path == CALENDAR_CONNECT_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_calendar_connect_post()
 
         # Mirrors the manual-resolution delete branch's own startswith/
         # endswith shape above, with the one extra step this route's

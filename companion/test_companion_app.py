@@ -393,6 +393,22 @@ EXPECTED_CHECK_COUNT = 241  # post-wave-3 retarget (20-07/D-36): -1 — the
 # _device_page_edit_artwork_link_opens_airlines_with_edit_forms() (which
 # exercised it end to end) is removed rather than retargeted; no
 # replacement link exists to assert against. 242 - 1 = 241.
+EXPECTED_CHECK_COUNT = 244  # 20-09-PLAN.md Task 2 (D-14c): +3 (a valid
+# POST /settings/calendar/connect 303-redirects to Display with the
+# calendar_connect_ok flash key, persists the URL, triggers exactly one
+# registry refresh, and leaves quiet_hours_enabled/display_enabled
+# exactly as they were seeded — the T-20-11 pinned regression; an empty
+# calendar_url rejects with calendar_connect_invalid and persists
+# nothing; an unauthenticated POST redirects to /login and writes
+# nothing). Two pre-existing checks retargeted in place with no count
+# change: the FLASH_MESSAGES-interpolation-exemption check widened for
+# FLASH_KEY_CALENDAR_CONNECT_OK's own "{n}" placeholder, and the
+# Display/Device group-split check's "Per-flight colour rules" needle
+# updated to "Flight colours" (20-09-PLAN.md Task 3/D-15a's rename).
+# 241 + 3 = 244, recomputed directly against the real on-disk check(...)
+# call count at execution time (242/244 pass — the two documented WR-11
+# root-sandbox failures, unrelated to this plan), not trusted from
+# arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -2715,11 +2731,15 @@ def main():
         # widened in place, not loosened. Phase 17 plan 04 (D-06) widens
         # it again for FLASH_KEY_CALENDAR_CONNECTED's server-computed
         # "{n}"/"{s}" (the on-disk entry count, never anything
-        # client-supplied) — every other FLASH_MESSAGES value still
-        # carries no runtime placeholder at all.
+        # client-supplied). 20-09-PLAN.md Task 2 (D-14c) widens it once
+        # more for FLASH_KEY_CALENDAR_CONNECT_OK's own server-computed
+        # "{n}" — the connect route's own success flash, distinct from
+        # (and never sharing a key with) the older save-triggered-sync
+        # flash — every other FLASH_MESSAGES value still carries no
+        # runtime placeholder at all.
         _interpolated_keys = (
             app_module.FLASH_KEY_POLL_COOLDOWN, app_module.FLASH_KEY_RULE_REPLACED,
-            app_module.FLASH_KEY_CALENDAR_CONNECTED)
+            app_module.FLASH_KEY_CALENDAR_CONNECTED, app_module.FLASH_KEY_CALENDAR_CONNECT_OK)
         for key, text in app_module.FLASH_MESSAGES.items():
             if key in _interpolated_keys:
                 continue
@@ -2727,16 +2747,17 @@ def main():
                 return False, (
                     "expected no runtime interpolation in FLASH_MESSAGES[%r], got %r "
                     "(UI-SPEC Autonomous Decision 6: flash copy is fixed, never "
-                    "interpolated, except the cooldown, rule_replaced and "
-                    "calendar_connected keys)" % (key, text))
+                    "interpolated, except the cooldown, rule_replaced, "
+                    "calendar_connected and calendar_connect_ok keys)" % (key, text))
         return True, ""
     check(
         "every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six "
         "UI-SPEC deck strings resolve byte for byte through _resolve_flash_text(), an "
         "unknown key still resolves to None, and no FLASH_MESSAGES value carries a "
-        "runtime placeholder except the cooldown, rule_replaced and calendar_connected "
-        "keys (Phase 15 D-10 widened this in place, not loosened; Phase 17 plan 04 "
-        "widens it again for the same reason)",
+        "runtime placeholder except the cooldown, rule_replaced, calendar_connected and "
+        "calendar_connect_ok keys (Phase 15 D-10 widened this in place, not loosened; "
+        "Phase 17 plan 04 and 20-09-PLAN.md Task 2 each widen it again for the same "
+        "reason)",
         _flash_manual_keys_complete_and_byte_identical)
 
     class _FakeResolveCtxHandler(_FakePageContextHandler):
@@ -3900,14 +3921,15 @@ def main():
                     return False, "expected the %s page to carry its hidden return_to field" % scope
                 if "Screen: Plane frame" not in text:
                     return False, "expected the %s page to name its screen type" % scope
-            # 20-07 (D-10/D-11) moved the rules editor ("Per-flight
+            # 20-07 (D-10/D-11) moved the rules editor (renamed "Flight
+            # colours" by 20-09-PLAN.md Task 3/D-15a; was "Per-flight
             # colour rules") to Display alongside Calendar and Runway;
             # Manual refresh stayed on Device.
             if "Manual refresh" not in device_text:
                 return False, "expected the Device page to carry Manual refresh"
-            if "Per-flight colour rules" in device_text:
+            if "Flight colours" in device_text:
                 return False, "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)"
-            if "Per-flight colour rules" not in display_text:
+            if "Flight colours" not in display_text:
                 return False, "expected the Display page to carry the rules editor (moved from Device, 20-07/D-10)"
             if "Manual refresh" in display_text:
                 return False, "expected the Display page NOT to carry Manual refresh"
@@ -6463,6 +6485,120 @@ def main():
             "an unauthenticated POST /settings/calendar/disconnect (even with confirm=yes) redirects to "
             "/login and writes nothing (D-08/A-26, T-19-41)",
             _calendar_disconnect_route_unauthenticated_redirects_to_login)
+
+        # ==============================================================
+        # 20-09-PLAN.md Task 2 (D-14c): the calendar connect action's own
+        # dedicated POST /settings/calendar/connect route — never through
+        # config_page.handle_post()'s scope/in_scope machinery (T-20-11),
+        # session-gated like every other state-changing route (T-20-10).
+        # ==============================================================
+
+        def _calendar_connect_route_valid_url_persists_syncs_once_and_leaves_other_settings_alone():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                # T-20-11's own pinned regression: seed Quiet hours and
+                # the screen ON, connect a calendar, and assert both are
+                # STILL on afterwards — a scoped POST through the settings
+                # handler would read their absent checkboxes as an
+                # explicit OFF and silently switch both off.
+                device_config.save_device_config(
+                    calendar_harness.tmpdir, quiet_hours_enabled=True, display_enabled=True)
+                session = _login(calendar_harness)
+                hostname = "connect-route.example"
+                url = "https://%s/feed.ics?token=CONNECTROUTETOKEN" % hostname
+                body = _ics_body([("AFR1234", "ORY", "TLS", 2), ("AFR5678", "ORY", "NCE", 3)])
+                calls = []
+                with _stubbed_calendar_transport(
+                        _make_calendar_transport(body=body, calls=calls)), \
+                        _fake_public_hostname(hostname):
+                    status, headers, _b = http_request(
+                        calendar_harness.base_url() + config_page.CALENDAR_CONNECT_ROUTE,
+                        method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if not location.startswith("/display"):
+                    return False, "expected a redirect to Display, got %r" % location
+                if "flash=calendar_connect_ok" not in location:
+                    return False, "expected the calendar_connect_ok flash key, got %r" % location
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to be configured"
+                if calendar_rules.configured_calendar_url(calendar_harness.tmpdir) != url:
+                    return False, "expected the submitted URL to be stored"
+                if len(calls) != 1:
+                    return False, "expected exactly one registry refresh (one transport call), got %d" % len(calls)
+                registry = calendar_rules.load_calendar_registry(calendar_harness.tmpdir)
+                if len(registry["entries"]) != 2:
+                    return False, "expected two fetched entries, got %r" % (registry["entries"],)
+                on_disk = device_config.load_device_config(calendar_harness.tmpdir)
+                if on_disk.get("quiet_hours_enabled") is not True:
+                    return False, "expected quiet_hours_enabled to remain True (T-20-11 regression)"
+                if on_disk.get("display_enabled") is not True:
+                    return False, "expected display_enabled to remain True (T-20-11 regression)"
+                status2, _h2, page_body = http_request(
+                    calendar_harness.base_url() + location, cookie=session)
+                if b"2 flights found" not in page_body:
+                    return False, "expected the success flash text to include the flight count"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a valid POST /settings/calendar/connect 303-redirects to Display with the "
+            "calendar_connect_ok flash key, persists the URL, triggers exactly one registry refresh, "
+            "and leaves quiet_hours_enabled/display_enabled exactly as they were (D-14c, T-20-11 "
+            "pinned regression)",
+            _calendar_connect_route_valid_url_persists_syncs_once_and_leaves_other_settings_alone)
+
+        def _calendar_connect_route_invalid_url_rejects_and_persists_nothing():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                status, headers, _b = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_CONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode({"calendar_url": ""}).encode(),
+                    cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=calendar_connect_invalid" not in location:
+                    return False, "expected the calendar_connect_invalid flash key, got %r" % location
+                if calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain unconfigured — nothing should be written"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an empty calendar_url on POST /settings/calendar/connect 303-redirects with the "
+            "calendar_connect_invalid flash key and persists nothing (D-14c)",
+            _calendar_connect_route_invalid_url_rejects_and_persists_nothing)
+
+        def _calendar_connect_route_unauthenticated_redirects_to_login():
+            from companion.pages import config_page
+            calendar_harness = _InProcessHarness()
+            try:
+                status, headers, _b = http_request(
+                    calendar_harness.base_url() + config_page.CALENDAR_CONNECT_ROUTE,
+                    method="POST",
+                    data=urllib.parse.urlencode(
+                        {"calendar_url": "https://unauth-connect.example/feed.ics"}).encode())
+                if status != 303:
+                    return False, "expected a 303 redirect for an unauthenticated POST, got %d" % status
+                if headers.get("Location") != "/login":
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                if calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected nothing to be written for an unauthenticated POST"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "an unauthenticated POST /settings/calendar/connect redirects to /login and writes nothing "
+            "(D-14c, T-20-10)",
+            _calendar_connect_route_unauthenticated_redirects_to_login)
 
         def _calendar_sync_bypasses_the_throttle_via_min_interval_zero():
             """D-06's bypass, proven two ways.
