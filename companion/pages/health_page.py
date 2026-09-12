@@ -521,10 +521,19 @@ _READ_ONLY_NOTE = (
     "This list is read-only here — each row's Resolve link opens the Airlines page "
     "to name that airline (and add artwork, if it needs one).")
 
-_NO_STATS_HEADING = "No resolution data yet."
+# 22-03-PLAN.md Task 2 (B3): replaces the former "No resolution data
+# yet." / "No flight events recorded yet — resolution statistics
+# appear once the ADS-B pipeline has detected a flight." pair, which
+# never named the window this figure is actually scoped to. The
+# heading is a %-template (kept unformatted here, exactly like
+# `_FILTER_EMPTY_BODY_TEMPLATE` above) interpolated with
+# RESOLUTION_WINDOW_DAYS at the one call site below — never a literal
+# "30" in the string, so a future change to the window constant cannot
+# silently leave stale copy behind.
+_NO_STATS_HEADING = "No flights in the last %d days"
 _NO_STATS_BODY = (
-    "No flight events recorded yet — resolution statistics appear once "
-    "the ADS-B pipeline has detected a flight.")
+    "The frame has not recorded a detection in this window. It will "
+    "appear here after the next wake.")
 
 RESOLUTION_WINDOW_DAYS = 30  # A month is long enough to smooth over a
 # quiet week at this single-airport traffic volume, while still reading
@@ -568,6 +577,21 @@ _SOURCE_ROWS = (
      "The operator resolved this callsign's prefix by hand, from the "
      "companion web interface."),
 )
+
+# 22-03-PLAN.md Task 2 (B3): a sixth, catch-all row for any route_source
+# value outside the five above (NULL, empty, or something this page does
+# not recognise) — `resolution_stats()` folds every such row in here
+# instead of silently dropping it from the total, per this module's own
+# rule (stated in the comment above _SOURCE_ROWS) against a
+# developer-facing identifier in visible text. Kept OUT of _SOURCE_ROWS
+# itself: that tuple is this page's fixed, ordered enumeration of known
+# mechanisms, and folding an "unknown" bucket into it would misrepresent
+# it as a sixth mechanism this page actually understands.
+_OTHER_SOURCE_LABEL = "Other"
+_OTHER_SOURCE_GLOSS = (
+    "A route source this page does not recognise, or none was recorded "
+    "at all — still counted here so the total always matches every "
+    "event in the window.")
 
 # quick task 260903-ghy (UIR-10): promoted from a literal inline the
 # Resolution-statistics table's own `layout.data_table()` call used to
@@ -2396,12 +2420,23 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
     `resolved_pct` is `None` (and `rows` is empty) when `total` is zero —
     guards the caller against a division by zero without it needing to
     check separately.
+
+    22-03-PLAN.md Task 2 (B3): `total` now counts EVERY row `history_db.
+    route_source_counts()` returns in the window, not only the five
+    `_SOURCE_ROWS` values — a NULL, empty or otherwise unrecognised
+    `route_source` used to vanish from both the total and the table,
+    which could make a window that genuinely holds events render as
+    though nothing had ever been recorded. Anything outside the five
+    known keys is folded into one additional `_OTHER_SOURCE_LABEL` row
+    instead (appended only when its count is non-zero, so an ordinary
+    render — every row already covered by `_SOURCE_ROWS` — is
+    byte-identical to before this task).
     """
     now_dt = now or datetime.now(timezone.utc)
     since = (now_dt - timedelta(days=window_days)).isoformat(timespec="seconds")
     counts = history_db.route_source_counts(conn, since=since)
 
-    total = sum(counts.get(source, 0) for source, _label, _gloss in _SOURCE_ROWS)
+    total = sum(counts.values())
     if total == 0:
         return {"rows": [], "total": 0, "resolved_pct": None}
 
@@ -2417,6 +2452,12 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
         (i18n.t(label), i18n.t(gloss), counts.get(source, 0))
         for source, label, gloss in _SOURCE_ROWS
     ]
+    known_sources = {source for source, _label, _gloss in _SOURCE_ROWS}
+    other_count = sum(
+        n for source, n in counts.items() if source not in known_sources)
+    if other_count:
+        rows.append((
+            i18n.t(_OTHER_SOURCE_LABEL), i18n.t(_OTHER_SOURCE_GLOSS), other_count))
     return {"rows": rows, "total": total, "resolved_pct": resolved_pct}
 
 
@@ -2783,7 +2824,13 @@ def _resolution_rate_tile_html(stats):
     if stats is _DB_UNAVAILABLE:
         return _unavailable_block()
     if stats["total"] == 0:
-        return layout.empty_state(i18n.t(_NO_STATS_HEADING), i18n.t(_NO_STATS_BODY))
+        # 22-03-PLAN.md Task 2 (B3): the heading is translated FIRST,
+        # then interpolated — the same order _FILTER_EMPTY_BODY_TEMPLATE
+        # already uses above — so the "%d" placeholder survives
+        # translation and RESOLUTION_WINDOW_DAYS never appears as a
+        # hard-coded literal in either language's catalogue entry.
+        return layout.empty_state(
+            i18n.t(_NO_STATS_HEADING) % RESOLUTION_WINDOW_DAYS, i18n.t(_NO_STATS_BODY))
     return (
         '<p class="stat-tile__value">%s</p>'
         '<p class="text-label">%s</p>'
@@ -2857,6 +2904,35 @@ def _read_health_inputs(state_dir, now):
         "device_config": device_config.load_device_config(state_dir),
         "registry_rows": registry_rows,
     }
+
+
+def _stats_section_html(stats):
+    """The "How well we name flights" nested page-section — heading,
+    card and all — or the empty string.
+
+    22-03-PLAN.md Task 2 (B3): omitted ENTIRELY (no heading, no
+    wrapper) when there is genuinely nothing in the window
+    (`stats["total"] == 0`), rather than the pre-existing bug of a
+    heading rendered unconditionally over `_stats_table_html()`'s own
+    empty string — a heading with no body beneath it. `stats is
+    _DB_UNAVAILABLE` is deliberately NOT folded into this omission: a
+    database read failure is a different, out-of-scope failure mode
+    (D-11's own independent-degradation contract for this card), left
+    exactly as it rendered before this task.
+    """
+    if stats is not _DB_UNAVAILABLE and stats["total"] == 0:
+        return ""
+    # quick task 260902-gjj (ISSUE 2): this card deliberately gets NO
+    # status modifier — _stats_table_html() computes no verdict (it
+    # returns either the empty string or a plain data_table), and
+    # resolution_stats() returns counts and a percentage with no status
+    # field. No status function exists for this card anywhere in this
+    # module (confirmed from source, not assumed). Its neutral hairline
+    # is therefore the correct signal that it carries no pass/fail
+    # state — not an omission to "complete the pattern" with an accent
+    # border.
+    return '<section class="page-section page-section--nested"><h2 class="text-heading">%s</h2>%s</section>' % (
+        escape_html(i18n.t(STATS_SECTION_HEADING)), _stats_table_html(stats))
 
 
 # --- 260902-chc: D-12 reversal, recorded at the removal site ---------------
@@ -3123,17 +3199,11 @@ def render(ctx):
         + '<section class="%s"><h2 class="text-heading">%s</h2>%s</section>' % (
             registry_class, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)),
             _registry_section(registry_rows, now))
-        # quick task 260902-gjj (ISSUE 2): this card deliberately gets NO
-        # status modifier — _stats_table_html() computes no verdict (it
-        # returns either the empty string or a plain data_table), and
-        # resolution_stats() returns counts and a percentage with no
-        # status field. No status function exists for this card anywhere
-        # in this module (confirmed from source, not assumed). Its
-        # neutral hairline is therefore the correct signal that it
-        # carries no pass/fail state — not an omission to "complete the
-        # pattern" with an accent border.
-        + '<section class="page-section page-section--nested"><h2 class="text-heading">%s</h2>%s</section>' % (
-            escape_html(i18n.t(STATS_SECTION_HEADING)), _stats_table_html(stats))
+        # 22-03-PLAN.md Task 2 (B3): the stats card is now conditionally
+        # omitted entirely when empty — see _stats_section_html()'s own
+        # docstring for the "no status modifier" rule (quick task
+        # 260902-gjj, ISSUE 2) this preserves unchanged.
+        + _stats_section_html(stats)
     )
 
     return (

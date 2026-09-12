@@ -565,6 +565,19 @@ EXPECTED_CHECK_COUNT = 218
 # anomaly_active() failure, unrelated to this plan), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 223
+# 22-03-PLAN.md Task 2 (B3): +5 (resolution_stats() folds a NULL and an
+# unrecognised route_source into one "Other" bucket and the total
+# counts every seeded row; known-source-only rows still render exactly
+# the five _SOURCE_ROWS rows with no "Other" row, byte-identical to
+# before this task; the empty "How well we name flights" section is
+# entirely absent in both English and French; a 36-row fixture (30
+# known + 6 NULL) shows the full count, never the empty-state copy;
+# _NO_STATS_HEADING is an unformatted %d template with no hard-coded
+# window literal). 223 + 5 = 228, recomputed directly against the real
+# on-disk check(...) call count at execution time (227/228 pass — the
+# one documented pre-existing root-sandbox anomaly_active() failure,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 228
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -3496,7 +3509,11 @@ def main():
         tmp_empty = _mkstate("h-resolution-rate-tile-empty")
         try:
             rendered_empty = health_page.render(_ctx(tmp_empty))
-            if health_page._NO_STATS_HEADING not in rendered_empty:
+            # 22-03-PLAN.md Task 2 (B3): the no-stats copy is now the
+            # windowed heading, interpolated with RESOLUTION_WINDOW_DAYS
+            # — never the retired "No resolution data yet." literal.
+            expected_heading = health_page._NO_STATS_HEADING % health_page.RESOLUTION_WINDOW_DAYS
+            if expected_heading not in rendered_empty:
                 return False, "expected the no-stats empty-state heading with zero resolution history"
             return True, ""
         finally:
@@ -3619,6 +3636,151 @@ def main():
         "_SOURCE_ROWS has a fifth 'manual' entry, resolution_stats() folds a seeded 'manual' route_source "
         "count into the total and a labelled row, and render() shows a 'Manual' row (phase 13 D-02)",
         _source_rows_gains_fifth_manual_entry)
+
+    # ======================================================================
+    # 22-03-PLAN.md Task 2 (B3): count every row, bucket the unknown as
+    # "other", and stop rendering an empty "How well we name flights" card.
+    # ======================================================================
+
+    def _resolution_stats_counts_unknown_route_source_as_other():
+        # A NULL route_source (the field simply omitted, which
+        # record_runway_event() stores as NULL) and an explicit
+        # unrecognised string both land in the "Other" bucket, and the
+        # total counts every row in the window — never fewer than the
+        # database actually holds.
+        tmp = _mkstate("h-stats-other-bucket")
+        try:
+            now = _now()
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc001", "route_source": "fresh_hit"},
+                {"ts": _iso(now), "hex": "abc002"},  # NULL route_source
+                {"ts": _iso(now), "hex": "abc003", "route_source": "some_future_value"},
+            ])
+            with history_db.open_db(tmp) as conn:
+                stats = health_page.resolution_stats(conn, health_page.RESOLUTION_WINDOW_DAYS)
+            if stats["total"] != 3:
+                return False, "expected every seeded row to count toward the total, got %r" % (
+                    stats["total"],)
+            other_rows = [row for row in stats["rows"] if row[0] == health_page.i18n.t(
+                health_page._OTHER_SOURCE_LABEL)]
+            if len(other_rows) != 1 or other_rows[0][2] != 2:
+                return False, (
+                    "expected exactly one 'Other' row with count 2 (the NULL row plus the "
+                    "unrecognised-string row), got %r" % (other_rows,))
+
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if ">%s<" % health_page.i18n.t(health_page._OTHER_SOURCE_LABEL) not in rendered:
+                return False, "expected the rendered resolution-statistics table to contain an 'Other' row label"
+            if "No flight events recorded yet" in rendered:
+                return False, "expected no trace of the retired empty-state copy with real rows present"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "resolution_stats() counts a NULL and an unrecognised route_source into one 'Other' bucket, "
+        "the total equals every row in the window, and render() shows the 'Other' row (B3, "
+        "22-03-PLAN.md Task 2)",
+        _resolution_stats_counts_unknown_route_source_as_other)
+
+    def _resolution_stats_known_sources_alone_gain_no_other_row():
+        # With rows whose route_source is one of the five known values,
+        # the counts (and the absence of an 'Other' row) are unchanged
+        # from today — an ordinary render is byte-identical to before
+        # this task.
+        tmp = _mkstate("h-stats-known-only")
+        try:
+            now = _now()
+            events = []
+            for source in ("fresh_hit", "cache_hit", "airline_only", "miss", "manual"):
+                events.append({"ts": _iso(now), "hex": "abc123", "route_source": source})
+            _seed_runway_events(tmp, events)
+            with history_db.open_db(tmp) as conn:
+                stats = health_page.resolution_stats(conn, health_page.RESOLUTION_WINDOW_DAYS)
+            if len(stats["rows"]) != len(health_page._SOURCE_ROWS):
+                return False, (
+                    "expected exactly %d rows (no 'Other' row) when every seeded value is known, got %d"
+                    % (len(health_page._SOURCE_ROWS), len(stats["rows"])))
+            if stats["total"] != 5:
+                return False, "expected the total to still equal 5 for five known-source rows, got %r" % (
+                    stats["total"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "resolution_stats() with only known route_source values renders exactly the five _SOURCE_ROWS "
+        "rows and no 'Other' row — byte-identical to before this task (B3, 22-03-PLAN.md Task 2)",
+        _resolution_stats_known_sources_alone_gain_no_other_row)
+
+    def _stats_section_absent_when_empty_both_languages():
+        # With zero rows in the window, the whole "How well we name
+        # flights" section is absent from the rendered HTML — not a
+        # heading with an empty body — in both languages.
+        tmp = _mkstate("h-stats-section-absent")
+        try:
+            now = _now()
+            rendered_en = health_page.render(_ctx(tmp, now=_iso(now)))
+            if health_page.STATS_SECTION_HEADING in rendered_en:
+                return False, "expected zero occurrences of the stats heading with no rows in the window (en)"
+            try:
+                prefs.set_request_prefs(lang="fr")
+                rendered_fr = health_page.render(_ctx(tmp, now=_iso(now)))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            if health_page.i18n.t(health_page.STATS_SECTION_HEADING) in rendered_fr:
+                return False, "expected zero occurrences of the stats heading with no rows in the window (fr)"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the empty 'How well we name flights' section is entirely absent from the rendered page in "
+        "both English and French — never a heading over an empty body (B3, 22-03-PLAN.md Task 2)",
+        _stats_section_absent_when_empty_both_languages)
+
+    def _resolution_rate_tile_shows_36_rows_never_no_events():
+        # The audit's own seed (36 runway events over 17h) is exactly
+        # the kind of fixture the pre-fix bug would have silently
+        # undercounted if any of those rows carried an unrecognised
+        # route_source — reproduced here with a deliberate mix of known
+        # and unknown values summing to 36.
+        tmp = _mkstate("h-stats-36-rows")
+        try:
+            now = _now()
+            events = []
+            for i in range(30):
+                events.append({"ts": _iso(now), "hex": "abc%03d" % i, "route_source": "fresh_hit"})
+            for i in range(6):
+                events.append({"ts": _iso(now), "hex": "def%03d" % i})  # NULL route_source
+            _seed_runway_events(tmp, events)
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tile_slice = _tile_slice_by_caption(rendered, health_page.RESOLUTION_RATE_LABEL)
+            if "No flight events recorded yet" in tile_slice or "No flights in the last" in tile_slice:
+                return False, "expected a non-empty resolution-rate tile with 36 seeded rows in the window"
+            if ("over the last %d days, 36 events" % health_page.RESOLUTION_WINDOW_DAYS) not in tile_slice:
+                return False, "expected the window/event-count line to report all 36 seeded rows"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with 36 seeded rows (30 known, 6 with a NULL route_source) the resolution-rate tile shows a "
+        "non-zero count for all 36, never the empty-state copy (B3, 22-03-PLAN.md Task 2)",
+        _resolution_rate_tile_shows_36_rows_never_no_events)
+
+    def _no_stats_heading_derives_from_window_constant_not_hard_coded():
+        # The empty copy names the window and derives the number from
+        # RESOLUTION_WINDOW_DAYS, never a hard-coded "30" in the string
+        # itself.
+        if "%d" not in health_page._NO_STATS_HEADING:
+            return False, "expected _NO_STATS_HEADING to be an unformatted %d template"
+        if "30" in health_page._NO_STATS_HEADING:
+            return False, "expected _NO_STATS_HEADING to carry no hard-coded window literal"
+        formatted = health_page._NO_STATS_HEADING % health_page.RESOLUTION_WINDOW_DAYS
+        if str(health_page.RESOLUTION_WINDOW_DAYS) not in formatted:
+            return False, "expected the formatted heading to actually name the configured window"
+        return True, ""
+    check(
+        "_NO_STATS_HEADING is an unformatted %d template with no hard-coded window literal, and "
+        "interpolates RESOLUTION_WINDOW_DAYS at its one call site (B3, 22-03-PLAN.md Task 2)",
+        _no_stats_heading_derives_from_window_constant_not_hard_coded)
 
     def _registry_resolve_link_pairs_desktop_and_mobile_and_escapes_hostile_input():
         # phase 13 (D-10): each registry row's Resolve link is emitted
@@ -3999,6 +4161,12 @@ def main():
                 "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now),
                         "example_callsign": "ABC123"},
             })
+            # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics card
+            # is now omitted entirely when its window holds zero rows —
+            # this fixture seeds one so the card (and its "no status
+            # modifier" assertion below) still renders, unrelated to
+            # what this check is actually about.
+            _seed_runway_events(tmp, [{"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
 
             battery_state = health_page.battery_status([
@@ -4344,6 +4512,11 @@ def main():
             now = _now()
             _seed_device_health(tmp, [(_iso(now), 4200)])
             _seed_meta(tmp, **{history_db.META_SOURCE_FAULT: "True"})
+            # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics card
+            # is now omitted entirely when its window holds zero rows —
+            # seed one so both migrated cards still render, unrelated
+            # to what this check is actually about.
+            _seed_runway_events(tmp, [{"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
 
             if rendered.count("page-section--nested") != 2:
@@ -4596,10 +4769,24 @@ def main():
                             "seeded=%s: %r's own wrapper must carry no card class, got %r"
                             % (seeded, heading, wrapper_tag))
 
-                for heading in (
-                        health_page.BATTERY_SECTION_HEADING,
-                        health_page.UNRESOLVED_SECTION_HEADING,
-                        health_page.STATS_SECTION_HEADING):
+                # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics
+                # card is now omitted entirely (no heading at all) when
+                # its window holds zero rows — this unseeded=False
+                # fixture seeds no runway_events, so STATS_SECTION_
+                # HEADING is checked for ABSENCE instead of joining the
+                # loop below, which now covers only the two headings
+                # that still render unconditionally either way.
+                headings_to_check = [
+                    health_page.BATTERY_SECTION_HEADING,
+                    health_page.UNRESOLVED_SECTION_HEADING,
+                ]
+                if seeded:
+                    headings_to_check.append(health_page.STATS_SECTION_HEADING)
+                elif health_page.STATS_SECTION_HEADING in rendered:
+                    return False, (
+                        "seeded=False: expected the empty Resolution-statistics "
+                        "section to be entirely absent (B3, 22-03-PLAN.md Task 2)")
+                for heading in headings_to_check:
                     heading_marker_at = rendered.index(">%s" % heading)
                     section_open = rendered.rindex("<section class=\"", 0, heading_marker_at)
                     section_tag = rendered[section_open:rendered.index(">", section_open) + 1]
@@ -4743,10 +4930,24 @@ def main():
                                 "example_callsign": "JAF412"},
                     })
                 rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-                for heading in (
-                        health_page.BATTERY_SECTION_HEADING,
-                        health_page.UNRESOLVED_SECTION_HEADING,
-                        health_page.STATS_SECTION_HEADING):
+                # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics
+                # card is now omitted entirely (no heading at all) when
+                # its window holds zero rows — this loop's own
+                # unseeded pass seeds no runway_events, so
+                # STATS_SECTION_HEADING only joins the rhythm check
+                # when seeded (matching the fixture that actually
+                # renders it).
+                headings_to_check = [
+                    health_page.BATTERY_SECTION_HEADING,
+                    health_page.UNRESOLVED_SECTION_HEADING,
+                ]
+                if seeded:
+                    headings_to_check.append(health_page.STATS_SECTION_HEADING)
+                elif health_page.STATS_SECTION_HEADING in rendered:
+                    return False, (
+                        "seeded=False: expected the empty Resolution-statistics "
+                        "section to be entirely absent (B3, 22-03-PLAN.md Task 2)")
+                for heading in headings_to_check:
                     heading_at = rendered.index(">%s" % heading)
                     after = rendered[rendered.index("</h2>", heading_at) + len("</h2>"):]
                     if after.startswith("</section>"):
@@ -5179,8 +5380,17 @@ def main():
             now = _now()
             rendered_empty = health_page.render(_ctx(tmp_empty, now=_iso(now)))
             unresolved_at = rendered_empty.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
-            stats_at = rendered_empty.index(">%s</h2>" % health_page.STATS_SECTION_HEADING)
-            section_slice = rendered_empty[unresolved_at:stats_at]
+            # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics
+            # section is now entirely absent for this genuinely-empty
+            # fixture (no runway_events seeded at all), so the slice
+            # boundary this check used to anchor on its heading is
+            # retargeted to the end of the document — nothing renders
+            # after the registry card in this fixture any more.
+            if health_page.STATS_SECTION_HEADING in rendered_empty:
+                return False, (
+                    "expected the empty Resolution-statistics section to be entirely "
+                    "absent (B3, 22-03-PLAN.md Task 2)")
+            section_slice = rendered_empty[unresolved_at:]
             if "data-card" in section_slice:
                 return False, "expected no .data-cards/.data-card markup in an empty registry's section"
             if "filter-bar" in section_slice:
@@ -5488,10 +5698,17 @@ def main():
                 "health_page.ICON_BATTERY must be gone from the module namespace — quick task "
                 "260902-j8w removed the heading glyph and its now-unused constant together")
 
-        def _headings_carry_no_glyph(rendered, context_label):
+        def _headings_carry_no_glyph(rendered, context_label, expected_heading_count):
+            # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics
+            # heading is now omitted entirely when its window holds
+            # zero rows, so the fixed "always five" expectation this
+            # check used to pin is now an explicit per-fixture count —
+            # neither fixture below seeds a runway_event, so both are
+            # 4, not 5.
             heads = re.findall(r"<h2\b.*?</h2>", rendered, re.S)
-            if len(heads) != 5:
-                return "expected Health (%s) to still render five headings, got %d" % (context_label, len(heads))
+            if len(heads) != expected_heading_count:
+                return "expected Health (%s) to render %d headings, got %d" % (
+                    context_label, expected_heading_count, len(heads))
             for head in heads:
                 if "<svg" in head:
                     return "no Health heading may carry a glyph any more (%s), found one in: %r" % (
@@ -5518,7 +5735,7 @@ def main():
                     "expected exactly three glyphs to carry the tile tint class — every Health-signal "
                     "glyph on this page is now a tile glyph, with none left over — got %d" % (
                         empty_rendered.count(layout.STAT_TILE_ICON_CLASS)))
-            failure = _headings_carry_no_glyph(empty_rendered, "empty render")
+            failure = _headings_carry_no_glyph(empty_rendered, "empty render", 4)
             if failure:
                 return False, failure
 
@@ -5534,7 +5751,7 @@ def main():
                 return False, (
                     "expected exactly five <use occurrences on a seeded render (the same four plus "
                     "icon-search in the unresolved-prefixes filter bar), got %d" % seeded_rendered.count("<use"))
-            failure = _headings_carry_no_glyph(seeded_rendered, "seeded render")
+            failure = _headings_carry_no_glyph(seeded_rendered, "seeded render", 4)
             if failure:
                 return False, failure
             return True, ""
