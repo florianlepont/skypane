@@ -69,6 +69,10 @@ CATALOG = {
     "Running on schedule": "Fonctionne comme prévu",
     "A little behind": "Un peu en retard",
     "Has not run for a long time": "N’a pas fonctionné depuis longtemps",
+    # --- 22-03-PLAN.md Task 1 (B2): the pipeline's real never-ran state ---
+    "No detection yet": "Aucune détection pour l’instant.",
+    "The frame has not reported a flight since it started.":
+        "Le cadre n’a signalé aucun vol depuis son démarrage.",
     "Sources agree": "Les sources concordent",
     "Sources disagreed recently": "Les sources se sont contredites récemment",
     "Nothing to compare yet.": "Rien à comparer pour l’instant.",

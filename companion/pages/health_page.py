@@ -256,6 +256,15 @@ CORROBORATION_TILE_TITLE = "Corroboration"
 # history_db.META_LAST_DETECTION.
 LAST_DETECTION_LABEL = "Last aircraft detected"
 
+# 22-03-PLAN.md Task 1 (B2): the pipeline-never-ran detail sentence —
+# evidence only ("since it started"), never the state name, so it is
+# safe to publish verdict-free as compute_health_state()'s
+# "pipeline_detail_html" key (see _pipeline_timestamp_only()). Chosen
+# deliberately over concise_timestamp_html(None, now)'s own "no reading
+# yet" fallback, which is the battery module's borrowed vocabulary B2
+# is removing from this tile.
+PIPELINE_NEVER_RAN_DETAIL_TEXT = "The frame has not reported a flight since it started."
+
 # D-03/A-21, 19-01-PLAN.md: a short plain-sentence verdict for each stat
 # tile whose caption names a signal but whose border colour alone was the
 # only place the actual verdict lived (WCAG 1.4.1 — colour must never be
@@ -271,10 +280,21 @@ DEVICE_STATE_TEXT = {
     "warn": "Has not checked in for a while",
     "error": "Has not checked in for a long time",
 }
+# 22-03-PLAN.md Task 1 (B2): PIPELINE_STATE_TEXT alone grows a fourth
+# key, "off" — the pipeline's own genuine "never run at all" state,
+# never "warn". This reuses "off", the token this app's own dot
+# vocabulary already defines for a state that is not a problem
+# (companion/static/style.css's own comment on `.dot--off`: "'off' is
+# a neutral, everyday state (Screen off, Quiet hours off), never a
+# problem"), rather than inventing a new status token or a fifth dot
+# colour. DEVICE_STATE_TEXT/CORROBORATION_STATE_TEXT are deliberately
+# NOT widened the same way — see `_pipeline_never_ran()`'s own
+# docstring for why this is scoped to the pipeline signal alone.
 PIPELINE_STATE_TEXT = {
     "ok": "Running on schedule",
     "warn": "A little behind",
     "error": "Has not run for a long time",
+    "off": "No detection yet",
 }
 CORROBORATION_STATE_TEXT = {
     "ok": "Sources agree",
@@ -1348,7 +1368,12 @@ def collect_anomalies(
     anomalies = []
     if device_state != "ok":
         anomalies.append(i18n.t("Device check-in is stale."))
-    if pipeline_state != "ok":
+    # 22-03-PLAN.md Task 1 (B2): pipeline_state can now also be "off"
+    # (the pipeline has genuinely never run) — treated identically to
+    # "ok" here, never as an anomaly. A pipeline that has never run is
+    # not the same fact as one that is stale, and B2's whole point is
+    # that the first must never be reported as the second.
+    if pipeline_state not in ("ok", "off"):
         anomalies.append(i18n.t("Flight data is stale."))
     if battery_state != "ok":
         anomalies.append(i18n.t("Battery dropped abnormally."))
@@ -1392,6 +1417,12 @@ def overall_severity(
     `health_severity()` (both routed through this function) now report
     on two more real signals than the original four D-14 states —
     intentionally, not as an oversight of an earlier boundary.
+
+    22-03-PLAN.md Task 1 (B2): `pipeline_state` can now also be "off"
+    (the pipeline has genuinely never run) — the membership checks
+    above already treat it as healthy (neither "error" nor "warn"), so
+    no separate branch is needed here; see `collect_anomalies()`'s own
+    explicit "off" exemption for the parallel reasoning.
     """
     if source_fault:
         return "error"
@@ -1441,6 +1472,11 @@ def compute_health_state(state_dir, now=None):
     device_detail_html = _device_timestamp_only(inputs["device_health"], now)
     pipeline_html, pipeline_state = _pipeline_section(
         inputs["pipeline_ts"], inputs["last_detection"], now)
+    # 22-03-PLAN.md Task 1 (B2): pipeline_detail_html mirrors device_
+    # detail_html immediately above — see _device_timestamp_only()'s own
+    # docstring, now extended to describe both keys as one pattern.
+    pipeline_detail_html = _pipeline_timestamp_only(
+        inputs["pipeline_ts"], inputs["last_detection"], now)
     battery_html, battery_state = _battery_section(inputs["trend_rows"], inputs["daily_rows"])
     # 260902-l0b: computed from the same _battery_daily_series_usable()
     # predicate _battery_section() itself used above, so the heading
@@ -1478,6 +1514,7 @@ def compute_health_state(state_dir, now=None):
         "device_detail_html": device_detail_html,
         "pipeline_html": pipeline_html,
         "pipeline_state": pipeline_state,
+        "pipeline_detail_html": pipeline_detail_html,
         "battery_html": battery_html,
         "battery_state": battery_state,
         "battery_caption": battery_caption,
@@ -1682,6 +1719,12 @@ def _device_timestamp_only(device_health, now):
     Do NOT fix the duplication by editing either state-text dict's
     wording; the fix is this detail-only sibling existing at all.
 
+    22-03-PLAN.md Task 1 (B2): `_pipeline_timestamp_only()` below is
+    this exact same pattern's sibling for the pipeline signal, published
+    as `"pipeline_detail_html"` — one pattern, two signals, not a device-
+    only mechanism. Home reads whichever verdict-free key matches the
+    tile it renders, never `device_html`/`pipeline_html` wholesale.
+
     `_device_section()` is refactored below to call this helper for
     its own second half, so the two outputs can never drift out of
     sync with each other.
@@ -1754,9 +1797,91 @@ def _device_section(device_health, now, warn_s=None, error_s=None):
     return row, state
 
 
+def _pipeline_never_ran(pipeline_ts, last_detection):
+    """True when the flight pipeline has produced no evidence at all —
+    no `META_LAST_PIPELINE_RUN` timestamp AND no `META_LAST_DETECTION`
+    ever recorded (B2, 22-03-PLAN.md Task 1) — as distinct from a
+    pipeline that has run before and has since gone stale or overdue.
+
+    Scoped to the pipeline signal alone, not promoted onto
+    `staleness_status()` itself: the device path's own "never checked
+    in" case is a different, real warning (a provisioned device that
+    stops reporting IS a problem), so `_device_section()` above is left
+    exactly as it was — only the pipeline has a second, stronger fact
+    available (a corroborating "was anything ever detected, at all"
+    signal) that lets it tell "never ran" apart from "overdue" before
+    `staleness_status()` ever runs.
+    """
+    return not pipeline_ts and not last_detection
+
+
+def _pipeline_timestamp_only(pipeline_ts, last_detection, now):
+    """The verdict-free half of `_pipeline_section()`'s own return
+    value — mirrors `_device_timestamp_only()` (D-17) for the pipeline
+    signal. Published on the health-state dict as `compute_health_
+    state()`'s `"pipeline_detail_html"` key (22-03-PLAN.md Task 1, B2):
+    Home reads this instead of re-embedding `pipeline_html` wholesale,
+    so `PIPELINE_STATE_TEXT`'s verdict sentence is never rendered twice.
+    Do NOT fix any future duplication by editing `PIPELINE_STATE_TEXT`'s
+    wording — the fix is this detail-only sibling existing at all,
+    exactly the precedent `_device_timestamp_only()`'s own docstring
+    states.
+
+    When the pipeline has never run, this deliberately returns
+    `PIPELINE_NEVER_RAN_DETAIL_TEXT` rather than falling through to
+    `concise_timestamp_html(None, now)`'s own "no reading yet" fallback
+    — that fallback is the battery module's borrowed vocabulary leaking
+    into a tile that never mentions a reading (B2).
+    """
+    if pipeline_ts is _DB_UNAVAILABLE:
+        return _unavailable_block()
+    if _pipeline_never_ran(pipeline_ts, last_detection):
+        return escape_html(i18n.t(PIPELINE_NEVER_RAN_DETAIL_TEXT))
+    return layout.concise_timestamp_html(pipeline_ts, now)
+
+
 def _pipeline_section(pipeline_ts, last_detection, now):
     if pipeline_ts is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
+    if _pipeline_never_ran(pipeline_ts, last_detection):
+        # 22-03-PLAN.md Task 1 (B2): a pipeline that has genuinely never
+        # run is a different fact from one that is merely overdue —
+        # staleness_status() maps age=None to "warn", which is still
+        # correct for the general "is this signal stale" utility (see
+        # _pipeline_never_ran()'s own docstring for why the device path
+        # is left untouched), but this branch has a stronger fact
+        # available before staleness_status() ever runs. "off" is the
+        # app's own existing token for a state that is genuinely not a
+        # problem (companion/static/style.css's own comment on
+        # `.dot--off`: "'off' is a neutral, everyday state ... never a
+        # problem") — reused here rather than inventing a new status
+        # token or a fifth dot colour. `_STAT_TILE_BORDER_CLASSES`
+        # (companion/layout.py) has no "off" entry, so this state falls
+        # through to its own documented neutral "stat-tile--accent"
+        # default border, and collect_anomalies()/overall_severity()
+        # below treat "off" exactly like "ok" — never a warn.
+        #
+        # The dot itself is hand-built (not layout.status_dot()):
+        # status_dot()'s own state->class lookup has no "off" entry
+        # either, and its documented fallback for an unrecognised state
+        # is the WARN class — calling it here would print the literal
+        # "dot--warn" token this fix exists to remove. Reusing the
+        # already-styled `dot`/`dot--off` classes directly is the one
+        # entry point into that vocabulary this task needs.
+        state = "off"
+        verdict_html = (
+            '<p class="text-body widget-verdict">'
+            '<span class="dot dot--off"></span>%s</p>'
+            % escape_html(i18n.t(PIPELINE_STATE_TEXT["off"])))
+        detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
+        # No second "Last aircraft detected" line here: last_detection
+        # is falsy by this branch's own definition, and
+        # concise_timestamp_html(None, now)'s fallback is the exact
+        # battery-vocabulary leak (B2) this task removes — the single
+        # PIPELINE_NEVER_RAN_DETAIL_TEXT sentence above already says so
+        # honestly, without repeating it a second time in different
+        # words.
+        return verdict_html + '<p class="stat-tile__value">%s</p>' % detail, state
     age = layout.age_seconds(pipeline_ts, now)
     state = staleness_status(age, STALE_PIPELINE_WARN_S, STALE_PIPELINE_ERROR_S)
     # quick task 260901-tsa (finding C): same fix, same reasoning, as
@@ -1774,31 +1899,42 @@ def _pipeline_section(pipeline_ts, last_detection, now):
     # double-encode it and print the raw tags as visible text.
     verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
         i18n.t(PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"])))
-    detail = layout.concise_timestamp_html(pipeline_ts, now)
+    # 22-03-PLAN.md Task 1: delegated to _pipeline_timestamp_only() —
+    # in this branch pipeline_ts is truthy, so it is byte-identical to
+    # the bare layout.concise_timestamp_html(pipeline_ts, now) call this
+    # replaces — so the two halves can never drift out of sync with
+    # each other, the same reasoning _device_section() already applies.
+    detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
     row = verdict + '<p class="stat-tile__value">%s</p>' % detail
     # Quick task 260903-peo (UIR-14): a real second content line, not
     # filler — `last_detection` is history_db.META_LAST_DETECTION, read
     # inside the same atomic _read_health_inputs() snapshot pipeline_ts
     # already comes from (they feed this one section builder together).
-    # Rendered unconditionally, matching _device_section()'s own
-    # unconditional-render precedent above: concise_timestamp_html()
+    # Rendered unconditionally in THIS branch (pipeline_ts is truthy —
+    # the pipeline has run at least once), matching _device_section()'s
+    # own unconditional-render precedent above: concise_timestamp_html()
     # returns its escaped bare-string fallback ("no reading yet") when
-    # last_detection is falsy, so a fresh install that has never
+    # last_detection is falsy, so a pipeline that has run but never
     # detected an aircraft still gets an honest line, never an empty
-    # element or a dangling label. `.stat-tile__meta` supplies only the
-    # spacing (no new type tier); `.section-caption` is the existing
-    # "quieter second line" muted-colour tier this reuses rather than
-    # inventing a new one — the same file-wide 70% color-mix strength
-    # the battery heading's trailing span and the Unresolved-prefixes
-    # read-only note already compose onto their own sizing class
-    # (quick task 260902-gjj, ISSUE 1). `.battery-readout__detail` was
-    # considered and rejected here specifically: its class name embeds
-    # the literal substring `battery-readout`, which two pre-existing
-    # regression guards (`_single_reading_still_no_chart_no_readout_no_
-    # script`, `_empty_battery_history_stays_script_free`) assert is
-    # ABSENT from the page whenever there is no battery reading — this
-    # tile renders unconditionally, so that reuse would fire those
-    # guards as false positives on every fresh install.
+    # element or a dangling label. The genuinely-never-ran branch above
+    # is the one deliberate exception (22-03-PLAN.md Task 1, B2): there,
+    # last_detection is falsy BY DEFINITION, so this exact fallback
+    # would always fire — the battery-vocabulary leak this task removes
+    # — which is why that branch returns before reaching this line
+    # rather than rendering it and hiding the omission. `.stat-tile__meta`
+    # supplies only the spacing (no new type tier); `.section-caption` is
+    # the existing "quieter second line" muted-colour tier this reuses
+    # rather than inventing a new one — the same file-wide 70% color-mix
+    # strength the battery heading's trailing span and the
+    # Unresolved-prefixes read-only note already compose onto their own
+    # sizing class (quick task 260902-gjj, ISSUE 1). `.battery-readout__
+    # detail` was considered and rejected here specifically: its class
+    # name embeds the literal substring `battery-readout`, which two
+    # pre-existing regression guards (`_single_reading_still_no_chart_
+    # no_readout_no_script`, `_empty_battery_history_stays_script_free`)
+    # assert is ABSENT from the page whenever there is no battery
+    # reading — this tile renders unconditionally, so that reuse would
+    # fire those guards as false positives on every fresh install.
     detection_detail = layout.concise_timestamp_html(last_detection, now)
     detail_row = (
         '<p class="stat-tile__meta text-label section-caption">%s %s</p>'

@@ -551,6 +551,20 @@ EXPECTED_CHECK_COUNT = 213
 # pass — the one documented pre-existing root-sandbox anomaly_active()
 # failure, unrelated to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 218
+# 22-03-PLAN.md Task 1 (B2): +5 (a genuinely never-ran pipeline renders
+# the neutral verdict with the existing dot--off class, zero dot--warn,
+# zero battery-fallback text, no second detail line, and no anomaly
+# banner when the device is healthy; the same tile in French;
+# compute_health_state()'s pipeline_detail_html key is verdict-free for
+# both the never-ran and has-run cases, embedded once inside
+# pipeline_html; collect_anomalies()/overall_severity() treat
+# pipeline_state="off" exactly like "ok", while a genuinely stale
+# pipeline_state still counts). 218 + 5 = 223, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (222/223 pass — the one documented pre-existing root-sandbox
+# anomaly_active() failure, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 223
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -2561,17 +2575,180 @@ def main():
         if set(health_page.DEVICE_STATE_TEXT) != {"ok", "warn", "error"}:
             return False, "expected DEVICE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
                 set(health_page.DEVICE_STATE_TEXT),)
-        if set(health_page.PIPELINE_STATE_TEXT) != {"ok", "warn", "error"}:
-            return False, "expected PIPELINE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
+        # 22-03-PLAN.md Task 1 (B2): PIPELINE_STATE_TEXT alone gains a
+        # fourth key, "off" (the pipeline's genuine never-ran state) —
+        # DEVICE_STATE_TEXT/CORROBORATION_STATE_TEXT are deliberately
+        # unwidened, so their own assertions above/below are unchanged.
+        if set(health_page.PIPELINE_STATE_TEXT) != {"ok", "warn", "error", "off"}:
+            return False, "expected PIPELINE_STATE_TEXT's keys to be exactly ok/warn/error/off, got %r" % (
                 set(health_page.PIPELINE_STATE_TEXT),)
         if set(health_page.CORROBORATION_STATE_TEXT) != {"ok", "warn"}:
             return False, "expected CORROBORATION_STATE_TEXT's keys to be exactly ok/warn, got %r" % (
                 set(health_page.CORROBORATION_STATE_TEXT),)
         return True, ""
     check(
-        "DEVICE_STATE_TEXT/PIPELINE_STATE_TEXT each have exactly the ok/warn/error key set and "
-        "CORROBORATION_STATE_TEXT has exactly ok/warn (it has no error state) (D-03/A-21)",
+        "DEVICE_STATE_TEXT has exactly ok/warn/error, PIPELINE_STATE_TEXT has exactly "
+        "ok/warn/error/off (B2, 22-03-PLAN.md Task 1) and CORROBORATION_STATE_TEXT has exactly "
+        "ok/warn (it has no error state) (D-03/A-21)",
         _state_text_dicts_have_expected_key_sets)
+
+    # ======================================================================
+    # 22-03-PLAN.md Task 1 (B2): a real neutral never-ran pipeline state,
+    # and a verdict-free pipeline_detail_html for Home.
+    # ======================================================================
+
+    def _pipeline_never_ran_renders_neutral_no_warn_no_banner():
+        # A pipeline that has genuinely never run (no
+        # META_LAST_PIPELINE_RUN, no META_LAST_DETECTION at all) renders
+        # the neutral "No detection yet" verdict with the existing
+        # dot--off class, zero occurrences of the warn dot class, and
+        # zero occurrences of the battery module's "no reading yet"
+        # fallback — proven against a real health_page.render() call,
+        # with the device seeded healthy so only the pipeline signal is
+        # under test.
+        tmp = _mkstate("h-pipeline-never-ran")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tile_slice = _tile_slice_by_caption(rendered, health_page.PIPELINE_FRESHNESS_LABEL)
+            expected_verdict_html = (
+                '<p class="text-body widget-verdict">'
+                '<span class="dot dot--off"></span>%s</p>'
+                % health_page.escape_html(health_page.PIPELINE_STATE_TEXT["off"]))
+            if expected_verdict_html not in tile_slice:
+                return False, (
+                    "expected the never-ran neutral verdict paragraph, got tile %r" % (tile_slice,))
+            if "dot--warn" in tile_slice:
+                return False, "expected zero dot--warn occurrences in a never-ran pipeline tile"
+            if layout.escape_html("no reading yet") in tile_slice:
+                return False, "expected zero battery-fallback occurrences in a never-ran pipeline tile"
+            if health_page.LAST_DETECTION_LABEL in tile_slice:
+                return False, (
+                    "expected no second 'Last aircraft detected' line in a never-ran pipeline tile — "
+                    "last_detection is falsy by definition here, so that line would always render "
+                    "the battery fallback")
+            if health_page.ANOMALY_BANNER_TEXT in rendered:
+                return False, "expected no anomaly banner for a never-ran pipeline with a healthy device"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a genuinely never-ran pipeline (no META_LAST_PIPELINE_RUN, no META_LAST_DETECTION) renders "
+        "the neutral verdict with the existing dot--off class, zero dot--warn, zero battery-fallback "
+        "text, no second detail line, and no anomaly banner when the device is healthy (B2, "
+        "22-03-PLAN.md Task 1)",
+        _pipeline_never_ran_renders_neutral_no_warn_no_banner)
+
+    def _pipeline_never_ran_renders_neutral_in_french():
+        tmp = _mkstate("h-pipeline-never-ran-fr")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            try:
+                prefs.set_request_prefs(lang="fr")
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            tile_slice = _tile_slice_by_caption(rendered, "Dernière mise à jour des données de vol")
+            if "Aucune détection pour l’instant." not in tile_slice:
+                return False, "expected the French never-ran verdict text in the pipeline tile"
+            if "dot--warn" in tile_slice:
+                return False, (
+                    "expected zero dot--warn occurrences in a never-ran pipeline tile under French")
+            if "aucune mesure pour l’instant" in tile_slice:
+                return False, (
+                    "expected zero French battery-fallback occurrences in a never-ran pipeline tile")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the same never-ran pipeline tile reads in French — 'Aucune détection pour l’instant.', "
+        "dot--off, zero dot--warn, zero French battery-fallback text (B2, 22-03-PLAN.md Task 1)",
+        _pipeline_never_ran_renders_neutral_in_french)
+
+    def _compute_health_state_carries_pipeline_detail_html_never_ran():
+        tmp = _mkstate("pipeline-detail-html-never-ran")
+        try:
+            now = _now()
+            state = health_page.compute_health_state(tmp, now=_iso(now))
+            if "pipeline_detail_html" not in state:
+                return False, "expected a pipeline_detail_html key on compute_health_state()'s dict"
+            detail_only = state["pipeline_detail_html"]
+            if "widget-verdict" in detail_only:
+                return False, "expected pipeline_detail_html to carry no widget-verdict class"
+            for verdict_text in health_page.PIPELINE_STATE_TEXT.values():
+                if verdict_text in detail_only:
+                    return False, (
+                        "expected pipeline_detail_html to carry no PIPELINE_STATE_TEXT verdict "
+                        "text, found %r" % (verdict_text,))
+            expected = health_page.escape_html(
+                health_page.i18n.t(health_page.PIPELINE_NEVER_RAN_DETAIL_TEXT))
+            if detail_only != expected:
+                return False, (
+                    "expected pipeline_detail_html to equal the never-ran detail sentence exactly, "
+                    "got %r" % (detail_only,))
+            if detail_only not in state["pipeline_html"]:
+                return False, (
+                    "expected pipeline_detail_html to be the exact verdict-free fragment "
+                    "embedded inside pipeline_html")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "compute_health_state()'s pipeline_detail_html key, for a never-ran pipeline, is the bare "
+        "PIPELINE_NEVER_RAN_DETAIL_TEXT sentence — no widget-verdict class, no PIPELINE_STATE_TEXT "
+        "verdict text — embedded once inside pipeline_html (B2, 22-03-PLAN.md Task 1)",
+        _compute_health_state_carries_pipeline_detail_html_never_ran)
+
+    def _compute_health_state_carries_pipeline_detail_html_has_run():
+        tmp = _mkstate("pipeline-detail-html-has-run")
+        try:
+            now = _now()
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _ago(120)})
+            state = health_page.compute_health_state(tmp, now=_iso(now))
+            detail_only = state["pipeline_detail_html"]
+            if "widget-verdict" in detail_only:
+                return False, "expected pipeline_detail_html to carry no widget-verdict class"
+            for verdict_text in health_page.PIPELINE_STATE_TEXT.values():
+                if verdict_text in detail_only:
+                    return False, (
+                        "expected pipeline_detail_html to carry no PIPELINE_STATE_TEXT verdict "
+                        "text, found %r" % (verdict_text,))
+            if detail_only not in state["pipeline_html"]:
+                return False, (
+                    "expected pipeline_detail_html to be the exact verdict-free fragment "
+                    "embedded inside pipeline_html")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "compute_health_state()'s pipeline_detail_html key, once the pipeline has run at least once, "
+        "is verdict-free and embedded once inside pipeline_html, mirroring device_detail_html (B2, "
+        "22-03-PLAN.md Task 1)",
+        _compute_health_state_carries_pipeline_detail_html_has_run)
+
+    def _collect_anomalies_and_overall_severity_treat_pipeline_off_as_healthy():
+        if health_page.collect_anomalies("ok", "off", "ok", False) != []:
+            return False, (
+                "expected collect_anomalies() to treat pipeline_state='off' as no anomaly (B2)")
+        if health_page.overall_severity("ok", "off", "ok", False) != "ok":
+            return False, (
+                "expected overall_severity() to treat pipeline_state='off' as healthy (B2)")
+        # A genuinely stale pipeline (any other non-'ok' value) still
+        # counts, proving 'off' is a real exemption, not an accidental
+        # membership-check bug that swallowed every non-'ok' value.
+        if health_page.collect_anomalies("ok", "warn", "ok", False) != [
+                health_page.i18n.t("Flight data is stale.")]:
+            return False, "expected collect_anomalies() to still flag a genuinely stale pipeline"
+        if health_page.overall_severity("ok", "warn", "ok", False) != "warn":
+            return False, "expected overall_severity() to still warn for a genuinely stale pipeline"
+        return True, ""
+    check(
+        "collect_anomalies()/overall_severity() treat pipeline_state='off' (never ran) exactly like "
+        "'ok' — never an anomaly, never a warn — while a genuinely stale pipeline_state still is (B2, "
+        "22-03-PLAN.md Task 1)",
+        _collect_anomalies_and_overall_severity_treat_pipeline_off_as_healthy)
 
     def _single_reading_still_no_chart_no_readout_no_script():
         if health_page.battery_sparkline_svg(
