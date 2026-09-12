@@ -52,7 +52,8 @@ CATALOG = {
     "Connect calendar": "Connecter le calendrier",
     "Replace the feed URL": "Remplacer l’URL du flux",
 
-    # --- Simple mode's collapsed disclosure sentence (D-30) -------------
-    "It only colours a flight already on screen.":
-        "Il ne fait que colorer un vol déjà affiché à l’écran.",
+    # D-17 (21-01-PLAN.md Task 2): the collapsed disclosure sentence's
+    # French entry is deleted in this same commit as its English
+    # constant (CALENDAR_HOW_IT_WORKS_SIMPLE, companion/pages/
+    # config_page.py) — the display mode that selected it is gone.
 }

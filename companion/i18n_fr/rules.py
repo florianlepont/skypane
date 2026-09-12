@@ -56,8 +56,10 @@ CATALOG = {
     "Remove": "Retirer",
     "Remove this rule?": "Retirer cette règle ?",
 
-    # --- Simple mode's collapsed disclosure sentence (D-30) -------------
-    "The most specific match wins.": "La règle la plus précise l’emporte.",
+    # D-17 (21-01-PLAN.md Task 2): the collapsed disclosure sentence's
+    # French entry is deleted in this same commit as its English
+    # constant (RULES_HOW_RULES_COMBINE_SIMPLE, companion/pages/
+    # config_page.py) — the display mode that selected it is gone.
 
     # --- Suggestion chips (D-15e) ----------------------------------------
     "Recent:": "Récents :",

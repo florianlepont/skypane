@@ -355,6 +355,16 @@ EXPECTED_CHECK_COUNT = 107  # Polish fix 5 (Registry labels shown in
 # "Piste 3 (07/25)" — with no English label leaking in). 106 + 1 = 107,
 # recomputed directly against the real on-disk check(...) call count
 # at execution time (107/107 pass), not trusted from arithmetic alone.
+# 21-01-PLAN.md Task 2 (D-17): -2. _airlines_simple_mode_render_has_no_
+# toggle_or_caption and _airlines_simple_mode_and_edit_mode_still_
+# renders_lightbox_forms are deleted outright (the toggle's display-
+# mode gate no longer exists; existing default/edit_mode=True coverage
+# is unaffected). _home_status_card_health_link_gated_by_simple_mode
+# is rewritten in place as _home_status_card_always_shows_health_link
+# (net 0 for that one). 107 - 2 = 105, recomputed directly against the
+# real on-disk check(...) call count at execution time (105/105 pass),
+# not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 105
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -2989,40 +2999,13 @@ def main():
         "back to /airlines with no query (D-36, 20-10-PLAN.md Task 1)",
         _airlines_edit_mode_render_shows_done_toggle_with_no_query)
 
-    def _airlines_simple_mode_render_has_no_toggle_or_caption():
-        rendered = airlines_page.render({"simple_mode": True})
-        if "airlines-edit-toggle" in rendered:
-            return False, "expected no airlines-edit-toggle anchor when simple_mode is on (D-30)"
-        if airlines_page.EDIT_TOGGLE_CAPTION in rendered:
-            return False, "expected no explanatory sentence when simple_mode is on (D-30)"
-        return True, ""
-    check(
-        "a render with simple_mode=True contains no airlines-edit-toggle anchor and no "
-        "explanatory sentence (D-30, 20-10-PLAN.md Task 1)",
-        _airlines_simple_mode_render_has_no_toggle_or_caption)
-
-    def _airlines_simple_mode_and_edit_mode_still_renders_lightbox_forms():
-        # D-30: simple mode hides only the entry point (this toggle),
-        # never the ?edit=1-gated forms it links to - typing the URL by
-        # hand must still work, so this is a pinned check, not an
-        # assumption.
-        rendered = airlines_page.render({"simple_mode": True, "edit_mode": True})
-        if "airlines-edit-toggle" in rendered:
-            return False, "expected no airlines-edit-toggle anchor even with edit_mode=True, when simple_mode is on"
-        for token in (
-                airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
-                airlines_page.LIGHTBOX_DELETE_CLASS):
-            if token not in rendered:
-                return False, (
-                    "expected the %r edit-only form to still render with simple_mode=True, "
-                    "edit_mode=True" % (token,))
-        return True, ""
-    check(
-        "a render with simple_mode=True AND edit_mode=True hides the toggle but still renders "
-        "every edit-only lightbox form - the ?edit=1 gating stays untouched by simple mode "
-        "(D-30, 20-10-PLAN.md Task 1)",
-        _airlines_simple_mode_and_edit_mode_still_renders_lightbox_forms)
+    # D-17 (21-01-PLAN.md Task 2): _airlines_simple_mode_render_has_no_
+    # toggle_or_caption and _airlines_simple_mode_and_edit_mode_still_
+    # renders_lightbox_forms are deleted — the display-mode gate they
+    # exercised on airlines_page._edit_toggle_html() is deleted (D-20:
+    # the toggle is unconditional now). Coverage that the toggle
+    # renders by default is unaffected and stays live in
+    # _airlines_default_render_has_one_change_pictures_toggle above.
 
     def _airlines_french_render_shows_translated_toggle_labels():
         import companion.prefs as _prefs
@@ -3843,23 +3826,24 @@ def main():
         "at all when either the check-in or the wake interval is unknown (D-17)",
         _home_status_card_headline_next_update_or_expected_since)
 
-    def _home_status_card_health_link_gated_by_simple_mode():
+    def _home_status_card_always_shows_health_link():
+        """D-17 (21-01-PLAN.md Task 2): the display-mode gate that used
+        to hide this link is deleted — replaces the deleted
+        _home_status_card_health_link_gated_by_simple_mode, which
+        tested that now-removed mechanism."""
         from companion.pages import home_page
         ctx = {
             "health_state": {}, "device_config": {},
             "state_dir": "/tmp/skypane-no-such-state-dir", "now": "2026-08-27T12:00:00+00:00",
         }
-        full_mode_rendered = home_page._status_card_html(dict(ctx, simple_mode=False))
-        simple_mode_rendered = home_page._status_card_html(dict(ctx, simple_mode=True))
-        if home_page.HEALTH_LINK_TEXT not in full_mode_rendered:
-            return False, "expected the Health link when simple_mode is off"
-        if home_page.HEALTH_LINK_TEXT in simple_mode_rendered:
-            return False, "expected no Health link when simple_mode is on (D-30)"
+        rendered = home_page._status_card_html(ctx)
+        if home_page.HEALTH_LINK_TEXT not in rendered:
+            return False, "expected the Health link to always render (D-17)"
         return True, ""
     check(
-        "the status card's 'See details on Health' link is present with simple_mode off and "
-        "absent with it on (D-30)",
-        _home_status_card_health_link_gated_by_simple_mode)
+        "a default Home render always carries the status card's 'See details on Health' "
+        "link (D-17)",
+        _home_status_card_always_shows_health_link)
 
     def _home_page_render_degrades_with_nothing():
         from companion.pages import home_page
