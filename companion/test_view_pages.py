@@ -292,6 +292,38 @@ EXPECTED_CHECK_COUNT = 92  # 20-06-PLAN.md Task 3 (D-05/D-09): +2 (90 -> 92)
 # figure only when both a check-in and an interval are known). 83 + 2 =
 # 85, recomputed directly against the real on-disk check(...) call count
 # at execution time (85/85 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 97  # 20-10-PLAN.md Task 1 (D-36): +5 (92 -> 97) — a
+# default render carries exactly one "Change pictures" toggle linking to
+# /airlines?edit=1 plus its explanatory sentence, an edit_mode=True render
+# shows "Done" linking back to /airlines with no query, a simple_mode=True
+# render carries neither the toggle nor its sentence, a simple_mode=True
+# AND edit_mode=True render still carries every edit-only lightbox form
+# (D-30's presentation-not-access-control gate proven directly, not just
+# asserted), and a French render shows "Modifier les images"/"Terminé".
+# Recomputed directly against the real on-disk check(...) call count at
+# execution time (97/97 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 100  # 20-10-PLAN.md Task 2 (D-05): +3 (97 -> 100) —
+# a French render translates the page title, filter label, lightbox
+# aria-label and toggle text while a real curated airline name stays
+# untranslated data; a fully-seeded French render (gap strip + resolve
+# panel) shows every new French string with no English leaking in, the
+# seeded example callsign stays untranslated, and the identical seeded
+# render under the default language still carries every pre-existing
+# English needle; and every key of companion/i18n_fr/airlines.py is a
+# key of the merged CATALOG. Recomputed directly against the real
+# on-disk check(...) call count at execution time (100/100 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 103  # 20-10-PLAN.md Task 3 (D-05): +3 (100 -> 103) —
+# a French render of Flights translates the page title, column headers
+# and filter label while a seeded callsign stays untranslated data; a
+# fully-seeded French render shows the direction words, the unresolved-
+# airline fallback, the no-callsign note, the disclosure summary and the
+# filter's Clear button with no English leaking in, the seeded callsign
+# stays untranslated, and the identical seeded render under the default
+# language still carries every pre-existing English needle; and every
+# key of companion/i18n_fr/flights.py is a key of the merged CATALOG.
+# Recomputed directly against the real on-disk check(...) call count at
+# execution time (103/103 pass), not trusted from arithmetic alone.
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -2786,6 +2818,185 @@ def main():
         _airlines_edit_mode_render_has_exactly_one_of_each_edit_only_form)
 
     # ======================================================================
+    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle -
+    # gated on simple_mode, never touching D-22's own ctx["edit_mode"]
+    # gate on the lightbox forms checked just above.
+    # ======================================================================
+
+    def _airlines_default_render_has_one_change_pictures_toggle():
+        rendered = airlines_page.render({})
+        count = rendered.count('class="airlines-edit-toggle"')
+        if count != 1:
+            return False, "expected exactly one airlines-edit-toggle anchor in a default render, got %d" % count
+        if 'href="/airlines?edit=1"' not in rendered:
+            return False, "expected the toggle's href to be /airlines?edit=1 in a default render"
+        if airlines_page.CHANGE_PICTURES_TEXT not in rendered:
+            return False, "expected the toggle's text to read 'Change pictures'"
+        if airlines_page.EDIT_TOGGLE_CAPTION not in rendered:
+            return False, "expected the explanatory sentence under the toggle"
+        return True, ""
+    check(
+        "a default airlines_page.render({}) call contains exactly one airlines-edit-toggle anchor, "
+        "linking to /airlines?edit=1 and reading 'Change pictures', plus its explanatory sentence "
+        "(D-36, 20-10-PLAN.md Task 1)",
+        _airlines_default_render_has_one_change_pictures_toggle)
+
+    def _airlines_edit_mode_render_shows_done_toggle_with_no_query():
+        rendered = airlines_page.render({"edit_mode": True})
+        count = rendered.count('class="airlines-edit-toggle"')
+        if count != 1:
+            return False, "expected exactly one airlines-edit-toggle anchor under edit_mode=True, got %d" % count
+        if 'href="/airlines"' not in rendered or 'href="/airlines?edit=1"' in rendered:
+            return False, "expected the toggle's href to be /airlines (no query) under edit_mode=True"
+        if airlines_page.DONE_TEXT not in rendered:
+            return False, "expected the toggle's text to read 'Done' under edit_mode=True"
+        return True, ""
+    check(
+        "airlines_page.render({\"edit_mode\": True}) shows the toggle reading 'Done' and linking "
+        "back to /airlines with no query (D-36, 20-10-PLAN.md Task 1)",
+        _airlines_edit_mode_render_shows_done_toggle_with_no_query)
+
+    def _airlines_simple_mode_render_has_no_toggle_or_caption():
+        rendered = airlines_page.render({"simple_mode": True})
+        if "airlines-edit-toggle" in rendered:
+            return False, "expected no airlines-edit-toggle anchor when simple_mode is on (D-30)"
+        if airlines_page.EDIT_TOGGLE_CAPTION in rendered:
+            return False, "expected no explanatory sentence when simple_mode is on (D-30)"
+        return True, ""
+    check(
+        "a render with simple_mode=True contains no airlines-edit-toggle anchor and no "
+        "explanatory sentence (D-30, 20-10-PLAN.md Task 1)",
+        _airlines_simple_mode_render_has_no_toggle_or_caption)
+
+    def _airlines_simple_mode_and_edit_mode_still_renders_lightbox_forms():
+        # D-30: simple mode hides only the entry point (this toggle),
+        # never the ?edit=1-gated forms it links to - typing the URL by
+        # hand must still work, so this is a pinned check, not an
+        # assumption.
+        rendered = airlines_page.render({"simple_mode": True, "edit_mode": True})
+        if "airlines-edit-toggle" in rendered:
+            return False, "expected no airlines-edit-toggle anchor even with edit_mode=True, when simple_mode is on"
+        for token in (
+                airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
+                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
+                airlines_page.LIGHTBOX_DELETE_CLASS):
+            if token not in rendered:
+                return False, (
+                    "expected the %r edit-only form to still render with simple_mode=True, "
+                    "edit_mode=True" % (token,))
+        return True, ""
+    check(
+        "a render with simple_mode=True AND edit_mode=True hides the toggle but still renders "
+        "every edit-only lightbox form - the ?edit=1 gating stays untouched by simple mode "
+        "(D-30, 20-10-PLAN.md Task 1)",
+        _airlines_simple_mode_and_edit_mode_still_renders_lightbox_forms)
+
+    def _airlines_french_render_shows_translated_toggle_labels():
+        import companion.prefs as _prefs
+        try:
+            _prefs.set_request_prefs(lang="fr")
+            rendered_closed = airlines_page.render({})
+            rendered_open = airlines_page.render({"edit_mode": True})
+        finally:
+            _prefs.set_request_prefs(lang="en")
+        if "Modifier les images" not in rendered_closed:
+            return False, "expected the French 'Modifier les images' label in a closed, French render"
+        if "Terminé" not in rendered_open:
+            return False, "expected the French 'Terminé' label in an open, French render"
+        return True, ""
+    check(
+        "a French render of Airlines shows 'Modifier les images' when closed and 'Terminé' when "
+        "open (D-05, D-09, D-36, 20-10-PLAN.md Task 1)",
+        _airlines_french_render_shows_translated_toggle_labels)
+
+    # ======================================================================
+    # 20-10-PLAN.md Task 2 (D-05): the rest of Airlines through i18n.t(),
+    # with companion/i18n_fr/airlines.py's own French catalogue.
+    # ======================================================================
+
+    def _airlines_french_render_translates_headings_not_data():
+        import companion.prefs as _prefs
+        try:
+            _prefs.set_request_prefs(lang="fr")
+            rendered = airlines_page.render({})
+        finally:
+            _prefs.set_request_prefs(lang="en")
+        for needle in (
+                ">Compagnies<", "Filtrer par compagnie ou indicatif",
+                "Illustration de la compagnie", "Modifier les images"):
+            if needle not in rendered:
+                return False, "expected the French %r in a French Airlines render" % (needle,)
+        if "Air France" not in rendered:
+            return False, "expected the seeded/curated airline name 'Air France' to stay untranslated data"
+        return True, ""
+    check(
+        "a French render of Airlines shows the French page title, filter label, lightbox aria-label "
+        "and toggle text, while a real airline name ('Air France') stays untranslated data (D-05, "
+        "20-10-PLAN.md Task 2)",
+        _airlines_french_render_translates_headings_not_data)
+
+    def _airlines_full_seeded_render_french_end_to_end():
+        import companion.prefs as _prefs
+        tmp = _mkstate("airlines-fr")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 5, "first_seen": "2026-01-01T00:00:00+00:00",
+                    "last_seen": "2026-01-02T00:00:00+00:00", "example_callsign": "XYZ123",
+                },
+            })
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered_fr = airlines_page.render({"state_dir": tmp})
+                resolve_fr = airlines_page.render(
+                    {"state_dir": tmp, "resolve_prefix": "XYZ", "edit_mode": True})
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            for needle in (
+                    ">Compagnies<", "Compagnies non identifiées",
+                    "Le cadre a vu ces indicatifs mais ne connaît pas la compagnie",
+                    "Modifier les images"):
+                if needle not in rendered_fr:
+                    return False, "expected the French %r in the French Airlines render" % (needle,)
+            for needle in (
+                    "Identifier un vol non reconnu", "Nom de la compagnie",
+                    "Enregistrer le nom de la compagnie"):
+                if needle not in resolve_fr:
+                    return False, "expected the French %r in the French resolve-panel render" % (needle,)
+            if "XYZ123" not in rendered_fr and "XYZ123" not in resolve_fr:
+                return False, "expected the seeded example callsign to stay untranslated data"
+
+            rendered_en = airlines_page.render({"state_dir": tmp})
+            for needle in (
+                    '<h1 class="page-title">Airlines</h1>', airlines_page.GAP_STRIP_HEADING,
+                    airlines_page.GAP_STRIP_BODY, airlines_page.CHANGE_PICTURES_TEXT):
+                if needle not in rendered_en:
+                    return False, "expected the English %r in the default-language Airlines render" % (
+                        needle,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a fully-seeded Airlines render under lang='fr' shows the French gap-strip heading/sentence, "
+        "toggle label and resolve-panel copy with no English leaking in, the seeded example callsign "
+        "stays untranslated data, and the identical seeded render under the default language still "
+        "carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 2)",
+        _airlines_full_seeded_render_french_end_to_end)
+
+    def _airlines_catalog_keys_all_present_in_merged_catalog():
+        import companion.i18n_fr as i18n_fr
+        import companion.i18n_fr.airlines as i18n_fr_airlines
+        missing = [k for k in i18n_fr_airlines.CATALOG if k not in i18n_fr.CATALOG]
+        if missing:
+            return False, "keys missing from the merged CATALOG: %r" % (missing,)
+        return True, ""
+    check(
+        "every key in companion/i18n_fr/airlines.py's own CATALOG is also a key of the merged "
+        "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up "
+        "(20-10-PLAN.md Task 2)",
+        _airlines_catalog_keys_all_present_in_merged_catalog)
+
+    # ======================================================================
     # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's
     # Server & data anchor (D-21).
     # ======================================================================
@@ -3025,6 +3236,102 @@ def main():
         "the rendered History page contains no prefix-registry table and no element carrying the "
         "registry table's own headers",
         _no_prefix_registry_duplicated_on_history)
+
+    # ======================================================================
+    # 20-10-PLAN.md Task 3 (D-05): the Flights page through i18n.t(), with
+    # companion/i18n_fr/flights.py's own French catalogue.
+    # ======================================================================
+
+    def _flights_french_render_translates_headings_not_data():
+        import companion.prefs as _prefs
+        tmp = _mkstate("flights-fr-headings")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "aaa111", "callsign": "FLT1",
+                 "airline": "AFR", "origin": "LFPO", "destination": "LFPG",
+                 "confirmed_state": "departing", "corroborated": "True"},
+            ])
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        for needle in (
+                ">Vols<", "Modèle", "Trajet", "Sens", "Indicatif",
+                "Filtrer par indicatif ou code hex"):
+            if needle not in rendered:
+                return False, "expected the French %r in a French Flights render" % (needle,)
+        if "FLT1" not in rendered:
+            return False, "expected the seeded callsign 'FLT1' to stay untranslated data"
+        return True, ""
+    check(
+        "a French render of Flights shows the French page title, column headers and filter label, "
+        "while a seeded callsign stays untranslated data (D-05, 20-10-PLAN.md Task 3)",
+        _flights_french_render_translates_headings_not_data)
+
+    def _flights_full_seeded_render_french_end_to_end():
+        import companion.prefs as _prefs
+        tmp = _mkstate("flights-fr-full")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "aaa111", "callsign": "FLT1",
+                 "airline": None, "confirmed_state": "departing", "corroborated": "True"},
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "bbb222", "callsign": "",
+                 "airline": None, "confirmed_state": "arriving", "corroborated": "False"},
+            ])
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered_fr = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            for needle in (
+                    ">Vols<", "Compagnie inconnue", "aucun indicatif",
+                    "Au départ", "À l’arrivée", "Modèle", "Trajet", "Sens",
+                    "Plus de détails", "Effacer"):
+                if needle not in rendered_fr:
+                    return False, "expected the French %r in the French Flights render" % (needle,)
+            for english_only in (
+                    "Airline unknown", "no callsign", "Departing", "Arriving",
+                    ">Type<", ">Route<", ">State<"):
+                if english_only in rendered_fr:
+                    return False, "expected no English %r leaking into the French render" % (
+                        english_only,)
+            if "FLT1" not in rendered_fr:
+                return False, "expected the seeded callsign to stay untranslated data"
+
+            rendered_en = history_page.render(_history_ctx(tmp))
+            for needle in (
+                    '<h1 class="page-title">Flights</h1>', history_page.AIRLINE_FALLBACK_TEXT,
+                    history_page.NO_CALLSIGN_NOTE_TEXT, "Departing", "Arriving",
+                    ">Type<", ">Route<", ">State<"):
+                if needle not in rendered_en:
+                    return False, "expected the English %r in the default-language Flights render" % (
+                        needle,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a fully-seeded Flights render under lang='fr' shows every new French string (column "
+        "headers, direction words, the unresolved-airline fallback, the no-callsign note, the "
+        "disclosure summary and the filter's Clear button) with no English leaking in, the seeded "
+        "callsign stays untranslated data, and the identical seeded render under the default "
+        "language still carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 3)",
+        _flights_full_seeded_render_french_end_to_end)
+
+    def _flights_catalog_keys_all_present_in_merged_catalog():
+        import companion.i18n_fr as i18n_fr
+        import companion.i18n_fr.flights as i18n_fr_flights
+        missing = [k for k in i18n_fr_flights.CATALOG if k not in i18n_fr.CATALOG]
+        if missing:
+            return False, "keys missing from the merged CATALOG: %r" % (missing,)
+        return True, ""
+    check(
+        "every key in companion/i18n_fr/flights.py's own CATALOG is also a key of the merged "
+        "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up "
+        "(20-10-PLAN.md Task 3)",
+        _flights_catalog_keys_all_present_in_merged_catalog)
 
     # ======================================================================
     # Section 3: one end-to-end check - a real companion/app.py subprocess,
