@@ -120,4 +120,5 @@ CATALOG = {
     # --- The unresolved-airline link to Health (D-21) --------------------
     "View unresolved prefixes": "Voir les préfixes non résolus",
     "Airline unknown": "Compagnie inconnue",
+    "Route unavailable": "Trajet indisponible",
 }

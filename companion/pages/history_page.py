@@ -325,6 +325,14 @@ UNRESOLVED_LINK_CLASS = "text-label cell-unresolved-link"
 # airline its own fallback text so the two columns stop sharing one
 # string.
 AIRLINE_FALLBACK_TEXT = "Airline unknown"
+# Phase 21 polish: the Route cell's fallback, held as a local literal so
+# the French catalogue (companion/i18n_fr/flights.py) can carry it and
+# companion/test_i18n.py's scanner can see it — the renderer's own
+# `panel_render.ROUTE_FALLBACK_TEXT` stays the on-panel English string;
+# the two are kept equal below by construction so the wording never
+# drifts between the panel and the companion.
+ROUTE_FALLBACK_TEXT = "Route unavailable"
+assert ROUTE_FALLBACK_TEXT == panel_render.ROUTE_FALLBACK_TEXT
 
 # UXA-05/06.6.3-RESEARCH.md Pitfall 1: the audit's own evidence names
 # "on_runway"/"approaching"/"departed" as the raw confirmed_state values
@@ -556,7 +564,7 @@ def format_event_row(row, now=None):
     destination = row.get("destination")
     route_label = (
         "%s → %s" % (origin, destination) if origin and destination
-        else panel_render.ROUTE_FALLBACK_TEXT)
+        else i18n.t(ROUTE_FALLBACK_TEXT))
 
     corroboration_status, corroboration_label = _CORROBORATION_LABELS.get(
         row.get("corroborated"), _DEFAULT_CORROBORATION)
