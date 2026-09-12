@@ -341,9 +341,15 @@ def _runway_label(raw):
     than raising, matching this module's "never raise, degrade to a
     documented fallback" discipline throughout. Falsy input renders as
     an empty string, same as before this helper existed.
+
+    Polish fix 5 (D-05): the resolved label is translated at this
+    display site via i18n.t() — companion/i18n_fr/registry.py supplies
+    the French entries; the raw id (and the untranslated fallback for
+    an unrecognised id, which is data, not a registry label) are never
+    touched.
     """
     if raw and raw in device_config.RUNWAY_IDS:
-        return device_config.runway_label(raw)
+        return i18n.t(device_config.runway_label(raw))
     return raw or ""
 
 

@@ -1013,7 +1013,13 @@ def _theme_chip_grid_html(
         if chip_extra_class:
             chip_class += " " + chip_extra_class
         theme = device_config.THEMES[theme_id]
-        label = device_config.theme_label(theme_id)
+        # Polish fix 5 (D-05): device_config.theme_label()'s registry
+        # text ("White", "Band Blue Field", …) is translated at THIS
+        # display site via i18n.t() — the ids themselves (theme_id)
+        # never change, and server/device_config.py's own English
+        # THEMES["label"] values stay untranslated at the source
+        # (companion/i18n_fr/registry.py supplies the French entries).
+        label = i18n.t(device_config.theme_label(theme_id))
         escaped_id = escape_html(theme_id)
         departing_hex = _palette_hex(theme["departing_index"])
         arriving_hex = _palette_hex(theme["arriving_index"])
@@ -1085,7 +1091,9 @@ def _theme_live_preview_html(current_theme_id, state_dir):
     live_theme_id = (
         current_theme_id if current_theme_id in device_config.THEMES
         else device_config.DEFAULT_THEME_ID)
-    label = device_config.theme_label(live_theme_id)
+    # Polish fix 5 (D-05): translated at this display site, same as
+    # _theme_chip_grid_html()'s own label above.
+    label = i18n.t(device_config.theme_label(live_theme_id))
     callsign = None
     if state_dir:
         try:
@@ -1257,13 +1265,10 @@ def theme_fieldset(
             escape_html(i18n.t("Theme")),
             caption_html,
             departing_hex, arriving_hex,
-            # D-05: theme names (device_config.theme_label()) are not
-            # translated by this plan — they are a cross-page, registry-
-            # wide concern (Theme's own chip grid, Calendar, the Flight-
-            # colours rule rows, etc.) touching server/device_config.py,
-            # out of this plan's own files_modified scope; flagged in
-            # 20-07-SUMMARY.md for a later phase.
-            escape_html(device_config.theme_label(theme_id)),
+            # Polish fix 5 (D-05): translated at this display site — see
+            # _theme_chip_grid_html()'s own comment for why the id
+            # (theme_id) itself never changes.
+            escape_html(i18n.t(device_config.theme_label(theme_id))),
             escape_html(i18n.t("current")),
         )
 
@@ -1435,14 +1440,14 @@ def runway_fieldset(
         checked = " checked" if selected else ""
         card_class = (
             "runway-card runway-card--selected" if selected else "runway-card")
-        label = device_config.runway_label(runway_id)
+        # Polish fix 5 (D-05): device_config.runway_label()'s registry
+        # text ("Runway 3 (07/25)", …) is translated at this display
+        # site via i18n.t() — the id (runway_id) itself never changes;
+        # companion/i18n_fr/registry.py supplies the French entries.
+        label = i18n.t(device_config.runway_label(runway_id))
         escaped_id = escape_html(runway_id)
         image_html = ""
         if runway_id in images_available:
-            # D-05: device_config.runway_label()'s own text ("Runway 3
-            # (07/25)") is a registry value, not this file's own copy —
-            # left untranslated, matching device_config.theme_label()'s
-            # own precedent (flagged in 20-07-SUMMARY.md).
             image_html = (
                 '<img class="runway-card__image" src="%s%s.png" alt="%s">'
                 % (
@@ -2737,7 +2742,9 @@ def _rule_row_html(kind, value, theme_id):
         swatch_html,
         escape_html(value),
         escape_html(i18n.t(RULE_KIND_LABELS.get(kind, kind))),
-        escape_html(device_config.theme_label(theme_id)),
+        # Polish fix 5 (D-05): translated at this display site, same as
+        # _theme_chip_grid_html()'s own label above.
+        escape_html(i18n.t(device_config.theme_label(theme_id))),
         delete_form,
     )
 
@@ -3351,13 +3358,14 @@ def _screen_caption_html(screen):
     the visible end of the companion/screens.py seam. Rendered as an
     already-safe block for page_header()'s `action_html` slot.
     """
-    # D-05: screen["label"] (device_config-adjacent registry text, e.g.
-    # "Plane frame") is not translated by this plan — a cross-page,
-    # registry-wide concern out of scope here, matching the theme/runway
-    # label precedent (flagged in 20-07-SUMMARY.md).
+    # Polish fix 5 (D-05): screen["label"] (device_config-adjacent
+    # registry text, e.g. "Plane frame") is translated at this display
+    # site via i18n.t() — the screen id itself never changes;
+    # companion/i18n_fr/registry.py supplies the French entry ("Cadre
+    # avion").
     return (
         '<p class="page-header__screen text-label">%s</p>'
-        % escape_html(i18n.t(SCREEN_CAPTION_TEMPLATE) % screen["label"]))
+        % escape_html(i18n.t(SCREEN_CAPTION_TEMPLATE) % i18n.t(screen["label"])))
 
 
 NEXT_WAKE_HEADER_LABEL = "Next wake"

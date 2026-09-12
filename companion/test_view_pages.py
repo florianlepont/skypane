@@ -349,6 +349,12 @@ EXPECTED_CHECK_COUNT = 106  # Polish fix 2 (French Home status rows):
 # closes). 105 + 1 = 106, recomputed directly against the real on-disk
 # check(...) call count at execution time (106/106 pass), not trusted
 # from arithmetic alone.
+EXPECTED_CHECK_COUNT = 107  # Polish fix 5 (Registry labels shown in
+# French, D-05): +1 (a French Flights render translates the
+# tracked_runway cell's registry label — "Runway 3 (07/25)" ->
+# "Piste 3 (07/25)" — with no English label leaking in). 106 + 1 = 107,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (107/107 pass), not trusted from arithmetic alone.
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1948,6 +1954,40 @@ def main():
     check(
         "confirmed_state/tracked_runway presentation labels (Task 1's format_event_row() fixture) also appear correctly through the full render() output",
         _presentation_labels_in_full_render)
+
+    def _french_render_translates_the_runway_cell_label():
+        # Polish fix 5 (D-05): history_page._runway_label() now
+        # translates device_config.runway_label()'s registry text via
+        # i18n.t() (companion/i18n_fr/registry.py) — the runway id
+        # itself ("3") is data, never translated.
+        import companion.prefs as _prefs
+        tmp = _mkstate("h-labels-fr")
+        try:
+            _seed_runway_events(tmp, [
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "pl03", "callsign": "PL3",
+                    "confirmed_state": "departing", "tracked_runway": "3",
+                },
+            ])
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            if "Piste 3 (07/25)" not in rendered:
+                return False, "expected the French runway label 'Piste 3 (07/25)' in the rendered page"
+            if device_config.runway_label("3") in rendered:
+                return False, (
+                    "expected the English runway label %r to be absent from the French render"
+                    % (device_config.runway_label("3"),))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a French Flights render translates the tracked_runway cell's registry label "
+        "('Runway 3 (07/25)' -> 'Piste 3 (07/25)'), with no English label leaking in "
+        "(Polish fix 5, D-05)",
+        _french_render_translates_the_runway_cell_label)
 
     # ======================================================================
     # Section 1b: quick task 260903-etm - History's top-of-page render-

@@ -15,9 +15,14 @@ companion/i18n_fr/nav.py (the nav labels) and "Screen" is already
 defined in companion/i18n_fr/health.py; the package's own duplicate-key
 guard would raise if this module redefined any of the three. Every
 theme/runway *name* shown to people (device_config.theme_label()/
-runway_label(), e.g. "White", "Runway 3 (07/25)") is a registry value
-this plan deliberately leaves untranslated — a cross-page, registry-
-wide concern out of this plan's own scope (see 20-07-SUMMARY.md).
+runway_label(), e.g. "White", "Runway 3 (07/25)") and the screen label
+(screens.py's "Plane frame") ARE translated (Polish fix 5, D-05) — at
+the config_page.py display sites that call i18n.t() on the registry's
+own returned text, never by changing server/device_config.py's or
+companion/screens.py's own English values or their ids. Their French
+entries live in the dedicated companion/i18n_fr/registry.py module
+(one cross-page catalogue for every registry label this app renders,
+rather than duplicating them per consuming page module) — not here.
 
 Copy follows D-09: sentence case, the typographic apostrophe (U+2019,
 never a straight quote), and a non-breaking space (U+00A0) before

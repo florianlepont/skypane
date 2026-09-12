@@ -453,6 +453,13 @@ EXPECTED_CHECK_COUNT = 210  # Polish fix 4 (Calendar connect form belongs
 # 209 + 1 = 210, recomputed directly against the real on-disk check(...)
 # call count at execution time (210/210 pass), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 211  # Polish fix 5 (Registry labels shown in
+# French, D-05): +1 (a French Display render translates the default
+# theme name and default runway label, and both scopes' screen
+# caption translates "Plane frame" -> "Cadre avion", while the theme/
+# runway ids stay untranslated attribute values). 210 + 1 = 211,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (211/211 pass), not trusted from arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -5533,6 +5540,40 @@ def main():
         "supersection headings, the purpose sentence and the instant-switch sentence in French, "
         "and none of their English counterparts (D-05)",
         _french_display_render_carries_french_headings_no_english)
+
+    def _french_display_and_device_render_translate_registry_labels():
+        # Polish fix 5 (D-05): device_config.theme_label()/runway_
+        # label()'s registry text and screens.py's screen label are
+        # translated at their config_page.py display sites via
+        # i18n.t(), backed by companion/i18n_fr/registry.py — the
+        # default theme ("white" -> "White"/"Blanc") and default
+        # runway ("3" -> "Runway 3 (07/25)"/"Piste 3 (07/25)") both
+        # apply here since _TASK3_I18N_CTX's device_config carries
+        # neither key. The ids themselves ("white", "3") are never
+        # translated, so they must still appear as attribute values.
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_display = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DISPLAY)
+            fr_device = config_page.render(_TASK3_I18N_CTX, scope=config_page.SCOPE_DEVICE)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        for french_text in ("Blanc", "Piste 3 (07/25)", "Cadre avion"):
+            if french_text not in fr_display:
+                return False, "expected the French %r in the French Display render" % (french_text,)
+        if "Cadre avion" not in fr_device:
+            return False, "expected the French screen label in the French Device render"
+        for english_text in ("Runway 3 (07/25)",):
+            if english_text in fr_display:
+                return False, "expected %r to be absent from the French Display render" % (english_text,)
+        if 'value="white"' not in fr_display or 'value="3"' not in fr_display:
+            return False, "expected the theme/runway ids themselves to stay untranslated attribute values"
+        return True, ""
+    check(
+        "a French Display render translates the default theme name ('White' -> 'Blanc') and "
+        "default runway label ('Runway 3 (07/25)' -> 'Piste 3 (07/25)'), and both scopes' screen "
+        "caption translates 'Plane frame' -> 'Cadre avion', while the theme/runway ids stay "
+        "untranslated attribute values (Polish fix 5, D-05)",
+        _french_display_and_device_render_translate_registry_labels)
 
     def _english_display_render_still_carries_every_pinned_english_string():
         # The default (no prefs override) render must stay byte-identical
