@@ -120,7 +120,9 @@ MOBILE_NAV_OPEN_CLASS = "mobile-nav--open"
 # entirely through aria-expanded, which is the correct ARIA disclosure
 # pattern — swapping this label to a close verb on open would make the
 # announced name change under the user mid-interaction. Do not add logic
-# that varies it.
+# that varies it BY STATE — it is still translated through i18n.t() at
+# its one render site (D-05, 20-12-PLAN.md Task 1: a real completeness
+# gap this constant's own render site had left un-wrapped).
 NAV_TOGGLE_LABEL = "Open menu"
 
 # Must equal companion/app.py's NAV_SCRIPT_ROUTE exactly. Duplicated
@@ -487,7 +489,10 @@ NAV_NOTIFICATION_CLASS = "nav-notification"
 # 06.6.1-UI-SPEC.md's Copywriting Contract, verbatim: appended (not
 # substituted) after the "Health" nav label text via a visually-hidden
 # span, so assistive tech announces "Health — attention needed" rather
-# than losing the word "Health" to an aria-label override.
+# than losing the word "Health" to an aria-label override. Translated
+# through i18n.t() at its one render site (D-05, 20-12-PLAN.md Task 1:
+# a real completeness gap this constant's own render site had left
+# un-wrapped).
 HEALTH_ALERT_SUFFIX_TEXT = " — attention needed"
 
 
@@ -895,7 +900,7 @@ def _health_alert_markup(severity):
     return (
         '<span class="dot %s %s"></span>'
         '<span class="visually-hidden">%s</span>'
-    ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(HEALTH_ALERT_SUFFIX_TEXT))
+    ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(i18n.t(HEALTH_ALERT_SUFFIX_TEXT)))
 
 
 def sidebar_nav(active, health_alert=None):
@@ -1105,7 +1110,7 @@ def _mobile_nav_html(
         '<button type="button" id="%s" class="site-nav-toggle" '
         'aria-label="%s" aria-expanded="false" aria-controls="%s">%s</button>'
     ) % (
-        NAV_TOGGLE_ID, escape_html(NAV_TOGGLE_LABEL), MOBILE_NAV_ID,
+        NAV_TOGGLE_ID, escape_html(i18n.t(NAV_TOGGLE_LABEL)), MOBILE_NAV_ID,
         icon_html("icon-hamburger", size=24))
     # D-02/D-29 (20-01-PLAN.md Task 3, 20-UI-SPEC.md §I): resolved
     # order — language, theme, simple mode, Sign out.

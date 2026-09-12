@@ -34,4 +34,12 @@ CATALOG = {
     "Simple mode": "Mode simple",
     "Simple": "Simple",
     "Full": "Complet",
+
+    # --- The hamburger toggle's fixed accessible name, and the nav
+    #     Health dot's visually-hidden suffix (20-12-PLAN.md Task 1: a
+    #     real D-05 gap found by the completeness harness — both render
+    #     sites had been left un-wrapped since their own introducing
+    #     plan) --------------------------------------------------------
+    "Open menu": "Ouvrir le menu",
+    " — attention needed": " — attention requise",
 }

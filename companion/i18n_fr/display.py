@@ -27,6 +27,25 @@ rather than duplicating them per consuming page module) — not here.
 Copy follows D-09: sentence case, the typographic apostrophe (U+2019,
 never a straight quote), and a non-breaking space (U+00A0) before
 ":" ";" "?" "!".
+
+20-12-PLAN.md Task 1 (D-08's completeness/dead-translation harness):
+removed 14 entries the Calendar-card and Flight-colours rebuilds
+(20-09-PLAN.md) superseded and left behind — the old one-piece
+Calendar status sentences ("Connected — waiting for the first
+sync."/"Connected — last synced "/"Not connected. Paste your
+calendar's feed URL below to connect one."), the old calendar-theme
+disclaimer paragraph and its "Used only when..." companion sentence,
+the old "Per-flight colour rules" heading and its "Override the
+theme..." disclosure body, the old one-line value-field hint ("Exact
+callsign (e.g. AFR1234)..."), the old empty state ("No rules yet"/"Add
+one above to give a specific flight..."), and the old rules table's
+"Kind"/"Key"/"Added" column headers (D-15c's `.rule-row` list has no
+column headers at all). Also added here: the Notifications URL
+field's own shorter "That link is too long." error and the workday
+quiet-hours preset's own pre-baked label ("Open menu" and " —
+attention needed" are the same harness's finds, but live in
+companion/i18n_fr/nav.py instead — companion/layout.py's own render
+sites for both had never been wrapped in i18n.t() until this plan).
 """
 
 CATALOG = {
@@ -66,8 +85,6 @@ CATALOG = {
         "Utiliser un thème différent pour les arrivées",
     "Arrivals theme": "Thème des arrivées",
     "current": "actuel",
-    "Sample panel rendered in the %s theme":
-        "Exemple de panneau avec le thème %s",
     "Selected": "Sélectionné",
 
     # --- The live theme preview above the chip grid (D-22..D-24,
@@ -89,33 +106,12 @@ CATALOG = {
     #     calendar_disconnect_section()/calendar_disconnect_confirm_
     #     page()) --------------------------------------------------------
     "Calendar": "Calendrier",
-    "When the flight the frame is currently showing is one your "
-    "connected calendar lists, it uses this theme instead of the usual "
-    "one. It can only colour a flight that happens to be on screen — "
-    "it does not track or announce anything on its own. Applies on "
-    "the frame's next scheduled poll, not immediately.":
-        "Quand le vol actuellement affiché par le cadre figure dans "
-        "votre calendrier connecté, il utilise ce thème à la place du "
-        "thème habituel. Il ne peut colorer qu’un vol déjà affiché à "
-        "l’écran — il ne suit ni n’annonce rien de lui-même. "
-        "S’applique lors de la prochaine vérification programmée du "
-        "cadre, pas immédiatement.",
-    "Connected — waiting for the first sync.":
-        "Connecté — en attente de la première synchronisation.",
-    "Connected — last synced ": "Connecté — dernière synchronisation ",
-    "Not connected. Paste your calendar's feed URL below to connect one.":
-        "Non connecté. Collez l’URL du flux de votre calendrier "
-        "ci-dessous pour en connecter un.",
     "Connected, but ignored — its saved link on the server became "
     "readable beyond this frame. Paste the feed URL again below to "
     "store it safely.":
         "Connecté, mais ignoré — son lien enregistré sur le serveur "
         "est devenu lisible au-delà de ce cadre. Collez à nouveau "
         "l’URL du flux ci-dessous pour le stocker en sécurité.",
-    "Used only when a flight from the calendar happens to be the one "
-    "on screen.":
-        "Utilisé uniquement quand un vol du calendrier est celui "
-        "affiché à l’écran.",
     "Calendar feed URL": "URL du flux du calendrier",
     "Your calendar's private iCal link. Stored on the server and "
     "never shown back here — pasting a new one replaces the old.":
@@ -139,38 +135,12 @@ CATALOG = {
 
     # --- Flight colours / per-flight rules (config_page.py's
     #     _rule_add_form_html()/_rule_row_html()/_rules_section_html())
-    "Per-flight colour rules": "Couleurs par vol",
-    "Override the theme for one exact flight, aircraft, or carrier. "
-    "Most specific match wins — a callsign rule beats a hex rule, "
-    "which beats a prefix rule — and adding a key that's already in "
-    "use replaces the existing rule for it. Applies on the frame's "
-    "next scheduled poll, not immediately.":
-        "Remplacez le thème pour un vol, un avion ou une compagnie "
-        "précis. La règle la plus précise l’emporte — un indicatif "
-        "l’emporte sur un code hexadécimal, qui l’emporte sur un "
-        "préfixe — et l’ajout d’une clé déjà utilisée remplace la "
-        "règle existante pour cette clé. S’applique lors de la "
-        "prochaine vérification programmée du cadre, pas immédiatement.",
     "Match by": "Correspondance par",
     "Value": "Valeur",
     "Add rule": "Ajouter la règle",
-    "Exact callsign (e.g. AFR1234), ICAO24 hex (e.g. 3944F2), or a "
-    "3-letter prefix (e.g. AFR) — matching the kind selected above.":
-        "Indicatif exact (ex. AFR1234), code hexadécimal ICAO24 (ex. "
-        "3944F2), ou préfixe de 3 lettres (ex. AFR) — selon le type "
-        "sélectionné ci-dessus.",
-    "No rules yet": "Encore aucune règle",
-    "Add one above to give a specific flight, aircraft, or carrier "
-    "its own theme, regardless of direction.":
-        "Ajoutez-en une ci-dessus pour donner son propre thème à un "
-        "vol, un avion ou une compagnie précis, quelle que soit la "
-        "direction.",
     "Callsign": "Indicatif",
     "ICAO24 hex": "Code hexadécimal ICAO24",
     "Callsign prefix": "Préfixe d’indicatif",
-    "Kind": "Type",
-    "Key": "Clé",
-    "Added": "Ajouté",
     "Delete": "Supprimer",
 
     # --- Screen on/off + Quiet hours cards, and their shared instant-
@@ -196,6 +166,13 @@ CATALOG = {
     "End": "Fin",
     "Night (%s–%s)": "Nuit (%s–%s)",
     "Work day (%s–%s)": "Journée de travail (%s–%s)",
+    # 20-12-PLAN.md Task 1: the workday preset's own pre-baked label
+    # (QUIET_HOURS_PRESET_WORKDAY_LABEL, computed once at import time
+    # from the template above with the literal "08:00"/"18:00" default
+    # times) is read through i18n.t() as its own value, independent of
+    # the template — the completeness harness treats a module-level
+    # constant computed at import time the same as a literal one.
+    "Work day (08:00–18:00)": "Journée de travail (08:00–18:00)",
     "Always on (off)": "Toujours allumé (désactivé)",
     "On": "Allumé",
     "Off": "Éteint",
@@ -266,4 +243,8 @@ CATALOG = {
     "below.":
         "Ce lien est trop long, ou entre en conflit avec l’option de "
         "déconnexion ci-dessous.",
+    # 20-12-PLAN.md Task 1: the Notifications topic-URL field's own
+    # shorter error (ERROR_NOTIFICATIONS_URL_TOO_LONG) — distinct from
+    # the calendar URL's longer message above, never the same key.
+    "That link is too long.": "Ce lien est trop long.",
 }
