@@ -15,8 +15,11 @@ Exits 0 only when every check below passes.
 Usage:
     server/.venv/bin/python3 server/test_notify.py
 """
+import io
 import os
 import sys
+import urllib.request
+from urllib.response import addinfourl
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -30,9 +33,12 @@ if REPO_ROOT not in sys.path:
 # send_notification(), four SSRF-refusal cases proving the transport is
 # never reached, a body_for_lang() round trip, and a
 # default_notify_transport() request-shape check against a faked
-# urlopen()). Re-derived by RUNNING the harness, not by arithmetic, per
-# this repo's own documented discipline.
-EXPECTED_CHECK_COUNT = 7
+# opener). CR-01 fix (20-REVIEW.md) added one more: a fake urllib
+# handler proving a 302 to an internal address is refused by
+# `_NoRedirectHandler` and never actually fetched. Re-derived by
+# RUNNING the harness, not by arithmetic, per this repo's own
+# documented discipline.
+EXPECTED_CHECK_COUNT = 8
 
 
 class _FakeNotifyResponse:
@@ -164,26 +170,24 @@ def main():
     def _default_transport_builds_the_expected_request():
         captured = {}
 
-        class _FakeUrlopenResponse:
-            status = 200
+        class _FakeOpener:
+            def open(self, request, timeout=None):
+                captured["method"] = request.get_method()
+                captured["title"] = request.get_header("Title")
+                captured["content_type"] = request.get_header("Content-type")
+                captured["data"] = request.data
+                captured["timeout"] = timeout
+                return _FakeNotifyResponse(200)
 
-            def close(self):
-                pass
-
-        def fake_urlopen(request, timeout=None):
-            captured["method"] = request.get_method()
-            captured["title"] = request.get_header("Title")
-            captured["content_type"] = request.get_header("Content-type")
-            captured["data"] = request.data
-            captured["timeout"] = timeout
-            return _FakeUrlopenResponse()
-
-        original_urlopen = notify.urllib.request.urlopen
-        notify.urllib.request.urlopen = fake_urlopen
+        # CR-01 fix: default_notify_transport() now goes through
+        # `_NO_REDIRECT_OPENER.open()`, not `urllib.request.urlopen()` -
+        # patch the module's opener itself rather than `urlopen`.
+        original_opener = notify._NO_REDIRECT_OPENER
+        notify._NO_REDIRECT_OPENER = _FakeOpener()
         try:
             notify.default_notify_transport("https://ntfy.sh/skypane-test", "Hello", "World", 5)
         finally:
-            notify.urllib.request.urlopen = original_urlopen
+            notify._NO_REDIRECT_OPENER = original_opener
 
         if captured.get("method") != "POST":
             return False, "expected method POST, got %r" % (captured.get("method"),)
@@ -196,8 +200,59 @@ def main():
         return True, ""
 
     check(
-        "default_notify_transport() builds a POST request with the body UTF-8 encoded, a Title header, and the caller's timeout, against a faked urlopen()",
+        "default_notify_transport() builds a POST request with the body UTF-8 encoded, a Title header, and the caller's timeout, against a faked opener",
         _default_transport_builds_the_expected_request,
+    )
+
+    # CR-01 fix (20-REVIEW.md): default_notify_transport() must never
+    # automatically follow a redirect - a validated public HTTPS topic
+    # URL can still answer with a 3xx pointing at an internal address
+    # (e.g. http://169.254.169.254/...). This drives the REAL
+    # default_notify_transport()/_NO_REDIRECT_OPENER wiring, not an
+    # injected fake transport (which would bypass the fix entirely) -
+    # a fake urllib handler stands in for the network layer only, one
+    # level below the opener, mirroring server/test_calendar_rules.py's
+    # own "assert the redirect target's call count stays at zero" style.
+    def _redirect_to_internal_address_refused_and_never_fetched():
+        calls = []
+        internal_target = "http://169.254.169.254/latest/meta-data/"
+
+        class _FakeRedirectingHandler(urllib.request.BaseHandler):
+            # Lower than the real HTTPHandler/HTTPSHandler's default 500,
+            # so this fake always answers first and no real socket is
+            # ever opened.
+            handler_order = 100
+
+            def http_open(self, req):
+                calls.append(req.full_url)
+                resp = addinfourl(io.BytesIO(b""), {"location": internal_target}, req.full_url, 302)
+                resp.msg = "Found"
+                return resp
+
+            https_open = http_open
+
+        fake_opener = urllib.request.build_opener(_FakeRedirectingHandler(), notify._NoRedirectHandler())
+        original_opener = notify._NO_REDIRECT_OPENER
+        notify._NO_REDIRECT_OPENER = fake_opener
+        try:
+            ok = notify.send_notification("https://ntfy.sh/skypane-test", "t", "b")
+        finally:
+            notify._NO_REDIRECT_OPENER = original_opener
+
+        if ok is not False:
+            return False, "expected send_notification() to return False for a 302 response, got %r" % (ok,)
+        if calls != ["https://ntfy.sh/skypane-test"]:
+            return False, (
+                "expected exactly one request (the original URL only) and the internal redirect "
+                "target %r to never be fetched: %r" % (internal_target, calls)
+            )
+        return True, ""
+
+    check(
+        "default_notify_transport()'s _NoRedirectHandler refuses a 302 pointing at an internal "
+        "address (169.254.169.254) outright - send_notification() returns False and the redirect "
+        "target is never fetched",
+        _redirect_to_internal_address_refused_and_never_fetched,
     )
 
     passed = sum(1 for _, ok in results if ok)

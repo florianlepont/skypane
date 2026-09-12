@@ -17,6 +17,26 @@ form by whoever holds the one shared companion password), so it goes
 through the identical gate rather than a second, independently
 written copy that could drift from it.
 
+CR-01 fix (20-REVIEW.md): that gate only ever inspects the FIRST URL.
+`fetch_ics()`'s own `default_calendar_transport()` disables automatic
+redirect following (`requests`'s `allow_redirects=False`) precisely so
+`fetch_ics()`'s own loop can re-validate every `Location` hop through
+`_url_is_safe()` before ever following it — a validated public HTTPS
+endpoint can still answer with a 3xx pointing anywhere, including
+`http://169.254.169.254/...` or an internal admin endpoint. Before
+this fix, `default_notify_transport()` called plain
+`urllib.request.urlopen()`, whose default opener installs stdlib's own
+`urllib.request.HTTPRedirectHandler` and therefore followed a 3xx
+automatically, with no re-check at all — silently defeating the gate
+above for this one call path. `default_notify_transport()` now goes
+through `_NO_REDIRECT_OPENER` instead: `_NoRedirectHandler.redirect_request()`
+below always returns `None`, refusing every hop outright (never a
+bounded manual re-validation loop like `fetch_ics()`'s own, since a
+push topic never legitimately redirects) — the stdlib idiom that turns
+any 3xx response into a plain `urllib.error.HTTPError`, already caught
+by this module's own broad `except Exception` a few lines down and
+logged without the URL, exactly like any other transport failure.
+
 Stdlib `urllib.request`/`urllib.error` only (D-25) — this module adds
 no `requests` dependency; `server/plane/calendar_rules.py` already
 carries that dependency for its own, unrelated reason (streamed,
@@ -93,11 +113,44 @@ def _response_status(response):
     return 0
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Refuses every 3xx redirect outright (CR-01 fix — see this
+    module's own docstring above). `redirect_request()` returning
+    `None` is the stdlib idiom for "never follow": the redirect
+    handler chain then falls through to `HTTPDefaultErrorHandler`,
+    which raises `urllib.error.HTTPError` for the original 3xx status
+    — caught by `send_notification()`'s existing broad `except
+    Exception` below, exactly like any other transport failure, and
+    logged there by type name only, never the URL. Deliberately does
+    not inspect `newurl` at all: unlike `fetch_ics()`'s calendar feed
+    (which legitimately gets redirected by real hosting providers), an
+    ntfy-style push topic has no legitimate reason to redirect, so this
+    refuses every hop unconditionally rather than re-validating a
+    bounded chain of them.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+# Built once at import time, reused by every `default_notify_transport()`
+# call — one opener with `_NoRedirectHandler` installed in place of the
+# default `HTTPRedirectHandler` (`build_opener()`'s own dedup rule: a
+# passed-in subclass of a default handler class replaces it, rather than
+# both being installed side by side).
+_NO_REDIRECT_OPENER = urllib.request.build_opener(_NoRedirectHandler)
+
+
 def default_notify_transport(url, title, body, timeout):
     """POST `body` (UTF-8) to `url` with a `Title` header carrying
     `title` — the one-shot ntfy-style push. Stdlib
     `urllib.request.Request`/`urlopen` only (D-25). Returns the open
     response object; the caller reads and closes it.
+
+    Goes through `_NO_REDIRECT_OPENER` (CR-01 fix), never plain
+    `urllib.request.urlopen()` — the latter's default opener follows a
+    3xx response automatically, with no re-check of `_url_is_safe()`
+    on the redirect target.
     """
     data = body.encode("utf-8")
     request = urllib.request.Request(
@@ -110,7 +163,7 @@ def default_notify_transport(url, title, body, timeout):
             "User-Agent": calendar_rules.USER_AGENT,
         },
     )
-    return urllib.request.urlopen(request, timeout=timeout)
+    return _NO_REDIRECT_OPENER.open(request, timeout=timeout)
 
 
 def send_notification(topic_url, title, body, timeout=5, transport=None):
