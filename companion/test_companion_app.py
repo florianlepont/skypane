@@ -430,6 +430,15 @@ EXPECTED_CHECK_COUNT = 251  # 20-11-PLAN.md Task 3 (D-06): +2 (copy-
 # against the real on-disk check(...) call count at execution time
 # (249/251 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 267  # 20-12-PLAN.md Task 2 (D-30/D-31): +16
+# (Section 5, end-to-end simple mode over real HTTP: the nav's
+# Advanced-group/health-link/device-link/status-dot omission on four
+# tabs, Home's Health link, Airlines' "Change pictures" button,
+# Display's two disclosures collapsing to one sentence, Display's own
+# six everyday groups staying present, /health and /device staying
+# reachable by URL, Flights/Airlines keeping their full content, the
+# mode surviving three sequential requests, and the full-mode mirror
+# of each toggled behaviour). 251 + 16 = 267.
 
 
 def _ago_iso(seconds):
@@ -7100,6 +7109,228 @@ def main():
         check(
             "a calendar save immediately followed by a manual poll trigger does not hit the poll cooldown - the two mechanisms are independent",
             _calendar_save_does_not_touch_the_manual_poll_cooldown)
+
+        # ==============================================================
+        # Section 5 (20-12-PLAN.md Task 2, D-30/D-31): simple mode, end
+        # to end over real HTTP, with the sp_ui_mode=simple cookie set
+        # on a real signed-in session — never the layout.sidebar_nav()/
+        # config_page.render() unit-level calls 20-01/20-09's own
+        # checks already cover in companion/test_status_pages.py/
+        # companion/test_config_page.py. Every check below reuses this
+        # section's own fresh session (never a prior check's mutated
+        # settings state).
+        # ==============================================================
+
+        simple_session = _login(harness)
+        simple_cookie = "%s; %s=simple" % (simple_session, auth.UI_MODE_COOKIE_NAME)
+        full_cookie = "%s; %s=full" % (simple_session, auth.UI_MODE_COOKIE_NAME)
+
+        _NAV_FOOTER_SWITCH_ACTIONS = ('action="/ui-lang"', 'action="/ui-theme"', 'action="/ui-mode"')
+
+        def _make_simple_mode_nav_hidden_check(route):
+            def _fn():
+                status, _headers, body = http_request(base + route, cookie=simple_cookie)
+                text = body.decode("utf-8", "replace")
+                if status != 200:
+                    return False, "GET %s under sp_ui_mode=simple returned %d" % (route, status)
+                if "Advanced" in text:
+                    return False, "GET %s under sp_ui_mode=simple still shows the Advanced nav group" % route
+                if 'href="/health"' in text:
+                    return False, "GET %s under sp_ui_mode=simple still links to /health" % route
+                if 'href="/device"' in text:
+                    return False, "GET %s under sp_ui_mode=simple still links to /device" % route
+                if layout.NAV_NOTIFICATION_CLASS in text:
+                    return False, "GET %s under sp_ui_mode=simple still shows the nav status dot" % route
+                for action in _NAV_FOOTER_SWITCH_ACTIONS:
+                    if action not in text:
+                        return False, "GET %s under sp_ui_mode=simple is missing the %s nav-footer switch" % (route, action)
+                return True, ""
+            return _fn
+
+        for _simple_route in ("/", "/display", "/flights", "/airlines"):
+            check(
+                "GET %s under sp_ui_mode=simple hides the Advanced nav group, the /health and "
+                "/device links, the nav status dot, and still carries the three nav-footer switches (D-30)"
+                % _simple_route,
+                _make_simple_mode_nav_hidden_check(_simple_route))
+
+        def _home_hides_health_link_in_simple_mode():
+            status, _headers, body = http_request(base + "/", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET / under sp_ui_mode=simple returned %d" % status
+            if "See details on Health" in text:
+                return False, "GET / under sp_ui_mode=simple still shows the Health link"
+            return True, ""
+
+        check(
+            "Home hides the \"See details on Health\" link under sp_ui_mode=simple (D-30)",
+            _home_hides_health_link_in_simple_mode)
+
+        def _airlines_hides_change_pictures_button_in_simple_mode():
+            status, _headers, body = http_request(base + "/airlines", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET /airlines under sp_ui_mode=simple returned %d" % status
+            if "Change pictures" in text:
+                return False, "GET /airlines under sp_ui_mode=simple still shows the \"Change pictures\" button"
+            return True, ""
+
+        check(
+            "Airlines hides the \"Change pictures\" button under sp_ui_mode=simple (D-30/D-36)",
+            _airlines_hides_change_pictures_button_in_simple_mode)
+
+        def _display_disclosures_collapse_to_one_sentence_in_simple_mode():
+            status, _headers, body = http_request(base + "/display", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET /display under sp_ui_mode=simple returned %d" % status
+            if "<summary>How it works</summary>" in text:
+                return False, "the Calendar card's disclosure is still a <details> in simple mode"
+            if "<summary>How rules combine</summary>" in text:
+                return False, "the Flight-colours disclosure is still a <details> in simple mode"
+            if "It only colours a flight already on screen." not in text:
+                return False, "the Calendar card's own one-sentence simple-mode copy is missing"
+            if "The most specific match wins." not in text:
+                return False, "the Flight-colours section's own one-sentence simple-mode copy is missing"
+            return True, ""
+
+        check(
+            "Display collapses both \"How it works\"/\"How rules combine\" disclosures to one "
+            "plain sentence under sp_ui_mode=simple (D-30)",
+            _display_disclosures_collapse_to_one_sentence_in_simple_mode)
+
+        def _display_still_carries_all_six_everyday_groups_in_simple_mode():
+            status, _headers, body = http_request(base + "/display", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET /display under sp_ui_mode=simple returned %d" % status
+            needles = (
+                'data-dirty-section="Theme"', 'data-dirty-section="Calendar"',
+                'data-dirty-section="Runway"', 'data-dirty-section="Screen on / off"',
+                'data-dirty-section="Quiet hours"', "Flight colours")
+            missing = [n for n in needles if n not in text]
+            if missing:
+                return False, "GET /display under sp_ui_mode=simple is missing group(s): %r" % (missing,)
+            return True, ""
+
+        check(
+            "Display still renders all six everyday groups under sp_ui_mode=simple (D-31)",
+            _display_still_carries_all_six_everyday_groups_in_simple_mode)
+
+        def _health_and_device_still_reachable_by_url_in_simple_mode():
+            for route in ("/health", "/device"):
+                status, _headers, _body = http_request(base + route, cookie=simple_cookie)
+                if status != 200:
+                    return False, (
+                        "GET %s under sp_ui_mode=simple returned %d, expected 200 - simple "
+                        "mode is presentation only, never access control (D-30)" % (route, status))
+            return True, ""
+
+        check(
+            "GET /health and GET /device still return 200 for a signed-in session under "
+            "sp_ui_mode=simple (D-30: presentation, not access control)",
+            _health_and_device_still_reachable_by_url_in_simple_mode)
+
+        def _flights_and_airlines_keep_their_full_content_in_simple_mode():
+            status, _headers, body = http_request(base + "/flights", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200 or "Recent flights table, scrollable" not in text:
+                return False, "GET /flights under sp_ui_mode=simple lost its own table (D-31)"
+            status, _headers, body = http_request(base + "/airlines", cookie=simple_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200 or "Illustration reference for every airline" not in text:
+                return False, "GET /airlines under sp_ui_mode=simple lost its own gallery (D-31)"
+            return True, ""
+
+        check(
+            "Flights and Airlines keep their full content under sp_ui_mode=simple (D-31)",
+            _flights_and_airlines_keep_their_full_content_in_simple_mode)
+
+        def _simple_mode_survives_three_sequential_requests():
+            for route in ("/", "/display", "/flights"):
+                status, _headers, body = http_request(base + route, cookie=simple_cookie)
+                text = body.decode("utf-8", "replace")
+                if status != 200:
+                    return False, "GET %s under sp_ui_mode=simple returned %d" % (route, status)
+                if "Advanced" in text:
+                    return False, (
+                        "GET %s under sp_ui_mode=simple showed the Advanced nav group after a "
+                        "prior request in the same cookie session - the mode did not survive "
+                        "navigation" % route)
+            return True, ""
+
+        check(
+            "sp_ui_mode=simple survives navigation across three sequential requests",
+            _simple_mode_survives_three_sequential_requests)
+
+        # --- The full-mode mirror: everything D-30 hides comes back ---------
+
+        def _make_full_mode_nav_shown_check(route):
+            def _fn():
+                status, _headers, body = http_request(base + route, cookie=full_cookie)
+                text = body.decode("utf-8", "replace")
+                if status != 200:
+                    return False, "GET %s under sp_ui_mode=full returned %d" % (route, status)
+                if "Advanced" not in text:
+                    return False, "GET %s under sp_ui_mode=full is missing the Advanced nav group" % route
+                if 'href="/health"' not in text:
+                    return False, "GET %s under sp_ui_mode=full is missing the /health nav link" % route
+                if 'href="/device"' not in text:
+                    return False, "GET %s under sp_ui_mode=full is missing the /device nav link" % route
+                for action in _NAV_FOOTER_SWITCH_ACTIONS:
+                    if action not in text:
+                        return False, "GET %s under sp_ui_mode=full is missing the %s nav-footer switch" % (route, action)
+                return True, ""
+            return _fn
+
+        for _full_route in ("/", "/display"):
+            check(
+                "GET %s under sp_ui_mode=full shows the Advanced nav group, the /health and "
+                "/device links, and still carries the three nav-footer switches"
+                % _full_route,
+                _make_full_mode_nav_shown_check(_full_route))
+
+        def _home_shows_health_link_in_full_mode():
+            status, _headers, body = http_request(base + "/", cookie=full_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET / under sp_ui_mode=full returned %d" % status
+            if "See details on Health" not in text:
+                return False, "GET / under sp_ui_mode=full is missing the Health link"
+            return True, ""
+
+        check(
+            "Home shows the \"See details on Health\" link under sp_ui_mode=full",
+            _home_shows_health_link_in_full_mode)
+
+        def _airlines_shows_change_pictures_button_in_full_mode():
+            status, _headers, body = http_request(base + "/airlines", cookie=full_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET /airlines under sp_ui_mode=full returned %d" % status
+            if "Change pictures" not in text:
+                return False, "GET /airlines under sp_ui_mode=full is missing the \"Change pictures\" button"
+            return True, ""
+
+        check(
+            "Airlines shows the \"Change pictures\" button under sp_ui_mode=full",
+            _airlines_shows_change_pictures_button_in_full_mode)
+
+        def _display_disclosures_are_full_details_in_full_mode():
+            status, _headers, body = http_request(base + "/display", cookie=full_cookie)
+            text = body.decode("utf-8", "replace")
+            if status != 200:
+                return False, "GET /display under sp_ui_mode=full returned %d" % status
+            if "<summary>How it works</summary>" not in text:
+                return False, "the Calendar card's disclosure is not a <details> under sp_ui_mode=full"
+            if "<summary>How rules combine</summary>" not in text:
+                return False, "the Flight-colours disclosure is not a <details> under sp_ui_mode=full"
+            return True, ""
+
+        check(
+            "Display shows both disclosures as full <details> under sp_ui_mode=full",
+            _display_disclosures_are_full_details_in_full_mode)
 
     finally:
         harness.stop()
