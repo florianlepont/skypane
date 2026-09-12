@@ -50,7 +50,6 @@ CATALOG = {
     "Type": "Modèle",
     "Route": "Trajet",
     "State": "Sens",
-    "Aircraft": "Appareil",
     "Hex": "Code hex",
     "Full timestamp": "Horodatage complet",
     "Recent flights table, scrollable": "Tableau des vols récents, défilable",
