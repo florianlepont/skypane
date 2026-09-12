@@ -5079,14 +5079,66 @@ a.airline-card {
   min-width: 96px;
 }
 
-/* 20-04-PLAN.md Task 1 (D-19, 20-UI-SPEC.md §D): the divider between a
- * card's instant switch (.quick-action, unmodified, no new rule) and its
- * scheduled controls below — Display's Screen on/off and Quiet hours
- * groups both wrap their .quick-action row in this. */
-.quick-action-slot {
-  padding-bottom: var(--space-md);
-  margin-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+/* 21-04-PLAN.md Task 1 (D-01/D-02): the Screen on/off and Quiet hours
+ * cards no longer embed an instant switch of their own — both switches
+ * now render once, in the shared Frame strip below — so the divider
+ * rule that used to separate a card's own switch from its scheduled
+ * controls (.quick-action-slot, 20-04-PLAN.md Task 1) has no consumer
+ * left and is deleted rather than kept as stale, misleading CSS.
+ *
+ * The Frame strip (D-01, D-02, D-05) — one shared surface holding the
+ * Screen switch, the Quiet hours switch and the next-update headline,
+ * atop Home and Display alike (layout.frame_strip_html()). Reuses
+ * .stat-tile/.stat-tile--accent verbatim for the card surface itself
+ * (padding, border-radius, hairline, accent top-border) — this rule
+ * adds only the internal 3-cell flex layout. */
+.frame-strip {
+  margin-bottom: var(--space-lg);
+}
+
+.frame-strip__cells {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+/* Both classes on the SAME element (.frame-strip__cell.quick-action
+ * quick-action--on/off) — this is what lets each switch cell keep
+ * .quick-action's own flex-row/padding/border/background chrome while
+ * also sizing itself as a flex item of .frame-strip__cells above. The
+ * two switch cells share the row, each wrapping to its own line first
+ * before the update cell does. flex-wrap here (not on the base
+ * .quick-action rule, which has no other consumer left after this
+ * task) lets the relocated "Applies the next time the frame wakes up."
+ * caption — carried over as a THIRD child alongside .quick-action__text
+ * and the <form>, never dropped (D-02) — fall onto its own full-width
+ * line under the label/state and the form/button instead of squeezing
+ * into the same row as a third space-between item. */
+.frame-strip__cell.quick-action {
+  flex: 1 1 220px;
+  flex-wrap: wrap;
+}
+
+.frame-strip__cell.quick-action > .section-caption {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.frame-strip__cell--update {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+@media (max-width: 699.98px) {
+  .frame-strip__cells {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .frame-strip__cell.quick-action,
+  .frame-strip__cell--update {
+    flex-basis: auto;
+  }
 }
 
 .now-showing {

@@ -2793,32 +2793,40 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_quick_toggle(self, field):
         """Phase 18: the Home page's one-tap switches — POST /quick/display
-        and POST /quick/quiet-hours. The body carries exactly one field,
-        `state`, whose value is the state to switch TO ("on"/"off"), so a
-        repeated submission is idempotent. Every other device-config
-        value is carried forward untouched (save_device_config() treats
-        a None keyword as "leave unchanged"), which is what makes this
-        safe to expose to someone who never opens the settings pages.
-        Session-gated in do_POST() like every other state-changing
-        route.
+        and POST /quick/quiet-hours. The body carries exactly one
+        meaningful field, `state`, whose value is the state to switch
+        TO ("on"/"off"), so a repeated submission is idempotent. Every
+        other device-config value is carried forward untouched
+        (save_device_config() treats a None keyword as "leave
+        unchanged"), which is what makes this safe to expose to
+        someone who never opens the settings pages. Session-gated in
+        do_POST() like every other state-changing route.
 
-        D-16 (20-01-PLAN.md Task 2): every redirect target below is
-        layout.DISPLAY_ROUTE, no longer the bare Home route — the
-        switches themselves move to Display in a later plan
-        (20-06/20-07), but the routes,
-        their flash keys and their tests stay; only `return_to` changes.
-        The field constants (QUICK_STATE_FIELD/QUICK_STATE_ON/
-        QUICK_STATE_OFF) now live in companion/layout.py, a shared
-        module both this file and, from 20-07, config_page.py may
-        import — home_page.py keeps its own identical copies untouched
-        until 20-06 deletes them with the rest of Home's quick-action
-        code.
+        21-04-PLAN.md Task 1 (D-01/R-02): the switches now render once,
+        in the shared Frame strip on BOTH Home and Display — so the
+        redirect target is no longer the fixed layout.DISPLAY_ROUTE
+        literal, but a second form field, `return_to`, carrying
+        whichever of the two pages the switch was pressed on
+        (layout.frame_strip_html()'s own hidden field). It is
+        membership-tested against `(layout.HOME_ROUTE, layout.
+        DISPLAY_ROUTE)` — the same "build a small whitelist, test
+        membership, fall back to a known-safe route" shape
+        `_referring_tab()` above uses for the Referer header — and
+        falls back to `layout.DISPLAY_ROUTE` when absent or
+        unrecognised, exactly this route's own pre-21-04 behaviour
+        (T-21-12: never string-prefix-matched, never parsed as a URL,
+        so `https://evil.example/`, `//evil.example` and `/flights`
+        all fall back to Display rather than becoming an open
+        redirect). All three redirects below use the resolved value.
         """
         form = self.read_form()
+        return_to = form.get("return_to")
+        if return_to not in (layout.HOME_ROUTE, layout.DISPLAY_ROUTE):
+            return_to = layout.DISPLAY_ROUTE
         state = form.get(layout.QUICK_STATE_FIELD)
         if state not in (layout.QUICK_STATE_ON, layout.QUICK_STATE_OFF):
             return self.redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_QUICK_FAILED)))
+                "%s?flash=%s" % (return_to, quote(FLASH_KEY_QUICK_FAILED)))
         enabled = state == layout.QUICK_STATE_ON
         if field == "display_enabled":
             kwargs = {"display_enabled": enabled}
@@ -2830,7 +2838,7 @@ class Handler(BaseHTTPRequestHandler):
             device_config.save_device_config(self.args.state_dir, **kwargs)
         except (ValueError, OSError):
             flash_key = FLASH_KEY_QUICK_FAILED
-        return self.redirect("%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(flash_key)))
+        return self.redirect("%s?flash=%s" % (return_to, quote(flash_key)))
 
     def _handle_theme_post(self):
         form = self.read_form()

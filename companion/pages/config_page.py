@@ -415,35 +415,27 @@ DISPLAY_SECTION_CAPTION = (
 # comment above.
 DISPLAY_SECTION_CAPTION_ID = "display-caption"
 
-# 20-07-PLAN.md Task 2 (D-19): the Screen on/off and Quiet hours groups'
-# own instant-switch quick-action slot. Home's own (module-private, on
-# the Home page) route/copy constants are byte-for-byte duplicates,
-# never imported (a page module may never import another page module,
-# companion/pages/__init__.py's own boundary) — 20-06 deletes Home's
-# own copies once its soon-to-be-retired Quick actions card is retired
-# (D-16). The quick-action `<form>`s'
-# own action attributes below are written as literal path text, not a
-# `%s` interpolation of these constants (this file's own acceptance
-# gate greps the literal form-action text) — but the two constants stay
-# defined here, equal to those same paths, for
+# 20-07-PLAN.md Task 2 (D-19): the Screen on/off and Quiet hours routes
+# the strip's switches still post to. Home's own (module-private, on
+# the Home page) route constants are byte-for-byte duplicates, never
+# imported (a page module may never import another page module,
+# companion/pages/__init__.py's own boundary). The instant-switch
+# `<form>`s' own action attributes are written as literal path text,
+# not a `%s` interpolation of these constants (this file's own
+# acceptance gate greps the literal form-action text) — but the two
+# constants stay defined here, equal to those same paths, for
 # companion/test_config_page.py's own checks to reference without
 # retyping either path a third time.
+#
+# 21-04-PLAN.md Task 1 (D-01/D-02/R-01): the eleven constants naming
+# the switches' own labels/state text/button text, and the markup
+# blocks that used to build each switch, both moved out of this
+# module entirely — the shared strip helper in companion/layout.py is
+# now their one write site, since the Screen/Quiet-hours instant switches render in the
+# shared Frame strip at the top of Home and Display, not inside these
+# two scheduled-controls cards any more.
 QUICK_DISPLAY_ROUTE = "/quick/display"
 QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
-QUICK_ACTION_SCREEN_LABEL = "Screen"
-QUICK_ACTION_ON_TEXT = "On"
-QUICK_ACTION_OFF_TEXT = "Off"
-QUICK_ACTION_SWITCH_ON_BUTTON = "Switch on"
-QUICK_ACTION_SWITCH_OFF_BUTTON = "Switch off"
-QUICK_ACTION_QUIET_LABEL = "Quiet hours"
-QUICK_ACTION_QUIET_ON_TEMPLATE = "On — %s to %s"
-QUICK_ACTION_QUIET_OFF_TEXT = "Off"
-QUICK_ACTION_QUIET_TURN_ON_BUTTON = "Turn on"
-QUICK_ACTION_QUIET_TURN_OFF_BUTTON = "Turn off"
-# D-19/20-UI-SPEC.md Section Anatomy D: one shared sentence for both
-# switches — never two independently-worded copies of the identical
-# fact.
-QUICK_ACTION_APPLIES_SENTENCE = "Applies the next time the frame wakes up."
 
 # Read elsewhere, not just here — this module's existing
 # duplicated-not-imported must-equal discipline (matches
@@ -1719,49 +1711,17 @@ def quiet_hours_group(
         escape_html(i18n.t(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL)),
     )
 
-    # D-19 (20-UI-SPEC.md Section Anatomy D): the instant switch, above a
-    # hairline and the shared "applies on next wake" sentence, at the top
-    # of the card, before the scheduled checkbox/time inputs. `is_on`
-    # reads the CURRENT persisted state (`current_enabled`/`current_start`/
-    # `current_end`), never the submission being repopulated below —
-    # matching Home's own (soon-to-be-retired, D-16) Quick-actions
-    # widget, whose `quiet_on = cfg.get(...) is True` this mirrors
-    # exactly.
-    is_on = current_enabled is True
-    next_state = layout.QUICK_STATE_OFF if is_on else layout.QUICK_STATE_ON
-    state_text = (
-        i18n.t(QUICK_ACTION_QUIET_ON_TEMPLATE) % (current_start, current_end)
-        if is_on else i18n.t(QUICK_ACTION_QUIET_OFF_TEXT))
-    quick_action_html = (
-        '<div class="quick-action-slot">'
-        '<div class="quick-action quick-action--%s">'
-        '<div class="quick-action__text">'
-        '<span class="text-label quick-action__label">%s%s</span>'
-        '<span class="text-body quick-action__state">%s</span>'
-        "</div>"
-        '<form method="post" action="/quick/quiet-hours" class="quick-action__form">'
-        '<input type="hidden" name="%s" value="%s">'
-        '<button type="submit">%s</button>'
-        "</form>"
-        "</div>"
-        '<p class="text-label section-caption">%s</p>'
-        "</div>"
-    ) % (
-        "on" if is_on else "off",
-        layout.icon_html("icon-moon", size=16, extra_class="quick-action__icon"),
-        escape_html(i18n.t(QUICK_ACTION_QUIET_LABEL)),
-        escape_html(state_text),
-        layout.QUICK_STATE_FIELD, escape_html(next_state),
-        escape_html(i18n.t(
-            QUICK_ACTION_QUIET_TURN_OFF_BUTTON if is_on else QUICK_ACTION_QUIET_TURN_ON_BUTTON)),
-        escape_html(i18n.t(QUICK_ACTION_APPLIES_SENTENCE)),
-    )
-
+    # 21-04-PLAN.md Task 1 (D-01/D-02): the instant switch that used to
+    # render here, above a hairline and the shared "applies on next
+    # wake" sentence, is gone — it now renders once, in the shared
+    # Frame strip at the top of Home and Display (the shared strip
+    # helper in companion/layout.py), never a second time in this
+    # card. Everything below (the scheduled checkbox, the presets, both time
+    # inputs, the Save button) is unchanged.
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        "%s"
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s form="%s"%s> %s'
         "</label>"
@@ -1777,7 +1737,6 @@ def quiet_hours_group(
         escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
         escape_html(_with_next_wake(i18n.t(QUIET_HOURS_SECTION_CAPTION), next_wake_clock)),
-        quick_action_html,
         escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", SETTINGS_FORM_ID,
         enabled_error_attrs,
         escape_html(i18n.t("Enable quiet hours")),
@@ -2063,20 +2022,18 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     page whose apply-timing is genuinely different — see the constant's
     own comment above for why.
 
-    D-19 (20-UI-SPEC.md Section Anatomy D): the instant-switch slot — the
-    switch itself, posting to `QUICK_DISPLAY_ROUTE` (unchanged from
-    `/quick/display`'s own existing session-gated route and redirect
-    target, 20-01-PLAN.md Task 2), above a hairline, followed by the
-    shared "Applies the next time the frame wakes up." sentence — renders
-    at the top of this card, before the scheduled checkbox. `is_on` is
-    resolved the same way Home's own (soon-to-be-retired, D-16)
-    Quick-actions widget resolves it: `is not False`, so a config
-    predating this field (`None`) reads as on, matching
-    `DEFAULT_DISPLAY_ENABLED`'s own default-on posture.
+    21-04-PLAN.md Task 1 (D-01/D-02): the instant-switch slot that used
+    to render here, above a hairline and the shared "Applies the next
+    time the frame wakes up." sentence, at the top of this card, is
+    gone — it now renders once, in the shared Frame strip at the top
+    of Home and Display (the shared strip helper in companion/
+    layout.py), never a second time in this card. Everything below
+    (the scheduled checkbox, the
+    Save button) is unchanged.
 
-    Every interpolated current value — the heading, the caption, the
-    checkbox value, and every quick-action string — is routed through
-    `escape_html()`, matching this file's universal escaping discipline.
+    Every interpolated current value — the heading, the caption, and
+    the checkbox value — is routed through `escape_html()`, matching
+    this file's universal escaping discipline.
 
     19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
     defaulted) let a rejected save repopulate this checkbox's `checked`
@@ -2096,37 +2053,10 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     error_attrs = _field_error_attrs(
         errors, "display_enabled", "display-enabled", hint_id=DISPLAY_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "display_enabled", "display-enabled")
-    is_on = current_display_enabled is not False
-    next_state = layout.QUICK_STATE_OFF if is_on else layout.QUICK_STATE_ON
-    quick_action_html = (
-        '<div class="quick-action-slot">'
-        '<div class="quick-action quick-action--%s">'
-        '<div class="quick-action__text">'
-        '<span class="text-label quick-action__label">%s%s</span>'
-        '<span class="text-body quick-action__state">%s</span>'
-        "</div>"
-        '<form method="post" action="/quick/display" class="quick-action__form">'
-        '<input type="hidden" name="%s" value="%s">'
-        '<button type="submit">%s</button>'
-        "</form>"
-        "</div>"
-        '<p class="text-label section-caption">%s</p>'
-        "</div>"
-    ) % (
-        "on" if is_on else "off",
-        layout.icon_html("icon-power", size=16, extra_class="quick-action__icon"),
-        escape_html(i18n.t(QUICK_ACTION_SCREEN_LABEL)),
-        escape_html(i18n.t(QUICK_ACTION_ON_TEXT if is_on else QUICK_ACTION_OFF_TEXT)),
-        layout.QUICK_STATE_FIELD, escape_html(next_state),
-        escape_html(i18n.t(
-            QUICK_ACTION_SWITCH_OFF_BUTTON if is_on else QUICK_ACTION_SWITCH_ON_BUTTON)),
-        escape_html(i18n.t(QUICK_ACTION_APPLIES_SENTENCE)),
-    )
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        "%s"
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="display_enabled" value="%s"%s form="%s"%s> %s'
         "</label>"
@@ -2136,7 +2066,6 @@ def display_group(current_display_enabled, errors=None, submitted=None):
         DIRTY_SECTION_ATTR, escape_html(i18n.t(DISPLAY_SECTION_HEADING)),
         escape_html(i18n.t(DISPLAY_SECTION_HEADING)),
         escape_html(DISPLAY_SECTION_CAPTION_ID), escape_html(i18n.t(DISPLAY_SECTION_CAPTION)),
-        quick_action_html,
         escape_html(DISPLAY_CHECKBOX_VALUE), " checked" if checked else "", SETTINGS_FORM_ID,
         error_attrs,
         escape_html(i18n.t("Enable display")),
@@ -2344,12 +2273,12 @@ def calendar_connect_section(configured, errors=None):
     )
     # The action attribute below is written as literal path text, not a
     # %s interpolation of CALENDAR_CONNECT_ROUTE — matching this file's
-    # own established convention for the quick-action forms' own action
-    # attributes (see QUICK_DISPLAY_ROUTE's comment above): this module's
-    # acceptance gate greps the literal form-action text, and the
-    # constant itself stays defined for companion/app.py's rebinding and
-    # companion/test_config_page.py's own checks to reference without
-    # retyping the path a third time.
+    # own established convention for the instant-switch forms' own
+    # action attributes (see QUICK_DISPLAY_ROUTE's comment above): this
+    # module's acceptance gate greps the literal form-action text, and
+    # the constant itself stays defined for companion/app.py's
+    # rebinding and companion/test_config_page.py's own checks to
+    # reference without retyping the path a third time.
     form_html = (
         '<form method="post" action="/settings/calendar/connect" class="rule-add-form">'
         "%s"
@@ -3214,6 +3143,14 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         header = layout.page_header(
             i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
             action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
+        # 21-04-PLAN.md Task 1 (D-02/R-01): the shared Frame strip, once,
+        # directly after the page header and before the "Look"
+        # supersection's own section_intro_html() (the first thing
+        # groups_html renders, below) — the exact same next_wake_iso
+        # already computed above for next_wake_clock feeds it, so there
+        # is no second wake.next_wake_at_iso() call for the same value.
+        frame_strip_section_html = layout.frame_strip_html(
+            ctx, return_to=layout.DISPLAY_ROUTE, next_wake_iso=next_wake_iso)
         hidden_html = _scope_fields_html(scope, layout.DISPLAY_ROUTE)
         # 20-07-PLAN.md Task 1 (D-10/D-11): Flight colours and the
         # calendar-disconnect form move to Display with their groups —
@@ -3249,6 +3186,9 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
                 _screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors)
                 + _next_wake_caption_html(next_wake_clock)))
         hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
+        # 21-04-PLAN.md Task 1 (D-01/D-02): the Frame strip renders only
+        # on Home and Display — never on Device.
+        frame_strip_section_html = ""
         # 20-07-PLAN.md Task 1 (D-10/D-11): Flight colours and the
         # calendar-disconnect form are no longer Device concerns — both
         # groups they act on (Runway/Calendar) moved to Display's
@@ -3271,6 +3211,12 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     else:
         header = layout.page_header(i18n.t("Settings"))
         hidden_html = ""
+        # 21-04-PLAN.md Task 1 (D-01/D-02): SCOPE_ALL is the legacy,
+        # never-served whole-page render (see its own comment two lines
+        # below) — it never carried the Screen/Quiet-hours instant
+        # switches even before this task, so it carries no Frame strip
+        # either.
+        frame_strip_section_html = ""
         show_rules = show_poll = True
         # SCOPE_ALL is the legacy whole-page render, kept byte-identical
         # to its own pre-Phase-19 output for existing harness checks
@@ -3328,6 +3274,12 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
 
     return (
         header
+        # 21-04-PLAN.md Task 1 (D-02/R-01): the shared Frame strip
+        # renders immediately after the page header and before the
+        # form (whose own groups_html opens with the "Look"
+        # supersection's own section_intro_html()) — "" on Device and
+        # SCOPE_ALL.
+        + frame_strip_section_html
         + '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
         "%s"
         "%s"

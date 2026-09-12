@@ -469,6 +469,16 @@ EXPECTED_CHECK_COUNT = 251
 # (254/256 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 256
+# 21-04-PLAN.md Task 1 (D-01/R-02): +2 (POST /quick/display and POST
+# /quick/quiet-hours each gain one check proving return_to round-trips
+# to / and to /display, falls back to /display for a hostile value
+# (https://evil.example/, //evil.example, /flights) or an absent
+# field, and the invalid-state early return honours return_to too).
+# 256 + 2 = 258, recomputed directly against the real on-disk check(...)
+# call count at execution time (256/258 pass — the two documented
+# WR-11 root-sandbox failures, unrelated to this plan), not trusted
+# from arithmetic alone.
+EXPECTED_CHECK_COUNT = 258
 
 
 def _ago_iso(seconds):
@@ -4055,6 +4065,56 @@ def main():
             "POST /quick/quiet-hours with state=on then state=off flips quiet_hours_enabled on disk, "
             "redirects to Display (D-16) with the matching flash, and never touches display_enabled",
             _quick_quiet_hours_toggle_round_trip)
+
+        def _make_quick_toggle_return_to_check(route, flash_key):
+            # 21-04-PLAN.md Task 1 (D-01/R-02/T-21-12): return_to=/ redirects
+            # to Home, return_to=/display redirects to Display, and a
+            # hostile/absent value falls back to Display — never string-
+            # prefix-matched, never parsed as a URL. One factory, both
+            # routes, so the two forms' whitelist-then-fallback contract
+            # can never silently diverge.
+            def _check():
+                for return_to, expected_location in (
+                        ("/", "/?flash=%s" % flash_key),
+                        ("/display", "/display?flash=%s" % flash_key),
+                        ("https://evil.example/", "/display?flash=%s" % flash_key),
+                        ("//evil.example", "/display?flash=%s" % flash_key),
+                        ("/flights", "/display?flash=%s" % flash_key)):
+                    status, headers, _ = http_request(
+                        base + route, method="POST", cookie=session_cookie,
+                        data=urllib.parse.urlencode({"state": "on", "return_to": return_to}).encode())
+                    if status != 303 or headers.get("Location") != expected_location:
+                        return False, "return_to=%r: expected 303 to %r, got %d/%r" % (
+                            return_to, expected_location, status, headers.get("Location"))
+                # Absent return_to: the same fallback-to-Display behaviour
+                # this route already had before this task.
+                status, headers, _ = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": "off"}).encode())
+                if status != 303 or headers.get("Location") != "/display?flash=%s" % (
+                        app_module.FLASH_KEY_DISPLAY_OFF if route == app_module.QUICK_DISPLAY_ROUTE
+                        else app_module.FLASH_KEY_QUIET_OFF):
+                    return False, "expected an absent return_to to fall back to Display"
+                # The invalid-state early return honours return_to too.
+                status, headers, _ = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": "toggle", "return_to": "/"}).encode())
+                if status != 303 or headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED:
+                    return False, (
+                        "expected the invalid-state early return to honour return_to=/, got %d/%r"
+                        % (status, headers.get("Location")))
+                return True, ""
+            return _check
+        check(
+            "POST /quick/display honours return_to (/ or /display), falls back to Display for a "
+            "hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and "
+            "the invalid-state early return honours return_to too (D-01/R-02)",
+            _make_quick_toggle_return_to_check(app_module.QUICK_DISPLAY_ROUTE, app_module.FLASH_KEY_DISPLAY_ON))
+        check(
+            "POST /quick/quiet-hours honours return_to (/ or /display), falls back to Display for a "
+            "hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and "
+            "the invalid-state early return honours return_to too (D-01/R-02)",
+            _make_quick_toggle_return_to_check(app_module.QUICK_QUIET_HOURS_ROUTE, app_module.FLASH_KEY_QUIET_ON))
 
         check(
             "unauthenticated POST /quick/display redirects to /login without page content",
