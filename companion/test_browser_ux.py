@@ -87,10 +87,15 @@ from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
-EXPECTED_CHECK_COUNT = 1  # 22-01-PLAN.md Task 1: one check, proving the
-# harness itself (subprocess, seed, real browser, real selectors) against
-# a behaviour that already works today, before this same file is ever
-# asked to prove anything about B1/T1/T8 (Task 3 raises this to 5).
+EXPECTED_CHECK_COUNT = 5  # 22-01-PLAN.md Task 1: one check (the Flights
+# detail row), proving the harness itself (subprocess, seed, real
+# browser, real selectors) against a behaviour that already works today.
+# 22-01-PLAN.md Task 3: +4 (Display reveal/persist across all four
+# form=-attached field kinds, the identical Device round trip, the
+# fallback-Save-stays-reachable-until-proven-live contract, and Cancel/
+# T1/T8 together). 1 + 4 = 5, recomputed directly against the real
+# on-disk check(...) call count at execution time (5/5 pass), not
+# trusted from arithmetic alone.
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -191,6 +196,47 @@ def _login(page, base_url):
     page.wait_for_load_state("networkidle")
 
 
+def _click_control(page, selector):
+    """Click a checkbox/radio input through the browser's own native
+    .click() method (JS-level, not Playwright's mouse-coordinate click).
+
+    Every checkbox/radio this file's checks click below is visually
+    hidden (config_page.py's own selectable-card idiom: a
+    visually-hidden native input wrapped in a full-card <label>), via
+    `clip-path: inset(50%)` (companion/static/style.css's own
+    .visually-hidden rule) — which clips the element's paintable AND
+    hit-testable area to nothing. A coordinate-based click (Playwright's
+    own `locator.click()`, even with `force=True`) dispatches at that
+    point and can silently land on whatever the browser's hit-test
+    resolves to there instead (confirmed live: it left the target
+    control unchecked with no error). `element.click()` is the DOM's own
+    "activation behaviour" algorithm — it runs regardless of paint/hit-
+    test visibility and is what every real assistive-technology/keyboard
+    activation path already relies on for this exact selectable-card
+    pattern, so it is the correct thing to call here, not a workaround.
+    """
+    page.eval_on_selector(selector, "el => el.click()")
+
+
+def _guard_armed(page):
+    """T1: whether dirty-state.js's beforeunload guard is currently
+    armed, tested by constructing a real, cancelable `beforeunload`
+    Event object in-page and dispatching it directly on window, then
+    reading `defaultPrevented` — never by trying to trigger an actual
+    navigation and observe a native "leave site?" dialog, which
+    Chromium suppresses/auto-resolves under Playwright and which
+    Playwright's own `dialog` event does not reliably surface for
+    beforeunload specifically. Dispatching the Event directly still
+    exercises dirty-state.js's own real listener (the one registered via
+    `window.addEventListener("beforeunload", ...)`) with no change to
+    that file — this is a black-box behavioural probe, not an internal
+    read of the private `suppressGuard` variable.
+    """
+    return page.evaluate(
+        "() => { var e = new Event('beforeunload', {cancelable: true}); "
+        "window.dispatchEvent(e); return e.defaultPrevented; }")
+
+
 def main():
     try:
         from playwright.sync_api import sync_playwright
@@ -267,6 +313,212 @@ def main():
                     "a Flights detail row expands and collapses, flipping aria-expanded and toggling the "
                     "row aria-controls resolves to",
                     _flights_detail_row_expands_and_collapses)
+
+                # ----------------------------------------------------------------
+                # 22-01-PLAN.md Task 3 (D-01/D-02, B1/T1/T8): the four checks
+                # this whole plan exists to make possible.
+                # ----------------------------------------------------------------
+
+                def _display_reveal_and_persist_across_all_field_kinds():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        base_url = harness.base_url()
+                        theme_ids = device_config.THEME_IDS
+                        runway_ids = device_config.RUNWAY_IDS
+
+                        # 1. Theme chip (Frame colours card, form=-attached,
+                        # rendered as a sibling of <form id="settings-form">):
+                        # reveal, name the section, submit, persist.
+                        page.goto(base_url + "/display")
+                        target_theme = theme_ids[1]
+                        theme_sel = 'input[name="theme"][value="%s"]' % target_theme
+                        _click_control(page, theme_sel)
+                        bar = page.locator("[data-dirty-bar]")
+                        if bar.is_hidden():
+                            return False, "expected the save bar to become visible after a theme chip click"
+                        count_text = page.locator("[data-dirty-count]").inner_text()
+                        if "Frame colours" not in count_text:
+                            return False, "expected the bar to name Frame colours, got %r" % count_text
+                        with page.expect_navigation():
+                            page.locator(".dirty-bar__save").click()
+                        page.goto(base_url + "/display")
+                        if not page.eval_on_selector(theme_sel, "el => el.checked"):
+                            return False, "expected the saved theme chip to be checked after reload"
+
+                        # 2. Runway card (also a sibling of the form).
+                        page.goto(base_url + "/display")
+                        target_runway = runway_ids[1]
+                        runway_sel = 'input[name="tracked_runway"][value="%s"]' % target_runway
+                        _click_control(page, runway_sel)
+                        if bar.is_hidden():
+                            return False, "expected the save bar to become visible after a runway card click"
+                        count_text = page.locator("[data-dirty-count]").inner_text()
+                        if "Runway" not in count_text:
+                            return False, "expected the bar to name Runway, got %r" % count_text
+                        with page.expect_navigation():
+                            page.locator(".dirty-bar__save").click()
+                        page.goto(base_url + "/display")
+                        if not page.eval_on_selector(runway_sel, "el => el.checked"):
+                            return False, "expected the saved runway card to be checked after reload"
+
+                        # 3. Enable-display checkbox (a sibling of the form).
+                        page.goto(base_url + "/display")
+                        display_sel = 'input[name="display_enabled"]'
+                        was_checked = page.eval_on_selector(display_sel, "el => el.checked")
+                        _click_control(page, display_sel)
+                        if bar.is_hidden():
+                            return False, "expected the save bar to become visible after the Enable-display checkbox"
+                        count_text = page.locator("[data-dirty-count]").inner_text()
+                        if "Screen on / off" not in count_text:
+                            return False, "expected the bar to name Screen on / off, got %r" % count_text
+                        with page.expect_navigation():
+                            page.locator(".dirty-bar__save").click()
+                        page.goto(base_url + "/display")
+                        now_checked = page.eval_on_selector(display_sel, "el => el.checked")
+                        if now_checked == was_checked:
+                            return False, "expected the Enable-display checkbox to have flipped and persisted"
+
+                        # 4. Quiet-hours time field (a sibling of the form).
+                        page.goto(base_url + "/display")
+                        quiet_sel = 'input[name="quiet_hours_start"]'
+                        page.fill(quiet_sel, "22:15")
+                        if bar.is_hidden():
+                            return False, "expected the save bar to become visible after a quiet-hours time edit"
+                        count_text = page.locator("[data-dirty-count]").inner_text()
+                        if "Quiet hours" not in count_text:
+                            return False, "expected the bar to name Quiet hours, got %r" % count_text
+                        with page.expect_navigation():
+                            page.locator(".dirty-bar__save").click()
+                        page.goto(base_url + "/display")
+                        if page.eval_on_selector(quiet_sel, "el => el.value") != "22:15":
+                            return False, "expected the saved quiet-hours start time to persist after reload"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "Display: a theme chip, a runway card, the Enable-display checkbox and a quiet-hours "
+                    "time field each reveal the save bar, name their own section, and persist on save "
+                    "(B1, all four form=-attached field kinds)",
+                    _display_reveal_and_persist_across_all_field_kinds)
+
+                def _device_reveal_and_persist_stays_in_step_with_display():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        base_url = harness.base_url()
+                        page.goto(base_url + "/device")
+                        led_sel = 'input[name="led_enabled"]'
+                        was_checked = page.eval_on_selector(led_sel, "el => el.checked")
+                        _click_control(page, led_sel)
+                        bar = page.locator("[data-dirty-bar]")
+                        if bar.is_hidden():
+                            return False, "expected the save bar to become visible on Device too"
+                        count_text = page.locator("[data-dirty-count]").inner_text()
+                        if "Diagnostic LED" not in count_text:
+                            return False, "expected the bar to name Diagnostic LED, got %r" % count_text
+                        with page.expect_navigation():
+                            page.locator(".dirty-bar__save").click()
+                        page.goto(base_url + "/device")
+                        now_checked = page.eval_on_selector(led_sel, "el => el.checked")
+                        if now_checked == was_checked:
+                            return False, "expected the Diagnostic LED checkbox to have flipped and persisted"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "Device: the same reveal-and-persist round trip proves the two scopes stay in step (B1)",
+                    _device_reveal_and_persist_stays_in_step_with_display)
+
+                def _fallback_save_reachable_until_bar_proven_live():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        base_url = harness.base_url()
+
+                        # With the bar never revealed, the fallback stays visible
+                        # and submitting it saves (D-01: the fallback is the only
+                        # write path a broken/blocked script leaves behind).
+                        page.goto(base_url + "/display")
+                        fallback = page.locator("[data-static-save-fallback]")
+                        if not fallback.is_visible():
+                            return False, "expected the fallback Save button to be visible before the bar is ever shown"
+                        with page.expect_navigation():
+                            fallback.click()
+                        if "/display" not in page.url:
+                            return False, "expected the fallback Save button to actually submit the form"
+
+                        # Once the bar has been revealed once, the fallback hides.
+                        page.goto(base_url + "/display")
+                        fallback = page.locator("[data-static-save-fallback]")
+                        if not fallback.is_visible():
+                            return False, "expected the fallback Save button to still be visible before any edit on a fresh load"
+                        theme_ids = device_config.THEME_IDS
+                        _click_control(page, 'input[name="theme"][value="%s"]' % theme_ids[2])
+                        if page.locator("[data-dirty-bar]").is_hidden():
+                            return False, "expected the save bar to become visible after the edit"
+                        if fallback.is_visible():
+                            return False, "expected the fallback Save button to hide once the bar has genuinely been shown"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the fallback Save button stays reachable and functional until the bar has actually been "
+                    "shown once, then hides (D-01: the no-way-to-save-at-all fix)",
+                    _fallback_save_reachable_until_bar_proven_live)
+
+                def _cancel_restores_preview_and_rearms_guard():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        base_url = harness.base_url()
+                        page.goto(base_url + "/display")
+                        theme_ids = device_config.THEME_IDS
+                        original_sel = 'input[name="theme"]:checked'
+                        original_value = page.eval_on_selector(original_sel, "el => el.value")
+                        original_src = page.locator(".theme-live-preview__image").get_attribute("src")
+
+                        if _guard_armed(page):
+                            return False, "expected the leave-guard to start disarmed on a clean page load"
+
+                        other_theme = next(t for t in theme_ids if t != original_value)
+                        _click_control(page, 'input[name="theme"][value="%s"]' % other_theme)
+                        new_src = page.locator(".theme-live-preview__image").get_attribute("src")
+                        if new_src == original_src:
+                            return False, "expected the live preview to change immediately after the edit"
+                        if not _guard_armed(page):
+                            return False, "expected the leave-guard to be armed after a real edit"
+
+                        page.locator("[data-dirty-cancel]").click()
+                        # T8: Cancel restores both the form value AND the live
+                        # preview - form.reset() alone only restores the former.
+                        if not page.eval_on_selector(
+                                'input[name="theme"][value="%s"]' % original_value, "el => el.checked"):
+                            return False, "expected Cancel to restore the original theme chip's checked state"
+                        restored_src = page.locator(".theme-live-preview__image").get_attribute("src")
+                        if restored_src != original_src:
+                            return False, (
+                                "expected Cancel to restore the live preview to its original src, got %r "
+                                "(T8)" % (restored_src,))
+                        if _guard_armed(page):
+                            return False, "expected Cancel to disarm the leave-guard"
+
+                        # T1: the NEXT edit re-arms the guard - it must not stay
+                        # disarmed for the rest of the page's life after Cancel.
+                        _click_control(page, 'input[name="theme"][value="%s"]' % other_theme)
+                        if not _guard_armed(page):
+                            return False, "expected a subsequent edit after Cancel to re-arm the leave-guard (T1)"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "Cancel restores the form value AND the live theme preview (T8), and a subsequent edit "
+                    "re-arms the leave-guard (T1)",
+                    _cancel_restores_preview_and_rearms_guard)
             finally:
                 browser.close()
     finally:

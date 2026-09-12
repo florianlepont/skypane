@@ -271,9 +271,21 @@
   // a section that structurally cannot change. Re-runs the same
   // per-field comparison countDifferences() performs, scoped to only
   // the fields each wrapper contains().
+  //
+  // 22-01-PLAN.md Task 3 (D-01/B1, found live while proving the fix in
+  // the browser): the wrapper lookup below queries document, not form.
+  // On the Display scope every [data-dirty-section] group renders as a
+  // SIBLING of the physical form, exactly like the fields inside them -
+  // form.querySelectorAll() only ever searches descendants, so it found
+  // zero wrappers there and the bar silently fell back to its raw-count
+  // copy on every Display save, never naming a section. Wrapper
+  // membership is still resolved the identical way afterwards
+  // (wrapper.contains(el) against form.elements, which was already
+  // correct) - only the wrapper QUERY's scope changes, for the same
+  // reason the listener attachment point did.
   function dirtySectionLabels() {
     var current = snapshotValues();
-    var wrappers = form.querySelectorAll("[data-dirty-section]");
+    var wrappers = document.querySelectorAll("[data-dirty-section]");
     var labels = [];
     var i, j;
     for (i = 0; i < wrappers.length; i++) {
