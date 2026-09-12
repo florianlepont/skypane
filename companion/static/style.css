@@ -2476,6 +2476,76 @@ button:disabled {
   border-bottom: 1px solid var(--color-border);
 }
 
+/* 21-03-PLAN.md Task 1 (D-15, 21-UI-SPEC.md §F): scoped to Flights' own
+ * table only — no other .data-table consumer (Health, Airlines) gains
+ * this modifier. Six columns (5 data + the "More" toggle) at 8px
+ * horizontal padding each = 96px of padding, leaving a 784px content
+ * budget inside the real 880px column (1280 - 240 sidebar - 32 gap -
+ * 128 .dashboard-main padding) — tokens only, no literal px value, so
+ * this rule tracks --space-sm/--space-md if either token ever changes. */
+table.data-table--flights td,
+table.data-table--flights th {
+  padding: var(--space-sm) var(--space-sm);
+}
+
+/* 21-03-PLAN.md Task 3 (D-15) — Rule 1 auto-fix found by the headless
+ * measurement step: .data-table's own `min-width: max-content` rule
+ * (a deliberate earlier "no-crop" floor, quick task 260901-uzi) sizes
+ * every column to its widest UNWRAPPED line. The When/Flight cells'
+ * primary+separator+secondary spans render inline by default (the
+ * shape _merged_cell() already produces everywhere else in this app),
+ * so a run like "AFR1380 · Air France · A320" wants ~400px on one
+ * line — blowing straight through the 880px column budget regardless
+ * of the padding rule above. Scoped to this table only: the primary
+ * and secondary lines become genuinely STACKED (block-level), so each
+ * column's own max-content width is the WIDER of its two lines, not
+ * their concatenation, matching this task's own "two stacked lines,
+ * never an inline suffix" requirement. The inline middle-dot
+ * separator has no role once the two parts sit on separate lines, so
+ * it is hidden here — never deleted from the DOM, so a future change
+ * that un-scopes this rule finds the separator markup still intact. */
+table.data-table--flights .cell-primary,
+table.data-table--flights .cell-secondary {
+  display: block;
+}
+
+table.data-table--flights .cell-inline-sep {
+  display: none;
+}
+
+/* 21-03-PLAN.md Task 2 (D-15/R-12, 21-UI-SPEC.md §F): the expandable
+ * detail row's own styling — tokens only, no new colour literal. The
+ * no-JS floor (D-15, locked) is a VISIBLE detail row by default; the
+ * collapsing class below is added only by companion/static/
+ * flight-rows.js at load, never rendered server-side. */
+.flight-detail-row td {
+  background: color-mix(in srgb, var(--color-text) 3%, transparent);
+  padding: var(--space-md);
+}
+
+.flight-detail-row__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-sm) var(--space-md);
+  margin: 0;
+}
+
+.flight-detail-row__grid dt {
+  margin: 0;
+}
+
+.flight-detail-row__grid dd {
+  margin: 0 0 var(--space-xs);
+}
+
+/* D-15's own no-JS floor: visible by default. flight-rows.js adds
+ * this class to every .flight-detail-row at load, mirroring
+ * nav-dropdown.js's own "document.documentElement.className += ' js'"
+ * convention for a component-scoped hide instead of a page-wide one. */
+.flight-detail-row--collapsed {
+  display: none;
+}
+
 /* quick task 260902-bl2 (bug 1): the Resolution-statistics table's
  * Description column measured full-strength --color-text with an empty
  * classList — not a rule written wrong, a missing hook: before this,

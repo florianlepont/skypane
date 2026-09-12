@@ -459,6 +459,17 @@ EXPECTED_CHECK_COUNT = 250
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 251
 
+# 21-03-PLAN.md Task 2 (D-15/R-12): +5. flight-rows.js's own six-touch-
+# point registration adds 5 new checks (public-route smoke, ES5-safety/
+# required-token scan, route==src agreement, exactly-one-script-tag,
+# a real GET proving the served body) mirroring theme-preview.js's own
+# block; the "ten deferred scripts" check is retargeted in place to
+# eleven (net 0 for that one). 251 + 5 = 256, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (254/256 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 256
+
 
 def _ago_iso(seconds):
     """An ISO-8601 UTC timestamp `seconds` in the past — quick task
@@ -3539,28 +3550,114 @@ def main():
             "and no inline <script> without a src (D-32)",
             _theme_preview_script_tag_exactly_once_and_no_bare_inline_script)
 
-        def _ten_deferred_scripts_before_closing_body():
-            # Retargeted in place from _nine_deferred_scripts_before_
-            # closing_body() (20-08-PLAN.md Task 3, D-22..D-24/D-32):
-            # theme-preview.js is the tenth unconditional script.
+        # --- 21-03-PLAN.md Task 2 (D-15/R-12): flight-rows.js ---
+
+        check(
+            "GET /static/flight-rows.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/flight-rows.js"))
+
+        def _flight_rows_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "flight-rows.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest", "setTimeout(", "setInterval(")
+            for token in banned:
+                if token in src:
+                    return False, "flight-rows.js must not contain %r" % token
+            required = (
+                "addEventListener", "querySelectorAll", "data-row-toggle",
+                "flight-detail-row--collapsed", "aria-expanded", "aria-controls")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in flight-rows.js" % token
+            return True, ""
+        check(
+            "flight-rows.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers), and "
+            "carries the detail-row toggle contract (addEventListener/querySelectorAll/"
+            "data-row-toggle/flight-detail-row--collapsed/aria-expanded/aria-controls all "
+            "present) (D-15/R-12)",
+            _flight_rows_script_es5_safe_and_no_html_write)
+
+        def _flight_rows_script_route_src_agree():
+            import companion.app as app_module
+            if layout.FLIGHT_ROWS_SCRIPT_SRC != app_module.FLIGHT_ROWS_SCRIPT_ROUTE:
+                return False, "flight-rows script route drift: %r vs %r" % (
+                    layout.FLIGHT_ROWS_SCRIPT_SRC, app_module.FLIGHT_ROWS_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.FLIGHT_ROWS_SCRIPT_SRC equals companion.app.FLIGHT_ROWS_SCRIPT_ROUTE",
+            _flight_rows_script_route_src_agree)
+
+        def _flight_rows_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.FLIGHT_ROWS_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            # No inline <script> without a src anywhere in a rendered page —
+            # the CSP's own "no inline script" rule (D-32), pinned here so a
+            # future change cannot silently reintroduce one.
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one flight-rows.js <script> tag "
+            "and no inline <script> without a src (D-15/R-12)",
+            _flight_rows_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _real_get_flight_rows_route_serves_expected_body():
+            # 21-03-PLAN.md Task 2's own acceptance criteria: a real GET
+            # of the route returns 200 whose body contains data-row-
+            # toggle and flight-detail-row--collapsed and contains none
+            # of innerHTML, document.write, "=>", " let ", " const ".
+            status, headers, body = http_request(base + "/static/flight-rows.js")
+            if status != 200:
+                return False, "expected 200 from GET /static/flight-rows.js, got %d" % status
+            text = body.decode("utf-8")
+            for token in ("data-row-toggle", "flight-detail-row--collapsed"):
+                if token not in text:
+                    return False, "expected %r in the served flight-rows.js body" % token
+            for banned in ("innerHTML", "document.write", "=>", " let ", " const "):
+                if banned in text:
+                    return False, "did not expect %r in the served flight-rows.js body" % banned
+            return True, ""
+        check(
+            "a real GET of /static/flight-rows.js returns 200 with data-row-toggle and "
+            "flight-detail-row--collapsed present, and none of innerHTML/document.write/"
+            "=>/ let / const  (21-03-PLAN.md Task 2)",
+            _real_get_flight_rows_route_serves_expected_body)
+
+        def _eleven_deferred_scripts_before_closing_body():
+            # Retargeted in place from _ten_deferred_scripts_before_
+            # closing_body() (21-03-PLAN.md Task 2, D-15/R-12):
+            # flight-rows.js is the eleventh unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 10:
-                return False, "expected exactly 10 deferred <script src= tags before </body>, got %d" % count
+            if count != 11:
+                return False, "expected exactly 11 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
                     layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
-                    layout.THEME_PREVIEW_SCRIPT_SRC):
+                    layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly ten deferred <script src= tags "
+            "a rendered authenticated page contains exactly eleven deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
-            "poll-cooldown.js, confirm-submit.js and theme-preview.js",
-            _ten_deferred_scripts_before_closing_body)
+            "poll-cooldown.js, confirm-submit.js, theme-preview.js and flight-rows.js",
+            _eleven_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 

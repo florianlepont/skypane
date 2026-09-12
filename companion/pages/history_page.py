@@ -128,19 +128,48 @@ _NO_FLIGHTS_BODY = (
 _HISTORY_UNAVAILABLE_TEXT = (
     "The flight list is temporarily unavailable — try again in a minute.")
 
-# 6 entries (A-36/D-19: dropped from 7 — one runway is tracked at a
-# time, so the Runway column carried the same value on every row while
-# costing ~90px of a 1,305px table that had to fit an 880px column. The
-# value now lives in each rendered <tr>'s title attribute and in the
-# mobile card's More details, so nothing is lost by dropping the
-# desktop column). Left-to-right order is otherwise unchanged from the
-# previous 9-column table so a returning user's scanning habit still
-# works. "Callsign" and "Type" are still merged columns: each carries a
-# secondary value (hex, airline) rendered on the same line via
-# _merged_cell() (06.6.1 D-02).
+# 5 entries (21-03-PLAN.md Task 1, D-15: dropped from 6 — the real
+# available width at a 1280px viewport is 880px, not 1280px (240px
+# sidebar + 32px gap + 128px .dashboard-main padding), and even the
+# prior 6-column table already overflowed that box in French. "When"
+# and "Flight" are now two-line cell-primary/cell-secondary pairs
+# (_merged_cell(), reused from the prior "Timestamp"/"Callsign+Hex"
+# merge, STACKED this time rather than inline — Pitfall 4, do not
+# reach for layout.concise_timestamp_html()'s inline-suffix shape
+# here): When's clock (primary) plus relative age (secondary,
+# layout.relative_age_text()); Flight's callsign (primary) plus
+# "{airline} · {aircraft type}" (secondary). The ICAO24 hex, the full
+# ISO timestamp, the runway and the copy buttons that used to live in
+# the Callsign+Hex/Timestamp cells move into a sibling expandable
+# detail <tr> (_history_table_html()) — the sixth <th> is a
+# visually-hidden "Details" toggle-column header, not a data column,
+# so it is built directly rather than through _HEADERS' own i18n.t(h)
+# loop. Corroboration keeps its dot but loses its visible label
+# (status_dot(visually_hide_label=True)) — the dot alone already
+# answers agree/disagree/unknown, and a ~90px-wide label would blow
+# the 590px column-content budget the 21-UI-SPEC.md §F arithmetic
+# depends on. _callsign_hex_cell()/_type_airline_cell() are retired:
+# nothing else calls them (_history_cards_html() builds its own
+# primary line inline) and their hex-copy-button/type+airline-merge
+# shapes are absorbed into the new Flight cell and the Task 2 detail
+# row instead.
 _HEADERS = (
-    "Timestamp", "Callsign", "Type", "Route", "State", "Corroboration",
+    "When", "Flight", "Route", "State", "Corroboration",
 )
+
+# 21-03-PLAN.md Task 1: the sixth, non-data <th> — a visually-hidden
+# "Details" label naming the row-toggle column for a screen-reader
+# user, never emitted through the _HEADERS/i18n.t(h) loop above (it
+# has no column of formatted data behind it).
+_DETAILS_HEADER_TEXT = "Details"
+
+# 21-03-PLAN.md Task 2 (D-15): the row-toggle button's own two label
+# strings — both escaped server-side through i18n.t() at the button's
+# one render site, then handed to companion/static/flight-rows.js as
+# data-more-text/data-less-text attribute values the script only ever
+# writes back via textContent, never builds itself.
+_MORE_TOGGLE_TEXT = "More"
+_LESS_TOGGLE_TEXT = "Less"
 
 # A-36/D-19: names the .data-table-wrap scroller for keyboard users — at
 # 1,305px inside an 880px column the table scrolled behind a 12px
@@ -641,52 +670,6 @@ def _copy_button_html(value, label):
         layout.icon_html("icon-copy"))
 
 
-def _callsign_hex_cell(callsign, hex_value):
-    """The desktop Callsign+Hex column's own cell builder — reproduces
-    `_merged_cell()`'s primary/separator/secondary markup exactly, then
-    appends a copy button after the callsign and, when a hex value is
-    present, another after the hex (D-23). This is a dedicated function
-    rather than a `_merged_cell()` parameter specifically so the
-    Type+Airline column (which also calls `_merged_cell()`) never gains
-    copy buttons — the two columns must not share this behaviour.
-
-    Three branches (quick task 260902-w4t, UIR-06):
-    - `callsign` truthy: unchanged from before this task — the primary
-      slot carries the callsign, and when `hex_value` is also present it
-      follows as a secondary value with its own copy button.
-    - `callsign` falsy, `hex_value` truthy: the hex is promoted into the
-      primary slot (reusing the exact same `_copy_button_html(hex_value,
-      _COPY_HEX_LABEL)` call the secondary path above already makes —
-      not a second, re-typed call) so the cell is never left with a
-      blank primary value and a dead copy button. A `NO_CALLSIGN_NOTE_TEXT`
-      secondary note follows, with NO copy button of its own: it is
-      presentational text, not data there is anything to copy.
-    - both falsy: an empty primary span, no copy button, no separator,
-      no secondary — a button that would copy `""` is exactly the dead
-      affordance UIR-06 reported, so this branch emits none of it.
-    """
-    row_name = _row_copy_name(callsign, hex_value)
-    if callsign:
-        html = '<span class="%s">%s</span>%s' % (
-            CELL_PRIMARY_CLASS, escape_html(callsign),
-            _copy_button_html(callsign, i18n.t(_COPY_CALLSIGN_LABEL) % row_name))
-        if hex_value:
-            html += '<span class="%s">%s</span><span class="%s">%s</span>%s' % (
-                CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
-                CELL_SECONDARY_CLASS, escape_html(hex_value),
-                _copy_button_html(hex_value, i18n.t(_COPY_HEX_LABEL) % row_name))
-    elif hex_value:
-        html = '<span class="%s">%s</span>%s' % (
-            CELL_PRIMARY_CLASS, escape_html(hex_value),
-            _copy_button_html(hex_value, i18n.t(_COPY_HEX_LABEL) % row_name))
-        html += '<span class="%s">%s</span><span class="%s">%s</span>' % (
-            CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
-            CELL_SECONDARY_CLASS, escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
-    else:
-        html = '<span class="%s"></span>' % CELL_PRIMARY_CLASS
-    return "<td>%s</td>" % html
-
-
 def _unresolved_link_html():
     """The D-21 inline link to Health's Server & data section, used by
     both the desktop Type+Airline cell and the mobile Aircraft detail
@@ -700,22 +683,26 @@ def _unresolved_link_html():
         escape_html(UNRESOLVED_LINK_HREF), escape_html(i18n.t(UNRESOLVED_LINK_TEXT)))
 
 
-def _type_airline_cell(row):
-    """The desktop Type+Airline column's own cell builder (D-21) —
-    reproduces `_merged_cell()`'s primary/separator/secondary markup
-    exactly, then appends `_unresolved_link_html()` immediately after it
-    only when this row's airline could not be resolved, compared against
-    the module's own `AIRLINE_FALLBACK_TEXT` constant (quick task
-    260902-w4t, UIR-05 — was `panel_render.ROUTE_FALLBACK_TEXT`, a
-    different noun's fallback, before AIRLINE_FALLBACK_TEXT existed),
-    never a re-typed literal. A dedicated function rather than a
-    `_merged_cell()` parameter, matching `_callsign_hex_cell()`'s own
-    precedent: the Route column also calls the shared `_merged_cell()`
-    and must never gain this link.
+def _flight_cell_html(row):
+    """The desktop Flight column's own cell builder (21-03-PLAN.md
+    Task 1, D-15) — replaces the retired `_callsign_hex_cell()`/
+    `_type_airline_cell()` pair now that the hex and the copy buttons
+    have moved into the Task 2 detail row. `_merged_cell()`'s primary
+    slot carries the callsign (mono); the secondary slot carries
+    "{airline} · {aircraft type}" as ONE plain string (UI-SPEC §F's own
+    "Air France · A320" example) — `_merged_cell()` still adds its own
+    inline separator between the callsign and this string, so the
+    rendered cell reads "AFR1234 · Air France · A320", matching the
+    UI-SPEC markup block exactly. `_unresolved_link_html()` is appended
+    immediately after, only when this row's airline could not be
+    resolved (D-21, carried over verbatim from the retired
+    `_type_airline_cell()` — the mobile card keeps its own identical
+    copy of this same is_unresolved/airline_display logic).
     """
     is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
     airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
-    html = _merged_cell(row["aircraft_type_label"], airline_display)
+    secondary = "%s · %s" % (airline_display, row["aircraft_type_label"])
+    html = _merged_cell(row["callsign"], secondary)
     if is_unresolved:
         html = html[:-len("</td>")] + _unresolved_link_html() + "</td>"
     return html
@@ -768,72 +755,142 @@ def _filter_bar_html(total):
     )
 
 
-# A-36/D-19: mirrors layout.concise_timestamp_html()'s own default
-# fallback string exactly, so a caller can never tell the two functions
-# apart by their empty-value behaviour.
+# A-36/D-19 (retired function's own comment, kept for its fallback
+# string's continuity): mirrors layout.concise_timestamp_html()'s own
+# default fallback string exactly, so a caller can never tell the two
+# functions apart by their empty-value behaviour. Still consumed by
+# _when_cell_html() below (21-03-PLAN.md Task 1, D-15).
 _CLOCK_CELL_FALLBACK = "no reading yet"
 
 
-def _clock_cell_html(raw_ts, now):
-    """The desktop table's clock-only Timestamp cell (A-36/D-19): a
-    local clock ("HH:MM", or "D Mon HH:MM" once the row is no longer
-    from today — layout.local_clock_text(), Europe/Paris, Phase 18
-    D-06) with the full ISO still carried in the `title` attribute, and
-    no relative-age suffix — that suffix is exactly what made
-    layout.concise_timestamp_html()'s own rendering too wide for this
-    column. Built directly from layout.parse_iso() +
-    layout.local_clock_text() rather than calling
-    concise_timestamp_html() itself, and this function must never be
-    used as a reason to edit companion/layout.py — plan 19-04 owns that
-    file in this same wave.
+def _when_cell_html(raw_ts, now, view_panel_html=""):
+    """The desktop table's When column cell builder (21-03-PLAN.md
+    Task 1, D-15) — replaces the retired `_clock_cell_html()`'s one call
+    site. Two STACKED lines via `_merged_cell()` (never an inline
+    suffix — Pitfall 4, do not reach for
+    `layout.concise_timestamp_html()` here): a local clock primary line
+    ("HH:MM", or "D Mon HH:MM" once the row is no longer from today —
+    `layout.local_clock_text()`, Europe/Paris, the exact text
+    `_clock_cell_html()` used to wrap in a `<span title="...">`) and a
+    relative-age secondary line (`layout.relative_age_text()` over
+    `layout.age_seconds()`). The retired function's own `title`
+    attribute (the full ISO timestamp) is dropped, not relocated: D-15
+    moves the full ISO into the Task 2 detail row's own "Full
+    timestamp" `<dt>/<dd>` pair, so this cell no longer needs a
+    title-attribute home for it.
 
-    Degrades exactly the way concise_timestamp_html() does: a falsy
-    raw_ts returns the escaped fallback text (never markup); an
-    unparseable raw_ts returns a span carrying the raw value in both
-    the title and the visible text. Never raises.
+    Degrades the way `_clock_cell_html()` used to: a falsy `raw_ts`
+    renders the escaped fallback text as a bare primary line with no
+    secondary; an unparseable `raw_ts` renders the raw value as the
+    primary line, still with no secondary (a relative age is undefined
+    for a value that never parsed). Never raises.
+
+    `view_panel_html` (D-20's per-row "View panel near this time"
+    trigger, already-safe markup or "") is spliced in immediately before
+    the closing `</td>`, mirroring `_flight_cell_html()`'s own
+    unresolved-link splice — the same "build the cell, then append
+    already-safe markup before the closing tag" shape used throughout
+    this module.
     """
     if not raw_ts:
-        return escape_html(i18n.t(_CLOCK_CELL_FALLBACK))
-    parsed = layout.parse_iso(raw_ts)
-    if parsed is None:
-        return '<span class="mono" title="%s">%s</span>' % (
-            escape_html(raw_ts), escape_html(raw_ts))
-    now_parsed = layout.parse_iso(now)
-    return '<span class="mono" title="%s">%s</span>' % (
-        escape_html(raw_ts),
-        escape_html(layout.local_clock_text(parsed, now_parsed)))
+        html = _merged_cell(i18n.t(_CLOCK_CELL_FALLBACK), "")
+    else:
+        parsed = layout.parse_iso(raw_ts)
+        if parsed is None:
+            html = _merged_cell(raw_ts, "")
+        else:
+            now_parsed = layout.parse_iso(now)
+            clock_text = layout.local_clock_text(parsed, now_parsed)
+            age = layout.age_seconds(raw_ts, now)
+            secondary = layout.relative_age_text(age) if age is not None else ""
+            html = _merged_cell(clock_text, secondary)
+    if view_panel_html:
+        html = html[:-len("</td>")] + view_panel_html + "</td>"
+    return html
+
+
+def _flight_detail_row_html(row, index):
+    """The D-15/R-12 sibling detail `<tr>`, immediately following the
+    summary row of the same `index` (the same index `_history_table_
+    html()`'s row-toggle button names via `aria-controls`/`id`). Its
+    content is the mobile card's own `<details>` set (`_history_cards_
+    html()`, :952-978-ish), re-wrapped as a `<dl>` inside one
+    `colspan="6"` cell: Hex + its copy button, Full timestamp (the raw
+    ISO) + its copy button, Runway — each `<dt>`/`<dd>` pair OMITTED
+    entirely when its value is absent, never a fabricated "—" (the
+    UI-SPEC's own Empty/Error rule) — followed by a standalone
+    "copy-name" button (the callsign's own copy button, no dt/dd pair:
+    the callsign itself is already visible on the summary row's Flight
+    cell, so only the copy affordance needs a home here, omitted
+    entirely when the row has no callsign). `_copy_button_html()` is
+    reused verbatim; every interpolated value keeps its `escape_html()`
+    wrap, exactly as every other cell in this module already does.
+
+    No `hidden` attribute and no inline style: the no-JS floor is a
+    fully visible detail row (D-15, locked) — companion/static/
+    flight-rows.js adds the collapsing class at load, never this
+    function.
+    """
+    row_name = _row_copy_name(row["callsign"], row["hex"])
+    parts = []
+    if row["hex"]:
+        parts.append(
+            '<div><dt class="text-label">%s</dt><dd class="mono">%s</dd>%s</div>'
+            % (
+                escape_html(i18n.t("Hex")), escape_html(row["hex"]),
+                _copy_button_html(row["hex"], i18n.t(_COPY_HEX_LABEL) % row_name)))
+    if row["raw_ts"]:
+        parts.append(
+            '<div><dt class="text-label">%s</dt><dd class="mono">%s</dd>%s</div>'
+            % (
+                escape_html(i18n.t("Full timestamp")), escape_html(row["raw_ts"]),
+                _copy_button_html(row["raw_ts"], i18n.t(_COPY_TIMESTAMP_LABEL) % row_name)))
+    if row["tracked_runway"]:
+        parts.append(
+            '<div><dt class="text-label">%s</dt><dd>%s</dd></div>'
+            % (escape_html(i18n.t("Runway")), escape_html(row["tracked_runway"])))
+    copy_name_button = (
+        _copy_button_html(row["callsign"], i18n.t(_COPY_CALLSIGN_LABEL) % row_name)
+        if row["callsign"] else "")
+    return (
+        '<tr class="flight-detail-row" id="flight-detail-%d" data-row-detail>'
+        '<td colspan="6"><dl class="flight-detail-row__grid">%s</dl>%s</td>'
+        "</tr>"
+    ) % (index, "".join(parts), copy_name_button)
 
 
 def _history_table_html(formatted_rows, now=None):
     if not formatted_rows:
         return layout.empty_state(i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY))
 
+    # 21-03-PLAN.md Task 1 (D-15): the sixth <th> is the visually-hidden
+    # "Details" toggle-column header — it has no data column behind it,
+    # so it is built directly here rather than through the _HEADERS/
+    # i18n.t(h) loop, and it always reads "Détails" under a French
+    # request because it goes through i18n.t() at this one render site,
+    # never the bare English literal.
     header_cells = "".join("<th>%s</th>" % escape_html(i18n.t(h)) for h in _HEADERS)
+    header_cells += '<th><span class="visually-hidden">%s</span></th>' % escape_html(
+        i18n.t(_DETAILS_HEADER_TEXT))
 
     body_rows = []
     for index, row in enumerate(formatted_rows):
         row_class = "row-alt" if index % 2 else "row"
-        # A-36/D-19: _clock_cell_html() already returns already-safe
-        # <span class="mono" title="..."> markup - this file hand-rolls
-        # its own <td> cells (it does not call layout.data_table()), so
-        # the return value is interpolated directly with no wrapping
-        # escape_html() call, matching _merged_cell()'s own documented
-        # "do not double-escape already-safe markup" discipline. D-20's
-        # View-panel trigger (already-safe markup, or "" for a row with
-        # no nearest render - render() computes this once per row and
-        # both representations share it) is appended after the
-        # timestamp markup.
+        # D-15: five data cells plus the row-toggle cell. When/Flight
+        # already return already-safe, fully-built <td>...</td> markup
+        # (_when_cell_html()/_flight_cell_html()) - interpolated
+        # directly, matching _merged_cell()'s own documented "do not
+        # double-escape already-safe markup" discipline. D-20's
+        # View-panel trigger is threaded into _when_cell_html() itself
+        # now (it used to be appended inline here).
         cells = (
-            "<td>%s%s</td>" % (
-                _clock_cell_html(row["raw_ts"], now),
-                row.get("view_panel_html", "")),
-            _callsign_hex_cell(row["callsign"], row["hex"]),
-            _type_airline_cell(row),
+            _when_cell_html(row["raw_ts"], now, row.get("view_panel_html", "")),
+            _flight_cell_html(row),
             "<td>%s</td>" % escape_html(row["route_label"]),
             "<td>%s</td>" % escape_html(row["confirmed_state"]),
             "<td>%s</td>" % layout.status_dot(
                 row["corroboration_status"], row["corroboration_label"],
-                row["corroboration_title"]),
+                row["corroboration_title"], visually_hide_label=True),
         )
         # D-20: data-filter-text drives companion/static/list-filter.js's
         # match — the same value the mobile <li> for this same row also
@@ -846,17 +903,43 @@ def _history_table_html(formatted_rows, now=None):
         # A-36/D-19: title carries the row's runway — the value the
         # dropped Runway column used to show — escaped through
         # escape_html() at this point of interpolation, same as every
-        # other attribute value this function builds.
+        # other attribute value this function builds. 21-03-PLAN.md
+        # Task 2 also gives the runway a visible home in the sibling
+        # detail row; this title attribute is unchanged.
+        #
+        # 21-03-PLAN.md Task 2 (D-15/R-12): the sixth cell is the
+        # "More"/"Plus" row-toggle button matching the visually-hidden
+        # "Details" header Task 1 already added. data-row-toggle/
+        # aria-controls/aria-expanded are companion/static/
+        # flight-rows.js's own contract (a click flips aria-expanded and
+        # toggles the matching flight-detail-{n} row's collapsed class);
+        # both label strings are escaped server-side through i18n.t()
+        # so the script only ever writes back a value it already
+        # escaped. The button renders "More" by default — the no-JS
+        # floor means the sibling detail row is ALREADY fully visible
+        # without any script running, so this button is inert chrome in
+        # that case, never a broken affordance.
+        toggle_cell = (
+            '<td><button type="button" class="row-toggle" data-row-toggle '
+            'aria-expanded="false" aria-controls="flight-detail-%d" '
+            'data-more-text="%s" data-less-text="%s">%s</button></td>'
+        ) % (
+            index,
+            escape_html(i18n.t(_MORE_TOGGLE_TEXT)),
+            escape_html(i18n.t(_LESS_TOGGLE_TEXT)),
+            escape_html(i18n.t(_MORE_TOGGLE_TEXT)),
+        )
         body_rows.append(
             '<tr class="%s" data-filter-text="%s" data-filter-group="%d" '
-            'title="%s">%s</tr>'
+            'title="%s">%s%s</tr>'
             % (row_class, _filter_text_attr(row), index,
-               escape_html(row["tracked_runway"]), "".join(cells)))
+               escape_html(row["tracked_runway"]), "".join(cells), toggle_cell))
+        body_rows.append(_flight_detail_row_html(row, index))
 
     return (
         '<div class="data-table-wrap" tabindex="0" role="region" '
         'aria-label="%s">'
-        '<table class="data-table">'
+        '<table class="data-table data-table--flights">'
         "<thead><tr>%s</tr></thead>"
         "<tbody>%s</tbody>"
         "</table>"
