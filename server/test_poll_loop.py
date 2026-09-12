@@ -139,7 +139,11 @@ if REPO_ROOT not in sys.path:
 # threshold boundary itself proven to equal
 # wake.device_staleness_thresholds(wake.effective_wake_interval_s(cfg))[0]
 # for a non-default wake_interval_s) - 89 + 7.
-EXPECTED_CHECK_COUNT = 96
+# WR-01 fix (20-REVIEW.md): +1 (the early-return hold branch now also
+# calls _notify_silence_transition() - a display_off hold with a stale
+# device_health check-in still raises exactly one frame_silent push,
+# driven through the real run_once() call site) - 96 + 1.
+EXPECTED_CHECK_COUNT = 97
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -3989,6 +3993,50 @@ def main():
                 "wake.device_staleness_thresholds(wake.effective_wake_interval_s(cfg))[0] for a "
                 "non-default wake_interval_s (777s), not a phase-local re-tuning",
                 _silence_threshold_matches_shared_wake_thresholds_for_nondefault_interval,
+            )
+
+            # 83. WR-01 fix (20-REVIEW.md): _notify_silence_transition()
+            # must also fire from the early-return hold branch - a
+            # display_off hold has no scheduled end, so a dead frame
+            # during a hold would otherwise never be reported for as
+            # long as the hold lasts. Driven through the real
+            # run_once() call site (mirroring check 74's own
+            # real-wiring style), not the helper directly, to prove the
+            # hold branch's own new call site actually fires.
+            def _silence_transition_fires_during_display_off_hold():
+                hold_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-silence-hold-")
+                try:
+                    device_config.save_device_config(
+                        hold_dir, display_enabled=False,
+                        notifications={
+                            "topic_url": _NOTIFY_TOPIC_URL, "battery_low": True,
+                            "frame_silent": True, "lang": "en",
+                        },
+                    )
+                    CLOCK["t"] = CLOCK_BASE
+                    _seed_device_health(poll_loop, hold_dir, _iso(CLOCK_BASE - 100000))
+                    sender = _FakeSender()
+                    original_send = poll_loop.notify.send_notification
+                    poll_loop.notify.send_notification = sender
+                    try:
+                        result = poll_loop.run_once(state_dir=hold_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.notify.send_notification = original_send
+                    if result.get("state") != "display_off":
+                        return False, "expected a display_off hold cycle, got state=%r" % (result.get("state"),)
+                    if len(sender.calls) != 1:
+                        return False, "expected exactly one frame-silent push from the hold branch, got %d: %r" % (len(sender.calls), sender.calls)
+                    on_disk = poll_loop.load_poll_state(hold_dir)
+                    if on_disk.get("notifications", {}).get("last_silent_sent") is not True:
+                        return False, "expected last_silent_sent=True persisted after a hold cycle, got %r" % (on_disk,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(hold_dir, ignore_errors=True)
+            check(
+                "WR-01 fix: a display_off hold with a stale device_health check-in still raises exactly "
+                "one frame_silent push from the early-return hold branch, and persists "
+                "last_silent_sent=True",
+                _silence_transition_fires_during_display_off_hold,
             )
 
         finally:

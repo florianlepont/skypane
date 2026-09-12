@@ -568,10 +568,10 @@ def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=N
 
     MUST be called only after this cycle's own `_record_history()` call
     (and therefore its `history_db.ingest_caddy_battery_log()` ingestion)
-    has already committed - see the single call site in `run_once()`
-    below - so a frame that just checked in THIS cycle can never be
-    reported silent for the one cycle before that fresh row becomes
-    visible.
+    has already committed - see both call sites in `run_once()`, the
+    early-return hold branch's own and the shared one further down -
+    so a frame that just checked in THIS cycle can never be reported
+    silent for the one cycle before that fresh row becomes visible.
 
     Never raises (T-20-17): any exception is logged by type name and
     swallowed, for the identical reason its battery counterpart above
@@ -1115,6 +1115,31 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             source_fault, False, now_iso, caddy_log=caddy_log,
         )
 
+        # WR-01 fix (20-REVIEW.md): a display_off hold has no scheduled
+        # end (D-05/D-06 above) - an operator can leave the display off
+        # indefinitely, and nothing else in this branch ever re-checks
+        # staleness while it lasts. Without this call, a frame that dies
+        # (dead battery, disconnected Wi-Fi) DURING a hold would never
+        # raise a frame_silent push for as long as the hold continues,
+        # silently defeating the D-25/D-27 monitoring feature for
+        # exactly the scenario it exists to catch. Placed AFTER this
+        # branch's own `_record_history()` call, mirroring the ordering
+        # `_notify_silence_transition()`'s own docstring requires at the
+        # shared call site further down - this cycle's check-in (when a
+        # `caddy_log` is configured) has already committed and is
+        # visible to `history_db.latest_device_health()`. Persisted
+        # unconditionally right after, the same reasoning the shared
+        # call site's own unconditional save documents: the hook may
+        # have mutated `poll_state["notifications"]`, and that mutation
+        # must survive this oneshot's process boundary regardless of
+        # whether the branch's own earlier conditional save above ran.
+        try:
+            with history_db.open_db(state_dir) as conn:
+                _notify_silence_transition(state_dir, poll_state, conn, device_cfg)
+        except (sqlite3.Error, OSError) as exc:
+            print("poll_loop: silence-transition history read failed (hold branch): %s: %s" % (type(exc).__name__, exc))
+        save_poll_state(state_dir, poll_state)
+
         print(
             "poll_loop: hold_state=%s until=%s entered=%s panel_changed=%s "
             "battery_low=%s theme=%s tracked_runway=%s source_fault=%s"
@@ -1598,13 +1623,17 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             caddy_log=caddy_log,
         )
 
-    # D-27 (20-05-PLAN.md Task 2): the ONE call site for the frame-silence
-    # transition check, common to all three branches above (never inside
-    # the early-return hold branch further up, which has no "this cycle's
-    # own check-in" to reason about the same way). Placed here,
-    # deliberately AFTER every branch's own `_record_history()` call, so
-    # this cycle's Caddy-log-ingested check-in row (when configured) has
-    # already committed and is visible to `history_db.latest_device_health()`
+    # D-27 (20-05-PLAN.md Task 2): the shared call site for the
+    # frame-silence transition check, common to all three branches
+    # above. WR-01 fix (20-REVIEW.md): the early-return hold branch
+    # further up has its own separate call site immediately after its
+    # own `_record_history()` call, for the identical reason this one
+    # exists here - a display_off/quiet_hours hold has no scheduled
+    # end, so a frame that dies mid-hold must still be reported.
+    # Placed here, deliberately AFTER every branch's own
+    # `_record_history()` call, so this cycle's Caddy-log-ingested
+    # check-in row (when configured) has already committed and is
+    # visible to `history_db.latest_device_health()`
     # - a frame that just checked in this cycle can never be reported
     # silent. Persisted unconditionally right after, the same "the hook
     # mutated poll_state and the mutation must survive this oneshot's
