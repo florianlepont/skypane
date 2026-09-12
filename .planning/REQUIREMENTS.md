@@ -144,13 +144,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-22 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
 | CFG-23 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
 | CFG-24 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
-| CFG-25 | Phase 22 | Pending (not yet planned) |
-| CFG-26 | Phase 22 | Pending (not yet planned) |
-| CFG-27 | Phase 22 | Pending (not yet planned) |
-| CFG-28 | Phase 22 | Pending (not yet planned) |
-| CFG-29 | Phase 22 | Pending (not yet planned) |
-| CFG-30 | Phase 22 | Pending (not yet planned) |
-| CFG-31 | Phase 22 | Pending (not yet planned) |
+| CFG-25 | Phase 22 | Planned (22-01..22-16) |
+| CFG-26 | Phase 22 | Planned (22-01..22-16) |
+| CFG-27 | Phase 22 | Planned (22-01..22-16) |
+| CFG-28 | Phase 22 | Planned (22-01..22-16) |
+| CFG-29 | Phase 22 | Planned (22-01..22-16) |
+| CFG-30 | Phase 22 | Planned (22-01..22-16) |
+| CFG-31 | Phase 22 | Planned (22-01..22-16) |
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.
 
