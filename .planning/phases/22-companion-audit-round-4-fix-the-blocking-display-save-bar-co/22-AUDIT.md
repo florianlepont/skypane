@@ -46,7 +46,7 @@
 | X6 | Display | P2 | open | 2 900 px desktop / 4 250 px phone: 18 chips always expanded (160×108) while Arrivals/Rules use `--compact` chips (~100 px, 7 columns) so the same list changes shape per usage row; rules add-form segmented control + input right-aligned, "Add rule" far right; two unexplained square swatches per chip/row. | One chip density; grid folded behind the big preview (dialog/drawer); rule form on one left-aligned line; swatch legend. |
 | X7 | Airlines | P2 | open | "CHANGE PICTURES" button and its caption inherit `text-transform:uppercase` from `.page-header__screen` (`style.css:4988-4992`); edit mode changes nothing visible on the grid (affordances only in the lightbox); "1 manual resolutions" 12 px link; one card per row on phone (5 800 px). | Normal-case button by the title; "Editing" badge + visible Replace per card; two cards per row on phone; manual-resolution count as a filter chip. |
 | X8 | Health | P2 | open | Three server cards, three anatomies: double bold verdict; "Only one saw it" green like "Both agree" (`health_page.py:179-185`); empty state in 22 px serif inside a tile with 12 px caption (`layout.empty_state`, :2647-2649); battery line without area/points on a 3000–4200 axis leaving 80 % empty; "Updated 17:51" in mono under the page title. | One tile anatomy (label / verdict / detail / link); 14 px empty state; "Only one" neutral; area chart with last point, 3.3–4.2 V range and low-battery threshold line. |
-| X9 | Nav · phone | P3 | open | Hamburger dropdown is in-flow: opening pushes the page ~420 px down, no overlay, no animation. | Bottom tab bar (Home, Display, Flights, Airlines + More), or an overlay drawer with backdrop and 200 ms transition. |
+| X9 | Nav · phone | P3 | open | Hamburger dropdown is in-flow: opening pushes the page ~420 px down, no overlay, no animation. | **Bottom tab bar** (Home, Display, Flights, Airlines, then More for the Advanced group) — locked by the developer 2026-09-12. The overlay-drawer alternative this row originally offered is withdrawn: `sketch-findings-skypane`'s `references/mobile-navigation.md` already carries a locked "rejected" verdict on the absolute-positioned overlay, established by real-device testing in 06.6.1-06, and this audit had missed it. Choosing bottom tabs avoids reopening that verdict. |
 
 ## Pixel measurements (DOM, Chromium)
 
@@ -99,7 +99,9 @@
 
 ## Dynamism & modernisation (developer-validated suggestions, 24)
 
-| ID | Priority | Effort | Suggestion |
+Scope is reach, not duration: **S** = one file or one rule; **M** = a few files or one new component; **L** = a redesign across pages. Phase 23 sizes them in its own planning.
+
+| ID | Priority | Scope | Suggestion |
 |---|---|---|---|
 | D1 | P1 | M | Home and the Frame strip refresh themselves (reuse `freshness.js` on `/` and `/display`, re-fetch every 30 s, swap tiles/strip/picture, fade the picture on a new render, client-side next-wake countdown, dot pulses during the wake window). |
 | D2 | P1 | L | Real `role="switch"` controls for Screen / Quiet hours / LED / notifications with optimistic state, 300 ms spinner, rollback on error, `fetch` to the existing `/quick/*` routes (JSON/204), forms kept as no-JS fallback; toast instead of a permanent banner. |
@@ -126,14 +128,21 @@
 | D23 | P3 | S | Keyboard shortcuts (`g h/d/v/c`, `/`, `Esc`) and a ⌘K command palette (`<dialog>`) searching flights, airlines and settings ("switch screen off", "red theme"); ~300 lines, no dependency. |
 | D24 | P3 | S | Guided first run (checklist: password set ✓, frame paired, first wake received, countdown) and drawn empty states (line illustration, one sentence, next action) for every empty list. |
 
-Recommended order for the D-items: D10 + D14 (half a day, immediate effect) → D9 (carries D1, D2, D7, D22) → D16–D18 with the Home redesign (D4, D13) → D11–D12, D23–D24 as finish. Everything stays framework-free, build-free, dependency-free, no-JS fallback intact.
+Dependency order for the D-items (Phase 23's own planning sizes them): D10 and D14 first — both stand alone and change how the whole site feels; then D9, which carries D1, D2, D7 and D22; then D16–D18 alongside the Home rework (D4, D13); then D11–D12 and D23–D24. Everything stays framework-free, build-free, dependency-free, no-JS fallback intact.
 
-## Proposed sequencing
+## Sequencing
 
-1. **Week 1 — stop the bleeding:** B1 (+ DOM-level Playwright check), X2 (one quiet-hours-aware next-wake), B2/B3, B4/B5, B16, B7/C3, T1/T2.
-2. **Week 2 — back on the design contract:** X3, B13/C2/C6, B8–B12/B15/B17/B18, C1/C5, B6, T3–T12.
-3. **Weeks 3–4 — dynamic:** X1/D2, D1, D4/X4, D3, D5/X6, X9/D6, X5/X7/X8/D7/D8, T13–T16.
-4. **Weeks 5–6 — the app that lives:** D10/D14, D9, D13/D21/D20, D16/D17/D18, D11/D12/D15/D19/D23/D24.
+Waves, ordered by dependency, not by calendar. Each wave may only start once the one above it is in. Within a wave, plans are grouped so that no two touch the same file.
+
+**Phase 22 — the fix half.**
+
+1. **Wave 1 — make the work verifiable.** B1 with the browser harness (D-02). Nothing below can be confirmed by machine until saving works and a harness can see the DOM, and B1 is the reason that harness exists.
+2. **Wave 2 — one truth about the frame's state.** X2 first (the shared, quiet-hours-aware next-wake estimate), then X1, whose single delay sentence is computed from that estimate and whose control removal depends on it being correct. B2/B3 ride here: they are the same "state reported honestly" question on Health and Home.
+3. **Wave 3 — the leaks.** B4/B5 (Paris local time everywhere) and B16 (French completeness). Independent of waves 1–2 in logic, placed after them because both touch `health_page.py` and `layout.py`, which wave 2 rewrites.
+4. **Wave 4 — the visible defects.** B6–B15, B17, B18, X3–X9. Grouped by file, not by severity, so `config_page.py`, `health_page.py`, `history_page.py`, `airlines_page.py` and `style.css` each belong to one plan.
+5. **Wave 5 — the contract and the code defects.** C1–C6 and T1–T16, plus the `sketch-findings-skypane` update recording whatever waves 1–4 changed. Last because it codifies decisions the earlier waves make.
+
+**Phase 23 — the dynamism half.** D10 and D14 (standalone), then D9 (carries D1, D2, D7, D22), then D16–D18 with D4 and D13, then D11–D12, D15, D19, D23, D24. Ordered in Phase 23's own planning.
 
 ## Not verified
 

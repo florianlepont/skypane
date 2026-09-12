@@ -7,7 +7,7 @@
 <domain>
 ## Phase Boundary
 
-**In scope — the fix half of 22-AUDIT.md (its weeks 1–2), plus a browser test harness:**
+**In scope — the fix half of 22-AUDIT.md, enumerated, plus a browser test harness:**
 
 - **B1** (P0), **B2–B18** — display bugs
 - **X1–X9** — UX defects
@@ -106,7 +106,7 @@ Each item below is locked to the audit's own fix direction; the measurements in 
 - **X6** — one chip density across usages; the rules add-form left-aligned on one line; a legend for the swatches.
 - **X7** — Airlines: normal-case "Change pictures", a visible editing affordance on each card, two cards per row on a phone.
 - **X8** — one tile anatomy on Health; "Only one saw it" is neutral, not the same green as "Both agree"; the empty state is body-sized, not a 22 px serif heading inside a 12 px-captioned tile.
-- **X9** — the mobile nav stops shoving the page down by a full screen (overlay drawer or bottom tabs). Keep the in-flow fallback working without script.
+- **X9** — the mobile nav stops shoving the page down by a full screen. The mechanism is LOCKED to a **bottom tab bar** (Home, Display, Flights, Airlines, then More for the Advanced group) — see D-10. Keep a working nav without script.
 
 ### D-08 — Design contract and code defects (C1–C6, T1–T16, CFG-31)
 
@@ -134,10 +134,34 @@ Each item below is locked to the audit's own fix direction; the measurements in 
 
 Every existing harness keeps passing and the counts move only where a plan's own change forces it. The no-JS floor holds: every page must still be usable and every setting still saveable with scripts blocked. No new runtime dependency in `server/requirements.txt`; no vendored library; the CSP stays `script-src 'self'` with no `unsafe-inline` and no nonce.
 
+### D-10 — X9's mechanism is a bottom tab bar, not an overlay drawer (developer decision, 2026-09-12)
+
+The audit's own fix column offered "bottom tab bar, or an overlay drawer with backdrop". That second option was a mistake in the audit: `sketch-findings-skypane`'s `references/mobile-navigation.md` carries a locked **rejected** verdict on the absolute-positioned overlay, established by real-device testing during 06.6.1-06 — the overlay could only cover content, never push it, which is why the shipped dropdown is in-flow via `flex-basis: 100%`.
+
+The mechanism is therefore a bottom tab bar: the four everyday tabs (Home, Display, Flights, Airlines) plus a "More" entry for the Advanced group. It must not reintroduce a full-screen push, must keep a usable nav with scripts blocked, must respect the safe-area inset, and must not cover the pinned save bar on Display and Device (the two interact — plan them together or state the stacking order).
+
+Do not implement an overlay drawer. If a plan finds bottom tabs unworkable for a reason this context does not anticipate, it must say so and stop rather than fall back to the rejected pattern.
+
+### D-11 — Sequencing is by dependency wave, never by calendar (developer decision, 2026-09-12)
+
+The audit originally sequenced this work as "Week 1", "Week 2", "Weeks 3–4" with S/M/L effort labels defined in days. Those durations were fabricated: nobody measured them, and this project's own history (Phases 20 and 21 both closed on 2026-09-12) shows the unit of work here is a plan, not a working week. The ledger's `## Sequencing` section now states waves ordered by dependency, and the D-table's third column is `Scope` (reach: one file / a few files / a redesign), explicitly not a duration.
+
+**Planner: do not put durations, dates, week numbers or day estimates into any PLAN.md.** Order tasks by what must exist before what. The ledger's five waves are the intended grouping; deviate only with a stated reason.
+
+### D-12 — Three findings the research added, all LOCKED (22-RESEARCH.md)
+
+These were not in the audit. Each would have shipped a regression if a plan followed the audit alone.
+
+1. **Removing the on/off checkboxes from the settings form silently disables both settings.** `handle_post()` resolves an absent checkbox to `False`. Once D-04 takes `display_enabled` and `quiet_hours_enabled` out of the form, every settings save would post neither field and switch the screen and quiet hours off. Both must be changed to resolve **absent → leave unchanged**, and a harness check must pin that: saving an unrelated field must not alter either flag.
+2. **`scope_groups()`'s `SCOPE_ALL` tuple is hand-maintained, separate from the screen registry, and still lists `GROUP_DISPLAY`.** It must be edited in the same plan as D-04, or the already-pinned `_scope_groups_follow_the_screen_registry` check fails immediately.
+3. **The Paris-day battery bucketing cannot be done in SQL.** `history_db.daily_battery_averages()` groups with SQLite's `date(ts)`, which is UTC-only, and no fixed-offset SQL modifier is DST-correct for Europe/Paris. The bucketing moves to Python with `ZoneInfo("Europe/Paris")`. A fixture straddling a DST boundary is part of the fix, not optional.
+
+Two further research findings the planner should treat as the preferred mechanism rather than a locked one: X2's estimate should **reproduce** the device's own sleep decision (`stub-server/byos_server.py` already composes `quiet_hours_sleep_s(display_off_sleep_s(...))`, and `device_config.quiet_hours_status()` is already tested) rather than re-derive it, evaluated at the last check-in rather than at render time; and the new browser harness belongs in `server/requirements-dev.txt`, which is the repo's already-established home for dev-only pins, with a CI install step.
+
 ### Claude's Discretion
 
 - Plan count, wave grouping and file-level sequencing.
-- The exact mechanism for each fix where the audit names an outcome (e.g. whether X9 becomes bottom tabs or an overlay drawer; whether B9 uses fixed columns or a list).
+- The exact mechanism for each fix where the audit names an outcome but not a means (e.g. whether B9 uses fixed columns or a vertical list). X9 is NOT discretionary — see D-10.
 - Which `T16` debt items ride along with a plan that already touches the code.
 - Whether the shared next-wake code (D-03) lands in `server/wake.py` or a new module, as long as there is exactly one implementation.
 - Test-harness file naming and how the browser-unavailable skip is reported.
