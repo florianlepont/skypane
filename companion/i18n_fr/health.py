@@ -31,8 +31,6 @@ CATALOG = {
         "L’état de l’écran et la qualité des données du serveur, au même endroit.",
     "Updating…": "Mise à jour…",
     "Updated ": "Mis à jour ",
-    "Pause updates": "Suspendre les mises à jour",
-    "Resume updates": "Reprendre les mises à jour",
 
     # --- D-14 anomaly banner --------------------------------------------
     "Something needs attention — check the tiles below.":
