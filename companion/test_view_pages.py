@@ -75,6 +75,10 @@ from server.plane import render as panel_render  # noqa: E402
 # importing server.poll_loop) - used solely to seed a real unresolved-
 # prefix registry for the gap-strip checks below.
 import server.poll_loop as poll_loop  # noqa: E402
+# 21-06-PLAN.md Task 1 (D-19): same crossing point, used solely to seed
+# a real Step-B manual-resolution entry (name saved, no artwork yet)
+# for the upload-zone-unconditional checks below.
+from server.plane import manual_resolutions  # noqa: E402
 
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -410,6 +414,13 @@ EXPECTED_CHECK_COUNT = 113
 # recomputed directly against the real on-disk check(...) call count
 # at execution time (113/113 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 113
+# 21-06-PLAN.md Task 1 (D-19): +1 - a new check that a default
+# (edit_mode absent) render of a Step-B entry (name saved, no artwork
+# yet) contains exactly one upload zone, zero delete forms and zero
+# replace forms. 113 + 1 = 114, recomputed directly against the real
+# on-disk check(...) call count at execution time (114/114 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 114
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -3250,18 +3261,59 @@ def main():
 
     def _airlines_default_render_has_no_edit_only_forms():
         rendered = airlines_page.render({})
+        # 21-06-PLAN.md Task 1 (D-19): RESOLVE_UPLOAD_ZONE_CLASS dropped
+        # from this asserted-absent tuple - the upload zone is no
+        # longer one of the edit-only forms (retargeted to assert
+        # presence by 21-06-PLAN.md Task 2, below). Replace and delete
+        # stay edit-only (D-20).
         for token in (
                 airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
                 airlines_page.LIGHTBOX_DELETE_CLASS):
             if token in rendered:
                 return False, "expected no %r in a default (edit_mode absent) render" % (token,)
         return True, ""
     check(
         "a default airlines_page.render({}) call (edit_mode absent, the everyday view-only "
-        "lightbox) contains none of the replace, upload-zone or delete edit-only forms (D-22, "
-        "19-08-PLAN.md Task 3)",
+        "lightbox) contains none of the replace or delete edit-only forms (D-20, D-22, "
+        "19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md Task 1)",
         _airlines_default_render_has_no_edit_only_forms)
+
+    def _airlines_default_render_step_b_upload_zone_unconditional():
+        # 21-06-PLAN.md Task 1 (D-19): a Step-B entry (name saved, no
+        # artwork yet) offers the upload zone in the no-JS resolve
+        # panel without ?edit=1 - naming an airline and giving it a
+        # picture is one job. The shared delete form stays edit_mode-
+        # gated (D-20), and this no-JS fallback panel has no replace
+        # form of its own.
+        tmp = _mkstate("a-step-b-upload-default")
+        try:
+            result = manual_resolutions.add_entry(tmp, "NEW", "Totally Novel Airline")
+            if result != manual_resolutions.ADD_OK:
+                return False, "test setup failure: add_entry returned %r" % (result,)
+            rendered = airlines_page.render({"state_dir": tmp, "resolve_prefix": "NEW"})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        upload_count = rendered.count('class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS)
+        if upload_count != 1:
+            return False, (
+                "expected exactly one %r in a default (edit_mode absent) Step-B render, got %d"
+                % (airlines_page.RESOLVE_UPLOAD_ZONE_CLASS, upload_count))
+        # Exact `class="{token}"` (with the closing quote), never a bare
+        # substring - LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
+        # is itself a prefix of several sibling classes
+        # (lightbox__replace-zone, lightbox__replace-icon,
+        # lightbox__replace-hint) that render unconditionally as part of
+        # the upload zone's own markup.
+        if ('class="%s"' % airlines_page.LIGHTBOX_DELETE_CLASS) in rendered:
+            return False, "expected zero delete forms in a default (edit_mode absent) Step-B render"
+        if ('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS) in rendered:
+            return False, "expected zero replace forms in a default (edit_mode absent) Step-B render"
+        return True, ""
+    check(
+        "a default (edit_mode absent) render of a Step-B entry (name saved, no artwork yet) "
+        "contains exactly one upload zone, zero manual-delete forms and zero replace forms "
+        "(D-19/D-20, 21-06-PLAN.md Task 1)",
+        _airlines_default_render_step_b_upload_zone_unconditional)
 
     def _airlines_default_render_keeps_exactly_one_resolve_name_form():
         rendered = airlines_page.render({})

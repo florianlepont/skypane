@@ -1656,14 +1656,17 @@ def _resolve_section_html(ctx, edit_mode=False):
     `manual` being `active`/`superseded`, i.e. whenever an entry exists.
     One rule, two render sites, not two rules.
 
-    19-08-PLAN.md Task 3 (D-22): `edit_mode` (fully defaulted to
-    `False`) applies the identical artwork-editing gate `_lightbox_html()`
-    applies, to this no-JS fallback panel's own two entry-bearing
-    branches — Step B's upload zone and both entry-bearing branches'
-    shared delete form are each emitted only when `edit_mode` is true,
-    so the fallback path matches the dialog rather than diverging from
-    it. The resolve-name form (Step A) stays unconditional, for the
-    identical reason `_lightbox_html()` keeps it unconditional.
+    19-08-PLAN.md Task 3 (D-22) originally gated Step B's upload zone
+    on `edit_mode`, matching `_lightbox_html()`'s own gate at the time.
+    21-06-PLAN.md Task 1 (D-19) removes that gate: naming an
+    unrecognised airline and giving it a picture is one job, so Step
+    B's upload zone is unconditional again, in both this fallback panel
+    and the dialog (`_lightbox_html()`'s identical gate is dropped by
+    21-06-PLAN.md Task 2). The shared delete form stays gated on
+    `edit_mode` (D-20) — "Change pictures" keeps only replace/delete of
+    existing artwork. The resolve-name form (Step A) stays
+    unconditional, for the identical reason `_lightbox_html()` keeps it
+    unconditional.
     """
     prefix_raw = ctx.get("resolve_prefix")
     if not prefix_raw:
@@ -1730,7 +1733,10 @@ def _resolve_section_html(ctx, edit_mode=False):
         # Step B — name already saved, no artwork exists yet.
         caption = '<p class="text-label section-caption">%s</p>' % i18n.t(STEP_B_CAPTION)
         upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
-        upload_zone = _resolve_upload_form_html(upload_action, "") if edit_mode else ""
+        # 21-06-PLAN.md Task 1 (D-19): uploading a picture is part of
+        # naming an airline again — no `edit_mode` gate here (unlike
+        # the delete form above, which D-20 keeps gated).
+        upload_zone = _resolve_upload_form_html(upload_action, "")
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
             AIRLINES_ROUTE, i18n.t(STEP_B_SKIP_TEXT))
         return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s%s%s</div>' % (
