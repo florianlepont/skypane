@@ -111,9 +111,16 @@ CATALOG = {
         "lors de la prochaine vérification programmée, pas immédiatement.",
     "Airport diagram for %s": "Schéma de l’aéroport pour %s",
 
-    # --- Calendar card (config_page.py's calendar_group()/
-    #     calendar_disconnect_section()/calendar_disconnect_confirm_
-    #     page()) --------------------------------------------------------
+    # --- Calendar card (config_page.py's merged calendar_group()/
+    #     calendar_disconnect_confirm_page()) ---------------------------
+    # 21-07-PLAN.md Task 1 (D-14, Pitfall 5): removed "Disconnect this
+    # calendar and delete the flights it supplied" (no question mark) —
+    # the merged card's own small Disconnect button now reads the
+    # shorter "Disconnect" (companion/i18n_fr/calendar_group.py). The
+    # otherwise-identical confirmation-page strings below (with a
+    # question mark, or naming "calendar"/"calendar?" alone) are
+    # untouched — they still belong to calendar_disconnect_confirm_
+    # page(), unaffected by this merge.
     "Calendar": "Calendrier",
     "Connected, but ignored — its saved link on the server became "
     "readable beyond this frame. Paste the feed URL again below to "
@@ -127,8 +134,6 @@ CATALOG = {
         "Le lien iCal privé de votre calendrier. Stocké sur le serveur "
         "et jamais réaffiché ici — en coller un nouveau remplace "
         "l’ancien.",
-    "Disconnect this calendar and delete the flights it supplied":
-        "Déconnecter ce calendrier et supprimer les vols qu’il a fournis",
     "Disconnect this calendar and delete the flights it supplied?":
         "Déconnecter ce calendrier et supprimer les vols qu’il a "
         "fournis ?",

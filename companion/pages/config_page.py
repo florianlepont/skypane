@@ -721,6 +721,13 @@ CALENDAR_STATUS_FETCH_FAILED_DETAIL = "The feed could not be read"
 # flash key or a validation path with the settings Save button.
 CALENDAR_CONNECT_BUTTON_TEXT = "Connect calendar"
 CALENDAR_REPLACE_URL_SUMMARY = "Replace the feed URL"
+# 21-07-PLAN.md Task 1 (D-14, Structural Note 6): the SAME form/route
+# posts the URL field in both states, but the button reads shorter once
+# a feed is already stored — "Connect calendar" only ever applies to a
+# first-time paste. Two constants, not one text swapped in place, so
+# each stays a plain, greppable literal like every other button label
+# in this module.
+CALENDAR_REPLACE_BUTTON_TEXT = "Replace"
 # 20-09-PLAN.md Task 2 (D-14c): companion/app.py rebinds this rather
 # than retyping the literal, mirroring CALENDAR_DISCONNECT_ROUTE's own
 # rebinding convention immediately above (app.py imports this module,
@@ -739,15 +746,16 @@ CALENDAR_URL_HINT = (
     "Your calendar's private iCal link. Stored on the server and never "
     "shown back here — pasting a new one replaces the old.")
 CALENDAR_URL_HINT_ID = "calendar-url-hint"
-# Names both halves of what disconnecting does (D-07): the operator
-# deserves to see the flights-deletion consequence before they act, not
-# discover it afterwards. 19-11-PLAN.md (D-08/A-26): the in-form checkbox
-# this label used to sit beside is retired — the same wording now labels
-# the standalone disconnect button calendar_disconnect_section() renders
-# (below) and, unchanged, the confirmation copy the frame's disconnect
-# promise keeps.
-CALENDAR_DISCONNECT_CHECKBOX_LABEL = (
-    "Disconnect this calendar and delete the flights it supplied")
+# 21-07-PLAN.md Task 1 (D-14): the merged card's own small grey button
+# reads the short "Disconnect" — never the long checkbox-era sentence a
+# now-retired constant used to carry (that sentence survives, unchanged,
+# as the confirmation page's own fuller copy below; only the button
+# label shortened). A cross-DOM `form=` attribute (CALENDAR_DISCONNECT_
+# FORM_ID) is what lets this button submit a <form> that is never its
+# own DOM ancestor — the same idiom the dirty bar's own Save button
+# already uses for the identical HTML-forms-can't-nest reason.
+CALENDAR_DISCONNECT_BUTTON_TEXT = "Disconnect"
+CALENDAR_DISCONNECT_FORM_ID = "calendar-disconnect-form"
 # Matches the shape of LED_CHECKBOX_VALUE/QUIET_HOURS_CHECKBOX_VALUE/
 # DISPLAY_CHECKBOX_VALUE and the now-retired arrivals-override
 # checkbox's own former value above. 19-11-PLAN.md
@@ -761,9 +769,9 @@ CALENDAR_DISCONNECT_CHECKBOX_LABEL = (
 CALENDAR_DISCONNECT_CHECKBOX_VALUE = "on"
 
 # 19-11-PLAN.md Task 1 (D-08/A-26): the dedicated disconnect route's own
-# confirm gate — the single definition site the markup
-# (calendar_disconnect_section()/calendar_disconnect_confirm_page()
-# below), the client-side misclick guard (companion/static/
+# confirm gate — the single definition site the markup (the merged
+# calendar_group()'s own disconnect form/calendar_disconnect_confirm_
+# page() below), the client-side misclick guard (companion/static/
 # confirm-submit.js, Task 2), and the handler
 # (companion/app.py's _handle_calendar_disconnect_post()) all read,
 # rather than each retyping the field name/accepted value as a literal.
@@ -775,8 +783,9 @@ CALENDAR_DISCONNECT_CONFIRM_FIELD = "confirm"
 CALENDAR_DISCONNECT_CONFIRM_VALUE = "yes"
 # The question companion/static/confirm-submit.js passes to
 # window.confirm() (a misclick guard only — see that file's own header
-# comment) — carried to the browser via calendar_disconnect_section()'s
-# own data-confirm attribute, never duplicated in the script itself.
+# comment) — carried to the browser via the merged calendar_group()'s
+# own disconnect form's data-confirm attribute, never duplicated in the
+# script itself.
 CALENDAR_DISCONNECT_CONFIRM_QUESTION = (
     "Disconnect this calendar and delete the flights it supplied?")
 # The server-rendered two-step confirmation page's own copy
@@ -1527,12 +1536,12 @@ def runway_fieldset(
     (where this group is still a literal descendant of
     `<form id="{SETTINGS_FORM_ID}">`), the attribute is a harmless
     no-op — the browser's explicit `form=` association resolves to the
-    exact enclosing form either way. On the Display scope, `render()`'s
-    `_display_groups_html()` now renders this group as a SIBLING of
-    `<form id="{SETTINGS_FORM_ID}">` (never nested inside it), which is
-    what lets `calendar_connect_section()`'s own separate `<form>` sit
-    between the Calendar card and this group in document order without
-    ever nesting one `<form>` inside another.
+    exact enclosing form either way. On the Display scope, `render()`
+    now renders this group as a SIBLING of `<form id="{SETTINGS_FORM_
+    ID}">` (never nested inside it), which is what lets the merged
+    Calendar card's own connect/replace `<form>` (21-07-PLAN.md Task 1)
+    sit between the Calendar card and this group in document order
+    without ever nesting one `<form>` inside another.
     """
     effective_runway_id = _submitted_or_current(
         submitted, "tracked_runway", current_runway_id)
@@ -1947,32 +1956,39 @@ def notifications_group(
     against `led_group()`'s exact `.theme-status`/`<h2 class=
     "text-heading">` fieldset-free idiom.
 
-    **Write-only URL, matching `calendar_connect_section()`'s established
-    contract (T-20-12)**: `configured` is a bare bool — never the URL
-    itself, never a masked fragment of it. `layout.status_row("",
-    verdict, "", state)` reports only whether a topic URL is stored; the
-    text input always renders with NO `value` attribute and nothing
-    derived from the stored URL, in both states. Wrapped in
-    `<details><summary>Replace the URL</summary>` while `configured` is
-    true, unwrapped otherwise — the identical disclosure shape
-    `calendar_connect_section()` already uses for the identical reason.
+    **Write-only URL — never masked, unlike the Calendar card's own
+    connect/replace field (T-20-12)**: `configured` is a bare bool —
+    never the URL itself, never a masked fragment of it, in any state.
+    `layout.status_row("", verdict, "", state)` reports only whether a
+    topic URL is stored; the text input always renders with NO `value`
+    attribute and nothing derived from the stored URL, in both states.
+    Wrapped in `<details><summary>Replace the URL</summary>` while
+    `configured` is true, unwrapped otherwise — the identical disclosure
+    shape the merged Calendar card's own connect/replace form uses
+    (`calendar_group()`, 21-07-PLAN.md Task 1) for the identical reason.
+    This field deliberately does NOT follow Calendar's own D-14/R-10
+    widening (host + "…" once connected) — no equivalent developer
+    request exists for Notifications, and this docstring is the one
+    place recording that the two write-only-looking fields are no
+    longer identical in what they show once connected.
 
-    Unlike `calendar_connect_section()`, this field is NOT a dedicated
-    route: it is a plain member of the tracked settings form, waiting on
-    the page-wide Save exactly like every other Device field (the
-    plan's own explicit instruction — "All three controls are part of
-    #settings-form and wait on Save"). Only the "Send a test" button
-    (`notifications_test_section()` below) is its own immediate-POST
-    form, a sibling of `#settings-form` — mirroring the Calendar Connect
-    form's/the rules add-form's own reasoning for that identical shape:
-    an immediate action must never wait on, or nest inside, the
+    Unlike the Calendar card's own connect/replace form, this field is
+    NOT a dedicated route: it is a plain member of the tracked settings
+    form, waiting on the page-wide Save exactly like every other Device
+    field (the plan's own explicit instruction — "All three controls are
+    part of #settings-form and wait on Save"). Only the "Send a test"
+    button (`notifications_test_section()` below) is its own immediate-
+    POST form, a sibling of `#settings-form` — mirroring the Calendar
+    Connect form's/the rules add-form's own reasoning for that identical
+    shape: an immediate action must never wait on, or nest inside, the
     page-wide Save form (D-19/Pitfall 1).
 
     19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
     defaulted) let a rejected save repopulate both checkboxes from the
     submission and render each field's own error message — the topic
     URL has no repopulation (nothing to repopulate; a write-only field),
-    matching `calendar_connect_section()`'s identical omission.
+    matching the merged Calendar card's own connect/replace field's
+    identical omission.
     """
     status_html = layout.status_row(
         "",
@@ -2056,20 +2072,20 @@ def notifications_group(
 def notifications_test_section():
     """The "Send a test" button (D-26, 20-11-PLAN.md Task 1): its own
     small `<form method="post" action="{NOTIFICATIONS_TEST_ROUTE}">`, a
-    sibling of `<form id="{SETTINGS_FORM_ID}">` — mirroring
-    `calendar_connect_section()`'s/the rules add-form's own reasoning
-    for the identical shape (D-19/Pitfall 1: an immediate action's own
-    `<form>` must never nest inside the settings form). `render()`
-    renders this immediately after `</form>` closes, on the Device
-    scope only (`screens.GROUP_NOTIFICATIONS` is never a member of
-    `scope_groups(SCOPE_DISPLAY)` or the legacy SCOPE_ALL tuple, so this
-    section is correctly omitted from both).
+    sibling of `<form id="{SETTINGS_FORM_ID}">` — mirroring the merged
+    Calendar card's own connect/replace form's/the rules add-form's own
+    reasoning for the identical shape (D-19/Pitfall 1: an immediate
+    action's own `<form>` must never nest inside the settings form).
+    `render()` renders this immediately after `</form>` closes, on the
+    Device scope only (`screens.GROUP_NOTIFICATIONS` is never a member
+    of `scope_groups(SCOPE_DISPLAY)` or the legacy SCOPE_ALL tuple, so
+    this section is correctly omitted from both).
 
     The action attribute below is written as literal path text, not a
-    `%s` interpolation of `NOTIFICATIONS_TEST_ROUTE` — matching
-    `calendar_connect_section()`'s own established convention for the
-    identical class of grep (this module's acceptance gate greps the
-    literal form-action text).
+    `%s` interpolation of `NOTIFICATIONS_TEST_ROUTE` — matching the
+    merged Calendar card's own connect/replace form's established
+    convention for the identical class of grep (this module's
+    acceptance gate greps the literal form-action text).
 
     Carries no `data-confirm`: sending a test push is neither
     destructive nor state-changing on this side — the handler
@@ -2091,9 +2107,9 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     now a SIBLING of `<form id="{SETTINGS_FORM_ID}">`, never a literal
     descendant — `render()` no longer folds this builder's output into
     `groups_html`, and calls it separately, emitting it after `</form>`
-    closes (the same slot `calendar_disconnect_section()` already
-    occupies). This is the required structural fix for the instant
-    switch below: its own `<form method="post" action="{QUICK_DISPLAY_
+    closes (the same slot the merged Calendar card's own disconnect
+    form already occupies). This is the required structural fix for the
+    instant switch below: its own `<form method="post" action="{QUICK_DISPLAY_
     ROUTE}">` would otherwise nest inside `<form id="{SETTINGS_FORM_ID}">`,
     which HTML forbids. The `display_enabled` checkbox keeps submitting
     with the shared Save via a `form="{SETTINGS_FORM_ID}"` attribute
@@ -2168,60 +2184,110 @@ def display_group(current_display_enabled, errors=None, submitted=None):
 def calendar_group(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
         errors=None, submitted=None):
-    """The Calendar card (20-09-PLAN.md Task 1, 20-UI-SPEC.md Section
-    Anatomy E; D-14a..d): in the "Look" supersection, after the Frame
-    colours card (D-06, 21-05-PLAN.md Task 1 — see `render()`'s own
-    docstring for the exact document-order change). It nests no form of
-    its own: the feed-URL field and its Connect/Replace button moved to
-    their own dedicated route (`calendar_connect_section()` below,
-    D-14c) — a status row and a `<details>` disclosure, nothing else.
+    """The Calendar card (21-07-PLAN.md Task 1, 21-UI-SPEC.md Section
+    Anatomy E; D-13/D-14): ONE `<div class="page-section">`, in the
+    "Look" supersection, after the Frame colours card (D-06, 21-05-
+    PLAN.md Task 1). Retires the three-piece split (a status-only card,
+    a separate connect/replace mini-form card, and a standalone
+    disconnect form) a run of earlier plans (20-04/20-07/20-09) built up
+    — D-13 wants genuine nesting, not three DOM siblings visually glued
+    by a `:has()` CSS trick (21-RESEARCH.md Pitfall 2).
+
+    In document order: the status row, then a state branch (below), then
+    the "How it works" disclosure — always inside this one wrapper. The
+    disconnect action's own confirmed `<form>` is the ONE piece that
+    still cannot live inside this div (HTML forbids a `<form>` nested in
+    another `<form>`, and this card's own connect/replace form is
+    itself a `<form>`) — it renders as a second, data-only fragment,
+    concatenated onto this function's return value as a plain sibling,
+    never as a second value the caller has to remember to place. Every
+    caller therefore gets both pieces, correctly ordered, from one call.
 
     21-05-PLAN.md Task 1 (D-06): the compact `calendar_theme_id` chip
     grid this card used to render (D-14d) is retired outright — it now
     lives inside the Frame colours card's own "Calendar flights" usage
     panel, alongside a "Same as departures" leading chip (D-09).
     `current_calendar_theme_id`/`current_theme_id`/`errors["calendar_
-    theme_id"]` are therefore no longer this function's concern; the
-    two now-unused parameters are dropped from its signature rather
-    than kept as dead pass-throughs. `errors`/`submitted` stay (both
-    fully defaulted) purely for call-site symmetry with every other
-    group builder — this card has no field of its own left to
-    repopulate from either, so neither is read below.
+    theme_id"]` are therefore no longer this function's concern.
+    `errors`/`submitted` stay: `errors` reaches the write-only URL
+    field's own error message (the one field this merged card still
+    validates); `submitted` stays fully defaulted, unused, purely for
+    call-site symmetry with every other group builder — there is
+    nothing else here to repopulate.
 
-    D-12 fix (carried forward, still true after the Frame colours
-    move): this card renders as a SIBLING of `<form id="settings-
-    form">`, not a literal descendant — nothing inside it posts through
-    the physical form any more (the one field that used to,
-    `calendar_theme_id`, moved to the Frame colours card above, which
-    is itself a sibling of the same form).
+    D-12 fix (carried forward): this card renders as a SIBLING of
+    `<form id="settings-form">`, not a literal descendant — nothing
+    inside it posts through the physical form any more.
 
     **D-14b — the status row.** `layout.status_row("", verdict, detail,
     state)`: label is `""` because the card's own `<h2>Calendar</h2>`
-    already names the subject (a repeated "CALENDAR" label would be
-    redundant chrome). Four branches, `drift` first — a permission-
-    drifted stored link (D-02) wins over everything else, because
-    `configured` is already `False` in that state (D-08 —
+    already names the subject. Four branches, `drift` first — a
+    permission-drifted stored link (D-02) wins over everything else,
+    because `configured` is already `False` in that state (D-08 —
     `calendar_is_configured()`'s own bool contract) and a later check
-    would therefore never see the drift branch at all, making it
-    indistinguishable from a calendar that was never connected. Then not
+    would therefore never see the drift branch at all. Then not
     configured. Then configured: "usable" (a parseable, age-computable
     `last_synced_at`) renders the entry count plus the language-aware
     relative age (D-07, `layout.relative_age_text()`) as the detail, with
-    a genuinely fresh verdict word ("Connected") — never the same
-    sentence twice (this primitive's own documented anti-duplication
-    contract, D-21). Configured but never usable branches on whether an
-    attempt has ever been recorded (`last_attempt_at is not None`): at
-    least one attempt with no usable sync yet is the ONE derivable
-    failed-fetch category this module has fields for (T-20-30) — the
-    fixed, mapped `CALENDAR_STATUS_FETCH_FAILED_DETAIL` sentence, never
-    a caught exception's own text (which `server/plane/calendar_rules.py`
-    does not persist anywhere this function could read it from). No
+    a genuinely fresh verdict word ("Connected"). Configured but never
+    usable branches on whether an attempt has ever been recorded
+    (`last_attempt_at is not None`): at least one attempt with no usable
+    sync yet is the ONE derivable failed-fetch category this module has
+    fields for (T-20-30) — the fixed, mapped `CALENDAR_STATUS_FETCH_
+    FAILED_DETAIL` sentence, never a caught exception's own text. No
     attempt recorded yet is the ordinary "just connected" wait state.
 
-    **D-14a — the "How it works" disclosure.** D-17 (21-01-PLAN.md
-    Task 2): the collapsed one-sentence variant this used to render
-    under the now-deleted display mode is gone — the full `<details>`
-    always renders.
+    **D-13/D-14 — the state branch.** `configured` picks between two
+    shapes: not connected (including the drifted case, since `drift`
+    forces `configured` False) renders the write-only feed-URL field
+    inside its own `<form method="post" action="{CALENDAR_CONNECT_
+    ROUTE}">` with the primary "Connect calendar" button, unwrapped;
+    connected renders a `<p class="calendar-actions">` holding the SAME
+    connect form — now labelled "Replace" (`CALENDAR_REPLACE_BUTTON_
+    TEXT`) — behind a `<details class="calendar-url-disclosure">
+    <summary class="text-link">Replace the feed URL</summary>`
+    disclosure, plus the small grey Disconnect button, right-aligned on
+    the same line. 21-07-PLAN.md Task 2 adds the masked feed-URL line
+    (`<p class="calendar-masked-url">`) immediately before this row —
+    this task's own connected branch has no masked-URL markup yet, by
+    design (Task 2 is the one task in this plan that reads a stored
+    secret back for display; Task 1 stays a pure structural merge with
+    no new secret-reading capability at all). The write-only contract is
+    unchanged in either state: the input never carries a `value`
+    attribute (T-16-SECRET/T-17-SECRET/T-20-12).
+
+    The drifted state additionally gets its own small Disconnect button
+    (no Replace disclosure — drift's own verdict already reads "Not
+    connected", so there is no successfully-connected feed to
+    "replace") so a drifted, unreadable stored link can still be
+    cleared without first pasting a new one over it — the identical
+    `configured or drift` predicate the retired standalone disconnect
+    form used (D-02: a drifted file still exists and still holds a URL).
+
+    **D-14 — the cross-form Disconnect button.** The disconnect
+    `<form id="{CALENDAR_DISCONNECT_FORM_ID}">` is a genuinely separate
+    DOM element (a data-only sibling of this card's own outer `<div>`,
+    concatenated onto the return value below) carrying only its hidden,
+    EMPTY confirm field — a bare POST of that form therefore submits no
+    confirm value at all, landing on `_handle_calendar_disconnect_post()`
+    's own server-rendered confirmation page (`calendar_disconnect_
+    confirm_page()` below) rather than erasing anything. That page IS
+    the real control; the visible button (rendered inline, wherever this
+    function's state branch puts it) additionally carries `data-
+    confirm`/`data-confirm-value` attributes `companion/static/
+    confirm-submit.js` reads to show one native `confirm()` dialog and,
+    on acceptance only, fill this same hidden field with `CALENDAR_
+    DISCONNECT_CONFIRM_VALUE` before letting the submit proceed — a
+    misclick guard layered on top, never a substitute for the server-
+    side gate. The button reaches the form it does not contain via a
+    `form="{CALENDAR_DISCONNECT_FORM_ID}"` attribute — the same cross-
+    DOM submission idiom the dirty bar's own Save button already uses,
+    required here because HTML forbids nesting this `<form>` inside the
+    card's own connect/replace `<form>` or inside the card's outer
+    `<div>` sitting next to one.
+
+    **D-14a — the "How it works" disclosure.** Always renders in full,
+    at the bottom of the card, in every state.
     """
     # Drift first (D-02): a drifted file makes `configured` already
     # False (D-08), so checking `not configured` before `drift` would
@@ -2254,63 +2320,6 @@ def calendar_group(
             state = "warn"
     status_html = layout.status_row("", verdict, detail, state)
 
-    how_it_works_html = (
-        '<details><summary>%s</summary><p class="text-body">%s</p></details>'
-    ) % (
-        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SUMMARY)),
-        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_BODY)),
-    )
-
-    return (
-        '<div class="page-section" %s="%s">'
-        '<h2 class="text-heading" id="%s">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
-        "%s"
-        "%s"
-        "</div>"
-    ) % (
-        DIRTY_SECTION_ATTR, escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
-        escape_html(CALENDAR_HEADING_ID), escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
-        escape_html(i18n.t(CALENDAR_CAPTION)),
-        status_html,
-        how_it_works_html,
-    )
-
-
-def calendar_connect_section(configured, errors=None):
-    """The feed-URL field and the "Connect calendar" button (20-09-
-    PLAN.md Task 1/2, D-14c): its OWN small `<form method="post"
-    action="{CALENDAR_CONNECT_ROUTE}">`, a sibling of `<form
-    id="settings-form">`, rendered by `render()` immediately before
-    `calendar_disconnect_section()`'s own output — never a descendant of
-    the settings form (posting a URL through the scoped settings handler
-    would read every absent checkbox on Display as an explicit OFF and
-    silently switch off Quiet hours and the screen, T-20-11) and never
-    behind the page-wide Save.
-
-    Wrapped in `<details><summary>Replace the feed URL</summary>` while
-    `configured` is true; rendered unwrapped otherwise — matching D-14c's
-    own text exactly ("While connected, the URL input is hidden behind a
-    'Replace the feed URL' disclosure").
-
-    The write-only contract is preserved verbatim from the retired
-    in-form field this replaces: the input always renders with no
-    `value` attribute, no populated placeholder, and nothing derived
-    from the stored URL, in both the connected and not-connected states
-    (T-16-SECRET/T-17-SECRET/T-20-12) — `errors` (fully defaulted,
-    matching this file's D-07 idiom for a field-level message) lets a
-    rejected connect attempt render the field's own error message; there
-    is no `submitted` parameter here at all, unlike this file's other
-    D-07 call sites, because there is nothing to repopulate — the one
-    field this form carries is the write-only URL itself.
-
-    Wrapped in its own `.page-section` — a genuinely small, distinct
-    card, not a bare form — so this card's own bottom edge becomes the
-    `:has(+ .calendar-disconnect-form)` fused-card target
-    (companion/static/style.css, 20-04-PLAN.md) when `calendar_disconnect
-    _section()`'s output immediately follows it in the DOM, giving the
-    two forms one continuous, visually-joined unit.
-    """
     error_attrs = _field_error_attrs(
         errors, "calendar_url", "calendar-connect-url", hint_id=CALENDAR_URL_HINT_ID)
     error_html = _field_error_html(errors, "calendar_url", "calendar-connect-url")
@@ -2328,6 +2337,17 @@ def calendar_connect_section(configured, errors=None):
         escape_html(CALENDAR_URL_HINT_ID), escape_html(i18n.t(CALENDAR_URL_HINT)),
         error_html,
     )
+    # The cross-DOM form= attribute below is written as literal id
+    # text, not a %s interpolation of CALENDAR_DISCONNECT_FORM_ID —
+    # matching this file's own established convention for the instant-
+    # switch forms' own action attributes (see CALENDAR_CONNECT_ROUTE's
+    # comment below): this module's acceptance gate greps the literal
+    # attribute text, and the constant itself stays defined for the
+    # disconnect <form>'s own id attribute below and for test_config_
+    # page.py's own checks to reference.
+    disconnect_button_html = (
+        '<button type="submit" form="calendar-disconnect-form" class="calendar-disconnect-btn">%s</button>'
+    ) % escape_html(i18n.t(CALENDAR_DISCONNECT_BUTTON_TEXT))
     # The action attribute below is written as literal path text, not a
     # %s interpolation of CALENDAR_CONNECT_ROUTE — matching this file's
     # own established convention for the instant-switch forms' own
@@ -2336,71 +2356,81 @@ def calendar_connect_section(configured, errors=None):
     # the constant itself stays defined for companion/app.py's
     # rebinding and companion/test_config_page.py's own checks to
     # reference without retyping the path a third time.
-    form_html = (
-        '<form method="post" action="/settings/calendar/connect" class="rule-add-form">'
-        "%s"
-        '<button type="submit">%s</button>'
-        "</form>"
-    ) % (
-        field_html,
-        escape_html(i18n.t(CALENDAR_CONNECT_BUTTON_TEXT)),
-    )
     if configured:
-        inner_html = (
-            '<details class="calendar-url-disclosure"><summary>%s</summary>%s</details>'
-        ) % (escape_html(i18n.t(CALENDAR_REPLACE_URL_SUMMARY)), form_html)
+        replace_form_html = (
+            '<form method="post" action="/settings/calendar/connect" class="rule-add-form">'
+            "%s"
+            '<button type="submit">%s</button>'
+            "</form>"
+        ) % (
+            field_html,
+            escape_html(i18n.t(CALENDAR_REPLACE_BUTTON_TEXT)),
+        )
+        disclosure_html = (
+            '<details class="calendar-url-disclosure"><summary class="text-link">%s</summary>%s</details>'
+        ) % (escape_html(i18n.t(CALENDAR_REPLACE_URL_SUMMARY)), replace_form_html)
+        actions_html = (
+            '<p class="calendar-actions">%s%s</p>' % (disclosure_html, disconnect_button_html))
+        state_branch_html = actions_html
     else:
-        inner_html = form_html
-    return '<div class="page-section">%s</div>' % inner_html
+        connect_form_html = (
+            '<form method="post" action="/settings/calendar/connect" class="rule-add-form">'
+            "%s"
+            '<button type="submit">%s</button>'
+            "</form>"
+        ) % (
+            field_html,
+            escape_html(i18n.t(CALENDAR_CONNECT_BUTTON_TEXT)),
+        )
+        if drift:
+            drift_actions_html = (
+                '<p class="calendar-actions calendar-actions--solo">%s</p>'
+                % disconnect_button_html)
+        else:
+            drift_actions_html = ""
+        state_branch_html = connect_form_html + drift_actions_html
 
-
-def calendar_disconnect_section(configured, drift):
-    """19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect action's
-    own standalone, confirmed form — a sibling of `calendar_group()`'s
-    `.page-section`, never a descendant of it or of
-    `<form id="{SETTINGS_FORM_ID}">`. `render()` emits this only on the
-    Device page, immediately after the Calendar group, and never inside
-    the merged settings form — HTML forbids nesting a `<form>` inside
-    another `<form>` anyway (the same structural reason
-    `_rules_section_html()`'s own per-flight rule delete forms are
-    siblings of that form, not descendants), and this action additionally
-    needs its OWN confirmation step, which a field inside the shared
-    settings form could never have.
-
-    Rendered only when `configured or drift` is true — the identical
-    condition the retired in-form checkbox used, and for the identical
-    reason (D-02): a drifted file still exists and still holds a URL, so
-    the promise that disconnecting removes it must not be blocked by a
-    permissions problem.
-
-    The hidden `{CALENDAR_DISCONNECT_CONFIRM_FIELD}` field carries an
-    EMPTY value — a bare POST of this form therefore submits no confirm
-    value at all, landing on `_handle_calendar_disconnect_post()`'s own
-    server-rendered confirmation page (`calendar_disconnect_confirm_
-    page()` below) rather than erasing anything. That page IS the real
-    control (19-CONTEXT.md's own D-08 resolution) — the button below
-    additionally carries `data-confirm`/`data-confirm-value` attributes
-    `companion/static/confirm-submit.js` (Task 2) reads to show one
-    native `confirm()` dialog and, on acceptance only, fill this same
-    hidden field with `CALENDAR_DISCONNECT_CONFIRM_VALUE` before letting
-    the submit proceed — a misclick guard layered on top, never a
-    substitute for the server-side gate.
-    """
-    if not (configured or drift):
-        return ""
-    return (
-        '<form method="post" action="%s" data-confirm="%s" '
-        'data-confirm-value="%s">'
-        '<input type="hidden" name="%s" value="" data-confirm-field>'
-        '<button type="submit">%s</button>'
-        "</form>"
+    how_it_works_html = (
+        '<details><summary>%s</summary><p class="text-body">%s</p></details>'
     ) % (
-        CALENDAR_DISCONNECT_ROUTE,
-        escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_QUESTION)),
-        escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
-        CALENDAR_DISCONNECT_CONFIRM_FIELD,
-        escape_html(i18n.t(CALENDAR_DISCONNECT_CHECKBOX_LABEL)),
+        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SUMMARY)),
+        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_BODY)),
     )
+
+    card_html = (
+        '<div class="page-section" %s="%s">'
+        '<h2 class="text-heading" id="%s">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        "%s"
+        "%s"
+        "%s"
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
+        escape_html(CALENDAR_HEADING_ID), escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
+        escape_html(i18n.t(CALENDAR_CAPTION)),
+        status_html,
+        state_branch_html,
+        how_it_works_html,
+    )
+
+    if configured or drift:
+        disconnect_form_html = (
+            '<form id="%s" method="post" action="%s" data-confirm="%s" '
+            'data-confirm-value="%s">'
+            '<input type="hidden" name="%s" value="" data-confirm-field>'
+            "</form>"
+        ) % (
+            escape_html(CALENDAR_DISCONNECT_FORM_ID),
+            CALENDAR_DISCONNECT_ROUTE,
+            escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_QUESTION)),
+            escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
+            CALENDAR_DISCONNECT_CONFIRM_FIELD,
+        )
+    else:
+        disconnect_form_html = ""
+
+    return card_html + disconnect_form_html
 
 
 def calendar_disconnect_confirm_page(ctx):
@@ -2814,18 +2844,17 @@ def _nested_wrapper_html(html_fragment, base_class, nested_class):
 
 
 def _display_groups_html(builders, groups):
-    """The Display scope's three headed supersections (D-12, 20-UI-SPEC.md
-    Section Anatomy C, restructured by 21-05-PLAN.md Task 1 D-06): "Look"
-    over the Frame colours card and Calendar (in that order), "What it
-    watches" over Runway, "When it is on" over Screen on/off and Quiet
-    hours — each grouped card gains the `--nested` modifier
-    (`_nested_wrapper_html()` above). Replaces the flat `"".join(
-    builders[g]() ...)` join the Device and legacy all-scope paths still
-    use unchanged (this task's own instruction: leave those two
-    untouched).
+    """The Display scope's two remaining headed supersections (D-12,
+    21-UI-SPEC.md Section Anatomy C, restructured by 21-05-PLAN.md Task
+    1 D-06 and 21-07-PLAN.md Task 1): "What it watches" over Runway,
+    "When it is on" over Screen on/off and Quiet hours — each grouped
+    card gains the `--nested` modifier (`_nested_wrapper_html()` above).
+    Replaces the flat `"".join(builders[g]() ...)` join the Device and
+    legacy all-scope paths still use unchanged (this task's own
+    instruction: leave those two untouched).
 
-    Returns a 3-tuple `(calendar_card_html, watches_supersection_html,
-    on_supersection_html)`.
+    Returns a 2-tuple `(watches_supersection_html, on_supersection_
+    html)`.
 
     21-05-PLAN.md Task 1 (D-06, Structural Note 2): the "Look" intro
     heading and the Frame colours card that replaces Theme are no
@@ -2841,11 +2870,19 @@ def _display_groups_html(builders, groups):
     Calendar's own chip grid already did before this task retired it
     (D-06) and as Runway/Screen/Quiet hours already do.
 
-    Calendar's own card (`calendar_card_html` below) keeps rendering
-    here, nested-wrapped exactly like Runway — it carries no saved
-    field of its own any more (its compact chip grid moved to the
-    Frame colours card, D-06), so nothing inside it needs a `form=`
-    attribute either.
+    21-07-PLAN.md Task 1 (D-13/Pitfall 2): the Calendar card is ALSO no
+    longer this function's concern, and — unlike Frame colours — it is
+    also no longer a member of the generic `builders` dict at all
+    (`render()` calls the merged `calendar_group()` directly). The
+    merged card now embeds its own connect/replace `<form>` in every
+    state (D-13's "not connected" branch always shows one), which would
+    nest inside `<form id="{SETTINGS_FORM_ID}">` on the legacy SCOPE_ALL
+    render if `calendar_group()` stayed in `builders` — the same reason
+    Frame colours left that dict in 21-05. `render()` builds the merged
+    card directly, as a sibling of the physical form, exactly like Frame
+    colours; SCOPE_ALL (never served) simply loses Calendar content, the
+    same accepted, documented consequence 21-05-PLAN.md Task 1 already
+    established for Theme.
 
     20-07-PLAN.md Task 2 (D-19/Pitfall 1): Screen on/off and Quiet hours
     are no longer literal descendants of `<form id="{SETTINGS_FORM_ID}">`
@@ -2857,15 +2894,12 @@ def _display_groups_html(builders, groups):
     not a literal descendant of `<form id="{SETTINGS_FORM_ID}">` — its
     own radio inputs instead carry an explicit
     `form="{SETTINGS_FORM_ID}"` attribute (`runway_fieldset()`'s own
-    docstring). `render()` emits the Frame colours section, then this
-    function's `calendar_card_html`, then `watches_supersection_html`,
-    then `on_supersection_html`, in that order — keeping the locked
-    Look/What it watches/When it is on reading order across the form
-    boundary.
+    docstring). `render()` emits the Frame colours section, then the
+    merged Calendar card, then this function's `watches_supersection_
+    html`, then `on_supersection_html`, in that order — keeping the
+    locked Look/What it watches/When it is on reading order across the
+    form boundary.
     """
-    calendar_card_html = (
-        _nested_wrapper_html(builders[screens.GROUP_CALENDAR](), "page-section", "page-section--nested")
-        if screens.GROUP_CALENDAR in groups else "")
     runway_html = (
         _nested_wrapper_html(builders[screens.GROUP_RUNWAY](), "theme-status", "theme-status--nested")
         if screens.GROUP_RUNWAY in groups else "")
@@ -2898,7 +2932,7 @@ def _display_groups_html(builders, groups):
             DISPLAY_ON_SECTION_ID, i18n.t(DISPLAY_ON_HEADING), i18n.t(DISPLAY_ON_INTRO))
         + display_html + quiet_hours_html
     )
-    return calendar_card_html, watches_supersection_html, on_supersection_html
+    return watches_supersection_html, on_supersection_html
 
 
 def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
@@ -3083,10 +3117,17 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # AND because its own rules panel contains real <form> elements that
     # must never render as a literal descendant of <form id=
     # "{SETTINGS_FORM_ID}"> (the same constraint that already kept
-    # Flight colours and Calendar's connect/disconnect forms out of this
-    # dict). On the legacy SCOPE_ALL/Device paths below, `groups_html`'s
-    # own `"".join(builders[g]() for g in groups if g in builders)` loop
-    # simply skips screens.GROUP_THEME now (it is still a member of
+    # Flight colours out of this dict). 21-07-PLAN.md Task 1 (D-13/
+    # Pitfall 2): screens.GROUP_CALENDAR has no entry here either any
+    # more, for the identical reason — the merged calendar_group() now
+    # embeds its own connect/replace <form> in EVERY state, which would
+    # nest inside <form id="{SETTINGS_FORM_ID}"> on the legacy SCOPE_ALL
+    # render if left in this dict. render()'s own Display branch calls
+    # calendar_group() directly instead, as a sibling of the physical
+    # form, exactly like Frame colours. On the legacy SCOPE_ALL/Device
+    # paths below, `groups_html`'s own `"".join(builders[g]() for g in
+    # groups if g in builders)` loop simply skips screens.GROUP_THEME/
+    # screens.GROUP_CALENDAR now (both are still members of
     # `scope_groups(SCOPE_ALL)`'s fixed tuple, just no longer present in
     # `builders`) — SCOPE_ALL is the legacy, never-served whole-page
     # render, so this is a deliberate, documented behaviour change to
@@ -3106,10 +3147,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
             next_wake_clock=next_wake_clock),
         screens.GROUP_DISPLAY: lambda: display_group(
             current_display_enabled, errors=errors, submitted=submitted),
-        screens.GROUP_CALENDAR: lambda: calendar_group(
-            calendar_configured, calendar_drift, calendar_last_synced_at,
-            calendar_last_attempt_at, ctx.get("now"), calendar_entry_count,
-            errors=errors, submitted=submitted),
         screens.GROUP_NOTIFICATIONS: lambda: notifications_group(
             notifications_configured, current_notifications_battery,
             current_notifications_silent, errors=errors, submitted=submitted),
@@ -3117,7 +3154,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # 20-11-PLAN.md Task 1 (D-19/Pitfall 1): "Send a test" is its own
     # immediate-POST form and must never nest inside <form id=
     # "settings-form"> — rendered as a sibling, after </form> closes,
-    # exactly like calendar_connect_html/calendar_disconnect_html below.
+    # exactly like the merged Calendar card's own disconnect form below.
     # screens.GROUP_NOTIFICATIONS is never a member of scope_groups(
     # SCOPE_DISPLAY) or the legacy SCOPE_ALL tuple, so this is correctly
     # "" on both of those scopes.
@@ -3148,7 +3185,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # along with _rules_section_html() — see frame_colours_section_
         # html below).
         show_poll = False
-        show_calendar_disconnect = screens.GROUP_CALENDAR in groups
         # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the "Look"
         # intro heading plus the Frame colours card render here, as a
         # SIBLING of <form id="{SETTINGS_FORM_ID}"> — not through the
@@ -3169,8 +3205,21 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
                     errors=errors, submitted=submitted, state_dir=ctx.get("state_dir")),
                 "page-section frame-colours", "page-section--nested")
             if screens.GROUP_THEME in groups else "")
+        # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the merged Calendar card
+        # is built directly here — never through the generic `builders`
+        # dict (see that dict's own comment above) — because it embeds
+        # its own connect/replace <form> in every state; nested-wrapped
+        # exactly like Runway used to be through _display_groups_html().
+        display_calendar_card_html = (
+            _nested_wrapper_html(
+                calendar_group(
+                    calendar_configured, calendar_drift, calendar_last_synced_at,
+                    calendar_last_attempt_at, ctx.get("now"), calendar_entry_count,
+                    errors=errors, submitted=submitted),
+                "page-section", "page-section--nested")
+            if screens.GROUP_CALENDAR in groups else "")
         groups_html = ""
-        (display_calendar_card_html, display_watches_supersection_html,
+        (display_watches_supersection_html,
             display_on_supersection_html) = _display_groups_html(builders, groups)
     elif scope == SCOPE_DEVICE:
         # 19-12-PLAN.md Task 3 (D-13): "Home and Device show" — the
@@ -3189,16 +3238,15 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # 21-04-PLAN.md Task 1 (D-01/D-02): the Frame strip renders only
         # on Home and Display — never on Device.
         frame_strip_section_html = ""
-        # 20-07-PLAN.md Task 1 (D-10/D-11): the calendar-disconnect form
-        # is no longer a Device concern — the group it acts on
-        # (Calendar) moved to Display's everyday_groups this phase, so
-        # Device's own screens.GROUP_CALENDAR-in-groups test would
-        # always be False now anyway; kept explicit here rather than
-        # relying on that emptiness. 21-05-PLAN.md Task 1 (D-06): Flight
-        # colours is no longer a standalone section anywhere — its own
-        # show_rules flag is gone along with _rules_section_html().
+        # 20-07-PLAN.md Task 1 (D-10/D-11): the Calendar group (and its
+        # merged disconnect form) is no longer a Device concern at all —
+        # it moved to Display's everyday_groups this phase, and
+        # 21-07-PLAN.md Task 1 removed screens.GROUP_CALENDAR from
+        # `builders` entirely, so Device's own render never builds it.
+        # 21-05-PLAN.md Task 1 (D-06): Flight colours is no longer a
+        # standalone section anywhere — its own show_rules flag is gone
+        # along with _rules_section_html().
         show_poll = bool(screen.get("has_manual_poll"))
-        show_calendar_disconnect = False
         # 20-07-PLAN.md Task 1 (D-10): Device's own advanced_groups no
         # longer includes GROUP_DISPLAY/GROUP_QUIET_HOURS at all (both
         # moved to Display's everyday_groups), so this flat join never
@@ -3237,8 +3285,10 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # Theme content as a direct, documented consequence of retiring
         # theme_fieldset() outright; Flight colours (which this scope
         # used to render as a separate sibling section) is gone the
-        # same way, for the same reason.
-        show_calendar_disconnect = False
+        # same way, for the same reason. 21-07-PLAN.md Task 1 (D-13/
+        # Pitfall 2): the Calendar group is gone from SCOPE_ALL for the
+        # identical reason — screens.GROUP_CALENDAR has no entry in
+        # `builders` any more either.
         groups_html = "".join(builders[g]() for g in groups if g in builders)
         frame_colours_section_html = ""
         display_calendar_card_html = ""
@@ -3251,33 +3301,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(cooldown_remaining))
         if show_poll else "")
-    # 19-11-PLAN.md Task 1 (D-08/A-26): a sibling of the settings <form>,
-    # never a descendant — see calendar_disconnect_section()'s own
-    # docstring for why. Emitted immediately after </form> closes.
-    # 20-09-PLAN.md Task 1 (D-14c): the Connect/Replace mini-form renders
-    # immediately before calendar_disconnect_html below, both siblings of
-    # the settings <form> — never a descendant of it, and never behind
-    # the page-wide Save (T-20-11). Guarded by the SAME flag as the
-    # disconnect form: the two always co-occur (only the live Display
-    # scope ever shows either), and calendar_connect_section()'s own
-    # `.page-section` wrapper immediately preceding
-    # `.calendar-disconnect-form` is what makes the `:has(+
-    # .calendar-disconnect-form)` fused-card CSS (20-04-PLAN.md) apply.
-    #
-    # D-12 fix (20-REVIEW.md verification gap), superseding Polish fix
-    # 4's own placement: on the Display scope, `</form>` now closes
-    # right after the Theme card (see _display_groups_html()'s own
-    # docstring), so calendar_connect_html/calendar_disconnect_html,
-    # emitted here, land immediately after display_calendar_card_html
-    # below — never after Runway. Device/SCOPE_ALL never have
-    # show_calendar_disconnect True, so this reordering changes nothing
-    # for either.
-    calendar_connect_html = (
-        calendar_connect_section(calendar_configured, errors=errors)
-        if show_calendar_disconnect else "")
-    calendar_disconnect_html = (
-        calendar_disconnect_section(calendar_configured, calendar_drift)
-        if show_calendar_disconnect else "")
 
     return (
         header
@@ -3292,8 +3315,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         '<button type="submit" %s>%s</button>'
         "</form>"
-        "%s"
-        "%s"
         "%s"
         "%s"
         "%s"
@@ -3316,21 +3337,22 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # form. Always "" on the Device/SCOPE_ALL paths (both set it to
         # "" explicitly above).
         frame_colours_section_html,
-        # The Calendar card itself, nested-wrapped exactly like Runway,
-        # now renders here — after the Frame colours section, before
-        # its own connect/disconnect forms. Always "" on
-        # Device/SCOPE_ALL (computed above).
+        # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the merged Calendar
+        # card, nested-wrapped exactly like Runway, now renders here —
+        # after the Frame colours section — carrying its own connect/
+        # replace form and, when connected or drifted, its own data-only
+        # disconnect form as a trailing sibling fragment, both already
+        # concatenated into this one string by calendar_group() itself.
+        # Always "" on Device/SCOPE_ALL (computed above).
         display_calendar_card_html,
-        calendar_connect_html,
-        calendar_disconnect_html,
         # 20-07-PLAN.md Task 1 (D-12), restructured by the D-12 fix
         # above: "What it watches"'s own header plus the Runway card —
         # always "" on the Device/SCOPE_ALL paths (both set it to ""
         # explicitly above), so this addition changes nothing for
-        # either. On Display, this now renders AFTER the calendar
-        # connect/disconnect siblings above, so Runway still follows
-        # Calendar in document order even though neither is any longer a
-        # literal descendant of the same <form>.
+        # either. On Display, this now renders AFTER the Calendar card
+        # above, so Runway still follows Calendar in document order even
+        # though neither is any longer a literal descendant of the same
+        # <form>.
         display_watches_supersection_html,
         # 20-11-PLAN.md Task 1 (D-19/Pitfall 1): "" on Display/SCOPE_ALL
         # (computed above), so this addition changes nothing for either

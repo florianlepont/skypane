@@ -508,6 +508,22 @@ EXPECTED_CHECK_COUNT = 216
 # count at execution time (215/215 pass), not trusted from arithmetic
 # alone.
 EXPECTED_CHECK_COUNT = 215
+# 21-07-PLAN.md Task 1 (D-13/D-14, Pitfall 2): +3. calendar_connect_
+# section()/calendar_disconnect_section() are retired outright and
+# merged into ONE calendar_group() returning a single .page-section
+# plus a data-only disconnect-form sibling fragment; every check that
+# used to call either retired function directly, or that relied on
+# Calendar rendering on the legacy SCOPE_ALL scope (removed from
+# `builders` there for the identical HTML-forms-can't-nest reason
+# Theme's own entry was removed in 21-05), is retargeted in place with
+# no count change. Three new checks: exactly one Calendar page-section
+# on the Display scope in both states; no <form> nested inside another
+# across all four of calendar_group()'s own distinguishable states; the
+# two new short button-text constants (Replace/Disconnect) are each a
+# contiguous substring of 21-UI-SPEC.md. 215 + 3 = 218, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (218/218 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 218
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1503,7 +1519,14 @@ def main():
         # (D-06): Theme's own former "Theme" entry is gone — SCOPE_ALL's
         # legacy render no longer renders theme_fieldset() (retired) or
         # its replacement (the Frame colours card, Display-scope only),
-        # dropping the count from eight to seven.
+        # dropping the count from eight to seven. 21-07-PLAN.md Task 1
+        # (D-13/Pitfall 2): Calendar's own entry is ALSO gone from
+        # SCOPE_ALL now — the merged calendar_group() embeds a real
+        # connect/replace <form> in every state, which would nest inside
+        # <form id="settings-form"> on this legacy render, so
+        # screens.GROUP_CALENDAR has no entry in `builders` here any
+        # more either (the same accepted, documented fate Theme's own
+        # entry already had), dropping the count from seven to six.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -1512,13 +1535,13 @@ def main():
             r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
         expected = [
             "Runway", "Diagnostic LED", "Quiet hours",
-            "Wake interval", config_page.DISPLAY_SECTION_HEADING, "Calendar",
+            "Wake interval", config_page.DISPLAY_SECTION_HEADING,
             "Notifications"]
         if found != expected:
             return False, "expected %r in document order, got %r" % (expected, found)
         return True, ""
     check(
-        "render() carries exactly seven data-dirty-section elements, in document order Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar/Notifications (Theme's own entry retired along with theme_fieldset(), 21-05-PLAN.md Task 1 D-06)",
+        "render() carries exactly six data-dirty-section elements, in document order Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Notifications (Theme's own entry retired along with theme_fieldset(), 21-05-PLAN.md Task 1 D-06; Calendar's own entry retired from this legacy scope by 21-07-PLAN.md Task 1 D-13/Pitfall 2)",
         _render_exactly_five_dirty_sections_in_order)
 
     def _runway_fieldset_returns_single_top_level_div():
@@ -2702,13 +2725,16 @@ def main():
         _render_both_quiet_hours_time_inputs_carry_required)
 
     def _calendar_connect_url_error_never_echoes_the_submitted_secret():
-        # 20-09-PLAN.md Task 1 (D-14c): the write-only calendar_url field
-        # moved out of render()'s own errors/submitted plumbing entirely,
-        # into calendar_connect_section()'s own `errors` parameter — this
-        # function never accepts `submitted` at all (nothing to
-        # repopulate: the one field it renders is write-only), so there
-        # is no submitted URL for it to echo in the first place.
-        rendered = config_page.calendar_connect_section(False, errors={"calendar_url": "msg"})
+        # 20-09-PLAN.md Task 1 (D-14c), retargeted by 21-07-PLAN.md
+        # Task 1 (D-13) after calendar_connect_section()'s retirement:
+        # the write-only calendar_url field's own `errors` parameter now
+        # lives directly on the merged calendar_group() — it never
+        # accepts `submitted` at all (nothing to repopulate: the one
+        # field it renders is write-only), so there is no submitted URL
+        # for it to echo in the first place.
+        rendered = config_page.calendar_group(
+            False, False, None, None, "2026-09-07T09:12:04+00:00", 0,
+            errors={"calendar_url": "msg"})
         if "msg" not in rendered:
             return False, "expected the calendar_url error message to render"
         if 'name="calendar_url"' not in rendered:
@@ -2718,9 +2744,9 @@ def main():
             return False, "expected no value attribute on the calendar_url field even with an error present"
         return True, ""
     check(
-        "calendar_connect_section(False, errors={\"calendar_url\": \"msg\"}) renders the error message "
+        "the merged calendar_group(..., errors={\"calendar_url\": \"msg\"}) renders the error message "
         "under the field while the write-only field itself still carries no value attribute at all "
-        "(D-07/T-19-12/D-14c)",
+        "(D-07/T-19-12/D-13, retargeted after calendar_connect_section()'s retirement)",
         _calendar_connect_url_error_never_echoes_the_submitted_secret)
 
     def _style_css_styles_field_error():
@@ -3590,6 +3616,13 @@ def main():
         # own data-dirty-section) is retired outright, and its
         # replacement (the Frame colours card) only ever renders on the
         # Display scope, never on this legacy SCOPE_ALL render.
+        # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the count drops to 6 —
+        # the merged calendar_group() now embeds a real connect/replace
+        # <form> in every state, which would nest inside <form id=
+        # "settings-form"> on this legacy render, so it has no entry in
+        # `builders` here any more either (Calendar's own data-dirty-
+        # section entry only ever renders on the Display scope now,
+        # exactly like Theme's).
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -3598,15 +3631,17 @@ def main():
             return False, "expected zero <fieldset> elements on the rendered Settings page"
         if "<legend" in rendered:
             return False, "expected zero <legend> elements on the rendered Settings page"
-        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 7:
+        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 6:
             return False, (
-                "expected exactly 7 %s occurrences (Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar/Notifications), got %d"
+                "expected exactly 6 %s occurrences (Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Notifications), got %d"
                 % (config_page.DIRTY_SECTION_ATTR, rendered.count(config_page.DIRTY_SECTION_ATTR)))
         return True, ""
     check(
-        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly seven "
-        "data-dirty-section groups (Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar/"
-        "Notifications — Theme's own entry retired along with theme_fieldset(), 21-05-PLAN.md Task 1 D-06)",
+        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly six "
+        "data-dirty-section groups (Runway/Diagnostic LED/Quiet hours/Wake interval/Display/"
+        "Notifications — Theme's own entry retired along with theme_fieldset(), 21-05-PLAN.md Task 1 "
+        "D-06; Calendar's own entry retired from this legacy scope by 21-07-PLAN.md Task 1 D-13/"
+        "Pitfall 2)",
         _settings_page_has_zero_fieldsets_and_five_dirty_sections)
 
     def _selected_runway_card_and_theme_chip_carry_a_background_wash():
@@ -4512,7 +4547,7 @@ def main():
 
     def _calendar_status_not_configured_is_exclusive():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
-        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
         if verdict != _CALENDAR_NOT_CONNECTED_ESCAPED:
             return False, "expected the 'Not connected' verdict, got %r" % (verdict,)
         if detail:
@@ -4525,7 +4560,7 @@ def main():
 
     def _calendar_status_configured_pending_is_exclusive():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
-        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
         if verdict != _CALENDAR_CONNECTED_ESCAPED:
             return False, "expected the 'Connected' verdict, got %r" % (verdict,)
         if detail:
@@ -4544,7 +4579,7 @@ def main():
         ctx = dict(
             _CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None,
             calendar_last_attempt_at=1893456000.0)
-        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
         if verdict != _CALENDAR_CONNECTED_ESCAPED:
             return False, "expected the 'Connected' verdict, got %r" % (verdict,)
         if detail != escape_html(config_page.CALENDAR_STATUS_FETCH_FAILED_DETAIL):
@@ -4559,7 +4594,7 @@ def main():
         ctx = dict(
             _CALENDAR_BASE_CTX, calendar_configured=True,
             calendar_last_synced_at="2026-09-07T09:00:00+00:00", calendar_entry_count=12)
-        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
         if verdict != _CALENDAR_CONNECTED_ESCAPED:
             return False, "expected the 'Connected' verdict, got %r" % (verdict,)
         if "12" not in detail:
@@ -4577,7 +4612,7 @@ def main():
         ctx = dict(
             _CALENDAR_BASE_CTX, calendar_configured=True,
             calendar_last_synced_at="not-a-real-timestamp")
-        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
         if verdict != _CALENDAR_CONNECTED_ESCAPED:
             return False, "expected the 'Connected' verdict, got %r" % (verdict,)
         if detail:
@@ -4610,6 +4645,28 @@ def main():
         "and the Replace-URL disclosure summary are each a contiguous substring of 20-UI-SPEC.md, so a "
         "paraphrase fails rather than merely looking different (D-14a..c)",
         _calendar_copy_fidelity_against_ui_spec)
+
+    def _calendar_merged_button_copy_fidelity_against_21_ui_spec():
+        # 21-07-PLAN.md Task 1 (D-13/D-14): the two new short button-
+        # text constants the merge introduces — pinned against phase
+        # 21's own UI-SPEC, matching _calendar_copy_fidelity_against_
+        # ui_spec()'s established discipline for the phase-20 strings.
+        spec_path = os.path.join(
+            REPO_ROOT, ".planning", "phases",
+            "21-companion-feedback-round-3-frame-controls-up-front-home-with",
+            "21-UI-SPEC.md")
+        with open(spec_path, encoding="utf-8") as fh:
+            spec = fh.read()
+        for name in ("CALENDAR_REPLACE_BUTTON_TEXT", "CALENDAR_DISCONNECT_BUTTON_TEXT"):
+            value = getattr(config_page, name)
+            if value not in spec:
+                return False, "%s is not a contiguous substring of 21-UI-SPEC.md: %r" % (name, value)
+        return True, ""
+    check(
+        "the merged card's own two new short button-text constants (the connected-state Replace "
+        "button, the small grey Disconnect button) are each a contiguous substring of 21-UI-SPEC.md "
+        "(D-13/D-14)",
+        _calendar_merged_button_copy_fidelity_against_21_ui_spec)
 
     def _calendar_forbidden_vocabulary_absent():
         # 16-UI-SPEC.md's own "What this section deliberately does NOT
@@ -4657,7 +4714,7 @@ def main():
             ctx = dict(
                 _CALENDAR_BASE_CTX, calendar_configured=configured,
                 calendar_last_synced_at=None)
-            rendered = config_page.render(ctx)
+            rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         for needle in (token, host, path, query_param, url):
@@ -4695,7 +4752,7 @@ def main():
                 calendar_last_synced_at="2026-09-07T09:00:00+00:00",
                 calendar_entry_count=len(entries),
                 colour_rules={kind: {} for kind in colour_rules.RULE_KINDS})
-            rendered = config_page.render(ctx)
+            rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
             for code_pattern in (r"\bORY\b", r"\bTLS\b", r"\bNCE\b", r"\bLHR\b", r"\bAF\b", r"\bBA\b"):
                 if re.search(code_pattern, rendered):
                     return False, "expected no calendar-derived code matching %r anywhere on the rendered page" % (code_pattern,)
@@ -4841,34 +4898,47 @@ def main():
         "pre-D-09 default-to-base-theme behaviour)",
         _calendar_theme_chip_grid_same_as_departures_checked_when_unset)
 
-    def _calendar_placement_after_display_before_form_close_with_dirty_attr():
+    def _calendar_placement_after_display_form_close_with_dirty_attr():
+        # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): retargeted from SCOPE_ALL
+        # (the legacy render — Calendar no longer has an entry in
+        # `builders` there at all, see the two dirty-section-count checks
+        # above) to SCOPE_DISPLAY, and from "before the settings form's
+        # closing tag" to "after" it — the merged calendar_group() now
+        # embeds its own connect/replace <form>, which HTML forbids
+        # nesting inside <form id="settings-form">, so the merged card
+        # renders as a sibling AFTER that form closes, exactly like
+        # Runway/Frame colours already do. The comparison landmark
+        # changes too: DISPLAY_SECTION_HEADING ("Screen on / off") no
+        # longer precedes Calendar on this scope at all (it moved to a
+        # LATER supersection, 21-04-PLAN.md Task 1) — Frame colours'
+        # own heading is the one that reliably still does.
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
-        rendered = config_page.render(ctx)
-        display_index = rendered.index(
-            '<h2 class="text-heading">%s</h2>' % config_page.DISPLAY_SECTION_HEADING)
-        # 20-09-PLAN.md Task 1 (D-14d): the Calendar heading now carries
-        # its own id (the compact chip grid's aria-labelledby target).
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        frame_colours_index = rendered.index(
+            '<h2 class="text-heading" id="%s">%s</h2>'
+            % (config_page.FRAME_COLOURS_HEADING_ID, config_page.FRAME_COLOURS_HEADING))
+        # 20-09-PLAN.md Task 1 (D-14d): the Calendar heading carries its
+        # own id (an aria-labelledby target elsewhere on the page).
         calendar_index = rendered.index(
             '<h2 class="text-heading" id="%s">%s</h2>'
             % (config_page.CALENDAR_HEADING_ID, config_page.CALENDAR_SECTION_HEADING))
-        # 20-07-PLAN.md Task 2 (D-19): display_group() now embeds its own
-        # small quick-action <form>, which closes well before the
-        # settings form's own closing tag — the FIRST "</form>" in the
-        # whole document is that inner form's, not the settings form's.
-        # The real one is the first "</form>" AFTER the Calendar heading
-        # (Calendar itself embeds no form of its own).
-        form_close_index = rendered.index("</form>", calendar_index)
-        if not (display_index < calendar_index < form_close_index):
+        form_close_index = rendered.index(
+            '<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
+        form_close_index = rendered.index("</form>", form_close_index)
+        if not (form_close_index < frame_colours_index < calendar_index):
             return False, (
-                "expected Display < Calendar < </form>, got %d, %d, %d"
-                % (display_index, calendar_index, form_close_index))
+                "expected </form> < Frame colours < Calendar, got %d, %d, %d"
+                % (form_close_index, frame_colours_index, calendar_index))
         if '%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.CALENDAR_SECTION_HEADING) not in rendered:
             return False, "expected the Calendar group to carry the dirty-section attribute"
         return True, ""
     check(
-        "the Calendar heading's index is greater than Display's and less than the settings form's closing "
-        "tag, and the group carries the dirty-section attribute",
-        _calendar_placement_after_display_before_form_close_with_dirty_attr)
+        "on the Display scope, the Calendar heading's index is greater than the settings form's own "
+        "closing tag and greater than Frame colours' own heading — a sibling AFTER the form, never a "
+        "descendant before it, now that the merged card embeds its own connect/replace <form> — and "
+        "the group still carries the dirty-section attribute (retargeted by 21-07-PLAN.md Task 1, "
+        "D-13/Pitfall 2)",
+        _calendar_placement_after_display_form_close_with_dirty_attr)
 
     def _calendar_group_no_inline_js_and_chip_grid_cross_submits_form():
         # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the
@@ -5014,13 +5084,13 @@ def main():
             0, None, "white")
 
     def _calendar_connect_field_never_carries_value_in_either_state():
-        # 20-09-PLAN.md Task 1/2 (D-14c): the write-only feed-URL field
-        # moved OUT of calendar_group() entirely, into its own
-        # calendar_connect_section() — calendar_group() itself no longer
-        # receives the URL at all (T-20-12: the function that would
-        # introduce a leak now structurally cannot).
+        # 21-07-PLAN.md Task 1 (D-13/D-14): the write-only feed-URL field
+        # is now merged INTO calendar_group() itself — the not-connected
+        # branch renders it unwrapped, the connected branch renders the
+        # SAME field inside the Replace disclosure. Either way the field
+        # never carries a value attribute (T-20-12).
         for configured in (False, True):
-            html = config_page.calendar_connect_section(configured)
+            html = _calendar_group_call(configured, False, None)
             if 'name="calendar_url"' not in html:
                 return False, "expected the calendar_url field when configured=%r" % (configured,)
             after_name = html.split('name="calendar_url"', 1)[1].split(">", 1)[0]
@@ -5030,38 +5100,49 @@ def main():
                     % (configured,))
         return True, ""
     check(
-        "the write-only calendar_url field renders in calendar_connect_section()'s own markup for both "
-        "the connected and not-connected states and never carries a value attribute (D-14c)",
+        "the write-only calendar_url field renders in the merged calendar_group()'s own markup for "
+        "both the connected and not-connected states and never carries a value attribute (D-13/D-14, "
+        "retargeted after calendar_connect_section()'s retirement)",
         _calendar_connect_field_never_carries_value_in_either_state)
 
     def _calendar_connect_wraps_in_details_only_when_configured():
-        # D-14c: "While connected, the URL input is hidden behind a
+        # D-13/D-14: "While connected, the URL input is hidden behind a
         # 'Replace the feed URL' disclosure; while not connected, render
-        # it unwrapped."
-        connected_html = config_page.calendar_connect_section(True)
-        if "<details" not in connected_html:
-            return False, "expected the connect form wrapped in <details> when configured"
+        # it unwrapped." The merged card ALSO always renders a second,
+        # unrelated <details> ("How it works") in every state, so this
+        # check scans for the Replace disclosure's own specific class
+        # rather than a bare "<details" substring, which would always
+        # be true now (Pitfall of the merge, not of the original check).
+        connected_html = _calendar_group_call(True, False, None)
+        if 'class="calendar-url-disclosure"' not in connected_html:
+            return False, "expected the connect form wrapped in <details class=calendar-url-disclosure> when configured"
         if escape_html(config_page.CALENDAR_REPLACE_URL_SUMMARY) not in connected_html:
             return False, "expected the Replace-the-feed-URL summary when configured"
-        not_connected_html = config_page.calendar_connect_section(False)
-        if "<details" in not_connected_html:
-            return False, "expected the connect form unwrapped when not configured"
+        not_connected_html = _calendar_group_call(False, False, None)
+        if 'class="calendar-url-disclosure"' in not_connected_html:
+            return False, "expected the connect form unwrapped (no calendar-url-disclosure) when not configured"
         if 'action="%s"' % config_page.CALENDAR_CONNECT_ROUTE not in not_connected_html:
             return False, "expected the connect form to post to CALENDAR_CONNECT_ROUTE either way"
         return True, ""
     check(
-        "calendar_connect_section() wraps its form in <details>'Replace the feed URL' only when "
-        "configured, and renders it unwrapped, posting to CALENDAR_CONNECT_ROUTE, when not (D-14c)",
+        "the merged calendar_group() wraps its connect form in <details class=calendar-url-disclosure> "
+        "'Replace the feed URL' only when configured, and renders it unwrapped, posting to "
+        "CALENDAR_CONNECT_ROUTE, when not (D-13/D-14, retargeted after calendar_connect_section()'s "
+        "retirement)",
         _calendar_connect_wraps_in_details_only_when_configured)
 
     def _calendar_containment_at_the_renderer_five_needles():
         # The same five needles _calendar_secret_never_reaches_served_
-        # http_bytes() (Section 3, below) uses, applied directly at
-        # calendar_group() AND calendar_connect_section() - the two
-        # functions that together render everything the Calendar card
-        # shows - rather than only at the served-HTTP-bytes boundary or
-        # the whole-page render() boundary the two other T-17-SECRET
-        # checks already cover.
+        # http_bytes() (Section 3, below) uses, applied directly at the
+        # merged calendar_group() — the one function that now renders
+        # everything the Calendar card shows, including the connect/
+        # replace form and the disconnect button — rather than only at
+        # the served-HTTP-bytes boundary or the whole-page render()
+        # boundary the two other T-17-SECRET checks already cover.
+        # 21-07-PLAN.md Task 1: calendar_group() itself still never
+        # receives the raw URL as of this task (Task 2 widens that
+        # contract, narrowly, for the masked-URL line only — see that
+        # task's own extended coverage of the two checks named above).
         token = "sk1-distinctive-token-9fq2"
         host = "private-roster-calendar.example.internal"
         path = "feeds/duty-export"
@@ -5073,25 +5154,24 @@ def main():
             configured = calendar_rules.calendar_is_configured(tmpdir)
             drift = calendar_rules.calendar_secret_mode_is_unsafe(tmpdir)
             group_html = _calendar_group_call(configured, drift, None)
-            connect_html = config_page.calendar_connect_section(configured)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
         for needle in (token, host, path, query_param, url):
-            if needle in group_html or needle in connect_html:
-                return False, "expected %r never to appear in calendar_group()/calendar_connect_section()'s own markup" % (needle,)
+            if needle in group_html:
+                return False, "expected %r never to appear in the merged calendar_group()'s own markup" % (needle,)
         return True, ""
     check(
-        "calendar_group() and calendar_connect_section(), called directly rather than through render(), "
-        "never emit the token, host, path segment, query-parameter name, or whole URL of a configured "
-        "calendar (T-17-SECRET, leak caught at the functions that introduce it)",
+        "the merged calendar_group(), called directly rather than through render(), never emits the "
+        "token, host, path segment, query-parameter name, or whole URL of a configured calendar, even "
+        "though it now also renders the connect/replace form and the disconnect button (T-17-SECRET, "
+        "retargeted after calendar_connect_section()'s retirement)",
         _calendar_containment_at_the_renderer_five_needles)
 
     def _calendar_disconnect_checkbox_never_appears_in_calendar_group():
         # 19-11-PLAN.md Task 1 (D-08/A-26): the in-form disconnect
         # checkbox is retired outright from calendar_group() in EVERY
         # one of its four distinguishable states — disconnecting is now
-        # calendar_disconnect_section()'s own standalone, confirmed form,
-        # checked separately below.
+        # its own standalone, confirmed form, checked separately below.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
             html = _calendar_group_call(configured, drift, last_synced_at)
             if 'name="calendar_disconnect"' in html:
@@ -5104,30 +5184,111 @@ def main():
         "(D-08/A-26: disconnecting is now its own standalone form, not an in-form checkbox)",
         _calendar_disconnect_checkbox_never_appears_in_calendar_group)
 
-    def _calendar_disconnect_section_appears_only_when_expected():
+    def _calendar_disconnect_form_appears_only_when_expected():
+        # 21-07-PLAN.md Task 1 (D-14): retargeted after calendar_
+        # disconnect_section()'s retirement — the disconnect form is now
+        # a data-only sibling fragment the merged calendar_group()
+        # concatenates onto its own card, under the same predicate
+        # (configured or drift) the retired standalone function used.
+        # Drift additionally gets a visible small Disconnect button
+        # (with no Replace disclosure — drift's own verdict already
+        # reads "Not connected") so a drifted, unreadable stored link
+        # can still be cleared.
         for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-            html = config_page.calendar_disconnect_section(configured, drift)
+            html = _calendar_group_call(configured, drift, last_synced_at)
+            has_form = (
+                '<form id="%s" method="post" action="%s"'
+                % (config_page.CALENDAR_DISCONNECT_FORM_ID, config_page.CALENDAR_DISCONNECT_ROUTE)
+            ) in html
             expected = configured or drift
-            has_form = bool(html)
             if has_form != expected:
                 return False, (
                     "state %r: expected disconnect-form presence %r, got %r"
                     % ((configured, drift), expected, has_form))
             if has_form:
-                if '<form method="post" action="%s"' % config_page.CALENDAR_DISCONNECT_ROUTE not in html:
-                    return False, "expected the form to post to CALENDAR_DISCONNECT_ROUTE"
                 if 'data-confirm-field' not in html:
                     return False, "expected the hidden confirm field to carry data-confirm-field"
                 if 'name="%s" value=""' % config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD not in html:
                     return False, "expected the hidden confirm field to render with an EMPTY value"
                 if "data-confirm=" not in html:
                     return False, "expected a data-confirm attribute carrying the confirm question"
+                if (
+                    'form="%s" class="calendar-disconnect-btn"' % config_page.CALENDAR_DISCONNECT_FORM_ID
+                ) not in html:
+                    return False, "expected a visible Disconnect button cross-submitting via form="
+            else:
+                # D-13: a plain not-connected render (no drift either)
+                # shows the URL field and the primary Connect button —
+                # and no Replace disclosure, no Disconnect button, no
+                # data-confirm attribute at all.
+                if "calendar-disconnect-btn" in html:
+                    return False, "expected no Disconnect button when neither configured nor drifted"
+                if "data-confirm=" in html:
+                    return False, "expected no data-confirm attribute when neither configured nor drifted"
+                if 'class="calendar-url-disclosure"' in html:
+                    return False, "expected no Replace disclosure when neither configured nor drifted"
         return True, ""
     check(
-        "calendar_disconnect_section() renders only when the calendar is connected or drifted, posting "
-        "to CALENDAR_DISCONNECT_ROUTE with a hidden, empty, data-confirm-field-carrying confirm field "
-        "(D-08/A-26)",
-        _calendar_disconnect_section_appears_only_when_expected)
+        "the merged calendar_group() renders its disconnect form only when the calendar is connected "
+        "or drifted, posting to CALENDAR_DISCONNECT_ROUTE with a hidden, empty, data-confirm-field-"
+        "carrying confirm field, alongside a visible small Disconnect button cross-submitting via "
+        "form= (D-08/A-26/D-14, retargeted after calendar_disconnect_section()'s retirement)",
+        _calendar_disconnect_form_appears_only_when_expected)
+
+    def _calendar_exactly_one_page_section_on_display_scope():
+        # D-13: "there is no second Calendar page-section and no
+        # trailing disconnect card" — checked in both states, since the
+        # connected state additionally concatenates a data-only sibling
+        # <form> fragment that must never itself carry a page-section
+        # class.
+        for configured in (False, True):
+            ctx = dict(
+                _CALENDAR_BASE_CTX, calendar_configured=configured, calendar_last_synced_at=None)
+            rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+            count = rendered.count('data-dirty-section="%s"' % config_page.CALENDAR_SECTION_HEADING)
+            if count != 1:
+                return False, (
+                    "configured=%r: expected exactly one Calendar page-section, got %d"
+                    % (configured, count))
+        return True, ""
+    check(
+        "the Display render carries exactly one Calendar page-section in both the connected and "
+        "not-connected states — no second Calendar card, no trailing disconnect card (D-13)",
+        _calendar_exactly_one_page_section_on_display_scope)
+
+    def _calendar_group_never_nests_a_form_inside_another_in_either_state():
+        # D-13/Pitfall 2: the merged card's own connect/replace <form>
+        # and its data-only disconnect-form sibling must never nest one
+        # inside the other, in either the connected or not-connected
+        # state — the same depth-tracking algorithm the Frame colours
+        # card's own full-shape checklist uses, applied directly at the
+        # merged calendar_group()'s own return value (card + sibling
+        # disconnect form) rather than only at the whole-page boundary.
+        for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
+            html = _calendar_group_call(configured, drift, last_synced_at)
+            depth = 0
+            pos = 0
+            while True:
+                open_pos = html.find("<form", pos)
+                close_pos = html.find("</form>", pos)
+                if open_pos == -1 and close_pos == -1:
+                    break
+                if open_pos != -1 and (close_pos == -1 or open_pos < close_pos):
+                    if depth >= 1:
+                        return False, (
+                            "state %r: expected no <form> nested inside another <form>"
+                            % ((configured, drift),))
+                    depth += 1
+                    pos = open_pos + len("<form")
+                else:
+                    depth -= 1
+                    pos = close_pos + len("</form>")
+        return True, ""
+    check(
+        "the merged calendar_group()'s own return value (the card plus its data-only disconnect-form "
+        "sibling) never nests one <form> inside another, in any of its four distinguishable states "
+        "(D-13/Pitfall 2)",
+        _calendar_group_never_nests_a_form_inside_another_in_either_state)
 
     def _calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
         rendered = config_page.calendar_disconnect_confirm_page({})
@@ -5158,12 +5319,17 @@ def main():
     def _calendar_disconnect_form_is_not_inside_settings_form_on_display_scope():
         # 20-07-PLAN.md Task 1 (D-11): Calendar (and its disconnect
         # action) moved from Device to Display this phase — retargeted
-        # from SCOPE_DEVICE to SCOPE_DISPLAY in place.
+        # from SCOPE_DEVICE to SCOPE_DISPLAY in place. 21-07-PLAN.md
+        # Task 1 (D-14): the disconnect form's own opening tag now
+        # carries an id attribute FIRST (id, method, action, data-
+        # confirm, data-confirm-value, per 21-UI-SPEC.md §E's own given
+        # markup order) — the literal search below is updated to match.
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         settings_form_close = rendered.find("</form>")
         disconnect_form_open = rendered.find(
-            '<form method="post" action="%s"' % config_page.CALENDAR_DISCONNECT_ROUTE)
+            '<form id="%s" method="post" action="%s"'
+            % (config_page.CALENDAR_DISCONNECT_FORM_ID, config_page.CALENDAR_DISCONNECT_ROUTE))
         if settings_form_close == -1:
             return False, "expected the settings form to be present"
         if disconnect_form_open == -1:
@@ -5174,18 +5340,21 @@ def main():
     check(
         "on the Display scope, the calendar disconnect form's opening tag appears after the settings "
         "form's own closing tag — it is a sibling, never a descendant (D-08/A-26, retargeted from "
-        "Device by 20-07-PLAN.md Task 1/D-11)",
+        "Device by 20-07-PLAN.md Task 1/D-11, and again by 21-07-PLAN.md Task 1/D-14 for the id-first "
+        "attribute order)",
         _calendar_disconnect_form_is_not_inside_settings_form_on_display_scope)
 
     def _calendar_connect_form_appears_before_the_runway_card_on_display_scope():
-        # Polish fix 4 (D-14c): calendar_connect_section() used to render
+        # Polish fix 4 (D-14c): the connect/replace form used to render
         # after the WHOLE Display scope — below Runway and Flight
-        # colours — far from the Calendar card. It now renders
-        # immediately after </form> closes (which itself now closes
-        # right after the Calendar card, since "What it watches"/Runway
+        # colours — far from the Calendar card. It now renders inside
+        # the merged calendar_group()'s own connected-state Replace
+        # disclosure (21-07-PLAN.md Task 1, D-13/D-14), which itself
+        # renders after </form> closes (which itself now closes right
+        # after the Frame colours card, since "What it watches"/Runway
         # moved to a later sibling supersection), so its own <form>'s
-        # opening tag appears strictly BEFORE the Runway card's own
-        # radio input in document order.
+        # opening tag still appears strictly BEFORE the Runway card's
+        # own radio input in document order.
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         calendar_heading_index = rendered.index(
@@ -5231,7 +5400,7 @@ def main():
         ctx = dict(
             _CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None,
             calendar_drift=True)
-        verdict, detail = _calendar_status_parts(config_page.render(ctx))
+        verdict, detail = _calendar_status_parts(config_page.render(ctx, scope=config_page.SCOPE_DISPLAY))
         if verdict != _CALENDAR_NOT_CONNECTED_ESCAPED:
             return False, "expected the 'Not connected' verdict when drifted, got %r" % (verdict,)
         if detail != escape_html(config_page.CALENDAR_STATUS_PERMISSION_UNSAFE):
