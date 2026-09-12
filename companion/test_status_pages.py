@@ -599,6 +599,15 @@ EXPECTED_CHECK_COUNT = 235
 EXPECTED_CHECK_COUNT = 241
 
 
+# 22-04-PLAN.md Task 3: +5 (241 -> 246) — DEVICE_STATE_TEXT's widened key
+# set (retargeted in place, not a net-new check), the nightly-regression
+# check (X2, pinned as one named check), the grace-window agreement
+# check, the past-grace-window both-late check, the held-then-elapsed
+# both-late check, and the unchanged dot--* occurrence-count guard,
+# re-derived by RUNNING the harness, not by arithmetic.
+EXPECTED_CHECK_COUNT = 246
+
+
 # --- fixture helpers ---------------------------------------------------
 
 
@@ -2604,13 +2613,15 @@ def main():
         _resolution_rate_tile_carries_no_verdict)
 
     def _state_text_dicts_have_expected_key_sets():
-        if set(health_page.DEVICE_STATE_TEXT) != {"ok", "warn", "error"}:
-            return False, "expected DEVICE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
+        # 22-04-PLAN.md Task 3 (D-03/CFG-26): retargeted in place —
+        # DEVICE_STATE_TEXT now ALSO gains the fourth "off" key
+        # (frame_state.STATE_HELD's own neutral device_state), the same
+        # widening 22-03-PLAN.md Task 1 gave PIPELINE_STATE_TEXT alone
+        # for a different reason. CORROBORATION_STATE_TEXT is still
+        # deliberately unwidened.
+        if set(health_page.DEVICE_STATE_TEXT) != {"ok", "warn", "error", "off"}:
+            return False, "expected DEVICE_STATE_TEXT's keys to be exactly ok/warn/error/off, got %r" % (
                 set(health_page.DEVICE_STATE_TEXT),)
-        # 22-03-PLAN.md Task 1 (B2): PIPELINE_STATE_TEXT alone gains a
-        # fourth key, "off" (the pipeline's genuine never-ran state) —
-        # DEVICE_STATE_TEXT/CORROBORATION_STATE_TEXT are deliberately
-        # unwidened, so their own assertions above/below are unchanged.
         if set(health_page.PIPELINE_STATE_TEXT) != {"ok", "warn", "error", "off"}:
             return False, "expected PIPELINE_STATE_TEXT's keys to be exactly ok/warn/error/off, got %r" % (
                 set(health_page.PIPELINE_STATE_TEXT),)
@@ -2619,9 +2630,10 @@ def main():
                 set(health_page.CORROBORATION_STATE_TEXT),)
         return True, ""
     check(
-        "DEVICE_STATE_TEXT has exactly ok/warn/error, PIPELINE_STATE_TEXT has exactly "
-        "ok/warn/error/off (B2, 22-03-PLAN.md Task 1) and CORROBORATION_STATE_TEXT has exactly "
-        "ok/warn (it has no error state) (D-03/A-21)",
+        "DEVICE_STATE_TEXT has exactly ok/warn/error/off (widened by 22-04-PLAN.md Task 3 for the "
+        "frame's own held state), PIPELINE_STATE_TEXT has exactly ok/warn/error/off (B2, "
+        "22-03-PLAN.md Task 1) and CORROBORATION_STATE_TEXT has exactly ok/warn (it has no error "
+        "state) (D-03/A-21)",
         _state_text_dicts_have_expected_key_sets)
 
     # ======================================================================
@@ -9914,6 +9926,196 @@ def main():
         "(the Frame strip's two switch buttons are no longer accent-filled) — the arithmetic is "
         "written into the comment, not merely asserted (22-UI-SPEC.md §1)",
         _accent_reservation_header_comment_no_longer_lists_strip_buttons)
+
+    # ======================================================================
+    # 22-04-PLAN.md Task 3 (D-03/CFG-26, X2): Health's Frame tile and the
+    # nav notification dot read the SAME frame_state result the strip
+    # does — they cannot disagree, because neither re-derives anything.
+    # ======================================================================
+
+    _PARIS_TZ = timezone(timedelta(hours=1))
+
+    def _health_tile_clock_text(rendered_health):
+        match = re.search(
+            r'class="stat-tile__value"><span class="time-value time-value--primary">'
+            r'([^<]+)</span></p>',
+            rendered_health)
+        return match.group(1) if match else None
+
+    def _strip_clock_text(rendered_strip):
+        match = re.search(r'class="time-value time-value--primary">([^<]+)</span>', rendered_strip)
+        return match.group(1) if match else None
+
+    def _health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn():
+        # The nightly regression, in full (X2, 22-UI-SPEC.md §3.3 rule 6):
+        # quiet hours 23:00-07:00, last check-in 22:58, clock 02:00,
+        # Europe/Paris — the strip renders the held copy with the neutral
+        # dot; Health's Frame tile renders the SAME clock time and the
+        # SAME state; the Health nav notification dot is unlit; the
+        # rendered HTML contains zero occurrences of the warn dot, the
+        # error dot, the warn tile modifier, the warn headline modifier,
+        # and of "Expected since" / "Attendu depuis".
+        qh_config = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        checkin = datetime(2026, 1, 15, 22, 58, 0, tzinfo=_PARIS_TZ)
+        clock = datetime(2026, 1, 16, 2, 0, 0, tzinfo=_PARIS_TZ)
+        tmp = _mkstate("h-nightly-held")
+        try:
+            device_config.save_device_config(
+                tmp, wake_interval_s=900, quiet_hours_enabled=True,
+                quiet_hours_start="23:00", quiet_hours_end="07:00")
+            _seed_device_health(tmp, [(checkin.isoformat(), 4200)])
+            # The pipeline (flight-detection) signal is a genuinely
+            # DIFFERENT system from the frame's own check-in cadence —
+            # seeded fresh (at "now") so its own, unrelated staleness
+            # thresholds do not confound this check's real subject.
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: clock.isoformat()})
+            rendered_health = health_page.render(_ctx(tmp, now=clock.isoformat()))
+            for warn_token in (
+                    "dot--warn", "dot--error", "stat-tile--warn",
+                    "status-card__headline--warn", "Expected since", "Attendu depuis"):
+                if warn_token in rendered_health:
+                    return False, "expected zero %r in a held Health render" % (warn_token,)
+            severity = health_page.health_severity(tmp, now=clock.isoformat())
+            if severity != "ok":
+                return False, (
+                    "expected the nav notification dot unlit (severity 'ok'), got %r" % (severity,))
+
+            strip_ctx = _frame_strip_ctx(checkin.isoformat(), qh_config, clock.isoformat())
+            rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
+            strip_clock = _strip_clock_text(rendered_strip)
+            tile_clock = _health_tile_clock_text(rendered_health)
+            if not strip_clock or not tile_clock:
+                return False, "expected a time-value clock span in both the strip and the tile"
+            if strip_clock != tile_clock:
+                return False, (
+                    "expected the strip's and the tile's clock text to be equal, got %r vs %r"
+                    % (strip_clock, tile_clock))
+            if "07:00" not in tile_clock and "07:0" not in tile_clock:
+                return False, "expected the held clock to read the quiet-hours window's own end"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00 Europe/"
+        "Paris), pinned as ONE named check: the strip renders the held copy with the neutral dot, "
+        "Health's Frame tile renders the SAME clock time, the nav notification dot is unlit, and "
+        "the rendered Health HTML carries zero warn/error dots, zero warn tile/headline modifiers "
+        "and neither 'Expected since' nor 'Attendu depuis' (X2, D-03/CFG-26)",
+        _health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn)
+
+    def _health_inside_grace_window_tile_and_strip_agree_normal():
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        # 11:00 + 900s = 11:15 due; 2x grace = 1800s -> still due until 11:45.
+        checkin_iso = "2026-08-27T11:00:00+00:00"
+        now_iso = "2026-08-27T11:30:00+00:00"
+        tmp = _mkstate("h-grace-window")
+        try:
+            device_config.save_device_config(tmp, wake_interval_s=900)
+            _seed_device_health(tmp, [(checkin_iso, 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: checkin_iso})
+            state = health_page.compute_health_state(tmp, now=now_iso)
+            if state["device_state"] != "ok":
+                return False, "expected the tile to report 'ok' inside the grace window, got %r" % (
+                    state["device_state"],)
+            strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
+            rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
+            if "Next update ≈" not in rendered_strip:
+                return False, "expected the strip to report the due copy inside the grace window"
+            if "status-card__headline--warn" in rendered_strip:
+                return False, "expected no warn modifier inside the grace window"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "inside the grace window with no hold, the tile reports the normal ('ok') state and the "
+        "strip reports the due copy — they agree (22-UI-SPEC.md §3.3 rule 3)",
+        _health_inside_grace_window_tile_and_strip_agree_normal)
+
+    def _health_past_grace_window_both_report_late_dot_lights():
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        checkin_iso = "2026-08-27T11:00:00+00:00"
+        now_iso = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("h-past-grace")
+        try:
+            device_config.save_device_config(tmp, wake_interval_s=900)
+            _seed_device_health(tmp, [(checkin_iso, 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: checkin_iso})
+            state = health_page.compute_health_state(tmp, now=now_iso)
+            if state["device_state"] != "warn":
+                return False, "expected the tile to report 'warn' past the grace window, got %r" % (
+                    state["device_state"],)
+            if state["severity"] == "ok":
+                return False, "expected the nav notification dot to light past the grace window"
+            strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
+            rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
+            if "Expected since" not in rendered_strip:
+                return False, "expected the strip to report the late copy past the grace window"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "past the grace window with no hold, both the tile ('warn') and the strip ('Expected "
+        "since') report late, and the nav notification dot lights",
+        _health_past_grace_window_both_report_late_dot_lights)
+
+    def _health_held_window_ended_and_grace_elapsed_both_report_late():
+        # A held frame's window has already ended AND its own grace has
+        # since elapsed — held cannot suppress lateness forever. The
+        # check-in itself is OUTSIDE the quiet-hours window (14:00, not
+        # 23:00-07:00), so next_wake_status() resolves hold_reason=None
+        # for it — a real device that stopped reporting after an ordinary
+        # daytime check-in, not one still inside a currently-active hold.
+        device_cfg = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        checkin_iso = "2026-08-27T14:00:00+00:00"
+        now_iso = "2026-08-28T02:00:00+00:00"
+        tmp = _mkstate("h-held-then-late")
+        try:
+            device_config.save_device_config(
+                tmp, wake_interval_s=900, quiet_hours_enabled=True,
+                quiet_hours_start="23:00", quiet_hours_end="07:00")
+            _seed_device_health(tmp, [(checkin_iso, 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: checkin_iso})
+            state = health_page.compute_health_state(tmp, now=now_iso)
+            if state["device_state"] != "warn":
+                return False, (
+                    "expected the tile to report 'warn' once a held-then-elapsed frame is "
+                    "genuinely late, got %r" % (state["device_state"],))
+            strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
+            rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
+            if "Expected since" not in rendered_strip:
+                return False, "expected the strip to also report late for the same fixture"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a frame whose (non-held) next wake has passed and whose own grace has since elapsed is "
+        "reported late by both the tile and the strip — held cannot suppress lateness forever",
+        _health_held_window_ended_and_grace_elapsed_both_report_late)
+
+    def _health_render_no_new_dot_class_count_unchanged():
+        # `grep -c "dot--" companion/static/style.css` reads 9 both
+        # before and after this plan (Task 1/2 already landed; Task 3
+        # touches no CSS at all) — recorded here as the SUMMARY's own
+        # pinned "both numbers" acceptance criterion.
+        css_source = _css_source()
+        dot_count = css_source.count("dot--")
+        if dot_count != 9:
+            return False, (
+                "expected grep -c 'dot--' companion/static/style.css to stay at 9 (this plan adds "
+                "no dot class), got %d" % (dot_count,))
+        return True, ""
+    check(
+        "companion/static/style.css's own dot--* class-name occurrence count is unchanged by this "
+        "plan (9 before, 9 after) — this plan adds no dot class",
+        _health_render_no_new_dot_class_count_unchanged)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,

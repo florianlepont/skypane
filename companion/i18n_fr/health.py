@@ -66,6 +66,9 @@ CATALOG = {
     "Checking in normally": "Se connecte normalement",
     "Has not checked in for a while": "N’a pas répondu depuis un moment",
     "Has not checked in for a long time": "N’a pas répondu depuis longtemps",
+    # --- 22-04-PLAN.md Task 3 (D-03/CFG-26): the frame's own held state,
+    #     the neutral "off" device_state — never a warning ---------------
+    "Asleep for quiet hours": "En veille pendant les heures calmes",
     "Running on schedule": "Fonctionne comme prévu",
     "A little behind": "Un peu en retard",
     "Has not run for a long time": "N’a pas fonctionné depuis longtemps",

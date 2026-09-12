@@ -67,6 +67,13 @@ import companion.wake as wake  # D-05/A-23, 19-05-PLAN.md Task 3: the
 # shared effective-wake-interval resolver and the derived device-
 # staleness thresholds, replacing this module's own retired
 # STALE_DEVICE_WARN_S/STALE_DEVICE_ERROR_S constants.
+import companion.frame_state as frame_state  # 22-04-PLAN.md Task 3
+# (D-03/CFG-26): the one frame-state resolution — the Frame tile's
+# device_state/verdict/clock text and the nav notification dot all
+# consume this module's resolve_state()/headline_template(), never
+# re-deriving whether the frame is due, held or late from
+# device_staleness_thresholds() alone (that primitive is kept, but only
+# as the fallback for the degraded "no next-wake data at all" case).
 from server import device_config  # D-05/A-23: read-only, for
 # load_device_config() — this module already imports two sibling server
 # modules below (history_db, poll_loop), so this is not a new boundary
@@ -279,17 +286,34 @@ DEVICE_STATE_TEXT = {
     "ok": "Checking in normally",
     "warn": "Has not checked in for a while",
     "error": "Has not checked in for a long time",
+    # 22-04-PLAN.md Task 3 (D-03/CFG-26, X2): DEVICE_STATE_TEXT WIDENS
+    # here, unlike 22-03-PLAN.md Task 1's deliberate choice not to widen
+    # it for the pipeline's own never-ran distinction — this is a
+    # DIFFERENT, genuine fourth device state (a frame the strip/tile
+    # both know is quiet-hours-held, never merely "hasn't checked in for
+    # a while"), and reuses the SAME "off" token the pipeline's never-ran
+    # state and the strip's held dot both already use: "a neutral,
+    # everyday state ... never a problem" (companion/static/style.css's
+    # own comment on .dot--off). A held frame is never rendered through
+    # this key alone — _device_section() below routes it here only when
+    # frame_state.resolve_state() itself says STATE_HELD.
+    "off": "Asleep for quiet hours",
 }
-# 22-03-PLAN.md Task 1 (B2): PIPELINE_STATE_TEXT alone grows a fourth
-# key, "off" — the pipeline's own genuine "never run at all" state,
-# never "warn". This reuses "off", the token this app's own dot
-# vocabulary already defines for a state that is not a problem
-# (companion/static/style.css's own comment on `.dot--off`: "'off' is
-# a neutral, everyday state (Screen off, Quiet hours off), never a
-# problem"), rather than inventing a new status token or a fifth dot
-# colour. DEVICE_STATE_TEXT/CORROBORATION_STATE_TEXT are deliberately
-# NOT widened the same way — see `_pipeline_never_ran()`'s own
-# docstring for why this is scoped to the pipeline signal alone.
+
+# 22-04-PLAN.md Task 3 (D-03/CFG-26): the ONE mapping from
+# frame_state's own three real states to this tile's device_state
+# vocabulary — due maps to "ok", held to the neutral "off" (never
+# "warn"/"error", so it can never light the nav dot), late to "warn"
+# (frame_state has no fourth, "very late" tier any more; see
+# _device_section()'s own docstring). `STATE_UNKNOWN` is deliberately
+# absent — `_device_section()` never looks this dict up for that state,
+# it falls back to the pre-existing age-based `staleness_status()` path
+# instead.
+_FRAME_STATE_TO_DEVICE_STATE = {
+    frame_state.STATE_DUE: "ok",
+    frame_state.STATE_HELD: "off",
+    frame_state.STATE_LATE: "warn",
+}
 PIPELINE_STATE_TEXT = {
     "ok": "Running on schedule",
     "warn": "A little behind",
@@ -1390,7 +1414,12 @@ def collect_anomalies(
     # checks run under the default English request and t() degrades to
     # the English string unchanged there (D-04).
     anomalies = []
-    if device_state != "ok":
+    # 22-04-PLAN.md Task 3 (D-03/CFG-26, T-22-12): device_state can now
+    # also be "off" (frame_state.STATE_HELD — quiet hours, resolved the
+    # SAME way the strip's own neutral dot is) — treated identically to
+    # "ok" here, never as an anomaly, the same membership-check exemption
+    # 22-03-PLAN.md Task 1 already added for pipeline_state's own "off".
+    if device_state not in ("ok", "off"):
         anomalies.append(i18n.t("Device check-in is stale."))
     # 22-03-PLAN.md Task 1 (B2): pipeline_state can now also be "off"
     # (the pipeline has genuinely never run) — treated identically to
@@ -1447,6 +1476,14 @@ def overall_severity(
     above already treat it as healthy (neither "error" nor "warn"), so
     no separate branch is needed here; see `collect_anomalies()`'s own
     explicit "off" exemption for the parallel reasoning.
+
+    22-04-PLAN.md Task 3 (D-03/CFG-26, T-22-12): `device_state` can now
+    also be "off" (frame_state.STATE_HELD) — the SAME membership checks
+    already treat it as healthy for the identical reason, so a held
+    frame can never light the Health nav notification dot. Bounded by
+    frame_state.resolve_state() itself: a genuinely overdue frame still
+    resolves to "warn" (STATE_LATE) once its own grace window elapses,
+    so held cannot suppress a real problem forever.
     """
     if source_fault:
         return "error"
@@ -1486,8 +1523,22 @@ def compute_health_state(state_dir, now=None):
     # _device_section() or any harness fixture that omits them.
     warn_s, error_s = wake.device_staleness_thresholds(
         wake.effective_wake_interval_s(inputs["device_config"]))
+    # 22-04-PLAN.md Task 3 (D-03/CFG-26): the SAME triple
+    # companion/layout.py's frame_strip_html() consumes, computed from
+    # the SAME two facts (the device's own last check-in and its device
+    # config) — never a second, independent lateness computation.
+    # `device_health["ts"]` is this module's own "last check-in"
+    # timestamp (the same value `_device_section()`'s pre-existing age
+    # arithmetic already reads), threaded through as `last_checkin_ts`.
+    device_ts = None
+    if inputs["device_health"] is not _DB_UNAVAILABLE:
+        device_ts = (inputs["device_health"] or {}).get("ts")
+    next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
+        device_ts, inputs["device_config"])
     device_html, device_state = _device_section(
-        inputs["device_health"], now, warn_s=warn_s, error_s=error_s)
+        inputs["device_health"], now, warn_s=warn_s, error_s=error_s,
+        next_wake_iso=next_wake_iso, effective_interval_s=effective_interval_s,
+        hold_reason=hold_reason)
     # 20-03-PLAN.md Task 1 (D-17): a verdict-free sibling of device_html,
     # published below as "device_detail_html" — Home's status card
     # (20-06) reads it off ctx["health_state"] instead of embedding
@@ -1759,7 +1810,9 @@ def _device_timestamp_only(device_health, now):
     return layout.concise_timestamp_html(ts, now)
 
 
-def _device_section(device_health, now, warn_s=None, error_s=None):
+def _device_section(
+        device_health, now, warn_s=None, error_s=None,
+        next_wake_iso=None, effective_interval_s=None, hold_reason=None):
     """D-05/A-23, 19-05-PLAN.md: `warn_s`/`error_s` are the device's own
     cadence-derived staleness thresholds (`wake.device_staleness_
     thresholds()`), computed once in `compute_health_state()` and
@@ -1770,14 +1823,57 @@ def _device_section(device_health, now, warn_s=None, error_s=None):
     predates this task) keeps working unchanged: `None` degrades to
     `wake.device_staleness_thresholds(None)`'s own bare floors, exactly
     the retired STALE_DEVICE_WARN_S/STALE_DEVICE_ERROR_S replaced.
+
+    22-04-PLAN.md Task 3 (D-03/CFG-26, X2): `next_wake_iso`/
+    `effective_interval_s`/`hold_reason` are `wake.next_wake_status()`'s
+    own triple — the SAME one `companion/layout.py`'s `frame_strip_html()`
+    consumes — computed once in `compute_health_state()` and threaded
+    through here, never re-derived. `frame_state.resolve_state()` is the
+    ONE decision about whether the frame is due, held or late; this
+    function no longer makes that decision itself from raw age alone.
+    `device_staleness_thresholds()` is still the right primitive for the
+    underlying age arithmetic, so it is kept as the fallback used only
+    when `frame_state.resolve_state()` degrades to `STATE_UNKNOWN` — no
+    computed next-wake data at all (a legacy caller passing none of the
+    three new keyword arguments, or a device that has genuinely never
+    checked in) — exactly today's pre-this-task behaviour in that one
+    case, and none of today's existing direct-call fixtures pass these
+    three keywords, so they are unaffected by this change.
+
+    A held frame is routed to the `"off"` device_state — the same
+    neutral, non-anomalous token the pipeline's own never-ran state
+    already uses (22-03-PLAN.md Task 1) — never `"warn"`/`"error"`, so it
+    can never light the nav notification dot (T-22-12). Held is bounded:
+    `frame_state.resolve_state()` itself only stays `STATE_HELD` while
+    the held-aware next wake plus its own grace window has not yet
+    elapsed, so a genuinely dead frame still reaches `STATE_LATE` (`"warn"`
+    here) once that window passes — held cannot suppress lateness
+    forever.
+
+    When a next-wake result IS known, this tile's own detail row shows
+    the SAME next-wake clock text the strip's headline shows — both
+    format the SAME `next_wake_iso` through `layout.local_clock_text()` —
+    rather than the raw last-check-in timestamp `_device_timestamp_only()`
+    still renders for Home's own `device_detail_html` (untouched by this
+    task; Home's own Frame row is plan 22-07's, not this one's).
     """
     if device_health is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
     if warn_s is None or error_s is None:
         warn_s, error_s = wake.device_staleness_thresholds(None)
     ts = (device_health or {}).get("ts")
-    age = layout.age_seconds(ts, now)
-    state = staleness_status(age, warn_s, error_s)
+    resolved_state = frame_state.resolve_state(
+        next_wake_iso, effective_interval_s, hold_reason, now)
+    if resolved_state == frame_state.STATE_UNKNOWN:
+        age = layout.age_seconds(ts, now)
+        state = staleness_status(age, warn_s, error_s)
+        detail = _device_timestamp_only(device_health, now)
+    else:
+        state = _FRAME_STATE_TO_DEVICE_STATE[resolved_state]
+        next_wake_parsed = layout.parse_iso(next_wake_iso)
+        next_wake_clock = layout.local_clock_text(next_wake_parsed, now_parsed=layout.parse_iso(now))
+        detail = '<span class="time-value time-value--primary">%s</span>' % escape_html(
+            next_wake_clock)
     # quick task 260901-tsa (finding C): this used to be
     # `status_dot(state, DEVICE_FRESHNESS_LABEL) + detail` — but
     # stat_tile()'s own caption already renders DEVICE_FRESHNESS_LABEL,
@@ -1816,7 +1912,6 @@ def _device_section(device_health, now, warn_s=None, error_s=None):
     # drift apart.
     verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
         i18n.t(DEVICE_STATE_TEXT.get(state, DEVICE_STATE_TEXT["warn"])))
-    detail = _device_timestamp_only(device_health, now)
     row = verdict + '<p class="stat-tile__value">%s</p>' % detail
     return row, state
 

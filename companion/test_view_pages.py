@@ -4301,7 +4301,12 @@ def main():
         # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
         # UTC+2, in effect in late August) — still AFTER the 12:00 UTC
         # "now", so this is the not-yet-due branch.
-        if "Next update ≈ 14:10" not in rendered_future:
+        # 22-04-PLAN.md Task 2 (C5): the clock value is now its own
+        # <span class="time-value time-value--primary"> element rather
+        # than baked into the sentence's plain text, so "Next update ≈
+        # 14:10" is no longer one contiguous substring — checked as two
+        # pieces instead.
+        if "Next update ≈" not in rendered_future or "14:10" not in rendered_future:
             return False, "expected the future next-update headline"
         if "status-card__headline--warn" in rendered_future:
             return False, "expected no warn modifier for a future next-update"
