@@ -387,6 +387,15 @@ EXPECTED_CHECK_COUNT = 108
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 111
 
+# 21-03-PLAN.md Task 3 (D-15): +2. The static half of the 880px
+# width-budget guarantee a Python harness can actually assert: the
+# table.data-table--flights padding rule uses var(--space-sm) on both
+# axes, and the rendered <thead> carries exactly six <th> cells in
+# both en and fr. 111 + 2 = 113, recomputed directly against the real
+# on-disk check(...) call count at execution time (113/113 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 113
+
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -1839,6 +1848,65 @@ def main():
         "a rendered Flights page contains no inline <script> and no on*= handler attribute "
         "(21-03-PLAN.md Task 2, D-15/R-12)",
         _flights_render_has_no_inline_script_or_handler_attribute)
+
+    def _flights_table_padding_rule_uses_space_sm_token_both_axes():
+        # 21-03-PLAN.md Task 3 (D-15): the static half of the 880px
+        # width-budget guarantee a Python harness can actually assert -
+        # style.css's table.data-table--flights padding rule uses
+        # var(--space-sm) on BOTH axes, never a literal px value (the
+        # UI-SPEC's own column-width arithmetic depends on this token,
+        # not a hardcoded number, staying in sync with --space-sm).
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        rule_match = re.search(
+            r"table\.data-table--flights td,\s*\ntable\.data-table--flights th\s*\{([^}]*)\}",
+            css, re.S)
+        if rule_match is None:
+            return False, "expected a table.data-table--flights td/th padding rule in style.css"
+        rule_body = rule_match.group(1)
+        if "padding: var(--space-sm) var(--space-sm);" not in rule_body:
+            return False, (
+                "expected the padding rule to use var(--space-sm) on both axes, not a literal "
+                "px value")
+        return True, ""
+    check(
+        "style.css's table.data-table--flights padding rule uses var(--space-sm) on both axes, "
+        "never a literal px value (21-03-PLAN.md Task 3, D-15)",
+        _flights_table_padding_rule_uses_space_sm_token_both_axes)
+
+    def _flights_thead_carries_exactly_six_cells_in_both_languages():
+        # 21-03-PLAN.md Task 3 (D-15): the other static half of the
+        # width-budget guarantee - the rendered table's <thead> carries
+        # exactly six <th> cells in both en and fr, the fact the width
+        # budget depends on (six columns at 8px horizontal padding each
+        # = 96px of padding inside the real 880px box).
+        import companion.prefs as _prefs
+        tmp = _mkstate("h-thead-six-both-languages")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "th01", "callsign": "THEADSIX"},
+            ])
+            rendered_en = history_page.render(_history_ctx(tmp))
+            thead_en = re.search(r"<thead>(.*?)</thead>", rendered_en, re.S)
+            if thead_en is None or len(re.findall(r"<th>", thead_en.group(1))) != 6:
+                return False, "expected exactly 6 <th> cells in the English <thead>"
+
+            _prefs.set_request_prefs(lang="fr")
+            try:
+                rendered_fr = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            thead_fr = re.search(r"<thead>(.*?)</thead>", rendered_fr, re.S)
+            if thead_fr is None or len(re.findall(r"<th>", thead_fr.group(1))) != 6:
+                return False, "expected exactly 6 <th> cells in the French <thead>"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered Flights table's <thead> carries exactly six <th> cells in both en and fr "
+        "(21-03-PLAN.md Task 3, D-15)",
+        _flights_thead_carries_exactly_six_cells_in_both_languages)
 
     def _mobile_details_three_copy_buttons():
         # D-23: the mobile card's details region carries all 3 copy

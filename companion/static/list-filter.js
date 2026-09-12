@@ -5,8 +5,8 @@
  * History and Airlines. Like nav-dropdown.js/battery-trend.js before
  * it, this file has no build step, no bundler, no framework and no
  * dependency of any kind, and must stay written to an ES5-safe subset
- * (no let/const/arrow functions/template literals/backticks) so no
- * transpiler is ever needed to ship it. It is served by
+ * (var-only declarations, no arrow functions, no template-literal
+ * syntax) so no transpiler is ever needed to ship it. It is served by
  * companion/app.py's LIST_FILTER_SCRIPT_ROUTE, mirroring the existing
  * /static/style.css route.
  *
@@ -37,6 +37,13 @@
  * keystroke — instead of hardcoding the English words "of"/"shown"
  * here. A short, hardcoded fallback covers an un-updated caller whose
  * markup does not yet carry the attribute.
+ *
+ * D-15/R-12 (21-03-PLAN.md Task 3): applyFilter() also hides/shows a
+ * Flights summary row's sibling .flight-detail-row (looked up by
+ * id="flight-detail-{group}", never by DOM adjacency) in lockstep with
+ * the summary row, so filtering out a row never leaves its detail row
+ * visible underneath a hidden summary row. Guarded — a page with no
+ * such element (Airlines, the mobile <li>) is unaffected.
  */
 (function () {
   "use strict";
@@ -64,8 +71,10 @@
     var i;
     var row;
     var text;
+    var rawGroup;
     var group;
     var matched;
+    var detail;
     // Every row also carries data-filter-group. History emits two DOM
     // elements per logical flight (a <tr> and a <li>) sharing the same
     // group value; Airlines emits one element per row, each its own
@@ -82,10 +91,24 @@
     for (i = 0; i < total; i++) {
       row = rows[i];
       text = row.getAttribute("data-filter-text") || "";
-      group = row.getAttribute("data-filter-group");
-      group = "g" + (group === null ? "i" + i : group);
+      rawGroup = row.getAttribute("data-filter-group");
+      group = "g" + (rawGroup === null ? "i" + i : rawGroup);
       matched = (query === "" || text.indexOf(query) !== -1);
       row.hidden = !matched;
+      // 21-03-PLAN.md Task 3 (D-15/R-12): a Flights summary row's
+      // sibling .flight-detail-row is a SEPARATE element (its own <tr>,
+      // not a DOM descendant of this one) sharing the same group value
+      // via id="flight-detail-{group}" — looked up by id, never by DOM
+      // adjacency, so a page whose rows are reordered or whose detail
+      // row is missing entirely (every other [data-filter-text]
+      // consumer: Airlines, the mobile <li>) is unaffected by the
+      // `if (detail)` guard below.
+      if (rawGroup !== null) {
+        detail = document.getElementById("flight-detail-" + rawGroup);
+        if (detail) {
+          detail.hidden = !matched;
+        }
+      }
       if (!totalGroups[group]) {
         totalGroups[group] = true;
         totalCount++;

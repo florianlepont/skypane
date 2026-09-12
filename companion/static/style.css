@@ -2488,6 +2488,31 @@ table.data-table--flights th {
   padding: var(--space-sm) var(--space-sm);
 }
 
+/* 21-03-PLAN.md Task 3 (D-15) — Rule 1 auto-fix found by the headless
+ * measurement step: .data-table's own `min-width: max-content` rule
+ * (a deliberate earlier "no-crop" floor, quick task 260901-uzi) sizes
+ * every column to its widest UNWRAPPED line. The When/Flight cells'
+ * primary+separator+secondary spans render inline by default (the
+ * shape _merged_cell() already produces everywhere else in this app),
+ * so a run like "AFR1380 · Air France · A320" wants ~400px on one
+ * line — blowing straight through the 880px column budget regardless
+ * of the padding rule above. Scoped to this table only: the primary
+ * and secondary lines become genuinely STACKED (block-level), so each
+ * column's own max-content width is the WIDER of its two lines, not
+ * their concatenation, matching this task's own "two stacked lines,
+ * never an inline suffix" requirement. The inline middle-dot
+ * separator has no role once the two parts sit on separate lines, so
+ * it is hidden here — never deleted from the DOM, so a future change
+ * that un-scopes this rule finds the separator markup still intact. */
+table.data-table--flights .cell-primary,
+table.data-table--flights .cell-secondary {
+  display: block;
+}
+
+table.data-table--flights .cell-inline-sep {
+  display: none;
+}
+
 /* 21-03-PLAN.md Task 2 (D-15/R-12, 21-UI-SPEC.md §F): the expandable
  * detail row's own styling — tokens only, no new colour literal. The
  * no-JS floor (D-15, locked) is a VISIBLE detail row by default; the
