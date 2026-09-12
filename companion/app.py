@@ -82,12 +82,12 @@ GALLERY_DIRNAME = "gallery"
 GALLERY_DEFAULT_LIMIT = 30
 POLL_COOLDOWN_S = 45  # D-17: tens of seconds, a double-click guard, not an abuse rate-limit.
 THEME_COOKIE_MAX_AGE_S = 365 * 24 * 3600
-# D-02/D-29 (20-01-PLAN.md Task 2): the language/mode cookies reuse
+# D-02 (20-01-PLAN.md Task 2): the language cookie reuses
 # THEME_COOKIE_MAX_AGE_S's own value and reasoning (a per-browser
 # preference the site should remember indefinitely) rather than a
-# second literal.
+# second literal. D-17 (21-01-PLAN.md Task 1): the sibling
+# MODE_COOKIE_MAX_AGE_S is deleted along with the cookie it fed.
 LANG_COOKIE_MAX_AGE_S = THEME_COOKIE_MAX_AGE_S
-MODE_COOKIE_MAX_AGE_S = THEME_COOKIE_MAX_AGE_S
 MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06-05-07).
 # quick task 260902-v26: comfortably above any real high-resolution
 # transparent aircraft PNG — every vendored asset in
@@ -214,10 +214,13 @@ HISTORY_LEGACY_ROUTE = "/history"
 QUICK_DISPLAY_ROUTE = "/quick/display"
 QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
 THEME_ROUTE = "/ui-theme"
-# D-02/D-29 (20-01-PLAN.md Task 2): the two new nav-footer switch
-# routes, byte-for-byte siblings of THEME_ROUTE above.
+# D-02 (20-01-PLAN.md Task 2): the nav-footer language switch route, a
+# byte-for-byte sibling of THEME_ROUTE above. D-17 (21-01-PLAN.md Task
+# 1): the sibling route constant that used to back the simple/full
+# display-mode switch is deleted along with the rest of that
+# mechanism — a POST to that now-unrecognised path falls through to
+# do_POST()'s own unknown-route 404, like any other unrecognised path.
 LANG_ROUTE = "/ui-lang"
-MODE_ROUTE = "/ui-mode"
 LOGOUT_ROUTE = "/logout"
 # D-22 (06.6.4.1-08): the standalone Preview HTML page is retired — its
 # entire content moved into History (06.6.4.1-05) — so this route is kept
@@ -1152,17 +1155,8 @@ class Handler(BaseHTTPRequestHandler):
             return "fr" if tag.startswith("fr") else "en"
         return prefs.DEFAULT_LANG
 
-    def _mode_from_request(self):
-        """D-29 (20-01-PLAN.md Task 2): the cookie set by POST /ui-mode
-        wins when present and valid; otherwise the default ("full").
-        No header-derived fallback exists for simple mode — unlike
-        language, there is no browser signal to read it from.
-        """
-        cookies = auth.parse_cookies(self.headers.get("Cookie"))
-        cookie_value = cookies.get(auth.UI_MODE_COOKIE_NAME)
-        if cookie_value in prefs.MODE_CHOICES:
-            return cookie_value
-        return prefs.DEFAULT_MODE
+    # D-17 (21-01-PLAN.md Task 1): _mode_from_request() is deleted along
+    # with the rest of the simple-mode mechanism it fed.
 
     # --- form / query parsing -------------------------------------------
 
@@ -1252,11 +1246,10 @@ class Handler(BaseHTTPRequestHandler):
         rule_key = params.get("rule", [None])[0]
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()
-        # D-04/D-29 (20-01-PLAN.md Task 2): resolve this request's
-        # language and simple-mode preference exactly once, immediately,
-        # and publish both through prefs so layout.py's readers (Task 3)
-        # and this dict's own "lang"/"simple_mode" keys below can never
-        # disagree.
+        # D-04 (20-01-PLAN.md Task 2): resolve this request's language
+        # preference exactly once, immediately, and publish it through
+        # prefs so layout.py's readers (Task 3) and this dict's own
+        # "lang" key below can never disagree.
         #
         # Polish fix 2 (French Home status rows): this MUST run before
         # health_page.safe_health_state() below — that call's own
@@ -1272,8 +1265,7 @@ class Handler(BaseHTTPRequestHandler):
         # default (English) regardless of the requester's own language —
         # the exact mechanism behind French Home's Frame/Flight-data rows
         # still showing an English month abbreviation and "ago" (D-07).
-        prefs.set_request_prefs(
-            lang=self._lang_from_request(), mode=self._mode_from_request())
+        prefs.set_request_prefs(lang=self._lang_from_request())
         # WR-04: compute once per request (fail-closed to None on any
         # unanticipated exception — see health_page.safe_health_state()'s
         # docstring) and thread both the derived severity and the full
@@ -1301,7 +1293,6 @@ class Handler(BaseHTTPRequestHandler):
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
             "lang": prefs.current_lang(),
-            "simple_mode": prefs.simple_mode(),
             "device_config": device_cfg,
             # 19-12-PLAN.md Task 2 (D-23): the persisted screen_id, read
             # from the SAME device_config dict already loaded above —
@@ -2854,19 +2845,8 @@ class Handler(BaseHTTPRequestHandler):
                    LANG_COOKIE_MAX_AGE_S))
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
-    def _handle_mode_post(self):
-        """POST /ui-mode (D-29, 20-01-PLAN.md Task 2) — byte-for-byte
-        sibling of _handle_theme_post() above.
-        """
-        form = self.read_form()
-        submitted = form.get("ui_mode")
-        cookie_header = None
-        if submitted in prefs.MODE_CHOICES:
-            cookie_header = (
-                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
-                % (auth.UI_MODE_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
-                   MODE_COOKIE_MAX_AGE_S))
-        return self.redirect(self._referring_tab(), set_cookie=cookie_header)
+    # D-17 (21-01-PLAN.md Task 1): _handle_mode_post() is deleted along
+    # with the rest of the simple-mode mechanism it fed.
 
     def do_POST(self):
         parsed = urlsplit(self.path)
@@ -2912,10 +2892,12 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             return self._handle_lang_post()
 
-        if path == MODE_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_mode_post()
+        # D-17 (21-01-PLAN.md Task 1): the branch that used to dispatch
+        # the simple/full display-mode switch's POST route is deleted —
+        # a POST to that now-unrecognised path falls through to
+        # do_POST()'s own unknown-route 404 at the bottom of this method,
+        # exactly like any other unrecognised path. A stale client-held
+        # cookie for the deleted preference is simply never read again.
 
         # 19-04-PLAN.md (D-18/A-35, T-19-04): gated too, even though an
         # unauthenticated POST /logout looks harmless at first glance —

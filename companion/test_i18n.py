@@ -42,6 +42,11 @@ import companion.prefs as prefs  # noqa: E402
 
 # 20-12-PLAN.md Task 1
 EXPECTED_CHECK_COUNT = 24
+# 21-01-PLAN.md Task 1: -2 (the two prefs mode-membership checks,
+# _check_prefs_unknown_mode_leaves_simple_mode_false and
+# _check_prefs_simple_mode_true_for_simple, are deleted along with
+# prefs.simple_mode()/set_request_prefs()'s mode= parameter, D-17).
+EXPECTED_CHECK_COUNT = 22
 
 
 # ==========================================================================
@@ -361,14 +366,18 @@ def _scan_module_for_i18n_strings(rel_path):
                 scalars[name] = value_node.value
 
     # Pass 1b: ALSO collect container literals assigned to a local
-    # (function-scoped) name anywhere in the module — e.g.
-    # layout.py's _mode_form_html() builds its own `labels = {"simple":
-    # "Simple", "full": "Full"}` table function-locally, then indexes it
-    # with a runtime loop variable inside i18n.t(). Nothing here is
-    # scanned for completeness on its own (rule (a) above stays
-    # module-level); a local container only ever contributes a produced
-    # string if Pass 2/3 below prove it is actually read from inside an
-    # i18n.t()/t_lang() call.
+    # (function-scoped) name anywhere in the module — a builder that
+    # constructs its own small lookup table function-locally, then
+    # indexes it with a runtime loop variable inside i18n.t(), still
+    # needs its string values proven live. Nothing here is scanned for
+    # completeness on its own (rule (a) above stays module-level); a
+    # local container only ever contributes a produced string if Pass
+    # 2/3 below prove it is actually read from inside an i18n.t()/
+    # t_lang() call. (D-17, 21-01-PLAN.md Task 1: layout.py's own
+    # former example of this pattern, _mode_form_html()'s "simple"/
+    # "full" labels dict, is deleted along with the function — this
+    # pass's mechanism itself is unaffected and still exercised by
+    # other builders' local lookup tables.)
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and len(node.targets) == 1:
             target = node.targets[0]
@@ -625,33 +634,10 @@ def main():
         "prefs.set_request_prefs(lang='de') resolves to 'en'",
         _check_prefs_unknown_lang_degrades_to_en)
 
-    def _check_prefs_unknown_mode_leaves_simple_mode_false():
-        try:
-            prefs.set_request_prefs(mode="nonsense")
-            got = prefs.simple_mode()
-        finally:
-            prefs.set_request_prefs(mode="full")
-        if got is not False:
-            return False, "simple_mode() after mode='nonsense' = %r, expected False" % (got,)
-        return True, ""
-
-    check(
-        "prefs.set_request_prefs(mode='nonsense') leaves simple_mode() False",
-        _check_prefs_unknown_mode_leaves_simple_mode_false)
-
-    def _check_prefs_simple_mode_true_for_simple():
-        try:
-            prefs.set_request_prefs(mode="simple")
-            got = prefs.simple_mode()
-        finally:
-            prefs.set_request_prefs(mode="full")
-        if got is not True:
-            return False, "simple_mode() after mode='simple' = %r, expected True" % (got,)
-        return True, ""
-
-    check(
-        "prefs.set_request_prefs(mode='simple') makes simple_mode() True",
-        _check_prefs_simple_mode_true_for_simple)
+    # D-17 (21-01-PLAN.md Task 1): _check_prefs_unknown_mode_leaves_
+    # simple_mode_false and _check_prefs_simple_mode_true_for_simple
+    # are deleted — prefs.simple_mode()/the mode= parameter they
+    # exercised no longer exist.
 
     # ==================================================================
     # Catalogue completeness against its own sibling modules
@@ -681,24 +667,25 @@ def main():
     # Value shape and dead-translation spot check
     # ==================================================================
 
-    # 20-UI-SPEC.md §F's own copy table states the French for the
-    # simple-mode switch's "Simple" option is unchanged ("Simple" /
-    # "Complet") — the one documented exception to "the French value
-    # always differs from its English key" for this plan's own seeded
-    # entries. 20-03-PLAN.md Task 3 (D-05) adds three genuine French/
-    # English cognates from the Health page's own catalogue entries —
+    # 20-03-PLAN.md Task 3 (D-05) adds three genuine French/English
+    # cognates from the Health page's own catalogue entries —
     # "Corroboration" (a shared technical loanword), and "Source"/
     # "Description" (the resolution-statistics table's own headers,
-    # identical in both languages) — the same "real cognate, not a
-    # missed translation" exception this frozenset already exists for.
-    # 20-11-PLAN.md Task 1 (D-26, 20-UI-SPEC.md copy table G): a fifth
+    # identical in both languages) — the "real cognate, not a missed
+    # translation" exception this frozenset exists for.
+    # 20-11-PLAN.md Task 1 (D-26, 20-UI-SPEC.md copy table G): a fourth
     # genuine cognate — "Notifications" is spelled and pronounced
     # identically in French and English (a shared Latin-root loanword,
     # exactly the "Corroboration" precedent above), so the Notifications
     # group's own heading is intentionally byte-identical in both
     # languages, not a missed translation.
+    # D-17 (21-01-PLAN.md Task 1): the simple-mode switch's "Simple"/
+    # "Complet" cognate entry this frozenset used to document is
+    # deleted along with the switch itself (companion/i18n_fr/nav.py) —
+    # "Simple" is removed from this set, not left as dead documentation
+    # for a key that no longer exists in the catalog.
     _UNCHANGED_IN_FRENCH = frozenset(
-        {"Simple", "Corroboration", "Source", "Description", "Notifications"})
+        {"Corroboration", "Source", "Description", "Notifications"})
 
     def _check_every_catalog_value_is_str_and_differs_from_key():
         bad_type = [k for k, v in i18n_fr.CATALOG.items() if not isinstance(v, str)]
