@@ -1,29 +1,37 @@
 """companion/pages/home_page.py — the Home page (phase 18, companion audit
-/ UX refactor).
+/ UX refactor; rebuilt by 20-06-PLAN.md, D-16..D-21).
 
 The page a household member lands on after signing in, answering three
 questions without any technical background: is the frame alive, what is
-it showing, and what has it shown recently — plus the two or three
-things they might actually want to *do* (switch the screen on or off,
-start or end quiet hours, refresh now). Everything is a widget: a
-self-contained card that reads one slice of `ctx` and, where it acts,
-posts one small form to a quick-action route in companion/app.py.
+it showing, and what has it shown recently. D-16 (20-CONTEXT.md) removed
+the "Quick actions" card entirely — the Screen on/off and Quiet hours
+instant switches now live on Display (companion/pages/config_page.py's
+`display_group()`/`quiet_hours_group()`), and the Refresh-now button
+lives on Device's own Manual refresh section. Home is now exactly two
+rows: a hero row (the current picture beside one status card headlined
+by the next update) and the recent flights, full width, with an artwork
+thumbnail per row (D-17.2).
 
 Like every page module this one imports nothing from a sibling page
 module (companion/pages/__init__.py's boundary). The status verdicts it
 renders come straight from `ctx["health_state"]` (already computed once
 per request by companion/app.py) and the recent-flight rows from one
-`history_db` read of its own, formatted here with deliberately fewer
-fields than the Flights page.
+`history_db` read of its own — the SAME read now feeds both the hero
+row's flight one-liner and the recent-flights list, so the hero's own
+"current flight" costs no second query (D-20).
 
 Everything dynamic passes through `layout.escape_html()`.
 """
+import html
+import re
 
 import companion.battery as battery
+import companion.i18n as i18n
 import companion.layout as layout
 import companion.wake as wake
 from companion.layout import escape_html
-from server import device_config, history_db
+from server import history_db
+from server.plane import illustrations
 
 PAGE_TITLE = "Home"
 PAGE_PURPOSE = "Your frame at a glance."
@@ -35,66 +43,55 @@ NO_FLIGHTS_HEADING = "No flights yet."
 NO_FLIGHTS_BODY = (
     "The first aircraft the frame detects on the watched runway will "
     "appear here.")
+FLIGHTS_ROUTE = "/flights"
 
-NOW_SHOWING_HEADING = "On the frame now"
-NOW_SHOWING_CAPTION_PREFIX = "Rendered "
+# D-17.2: the recent-flights thumbnail. Literal here, not imported from
+# companion/pages/airlines_page.py — companion/pages/__init__.py forbids
+# one page module importing another, and this is the exact string
+# airlines_page.ILLUSTRATION_ROUTE_PREFIX/app.py's
+# ILLUSTRATION_IMAGE_ROUTE_PREFIX already both hold.
+ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
+THUMBNAIL_ALT_TEMPLATE = "%s illustration"
+
+RENDERED_CAPTION_TEMPLATE = "Rendered %s"
 NO_PANEL_HEADING = "Nothing rendered yet."
 NO_PANEL_BODY = (
     "The server saves a copy of each picture it sends to the frame; the "
     "latest one will appear here.")
 PANEL_ALT_TEXT = "The picture currently on the frame"
-
-QUICK_ACTIONS_HEADING = "Quick actions"
-QUICK_ACTIONS_CAPTION = (
-    "These apply on their own — no Save needed. The frame picks them up "
-    "the next time it wakes up (about five minutes when it is switched "
-    "off).")
-
-# Quick-action routes: companion/app.py's POST handlers for the two
-# toggles. Literal here for the same reason layout's `/logout` is —
-# app.py imports this module, so the reverse import would be a cycle.
-QUICK_DISPLAY_ROUTE = "/quick/display"
-QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
-POLL_ROUTE = "/poll-now"
-FLIGHTS_ROUTE = "/flights"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 
-# The form field both toggles submit: the state to switch TO, never a
-# bare "toggle" verb — a double-tap on a slow connection must be
-# idempotent, not flip the screen twice.
-QUICK_STATE_FIELD = "state"
-QUICK_STATE_ON = "on"
-QUICK_STATE_OFF = "off"
+DIRECTION_DEPARTING_TEXT = "Departing"
+DIRECTION_ARRIVING_TEXT = "Arriving"
 
-SCREEN_WIDGET_LABEL = "Screen"
-SCREEN_ON_TEXT = "On"
-SCREEN_OFF_TEXT = "Off"
-SCREEN_TURN_ON_BUTTON = "Switch on"
-SCREEN_TURN_OFF_BUTTON = "Switch off"
-QUIET_WIDGET_LABEL = "Quiet hours"
-QUIET_ON_TEMPLATE = "On — %s to %s"
-QUIET_OFF_TEXT = "Off"
-QUIET_TURN_ON_BUTTON = "Turn on"
-QUIET_TURN_OFF_BUTTON = "Turn off"
-REFRESH_WIDGET_LABEL = "Refresh"
-REFRESH_BUTTON_TEXT = "Refresh now"
-REFRESH_HELP_TEXT = "Look for a new aircraft right away."
-REFRESH_COOLDOWN_TEMPLATE = "Just refreshed — try again in %ds."
+# D-16 (20-CONTEXT.md): the "Quick actions" card — the screen switch, the
+# quiet-hours switch and the Refresh-now button — is gone from Home.
+# The screen/quiet-hours switches now live on Display
+# (companion/pages/config_page.py's display_group()/quiet_hours_group(),
+# 20-07-PLAN.md); Refresh-now lives on Device's own Manual refresh
+# section. The underlying HTTP toggle routes, their flash keys and their
+# handlers are untouched by this move — only their `return_to` changed (20-01-PLAN.md
+# Task 2), and POLL_ROUTE's own handler is untouched too. `QUICK_STATE_
+# FIELD`/`QUICK_STATE_ON`/`QUICK_STATE_OFF` moved to companion/layout.py
+# in the same earlier plan, which is where config_page.py (20-07) reads
+# them from — a page module may never import another page module.
 
 STATUS_HEADING = "Status"
-FRAME_TILE_LABEL = "Frame"
-BATTERY_TILE_LABEL = "Battery"
-LAST_FLIGHT_TILE_LABEL = "Last flight"
-DATA_TILE_LABEL = "Flight data"
+FRAME_ROW_LABEL = "Frame"
+BATTERY_ROW_LABEL = "Battery"
+DATA_ROW_LABEL = "Flight data"
 HEALTH_LINK_TEXT = "See details on Health"
-# 19-12-PLAN.md Task 3 (D-13/S-02): the Frame tile's second detail line —
-# a module constant for the label and one for the "≈ %s" template,
-# rather than inlining either string at the one render call site.
-# Rendered ONLY when wake.next_wake_at_iso() resolves to a real value
-# (D-13: "where the value is known") — no placeholder, no "unknown", no
-# dangling label when it does not.
-NEXT_WAKE_LABEL = "Next wake"
-NEXT_WAKE_VALUE_TEMPLATE = "≈ %s"
+
+# D-17: the status card's headline is the next update — a genuinely new
+# sentence each render, never the same FRAME_STATE_TEXT verdict repeated
+# (20-RESEARCH.md Pitfall 3's confirmed root cause: the OLD Frame tile
+# embedded the health state's own combined verdict-plus-timestamp
+# fragment, which already carried its own verdict paragraph).
+# EXPECTED_SINCE_TEMPLATE renders in the warn treatment when the
+# computed next-wake time is already in the past — never presenting a
+# stale time as still upcoming.
+NEXT_UPDATE_TEMPLATE = "Next update ≈ %s"
+EXPECTED_SINCE_TEMPLATE = "Expected since %s"
 
 FRAME_STATE_TEXT = {
     "ok": "Checking in normally",
@@ -112,6 +109,36 @@ BATTERY_STATE_TEXT = {
     "error": "Dropping quickly",
 }
 NO_READING_TEXT = "No reading yet"
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _plain_text_from_markup(fragment):
+    """Strip tags and reverse HTML-entity escaping from a pre-built,
+    already-escaped markup fragment — health_page.compute_health_
+    state()'s own detail-only health-state fields, raw-markup-
+    producing in the same way layout.concise_timestamp_html() is
+    documented to be ("callers interpolate the return value verbatim —
+    never re-escape it").
+
+    The shared status-row primitive's own `detail` parameter escapes
+    whatever it is given (T-20-03, 20-03-PLAN.md) — passing either
+    fragment straight through would have that escaping turn the
+    fragment's own "<span…>"/"<p…>" tags into visible tag text on the
+    page, a real rendering defect, not a cosmetic one. This reconciles
+    this plan's own instruction to read the verdict-free health-state
+    field with that escaping contract: strip the wrapping tags (each
+    becomes a single space, so two adjacent paragraphs read as two
+    separated words rather than run together — the resulting run of
+    whitespace collapses to one via str.split()/" ".join()), then
+    reverse the HTML-entity escaping the fragment's own builder already
+    applied, so the row primitive's own escaping re-encodes the text
+    exactly once, not twice.
+    """
+    if not fragment:
+        return ""
+    spaced = _TAG_RE.sub(" ", fragment)
+    return " ".join(html.unescape(spaced).split())
 
 
 def _safe_query(state_dir, fn):
@@ -132,9 +159,9 @@ def _latest_battery(conn):
 
 def _direction_text(raw):
     if raw == "departing":
-        return "Departing"
+        return DIRECTION_DEPARTING_TEXT
     if raw == "arriving":
-        return "Arriving"
+        return DIRECTION_ARRIVING_TEXT
     return ""
 
 
@@ -144,6 +171,21 @@ def _route_text(row):
     if origin and destination:
         return "%s → %s" % (origin, destination)
     return ""
+
+
+def _flight_secondary_text(row):
+    """"<airline> · <route> · <direction>", skipping any empty part —
+    the shared join-and-skip-empty convention both the hero's flight
+    one-liner and the recent-flights list compose (20-UI-SPEC.md
+    Section Anatomy B). `direction` is translated at this call site;
+    `airline`/`route` are data (an ADS-B/adsbdb-sourced airline name
+    and ICAO airport codes) and are never translated (D-05).
+    """
+    airline = row.get("airline") or ""
+    route = _route_text(row)
+    direction_raw = _direction_text(row.get("confirmed_state"))
+    direction = i18n.t(direction_raw) if direction_raw else ""
+    return " · ".join(part for part in (airline, route, direction) if part)
 
 
 def _gallery_name_to_iso(name):
@@ -163,24 +205,22 @@ def _gallery_name_to_iso(name):
     return candidate if layout.parse_iso(candidate) is not None else None
 
 
-def _status_tiles_html(ctx):
+def _status_card_html(ctx):
+    """D-21's status card: a headline (the next update, or "Expected
+    since" when that time is already past) above three status-row
+    rows — Frame, Battery, Flight data. The Frame row's verdict comes
+    from THIS module's own FRAME_STATE_TEXT (never rendered twice —
+    20-RESEARCH.md Pitfall 3); its detail is the health state's own
+    verdict-free timestamp field, added by 20-03-PLAN.md, reduced to
+    plain text by _plain_text_from_markup() above.
+    """
     health = ctx.get("health_state") or {}
     now = ctx.get("now")
     device_state = health.get("device_state") or "warn"
     pipeline_state = health.get("pipeline_state") or "warn"
     battery_state = health.get("battery_state") or "warn"
 
-    frame_body = '<p class="text-body widget-verdict">%s</p>' % escape_html(
-        FRAME_STATE_TEXT.get(device_state, FRAME_STATE_TEXT["warn"]))
-    frame_html = frame_body + (
-        '<p class="text-label widget-detail">%s</p>' % health["device_html"]
-        if health.get("device_html") else "")
-
-    # 19-12-PLAN.md Task 3 (D-13/S-02): a second detail line on the same
-    # Frame tile, omitted ENTIRELY (no placeholder, no "unknown") when
-    # either the last check-in or the effective wake interval is
-    # unknown — wake.next_wake_at_iso() already returns None for both
-    # cases without raising.
+    headline_html = ""
     next_wake_iso = wake.next_wake_at_iso(
         ctx.get("last_checkin_ts"), ctx.get("device_config"))
     if next_wake_iso:
@@ -188,176 +228,137 @@ def _status_tiles_html(ctx):
         if next_wake_parsed is not None:
             next_wake_clock = layout.local_clock_text(
                 next_wake_parsed, now_parsed=layout.parse_iso(now))
-            frame_html += '<p class="text-label widget-detail">%s</p>' % escape_html(
-                "%s %s" % (NEXT_WAKE_LABEL, NEXT_WAKE_VALUE_TEMPLATE % next_wake_clock))
+            age = layout.age_seconds(next_wake_iso, now)
+            is_past = age is not None and age >= 0
+            if is_past:
+                headline_text = escape_html(
+                    i18n.t(EXPECTED_SINCE_TEMPLATE) % next_wake_clock)
+                headline_html = (
+                    '<p class="status-card__headline status-card__headline--warn">'
+                    '<span class="dot dot--warn"></span>%s</p>'
+                ) % headline_text
+            else:
+                headline_text = escape_html(
+                    i18n.t(NEXT_UPDATE_TEMPLATE) % next_wake_clock)
+                headline_html = '<p class="status-card__headline">%s</p>' % headline_text
+
+    frame_verdict = i18n.t(FRAME_STATE_TEXT.get(device_state, FRAME_STATE_TEXT["warn"]))
+    frame_detail = _plain_text_from_markup(health.get("device_detail_html"))
+    frame_row = layout.status_row(
+        i18n.t(FRAME_ROW_LABEL), frame_verdict, frame_detail, device_state)
 
     reading = _safe_query(ctx.get("state_dir"), _latest_battery)
     if reading and reading.get("battery_mv"):
         pct = battery.battery_percent(reading["battery_mv"])
         pct_text = ("≈ %d%%" % pct) if pct is not None else ""
-        battery_html = (
-            '<p class="text-body widget-verdict">%s</p>'
-            '<p class="text-label widget-detail">%s · %s mV · %s</p>'
-        ) % (
-            escape_html(pct_text or BATTERY_STATE_TEXT.get(battery_state, "")),
-            escape_html(BATTERY_STATE_TEXT.get(battery_state, "")),
-            escape_html(str(reading["battery_mv"])),
-            layout.concise_timestamp_html(reading.get("ts"), now),
-        )
+        mv_text = "%s mV" % reading["battery_mv"]
+        battery_verdict = i18n.t(BATTERY_STATE_TEXT.get(battery_state, BATTERY_STATE_TEXT["warn"]))
+        battery_detail = "%s · %s" % (pct_text, mv_text) if pct_text else mv_text
     else:
-        battery_html = '<p class="text-body widget-verdict">%s</p>' % escape_html(NO_READING_TEXT)
+        battery_verdict = i18n.t(NO_READING_TEXT)
+        battery_detail = ""
+    battery_row = layout.status_row(
+        i18n.t(BATTERY_ROW_LABEL), battery_verdict, battery_detail, battery_state)
 
-    data_html = '<p class="text-body widget-verdict">%s</p>' % escape_html(
-        DATA_STATE_TEXT.get(pipeline_state, DATA_STATE_TEXT["warn"]))
-    if health.get("pipeline_html"):
-        data_html += '<p class="text-label widget-detail">%s</p>' % health["pipeline_html"]
+    data_verdict = i18n.t(DATA_STATE_TEXT.get(pipeline_state, DATA_STATE_TEXT["warn"]))
+    data_detail = _plain_text_from_markup(health.get("pipeline_html"))
+    data_row = layout.status_row(
+        i18n.t(DATA_ROW_LABEL), data_verdict, data_detail, pipeline_state)
 
-    tiles = (
-        layout.stat_tile(FRAME_TILE_LABEL, frame_html, device_state, icon="icon-device")
-        + layout.stat_tile(BATTERY_TILE_LABEL, battery_html, battery_state, icon="icon-battery")
-        + layout.stat_tile(DATA_TILE_LABEL, data_html, pipeline_state, icon="icon-pipeline")
-    )
+    health_link_html = ""
+    if not ctx.get("simple_mode"):
+        # D-30: the "See details on Health" link is presentation-only —
+        # /health itself stays reachable by URL in simple mode.
+        health_link_html = (
+            '<p class="text-label"><a href="/health">%s</a></p>'
+        ) % escape_html(i18n.t(HEALTH_LINK_TEXT))
+
     return (
-        '<section class="home-section" aria-labelledby="home-status">'
-        '<h2 class="text-heading" id="home-status">%s</h2>'
-        '<div class="dashboard-grid home-status-grid">%s</div>'
-        '<p class="text-label"><a href="/health">%s</a></p>'
-        "</section>"
-    ) % (escape_html(STATUS_HEADING), tiles, escape_html(HEALTH_LINK_TEXT))
-
-
-def _toggle_form_html(action, next_state, button_text):
-    return (
-        '<form method="post" action="%s" class="quick-action__form">'
-        '<input type="hidden" name="%s" value="%s">'
-        '<button type="submit">%s</button>'
-        "</form>"
-    ) % (
-        escape_html(action), QUICK_STATE_FIELD, escape_html(next_state),
-        escape_html(button_text))
-
-
-def _quick_actions_html(ctx):
-    cfg = ctx.get("device_config") or {}
-    display_on = cfg.get("display_enabled", device_config.DEFAULT_DISPLAY_ENABLED) is not False
-    quiet_on = cfg.get("quiet_hours_enabled", device_config.DEFAULT_QUIET_HOURS_ENABLED) is True
-    quiet_start = cfg.get("quiet_hours_start", device_config.DEFAULT_QUIET_HOURS_START)
-    quiet_end = cfg.get("quiet_hours_end", device_config.DEFAULT_QUIET_HOURS_END)
-    cooldown = ctx.get("poll_cooldown_remaining") or 0
-
-    screen_widget = (
-        '<div class="quick-action quick-action--%s">'
-        '<div class="quick-action__text">'
-        '<span class="text-label quick-action__label">%s%s</span>'
-        '<span class="text-body quick-action__state">%s</span>'
-        "</div>%s</div>"
-    ) % (
-        "on" if display_on else "off",
-        layout.icon_html("icon-power", size=16, extra_class="quick-action__icon"),
-        escape_html(SCREEN_WIDGET_LABEL),
-        escape_html(SCREEN_ON_TEXT if display_on else SCREEN_OFF_TEXT),
-        _toggle_form_html(
-            QUICK_DISPLAY_ROUTE,
-            QUICK_STATE_OFF if display_on else QUICK_STATE_ON,
-            SCREEN_TURN_OFF_BUTTON if display_on else SCREEN_TURN_ON_BUTTON),
-    )
-    quiet_widget = (
-        '<div class="quick-action quick-action--%s">'
-        '<div class="quick-action__text">'
-        '<span class="text-label quick-action__label">%s%s</span>'
-        '<span class="text-body quick-action__state">%s</span>'
-        "</div>%s</div>"
-    ) % (
-        "on" if quiet_on else "off",
-        layout.icon_html("icon-moon", size=16, extra_class="quick-action__icon"),
-        escape_html(QUIET_WIDGET_LABEL),
-        escape_html(
-            QUIET_ON_TEMPLATE % (quiet_start, quiet_end) if quiet_on else QUIET_OFF_TEXT),
-        _toggle_form_html(
-            QUICK_QUIET_HOURS_ROUTE,
-            QUICK_STATE_OFF if quiet_on else QUICK_STATE_ON,
-            QUIET_TURN_OFF_BUTTON if quiet_on else QUIET_TURN_ON_BUTTON),
-    )
-    if cooldown > 0:
-        refresh_control = (
-            '<button type="submit" disabled>%s</button>' % escape_html(REFRESH_BUTTON_TEXT))
-        refresh_state = REFRESH_COOLDOWN_TEMPLATE % int(cooldown)
-    else:
-        refresh_control = (
-            '<button type="submit">%s</button>' % escape_html(REFRESH_BUTTON_TEXT))
-        refresh_state = REFRESH_HELP_TEXT
-    refresh_widget = (
-        '<div class="quick-action quick-action--neutral">'
-        '<div class="quick-action__text">'
-        '<span class="text-label quick-action__label">%s%s</span>'
-        '<span class="text-body quick-action__state">%s</span>'
-        "</div>"
-        '<form method="post" action="%s" class="quick-action__form">%s</form>'
+        '<div class="page-section status-card" aria-labelledby="home-status-heading">'
+        '<h2 id="home-status-heading" class="visually-hidden">%s</h2>'
+        "%s"
+        '<div class="status-card__rows">%s%s%s</div>'
+        "%s"
         "</div>"
     ) % (
-        layout.icon_html("icon-refresh", size=16, extra_class="quick-action__icon"),
-        escape_html(REFRESH_WIDGET_LABEL),
-        escape_html(refresh_state),
-        POLL_ROUTE, refresh_control,
-    )
-    return (
-        '<section class="page-section home-section" aria-labelledby="home-actions">'
-        '<h2 class="text-heading" id="home-actions">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
-        '<div class="quick-actions">%s%s%s</div>'
-        "</section>"
-    ) % (
-        escape_html(QUICK_ACTIONS_HEADING), escape_html(QUICK_ACTIONS_CAPTION),
-        screen_widget, quiet_widget, refresh_widget)
+        escape_html(i18n.t(STATUS_HEADING)), headline_html,
+        frame_row, battery_row, data_row, health_link_html)
 
 
-def _now_showing_html(ctx):
+def _hero_figure_html(ctx, current_flight_row):
+    """The hero row's left half: the current picture, its "Rendered
+    HH:MM" caption and, when the current flight is known, a one-line
+    "AFR1380 · Air France · ORY → TLS" reusing the SAME recent-flights
+    query result (D-20 — no second query for the "current flight").
+    """
     entries = ctx.get("gallery_entries") or []
     now = ctx.get("now")
     newest = entries[0] if entries else None
     if not newest:
-        body = layout.empty_state(NO_PANEL_HEADING, NO_PANEL_BODY)
-    else:
-        iso = _gallery_name_to_iso(newest)
-        caption = (
-            NOW_SHOWING_CAPTION_PREFIX + layout.concise_timestamp_html(iso, now)
-            if iso else "")
-        body = (
-            '<figure class="now-showing">'
-            '<img class="now-showing__image" src="%s%s" alt="%s" '
-            'width="600" height="800" decoding="async">'
-            '<figcaption class="text-label now-showing__caption">%s</figcaption>'
-            "</figure>"
+        return layout.empty_state(i18n.t(NO_PANEL_HEADING), i18n.t(NO_PANEL_BODY))
+
+    iso = _gallery_name_to_iso(newest)
+    caption = (
+        i18n.t(RENDERED_CAPTION_TEMPLATE) % layout.concise_timestamp_html(iso, now)
+        if iso else "")
+    flight_html = ""
+    if current_flight_row:
+        callsign = current_flight_row.get("callsign") or current_flight_row.get("hex") or "—"
+        secondary = _flight_secondary_text(current_flight_row)
+        flight_html = (
+            '<span class="preview-frame__flight"><span class="mono">%s</span>%s</span>'
         ) % (
-            GALLERY_ROUTE_PREFIX, escape_html(newest), escape_html(PANEL_ALT_TEXT),
-            caption)
+            escape_html(callsign),
+            (" · " + escape_html(secondary)) if secondary else "")
+
     return (
-        '<section class="page-section home-section" aria-labelledby="home-now">'
-        '<h2 class="text-heading" id="home-now">%s</h2>%s</section>'
-    ) % (escape_html(NOW_SHOWING_HEADING), body)
+        '<figure class="preview-frame">'
+        '<img class="preview-frame__image" src="%s%s" alt="%s" '
+        'width="600" height="800" decoding="async">'
+        '<figcaption class="preview-frame__caption text-label">%s%s</figcaption>'
+        "</figure>"
+    ) % (
+        GALLERY_ROUTE_PREFIX, escape_html(newest), escape_html(i18n.t(PANEL_ALT_TEXT)),
+        caption, flight_html)
 
 
-def _recent_flights_html(ctx):
-    now = ctx.get("now")
-    rows = _safe_query(ctx.get("state_dir"), _recent_flights)
+def _recent_flight_thumb_html(row):
+    """D-17.2: the leading thumbnail cell. `illustrations.normalise_
+    airline_key()` is the exact pure-string resolver airlines_page.py
+    already calls (D-20 — no new query) — a truthy key renders the
+    `<img>` unconditionally, letting `/illustration/{key}.png`'s own
+    not-found behaviour apply exactly as the Airlines gallery already
+    accepts (checking a file exists first would cost a filesystem stat
+    per row); a falsy key renders the dashed placeholder with no
+    `<img>` at all, so a missing file can never surface as a broken-
+    image icon for a genuinely-unresolvable airline.
+    """
+    key = illustrations.normalise_airline_key(row.get("airline"))
+    if key:
+        alt_text = i18n.t(THUMBNAIL_ALT_TEMPLATE) % row.get("airline")
+        return (
+            '<img class="recent-flight__thumb" loading="lazy" decoding="async" '
+            'width="40" height="40" src="%s%s.png" alt="%s">'
+        ) % (ILLUSTRATION_ROUTE_PREFIX, key, escape_html(alt_text))
+    return '<span class="recent-flight__thumb recent-flight__thumb--placeholder"></span>'
+
+
+def _recent_flights_html(rows, now):
     if not rows:
-        body = layout.empty_state(NO_FLIGHTS_HEADING, NO_FLIGHTS_BODY)
+        body = layout.empty_state(i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY))
     else:
         items = []
         for row in rows:
             callsign = row.get("callsign") or row.get("hex") or "—"
-            airline = row.get("airline") or ""
-            route = _route_text(row)
-            direction = _direction_text(row.get("confirmed_state"))
-            secondary = " · ".join(part for part in (airline, route, direction) if part)
+            secondary = _flight_secondary_text(row)
             items.append(
-                '<li class="recent-flight">'
+                '<li class="recent-flight">%s'
                 '<span class="recent-flight__callsign mono">%s</span>'
                 '<span class="recent-flight__detail text-label">%s</span>'
                 '<span class="recent-flight__time text-label">%s</span>'
                 "</li>"
-                % (escape_html(callsign), escape_html(secondary),
-                   layout.concise_timestamp_html(row.get("ts"), now)))
+                % (_recent_flight_thumb_html(row), escape_html(callsign),
+                   escape_html(secondary), layout.concise_timestamp_html(row.get("ts"), now)))
         body = '<ul class="recent-flights">%s</ul>' % "".join(items)
     return (
         '<section class="page-section home-section" aria-labelledby="home-flights">'
@@ -365,18 +366,23 @@ def _recent_flights_html(ctx):
         '<p class="text-label"><a href="%s">%s</a></p>'
         "</section>"
     ) % (
-        escape_html(RECENT_FLIGHTS_HEADING), body,
-        FLIGHTS_ROUTE, escape_html(RECENT_FLIGHTS_LINK_TEXT))
+        escape_html(i18n.t(RECENT_FLIGHTS_HEADING)), body,
+        FLIGHTS_ROUTE, escape_html(i18n.t(RECENT_FLIGHTS_LINK_TEXT)))
 
 
 def render(ctx):
-    header = layout.page_header(PAGE_TITLE, purpose=PAGE_PURPOSE)
+    now = ctx.get("now")
+    # D-20: one read, reused for both the hero's flight one-liner (its
+    # first row is "the current flight") and the recent-flights list —
+    # never two independent queries for what is the same data.
+    rows = _safe_query(ctx.get("state_dir"), _recent_flights)
+    current_flight_row = rows[0] if rows else None
+    header = layout.page_header(i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE))
     return (
         header
-        + _status_tiles_html(ctx)
-        + '<div class="home-columns">'
-        + _quick_actions_html(ctx)
-        + _now_showing_html(ctx)
+        + '<div class="home-hero">'
+        + _hero_figure_html(ctx, current_flight_row)
+        + _status_card_html(ctx)
         + "</div>"
-        + _recent_flights_html(ctx)
+        + _recent_flights_html(rows, now)
     )
