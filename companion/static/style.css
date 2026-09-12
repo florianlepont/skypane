@@ -5178,6 +5178,13 @@ a.airline-card {
   min-width: 0;
 }
 
+/* Phase 21 polish (D-01): the next update is the largest text in the
+ * strip — one step above the switch cells' body-size state text. */
+.frame-strip__cell--update .status-card__headline {
+  font-size: var(--font-heading-size);
+  line-height: 1.2;
+}
+
 @media (max-width: 699.98px) {
   .frame-strip__cells {
     flex-direction: column;
@@ -5231,10 +5238,16 @@ a.airline-card {
  * leading 40px thumbnail column — was 3 columns (callsign, detail,
  * time). The sub-960px override further down this file is retargeted
  * to match. */
+/* Phase 21 polish (D-04): the list now lives in the narrower right-hand
+ * column of .home-columns.home-picture-row at every width, so the
+ * four-column desktop layout (which starved the detail column down to
+ * one character per line and let the nowrap time overlap the callsign)
+ * is retired: thumbnail / callsign / time on the first row, the detail
+ * line under them, at every width — the former sub-960px shape. */
 .recent-flight {
   display: grid;
-  grid-template-columns: 40px minmax(0, auto) minmax(0, 1fr) auto;
-  gap: var(--space-sm) var(--space-md);
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: var(--space-xs) var(--space-md);
   align-items: baseline;
   padding: var(--space-sm) 0;
   border-bottom: 1px solid var(--color-border);
@@ -5255,7 +5268,14 @@ a.airline-card {
 }
 
 .recent-flight__time {
-  white-space: nowrap;
+  text-align: right;
+  max-width: 60%;
+  justify-self: end;
+}
+
+.recent-flight__detail {
+  grid-column: 2 / -1;
+  grid-row: 2;
 }
 
 /* 20-04-PLAN.md Task 1 (D-17.2): the thumbnail itself. object-fit: cover
@@ -5358,16 +5378,8 @@ a.airline-card__zoom {
  * width; only the middle content/detail column collapses into one, and
  * the detail line's own grid-column start moves from 1 to 2 so it never
  * runs back under the thumbnail. */
-@media (max-width: 959.98px) {
-  .recent-flight {
-    grid-template-columns: 40px minmax(0, 1fr) auto;
-  }
-
-  .recent-flight__detail {
-    grid-column: 2 / -1;
-    grid-row: 2;
-  }
-}
+/* (Phase 21 polish: the sub-960px recent-flight override that used to
+ * live here is now the base rule above — one shape at every width.) */
 
 /* =====================================================================
  * Phase 20 — companion suggestions from the audit: bilingual FR/EN,
