@@ -537,14 +537,18 @@ def normalise_calendar_theme_id(value):
     feature not having matched at all, rather than the honest inert state of
     "no calendar theme chosen" (phase 16 plan 02, T-16-TAMPER).
 
-    Deliberately no clear-sentinel of `CLEAR_THEME_ARRIVING`'s kind for this
-    key: the Calendar section's
-    `<select name="calendar_theme_id">` (16-UI-SPEC.md Section Anatomy) has
-    no enable/disable checkbox and is always rendered as a required field, so
-    there is no UI state that needs to distinguish "clear it" from "leave it
-    alone" the way an unchecked arrivals-override checkbox does. `None` here
-    keeps its single existing meaning of "not supplied, carry forward" - the
-    same resolution `wake_interval_s` already has, for the same reason.
+    Deliberately no `CLEAR_THEME_ARRIVING`-style SENTINEL for this key,
+    even though 21-05-PLAN.md's Frame colours card (D-09) does now give
+    the operator a "Same as departures" chip that must clear a
+    previously-set override: the empty string itself is the clear
+    signal at the WRITE path (`save_device_config()`'s own validation
+    gate accepts `""` as a genuine, storable value, distinct from
+    `None`'s "not supplied, carry forward" meaning) — no second
+    sentinel object is needed because this function's own degrade-to-
+    `None` contract already treats `""` exactly like any other
+    non-member string. `None` here keeps its single existing meaning of
+    "not supplied, carry forward" - the same resolution `wake_interval_s`
+    already has, for the same reason.
 
     This makes `calendar_theme_id` the third key in this module, after
     `wake_interval_s` and `theme_arriving`, whose valid value set includes
@@ -805,21 +809,26 @@ def save_device_config(
     there is no way to clear an already-set `wake_interval_s` back to unset
     through this function - that is the resolution of 11-RESEARCH.md's Open
     Question 2 (an empty numeric input means "leave unchanged", never
-    "reject the save"), not an oversight. `calendar_theme_id` (phase 16 plan
-    02) takes the identical resolution and for the identical reason:
-    `theme_arriving` needed `CLEAR_THEME_ARRIVING` because its UI is a
-    checkbox plus a grid, and the checkbox is the only signal that
-    distinguishes "set" from "clear". The Calendar section
-    (16-UI-SPEC.md § Section Anatomy) has no checkbox - just a `required`,
-    always-rendered `<select name="calendar_theme_id">` - so there is no
-    "clear" UI state to model, and this key keeps `None`'s single existing
-    meaning of "not supplied, carry forward", the same resolution
-    `wake_interval_s` already has.
+    "reject the save"), not an oversight.
+
+    `calendar_theme_id` (phase 16 plan 02) is genuinely clearable, but
+    via a DIFFERENT mechanism from `theme_arriving`'s own sentinel
+    (below): the empty string is accepted here as a normal, storable
+    non-`None` value (21-05-PLAN.md Task 2, D-09/R-07 — the Frame
+    colours card's own "Same as departures" chip submits it), and
+    `normalise_calendar_theme_id()`'s existing degrade-to-`None`
+    contract on the READ path treats a stored `""` exactly like any
+    other non-member string. No sentinel object is needed for this key
+    specifically because, unlike `theme_arriving`, its own clear signal
+    (`""`) can never collide with "not supplied" (`None`) — the two are
+    already distinct Python values.
 
     `theme_arriving` (D-04/D-05) is the one field with a genuinely different,
-    three-state argument contract, because it must be clearable from the
-    Settings form (an unchecked arrivals-theme-override checkbox) in a way
-    `wake_interval_s` and `calendar_theme_id` deliberately are not:
+    three-state argument contract, because its own historical UI (an
+    arrivals-theme-override checkbox, now retired) could not distinguish
+    "not supplied" from "explicitly clear" using the submitted id alone
+    (both would submit no theme_arriving value at all) — a distinction
+    `wake_interval_s` and `calendar_theme_id` deliberately do not need:
       - `None` (the default): not supplied, carry the current on-disk value
         forward - the same meaning `None` has for every other field here.
       - `CLEAR_THEME_ARRIVING` (a distinct module-level sentinel, compared by
@@ -839,8 +848,24 @@ def save_device_config(
         raise ValueError("unknown theme id %r (expected one of %r)" % (theme, THEME_IDS))
     if theme_arriving is not None and theme_arriving is not CLEAR_THEME_ARRIVING and theme_arriving not in THEMES:
         raise ValueError("unknown theme_arriving id %r (expected None, CLEAR_THEME_ARRIVING, or one of %r)" % (theme_arriving, THEME_IDS))
-    if calendar_theme_id is not None and calendar_theme_id not in THEMES:
-        raise ValueError("unknown calendar_theme_id %r (expected None or one of %r)" % (calendar_theme_id, THEME_IDS))
+    # 21-05-PLAN.md Task 2 (D-09/R-07, companion/pages/config_page.py's
+    # own handle_post()): the empty string is now a THIRD, deliberately
+    # accepted write-time value, alongside None (carry forward) and a
+    # real theme id (set it) — the Frame colours card's own "Same as
+    # departures" chip submits "" for this field, and this validation
+    # gate must not reject it before it is ever stored. Unlike
+    # theme_arriving, this needs no CLEAR_THEME_ARRIVING-style sentinel:
+    # "" is stored as a genuine (non-None) value below, exactly like any
+    # other string, and normalise_calendar_theme_id() (the READ path,
+    # unchanged by this fix) already degrades any non-member string —
+    # including "" — to None on the very next load_device_config() call.
+    # Every OTHER consumer of a loaded calendar_theme_id (server/plane/
+    # calendar_rules.py, server/plane/colour_rules.py) already
+    # membership-tests it before use, so a transiently-stored "" is
+    # never treated as a real theme id anywhere in this codebase, even
+    # before the next load.
+    if calendar_theme_id is not None and calendar_theme_id not in ("",) + THEME_IDS:
+        raise ValueError("unknown calendar_theme_id %r (expected None, the empty string, or one of %r)" % (calendar_theme_id, THEME_IDS))
     if tracked_runway is not None and tracked_runway not in RUNWAYS:
         raise ValueError("unknown tracked_runway id %r (expected one of %r)" % (tracked_runway, RUNWAY_IDS))
     if screen_id is not None and screen_id not in SCREEN_IDS:

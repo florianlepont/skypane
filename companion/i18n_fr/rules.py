@@ -27,8 +27,14 @@ Contract Section D/H is copied verbatim from that table.
 """
 
 CATALOG = {
-    # --- Heading and caption (D-15a) -------------------------------------
-    "Flight colours": "Couleurs de vol",
+    # --- Caption (D-15a) --------------------------------------------------
+    # 21-05-PLAN.md Task 1 (D-06/D-10): "Flight colours" (the retired
+    # standalone card's own heading) is deleted here in the same commit
+    # as RULES_SECTION_HEADING, its English source constant — the
+    # content now renders inside the Frame colours card's own
+    # "Per-flight rules" usage panel, named by that panel's own
+    # <legend> (companion/i18n_fr/display.py's "Per-flight rules" /
+    # "Règles par vol" entry), never by a second heading of its own.
     "Give one flight, one aircraft or one airline its own theme.":
         "Donnez son propre thème à un vol, un avion ou une compagnie.",
 
