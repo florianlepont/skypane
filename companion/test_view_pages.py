@@ -339,6 +339,16 @@ EXPECTED_CHECK_COUNT = 105  # 20-11-PLAN.md Task 3/D-06 orchestrator
 # "shown"). 104 + 1 = 105, recomputed directly against the real on-disk
 # check(...) call count at execution time (105/105 pass), not trusted
 # from arithmetic alone.
+EXPECTED_CHECK_COUNT = 106  # Polish fix 2 (French Home status rows):
+# +1 (Home's status card, fed a REAL health_page.compute_health_state()
+# result computed under lang='fr', fully localises the Frame/Flight-
+# data rows' timestamps — no English month abbreviation or ' ago'
+# survives — and joins the Flight-data row's separate clauses with
+# ' · ' instead of running them together; the regression guard for the
+# companion/app.py page_context() request-ordering bug this fix
+# closes). 105 + 1 = 106, recomputed directly against the real on-disk
+# check(...) call count at execution time (106/106 pass), not trusted
+# from arithmetic alone.
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -3644,6 +3654,73 @@ def main():
         "in (while the callsign/airline data stays untranslated), and the identical seeded "
         "render under the default language still carries every pre-existing English needle",
         _home_page_full_seeded_render_french_end_to_end)
+
+    def _home_status_card_localises_real_health_state_timestamps_under_french():
+        # Polish fix 2: unlike the check above (which hand-builds
+        # ctx["health_state"] with already-English literal fragments,
+        # never exercising the real timestamp-formatting path), this
+        # check derives ctx["health_state"] from a REAL health_page.
+        # compute_health_state() call — the exact value companion/
+        # app.py's page_context() threads into every authenticated
+        # page's ctx — with `now` on a different calendar day from
+        # every seeded timestamp, so a surviving English month
+        # abbreviation or "ago" is unmistakable. Also proves the
+        # Flight-data row's detail joins its verdict/timestamp/last-
+        # detection clauses with " · " rather than running them
+        # together with no punctuation at all.
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        import companion.prefs as _prefs
+        tmp = _mkstate("home-fr-health")
+        try:
+            now = "2026-09-12T00:00:00+00:00"
+            device_ts = "2026-09-10T23:58:00+00:00"
+            with _hdb.open_db(tmp) as conn:
+                _hdb.record_device_health(conn, device_ts, battery_mv=3800)
+                _hdb.set_meta(conn, _hdb.META_LAST_PIPELINE_RUN, device_ts)
+                _hdb.set_meta(conn, _hdb.META_LAST_DETECTION, device_ts)
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                health_state = health_page.compute_health_state(tmp, now=now)
+                ctx = {
+                    "state_dir": tmp, "now": now, "gallery_entries": [],
+                    "last_checkin_ts": device_ts,
+                    "device_config": {"wake_interval_s": 900, "display_enabled": True},
+                    "health_state": health_state, "simple_mode": False,
+                }
+                rendered = home_page.render(ctx)
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            if "sept." not in rendered:
+                return False, "expected the French month abbreviation 'sept.' in the Home render"
+            if " ago" in rendered:
+                return False, "expected no English ' ago' in the Home render"
+            for english_month in (
+                    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+                    "Oct", "Nov", "Dec"):
+                if english_month in rendered:
+                    return False, "expected no English month abbreviation %r in the Home render" % (
+                        english_month,)
+            # "Données de vol" is companion/i18n_fr/home.py's own French
+            # translation of DATA_ROW_LABEL ("Flight data") — the label
+            # itself is French text by this point in the render, so the
+            # anchor must be too.
+            data_row_start = rendered.index("Données de vol")
+            data_row_end = rendered.index("</div>", data_row_start)
+            data_row = rendered[data_row_start:data_row_end]
+            if data_row.count(" · ") < 2:
+                return False, (
+                    "expected the Flight-data row's detail to join its verdict/timestamp/"
+                    "last-detection clauses with ' · ' (got %r)" % (data_row,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home's status card, fed a REAL health_page.compute_health_state() result computed "
+        "under lang='fr', fully localises the Frame/Flight-data rows' timestamps (no English "
+        "month abbreviation or ' ago' survives) and joins the Flight-data row's separate "
+        "clauses with ' · ' instead of running them together (Polish fix 2)",
+        _home_status_card_localises_real_health_state_timestamps_under_french)
 
     def _home_catalog_keys_all_present_in_merged_catalog():
         import companion.i18n_fr as i18n_fr

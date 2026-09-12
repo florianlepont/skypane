@@ -114,6 +114,17 @@ BATTERY_STATE_TEXT = {
 NO_READING_TEXT = "No reading yet"
 
 _TAG_RE = re.compile(r"<[^>]+>")
+# Polish fix 2: health_page.py's pipeline_html fragment is TWO OR THREE
+# stacked <p>...</p> blocks (a verdict paragraph, a timestamp paragraph,
+# and — for the Flight-data row specifically — a third "Last aircraft
+# detected" paragraph); device_detail_html is a single bare <span>, no
+# <p> wrapper at all. _BLOCK_RE finds each <p>...</p> block's own inner
+# markup so _plain_text_from_markup() below can join separate sentences
+# with " · " instead of running them together as one undifferentiated
+# space-joined string ("Has not run for a long time 10 Sep 23:58 (1d
+# ago) Last aircraft detected: 10 Sep 23:46 (1d ago)" — the exact
+# unreadable, un-separated fragment this fix closes).
+_BLOCK_RE = re.compile(r"<p[^>]*>(.*?)</p>", re.DOTALL)
 
 
 def _plain_text_from_markup(fragment):
@@ -131,17 +142,34 @@ def _plain_text_from_markup(fragment):
     page, a real rendering defect, not a cosmetic one. This reconciles
     this plan's own instruction to read the verdict-free health-state
     field with that escaping contract: strip the wrapping tags (each
-    becomes a single space, so two adjacent paragraphs read as two
-    separated words rather than run together — the resulting run of
-    whitespace collapses to one via str.split()/" ".join()), then
-    reverse the HTML-entity escaping the fragment's own builder already
-    applied, so the row primitive's own escaping re-encodes the text
-    exactly once, not twice.
+    becomes a single space within its own block), then reverse the
+    HTML-entity escaping the fragment's own builder already applied, so
+    the row primitive's own escaping re-encodes the text exactly once,
+    not twice.
+
+    When `fragment` carries two or more top-level `<p>...</p>` blocks
+    (health_page.py's `pipeline_html`, whose verdict/timestamp/last-
+    detection paragraphs are three separate sentences), each block's own
+    text is joined with " · " so the Flight-data row's detail reads as
+    three distinct clauses rather than one run-together sentence with no
+    punctuation between them (Polish fix 2). A fragment with no `<p>`
+    blocks at all (health_page.py's `device_detail_html`, a bare
+    `<span>` with no verdict of its own) falls back to the original
+    single-block behaviour unchanged.
     """
     if not fragment:
         return ""
-    spaced = _TAG_RE.sub(" ", fragment)
-    return " ".join(html.unescape(spaced).split())
+    blocks = _BLOCK_RE.findall(fragment)
+    if not blocks:
+        spaced = _TAG_RE.sub(" ", fragment)
+        return " ".join(html.unescape(spaced).split())
+    parts = []
+    for block in blocks:
+        spaced = _TAG_RE.sub(" ", block)
+        text = " ".join(html.unescape(spaced).split())
+        if text:
+            parts.append(text)
+    return " · ".join(parts)
 
 
 def _safe_query(state_dir, fn):

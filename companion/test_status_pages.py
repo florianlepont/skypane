@@ -476,7 +476,18 @@ EXPECTED_CHECK_COUNT = 208  # 20-03-PLAN.md Task 2 (D-07): +4
 # root-sandbox anomaly_active() failure, unrelated to this plan), not
 # trusted from arithmetic alone.
 
-EXPECTED_CHECK_COUNT = 211  # 20-03-PLAN.md Task 3 (D-05): +3
+EXPECTED_CHECK_COUNT = 212  # Polish fix 2 (French Home status rows):
+# +1 (compute_health_state()'s device_html/device_detail_html/
+# pipeline_html fields, and health_page.render()'s own page, fully
+# localise their timestamps under lang='fr' with no English month
+# abbreviation or ' ago' surviving — the regression guard for the
+# companion/app.py page_context() request-ordering bug this fix
+# closes). 211 + 1 = 212, recomputed directly against the real
+# on-disk check(...) call count at execution time (211/212 pass — the
+# one documented pre-existing root-sandbox anomaly_active() failure,
+# unrelated to this fix), not
+# trusted from arithmetic alone.
+# was: EXPECTED_CHECK_COUNT = 211  # 20-03-PLAN.md Task 3 (D-05): +3
 # (health_page.render() under lang='fr' carries the French page title
 # and at least three other French strings, and none of a short list
 # of English source strings with distinct French forms; the same
@@ -6777,6 +6788,61 @@ def main():
         "health_page.render() under lang='en' (the default) is byte-for-byte unchanged for a "
         "seeded state — pinned representative substrings (D-05)",
         _health_page_renders_byte_identical_in_english)
+
+    def _health_page_device_and_pipeline_timestamps_fully_localise_under_french():
+        # Polish fix 2: the real production defect was companion/app.py's
+        # page_context() calling health_page.safe_health_state() BEFORE
+        # prefs.set_request_prefs() — every request's device/pipeline
+        # timestamp markup was built under the ContextVar's bare English
+        # default regardless of the requester's own language. This check
+        # exercises compute_health_state() itself (the function whose
+        # OWN readers — layout.local_clock_text()/relative_age_text() —
+        # must resolve the CURRENT request's language at call time) with
+        # `now` on a different calendar day from every seeded timestamp,
+        # so a surviving English month abbreviation or "ago" would be
+        # unmistakable rather than accidentally masked by a same-day
+        # clock-only render.
+        tmp = _mkstate("health-fr-dates")
+        try:
+            now_iso = "2026-09-12T00:00:00+00:00"
+            device_ts = "2026-09-10T23:58:00+00:00"
+            _seed_device_health(tmp, [(device_ts, 3800)])
+            _seed_meta(tmp, **{
+                history_db.META_LAST_PIPELINE_RUN: device_ts,
+                history_db.META_LAST_DETECTION: device_ts})
+            try:
+                prefs.set_request_prefs(lang="fr")
+                state = health_page.compute_health_state(tmp, now=now_iso)
+                rendered = health_page.render(dict(_ctx(tmp, now=now_iso), health_state=state))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            fragments = (
+                state["device_html"], state["device_detail_html"],
+                state["pipeline_html"], rendered)
+            for fragment in fragments:
+                if "sept." not in fragment:
+                    return False, (
+                        "expected the French month abbreviation 'sept.' in %r" % (fragment,))
+                if " ago" in fragment:
+                    return False, "expected no English ' ago' in %r" % (fragment,)
+                for english_month in (
+                        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep",
+                        "Oct", "Nov", "Dec"):
+                    if english_month in fragment:
+                        return False, (
+                            "expected no English month abbreviation %r in %r"
+                            % (english_month, fragment))
+            if "il y a 1" not in state["device_detail_html"]:
+                return False, "expected the French relative-age connector 'il y a 1' in device_detail_html"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "compute_health_state()'s device_html/device_detail_html/pipeline_html fields (and "
+        "health_page.render()'s own page) fully localise their timestamps under lang='fr' — no "
+        "English month abbreviation or ' ago' survives — proving the request-language ContextVar "
+        "is resolved at the correct point relative to when this state is computed (Polish fix 2)",
+        _health_page_device_and_pipeline_timestamps_fully_localise_under_french)
 
     def _health_catalog_every_key_and_value_is_a_nonempty_str():
         bad = [

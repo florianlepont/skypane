@@ -655,7 +655,7 @@ def relative_age_text(age_seconds, lang=None):
     return "%dd ago" % (age_seconds // 86400)
 
 
-def absolute_and_relative(ts, now_ts, fallback="no reading yet"):
+def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
     """"<ts> (<relative age> ago)" — the house "absolute + relative"
     timestamp format (D-02), already shipped on this page's Device
     check-in and ADS-B pipeline rows and now shared for every caller.
@@ -678,16 +678,26 @@ def absolute_and_relative(ts, now_ts, fallback="no reading yet"):
     not be reversed — 06.3-UI-SPEC.md's Typography section shows a
     relative-first example, but that is illustrative prose no 06.3 plan
     task implements or depends on (06.6-RESEARCH.md Open Question 1).
+
+    `lang` (Polish fix 2, mirroring local_clock_text()'s own trailing
+    keyword, D-07): `None` resolves via `relative_age_text()`'s own
+    `prefs.current_lang()` default, so every pre-existing call site
+    (passing only `ts`/`now_ts`) keeps its identical English output. An
+    explicit `lang` is threaded straight through to `relative_age_text()`
+    for a caller that needs a specific language regardless of the
+    current request's own ContextVar-resolved language — e.g. a
+    server-side notification body (D-28) rendered with no request
+    context to read from at all.
     """
     if not ts:
         return fallback
     age = age_seconds(ts, now_ts)
     if age is None:
         return ts
-    return "%s (%s)" % (ts, relative_age_text(age))
+    return "%s (%s)" % (ts, relative_age_text(age, lang=lang))
 
 
-def concise_timestamp_html(ts, now_ts, fallback="no reading yet"):
+def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
     """"<span class="mono" title="<full ISO>"><HH:MM> UTC (<relative>)</span>"
     — D-09's concise-timestamp-by-default format (06.6.3-UI-SPEC.md's New
     Component Contracts). The full ISO string is demoted to the `title`
@@ -712,6 +722,14 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet"):
     it remains the right choice for any plain-text-only call site (e.g.
     Preview's no-panel caption); do not replace those call sites with
     this function.
+
+    `lang` (Polish fix 2, mirroring local_clock_text()'s own trailing
+    keyword, D-07): `None` resolves via `local_clock_text()`'s/
+    `relative_age_text()`'s own `prefs.current_lang()` default, so every
+    pre-existing call site (passing only `ts`/`now_ts`) keeps its
+    identical English output — the French month table/relative-age
+    connector only apply when the CURRENT REQUEST's language is French
+    (or an explicit `lang="fr"` is passed here), never unconditionally.
     """
     if not ts:
         return escape_html(fallback)
@@ -721,8 +739,9 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet"):
         return '<span class="mono" title="%s">%s</span>' % (
             escape_html(ts), escape_html(ts))
     return '<span class="mono" title="%s">%s (%s)</span>' % (
-        escape_html(ts), escape_html(local_clock_text(parsed, parse_iso(now_ts))),
-        escape_html(relative_age_text(age)))
+        escape_html(ts),
+        escape_html(local_clock_text(parsed, parse_iso(now_ts), lang=lang)),
+        escape_html(relative_age_text(age, lang=lang)))
 
 
 def local_clock_text(parsed, now_parsed=None, lang=None):

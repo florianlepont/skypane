@@ -1252,6 +1252,28 @@ class Handler(BaseHTTPRequestHandler):
         rule_key = params.get("rule", [None])[0]
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()
+        # D-04/D-29 (20-01-PLAN.md Task 2): resolve this request's
+        # language and simple-mode preference exactly once, immediately,
+        # and publish both through prefs so layout.py's readers (Task 3)
+        # and this dict's own "lang"/"simple_mode" keys below can never
+        # disagree.
+        #
+        # Polish fix 2 (French Home status rows): this MUST run before
+        # health_page.safe_health_state() below — that call's own
+        # section builders (_device_timestamp_only()/_pipeline_section())
+        # format timestamps and verdicts through layout.local_clock_
+        # text()/relative_age_text(), both of which resolve their own
+        # `lang=None` default via prefs.current_lang() at call time, not
+        # at read time. A `ThreadingHTTPServer` request handler runs in a
+        # brand-new native thread with a fresh contextvars.Context (never
+        # copied from any other request's thread), so calling
+        # safe_health_state() before this line meant every request's
+        # health-state markup was built under the ContextVar's bare
+        # default (English) regardless of the requester's own language —
+        # the exact mechanism behind French Home's Frame/Flight-data rows
+        # still showing an English month abbreviation and "ago" (D-07).
+        prefs.set_request_prefs(
+            lang=self._lang_from_request(), mode=self._mode_from_request())
         # WR-04: compute once per request (fail-closed to None on any
         # unanticipated exception — see health_page.safe_health_state()'s
         # docstring) and thread both the derived severity and the full
@@ -1266,13 +1288,6 @@ class Handler(BaseHTTPRequestHandler):
         # value and falls back to DEFAULT_SCREEN_ID, so no second
         # validation is needed at this layer.
         device_cfg = device_config.load_device_config(state_dir)
-        # D-04/D-29 (20-01-PLAN.md Task 2): resolve this request's
-        # language and simple-mode preference exactly once, immediately
-        # alongside ui_theme above, and publish both through prefs so
-        # layout.py's readers (Task 3) and this dict's own "lang"/
-        # "simple_mode" keys below can never disagree.
-        prefs.set_request_prefs(
-            lang=self._lang_from_request(), mode=self._mode_from_request())
         # 20-09-PLAN.md Task 1 (D-14b): loaded ONCE per request and reused
         # for three ctx keys below (calendar_last_synced_at, the new
         # calendar_last_attempt_at/calendar_entry_count), rather than
