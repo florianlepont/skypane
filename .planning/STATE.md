@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 16 context gathered
-last_updated: "2026-09-12T08:03:28.361Z"
+status: verifying
+stopped_at: Completed 22-01-PLAN.md
+last_updated: "2026-09-12T19:48:42.089Z"
 last_activity: 2026-09-12
 progress:
-  total_phases: 33
-  completed_phases: 30
-  total_plans: 187
-  completed_plans: 178
-  percent: 91
+  total_phases: 35
+  completed_phases: 31
+  total_plans: 203
+  completed_plans: 187
+  percent: 92
 ---
 
 ---
@@ -26,7 +26,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [██████████] 95%
+  [█████████░] 92%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -353,6 +353,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 14 P05 | 23min | 2 tasks | 3 files |
 | Phase 14 P07 | 20min | 1 tasks | 2 files |
 | Phase 14 P06 | 30min | 2 tasks | 4 files |
+| Phase 22 P01 | ~50min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -609,6 +610,10 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-07: distinguish a supplied-but-unusable manual airline name from an empty field by re-reading the same raw form value already passed to add_entry(), rather than duplicating manual_resolutions.py's own regex/validation logic
 - [Phase 14]: A superseded row's card-attachment key is the built-in airline's own name (enrich.static_airline_name_for_prefix()), never the operator's own orphaned stored name, so a superseded card's chip/note always land on the curated card the frame actually renders under (D-10)
 - [Phase 14]: Deleted a ninth constant (SUPERSEDED_CAPTION) beyond the plan's own enumerated eight, since it became genuinely unreferenced once the management table's own rendering functions were deleted
+- [Phase 22]: 22-01: dirty-state.js delegates change/input at document level (gated on e.target.form === form) instead of the form element itself, fixing B1 — every form=-attached field outside the physical settings form now reveals the save bar
+- [Phase 22]: 22-01: the fallback Save button hides only once BOTH .dirty-ready and a new .dirty-shown (proven-liveness) marker are present, closing the no-way-to-save-at-all failure mode
+- [Phase 22]: 22-01: theme-preview.js exposes window.SkyPaneLivePreview.refresh(), the sanctioned cross-file call dirty-state.js's Cancel handler uses for T8 (form.reset() fires no change event)
+- [Phase 22]: 22-01: dirtySectionLabels() retargeted from form.querySelectorAll to document.querySelectorAll - a same-root-cause bug found live while proving Task 3's Display check
 
 ### Pending Todos
 
@@ -699,12 +704,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-07T08:00:10.599Z
-Stopped at: Phase 16 context gathered
+Last session: 2026-09-12T19:48:04.237Z
+Stopped at: Completed 22-01-PLAN.md
 
 Resume file: 
 
-.planning/phases/16-calendar-linked-flight-highlighting-a-connected-calendar-sou/16-CONTEXT.md
+None
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).
