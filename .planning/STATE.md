@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-02-PLAN.md
-last_updated: "2026-09-12T21:08:48.495Z"
+stopped_at: Completed 22-03-PLAN.md
+last_updated: "2026-09-12T21:49:32.985Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 188
+  completed_plans: 189
   percent: 93
 ---
 
@@ -26,7 +26,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 92%
+  [█████████░] 93%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -355,6 +355,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 14 P06 | 30min | 2 tasks | 4 files |
 | Phase 22 P01 | ~50min | 3 tasks | 8 files |
 | Phase 22 P02 | ~20min | 2 tasks | 5 files |
+| Phase 22 P03 | 40min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -618,6 +619,8 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-02: server.wake.next_wake_status() checks quiet_hours_status() at BOTH the check-in epoch and the check-in-plus-base-interval epoch, not the check-in epoch alone as 22-RESEARCH.md's Pattern 4 sketch shows — a single check-in-instant check does not satisfy the plan's own worked example (22:58 check-in, 900s interval, 23:00-07:00 window) nor the nightly-regression acceptance criterion, both verified numerically before implementing
 - [Phase 22]: 22-02: companion/i18n_fr/frame_state.py deliberately omits 3 of its 6 planned English->French entries (HEADLINE_DUE/HEADLINE_LATE/DELAY_UNKNOWN) because they collide with pre-existing keys in i18n_fr/home.py/display.py (duplicate key raises ValueError in the auto-merge package) — one collision (EXPECTED_SINCE_TEMPLATE's "Attendue depuis %s" vs. this phase's locked "Attendu depuis %s") is a real, unresolved copy discrepancy left for 22-04/22-05 to reconcile when they delete the retired wordings
 - [Phase 22]: 22-02: companion/test_i18n.py's D-08 Check 2 fails with 3 orphaned keys (companion/frame_state.py's genuinely-new constants have no consumer/call-site yet) — a known, explained, self-resolving-by-22-04/22-05 acceptance-criterion mismatch, not routed around by editing test_i18n.py (owned solely by plan 22-08 in this phase)
+- [Phase 22]: 22-03: never-ran pipeline reuses the existing dot--off vocabulary (never a new status token or CSS class) for the neutral state, and collect_anomalies()/overall_severity() treat pipeline_state='off' exactly like 'ok'
+- [Phase 22]: 22-03: resolution_stats()'s 'Other' bucket for unknown route_source stays a row appended to results, not folded into _SOURCE_ROWS's fixed known-mechanism enumeration; the stats section omission is scoped to total==0 only, not the _DB_UNAVAILABLE sentinel
 
 ### Pending Todos
 
@@ -708,8 +711,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-12T21:07:14.000Z
-Stopped at: Completed 22-02-PLAN.md
+Last session: 2026-09-12T21:49:17.979Z
+Stopped at: Completed 22-03-PLAN.md
 
 Resume file: 
 
