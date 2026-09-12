@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-03-PLAN.md
-last_updated: "2026-09-12T21:49:32.985Z"
+stopped_at: Completed 22-04-PLAN.md
+last_updated: "2026-09-12T22:36:14.223Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 189
-  percent: 93
+  completed_plans: 190
+  percent: 94
 ---
 
 ---
@@ -26,7 +26,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 93%
+  [█████████░] 94%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -356,6 +356,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P01 | ~50min | 3 tasks | 8 files |
 | Phase 22 P02 | ~20min | 2 tasks | 5 files |
 | Phase 22 P03 | 40min | 2 tasks | 3 files |
+| Phase 22 P04 | 95min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -621,6 +622,8 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-02: companion/test_i18n.py's D-08 Check 2 fails with 3 orphaned keys (companion/frame_state.py's genuinely-new constants have no consumer/call-site yet) — a known, explained, self-resolving-by-22-04/22-05 acceptance-criterion mismatch, not routed around by editing test_i18n.py (owned solely by plan 22-08 in this phase)
 - [Phase 22]: 22-03: never-ran pipeline reuses the existing dot--off vocabulary (never a new status token or CSS class) for the neutral state, and collect_anomalies()/overall_severity() treat pipeline_state='off' exactly like 'ok'
 - [Phase 22]: 22-03: resolution_stats()'s 'Other' bucket for unknown route_source stays a row appended to results, not folded into _SOURCE_ROWS's fixed known-mechanism enumeration; the stats section omission is scoped to total==0 only, not the _DB_UNAVAILABLE sentinel
+- [Phase 22]: frame_strip_html() keeps its next_wake_iso parameter for call-site compatibility with wave-3 sibling plans, recomputing wake.next_wake_status() fresh from ctx instead — home_page.py/config_page.py are owned by plans 22-07/22-05 this wave and could not be edited
+- [Phase 22]: DEVICE_STATE_TEXT widened to a fourth 'off' key for the frame's held state, mirroring PIPELINE_STATE_TEXT's 22-03 precedent — a held frame must never light the Health nav notification dot
 
 ### Pending Todos
 
@@ -711,8 +714,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-12T21:49:17.979Z
-Stopped at: Completed 22-03-PLAN.md
+Last session: 2026-09-12T22:36:14.170Z
+Stopped at: Completed 22-04-PLAN.md
 
 Resume file: 
 
