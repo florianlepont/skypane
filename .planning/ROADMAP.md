@@ -441,7 +441,7 @@ Plans:
 **Goal:** Ship the shared UX/accessibility/design-token foundation the rest of the companion redesign builds on: color/surface/typography/motion tokens, a WCAG contrast checker, the joint mobile-nav closed-state + no-JS fallback fix, desktop table containment, a shared page-header pattern and refined sidebar (incl. sticky), warning/error severity propagation, a dedicated login shell with deep-link return and logout→POST, poll-trigger concurrency locking, and programmatic feedback roles. Split out 2026-08-31 from a single oversized "companion UX hardening" phase — the planner found the combined scope (~16 dense plans touching the same handful of already-shipped files) exceeded this project's own largest prior single-phase precedent (Phase 6's 12 plans, which was mostly additive). Nothing from the original 23 CONTEXT.md decisions or the audit's 18 findings was dropped — nine per-page items (Config/Health/History/Airlines/Preview redesign) moved to the new Phase 06.6.3, which depends on this phase's shared primitives.
 **Requirements**: None — unmapped backlog phase (promoted from the 06.6.1-UX-AUDIT.md follow-up, itself promoted from real-device findings). Traced against `06.6.2-CONTEXT.md`'s own locked decisions D-01, D-06 (accent-color token half), D-11, D-14 through D-17, D-19, D-21, plus the audit's UXA-01 (desktop-containment half), UXA-02/03/04/07/09/10/14/15, and UXA-08 (accent-color half).
 **Depends on:** Phase 06.6
-**Plans:** 8/8 plans complete
+**Plans:** 8/8 plans complete — verified 2026-09-12 (21-VERIFICATION.md 10/10, 21-REVIEW.md resolved, 21-HUMAN-UAT.md 8 browser-only items pending)
 
 Plans:
 **Wave 1**
@@ -813,7 +813,7 @@ Plans:
 **Requirements**: None expected — a presentation-layer follow-up to an unmapped phase, matching the Phase 10-13 precedent.
 **Depends on:** Phase 13 (merged as `8f45385`, PR #51) — this phase re-presents that machinery and changes none of it. Also Phase 06.6.4.1, which established the shared lightbox and reborn Airlines as the illustration gallery.
 **Closes with:** a real-browser pass, since the whole phase is interaction design and the dialog's behaviour is browser-owned. This also closes Phase 13's two open UAT gaps, which live in exactly this surface: **G-02** (the `<datalist>` popup was never verified in a browser) and **G-01** (a rejected airline name is reported to the operator as an empty one).
-**Plans:** 8/8 plans complete
+**Plans:** 8/8 plans complete — verified 2026-09-12 (21-VERIFICATION.md 10/10, 21-REVIEW.md resolved, 21-HUMAN-UAT.md 8 browser-only items pending)
 
 Plans:
 **Wave 1**
@@ -1024,7 +1024,7 @@ Plans:
 **Goal:** Act on the developer's third round of feedback after phase 20 — put the Screen on/off and Quiet hours switches and the next update time in a "Frame" strip at the top of Home and Display with a state-only reminder in the nav, rebuild Home as strip + the three phase-19 tiles + picture and recent flights side by side, merge the four theme chip grids into one "Frame colours" view (preview left, four-row assignment list right), put the calendar status and feed URL in one tile with a quiet replace link and a small grey disconnect button, make the Flights table fit 1280 px without horizontal scroll, remove the simple/full mode and the Health pause button, and restore the artwork upload in the Airlines resolve flow — see 21-PRD.md D-01..D-20.
 **Requirements**: CFG-19, CFG-20, CFG-21, CFG-22, CFG-23, CFG-24
 **Depends on:** Phase 20
-**Plans:** 8/8 plans complete
+**Plans:** 8/8 plans complete — verified 2026-09-12 (21-VERIFICATION.md 10/10, 21-REVIEW.md resolved, 21-HUMAN-UAT.md 8 browser-only items pending)
 
 Plans:
 - [x] 21-01: Simple mode removed — prefs, cookie, route, nav switch, every gate (wave 1)
