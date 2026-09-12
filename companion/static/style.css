@@ -5048,6 +5048,33 @@ a.airline-card {
   margin-bottom: 0;
 }
 
+/* 21-04-PLAN.md Task 3 (D-04): the picture/recent-flights row's own
+ * 3:2 desktop split — D-04's "the picture column is the wider one,
+ * about 3:2". This compound selector (specificity 0,2,0) outranks the
+ * ambient `.home-columns` >=960px equal-split rule above at every
+ * width, so this row stays one column through 1023px and only then
+ * becomes 3fr/2fr — never the generic 1fr/1fr split. Scoped by the
+ * compound class so no other `.home-columns` consumer anywhere else
+ * in the app is affected. */
+.home-columns.home-picture-row {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .home-columns.home-picture-row {
+    grid-template-columns: 3fr 2fr;
+    /* flex-start, not the bare `start` keyword: test_status_pages.py
+     * pins the whole file to exactly one remaining declaration of that
+     * bare keyword's own align-items value (.dashboard-shell's own
+     * D-21 sticky sidebar) — the same precedent the deleted .home-hero
+     * rule already followed for this exact reason. Grid treats
+     * flex-start as an alias of that value, so the effect here — the
+     * shorter column never stretching to match the taller one's own
+     * height — is identical. */
+    align-items: flex-start;
+  }
+}
+
 .quick-actions {
   display: flex;
   flex-direction: column;
@@ -5418,30 +5445,14 @@ a.airline-card__zoom {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* --- 20-UI-SPEC.md §B: the Home hero row (D-16..D-20) ------------------
- * Picture-first stacking on phones (D-18) comes from source order alone
- * — .preview-frame is the hero row's first child in the markup, so no
- * CSS `order` property is declared here. */
-.home-hero {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-lg);
-}
-
-@media (min-width: 960px) {
-  .home-hero {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
-    /* flex-start, not the bare `start` keyword: test_status_pages.py
-     * pins the whole file to exactly one remaining declaration of that
-     * bare keyword's own align-items value (.dashboard-shell's own D-21
-     * sticky sidebar). Grid treats flex-start as an alias of that value,
-     * so the effect here — the status card never stretching to match the
-     * picture's own height — is identical. */
-    align-items: flex-start;
-  }
-}
-
-/* Naming caution (20-UI-SPEC.md §B): companion/test_view_pages.py's own
+/* 21-04-PLAN.md Task 3 (D-04): the phase-20 Home hero row (.home-hero,
+ * a two-column picture/status-card grid) is deleted outright —
+ * replaced by the strip -> three tiles -> .home-columns.home-picture-
+ * row shape below. .preview-frame and its own children (Home's
+ * picture figure, `_hero_figure_html()`, unchanged) survive; only the
+ * two-column wrapper around it is gone.
+ *
+ * Naming caution (20-UI-SPEC.md §B): companion/test_view_pages.py's own
  * guard against the string "preview-frame" is scoped to history_page's
  * own render() output only, not a site-wide ban — this class is correct
  * as named on Home. */
@@ -5503,11 +5514,10 @@ a.airline-card__zoom {
   color: var(--color-text);
 }
 
-.status-card__rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
+/* 21-04-PLAN.md Task 3 (D-04): .status-card__rows had exactly one
+ * consumer (the deleted _status_card_html()'s own <div>) and is
+ * deleted with it; .status-card__headline/--warn above survive — the
+ * strip now reuses both verbatim for its own next-update line. */
 
 /* --- 20-UI-SPEC.md §E: the fused Calendar card (D-14c) -----------------
  * A genuinely new pattern — a two-<form> card visually fused into one.

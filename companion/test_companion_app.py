@@ -3968,43 +3968,52 @@ def main():
         # --- Phase 18: Home page, quick actions, scoped settings saves ---
 
         def _home_page_renders_widgets():
-            # 20-06 (D-16) rebuilt Home: the Quick-actions card is gone
-            # (the screen/quiet-hours switches moved to Display, the
-            # Refresh-now button moved to Device), replaced by a hero
-            # row (the current picture in a `.preview-frame` figure
-            # beside a `.status-card` built on `layout.status_row()`)
-            # plus a full-width recent-flights section. Retargeted per
-            # 20-06-SUMMARY.md/20-12-PLAN.md (20-06/D-16).
+            # 21-04-PLAN.md Task 3 (D-04/D-05, Rule 1 — this task's own
+            # Home rebuild directly breaks this check's old assertions):
+            # the phase-20 hero/.status-card is gone, replaced by the
+            # shared Frame strip, three stat-tile elements and a
+            # .home-columns.home-picture-row holding the picture beside
+            # recent flights. Unlike 20-06's own rebuild, D-01 now puts
+            # the Screen/Quiet-hours instant-switch forms BACK on Home
+            # (inside the strip) — so their action attributes are no
+            # longer in the "must be absent" list; only the retired
+            # Quick-actions card copy and the Poll/Refresh-now form stay
+            # absent.
             status, _headers, body = http_request(base + "/", cookie=session_cookie)
             if status != 200:
                 return False, "expected 200 for GET /, got %d" % status
             text = body.decode("utf-8", errors="replace")
             for needle in (
                     '<h1 class="page-title">Home</h1>',
-                    'status-card" aria-labelledby="home-status-heading"',
-                    'class="status-row', 'class="home-hero"',
+                    'class="frame-strip stat-tile stat-tile--accent"',
+                    'class="dashboard-grid home-status-grid"',
+                    'class="home-columns home-picture-row"',
                     "Recent flights", 'href="/flights"',
                     'class="nav-group nav-group--advanced"'):
                 if needle not in text:
                     return False, "expected %r in the Home page" % needle
-            # The hero's left half renders either the .preview-frame
+            # The picture column renders either the .preview-frame
             # figure (a gallery entry exists) or the shared empty-state
             # block (none does yet, as in this fresh harness) — either
-            # is proof the hero row itself renders.
+            # is proof the picture column itself renders.
             if 'class="preview-frame"' not in text and "Nothing rendered yet." not in text:
-                return False, "expected either the preview-frame figure or its empty state in the Home hero"
+                return False, "expected either the preview-frame figure or its empty state on Home"
+            if 'action="%s"' % app_module.QUICK_DISPLAY_ROUTE not in text:
+                return False, "expected the Frame strip's Screen switch form on Home (D-01)"
+            if 'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE not in text:
+                return False, "expected the Frame strip's Quiet hours switch form on Home (D-01)"
             for absent in (
                     "Quick actions", "On the frame now",
-                    'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
-                    'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+                    "status-card__rows", "home-hero",
                     'action="%s"' % app_module.POLL_ROUTE):
                 if absent in text:
-                    return False, "expected %r to be absent from the rebuilt Home page (20-06/D-16)" % absent
+                    return False, "expected %r to be absent from the rebuilt Home page (D-04)" % absent
             return True, ""
         check(
-            "authenticated GET / renders the rebuilt Home page (20-06/D-16) with the hero preview-frame "
-            "figure, the status-card's status-row markup, and the recent-flights list under the grouped "
-            "Advanced navigation, and carries none of the retired quick-action forms",
+            "authenticated GET / renders the rebuilt Home page (D-01/D-04/D-05) with the Frame "
+            "strip's two switch forms, three stat-tile elements, the picture/recent-flights row, "
+            "and the recent-flights list under the grouped Advanced navigation, carrying none of "
+            "the retired Quick-actions card or Poll form",
             _home_page_renders_widgets)
 
         def _quick_display_toggle_round_trip():
