@@ -81,6 +81,12 @@ HARNESSES = [
     "companion/test_i18n.py",
     "companion/test_status_pages.py",
     "companion/test_view_pages.py",
+    # 22-01-PLAN.md Task 1 (D-02): the first browser-level harness in this
+    # repo (launches a real headless Chromium against a real
+    # companion/app.py subprocess) — skips cleanly (exit 0) when
+    # playwright/Chromium is unavailable, so its presence here never
+    # breaks a checkout without the dev-only browser dependency installed.
+    "companion/test_browser_ux.py",
 ]
 
 # Submission order only (readability of HARNESSES above stays untouched) —
@@ -91,6 +97,12 @@ HARNESSES = [
 # poll_cycle 3.8s, panel_preview 3.5s, status_pages 2.6s, pipeline_e2e 2.3s;
 # everything else under 1s each and left in HARNESSES' own list order.
 EXPECTED_SLOWEST = (
+    # 22-01-PLAN.md Task 1 (D-02): launches a real headless Chromium
+    # subprocess plus the companion/app.py subprocess it drives — the
+    # slowest single file by construction (two live processes and a real
+    # browser page load per check), placed first so it is in flight from
+    # the first moment rather than queued behind shorter harnesses.
+    "companion/test_browser_ux.py",
     "server/test_render.py",
     "server/test_poll_loop.py",
     "companion/test_companion_app.py",
