@@ -1053,11 +1053,19 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         # battery-low icon, per 10-UI-SPEC.md's Panel Screen Contract and
         # _build_empty_canvas()'s own precedent.
         was_battery_low = bool(poll_state.get("battery_low_active", False))
-        battery_low = apply_battery_hysteresis(load_battery_state(state_dir), was_battery_low)
+        # WR-02 fix (20-REVIEW.md): read battery_state.json ONCE per
+        # cycle - it is written concurrently, with no lock, by
+        # stub-server/byos_server.py on every device check-in, so a
+        # second read here could observe a different mV figure than
+        # the one that actually decided `battery_low`/`battery_changed`
+        # below, and the notification body would then describe a
+        # reading that never triggered the transition.
+        battery_mv = load_battery_state(state_dir)
+        battery_low = apply_battery_hysteresis(battery_mv, was_battery_low)
         battery_changed = battery_low != was_battery_low
         poll_state["battery_low_active"] = battery_low
         if battery_changed:
-            _notify_battery_transition(state_dir, poll_state, battery_low, load_battery_state(state_dir), device_cfg)
+            _notify_battery_transition(state_dir, poll_state, battery_low, battery_mv, device_cfg)
 
         # No provider was queried this cycle, so there is no new
         # observation to classify - carry the previously-persisted fault
@@ -1245,11 +1253,16 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # no-detection branches) needs it, either to thread into a render call
     # or to decide whether a hold-cycle re-render is warranted.
     was_battery_low = bool(poll_state.get("battery_low_active", False))
-    battery_low = apply_battery_hysteresis(load_battery_state(state_dir), was_battery_low)
+    # WR-02 fix (20-REVIEW.md): read battery_state.json ONCE per cycle -
+    # see the identical comment on the hold branch's own copy of this
+    # decision above for why a second read risks a body/decision
+    # mismatch.
+    battery_mv = load_battery_state(state_dir)
+    battery_low = apply_battery_hysteresis(battery_mv, was_battery_low)
     battery_changed = battery_low != was_battery_low
     poll_state["battery_low_active"] = battery_low
     if battery_changed:
-        _notify_battery_transition(state_dir, poll_state, battery_low, load_battery_state(state_dir), device_cfg)
+        _notify_battery_transition(state_dir, poll_state, battery_low, battery_mv, device_cfg)
 
     # --- Display pacing: which detection occupies the "current" slot -------
     #
