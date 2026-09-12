@@ -75,7 +75,7 @@ page render.
 """
 from datetime import datetime, timedelta, timezone
 
-from companion.wake import HOLD_QUIET_HOURS
+from companion import wake
 
 # --- The three frame states (D-03) --------------------------------------
 
@@ -154,7 +154,7 @@ def resolve_state(next_wake_iso, effective_interval_s, hold_reason, now):
     or `now` fails to parse: exactly the "no check-in recorded yet"
     case and any other degraded input.
     """
-    if hold_reason == HOLD_QUIET_HOURS:
+    if hold_reason == wake.HOLD_QUIET_HOURS:
         return STATE_HELD
     if not next_wake_iso or effective_interval_s is None:
         return STATE_UNKNOWN
@@ -207,6 +207,6 @@ def delay_sentence_template(next_wake_iso, effective_interval_s, hold_reason, no
     """
     if not next_wake_iso or effective_interval_s is None:
         return DELAY_UNKNOWN
-    if hold_reason == HOLD_QUIET_HOURS:
+    if hold_reason == wake.HOLD_QUIET_HOURS:
         return DELAY_HELD
     return DELAY_DUE
