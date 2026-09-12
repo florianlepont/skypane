@@ -524,6 +524,21 @@ EXPECTED_CHECK_COUNT = 215
 # directly against the real on-disk check(...) call count at execution
 # time (218/218 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 218
+# 21-07-PLAN.md Task 2 (D-14/R-10): +1. The masked feed-URL line
+# (host + "…", via the new _masked_calendar_url() helper reading
+# calendar_rules.configured_calendar_url(state_dir) — the one call site
+# in this module that reads a stored calendar secret back for display)
+# is folded into calendar_group()'s own connected branch. The two
+# existing secret-leak checks (render-function and real-served-HTTP-
+# bytes) are EXTENDED in place, not replaced: both now assert the
+# masked host + ellipsis fragment DOES appear while the token, path,
+# query-parameter name and whole raw URL still never do — no count
+# change for either. One new check: a hostile/unparseable stored value
+# ("not a url", the empty string, a javascript: URI) renders no masked-
+# URL line at all and raises nothing. 218 + 1 = 219, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (219/219 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 219
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -4700,6 +4715,11 @@ def main():
         _calendar_forbidden_vocabulary_absent)
 
     def _calendar_secret_never_reaches_render_function():
+        # 21-07-PLAN.md Task 2 (D-14/R-10): EXTENDED, not replaced — this
+        # check now also exercises the masked-URL line (state_dir wired
+        # through), asserting the host + "…" fragment DOES appear (proof
+        # the masking helper actually ran) while the token, path, query-
+        # parameter name and the whole raw URL still never do.
         token = "sk1-distinctive-token-2rv9"
         host = "private-crew-calendar.example.internal"
         path = "feeds/roster-export"
@@ -4713,17 +4733,21 @@ def main():
                 return False, "expected calendar_is_configured() to report True with the secret file written"
             ctx = dict(
                 _CALENDAR_BASE_CTX, calendar_configured=configured,
-                calendar_last_synced_at=None)
+                calendar_last_synced_at=None, state_dir=tmpdir)
             rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
-        for needle in (token, host, path, query_param, url):
+        if escape_html("%s…" % host) not in rendered:
+            return False, "expected the masked host + ellipsis fragment to appear once connected"
+        for needle in (token, path, query_param, url):
             if needle in rendered:
                 return False, "expected %r never to appear in the rendered page" % (needle,)
         return True, ""
     check(
-        "with the calendar secret file holding a URL carrying a distinctive token, render() never emits "
-        "the token, the host, the path segment, or the query-parameter name (T-16-SECRET)",
+        "with the calendar secret file holding a URL carrying a distinctive token, render() emits the "
+        "masked host + ellipsis fragment but never the token, the path segment, the query-parameter "
+        "name, or the whole raw URL (T-16-SECRET, extended by 21-07-PLAN.md Task 2 for the new masked-"
+        "URL line, D-14/R-10)",
         _calendar_secret_never_reaches_render_function)
 
     def _calendar_no_preview_no_count_in_rendered_page():
@@ -6754,6 +6778,10 @@ def main():
         def _calendar_secret_never_reaches_served_http_bytes():
             # 20-07-PLAN.md Task 1 (D-11): Calendar moved from Device to
             # Display this phase — retargeted from DEVICE_ROUTE.
+            # 21-07-PLAN.md Task 2 (D-14/R-10): EXTENDED, not replaced —
+            # the served bytes now legitimately carry the masked host +
+            # "…" fragment (the whole point of D-14); the token, path,
+            # query-parameter name and the whole raw URL still never do.
             status, _headers, body = http_request(
                 calendar_base + companion_app.DISPLAY_ROUTE, cookie=calendar_cookie)
             if status != 200:
@@ -6764,15 +6792,44 @@ def main():
             # recorded yet now renders the bare "Connected" verdict.
             if config_page.CALENDAR_STATUS_CONNECTED_VERDICT not in body_text:
                 return False, "expected the 'Connected' verdict (no sync recorded yet)"
-            for needle in (calendar_token, calendar_host, calendar_path, calendar_query_param, calendar_url):
+            if escape_html("%s…" % calendar_host) not in body_text:
+                return False, "expected the masked host + ellipsis fragment to be served once connected"
+            for needle in (calendar_token, calendar_path, calendar_query_param, calendar_url):
                 if needle in body_text:
                     return False, "expected %r never to appear in the served response body" % (needle,)
             return True, ""
         check(
             "with a calendar configured via its secret file to a URL carrying a distinctive token, a real "
-            "authenticated HTTP GET of the Settings page never serves the token, the host, the path "
-            "segment, or the query-parameter name in the response body (T-16-SECRET, real HTTP round trip)",
+            "authenticated HTTP GET of the Settings page serves the masked host + ellipsis fragment but "
+            "never the token, the path segment, the query-parameter name, or the whole raw URL in the "
+            "response body (T-16-SECRET, real HTTP round trip, extended by 21-07-PLAN.md Task 2 for the "
+            "new masked-URL line, D-14/R-10)",
             _calendar_secret_never_reaches_served_http_bytes)
+
+        def _calendar_hostile_stored_url_renders_no_masked_line_and_raises_nothing():
+            # 21-07-PLAN.md Task 2 (D-14/R-10): a stored value that
+            # cannot be parsed into a meaningful host must never crash
+            # the page and must never render a fabricated placeholder —
+            # the whole masked-URL <p> is simply omitted.
+            for hostile in ("not a url", "", "javascript:alert(1)"):
+                hostile_tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+                try:
+                    assert calendar_rules.save_calendar_url(hostile_tmpdir, hostile) is not None
+                    ctx = dict(
+                        _CALENDAR_BASE_CTX, calendar_configured=True,
+                        calendar_last_synced_at=None, state_dir=hostile_tmpdir)
+                    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+                finally:
+                    shutil.rmtree(hostile_tmpdir, ignore_errors=True)
+                if "calendar-masked-url" in rendered:
+                    return False, (
+                        "hostile value %r: expected no calendar-masked-url line at all" % (hostile,))
+            return True, ""
+        check(
+            "a hostile or unparseable stored calendar URL ('not a url', the empty string, a "
+            "javascript: URI) renders no calendar-masked-url line at all and raises nothing (D-14/R-10, "
+            "_masked_calendar_url()'s own fail-soft, never-fabricate contract)",
+            _calendar_hostile_stored_url_renders_no_masked_line_and_raises_nothing)
     finally:
         calendar_harness.stop()
         calendar_harness.cleanup()

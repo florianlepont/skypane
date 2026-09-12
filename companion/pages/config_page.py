@@ -12,6 +12,7 @@ server.poll_loop.run_once() call all live there, not here — this module
 only renders the button/copy for it.
 """
 import re
+from urllib.parse import urlsplit
 
 from companion import i18n  # D-05, 20-07-PLAN.md Task 1: the Display page's
 # three supersection headings/intros render through i18n.t() (Task 3
@@ -2181,9 +2182,46 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     )
 
 
+def _masked_calendar_url(url):
+    """host + "…" — never the path, query, fragment or userinfo of the
+    stored calendar feed URL (21-07-PLAN.md Task 2, D-14/R-10).
+
+    Parses with `urlsplit()` and returns ONLY its `netloc` plus an
+    ellipsis — a real URL parse, never a byte-offset truncation of the
+    raw secret string (a naive `url[:20] + "…"` would NOT be safe: a
+    short host could still leak leading path/query/token characters
+    depending on its length). On ANY failure — a falsy `url`, a
+    `ValueError` from `urlsplit()`, or a netloc that parses out empty —
+    this returns the empty string, and the caller omits its whole
+    masked-URL line entirely rather than render a fabricated placeholder
+    (21-UI-SPEC.md's own "omit, don't fabricate" Empty/Error
+    convention).
+
+    This is a deliberate, narrow widening of this module's write-only
+    convention for secret URLs (T-16-SECRET/T-17-SECRET): every OTHER
+    secret-URL field in this file (the Calendar card's own connect/
+    replace field, Notifications' topic-URL field) never reads its
+    stored value back for display at all. D-14/R-10 explicitly asks for
+    "host + '…'" once connected, which requires reading the value back
+    — this helper is the ONE place in the whole codebase that does, and
+    it is scoped as tightly as the requirement allows: host only, never
+    the path, query, fragment or userinfo, and only ever reached by
+    `calendar_group()`'s own connected-state branch below.
+    """
+    if not url:
+        return ""
+    try:
+        netloc = urlsplit(url).netloc
+    except ValueError:
+        return ""
+    if not netloc:
+        return ""
+    return "%s…" % netloc
+
+
 def calendar_group(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
-        errors=None, submitted=None):
+        errors=None, submitted=None, state_dir=None):
     """The Calendar card (21-07-PLAN.md Task 1, 21-UI-SPEC.md Section
     Anatomy E; D-13/D-14): ONE `<div class="page-section">`, in the
     "Look" supersection, after the Frame colours card (D-06, 21-05-
@@ -2215,6 +2253,15 @@ def calendar_group(
     call-site symmetry with every other group builder — there is
     nothing else here to repopulate.
 
+    21-07-PLAN.md Task 2 (D-14/R-10): `state_dir` (fully defaulted,
+    `None` when the caller has none to give) is the ONE new parameter
+    this task adds — it is read exactly once, only in the connected
+    branch below, purely to compute the masked feed-URL line via
+    `_masked_calendar_url()` (`calendar_rules.configured_calendar_url(
+    state_dir)`). This is the single call site in this module that
+    reads a stored calendar secret back for display; every other
+    reader of `configured` never touches the value itself.
+
     D-12 fix (carried forward): this card renders as a SIBLING of
     `<form id="settings-form">`, not a literal descendant — nothing
     inside it posts through the physical form any more.
@@ -2242,19 +2289,18 @@ def calendar_group(
     forces `configured` False) renders the write-only feed-URL field
     inside its own `<form method="post" action="{CALENDAR_CONNECT_
     ROUTE}">` with the primary "Connect calendar" button, unwrapped;
-    connected renders a `<p class="calendar-actions">` holding the SAME
-    connect form — now labelled "Replace" (`CALENDAR_REPLACE_BUTTON_
-    TEXT`) — behind a `<details class="calendar-url-disclosure">
+    connected renders a masked-URL line (host + "…", via `_masked_
+    calendar_url()` — 21-07-PLAN.md Task 2, D-14/R-10; OMITTED
+    entirely, not fabricated, when the mask cannot
+    be computed) followed by a `<p class="calendar-actions">` holding
+    the SAME connect form — now labelled "Replace" (`CALENDAR_REPLACE_
+    BUTTON_TEXT`) — behind a `<details class="calendar-url-disclosure">
     <summary class="text-link">Replace the feed URL</summary>`
     disclosure, plus the small grey Disconnect button, right-aligned on
-    the same line. 21-07-PLAN.md Task 2 adds the masked feed-URL line
-    (`<p class="calendar-masked-url">`) immediately before this row —
-    this task's own connected branch has no masked-URL markup yet, by
-    design (Task 2 is the one task in this plan that reads a stored
-    secret back for display; Task 1 stays a pure structural merge with
-    no new secret-reading capability at all). The write-only contract is
-    unchanged in either state: the input never carries a `value`
-    attribute (T-16-SECRET/T-17-SECRET/T-20-12).
+    the same line. The write-only contract is unchanged in either
+    state: the input never carries a `value` attribute (T-16-SECRET/
+    T-17-SECRET/T-20-12) — the masked line is a wholly separate, host-
+    only fragment, never derived from or fed back into that field.
 
     The drifted state additionally gets its own small Disconnect button
     (no Replace disclosure — drift's own verdict already reads "Not
@@ -2357,6 +2403,20 @@ def calendar_group(
     # rebinding and companion/test_config_page.py's own checks to
     # reference without retyping the path a third time.
     if configured:
+        # 21-07-PLAN.md Task 2 (D-14/R-10): the ONE call site in this
+        # module that reads a stored calendar secret back for display —
+        # host-only, via _masked_calendar_url()'s own real URL parse.
+        # `calendar_rules.configured_calendar_url()` already applies its
+        # own permission-drift guard (calendar_secret_mode_is_unsafe()),
+        # but `configured` being True here means that guard already
+        # passed upstream (calendar_is_configured()'s identical check),
+        # so this second read is consistent with the state this branch
+        # is already committed to rendering.
+        masked_url = _masked_calendar_url(
+            calendar_rules.configured_calendar_url(state_dir) if state_dir else "")
+        masked_url_html = (
+            '<p class="text-body calendar-masked-url">%s</p>' % escape_html(masked_url)
+            if masked_url else "")
         replace_form_html = (
             '<form method="post" action="/settings/calendar/connect" class="rule-add-form">'
             "%s"
@@ -2371,7 +2431,7 @@ def calendar_group(
         ) % (escape_html(i18n.t(CALENDAR_REPLACE_URL_SUMMARY)), replace_form_html)
         actions_html = (
             '<p class="calendar-actions">%s%s</p>' % (disclosure_html, disconnect_button_html))
-        state_branch_html = actions_html
+        state_branch_html = masked_url_html + actions_html
     else:
         connect_form_html = (
             '<form method="post" action="/settings/calendar/connect" class="rule-add-form">'
@@ -3215,7 +3275,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
                 calendar_group(
                     calendar_configured, calendar_drift, calendar_last_synced_at,
                     calendar_last_attempt_at, ctx.get("now"), calendar_entry_count,
-                    errors=errors, submitted=submitted),
+                    errors=errors, submitted=submitted, state_dir=ctx.get("state_dir")),
                 "page-section", "page-section--nested")
             if screens.GROUP_CALENDAR in groups else "")
         groups_html = ""
