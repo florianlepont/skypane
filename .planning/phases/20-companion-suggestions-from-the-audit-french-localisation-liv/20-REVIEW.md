@@ -65,6 +65,8 @@ One genuine security gap was found: `server/notify.py`'s transport does not disa
 
 ### CR-01: `server/notify.py` SSRF gate is bypassed by automatic redirect following
 
+**Status:** fixed in e2c71f7
+
 **File:** `server/notify.py:96-113` (`default_notify_transport()`)
 **Issue:** `send_notification()` validates `topic_url` once, up front, via `calendar_rules._url_is_safe(topic_url)` (scheme==https, hostname resolves to only public addresses). The module's own docstring explicitly claims this gives the topic URL "the exact scheme/hostname/private-IP gate `fetch_ics()` already applies ... re-applied per redirect hop" — but that claim is false for this module. `default_notify_transport()` calls `urllib.request.urlopen(request, timeout=timeout)` with no custom opener and no `follow_redirects=False`-equivalent. `urlopen()`'s default `OpenerDirector` includes `HTTPRedirectHandler`, which **automatically follows** 301/302/303/307 responses (including a `https`→`http` downgrade) with no re-invocation of `_url_is_safe()` on the redirect target.
 
@@ -92,17 +94,23 @@ A 3xx response then raises `urllib.error.HTTPError`, which `send_notification()`
 
 ### WR-01: Frame-silence notifications are unreachable for the entire duration of a hold state
 
+**Status:** fixed in 37e94cc
+
 **File:** `server/poll_loop.py:1035-1146` (early-return hold branch) and `1601-1626` (the one `_notify_silence_transition()` call site)
 **Issue:** `_notify_silence_transition()` is called exactly once per `run_once()` invocation, after the shared code path following every non-hold branch. The hold branch (`if hold_kind is not None:`) `return`s before ever reaching that call site. The module's own docstring for `_notify_silence_transition()` acknowledges this is deliberate ("never inside the early-return hold branch further up, which has no 'this cycle's own check-in' to reason about the same way") — but a `display_off` hold, per `run_once()`'s own docstring, "has no scheduled end": an operator can leave the display off indefinitely. If the physical device dies (dead battery, hardware fault, disconnected from Wi-Fi) *while* the display is off, no `frame_silent` notification will ever fire, for as long as the hold lasts — potentially forever, since nothing ever re-checks staleness during a hold. This silently defeats the D-25/D-27 monitoring feature for exactly the scenario (a genuinely dead frame) it exists to catch, whenever that failure happens to coincide with a display-off (or quiet-hours) window.
 **Fix:** Call `_notify_silence_transition()` (guarded by its own existing containment) from the hold branch too, using the same `history_db` connection already opened there for `_last_source_fault()`/`_record_history()` — staleness is a property of the device's last check-in row, independent of whether the panel itself is being repainted this cycle.
 
 ### WR-02: `_notify_battery_transition()` reads `battery_state.json` twice per transition, risking a body/decision mismatch
 
+**Status:** fixed in d1ad760
+
 **File:** `server/poll_loop.py:1056-1060` and `1222-1227`
 **Issue:** Both call sites compute `battery_low = apply_battery_hysteresis(load_battery_state(state_dir), was_battery_low)` and then, only `if battery_changed:`, call `_notify_battery_transition(state_dir, poll_state, battery_low, load_battery_state(state_dir), device_cfg)` — reading `battery_state.json` a *second* time to supply the `battery_mv` argument used to format the "Battery low — %s mV" notification body. `battery_state.json` is written concurrently by `stub-server/byos_server.py` on every device check-in with no lock between the two processes (the module's own docstring already documents this file as a read-only, externally-written input). Between the first read (which decided `battery_low`/`battery_changed`) and the second read (which formats the pushed message), the file can change, so the millivolt figure in the pushed notification can describe a different reading than the one that actually triggered the transition — a minor but real correctness gap, and an unnecessary duplicate file read either way.
 **Fix:** Read `battery_state.json` once per cycle into a local (e.g. `battery_mv = load_battery_state(state_dir)`), and pass that same value to both `apply_battery_hysteresis()` and `_notify_battery_transition()` at both call sites.
 
 ### WR-03: `layout.section_intro_html()` does not escape its `section_id` argument
+
+**Status:** fixed in 2d4e3d3
 
 **File:** `companion/layout.py:1600-1622`
 **Issue:** `section_intro_html(section_id, heading, description)` interpolates `heading` and `description` through `escape_html()` but writes `section_id` straight into `id="%s"` with no escaping at all:
@@ -121,6 +129,8 @@ Every current call site (`config_page.py`, `health_page.py`) passes a fixed modu
 ```
 
 ### WR-04: Misleading constant reuse — `notify.TEST_NOTIFICATION_TITLE`/`TEST_NOTIFICATION_BODY` double as the generic push title for unrelated battery/silence transitions
+
+**Status:** fixed in 9597918
 
 **File:** `server/notify.py:51-55`, used at `server/poll_loop.py:545` and `609`
 **Issue:** `TEST_NOTIFICATION_TITLE`/`TEST_NOTIFICATION_BODY` are documented as "The 'Send a test' button's own fixed title/body pair ... never templated" — i.e. named and scoped for one specific feature (`companion/app.py`'s `_handle_notifications_test_post()`). `poll_loop.py`'s `_notify_battery_transition()` and `_notify_silence_transition()` both reuse `notify.TEST_NOTIFICATION_TITLE` as the `title` argument for real battery-low/frame-silent pushes, which have nothing to do with the test button. This happens to be harmless today only because both features want the identical literal title text ("SkyPane"), but the naming actively misleads a future maintainer: renaming or changing `TEST_NOTIFICATION_TITLE`'s copy (e.g. to something test-specific like "SkyPane test") to improve the test-button UX would silently also change the title on every real battery/silence alert, and nothing in either call site's own code makes that coupling visible.
