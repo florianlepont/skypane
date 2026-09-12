@@ -26,8 +26,8 @@ created: 2026-09-12
 > layout.py` source, not from the phase 20 document's own prose.
 
 **Non-interactive run:** every open question below is resolved with a stated default
-and a one-line rationale, not left for the user. Two are flagged explicitly because
-they touch server logic, not just markup — see "Structural Notes for the Planner."
+and a one-line rationale, not left for the user. Seven are flagged explicitly (one of them, return_to, because
+it touches server logic, not just markup) — see "Structural Notes for the Planner."
 
 ---
 
@@ -105,7 +105,7 @@ Reused as-is — zero new colors, zero new accent uses, zero new reservations.
 |------|-------|----------------------|
 | Dominant (60%) | `--color-dominant` | Frame-colours card surface, merged Calendar card surface, Flights detail-row surface |
 | Secondary (30%) | `--color-secondary` | Sidebar/nav surface, now also the backdrop the new nav-status reminder sits on |
-| Accent (10%) | `--color-accent` | **Zero new reservations.** The Frame strip's own accent surface reuses `stat-tile--accent`'s existing top-border/accent-surface entry verbatim (D-05's own instruction: "no new colour tokens; the strip uses the accent surface"). The Frame-colours radiogroup rows reuse the exact `.theme-form .theme-option--active` 12%-wash idiom (already reserved) for the *selected row*, and the chip grid's own selected-chip mechanism (already reserved) for the selected theme — no third accent use is introduced. |
+| Accent (10%) | `--color-accent` | **Zero new reservations.** The Frame strip's own accent-bordered surface reuses `stat-tile--accent`'s existing top-border/accent-surface entry verbatim (D-05's own instruction: "no new colour tokens; the strip uses the accent-bordered surface"). The Frame-colours radiogroup rows reuse the exact `.theme-form .theme-option--active` 12%-wash idiom (already reserved) for the *selected row*, and the chip grid's own selected-chip mechanism (already reserved) for the selected theme — no third accent use is introduced. |
 | Destructive | not used | Calendar's small "Disconnect" button and every rule "Remove" button stay on the plain quiet-button treatment (no red) — matching this app's unbroken precedent (15-UI-SPEC.md, reaffirmed by 20-UI-SPEC.md's own Color table) |
 | Status ok/warn/error | `--color-status-ok/warn/error` | The strip's per-switch on/off dot (reusing `.quick-action--on/--off`'s existing left-edge colours, unchanged); the nav-status reminder's two dots (reusing `.dot--ok`/a new grey "off" dot — see §B); the Corroboration column's dot (unchanged, now the column's *only* visible content — see §F) |
 | Theme swatches | `_palette_hex(theme[...])` | Every swatch in the Frame-colours row list and the compact chip grid — computed from `server.panel_format.PALETTE_RGB`, never a hardcoded hex |
@@ -287,7 +287,7 @@ One helper, one write site: **`layout.frame_strip_html(ctx, return_to)`** (Claud
 }
 ```
 
-- **Card surface:** `.stat-tile.stat-tile--accent` reused verbatim — this is the literal instruction in D-05 ("the strip uses the accent surface (`stat-tile--accent`) so it reads as the 'control' area"). The strip's own `<h2>` sits where `.stat-tile__caption` normally would, but at the Section-heading role (22px serif), not the Label-voice caption role — this is a deliberate, singular exception: the strip is not one stat tile among three (it has its own two interactive controls and a headline, not one verdict), so it earns the same heading tier every other `.page-section`/`.theme-status` card uses, not the smaller caption tier a plain `stat_tile()` call would give it. This is why the strip is a hand-built `<div>`, not a `layout.stat_tile()` call — it borrows that function's CSS class, not its Python builder.
+- **Card surface:** `.stat-tile.stat-tile--accent` reused verbatim — this is the literal instruction in D-05 ("the strip uses the accent-bordered surface (`stat-tile--accent`) so it reads as the 'control' area"). The strip's own `<h2>` sits where `.stat-tile__caption` normally would, but at the Section-heading role (22px serif), not the Label-voice caption role — this is a deliberate, singular exception: the strip is not one stat tile among three (it has its own two interactive controls and a headline, not one verdict), so it earns the same heading tier every other `.page-section`/`.theme-status` card uses, not the smaller caption tier a plain `stat_tile()` call would give it. This is why the strip is a hand-built `<div>`, not a `layout.stat_tile()` call — it borrows that function's CSS class, not its Python builder.
 - **Switch cells:** `.quick-action`/`.quick-action--on`/`--off` reused byte-for-byte from the relocated `display_group()`/`quiet_hours_group()` markup (D-05's explicit instruction to "reuse the existing quick-action button styles") — same left-edge colour, same icon, same label/state/button anatomy. The only addition is the `return_to` hidden field (see Structural Notes) and the `.frame-strip__cell` layout-only class alongside `.quick-action`.
 - **Next-update cell:** reuses `.status-card__headline`/`.status-card__headline--warn` verbatim from phase 20's Home status card (now deleted elsewhere, but its CSS rule and contrast gate are kept — see Typography above). This is the "largest text in the strip" D-01 asks for: 16px semibold versus the switch cells' 16px-regular state text and 12px label — the visual hierarchy comes from *font-weight and being the only un-buttoned cell*, not from a bigger font size (there is no larger role left in the four-size scale to reach for).
 - **On/off dot idiom:** the switch cells do **not** carry a separate dot — `.quick-action--on`/`--off`'s own 4px left-edge colour (status-ok / 30%-muted-text) already *is* this app's on/off idiom for this exact component, unchanged since phase 18. Do not add a second dot inside `.quick-action__text`; that would be two competing state signals on one control (the same anti-duplication principle `status_row()`'s own docstring already states for verdict/detail).
@@ -382,7 +382,7 @@ One line, both nav renderers, between the brand (`site-title`) and the primary n
 - **Picture/flights row:** reuses `.home-columns` (existing 1-column-mobile / grid-desktop wrapper) with one new modifier, `.home-picture-row`, that sets the desktop track ratio to 3:2 (`3fr 2fr`) instead of `.home-columns`' other consumers' own ratios — scoped by the compound selector so no other `.home-columns` use anywhere else in the app is affected.
 - **Deleted:** `.home-hero`, `.preview-frame` (Home's copy — `history_page.py`'s own unrelated string-guard is untouched, see the phase-20 spec's own naming-caution note, still valid), `.status-card*`, `_status_card_html()`, `_hero_figure_html()`'s caller site inside the old hero (its own function body is unchanged, only its wrapper and neighbour change).
 - **Phone stacking (<700px):** strip cells wrap to one per line (§A); the three tiles collapse to one column below 480px (unchanged phase-19 breakpoint); the picture/flights row collapses to one column (picture first, by source order) below 1024px.
-- **"Pretty" checklist (D-05):** surface = `.stat-tile`/`.page-section` hairline-at-rest cards throughout, no ad hoc surfaces; border-radius = `--radius-control` (8px) on every card, `--radius-card` (10px) nowhere on this page (no overlay/floating element on Home); spacing = the one universal 24px sibling-card gap between the strip, the tiles section and the picture row; the strip's accent surface is the only accent-tinted region on the page, reading as "the control area" against the three neutral/ok/warn tiles below it — matching D-05's own explicit look description.
+- **"Pretty" checklist (D-05):** surface = `.stat-tile`/`.page-section` hairline-at-rest cards throughout, no ad hoc surfaces; border-radius = `--radius-control` (8px) on every card, `--radius-card` (10px) nowhere on this page (no overlay/floating element on Home); spacing = the one universal 24px sibling-card gap between the strip, the tiles section and the picture row; the strip's accent-bordered surface is the only accent-tinted region on the page, reading as "the control area" against the three neutral/ok/warn tiles below it — matching D-05's own explicit look description.
 
 ### D. "Frame colours" (D-06..D-12) — new card, replaces four chip grids
 
@@ -596,6 +596,21 @@ input:focus-visible + .frame-colours__row {
   gap: var(--space-md);
   margin: var(--space-sm) 0 0;
 }
+.calendar-disconnect-btn {
+  /* R-09: the one additive rule block for the small grey secondary button —
+   * the base `button` rule already supplies the quiet 4.5%-wash grey; this
+   * only makes it small and keeps it off the primary accent. */
+  min-height: 30px;
+  padding: 4px var(--space-sm);
+  font-size: 12px;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: var(--radius-control);
+}
+.calendar-disconnect-btn:hover, .calendar-disconnect-btn:focus-visible {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
 .calendar-masked-url {
   font-family: var(--font-mono);
   margin: var(--space-sm) 0 0;
@@ -604,7 +619,7 @@ input:focus-visible + .frame-colours__row {
 
 - **One card (D-13):** status row → (not connected: URL field + Connect button) or (connected: masked URL line + the replace/disconnect line) → "How it works" — all inside the *same* `<div class="page-section">`, superseding the phase-20 two-card split. The chip grid that used to sit in this card is gone (moved to §D).
 - **Replace as a text link (D-14):** `<details class="calendar-url-disclosure"><summary class="text-link">Replace the feed URL</summary>` — reusing the exact existing class name (`calendar-url-disclosure`) and exact existing copy (`CALENDAR_REPLACE_URL_SUMMARY`), with one new small CSS rule for `.text-link` if it does not already exist as a named class (verified: it does not — this app's plain prose links inherit the base `a` rule's accent colour with no dedicated class; `.text-link` here is a **new, trivial** one-line rule: `.text-link { color: var(--color-accent); text-decoration: underline; }`, applied to the `<summary>` only so it reads as a link-styled disclosure trigger rather than the default bold `<summary>` treatment `summary::marker`'s own accent-coloured triangle already signals as interactive).
-- **Cross-form Disconnect button (D-14):** the small grey "Disconnect" button must sit on the same visual line as the "Replace the feed URL" link — but Disconnect is a real state-changing action needing its own confirmed `<form>`, and that form cannot be a descendant of the `<details>` element's own sibling flow without an awkward nested-forms problem. Resolution: give the Disconnect `<form>` an `id`, render it as a data-only sibling (its one hidden field, no visible content), and give its **button** — rendered inline on the `.calendar-actions` line — a `form="calendar-disconnect-form"` attribute, the exact same cross-DOM submission idiom this codebase already uses for the dirty-bar's Save button. The button itself is a plain quiet `<button>` (30px height, no `.btn`-prefixed classes — **this codebase has no `.btn`/`.btn--secondary`/`.btn--small` class family**; every button is a bare `<button>` styled by the element selector, "small" and "grey" are simply what the unstyled base rule already looks like at 30px/36px height with its 4.5%-wash quiet treatment). `data-confirm`/`data-confirm-value`/the hidden `confirm` field are unchanged from phase 20's `calendar_disconnect_section()` — same confirmation mechanism, new position only.
+- **Cross-form Disconnect button (D-14):** the small grey "Disconnect" button must sit on the same visual line as the "Replace the feed URL" link — but Disconnect is a real state-changing action needing its own confirmed `<form>`, and that form cannot be a descendant of the `<details>` element's own sibling flow without an awkward nested-forms problem. Resolution: give the Disconnect `<form>` an `id`, render it as a data-only sibling (its one hidden field, no visible content), and give its **button** — rendered inline on the `.calendar-actions` line — a `form="calendar-disconnect-form"` attribute, the exact same cross-DOM submission idiom this codebase already uses for the dirty-bar's Save button. The button itself is a bare `<button>` carrying one new class, `.calendar-disconnect-btn` (**this codebase has no `.btn`/`.btn--secondary`/`.btn--small` class family** — every button is styled by the element selector), whose single rule block above (R-09) makes it small (30px, 12px text) and grey (a 6% text-colour wash with a 20% hairline), never the accent primary. `data-confirm`/`data-confirm-value`/the hidden `confirm` field are unchanged from phase 20's `calendar_disconnect_section()` — same confirmation mechanism, new position only.
 - **Masked URL (D-13):** `host + "…"` on one plain-body line, never the full token-bearing URL — unchanged write-only contract from phase 20, just relocated onto its own line inside the merged card.
 
 ### F. Compact Flights table (D-15/D-16)
@@ -671,7 +686,7 @@ With 6 columns (5 data + the "More" toggle) at the new 8px-horizontal padding, t
  * (Health, Airlines) gains this modifier. */
 table.data-table--flights td,
 table.data-table--flights th {
-  padding: 10px var(--space-sm);
+  padding: var(--space-sm) var(--space-sm); /* 8px both ways — token, not a literal; horizontal budget unchanged */
 }
 
 .flight-detail-row td {
@@ -694,8 +709,8 @@ table.data-table--flights th {
 .flight-detail-row--collapsed { display: none; }
 ```
 
-- **New script, `companion/static/flight-detail-toggle.js`** (Claude's Discretion resolved: a new file, not an extension of `list-filter.js`/`copy-button.js` — neither is a natural home, and this keeps the six-touch-point static-script contract's file count honest rather than overloading an unrelated script's responsibility). ES5, no inline handlers, matching every existing script's own IIFE/IIFE-guard convention: on load, adds `flight-detail-row--collapsed` to every `.flight-detail-row` and sets `aria-expanded="false"` on every `[data-row-toggle]` (both already the server-rendered default, so this is idempotent, not corrective); on click, toggles the class on the `aria-controls`-named row and flips `aria-expanded`, and swaps the button's own text between "More"/"Plus" and "Less"/"Moins" via a `data-more-text`/`data-less-text` attribute pair (the same "server escapes both strings once, script only ever writes back a value it already escaped" contract `freshness.js`'s pause labels and `copy-button.js`'s copied-text label both already establish).
-- **No-JS floor (D-15, locked):** the detail `<tr>` renders with no `hidden` attribute and no inline style — fully visible, immediately below its own summary row — whenever no script runs. This is why the CSS hide is a *class* the script itself adds, never a server-rendered `hidden`/CSS-only rule keyed off `.js` alone: a page that never runs any script (including one where `nav-dropdown.js`'s own `.js`-marking IIFE never fires) must show every detail row, and a page where scripts DO run but `flight-detail-toggle.js` itself is blocked by a stricter CSP directive than the rest of the app must *also* show every detail row — keying off a page-wide `.js` class would collapse the rows in that second case even though this specific script never ran to attach the reveal-on-click behaviour, silently hiding data with no way to get it back. The literal per-script class-at-load pattern avoids that trap.
+- **New script, `companion/static/flight-rows.js`** (Claude's Discretion resolved: a new file, not an extension of `list-filter.js`/`copy-button.js` — neither is a natural home, and this keeps the six-touch-point static-script contract's file count honest rather than overloading an unrelated script's responsibility). ES5, no inline handlers, matching every existing script's own IIFE/IIFE-guard convention: on load, adds `flight-detail-row--collapsed` to every `.flight-detail-row` and sets `aria-expanded="false"` on every `[data-row-toggle]` (both already the server-rendered default, so this is idempotent, not corrective); on click, toggles the class on the `aria-controls`-named row and flips `aria-expanded`, and swaps the button's own text between "More"/"Plus" and "Less"/"Moins" via a `data-more-text`/`data-less-text` attribute pair (the same "server escapes both strings once, script only ever writes back a value it already escaped" contract `freshness.js`'s pause labels and `copy-button.js`'s copied-text label both already establish).
+- **No-JS floor (D-15, locked):** the detail `<tr>` renders with no `hidden` attribute and no inline style — fully visible, immediately below its own summary row — whenever no script runs. This is why the CSS hide is a *class* the script itself adds, never a server-rendered `hidden`/CSS-only rule keyed off `.js` alone: a page that never runs any script (including one where `nav-dropdown.js`'s own `.js`-marking IIFE never fires) must show every detail row, and a page where scripts DO run but `flight-rows.js` itself is blocked by a stricter CSP directive than the rest of the app must *also* show every detail row — keying off a page-wide `.js` class would collapse the rows in that second case even though this specific script never ran to attach the reveal-on-click behaviour, silently hiding data with no way to get it back. The literal per-script class-at-load pattern avoids that trap.
 - **Mobile cards unchanged (D-16):** `_history_cards_html()`'s own `<details>`-based "More details" disclosure is untouched — this section only restructures the desktop `<table>`.
 - **Filter bar and lightbox (D-16):** unchanged; `data-filter-text`/`data-filter-group` attributes on the main `<tr>` are unaffected by adding a sibling `.flight-detail-row` — `list-filter.js`'s own row-count logic already keys off `data-filter-group`, not row adjacency, so a bare, unfiltered detail row sitting next to a filtered-out main row needs its own `hidden`-on-filter treatment too: extend the filter script's existing hide/show call to also target `tr.flight-detail-row[id="flight-detail-{n}"]` for the same `n` (a one-line addition to `list-filter.js`, flagged in Structural Notes).
 
@@ -734,6 +749,8 @@ table.data-table--flights th {
 
 ## Accessibility Floors
 
+- **Strip switch buttons:** the Screen/Quiet hours buttons reuse `.quick-action__form button` unchanged (`min-width: 96px`, the standard 30px/36px quiet-button height) — the same geometry they have on Display today, so no new touch-target floor applies to them; the 44px floor below concerns the new Frame colours rows only.
+
 - **Radiogroup semantics, Frame colours (D-08).** The 4-row assignment list carries `role="radiogroup"` on its `<ul>` with `aria-labelledby` pointing at the card's own `<h2 id="frame-colours-heading">` — the same pattern `theme_fieldset()`'s two existing grids and Calendar's chip grid already use (third/fourth/fifth consumer, not a new pattern). Each row's native `<input type="radio">` supplies the group's real selection semantics to assistive tech; the visual "selected row" treatment is a CSS consequence of that same `checked` state, never a separate ARIA attribute needing to be kept in sync.
 - **`aria-pressed`, deliberately not used on the strip's switches.** The Screen/Quiet-hours buttons are one-shot form submits that fully reload the page on the target state (`POST` → redirect → fresh server render) — they are not persistent client-side toggle buttons whose pressed-state must track live DOM changes (unlike Health's now-deleted pause button, which correctly used `aria-pressed` because it stayed on the page and changed state in place). The equivalent contract here is: the button's own visible text already names the action ("Switch off" when currently on), the adjacent `.quick-action__state` text already names the current state in plain words, and the full-page reload plus `flash_banner()` (already `role="status"`/`role="alert"`) announces the outcome after the redirect — three existing, already-audited mechanisms, not a fourth new one.
 - **Focus order, the strip.** Screen's submit button, then Quiet hours' submit button — source order matches visual left-to-right order; the next-update cell has no focusable element (read-only text).
@@ -761,7 +778,7 @@ table.data-table--flights th {
 
 ## Registry Safety
 
-Not applicable — no component registry of any kind. `flight-detail-toggle.js` (new) is hand-written, matching every other script in `companion/static/`.
+Not applicable — no component registry of any kind. `flight-rows.js` (new) is hand-written, matching every other script in `companion/static/`.
 
 | Registry | Blocks Used | Safety Gate |
 |----------|-------------|--------------|
@@ -775,7 +792,7 @@ Not applicable — no component registry of any kind. `flight-detail-toggle.js` 
 Run the headless sweep at **1280px** and **390px**, in **EN and FR**, and confirm each row below from the screenshots (matching `21-VALIDATION.md`'s own Manual-Only Verifications table):
 
 **Home (1280px)**
-- [ ] Order top-to-bottom: page header → Frame strip (accent surface, Screen/Quiet-hours cells + next-update text visibly the largest/boldest text in the strip) → three tiles (Frame/Battery/Flight data) in one row → "See details on Health" link → picture (left, wider) beside Recent flights (right, narrower), roughly 3:2.
+- [ ] Order top-to-bottom: page header → Frame strip (accent-bordered surface, Screen/Quiet-hours cells + next-update text visibly the largest/boldest text in the strip) → three tiles (Frame/Battery/Flight data) in one row → "See details on Health" link → picture (left, wider) beside Recent flights (right, narrower), roughly 3:2.
 - [ ] No `.status-card`, no `.home-hero` class anywhere in the rendered HTML.
 - [ ] No quick-action widget anywhere on the page except inside the strip.
 
@@ -802,7 +819,7 @@ Run the headless sweep at **1280px** and **390px**, in **EN and FR**, and confir
 - [ ] Nav reminder reads "Écran {allumé/éteint} · Heures calmes {activées/désactivées}" — fully French, no stray English word.
 
 **Cross-cutting**
-- [ ] No inline `<script>`, no 404 for any new static asset (`flight-detail-toggle.js`), `test_i18n.py` green, no `simple_mode`/`/ui-mode` string anywhere in `companion/`.
+- [ ] No inline `<script>`, no 404 for any new static asset (`flight-rows.js`), `test_i18n.py` green, no `simple_mode`/`/ui-mode` string anywhere in `companion/`.
 - [ ] No "Pause updates" button on Health.
 - [ ] Airlines: naming a new prefix's Step B shows the upload drop zone without visiting `?edit=1` first.
 
@@ -810,11 +827,16 @@ Run the headless sweep at **1280px** and **390px**, in **EN and FR**, and confir
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+Checked 2026-09-12 by gsd-ui-checker (sonnet); the two BLOCKs were fixed by the
+orchestrator in place and the report re-read against the edited sections.
 
-**Approval:** pending
+- [x] Dimension 1 Copywriting: PASS (FLAG accepted: "Replace" / "Disconnect" sit under their own disambiguating summary and card heading)
+- [x] Dimension 2 Visuals: PASS ("accent-bordered surface" wording; strip switch geometry stated in Accessibility Floors)
+- [x] Dimension 3 Color: PASS (nav reminder 14.42:1 / 14.36:1, next-update text ≈17.6:1 / ≈15.8:1 recomputed)
+- [x] Dimension 4 Typography: PASS (new elements inherit the site line-height; zero new sizes)
+- [x] Dimension 5 Spacing: PASS (`.data-table--flights` padding is `var(--space-sm)` both ways; horizontal budget unchanged)
+- [x] Dimension 6 Registry Safety: PASS
+- [x] `.calendar-disconnect-btn` has its one rule block (R-09); markup, prose and CSS agree
+- [x] Script name reconciled to `flight-rows.js` (R-12)
+
+**Verdict:** APPROVED for planning.
