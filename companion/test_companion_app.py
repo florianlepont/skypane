@@ -409,6 +409,27 @@ EXPECTED_CHECK_COUNT = 244  # 20-09-PLAN.md Task 2 (D-14c): +3 (a valid
 # call count at execution time (242/244 pass — the two documented WR-11
 # root-sandbox failures, unrelated to this plan), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 249  # 20-11-PLAN.md Task 1 (D-26/T-20-13): +5 (an
+# unauthenticated POST /settings/notifications/test redirects to /login;
+# with no stored topic URL it redirects with the notifications_test_
+# failed flash key and never calls notify.send_notification(); with a
+# stored URL it calls that function exactly once with the STORED url and
+# redirects with notifications_test_ok; a sender returning False
+# redirects with notifications_test_failed; a POST carrying its own
+# topic_url field is ignored in favour of the stored one). 244 + 5 = 249,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (247/249 pass — the two documented WR-11 root-sandbox
+# failures, unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 251  # 20-11-PLAN.md Task 3 (D-06): +2 (copy-
+# button.js/dirty-state.js each stay ES5-safe with no forbidden HTML-
+# writing/eval/network sink, copy-button.js reads its on-success
+# feedback text from data-copied-text, dirty-state.js reads its five
+# connector words from the dirty-bar element's own data-dirty-*
+# attributes, and each file's removed hardcoded literal survives only
+# as its own documented fallback). 249 + 2 = 251, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (249/251 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -3048,6 +3069,83 @@ def main():
             "companion.app.py's 4 new *_SCRIPT_ROUTE constants equal companion/layout.py's 4 new "
             "*_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each",
             _four_new_static_routes_dom_contract_guard)
+
+        # --- 20-11-PLAN.md Task 3 (D-06): copy-button.js/dirty-state.js's
+        # own screen-bound connector words move to server-rendered data-*
+        # attributes ---
+
+        def _copy_button_script_es5_safe_reads_data_copied_text():
+            js_path = os.path.join(HERE, "static", "copy-button.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "copy-button.js must not contain %r" % token
+            required = ("textContent", "addEventListener", "getAttribute")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in copy-button.js" % token
+            if "data-copied-text" not in src:
+                return False, "expected copy-button.js to read data-copied-text"
+            # D-06: the removed hardcoded literal survives ONLY as the
+            # documented fallback — exactly one occurrence of the quoted
+            # string, on the FALLBACK_FEEDBACK_TEXT declaration itself.
+            if src.count('"Copied"') != 1:
+                return False, (
+                    "expected exactly one \"Copied\" literal (the documented fallback), got %d"
+                    % src.count('"Copied"'))
+            return True, ""
+        check(
+            "copy-button.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/"
+            "insertAdjacentHTML/document.write/eval/fetch/XHR), reads its on-success feedback "
+            "text from each button's own data-copied-text attribute, and the removed hardcoded "
+            "\"Copied\" literal survives only as the one documented fallback (D-06)",
+            _copy_button_script_es5_safe_reads_data_copied_text)
+
+        def _dirty_state_script_es5_safe_reads_five_connector_attributes():
+            js_path = os.path.join(HERE, "static", "dirty-state.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "dirty-state.js must not contain %r" % token
+            required = ("textContent", "addEventListener", "getAttribute", "querySelector")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in dirty-state.js" % token
+            for attr in (
+                    "data-dirty-changed-suffix", "data-dirty-and", "data-dirty-list-and",
+                    "data-dirty-unsaved-singular", "data-dirty-unsaved-plural"):
+                if attr not in src:
+                    return False, "expected dirty-state.js to read %r" % attr
+            # D-06: each removed hardcoded connector word survives ONLY as
+            # its own documented fallback literal, never a second inline
+            # occurrence elsewhere in updateBar().
+            if src.count('"1 unsaved change"') != 1:
+                return False, "expected exactly one \"1 unsaved change\" literal (the fallback)"
+            if src.count('" unsaved changes"') != 1:
+                return False, "expected exactly one \" unsaved changes\" literal (the fallback)"
+            return True, ""
+        check(
+            "dirty-state.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/"
+            "insertAdjacentHTML/document.write/eval/fetch/XHR), reads all five connector words "
+            "from the dirty-bar element's own data-dirty-* attributes, and each removed "
+            "hardcoded literal survives only as its own documented fallback (D-06)",
+            _dirty_state_script_es5_safe_reads_five_connector_attributes)
 
         # --- 19-09-PLAN.md Task 3: freshness.js's own named guard (D-02) ---
 
@@ -6599,6 +6697,182 @@ def main():
             "an unauthenticated POST /settings/calendar/connect redirects to /login and writes nothing "
             "(D-14c, T-20-10)",
             _calendar_connect_route_unauthenticated_redirects_to_login)
+
+        # ==============================================================
+        # 20-11-PLAN.md Task 1 (D-26/T-20-13): "Send a test"'s own
+        # dedicated POST /settings/notifications/test route — session-
+        # gated, reads the topic URL from the stored config only, and
+        # never trusts a submitted topic_url field.
+        # ==============================================================
+
+        def _notifications_test_route_unauthenticated_redirects_to_login():
+            from companion.pages import config_page
+            harness = _InProcessHarness()
+            try:
+                status, headers, _b = http_request(
+                    harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                    method="POST", data=b"")
+                if status != 303:
+                    return False, "expected a 303 redirect for an unauthenticated POST, got %d" % status
+                if headers.get("Location") != "/login":
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "an unauthenticated POST /settings/notifications/test redirects to /login (D-26, T-20-10)",
+            _notifications_test_route_unauthenticated_redirects_to_login)
+
+        def _notifications_test_route_unconfigured_flashes_failure_and_never_calls_sender():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                session = _login(harness)
+                calls = []
+                original = notify_module.send_notification
+
+                def _fake_send(topic_url, title, body, timeout=5, transport=None):
+                    calls.append(topic_url)
+                    return True
+
+                notify_module.send_notification = _fake_send
+                try:
+                    status, headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST", data=b"", cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_FAILED) not in location:
+                    return False, "expected the notifications_test_failed flash key, got %r" % location
+                if calls:
+                    return False, "expected send_notification() to never be called with no stored URL"
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "with no stored topic URL, POST /settings/notifications/test redirects with the "
+            "notifications_test_failed flash key and never calls notify.send_notification() (D-26)",
+            _notifications_test_route_unconfigured_flashes_failure_and_never_calls_sender)
+
+        def _notifications_test_route_configured_calls_sender_once_and_flashes_success():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                stored_url = "https://ntfy.sh/skypane-test-topic-abc"
+                device_config.save_device_config(
+                    harness.tmpdir, notifications={
+                        "topic_url": stored_url, "battery_low": True,
+                        "frame_silent": True, "lang": "en"})
+                session = _login(harness)
+                calls = []
+                original = notify_module.send_notification
+
+                def _fake_send(topic_url, title, body, timeout=5, transport=None):
+                    calls.append(topic_url)
+                    return True
+
+                notify_module.send_notification = _fake_send
+                try:
+                    status, headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST", data=b"", cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_OK) not in location:
+                    return False, "expected the notifications_test_ok flash key, got %r" % location
+                if calls != [stored_url]:
+                    return False, (
+                        "expected send_notification() to be called exactly once with the stored "
+                        "url, got %r" % (calls,))
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "with a stored topic URL, POST /settings/notifications/test calls "
+            "notify.send_notification() exactly once with the stored URL and redirects with the "
+            "notifications_test_ok flash key (D-26)",
+            _notifications_test_route_configured_calls_sender_once_and_flashes_success)
+
+        def _notifications_test_route_sender_returning_false_flashes_failure():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                stored_url = "https://ntfy.sh/skypane-test-topic-def"
+                device_config.save_device_config(
+                    harness.tmpdir, notifications={
+                        "topic_url": stored_url, "battery_low": True,
+                        "frame_silent": True, "lang": "en"})
+                session = _login(harness)
+                original = notify_module.send_notification
+                notify_module.send_notification = lambda *a, **k: False
+                try:
+                    status, headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST", data=b"", cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_FAILED) not in location:
+                    return False, "expected the notifications_test_failed flash key, got %r" % location
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "a sender returning False redirects with the notifications_test_failed flash key (D-26)",
+            _notifications_test_route_sender_returning_false_flashes_failure)
+
+        def _notifications_test_route_ignores_a_submitted_topic_url_field():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                stored_url = "https://ntfy.sh/skypane-test-topic-ghi"
+                device_config.save_device_config(
+                    harness.tmpdir, notifications={
+                        "topic_url": stored_url, "battery_low": True,
+                        "frame_silent": True, "lang": "en"})
+                session = _login(harness)
+                calls = []
+                original = notify_module.send_notification
+
+                def _fake_send(topic_url, title, body, timeout=5, transport=None):
+                    calls.append(topic_url)
+                    return True
+
+                notify_module.send_notification = _fake_send
+                try:
+                    status, _headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST",
+                        data=urllib.parse.urlencode(
+                            {"topic_url": "https://attacker.example/forward-me"}).encode(),
+                        cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                if calls != [stored_url]:
+                    return False, (
+                        "expected send_notification() to receive the STORED url only, got %r"
+                        % (calls,))
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "a POST /settings/notifications/test carrying its own topic_url field is ignored in "
+            "favour of the stored one — the field is never read from the request body (T-20-13)",
+            _notifications_test_route_ignores_a_submitted_topic_url_field)
 
         def _calendar_sync_bypasses_the_throttle_via_min_interval_zero():
             """D-06's bypass, proven two ways.

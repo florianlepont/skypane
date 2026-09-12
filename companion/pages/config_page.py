@@ -59,6 +59,19 @@ RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
 THEME_PREVIEW_ALT_TEMPLATE = theme_preview.THEME_PREVIEW_ALT_TEMPLATE
 
+# 20-11-PLAN.md Task 2 (D-22..D-24, 20-UI-SPEC.md Section Anatomy H/copy
+# table E): the live preview's own alt text and caption strings, and its
+# `<img>` width/height — taken from the render pipeline's real served
+# dimensions (theme_preview.THEME_PREVIEW_SIZE), never a CSS
+# `aspect-ratio` guess (matching the chip grid's own UIR-07-informed
+# discipline). The live preview shares the identical crop/size the chip
+# grid's own `<img>` uses — only the rendered SCENE differs (the last
+# real runway event instead of the fixed fixture).
+THEME_LIVE_PREVIEW_WIDTH, THEME_LIVE_PREVIEW_HEIGHT = theme_preview.THEME_PREVIEW_SIZE
+THEME_LIVE_PREVIEW_ALT_TEMPLATE = "Live preview of the %s theme"
+THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE = "Preview with your last flight: %s"
+THEME_LIVE_PREVIEW_CAPTION_SAMPLE = "Preview with a sample flight"
+
 # The single definition of this route in the repository (06.6.4.1, D-05/
 # D-26). companion/app.py rebinds its own SETTINGS_ROUTE constant to this
 # value rather than re-typing the literal (06.6.4.1-07), mirroring
@@ -150,10 +163,16 @@ def scope_groups(scope, screen_id=None):
         return tuple(screen["everyday_groups"])
     if scope == SCOPE_DEVICE:
         return tuple(screen["advanced_groups"])
+    # 20-11-PLAN.md Task 1 (D-26): screens.GROUP_NOTIFICATIONS joins this
+    # legacy tuple too — every registered group must appear somewhere in
+    # SCOPE_ALL's fixed order, since render()/handle_post()'s own tests
+    # pin the invariant that the two live scopes' groups are disjoint and
+    # their union equals this tuple's own set exactly.
     return (
         screens.GROUP_THEME, screens.GROUP_RUNWAY, screens.GROUP_LED,
         screens.GROUP_QUIET_HOURS, screens.GROUP_WAKE_INTERVAL,
-        screens.GROUP_DISPLAY, screens.GROUP_CALENDAR)
+        screens.GROUP_DISPLAY, screens.GROUP_CALENDAR,
+        screens.GROUP_NOTIFICATIONS)
 
 
 def submitted_scope(form):
@@ -335,6 +354,50 @@ WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
 # comment above.
 WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
 
+# 20-11-PLAN.md Task 1 (D-26/D-28, 20-UI-SPEC.md Section Anatomy J/copy
+# table G): the Notifications group's own copy — a Device-only sixth
+# sibling of LED/Wake interval inside <form id="{SETTINGS_FORM_ID}">,
+# built against led_group()'s exact fieldset-free idiom.
+NOTIFICATIONS_SECTION_HEADING = "Notifications"
+NOTIFICATIONS_SECTION_CAPTION = (
+    "Get a push alert when the battery runs low or the frame stops "
+    "checking in.")
+NOTIFICATIONS_SECTION_CAPTION_ID = "notifications-caption"
+# D-26 amended (20-CONTEXT.md's Resolutions): write-only, like the
+# calendar feed URL — never rendered back, not partially masked. The
+# status row reports only whether a URL is stored (T-20-12).
+NOTIFICATIONS_STATUS_CONFIGURED_VERDICT = "Configured"
+NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT = "Not configured"
+NOTIFICATIONS_URL_FIELD_LABEL = "Push topic URL"
+NOTIFICATIONS_URL_HINT = (
+    "Paste your ntfy.sh topic URL (or a self-hosted one). Stored on "
+    "the server and never shown back here — pasting a new one "
+    "replaces the old.")
+NOTIFICATIONS_URL_HINT_ID = "notifications-url-hint"
+NOTIFICATIONS_REPLACE_URL_SUMMARY = "Replace the URL"
+# A shape bound against an absurd paste, matching CALENDAR_URL_MAX_LEN's
+# own established rationale exactly — the one arbiter of an acceptable
+# topic URL stays server/notify.py's send-time _url_is_safe() gate, not
+# a second definition here.
+NOTIFICATIONS_URL_MAX_LEN = 2048
+NOTIFICATIONS_BATTERY_LABEL = "Battery low"
+NOTIFICATIONS_SILENT_LABEL = "Frame silent"
+NOTIFICATIONS_TEST_BUTTON_TEXT = "Send a test"
+# The sole accepted submitted value for each checkbox (D-01), mirroring
+# LED_CHECKBOX_VALUE/QUIET_HOURS_CHECKBOX_VALUE/DISPLAY_CHECKBOX_VALUE's
+# own rationale exactly: shared by notifications_group()'s markup and
+# handle_post()'s validator so the two can never drift apart.
+NOTIFICATIONS_BATTERY_CHECKBOX_VALUE = "on"
+NOTIFICATIONS_SILENT_CHECKBOX_VALUE = "on"
+# companion/app.py rebinds this rather than retyping the literal,
+# mirroring CALENDAR_CONNECT_ROUTE's own rebinding convention (app.py
+# imports this module, so the reverse import would be a cycle). Unlike
+# the calendar Connect route, this one is a pure immediate action with
+# no field of its own to validate — see _handle_notifications_test_
+# post()'s own docstring in companion/app.py.
+NOTIFICATIONS_TEST_ROUTE = "/settings/notifications/test"
+ERROR_NOTIFICATIONS_URL_TOO_LONG = "That link is too long."
+
 # 12-UI-SPEC.md Copywriting Contract, locked verbatim (D-02, 12-CONTEXT.md).
 # Unlike every other caption on this page, this one does not reuse the
 # generic "applies on the next scheduled poll" clause: while the display is
@@ -398,6 +461,21 @@ STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
 # the brief window before the script executes, would otherwise show
 # this raw string).
 DIRTY_BAR_INITIAL_TEXT = "Unsaved changes"
+
+# D-06 (20-11-PLAN.md Task 3): the five connector words
+# companion/static/dirty-state.js's own updateBar() used to hardcode in
+# English — now rendered, translated, as data-* attributes on the same
+# `.dirty-bar` element that script already looks up
+# (`document.querySelector("[data-dirty-bar]")`), the same shape
+# freshness.js already uses for data-pause-text/data-resume-text. Each
+# constant's own English value is also that script's documented
+# fallback literal, so the two can never silently disagree about what
+# "missing" degrades to.
+DIRTY_CHANGED_SUFFIX = " changed"
+DIRTY_AND = " and "
+DIRTY_LIST_AND = ", and "
+DIRTY_UNSAVED_SINGULAR = "1 unsaved change"
+DIRTY_UNSAVED_PLURAL = " unsaved changes"
 
 # Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
 # row verbatim (D-17); "{n}" is filled in with a server-computed
@@ -717,6 +795,13 @@ FLASH_CALENDAR_SYNC_DEFERRED = "calendar_sync_deferred"
 FLASH_CALENDAR_CONNECT_OK = "calendar_connect_ok"
 FLASH_CALENDAR_CONNECT_INVALID = "calendar_connect_invalid"
 
+# 20-11-PLAN.md Task 1 (D-26): the two outcomes POST /settings/
+# notifications/test can produce — companion/app.py rebinds both,
+# mirroring FLASH_CALENDAR_CONNECT_OK/_INVALID's own rebinding pattern
+# immediately above.
+FLASH_NOTIFICATIONS_TEST_OK = "notifications_test_ok"
+FLASH_NOTIFICATIONS_TEST_FAILED = "notifications_test_failed"
+
 
 def _field_error_html(errors, field, control_id):
     """D-07 (19-07-PLAN.md Task 2): the empty string when `field` carries
@@ -903,6 +988,20 @@ def _theme_chip_grid_html(
     "N .theme-chip.theme-chip--compact entries") — the grid-level
     `theme-chip-grid--compact` modifier alone has no chip-shrinking rule
     of its own and would silently do nothing without this.
+
+    20-11-PLAN.md Task 2 (D-24): every chip's own `<label>` ALSO gains one
+    new attribute naming the theme's own live-render path (the exact
+    attribute name `companion/static/theme-preview.js`, 20-08, already
+    reads off the changed radio input's parent `<label>`). Added
+    additively, on every grid this function renders (the compact variant
+    included, D-24's own "additive" instruction): the script's own guard
+    clause returns early on any page with no `.theme-live-preview`, so a
+    page that only has the compact grid (Calendar, the rules add-form)
+    inherits the new attribute harmlessly. The chip's own `<img>` src is
+    UNCHANGED — still the fixed, non-live preview, still lazily loaded —
+    only the new attribute is added; the live theme preview's own image
+    (a sibling element `theme_fieldset()` renders above the grid) is
+    what that new attribute is ever read to update.
     """
     chips = []
     for theme_id in device_config.THEME_IDS:
@@ -919,7 +1018,7 @@ def _theme_chip_grid_html(
         departing_hex = _palette_hex(theme["departing_index"])
         arriving_hex = _palette_hex(theme["arriving_index"])
         chips.append(
-            '<label class="%s">'
+            '<label class="%s" data-preview-src="%s%s.png?live=1">'
             '<input type="radio" name="%s" value="%s" class="visually-hidden"%s>'
             '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
             'width="320" height="120" loading="lazy" style="background:%s">'
@@ -933,7 +1032,8 @@ def _theme_chip_grid_html(
             '<span class="theme-chip__check">%s<span class="visually-hidden">%s</span></span>'
             "</label>"
             % (
-                chip_class, escape_html(field_name), escaped_id, checked,
+                chip_class, THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
+                escape_html(field_name), escaped_id, checked,
                 THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
                 escape_html(i18n.t(THEME_PREVIEW_ALT_TEMPLATE) % label),
                 escape_html(departing_hex),
@@ -950,9 +1050,72 @@ def _theme_chip_grid_html(
     return '<div class="%s"%s>%s</div>' % (grid_class, attr_html, "".join(chips))
 
 
+def _theme_live_preview_html(current_theme_id, state_dir):
+    """The `<figure class="theme-live-preview">` `theme_fieldset()`
+    renders directly above the chip grid (D-22..D-24, 20-11-PLAN.md
+    Task 2, 20-UI-SPEC.md Section Anatomy H/copy table E).
+
+    The `<img src>` is `{THEME_PREVIEW_ROUTE_PREFIX}{theme_id}.png?live=1`
+    for the SAVED theme (`current_theme_id`, membership-tested against
+    `device_config.THEMES` before ever reaching a path component —
+    T-20-14, the same discipline `theme_fieldset()`'s own single-theme
+    branch already applies), eagerly loaded (the one eagerly-loaded
+    image on this page — every chip's own preview stays lazily loaded)
+    and explicit `width`/`height` from the render pipeline's real
+    served dimensions (`theme_preview.THEME_PREVIEW_SIZE`), never a
+    CSS `aspect-ratio` guess. Without JavaScript this `<img>` never
+    changes — `companion/static/theme-preview.js` (20-08) is what swaps
+    it on chip selection; the server-rendered `src` here IS D-24's
+    documented no-JS floor.
+
+    The caption reads the most recent runway event's callsign through
+    the SAME connection helper `_rule_suggestion_chips_html()` already
+    uses (`history_db.open_db()`/`recent_runway_events(limit=1)`) —
+    never a second, independently-opened connection this page does not
+    already make — degrading to the sample-flight wording on absolutely
+    any exception (a missing/locked history.db, no rows at all), never
+    raising and never a 500. This read never affects the `<img>` itself:
+    the `?live=1` route resolves the event server-side on its own, so a
+    failed read here only changes which caption sentence renders.
+    `state_dir` may be falsy (matching every other optional-state_dir
+    call site in this file, e.g. `runway_fieldset()`'s own `ctx.get(
+    "runway_images")` pattern) — this degrades to the sample caption
+    exactly like a genuine read failure would.
+    """
+    live_theme_id = (
+        current_theme_id if current_theme_id in device_config.THEMES
+        else device_config.DEFAULT_THEME_ID)
+    label = device_config.theme_label(live_theme_id)
+    callsign = None
+    if state_dir:
+        try:
+            with history_db.open_db(state_dir) as conn:
+                rows = history_db.recent_runway_events(conn, limit=1)
+            if rows:
+                callsign = rows[0].get("callsign")
+        except Exception:
+            callsign = None
+    if callsign:
+        caption_text = i18n.t(THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE) % callsign
+    else:
+        caption_text = i18n.t(THEME_LIVE_PREVIEW_CAPTION_SAMPLE)
+    return (
+        '<figure class="theme-live-preview">'
+        '<img class="theme-live-preview__image" src="%s%s.png?live=1" '
+        'width="%d" height="%d" loading="eager" alt="%s">'
+        '<figcaption class="text-label">%s</figcaption>'
+        "</figure>"
+    ) % (
+        THEME_PREVIEW_ROUTE_PREFIX, escape_html(live_theme_id),
+        THEME_LIVE_PREVIEW_WIDTH, THEME_LIVE_PREVIEW_HEIGHT,
+        escape_html(i18n.t(THEME_LIVE_PREVIEW_ALT_TEMPLATE) % label),
+        escape_html(caption_text),
+    )
+
+
 def theme_fieldset(
         current_theme_id, current_theme_arriving=None, errors=None, submitted=None,
-        next_wake_clock=None):
+        next_wake_clock=None, state_dir=None):
     """D-04: a read-only theme status block when exactly one theme is
     registered (`len(device_config.THEME_IDS) == 1`) — a one-option radio
     group has no real decision value. Falls back to the editable D-01
@@ -1045,6 +1208,24 @@ def theme_fieldset(
     reused rather than duplicated with a second seam. The single-theme
     read-only branch below has no radio group at all (a one-option
     "choice" is not one), so it gains neither attribute.
+
+    20-11-PLAN.md Task 2 (D-22..D-24, 20-UI-SPEC.md Section Anatomy H/
+    copy table E): the multi-theme branch gains a `<figure class=
+    "theme-live-preview">` directly above the chip grid — `_theme_live_
+    preview_html()` below builds it from `current_theme_id` (the SAVED
+    value, never `effective_theme_id`'s own submitted/pending value:
+    D-24's own no-JS floor is "the preview shows the saved theme",
+    which must hold even while a rejected save is being redisplayed
+    with the chip grid's own selection repopulated from the submission)
+    and `state_dir` (new, optional, defaulting to `None` so every
+    pre-Task-2 call site keeps rendering byte-identical output — the
+    single-theme read-only branch above never had a chip grid to sit a
+    preview above, and gains none here either). The chip grid itself
+    (`first_grid` below) is UNCHANGED beyond the new live-render-path
+    attribute each chip's own `<label>` gains
+    (`_theme_chip_grid_html()`'s own Task 2 docstring paragraph) — the
+    18 thumbnails still render the fixed fictional scene, still
+    comparable side by side.
     """
     caption_html = (
         '<p class="text-label section-caption" id="%s">%s</p>'
@@ -1086,6 +1267,7 @@ def theme_fieldset(
             escape_html(i18n.t("current")),
         )
 
+    live_preview_html = _theme_live_preview_html(current_theme_id, state_dir)
     effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
     first_grid_attr = 'role="radiogroup" aria-labelledby="%s"%s' % (
         escape_html(THEME_GROUP_HEADING_ID), _describedby_attr(THEME_SECTION_CAPTION_ID))
@@ -1127,6 +1309,7 @@ def theme_fieldset(
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading" id="%s">%s</h2>'
         "%s"
+        "%s"
         "%s%s"
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="theme_arriving_enabled" id="%s" value="%s"%s%s> %s'
@@ -1140,6 +1323,7 @@ def theme_fieldset(
         escape_html(THEME_GROUP_HEADING_ID),
         escape_html(i18n.t("Theme")),
         caption_html,
+        live_preview_html,
         first_grid, theme_error_html,
         escape_html(THEME_ARRIVING_TOGGLE_ID),
         escape_html(ARRIVING_CHECKBOX_VALUE),
@@ -1661,6 +1845,155 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         value_attr, error_attrs,
         error_html,
     )
+
+
+def notifications_group(
+        configured, current_battery_low, current_frame_silent,
+        errors=None, submitted=None):
+    """The Notifications settings group (D-26/D-28, 20-11-PLAN.md Task 1,
+    20-UI-SPEC.md Section Anatomy J/copy table G): a sixth sibling of
+    the LED/Wake interval groups inside `<form id="{SETTINGS_FORM_ID}">`,
+    Device-only (`screens.GROUP_NOTIFICATIONS` is never a member of
+    Display's `everyday_groups` or the legacy SCOPE_ALL tuple) — built
+    against `led_group()`'s exact `.theme-status`/`<h2 class=
+    "text-heading">` fieldset-free idiom.
+
+    **Write-only URL, matching `calendar_connect_section()`'s established
+    contract (T-20-12)**: `configured` is a bare bool — never the URL
+    itself, never a masked fragment of it. `layout.status_row("",
+    verdict, "", state)` reports only whether a topic URL is stored; the
+    text input always renders with NO `value` attribute and nothing
+    derived from the stored URL, in both states. Wrapped in
+    `<details><summary>Replace the URL</summary>` while `configured` is
+    true, unwrapped otherwise — the identical disclosure shape
+    `calendar_connect_section()` already uses for the identical reason.
+
+    Unlike `calendar_connect_section()`, this field is NOT a dedicated
+    route: it is a plain member of the tracked settings form, waiting on
+    the page-wide Save exactly like every other Device field (the
+    plan's own explicit instruction — "All three controls are part of
+    #settings-form and wait on Save"). Only the "Send a test" button
+    (`notifications_test_section()` below) is its own immediate-POST
+    form, a sibling of `#settings-form` — mirroring the Calendar Connect
+    form's/the rules add-form's own reasoning for that identical shape:
+    an immediate action must never wait on, or nest inside, the
+    page-wide Save form (D-19/Pitfall 1).
+
+    19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
+    defaulted) let a rejected save repopulate both checkboxes from the
+    submission and render each field's own error message — the topic
+    URL has no repopulation (nothing to repopulate; a write-only field),
+    matching `calendar_connect_section()`'s identical omission.
+    """
+    status_html = layout.status_row(
+        "",
+        i18n.t(
+            NOTIFICATIONS_STATUS_CONFIGURED_VERDICT if configured
+            else NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT),
+        "",
+        "ok" if configured else "warn")
+
+    url_error_attrs = _field_error_attrs(
+        errors, "notifications_topic_url", "notifications-topic-url",
+        hint_id=NOTIFICATIONS_URL_HINT_ID)
+    url_error_html = _field_error_html(
+        errors, "notifications_topic_url", "notifications-topic-url")
+    field_html = (
+        '<div class="rule-add-form__field">'
+        '<label for="notifications-topic-url">%s</label>'
+        '<input type="text" id="notifications-topic-url" '
+        'name="notifications_topic_url" autocomplete="off" '
+        'spellcheck="false" maxlength="%s"%s>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
+        "%s"
+        "</div>"
+    ) % (
+        escape_html(i18n.t(NOTIFICATIONS_URL_FIELD_LABEL)),
+        NOTIFICATIONS_URL_MAX_LEN, url_error_attrs,
+        escape_html(NOTIFICATIONS_URL_HINT_ID), escape_html(i18n.t(NOTIFICATIONS_URL_HINT)),
+        url_error_html,
+    )
+    if configured:
+        field_html = (
+            '<details class="calendar-url-disclosure"><summary>%s</summary>%s</details>'
+        ) % (escape_html(i18n.t(NOTIFICATIONS_REPLACE_URL_SUMMARY)), field_html)
+
+    battery_checked = _submitted_checkbox_checked(
+        submitted, "notifications_battery", NOTIFICATIONS_BATTERY_CHECKBOX_VALUE,
+        current_battery_low)
+    battery_error_attrs = _field_error_attrs(
+        errors, "notifications_battery", "notifications-battery")
+    battery_error_html = _field_error_html(
+        errors, "notifications_battery", "notifications-battery")
+
+    silent_checked = _submitted_checkbox_checked(
+        submitted, "notifications_silent", NOTIFICATIONS_SILENT_CHECKBOX_VALUE,
+        current_frame_silent)
+    silent_error_attrs = _field_error_attrs(
+        errors, "notifications_silent", "notifications-silent")
+    silent_error_html = _field_error_html(
+        errors, "notifications_silent", "notifications-silent")
+
+    return (
+        '<div class="theme-status" %s="%s">'
+        '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
+        "%s"
+        "%s"
+        '<label class="settings-checkbox">'
+        '<input type="checkbox" name="notifications_battery" value="%s"%s%s> %s'
+        "</label>"
+        "%s"
+        '<label class="settings-checkbox">'
+        '<input type="checkbox" name="notifications_silent" value="%s"%s%s> %s'
+        "</label>"
+        "%s"
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html(i18n.t(NOTIFICATIONS_SECTION_HEADING)),
+        escape_html(i18n.t(NOTIFICATIONS_SECTION_HEADING)),
+        escape_html(NOTIFICATIONS_SECTION_CAPTION_ID), escape_html(i18n.t(NOTIFICATIONS_SECTION_CAPTION)),
+        status_html,
+        field_html,
+        escape_html(NOTIFICATIONS_BATTERY_CHECKBOX_VALUE), " checked" if battery_checked else "",
+        battery_error_attrs, escape_html(i18n.t(NOTIFICATIONS_BATTERY_LABEL)),
+        battery_error_html,
+        escape_html(NOTIFICATIONS_SILENT_CHECKBOX_VALUE), " checked" if silent_checked else "",
+        silent_error_attrs, escape_html(i18n.t(NOTIFICATIONS_SILENT_LABEL)),
+        silent_error_html,
+    )
+
+
+def notifications_test_section():
+    """The "Send a test" button (D-26, 20-11-PLAN.md Task 1): its own
+    small `<form method="post" action="{NOTIFICATIONS_TEST_ROUTE}">`, a
+    sibling of `<form id="{SETTINGS_FORM_ID}">` — mirroring
+    `calendar_connect_section()`'s/the rules add-form's own reasoning
+    for the identical shape (D-19/Pitfall 1: an immediate action's own
+    `<form>` must never nest inside the settings form). `render()`
+    renders this immediately after `</form>` closes, on the Device
+    scope only (`screens.GROUP_NOTIFICATIONS` is never a member of
+    `scope_groups(SCOPE_DISPLAY)` or the legacy SCOPE_ALL tuple, so this
+    section is correctly omitted from both).
+
+    The action attribute below is written as literal path text, not a
+    `%s` interpolation of `NOTIFICATIONS_TEST_ROUTE` — matching
+    `calendar_connect_section()`'s own established convention for the
+    identical class of grep (this module's acceptance gate greps the
+    literal form-action text).
+
+    Carries no `data-confirm`: sending a test push is neither
+    destructive nor state-changing on this side — the handler
+    (`companion/app.py`'s `_handle_notifications_test_post()`) reads the
+    stored URL from disk and never trusts the request body (T-20-13),
+    which is the real mitigation, not a confirmation dialog.
+    """
+    return (
+        '<form method="post" action="/settings/notifications/test" '
+        'class="notifications-test-form">'
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % escape_html(i18n.t(NOTIFICATIONS_TEST_BUTTON_TEXT))
 
 
 def display_group(current_display_enabled, errors=None, submitted=None):
@@ -2668,6 +3001,17 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # then this degrades to a falsy default rather than raising, matching
     # how calendar_configured/calendar_last_synced_at above already read.
     calendar_drift = ctx.get("calendar_drift")
+    # 20-11-PLAN.md Task 1 (D-26/D-28): read fresh from the SAME device_cfg
+    # dict already loaded above, mirroring current_led_enabled's own
+    # .get()-with-a-documented-default shape — a device_config.json
+    # predating this field (or a genuinely absent one) resolves through
+    # server.device_config.DEFAULT_NOTIFICATIONS, never a KeyError.
+    current_notifications = device_cfg.get("notifications") or device_config.DEFAULT_NOTIFICATIONS
+    notifications_configured = bool(current_notifications.get("topic_url"))
+    current_notifications_battery = current_notifications.get(
+        "battery_low", device_config.DEFAULT_NOTIFICATIONS["battery_low"])
+    current_notifications_silent = current_notifications.get(
+        "frame_silent", device_config.DEFAULT_NOTIFICATIONS["frame_silent"])
     cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
     # 19-12-PLAN.md Task 3 (D-13): the same wake.next_wake_at_iso() +
     # layout.local_clock_text() pipeline home_page.py's Frame tile uses,
@@ -2721,12 +3065,18 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # outside it in the DOM — narrowing any of those three JS lookups to
     # a form-scoped query would silently break the bar.
     dirty_bar_html = (
-        '<div class="dirty-bar" data-dirty-bar hidden role="status">'
+        '<div class="dirty-bar" data-dirty-bar hidden role="status" '
+        'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
+        'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
+        'data-dirty-unsaved-plural="%s">'
         "<span data-dirty-count>%s</span>"
         '<button type="submit" class="dirty-bar__save" form="%s">%s</button>'
         '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
         "</div>"
     ) % (
+        escape_html(i18n.t(DIRTY_CHANGED_SUFFIX)), escape_html(i18n.t(DIRTY_AND)),
+        escape_html(i18n.t(DIRTY_LIST_AND)), escape_html(i18n.t(DIRTY_UNSAVED_SINGULAR)),
+        escape_html(i18n.t(DIRTY_UNSAVED_PLURAL)),
         escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT)), SETTINGS_FORM_ID,
         escape_html(i18n.t("Save settings")), escape_html(i18n.t("Cancel")),
     )
@@ -2750,7 +3100,8 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     builders = {
         screens.GROUP_THEME: lambda: theme_fieldset(
             current_theme_id, current_theme_arriving,
-            errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
+            errors=errors, submitted=submitted, next_wake_clock=next_wake_clock,
+            state_dir=ctx.get("state_dir")),
         screens.GROUP_RUNWAY: lambda: runway_fieldset(
             current_runway_id, ctx.get("runway_images") or (),
             errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
@@ -2770,7 +3121,19 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
             calendar_last_attempt_at, ctx.get("now"), calendar_entry_count,
             current_calendar_theme_id, current_theme_id,
             errors=errors, submitted=submitted, simple_mode=ctx.get("simple_mode")),
+        screens.GROUP_NOTIFICATIONS: lambda: notifications_group(
+            notifications_configured, current_notifications_battery,
+            current_notifications_silent, errors=errors, submitted=submitted),
     }
+    # 20-11-PLAN.md Task 1 (D-19/Pitfall 1): "Send a test" is its own
+    # immediate-POST form and must never nest inside <form id=
+    # "settings-form"> — rendered as a sibling, after </form> closes,
+    # exactly like calendar_connect_html/calendar_disconnect_html below.
+    # screens.GROUP_NOTIFICATIONS is never a member of scope_groups(
+    # SCOPE_DISPLAY) or the legacy SCOPE_ALL tuple, so this is correctly
+    # "" on both of those scopes.
+    notifications_test_html = (
+        notifications_test_section() if screens.GROUP_NOTIFICATIONS in groups else "")
     # 19-12-PLAN.md Task 2 (D-23): the conditional selector joins the
     # screen caption in BOTH scoped headers' action_html slot — with
     # today's single-member registry it renders as "", so both headers
@@ -2896,6 +3259,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "%s"
         "%s"
+        "%s"
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
@@ -2906,6 +3270,12 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         rules_section_html,
         calendar_connect_html,
         calendar_disconnect_html,
+        # 20-11-PLAN.md Task 1 (D-19/Pitfall 1): "" on Display/SCOPE_ALL
+        # (computed above), so this addition changes nothing for either
+        # — only the Device scope's own render gains this sibling form,
+        # positioned right after the Notifications card's own in-form
+        # content (inside groups_html above) and before Manual refresh.
+        notifications_test_html,
         # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): "When it is on"'s own
         # header plus the Screen on/off and Quiet hours cards — always ""
         # on the Device/SCOPE_ALL paths (both set it to "" explicitly
@@ -3337,6 +3707,35 @@ def handle_post(form, ctx, errors=None):
     never a second write path. With today's single-member registry the
     field is never actually submitted by the real form, so this gate is
     exercised only by a crafted request.
+
+    20-11-PLAN.md Task 1 (D-26/D-28) adds a fourth group,
+    `screens.GROUP_NOTIFICATIONS`, and three more form fields:
+    `notifications_topic_url`, `notifications_battery`,
+    `notifications_silent`. The two checkboxes follow the identical
+    in-scope-absent-means-False resolution `led_enabled`/`quiet_hours_
+    enabled`/`display_enabled` above already use — a crafted value
+    rejects the whole save, same as every sibling checkbox gate. The
+    topic URL is genuinely different from every scalar field above: an
+    empty (stripped) submission means "leave the stored URL unchanged"
+    (this codebase's established empty-numeric-input convention,
+    `wake_interval_s`'s own precedent), never "clear it" — there is no
+    UI affordance to clear a configured topic URL in this plan, mirroring
+    the calendar feed URL's own identical write-only "replace only"
+    contract. Because `save_device_config(notifications=...)` REPLACES
+    the whole sub-dict rather than merging per sub-key (unlike every
+    scalar field, which the write path itself carries forward when
+    `None`), this handler reads the CURRENT on-disk group via
+    `device_config.load_device_config(state_dir)` and builds the
+    complete replacement dict itself — `lang` is written from
+    `ctx["lang"]`, the session's resolved language at save time (D-28:
+    there is no language-picking control for this group anywhere on the
+    page, because the poll loop has no browser to ask, 20-RESEARCH.md
+    Pitfall 6).
+    When `screens.GROUP_NOTIFICATIONS` is not in scope (every Display
+    render, and the legacy SCOPE_ALL), `notifications` stays `None` and
+    `save_device_config()` carries the current on-disk group forward
+    unchanged, exactly like every field this handler does not own on
+    that scope.
     """
     state_dir = ctx["state_dir"]
     # Phase 18: which groups were actually on the submitted page. A
@@ -3359,6 +3758,9 @@ def handle_post(form, ctx, errors=None):
     submitted_calendar_theme_id = form.get("calendar_theme_id")
     submitted_calendar_url = form.get("calendar_url")
     submitted_screen_id = form.get("screen_id")
+    submitted_notifications_topic_url = form.get("notifications_topic_url")
+    submitted_notifications_battery = form.get("notifications_battery")
+    submitted_notifications_silent = form.get("notifications_silent")
     calendar_signal = submitted_calendar_signal(form)
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
@@ -3375,6 +3777,18 @@ def handle_post(form, ctx, errors=None):
     # and an over-length URL are all rejected the identical way.
     if calendar_signal == CALENDAR_URL_SIGNAL_INVALID:
         _note_error(errors, "calendar_url", ERROR_CALENDAR_URL_INVALID)
+        return FLASH_SAVE_FAILED
+    # 20-11-PLAN.md Task 1 (D-26): a shape bound against an absurd paste,
+    # mirroring CALENDAR_URL_SIGNAL_INVALID's own over-length check above
+    # — only checked when the field is actually in scope (an out-of-scope
+    # submission is structural, never a real user mistake, matching every
+    # other in-scope gate below).
+    if (
+        screens.GROUP_NOTIFICATIONS in in_scope
+        and submitted_notifications_topic_url
+        and len(submitted_notifications_topic_url.strip()) > NOTIFICATIONS_URL_MAX_LEN
+    ):
+        _note_error(errors, "notifications_topic_url", ERROR_NOTIFICATIONS_URL_TOO_LONG)
         return FLASH_SAVE_FAILED
     # Phase 16 (16-05-PLAN.md, T-16-TAMPER's HTTP-layer half): same
     # membership-test shape as theme/theme_arriving above. A non-member
@@ -3476,6 +3890,53 @@ def handle_post(form, ctx, errors=None):
     else:
         _note_error(errors, "display_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
         return FLASH_SAVE_FAILED
+    # 20-11-PLAN.md Task 1 (D-26/D-28): the two checkboxes follow the
+    # identical in-scope-absent-means-False resolution every sibling
+    # checkbox gate above already uses. The topic URL is resolved
+    # separately below, once both checkboxes have cleared this gate,
+    # because building the replacement dict needs the CURRENT on-disk
+    # group (save_device_config() REPLACES the whole notifications
+    # sub-dict rather than merging it per key, unlike every scalar field
+    # above) — see this function's own docstring paragraph on this field.
+    if screens.GROUP_NOTIFICATIONS not in in_scope:
+        notifications = None
+    else:
+        if submitted_notifications_battery is None:
+            notifications_battery = False
+        elif submitted_notifications_battery == NOTIFICATIONS_BATTERY_CHECKBOX_VALUE:
+            notifications_battery = True
+        else:
+            _note_error(errors, "notifications_battery", ERROR_UNEXPECTED_SWITCH_VALUE)
+            return FLASH_SAVE_FAILED
+        if submitted_notifications_silent is None:
+            notifications_silent = False
+        elif submitted_notifications_silent == NOTIFICATIONS_SILENT_CHECKBOX_VALUE:
+            notifications_silent = True
+        else:
+            _note_error(errors, "notifications_silent", ERROR_UNEXPECTED_SWITCH_VALUE)
+            return FLASH_SAVE_FAILED
+        # D-26: an empty (stripped) submission means "leave the stored
+        # URL unchanged", never "clear it" — this codebase's established
+        # empty-numeric-input convention (wake_interval_s's own
+        # precedent above), read fresh from disk rather than trusted
+        # from ctx, so this resolution is correct even when a caller's
+        # own ctx dict carries a stale or absent "device_config" key.
+        current_notifications_on_disk = device_config.load_device_config(
+            state_dir)["notifications"]
+        stripped_notifications_url = (submitted_notifications_topic_url or "").strip()
+        notifications_topic_url = (
+            stripped_notifications_url if stripped_notifications_url
+            else current_notifications_on_disk.get("topic_url"))
+        notifications = {
+            "topic_url": notifications_topic_url,
+            "battery_low": notifications_battery,
+            "frame_silent": notifications_silent,
+            # D-28: written silently from the session's resolved
+            # language at save time — no language-picking control for
+            # this group exists anywhere on the page (the poll loop has
+            # no browser to ask, 20-RESEARCH.md Pitfall 6).
+            "lang": ctx.get("lang") or device_config.DEFAULT_NOTIFICATIONS["lang"],
+        }
 
     try:
         device_config.save_device_config(
@@ -3485,7 +3946,7 @@ def handle_post(form, ctx, errors=None):
             quiet_hours_start=submitted_qh_start, quiet_hours_end=submitted_qh_end,
             wake_interval_s=wake_interval_s, display_enabled=display_enabled,
             calendar_theme_id=submitted_calendar_theme_id,
-            screen_id=submitted_screen_id)
+            screen_id=submitted_screen_id, notifications=notifications)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
 

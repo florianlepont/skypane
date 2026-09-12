@@ -65,6 +65,13 @@ CATALOG = {
         "Exemple de panneau avec le thème %s",
     "Selected": "Sélectionné",
 
+    # --- The live theme preview above the chip grid (D-22..D-24,
+    #     20-11-PLAN.md Task 2, 20-UI-SPEC.md copy table E) -------------
+    "Live preview of the %s theme": "Aperçu en direct du thème %s",
+    "Preview with your last flight: %s":
+        "Aperçu avec votre dernier vol : %s",
+    "Preview with a sample flight": "Aperçu avec un vol d’exemple",
+
     # --- Runway card (config_page.py's runway_fieldset()) --------------
     "Runway": "Piste",
     "Which Orly runway the device watches. Applies on the next "
@@ -230,6 +237,15 @@ CATALOG = {
     "Save settings": "Enregistrer les réglages",
     "Next wake": "Prochain réveil",
     " (next wake ≈ %s)": " (prochain réveil ≈ %s)",
+
+    # --- The dirty bar's own five connector words (D-06, 20-11-PLAN.md
+    #     Task 3) — companion/static/dirty-state.js reads these as
+    #     data-* attributes rather than hardcoding them in English.
+    " changed": " modifié",
+    " and ": " et ",
+    ", and ": " et ",
+    "1 unsaved change": "1 modification non enregistrée",
+    " unsaved changes": " modifications non enregistrées",
 
     # --- Field-level validation errors (config_page.py's
     #     _field_error_html(), rendered wherever `errors` carries one) --

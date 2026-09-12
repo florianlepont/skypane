@@ -424,6 +424,27 @@ EXPECTED_CHECK_COUNT = 200  # 20-09-PLAN.md Task 1 (D-14a..d) and Task 3
 # and a French render of each section. Recomputed directly against the
 # real on-disk check(...) call count at execution time (200/200 pass),
 # not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 205  # 20-11-PLAN.md Task 1 (D-26/D-28): +5 (the
+# Notifications group's status row reads Configured/Not configured and
+# never leaks a substring of the stored URL; the write-only topic-URL
+# input never carries a value attribute; the two checkboxes reflect
+# stored state; a handle_post() round trip with a URL and both boxes
+# persists the whole group and writes lang from ctx["lang"]; an empty
+# URL submission leaves the stored URL intact; and the page carries no
+# notifications_lang control). 200 + 5 = 205, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (205/205 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 209  # 20-11-PLAN.md Task 2 (D-22..D-24): +4 (a
+# Display render carries exactly one .theme-live-preview figure whose
+# <img> src ends in the saved theme's ?live=1 URL, loading="eager" and
+# explicit width/height; every chip's own <label> carries a
+# data-preview-src ending in .png?live=1 while each chip's own <img>
+# keeps loading="lazy" and the fixed, non-live src; the caption names a
+# seeded event's callsign and falls back to the sample wording with no
+# events; a French render's live preview shows the seeded callsign
+# after "Aperçu avec votre dernier vol : "). 205 + 4 = 209, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (209/209 pass), not trusted from arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -600,9 +621,14 @@ def main():
         # wrapped groups — the count below is 5, not the pre-Phase-10/11
         # value of 3, for that reason alone, not a rename.
         #
-        # 12-05-PLAN.md: Display joins as the sixth and last .theme-status-
-        # wrapped group — the count below is 6, not 5, for that reason
-        # alone, not a rename.
+        # 12-05-PLAN.md: Display joins as the sixth .theme-status-wrapped
+        # group — the count was 6, not 5, for that reason alone, not a
+        # rename.
+        #
+        # 20-11-PLAN.md Task 1 (D-26): Notifications joins as the seventh
+        # and last .theme-status-wrapped group on the legacy SCOPE_ALL
+        # render — the count below is 7, not 6, for that reason alone,
+        # not a rename.
         ctx = {
             "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -612,8 +638,8 @@ def main():
             return False, "expected zero <fieldset> elements anywhere on the page, found one"
         if "<legend" in rendered:
             return False, "expected zero <legend> elements anywhere on the page, found one"
-        if rendered.count('class="theme-status"') != 6:
-            return False, "expected exactly 6 theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display), got %d" % rendered.count('class="theme-status"')
+        if rendered.count('class="theme-status"') != 7:
+            return False, "expected exactly 7 theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Notifications), got %d" % rendered.count('class="theme-status"')
         if "theme-chip-grid" not in rendered:
             return False, "expected the Theme group to render a .theme-chip-grid"
         if rendered.count('<label class="runway-card') != 3:
@@ -622,7 +648,7 @@ def main():
             return False, "expected the 'Save settings' submit button copy"
         return True, ""
     check(
-        "render() emits Theme's .theme-chip-grid (no <fieldset>, D-01), six theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display), three runway-card labels, and a Save settings submit button",
+        "render() emits Theme's .theme-chip-grid (no <fieldset>, D-01), seven theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Notifications), three runway-card labels, and a Save settings submit button",
         _render_shape_theme_chip_grid_runway_cards_groups_and_save_button)
 
     def _led_group_carries_classed_label_and_unchanged_input_attrs():
@@ -1488,15 +1514,19 @@ def main():
 
     def _render_exactly_five_dirty_sections_in_order():
         # Acceptance criterion: the rendered output contains exactly
-        # seven elements carrying data-dirty-section, whose attribute
+        # eight elements carrying data-dirty-section, whose attribute
         # values in document order are "Theme", "Runway", "Diagnostic
-        # LED", "Quiet hours", "Wake interval", "Display", "Calendar" —
-        # 10-05-PLAN.md Task 1 wired Quiet hours in as the fourth group
-        # after Diagnostic LED, 11-03-PLAN.md Task 1 wired Wake interval
-        # in as the fifth, after Quiet hours, 12-05-PLAN.md Task 1 wired
-        # Display in as the sixth, after Wake interval, and 16-05-PLAN.md
-        # Task 1 wires Calendar in as the seventh and last, after Display
-        # (16-UI-SPEC.md Section Anatomy's Placement recommendation).
+        # LED", "Quiet hours", "Wake interval", "Display", "Calendar",
+        # "Notifications" — 10-05-PLAN.md Task 1 wired Quiet hours in as
+        # the fourth group after Diagnostic LED, 11-03-PLAN.md Task 1
+        # wired Wake interval in as the fifth, after Quiet hours,
+        # 12-05-PLAN.md Task 1 wired Display in as the sixth, after Wake
+        # interval, 16-05-PLAN.md Task 1 wired Calendar in as the
+        # seventh, after Display (16-UI-SPEC.md Section Anatomy's
+        # Placement recommendation), and 20-11-PLAN.md Task 1 wires
+        # Notifications in as the eighth and last, after Calendar — the
+        # legacy SCOPE_ALL tuple's own trailing position for the group
+        # (scope_groups()'s own D-26 comment).
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -1505,12 +1535,13 @@ def main():
             r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
         expected = [
             "Theme", "Runway", "Diagnostic LED", "Quiet hours",
-            "Wake interval", config_page.DISPLAY_SECTION_HEADING, "Calendar"]
+            "Wake interval", config_page.DISPLAY_SECTION_HEADING, "Calendar",
+            "Notifications"]
         if found != expected:
             return False, "expected %r in document order, got %r" % (expected, found)
         return True, ""
     check(
-        "render() carries exactly seven data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar",
+        "render() carries exactly eight data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar/Notifications",
         _render_exactly_five_dirty_sections_in_order)
 
     def _runway_fieldset_returns_single_top_level_div():
@@ -2016,10 +2047,17 @@ def main():
             # because this post carries no screen_id field. Same mechanical
             # update as the two lines above.
             # 20-02-PLAN.md Task 3 (D-26): load_device_config() now always
-            # returns notifications too, DEFAULT_NOTIFICATIONS here because
-            # this post carries no notifications field. Same mechanical
-            # update as the three lines above.
-            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": True, "frame_silent": True, "lang": "en"}}:
+            # returns notifications too.
+            # 20-11-PLAN.md Task 1 (D-26): screens.GROUP_NOTIFICATIONS now
+            # joins the legacy SCOPE_ALL tuple this un-scoped post resolves
+            # to (submitted_scope(form) with no "scope" field present
+            # returns SCOPE_ALL), so the group is now IN SCOPE for this
+            # post — its two checkboxes resolve absent-means-False, like
+            # every other in-scope checkbox this handler owns, rather than
+            # DEFAULT_NOTIFICATIONS's own True/True. The topic URL still
+            # carries forward the (here, never-set) on-disk value, and lang
+            # falls back to "en" (this test's ctx carries no "lang" key).
+            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -3553,6 +3591,9 @@ def main():
         # 16-05-PLAN.md: the count is 7, not 6, now that Calendar joined
         # as the seventh and last group — again not a rename of this
         # check's own premise.
+        # 20-11-PLAN.md Task 1: the count is 8, not 7, now that
+        # Notifications joined as the eighth and last group — again not
+        # a rename of this check's own premise.
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -3561,14 +3602,14 @@ def main():
             return False, "expected zero <fieldset> elements on the rendered Settings page"
         if "<legend" in rendered:
             return False, "expected zero <legend> elements on the rendered Settings page"
-        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 7:
+        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 8:
             return False, (
-                "expected exactly 7 %s occurrences (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar), got %d"
+                "expected exactly 8 %s occurrences (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar/Notifications), got %d"
                 % (config_page.DIRTY_SECTION_ATTR, rendered.count(config_page.DIRTY_SECTION_ATTR)))
         return True, ""
     check(
-        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly seven "
-        "data-dirty-section groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar)",
+        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly eight "
+        "data-dirty-section groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar/Notifications)",
         _settings_page_has_zero_fieldsets_and_five_dirty_sections)
 
     def _selected_runway_card_and_theme_chip_carry_a_background_wash():
@@ -6247,6 +6288,260 @@ def main():
         "BOTH ids in its aria-describedby, hint first then error, never one overwriting the other "
         "(D-12/A-30)",
         _control_with_both_hint_and_error_carries_both_ids_in_order)
+
+    # ==================================================================
+    # 20-11-PLAN.md Task 1 (D-26/D-28): the Notifications group — a
+    # write-only topic URL, two checkboxes, no language selector.
+    # ==================================================================
+
+    def _notifications_group_status_row_configured_vs_not_and_write_only_url():
+        rendered_unconfigured = config_page.render(
+            {"device_config": {}, "poll_cooldown_remaining": 0}, scope=config_page.SCOPE_DEVICE)
+        if config_page.NOTIFICATIONS_SECTION_HEADING not in rendered_unconfigured:
+            return False, "expected the Notifications heading on the Device scope"
+        if config_page.NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT not in rendered_unconfigured:
+            return False, "expected the 'Not configured' verdict with no topic URL stored"
+        if config_page.NOTIFICATIONS_STATUS_CONFIGURED_VERDICT in rendered_unconfigured:
+            return False, "expected no 'Configured' verdict with no topic URL stored"
+
+        seeded_url = "https://ntfy.sh/skypane-secret-token-xyz"
+        rendered_configured = config_page.render(
+            {
+                "device_config": {
+                    "notifications": {
+                        "topic_url": seeded_url, "battery_low": True,
+                        "frame_silent": False, "lang": "en"}},
+                "poll_cooldown_remaining": 0,
+            },
+            scope=config_page.SCOPE_DEVICE)
+        if config_page.NOTIFICATIONS_STATUS_CONFIGURED_VERDICT not in rendered_configured:
+            return False, "expected the 'Configured' verdict with a topic URL stored"
+        if config_page.NOTIFICATIONS_STATUS_NOT_CONFIGURED_VERDICT in rendered_configured:
+            return False, "expected no 'Not configured' verdict with a topic URL stored"
+        if seeded_url in rendered_configured or "secret-token-xyz" in rendered_configured:
+            return False, "expected no substring of the stored topic URL anywhere in the rendered page"
+        for rendered in (rendered_unconfigured, rendered_configured):
+            match = re.search(r'<input[^>]*name="notifications_topic_url"[^>]*>', rendered)
+            if not match:
+                return False, "expected the notifications_topic_url input to render"
+            if "value=" in match.group(0):
+                return False, "expected no value attribute on the write-only topic-URL input"
+        return True, ""
+    check(
+        "notifications_group()'s status row reads 'Not configured' with no URL stored and "
+        "'Configured' with one, the topic-URL input never carries a value attribute in either "
+        "state, and no substring of a seeded URL appears anywhere in the rendered page (T-20-12)",
+        _notifications_group_status_row_configured_vs_not_and_write_only_url)
+
+    def _notifications_checkboxes_reflect_stored_state():
+        rendered = config_page.render(
+            {
+                "device_config": {
+                    "notifications": {
+                        "topic_url": "https://ntfy.sh/x", "battery_low": False,
+                        "frame_silent": True, "lang": "fr"}},
+                "poll_cooldown_remaining": 0,
+            },
+            scope=config_page.SCOPE_DEVICE)
+        battery_match = re.search(
+            r'<input type="checkbox" name="notifications_battery"[^>]*>', rendered)
+        silent_match = re.search(
+            r'<input type="checkbox" name="notifications_silent"[^>]*>', rendered)
+        if not battery_match or not silent_match:
+            return False, "expected both notifications checkboxes to render"
+        if " checked" in battery_match.group(0):
+            return False, "expected notifications_battery unchecked when stored False"
+        if " checked" not in silent_match.group(0):
+            return False, "expected notifications_silent checked when stored True"
+        return True, ""
+    check(
+        "notifications_group()'s two checkboxes reflect the stored battery_low/frame_silent "
+        "booleans",
+        _notifications_checkboxes_reflect_stored_state)
+
+    def _notifications_group_has_no_lang_selector():
+        rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
+        if "notifications_lang" in rendered:
+            return False, "expected no notifications_lang control anywhere on the page"
+        return True, ""
+    check(
+        "the Device page contains no notifications_lang control anywhere (D-28: lang travels "
+        "silently, never through a <select>)",
+        _notifications_group_has_no_lang_selector)
+
+    def _handle_post_notifications_round_trip_writes_lang_from_ctx():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir, "lang": "fr"}
+            flash_key = config_page.handle_post(
+                {
+                    "scope": config_page.SCOPE_DEVICE,
+                    "notifications_topic_url": "https://ntfy.sh/skypane-abc123",
+                    "notifications_battery": config_page.NOTIFICATIONS_BATTERY_CHECKBOX_VALUE,
+                    "notifications_silent": config_page.NOTIFICATIONS_SILENT_CHECKBOX_VALUE,
+                },
+                ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)["notifications"]
+            expected = {
+                "topic_url": "https://ntfy.sh/skypane-abc123",
+                "battery_low": True, "frame_silent": True, "lang": "fr"}
+            if on_disk != expected:
+                return False, "expected %r, got %r" % (expected, on_disk)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post() with scope=device, a topic URL and both checkboxes persists the whole "
+        "notifications group and writes lang from ctx['lang'] (D-26/D-28)",
+        _handle_post_notifications_round_trip_writes_lang_from_ctx)
+
+    def _handle_post_empty_notifications_url_leaves_stored_url_intact():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            device_config.save_device_config(
+                tmpdir, notifications={
+                    "topic_url": "https://ntfy.sh/skypane-seeded",
+                    "battery_low": True, "frame_silent": True, "lang": "en"})
+            flash_key = config_page.handle_post(
+                {"scope": config_page.SCOPE_DEVICE, "notifications_topic_url": ""}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)["notifications"]
+            if on_disk["topic_url"] != "https://ntfy.sh/skypane-seeded":
+                return False, (
+                    "expected the stored URL to survive an empty submission, got %r"
+                    % (on_disk["topic_url"],))
+            if on_disk["battery_low"] is not False or on_disk["frame_silent"] is not False:
+                return False, "expected both checkboxes to resolve absent-means-False"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post() with an empty notifications_topic_url leaves the previously stored URL "
+        "unchanged (D-26: empty means 'leave unchanged', never 'clear it')",
+        _handle_post_empty_notifications_url_leaves_stored_url_intact)
+
+    # ==================================================================
+    # 20-11-PLAN.md Task 2 (D-22..D-24): the live theme preview above
+    # the chip grid.
+    # ==================================================================
+
+    def _display_render_has_exactly_one_live_preview_figure_eager_with_dimensions():
+        rendered = config_page.render(
+            {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
+            scope=config_page.SCOPE_DISPLAY)
+        if rendered.count('class="theme-live-preview"') != 1:
+            return False, (
+                "expected exactly one .theme-live-preview figure, got %d"
+                % rendered.count('class="theme-live-preview"'))
+        match = re.search(r'<img class="theme-live-preview__image"[^>]*>', rendered)
+        if not match:
+            return False, "expected the live preview's own <img> element"
+        tag = match.group(0)
+        if 'src="%sblue.png?live=1"' % config_page.THEME_PREVIEW_ROUTE_PREFIX not in tag:
+            return False, "expected the live preview's src to end in the saved theme's ?live=1 URL"
+        if 'loading="eager"' not in tag:
+            return False, 'expected the live preview\'s own <img> to carry loading="eager"'
+        if 'width="%d"' % config_page.THEME_LIVE_PREVIEW_WIDTH not in tag:
+            return False, "expected an explicit width attribute"
+        if 'height="%d"' % config_page.THEME_LIVE_PREVIEW_HEIGHT not in tag:
+            return False, "expected an explicit height attribute"
+        return True, ""
+    check(
+        "a Display render contains exactly one .theme-live-preview figure whose <img> src ends in "
+        'the saved theme\'s ?live=1 URL, carries loading="eager" and explicit width/height '
+        "(D-22..D-24)",
+        _display_render_has_exactly_one_live_preview_figure_eager_with_dimensions)
+
+    def _every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
+        rendered = config_page.render(
+            {"device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0},
+            scope=config_page.SCOPE_DISPLAY)
+        labels = re.findall(r'<label class="theme-chip[^>]*data-preview-src="([^"]+)"', rendered)
+        if len(labels) < len(device_config.THEME_IDS):
+            return False, (
+                "expected at least one data-preview-src per registered theme, got %d"
+                % len(labels))
+        for src in labels:
+            if not src.endswith(".png?live=1"):
+                return False, "expected every data-preview-src to end in .png?live=1, got %r" % (src,)
+        chip_images = re.findall(r'<img class="theme-chip__preview"[^>]*>', rendered)
+        if not chip_images:
+            return False, "expected at least one chip <img>"
+        for tag in chip_images:
+            if 'loading="lazy"' not in tag:
+                return False, 'expected every chip <img> to keep loading="lazy"'
+            if "?live=1" in tag:
+                return False, "expected the chip's own <img> src to stay the fixed, non-live preview"
+        return True, ""
+    check(
+        'every chip\'s own <label> carries a data-preview-src ending in .png?live=1, while each '
+        'chip\'s own <img> keeps loading="lazy" and the fixed, non-live src (D-24)',
+        _every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy)
+
+    def _live_preview_caption_names_seeded_callsign_and_falls_back_to_sample():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-theme-live-preview-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, ts="2026-09-07T09:00:00+00:00", hex="3944F2",
+                    callsign="AFR1380")
+            with_event = config_page.render(
+                {
+                    "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
+                    "state_dir": tmpdir,
+                },
+                scope=config_page.SCOPE_DISPLAY)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        expected_caption = (
+            config_page.THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE % "AFR1380")
+        if escape_html(expected_caption) not in with_event:
+            return False, "expected the caption to name the seeded event's callsign"
+
+        without_event = config_page.render(
+            {
+                "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
+                "state_dir": None,
+            },
+            scope=config_page.SCOPE_DISPLAY)
+        if escape_html(config_page.THEME_LIVE_PREVIEW_CAPTION_SAMPLE) not in without_event:
+            return False, "expected the sample-flight caption with no events/no state_dir"
+        return True, ""
+    check(
+        "the live preview's caption names the seeded event's callsign, and falls back to the "
+        "sample-flight wording with no events (D-24)",
+        _live_preview_caption_names_seeded_callsign_and_falls_back_to_sample)
+
+    def _french_display_render_shows_the_live_preview_caption_with_flight_in_french():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-theme-live-preview-fr-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, ts="2026-09-07T09:00:00+00:00", hex="3944F2",
+                    callsign="AFR1380")
+            prefs.set_request_prefs(lang="fr")
+            try:
+                rendered = config_page.render(
+                    {
+                        "device_config": {"theme": "blue"}, "poll_cooldown_remaining": 0,
+                        "state_dir": tmpdir,
+                    },
+                    scope=config_page.SCOPE_DISPLAY)
+            finally:
+                prefs.set_request_prefs(lang="en")
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        if "Aperçu avec votre dernier vol : AFR1380" not in rendered:
+            return False, "expected the French live-preview caption naming the seeded callsign"
+        return True, ""
+    check(
+        "a French Display render's live preview shows ‘Aperçu avec votre dernier "
+        "vol : ’ followed by the seeded event's callsign (D-24/D-05)",
+        _french_display_render_shows_the_live_preview_caption_with_flight_in_french)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

@@ -31,6 +31,13 @@ GROUP_RUNWAY = "runway"
 GROUP_LED = "led"
 GROUP_WAKE_INTERVAL = "wake_interval"
 GROUP_CALENDAR = "calendar"
+# 20-11-PLAN.md Task 1 (D-26/D-28): the Notifications group — a Device-
+# page-only group (never everyday), positioned per D-10's list (LED,
+# wake interval, notifications, manual refresh). "Manual refresh" is not
+# a group in this registry (it is a plain `.page-section` `render()`
+# renders directly, gated by `has_manual_poll` below), so this tuple's
+# own trailing member is this one.
+GROUP_NOTIFICATIONS = "notifications"
 
 # Everyday groups render on the Display page; advanced groups on the
 # Device page. The split is a property of the GROUP, not of the screen
@@ -45,7 +52,10 @@ GROUP_CALENDAR = "calendar"
 # unlike each screen type's own "everyday_groups"/"advanced_groups" keys
 # below, which config_page.scope_groups() actually reads.
 EVERYDAY_GROUPS = (GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_DISPLAY, GROUP_QUIET_HOURS)
-ADVANCED_GROUPS = (GROUP_LED, GROUP_WAKE_INTERVAL)
+# 20-11-PLAN.md Task 1 (D-26): GROUP_NOTIFICATIONS joins this documentation-
+# only tuple too, for the same "kept for honesty, gates nothing itself"
+# reason the comment above already states.
+ADVANCED_GROUPS = (GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_NOTIFICATIONS)
 
 DEFAULT_SCREEN_ID = "plane-frame"
 
@@ -64,8 +74,12 @@ SCREEN_TYPES = {
         # it is on").
         "everyday_groups": (
             GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_DISPLAY, GROUP_QUIET_HOURS),
-        # Device-page groups, in render order.
-        "advanced_groups": (GROUP_LED, GROUP_WAKE_INTERVAL),
+        # Device-page groups, in render order. 20-11-PLAN.md Task 1
+        # (D-26/D-28): GROUP_NOTIFICATIONS joins after GROUP_WAKE_INTERVAL —
+        # D-10's list order is LED, wake interval, notifications, manual
+        # refresh, and "manual refresh" is rendered directly by render()'s
+        # own has_manual_poll branch below, never through this tuple.
+        "advanced_groups": (GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_NOTIFICATIONS),
         # Whether the Device page also shows the per-flight colour rules
         # editor and the manual refresh ("poll now") control — both are
         # plane-specific today.
