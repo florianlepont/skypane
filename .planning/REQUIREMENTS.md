@@ -146,7 +146,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-24 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
 | CFG-25 | Phase 22 | Planned (22-01..22-16) |
 | CFG-26 | Phase 22 | Planned (22-01..22-16) |
-| CFG-27 | Phase 22 | Planned (22-01..22-16) |
+| CFG-27 | Phase 22 | Complete (22-05) |
 | CFG-28 | Phase 22 | Planned (22-01..22-16) |
 | CFG-29 | Phase 22 | Planned (22-01..22-16) |
 | CFG-30 | Phase 22 | Planned (22-01..22-16) |
