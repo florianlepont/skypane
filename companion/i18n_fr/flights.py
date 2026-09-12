@@ -71,6 +71,10 @@ CATALOG = {
     "Copy timestamp for %s": "Copier l’horodatage pour %s",
     "no callsign": "aucun indicatif",
     "no reading yet": "aucune mesure pour l’instant",
+    # D-06 (20-11-PLAN.md Task 3): companion/static/copy-button.js's own
+    # on-success feedback text, now server-rendered via each button's
+    # data-copied-text attribute instead of a hardcoded English literal.
+    "Copied": "Copié",
 
     # --- The per-row "View panel near this time" lightbox (D-20) --------
     "View panel near this time": "Voir le panneau proche de cette heure",

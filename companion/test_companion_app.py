@@ -420,6 +420,16 @@ EXPECTED_CHECK_COUNT = 249  # 20-11-PLAN.md Task 1 (D-26/T-20-13): +5 (an
 # recomputed directly against the real on-disk check(...) call count at
 # execution time (247/249 pass — the two documented WR-11 root-sandbox
 # failures, unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 251  # 20-11-PLAN.md Task 3 (D-06): +2 (copy-
+# button.js/dirty-state.js each stay ES5-safe with no forbidden HTML-
+# writing/eval/network sink, copy-button.js reads its on-success
+# feedback text from data-copied-text, dirty-state.js reads its five
+# connector words from the dirty-bar element's own data-dirty-*
+# attributes, and each file's removed hardcoded literal survives only
+# as its own documented fallback). 249 + 2 = 251, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (249/251 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -3059,6 +3069,83 @@ def main():
             "companion.app.py's 4 new *_SCRIPT_ROUTE constants equal companion/layout.py's 4 new "
             "*_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each",
             _four_new_static_routes_dom_contract_guard)
+
+        # --- 20-11-PLAN.md Task 3 (D-06): copy-button.js/dirty-state.js's
+        # own screen-bound connector words move to server-rendered data-*
+        # attributes ---
+
+        def _copy_button_script_es5_safe_reads_data_copied_text():
+            js_path = os.path.join(HERE, "static", "copy-button.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "copy-button.js must not contain %r" % token
+            required = ("textContent", "addEventListener", "getAttribute")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in copy-button.js" % token
+            if "data-copied-text" not in src:
+                return False, "expected copy-button.js to read data-copied-text"
+            # D-06: the removed hardcoded literal survives ONLY as the
+            # documented fallback — exactly one occurrence of the quoted
+            # string, on the FALLBACK_FEEDBACK_TEXT declaration itself.
+            if src.count('"Copied"') != 1:
+                return False, (
+                    "expected exactly one \"Copied\" literal (the documented fallback), got %d"
+                    % src.count('"Copied"'))
+            return True, ""
+        check(
+            "copy-button.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/"
+            "insertAdjacentHTML/document.write/eval/fetch/XHR), reads its on-success feedback "
+            "text from each button's own data-copied-text attribute, and the removed hardcoded "
+            "\"Copied\" literal survives only as the one documented fallback (D-06)",
+            _copy_button_script_es5_safe_reads_data_copied_text)
+
+        def _dirty_state_script_es5_safe_reads_five_connector_attributes():
+            js_path = os.path.join(HERE, "static", "dirty-state.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d" % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "dirty-state.js must not contain %r" % token
+            required = ("textContent", "addEventListener", "getAttribute", "querySelector")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in dirty-state.js" % token
+            for attr in (
+                    "data-dirty-changed-suffix", "data-dirty-and", "data-dirty-list-and",
+                    "data-dirty-unsaved-singular", "data-dirty-unsaved-plural"):
+                if attr not in src:
+                    return False, "expected dirty-state.js to read %r" % attr
+            # D-06: each removed hardcoded connector word survives ONLY as
+            # its own documented fallback literal, never a second inline
+            # occurrence elsewhere in updateBar().
+            if src.count('"1 unsaved change"') != 1:
+                return False, "expected exactly one \"1 unsaved change\" literal (the fallback)"
+            if src.count('" unsaved changes"') != 1:
+                return False, "expected exactly one \" unsaved changes\" literal (the fallback)"
+            return True, ""
+        check(
+            "dirty-state.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/"
+            "insertAdjacentHTML/document.write/eval/fetch/XHR), reads all five connector words "
+            "from the dirty-bar element's own data-dirty-* attributes, and each removed "
+            "hardcoded literal survives only as its own documented fallback (D-06)",
+            _dirty_state_script_es5_safe_reads_five_connector_attributes)
 
         # --- 19-09-PLAN.md Task 3: freshness.js's own named guard (D-02) ---
 

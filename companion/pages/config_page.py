@@ -462,6 +462,21 @@ STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
 # this raw string).
 DIRTY_BAR_INITIAL_TEXT = "Unsaved changes"
 
+# D-06 (20-11-PLAN.md Task 3): the five connector words
+# companion/static/dirty-state.js's own updateBar() used to hardcode in
+# English — now rendered, translated, as data-* attributes on the same
+# `.dirty-bar` element that script already looks up
+# (`document.querySelector("[data-dirty-bar]")`), the same shape
+# freshness.js already uses for data-pause-text/data-resume-text. Each
+# constant's own English value is also that script's documented
+# fallback literal, so the two can never silently disagree about what
+# "missing" degrades to.
+DIRTY_CHANGED_SUFFIX = " changed"
+DIRTY_AND = " and "
+DIRTY_LIST_AND = ", and "
+DIRTY_UNSAVED_SINGULAR = "1 unsaved change"
+DIRTY_UNSAVED_PLURAL = " unsaved changes"
+
 # Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
 # row verbatim (D-17); "{n}" is filled in with a server-computed
 # remaining-seconds figure, never anything client-supplied. This text is
@@ -3050,12 +3065,18 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # outside it in the DOM — narrowing any of those three JS lookups to
     # a form-scoped query would silently break the bar.
     dirty_bar_html = (
-        '<div class="dirty-bar" data-dirty-bar hidden role="status">'
+        '<div class="dirty-bar" data-dirty-bar hidden role="status" '
+        'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
+        'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
+        'data-dirty-unsaved-plural="%s">'
         "<span data-dirty-count>%s</span>"
         '<button type="submit" class="dirty-bar__save" form="%s">%s</button>'
         '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
         "</div>"
     ) % (
+        escape_html(i18n.t(DIRTY_CHANGED_SUFFIX)), escape_html(i18n.t(DIRTY_AND)),
+        escape_html(i18n.t(DIRTY_LIST_AND)), escape_html(i18n.t(DIRTY_UNSAVED_SINGULAR)),
+        escape_html(i18n.t(DIRTY_UNSAVED_PLURAL)),
         escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT)), SETTINGS_FORM_ID,
         escape_html(i18n.t("Save settings")), escape_html(i18n.t("Cancel")),
     )

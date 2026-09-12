@@ -18,6 +18,14 @@
  * DOM via anything other than textContent would reopen a markup
  * injection surface this file has no reason to carry.
  *
+ * D-06 (20-11-PLAN.md Task 3): the on-success feedback text is read
+ * from each button's own data-copied-text attribute, server-rendered
+ * and translated by companion/pages/history_page.py's own emitter —
+ * the same shape freshness.js already uses for data-pause-text/
+ * data-resume-text. A short, hardcoded fallback covers an un-updated
+ * caller that has not yet been given the attribute, so the button can
+ * never render an empty label.
+ *
  * This script is served to every page on the site (a single cached
  * static asset, not re-emitted per page). Most pages carry no
  * [data-copy-value] elements at all, so the guard below is
@@ -32,11 +40,19 @@
     return;
   }
 
-  var FEEDBACK_TEXT = "Copied";
+  // D-06 (20-11-PLAN.md Task 3): the documented fallback for an
+  // un-updated caller whose markup does not yet carry data-copied-text
+  // — copiedText(button) below reads the real, translated value off
+  // each button first, falling back to this literal only then.
+  var FALLBACK_FEEDBACK_TEXT = "Copied";
   // D-20: was 2000 — 1.5s is the visible-confirmation window this
-  // decision names for the new on-button "Copied" swap below.
+  // decision names for the new on-button feedback-label swap below.
   var FEEDBACK_RESET_MS = 1500;
   var COPIED_CLASS = "copy-btn--copied";
+
+  function copiedText(button) {
+    return button.getAttribute("data-copied-text") || FALLBACK_FEEDBACK_TEXT;
+  }
 
   function fallbackCopy(value) {
     var textarea = document.createElement("textarea");
@@ -51,8 +67,8 @@
       textarea.select();
       // A-37's third half: this used to call document.execCommand("copy")
       // and discard its boolean return value, so handleClick() below
-      // showed "Copied" even when the copy silently failed. Propagate
-      // the real result instead.
+      // showed the success feedback even when the copy silently failed.
+      // Propagate the real result instead.
       return document.execCommand("copy");
     } finally {
       document.body.removeChild(textarea);
@@ -86,9 +102,10 @@
     if (!feedbackEl || !feedbackEl.hasAttribute("data-copy-feedback")) {
       return;
     }
-    feedbackEl.textContent = FEEDBACK_TEXT;
+    var feedbackText = copiedText(button);
+    feedbackEl.textContent = feedbackText;
 
-    // D-20: swap a visible "Copied" label in beside the icon, on
+    // D-20: swap a visible success label in beside the icon, on
     // success only. The button's own visible content is an SVG icon
     // (history_page._copy_button_html()'s .copy-btn__icon span) —
     // writing textContent onto the button itself would destroy that
@@ -98,11 +115,11 @@
     // textContent on a leaf <span>, only a class toggle on the button).
     //
     // A double-click mid-animation must not overwrite the remembered
-    // original label with "Copied" a second time — data-copy-pending
-    // guards that: only the FIRST swap in a run records the label to
-    // restore, and one shared setTimeout clears the visible label, the
-    // announced feedback span and the class together, so the visible
-    // and announced states can never disagree.
+    // original label with the feedback text a second time —
+    // data-copy-pending guards that: only the FIRST swap in a run
+    // records the label to restore, and one shared setTimeout clears
+    // the visible label, the announced feedback span and the class
+    // together, so the visible and announced states can never disagree.
     var labelEl = button.querySelector(".copy-btn__label");
     if (!labelEl || button.getAttribute("data-copy-pending") === "1") {
       window.setTimeout(function () {
@@ -113,7 +130,7 @@
 
     button.setAttribute("data-copy-pending", "1");
     var originalLabel = labelEl.textContent;
-    labelEl.textContent = FEEDBACK_TEXT;
+    labelEl.textContent = feedbackText;
     _toggleCopiedClass(button, true);
     window.setTimeout(function () {
       feedbackEl.textContent = "";
@@ -134,7 +151,7 @@
         function () {
           // A-37: only report success when fallbackCopy() actually
           // succeeded. A failed copy must show nothing at all — never a
-          // false "Copied".
+          // false success indication.
           if (fallbackCopy(value)) {
             showFeedback(button);
           }

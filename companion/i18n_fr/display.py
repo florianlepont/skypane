@@ -238,6 +238,15 @@ CATALOG = {
     "Next wake": "Prochain réveil",
     " (next wake ≈ %s)": " (prochain réveil ≈ %s)",
 
+    # --- The dirty bar's own five connector words (D-06, 20-11-PLAN.md
+    #     Task 3) — companion/static/dirty-state.js reads these as
+    #     data-* attributes rather than hardcoding them in English.
+    " changed": " modifié",
+    " and ": " et ",
+    ", and ": " et ",
+    "1 unsaved change": "1 modification non enregistrée",
+    " unsaved changes": " modifications non enregistrées",
+
     # --- Field-level validation errors (config_page.py's
     #     _field_error_html(), rendered wherever `errors` carries one) --
     "That is not one of the available choices.":

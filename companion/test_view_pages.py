@@ -324,6 +324,21 @@ EXPECTED_CHECK_COUNT = 103  # 20-10-PLAN.md Task 3 (D-05): +3 (100 -> 103) —
 # key of companion/i18n_fr/flights.py is a key of the merged CATALOG.
 # Recomputed directly against the real on-disk check(...) call count at
 # execution time (103/103 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 104  # 20-11-PLAN.md Task 3 (D-06): +1 (a Flights
+# render's copy buttons carry data-copied-text="Copied" under the
+# default language and data-copied-text="Copié" under lang='fr' — the
+# feedback text companion/static/copy-button.js reads at click time
+# instead of a hardcoded English literal). 103 + 1 = 104, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (104/104 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 105  # 20-11-PLAN.md Task 3/D-06 orchestrator
+# addendum: +1 (History's filter bar carries data-filter-count-
+# template="%d of %d shown" under the default language and the French
+# "%d sur %d affichés" under lang='fr' — companion/static/list-filter.js
+# reads this attribute instead of hardcoding the English words "of"/
+# "shown"). 104 + 1 = 105, recomputed directly against the real on-disk
+# check(...) call count at execution time (105/105 pass), not trusted
+# from arithmetic alone.
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1376,7 +1391,12 @@ def main():
                 "data-filter-input", "data-filter-count", "data-filter-clear",
                 "data-filter-empty",
             ):
-                count = rendered.count(marker)
+                # 20-11-PLAN.md Task 3 (D-06): a negative lookahead excludes
+                # data-filter-count's own new sibling attribute, data-
+                # filter-count-template — a real second attribute (the
+                # server-rendered "%d of %d shown" template list-filter.js
+                # now reads), not a second occurrence of this marker.
+                count = len(re.findall(r"%s(?!-template)" % re.escape(marker), rendered))
                 if count != 1:
                     return False, "expected exactly one %r marker, got %d" % (marker, count)
             return True, ""
@@ -1385,6 +1405,38 @@ def main():
     check(
         "History's filter bar carries exactly one data-filter-input/-count/-clear/-empty marker each",
         _filter_bar_markers_present_once)
+
+    def _filter_count_template_attribute_english_and_french():
+        # 20-11-PLAN.md Task 3 (D-06): companion/static/list-filter.js
+        # reads its live "X of Y shown" count text from
+        # data-filter-count-template instead of hardcoding the English
+        # words "of"/"shown" — this is that attribute's own translated
+        # value, under each language in turn, with both "%d" placeholders
+        # left unformatted for the script to fill in.
+        import companion.prefs as _prefs
+        tmp = _mkstate("h-filter-count-template")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FC1"},
+            ])
+            rendered_en = history_page.render(_history_ctx(tmp))
+            if 'data-filter-count-template="%d of %d shown"' not in rendered_en:
+                return False, "expected the English filter-count template under the default language"
+
+            _prefs.set_request_prefs(lang="fr")
+            try:
+                rendered_fr = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            if 'data-filter-count-template="%d sur %d affichés"' not in rendered_fr:
+                return False, "expected the French filter-count template under lang='fr'"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's filter bar carries data-filter-count-template=\"%d of %d shown\" under the "
+        "default language and the French \"%d sur %d affichés\" under lang='fr' (D-06)",
+        _filter_count_template_attribute_english_and_french)
 
     def _clear_control_shared_attribute_contract():
         # 06.6.4-05 (D-08): History's Clear <button> and Airlines' Clear
@@ -1536,6 +1588,37 @@ def main():
     check(
         "the mobile card's details region contains exactly 3 copy buttons (callsign, hex, full timestamp), each immediately followed by its data-copy-feedback sibling",
         _mobile_details_three_copy_buttons)
+
+    def _copy_button_carries_data_copied_text_english_and_french():
+        # 20-11-PLAN.md Task 3 (D-06): copy-button.js reads its
+        # on-success feedback text from each button's own
+        # data-copied-text attribute instead of a hardcoded English
+        # literal — this is that attribute's own translated value, under
+        # each language in turn.
+        import companion.prefs as _prefs
+        tmp = _mkstate("h-copy-data-attr")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "cd01", "callsign": "CDONE"},
+            ])
+            rendered_en = history_page.render(_history_ctx(tmp))
+            if 'data-copied-text="Copied"' not in rendered_en:
+                return False, "expected data-copied-text=\"Copied\" under the default (English) language"
+
+            _prefs.set_request_prefs(lang="fr")
+            try:
+                rendered_fr = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            if 'data-copied-text="Copié"' not in rendered_fr:
+                return False, "expected data-copied-text=\"Copié\" under lang='fr'"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a Flights render's copy buttons carry data-copied-text=\"Copied\" under the default "
+        "language and data-copied-text=\"Copié\" under lang='fr' (D-06)",
+        _copy_button_carries_data_copied_text_english_and_french)
 
     def _quick_260903_peo_desktop_copy_reveal_stylesheet_contract():
         # UIR-17: the desktop-only reveal rule lives inside the shared

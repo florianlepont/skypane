@@ -611,20 +611,28 @@ def _copy_button_html(value, label):
     a `<span class="copy-btn__icon" aria-hidden="true">`, with an empty
     `<span class="copy-btn__label"></span>` sibling immediately after
     it, both inside the button. `companion/static/copy-button.js` writes
-    the transient "Copied" text into that label span's `textContent`
+    the transient success text into that label span's `textContent`
     only — never into the button element itself, which would destroy
     the SVG icon and have no way to restore it. This keeps the no-HTML-
     writing-sink rule intact: only `textContent` on a leaf `<span>`.
+
+    D-06 (20-11-PLAN.md Task 3): the button carries a new attribute
+    naming the translated success text `companion/static/copy-button.js`
+    reads at click time instead of a hardcoded English literal — the
+    same shape `freshness.js`'s `data-pause-text`/`data-resume-text`
+    already use.
     """
     return (
         '<button type="button" class="copy-btn" data-copy-value="%s" '
-        'aria-label="%s">'
+        'aria-label="%s" data-copied-text="%s">'
         '<span class="copy-btn__icon" aria-hidden="true">%s</span>'
         '<span class="copy-btn__label"></span>'
         '</button>'
         '<span class="visually-hidden" data-copy-feedback role="status" '
         'aria-live="polite"></span>'
-    ) % (escape_html(value), escape_html(label), layout.icon_html("icon-copy"))
+    ) % (
+        escape_html(value), escape_html(label), escape_html(i18n.t("Copied")),
+        layout.icon_html("icon-copy"))
 
 
 def _callsign_hex_cell(callsign, hex_value):
@@ -715,8 +723,17 @@ def _filter_bar_html(total):
     `companion/static/list-filter.js`'s own early-return guard means the
     full unfiltered table/card list underneath stays completely usable
     if the script never loads.
+
+    D-06 (20-11-PLAN.md Task 3): `data-filter-count` also carries a
+    `data-filter-count-template` attribute — the SAME translated
+    template this function's own initial `count_text` is built from,
+    with its two `%d` placeholders left unformatted — so
+    `companion/static/list-filter.js` can re-render the live count on
+    every keystroke without ever hardcoding the English words "of"/
+    "shown" itself.
     """
-    count_text = i18n.t("%d of %d shown") % (total, total)
+    count_template = i18n.t("%d of %d shown")
+    count_text = count_template % (total, total)
     empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
     return (
         '<div class="filter-bar">'
@@ -725,7 +742,8 @@ def _filter_bar_html(total):
         "%s"
         '<input type="search" id="%s" data-filter-input>'
         "</div>"
-        '<span class="filter-bar__count" data-filter-count>%s</span>'
+        '<span class="filter-bar__count" data-filter-count '
+        'data-filter-count-template="%s">%s</span>'
         '<button type="button" data-filter-clear>%s</button>'
         "</div>"
         '<div class="empty-state" data-filter-empty hidden>'
@@ -736,6 +754,7 @@ def _filter_bar_html(total):
         _FILTER_INPUT_ID, escape_html(i18n.t(_FILTER_LABEL_TEXT)),
         layout.icon_html("icon-search"),
         _FILTER_INPUT_ID,
+        escape_html(count_template),
         escape_html(count_text),
         escape_html(i18n.t("Clear")),
         escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
