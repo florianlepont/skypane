@@ -4213,8 +4213,15 @@ def main():
             _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
             display_text = display_body.decode("utf-8", errors="replace")
             device_text = device_body.decode("utf-8", errors="replace")
-            if 'name="theme"' not in display_text or 'name="quiet_hours_enabled"' not in display_text:
-                return False, "expected the Display page to carry the theme and quiet-hours groups"
+            # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): retargeted — the
+            # quiet_hours_enabled checkbox this check used to require is
+            # retired outright (the Frame strip is the only on/off
+            # control left); the schedule itself (quiet_hours_start/end)
+            # is what still lives on this page.
+            if 'name="theme"' not in display_text or 'name="quiet_hours_start"' not in display_text:
+                return False, "expected the Display page to carry the theme and quiet-hours schedule groups"
+            if 'name="quiet_hours_enabled"' in display_text or 'name="display_enabled"' in display_text:
+                return False, "expected no quiet_hours_enabled/display_enabled checkbox on the Display page"
             # 20-07 (D-10/D-11) moved Runway (and Calendar/the rules
             # editor) from Device to Display; only the LED group stayed
             # on Device — Display carries tracked_runway but never

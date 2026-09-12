@@ -51,7 +51,14 @@ GROUP_NOTIFICATIONS = "notifications"
 # honesty only; these two module-level tuples gate nothing themselves,
 # unlike each screen type's own "everyday_groups"/"advanced_groups" keys
 # below, which config_page.scope_groups() actually reads.
-EVERYDAY_GROUPS = (GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_DISPLAY, GROUP_QUIET_HOURS)
+# 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): GROUP_DISPLAY is retired from
+# this tuple outright - the Frame strip is now the ONLY on/off control
+# for the screen (T-22-16), so no settings page renders a
+# display_enabled checkbox any more. The constant itself stays defined
+# (config_page.py's handle_post() still validates an explicit legacy/
+# crafted display_enabled value against it) but is listed in no screen
+# type's own group tuple below.
+EVERYDAY_GROUPS = (GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_QUIET_HOURS)
 # 20-11-PLAN.md Task 1 (D-26): GROUP_NOTIFICATIONS joins this documentation-
 # only tuple too, for the same "kept for honesty, gates nothing itself"
 # reason the comment above already states.
@@ -70,10 +77,14 @@ SCREEN_TYPES = {
         # the per-supersection grouping (Look/What it watches/When it is
         # on) is config_page.render()'s own concern, but this order does
         # not contradict it: theme and calendar under "Look", runway
-        # under "What it watches", display and quiet_hours under "When
-        # it is on").
+        # under "What it watches", quiet_hours under "When it is on").
+        #
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): GROUP_DISPLAY is gone from
+        # this tuple - the Frame strip is now the ONLY control for the
+        # screen's own on/off state, so "When it is on" renders only the
+        # Quiet hours schedule now (start/end/presets), no on/off card.
         "everyday_groups": (
-            GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_DISPLAY, GROUP_QUIET_HOURS),
+            GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_QUIET_HOURS),
         # Device-page groups, in render order. 20-11-PLAN.md Task 1
         # (D-26/D-28): GROUP_NOTIFICATIONS joins after GROUP_WAKE_INTERVAL —
         # D-10's list order is LED, wake interval, notifications, manual

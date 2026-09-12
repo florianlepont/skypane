@@ -565,6 +565,27 @@ EXPECTED_CHECK_COUNT = 220
 # count at execution time (221/221 pass), not trusted from arithmetic
 # alone.
 EXPECTED_CHECK_COUNT = 221
+# 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): display_group() and its three
+# direct-call checks (markup shape checked/unchecked, the locked caption,
+# the D-09 prefill default) are deleted outright (-3); the CSS
+# cross-file guard for display_group() is deleted too (-1, it tests a
+# retired function, not a live behaviour); the three-shapes handle_post()
+# check is retargeted in place (absent now means unchanged, not False —
+# net 0, same check, new meaning); two new checks land: a whole-page
+# no-checkbox-anywhere regression guard (+1) and the named T-22-16
+# theme-only-save four-starting-combination regression guard (+1).
+# 221 - 3 - 1 + 1 + 1 = 219; several other pre-existing checks were
+# retargeted in place (count-shaped assertions repaired per this plan's
+# own interfaces block: the theme-status count 6->5, the
+# data-dirty-section count 6->5 at both its call sites, the six-entry
+# document-order list losing "Display", the nested-modifier floor 5->4,
+# the <h2> order list losing "Screen on / off", the suffix-check loop
+# losing QUIET_HOURS_SECTION_CAPTION) with no net count change each.
+# A further new check pins D-09's no-JS floor at THIS plan's own commit
+# (+1, 22-RESEARCH.md Pitfall 4). Re-derived directly against the real
+# on-disk check(...) call count at execution time (219/219 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 219
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -757,6 +778,12 @@ def main():
         # the rules editor's own compact grid, this page's other two
         # former chip-grid sources, are both also gone from SCOPE_ALL,
         # D-06/D-10).
+        #
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the count drops from 6 to
+        # 5 — display_group() (the Screen on/off card) is retired outright,
+        # its own on/off checkbox replaced by nothing on this page (the
+        # Frame strip is the only remaining control), so Display no longer
+        # contributes a .theme-status-wrapped group here at all.
         ctx = {
             "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -766,8 +793,8 @@ def main():
             return False, "expected zero <fieldset> elements anywhere on the page, found one"
         if "<legend" in rendered:
             return False, "expected zero <legend> elements anywhere on the page, found one"
-        if rendered.count('class="theme-status"') != 6:
-            return False, "expected exactly 6 theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Notifications), got %d" % rendered.count('class="theme-status"')
+        if rendered.count('class="theme-status"') != 5:
+            return False, "expected exactly 5 theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours/Wake interval/Notifications), got %d" % rendered.count('class="theme-status"')
         if "theme-chip-grid" in rendered:
             return False, "expected no .theme-chip-grid anywhere on this legacy SCOPE_ALL render"
         if rendered.count('<label class="runway-card') != 3:
@@ -777,8 +804,9 @@ def main():
         return True, ""
     check(
         "render() emits no <fieldset>/<legend> and no .theme-chip-grid on this legacy SCOPE_ALL render "
-        "(Theme's card retired outright, D-01/21-05-PLAN.md Task 1 D-06), six theme-status-wrapped "
-        "groups (Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Notifications), three "
+        "(Theme's card retired outright, D-01/21-05-PLAN.md Task 1 D-06), five theme-status-wrapped "
+        "groups (Runway/Diagnostic LED/Quiet hours/Wake interval/Notifications — Display's own card "
+        "retired outright by 22-05-PLAN.md Task 1, X1/D-04/D-12.1), three "
         "runway-card labels, and a Save settings submit button",
         _render_shape_theme_chip_grid_runway_cards_groups_and_save_button)
 
@@ -820,51 +848,57 @@ def main():
     # escaping and render() wiring checks (D-03/D-04, 10-UI-SPEC.md).
     # ------------------------------------------------------------------
 
-    def _quiet_hours_group_markup_checkbox_and_time_inputs():
-        checked_html = config_page.quiet_hours_group(True, "23:00", "07:00")
-        unchecked_html = config_page.quiet_hours_group(False, "23:00", "07:00")
-        label_open = '<label class="settings-checkbox">'
-        if checked_html.count(label_open) != 1:
-            return False, "expected quiet_hours_group(True, ...) to carry exactly one <label class=\"settings-checkbox\"> occurrence"
-        if 'name="quiet_hours_start"' not in checked_html or 'type="time"' not in checked_html:
+    def _quiet_hours_group_markup_no_checkbox_and_time_inputs():
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the on/off checkbox this
+        # check used to pin (both a checked and an unchecked render) is
+        # retired outright — the Frame strip is the ONLY on/off control
+        # left, so quiet_hours_group() itself never renders one any more,
+        # regardless of the current on-disk quiet_hours_enabled value.
+        rendered = config_page.quiet_hours_group("23:00", "07:00")
+        if 'name="quiet_hours_enabled"' in rendered:
+            return False, "expected no quiet_hours_enabled checkbox anywhere in quiet_hours_group()'s own output"
+        if "settings-checkbox" in rendered:
+            return False, "expected no .settings-checkbox label — this group has no checkbox left to normalise"
+        if 'name="quiet_hours_start"' not in rendered or 'type="time"' not in rendered:
             return False, "expected a type=\"time\" input named quiet_hours_start"
-        if 'value="23:00"' not in checked_html:
+        if 'value="23:00"' not in rendered:
             return False, "expected quiet_hours_start's value to be 23:00"
-        if 'name="quiet_hours_end"' not in checked_html:
+        if 'name="quiet_hours_end"' not in rendered:
             return False, "expected an input named quiet_hours_end"
-        if 'value="07:00"' not in checked_html:
+        if 'value="07:00"' not in rendered:
             return False, "expected quiet_hours_end's value to be 07:00"
-        if checked_html.count("checked") != 1:
-            return False, "expected quiet_hours_group(True, ...) to carry exactly one checked flag, got %d" % checked_html.count("checked")
-        if "checked" in unchecked_html:
-            return False, "expected quiet_hours_group(False, ...) to carry no checked flag at all"
-        if "theme-status__row" in checked_html:
+        if "checked" in rendered:
+            return False, "expected no checked flag anywhere — there is no checkbox left to carry one"
+        if "theme-status__row" in rendered:
             return False, "expected no theme-status__row wrapper — Start/End must stack vertically (10-UI-SPEC.md)"
-        if "disabled" in checked_html or "disabled" in unchecked_html:
-            return False, "expected no disabled attribute on either branch — the time inputs are never disabled (10-UI-SPEC.md)"
+        if "disabled" in rendered:
+            return False, "expected no disabled attribute — the time inputs are never disabled (10-UI-SPEC.md)"
         return True, ""
     check(
-        "quiet_hours_group() emits the settings-checkbox label, one type=\"time\" input each for Start/End with their current values, exactly one checked flag when enabled and none when disabled, no theme-status__row, and no disabled attribute",
-        _quiet_hours_group_markup_checkbox_and_time_inputs)
+        "quiet_hours_group() renders no on/off checkbox at all any more (the Frame strip is the only "
+        "control left, 22-05-PLAN.md Task 1 X1/D-04/D-12.1), one type=\"time\" input each for Start/End "
+        "with their current values, no theme-status__row, and no disabled attribute",
+        _quiet_hours_group_markup_no_checkbox_and_time_inputs)
 
-    def _quiet_hours_group_field_order_heading_caption_checkbox_start_end():
-        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+    def _quiet_hours_group_field_order_heading_caption_start_end():
+        rendered = config_page.quiet_hours_group("23:00", "07:00")
         heading_close = rendered.index("</h2>")
         caption_pos = rendered.index("section-caption")
-        checkbox_pos = rendered.index('name="quiet_hours_enabled"')
         start_pos = rendered.index('name="quiet_hours_start"')
         end_pos = rendered.index('name="quiet_hours_end"')
-        if not (heading_close < caption_pos < checkbox_pos < start_pos < end_pos):
+        if not (heading_close < caption_pos < start_pos < end_pos):
             return False, (
-                "expected heading < caption < checkbox < start < end in document order, got positions %r"
-                % ((heading_close, caption_pos, checkbox_pos, start_pos, end_pos),))
+                "expected heading < caption < start < end in document order, got positions %r"
+                % ((heading_close, caption_pos, start_pos, end_pos),))
         return True, ""
     check(
-        "quiet_hours_group()'s field order is heading, then caption, then the enable checkbox, then Start, then End, in document order (10-UI-SPEC.md's locked field order)",
-        _quiet_hours_group_field_order_heading_caption_checkbox_start_end)
+        "quiet_hours_group()'s field order is heading, then caption, then Start, then End, in document "
+        "order — the enable checkbox this order used to include is retired outright (22-05-PLAN.md "
+        "Task 1, X1/D-04/D-12.1)",
+        _quiet_hours_group_field_order_heading_caption_start_end)
 
     def _quiet_hours_group_escapes_crafted_current_values():
-        rendered = config_page.quiet_hours_group(True, '"><script>', "07:00")
+        rendered = config_page.quiet_hours_group('"><script>', "07:00")
         if "<script>" in rendered:
             return False, "expected the crafted current_start value to be escaped, found a raw <script> substring"
         return True, ""
@@ -880,7 +914,7 @@ def main():
     # ------------------------------------------------------------------
 
     def _quiet_hours_group_renders_exactly_three_button_presets():
-        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        rendered = config_page.quiet_hours_group("23:00", "07:00")
         if rendered.count(config_page.QUIET_HOURS_PRESET_ATTR) != 3:
             return False, (
                 "expected exactly three data-quiet-preset occurrences, got %d"
@@ -898,7 +932,7 @@ def main():
         _quiet_hours_group_renders_exactly_three_button_presets)
 
     def _quiet_hours_group_night_preset_matches_device_config_defaults():
-        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        rendered = config_page.quiet_hours_group("23:00", "07:00")
         expected = 'data-preset-start="%s" data-preset-end="%s"' % (
             device_config.DEFAULT_QUIET_HOURS_START, device_config.DEFAULT_QUIET_HOURS_END)
         if expected not in rendered:
@@ -910,7 +944,7 @@ def main():
         _quiet_hours_group_night_preset_matches_device_config_defaults)
 
     def _quiet_hours_group_workday_preset_carries_expected_times():
-        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        rendered = config_page.quiet_hours_group("23:00", "07:00")
         if 'data-preset-start="08:00" data-preset-end="18:00"' not in rendered:
             return False, "expected the Work day preset to carry data-preset-start=08:00/data-preset-end=18:00"
         return True, ""
@@ -919,7 +953,7 @@ def main():
         _quiet_hours_group_workday_preset_carries_expected_times)
 
     def _quiet_hours_group_always_on_preset_disables_with_no_time_attrs():
-        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        rendered = config_page.quiet_hours_group("23:00", "07:00")
         always_on_match = re.search(
             r'<button\b[^>]*data-preset-enabled="0"[^>]*>', rendered)
         if not always_on_match:
@@ -932,20 +966,26 @@ def main():
         "the Always-on preset carries data-preset-enabled=\"0\" and no data-preset-start/data-preset-end attributes",
         _quiet_hours_group_always_on_preset_disables_with_no_time_attrs)
 
-    def _quiet_hours_group_preset_row_between_checkbox_and_time_inputs():
-        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
-        checkbox_pos = rendered.index("settings-checkbox")
+    def _quiet_hours_group_preset_row_between_caption_and_time_inputs():
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): retargeted from "after
+        # the .settings-checkbox label" (that label is gone, along with
+        # the checkbox it wrapped) to "after the section caption" — the
+        # preset row's own locked position relative to the time inputs
+        # is otherwise unchanged.
+        rendered = config_page.quiet_hours_group("23:00", "07:00")
+        caption_pos = rendered.index("section-caption")
         preset_pos = rendered.index(config_page.QUIET_HOURS_PRESET_ATTR)
         time_pos = rendered.index('type="time"')
-        if not (checkbox_pos < preset_pos < time_pos):
+        if not (caption_pos < preset_pos < time_pos):
             return False, (
-                "expected the preset row to fall after the settings-checkbox label and before the first "
-                "type=\"time\" input, got positions %r" % ((checkbox_pos, preset_pos, time_pos),))
+                "expected the preset row to fall after the section caption and before the first "
+                "type=\"time\" input, got positions %r" % ((caption_pos, preset_pos, time_pos),))
         return True, ""
     check(
-        "the preset button row appears after the .settings-checkbox label and before the first "
-        "type=\"time\" input (D-14's locked position)",
-        _quiet_hours_group_preset_row_between_checkbox_and_time_inputs)
+        "the preset button row appears after the section caption and before the first "
+        "type=\"time\" input (D-14's locked position, retargeted by 22-05-PLAN.md Task 1 now that "
+        "the checkbox it used to follow is gone)",
+        _quiet_hours_group_preset_row_between_caption_and_time_inputs)
 
     def _handle_post_preset_filled_submission_treated_identically_to_hand_typed():
         # T-19-38: the presets write into the SAME two fields a hand-typed
@@ -990,8 +1030,11 @@ def main():
         })
         if 'value="22:30"' not in rendered or 'value="06:15"' not in rendered:
             return False, "expected the current quiet-hours times to appear in the rendered page"
-        if 'name="quiet_hours_enabled"' not in rendered:
-            return False, "expected the quiet-hours enable checkbox to appear in the rendered page"
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): inverted — no scope
+        # renders a quiet_hours_enabled checkbox any more; the Frame
+        # strip is the only on/off control left.
+        if 'name="quiet_hours_enabled"' in rendered:
+            return False, "expected no quiet-hours enable checkbox anywhere on the rendered page"
         led_heading_pos = rendered.index(config_page.LED_SECTION_HEADING)
         quiet_heading_pos = rendered.index(config_page.QUIET_HOURS_SECTION_HEADING)
         save_button_pos = rendered.index("Save settings")
@@ -1107,127 +1150,102 @@ def main():
         _render_places_wake_interval_last_and_resolves_prefill)
 
     # ------------------------------------------------------------------
-    # 12-05-PLAN.md Task 1/Task 2: display_group() markup, its caption's
-    # locked copy, render()'s D-09 prefill default, and handle_post()'s
-    # three-shape checkbox resolution ladder (12-UI-SPEC.md, 12-CONTEXT.md
-    # D-02/D-08/D-09).
+    # 12-05-PLAN.md Task 1/Task 2's display_group() markup/caption/prefill
+    # checks are deleted outright by 22-05-PLAN.md Task 1 (X1/D-04/D-12.1)
+    # along with display_group() itself — the Frame strip is now the ONLY
+    # on/off control for the screen, so this settings page renders no
+    # Screen on/off card, no checkbox and no caption for it at all. What
+    # survives (retargeted, not deleted) is handle_post()'s own three-shape
+    # resolution ladder for display_enabled below — its meaning changed
+    # (absent now means "leave unchanged", D-12.1), not its existence.
     # ------------------------------------------------------------------
 
-    def _display_group_markup_shape_checked_and_unchecked():
-        # Bullet 1: display_group(True) emits one .theme-status[data-dirty-
-        # section] wrapper, the locked heading and caption, one
-        # .settings-checkbox label, exactly one checkbox input named for
-        # the field, exactly one checked flag; display_group(False) emits
-        # none; and neither emits <fieldset>/<legend>/type="time"/
-        # type="number"/disabled - this group has no dependent fields and
-        # must not grow any.
-        checked_html = config_page.display_group(True)
-        unchecked_html = config_page.display_group(False)
-        for rendered in (checked_html, unchecked_html):
-            if rendered.count('class="theme-status"') != 1:
-                return False, "expected exactly one .theme-status wrapper"
-            if config_page.DIRTY_SECTION_ATTR not in rendered:
-                return False, "expected the wrapper to carry DIRTY_SECTION_ATTR"
-            expected_heading = (
-                '<h2 class="text-heading">%s</h2>'
-                % escape_html(config_page.DISPLAY_SECTION_HEADING))
-            if rendered.count(expected_heading) != 1:
-                return False, "expected exactly one heading %r" % (expected_heading,)
-            # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - the
-            # caption now carries DISPLAY_SECTION_CAPTION_ID (the
-            # checkbox's own aria-describedby target).
-            expected_caption = (
-                '<p class="text-label section-caption" id="%s">%s</p>'
-                % (
-                    escape_html(config_page.DISPLAY_SECTION_CAPTION_ID),
-                    escape_html(config_page.DISPLAY_SECTION_CAPTION)))
-            if rendered.count(expected_caption) != 1:
-                return False, "expected exactly one caption %r" % (expected_caption,)
-            if rendered.count('<label class="settings-checkbox">') != 1:
-                return False, "expected exactly one <label class=\"settings-checkbox\">"
-            if rendered.count('<input type="checkbox" name="display_enabled"') != 1:
-                return False, "expected exactly one checkbox input named display_enabled"
-            if "<fieldset" in rendered:
-                return False, "expected no <fieldset> - this group deliberately doesn't use one"
-            if "<legend" in rendered:
-                return False, "expected no <legend> - a <legend> only has accessible-name semantics inside a <fieldset>"
-            if 'type="time"' in rendered:
-                return False, "expected no type=\"time\" input - this group has no dependent fields"
-            if 'type="number"' in rendered:
-                return False, "expected no type=\"number\" input - this group has no dependent fields"
-            if "disabled" in rendered:
-                return False, "expected no disabled attribute - no sibling control's enabled state depends on this one"
-        if checked_html.count(" checked") != 1:
-            return False, "expected display_group(True) to carry exactly one checked flag"
-        if unchecked_html.count(" checked") != 0:
-            return False, "expected display_group(False) to carry zero checked flags"
+    def _no_page_and_no_scope_renders_a_display_or_quiet_hours_on_off_checkbox():
+        # X1/D-04: the Frame strip is the ONLY on/off control for Screen
+        # and for Quiet hours — pinned across the legacy SCOPE_ALL render
+        # and both live scopes, so a regression can never reintroduce
+        # either checkbox on any settings page.
+        base_ctx = {
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        legacy = config_page.render(base_ctx)
+        display = config_page.render(base_ctx, scope=config_page.SCOPE_DISPLAY)
+        device = config_page.render(base_ctx, scope=config_page.SCOPE_DEVICE)
+        for rendered, name in ((legacy, "legacy"), (display, "display"), (device, "device")):
+            if 'name="display_enabled"' in rendered:
+                return False, "expected no display_enabled input on the %s render" % (name,)
+            if 'name="quiet_hours_enabled"' in rendered:
+                return False, "expected no quiet_hours_enabled input on the %s render" % (name,)
         return True, ""
     check(
-        "display_group(True)/display_group(False) emit exactly one .theme-status[data-dirty-section] wrapper, the locked heading/caption, one .settings-checkbox label, one checkbox input named display_enabled, and the correct checked count, with none of <fieldset>/<legend>/type=\"time\"/type=\"number\"/disabled",
-        _display_group_markup_shape_checked_and_unchecked)
+        "X1/D-04: no settings render (legacy SCOPE_ALL, Display, Device) carries a display_enabled or "
+        "quiet_hours_enabled input any more — the Frame strip is the only on/off control for either "
+        "setting (22-05-PLAN.md Task 1, superseding 12-05-PLAN.md/10-05-PLAN.md's own checkbox markup)",
+        _no_page_and_no_scope_renders_a_display_or_quiet_hours_on_off_checkbox)
 
-    def _display_section_caption_locked_verbatim():
-        # Bullet 2: exact equality is a stronger gate here than a
-        # word-level absence rule (e.g. "instant"/"immediate" not present)
-        # and does not risk pinning fragile phrasing beyond the locked
-        # sentence itself (12-UI-SPEC.md Copywriting Contract, D-02).
-        expected = (
-            "Turns the physical panel off remotely, without touching the "
-            "hardware. Takes effect within about 5 minutes, both "
-            "switching off and back on.")
-        if config_page.DISPLAY_SECTION_CAPTION != expected:
-            return False, "expected DISPLAY_SECTION_CAPTION to equal the locked sentence, got %r" % (config_page.DISPLAY_SECTION_CAPTION,)
-        return True, ""
-    check(
-        "DISPLAY_SECTION_CAPTION equals 12-UI-SPEC.md's locked sentence exactly, stating the ~5-minute apply latency in both directions and never claiming immediacy (D-02)",
-        _display_section_caption_locked_verbatim)
-
-    def _render_display_prefill_defaults_checked_and_honors_saved_false():
-        # Bullet 3: render() with an empty device_config produces a
-        # checked box (D-09 reaching the page, not just the loader), and
-        # {"display_enabled": False} produces an unchecked one.
-        #
-        # 20-07-PLAN.md Task 2 (D-19): display_group()'s own quick-action
-        # slot now renders several nested <div>s BEFORE the checkbox
-        # inside the same outer wrapper — the old "slice to the first
-        # </div> after the dirty-section marker" no longer reaches the
-        # checkbox at all (it now closes an inner quick-action <div>
-        # instead). Retargeted to find the checkbox's own <input> tag
-        # directly, which is robust to whatever precedes it in the card.
-        rendered = config_page.render({"device_config": {}, "state_dir": "/tmp"})
-        if rendered.count('name="display_enabled"') != 1:
-            return False, "expected exactly one display_enabled input"
-        checkbox_marker = rendered.index('<input type="checkbox" name="display_enabled"')
-        checkbox_tag = rendered[checkbox_marker:rendered.index(">", checkbox_marker) + 1]
-        if " checked" not in checkbox_tag:
-            return False, "expected an empty device_config to render the Display box checked (D-09)"
-
-        rendered_off = config_page.render({
-            "device_config": {"display_enabled": False}, "state_dir": "/tmp"})
-        checkbox_marker_off = rendered_off.index('<input type="checkbox" name="display_enabled"')
-        checkbox_tag_off = rendered_off[checkbox_marker_off:rendered_off.index(">", checkbox_marker_off) + 1]
-        if " checked" in checkbox_tag_off:
-            return False, "expected device_config={'display_enabled': False} to render the box unchecked"
-        return True, ""
-    check(
-        "render() with an empty device_config renders the Display checkbox checked (D-09), and with display_enabled explicitly False renders it unchecked",
-        _render_display_prefill_defaults_checked_and_honors_saved_false)
-
-    def _handle_post_display_enabled_three_shapes():
-        # Bullet 4: all three checkbox shapes - absent means off and is
-        # persisted as off; the exact constant means on; a crafted value
-        # returns the generic save-failed flash and leaves a pre-existing
-        # device_config.json byte-identical, proving all-or-nothing
-        # rejection still holds across all eight fields.
-        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+    def _no_js_floor_holds_on_display_and_device_after_the_checkbox_removal():
+        # D-09's no-JS floor, asserted at THIS plan's own commit rather
+        # than deferred to the phase's end (22-RESEARCH.md Pitfall 4):
+        # removing two form controls is exactly the kind of wave-3 break
+        # that only surfaces at a much later wave if this floor is not
+        # checked here. With scripts blocked there is no JS to move a
+        # switch — every setting still reachable on a scoped page must
+        # have a plain, server-rendered <form> control and a reachable
+        # fallback Save button; neither scope needs one for
+        # display_enabled/quiet_hours_enabled any more, since the Frame
+        # strip's own plain POST forms (companion/layout.py, unaffected
+        # by this plan) are what a no-JS visitor uses for those two.
+        base_ctx = {
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        for scope in (config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
+            rendered = config_page.render(base_ctx, scope=scope)
+            if config_page.STATIC_SAVE_FALLBACK_ATTR not in rendered:
+                return False, "expected a reachable fallback Save button on scope=%r" % (scope,)
+            if '<form class="config-form"' not in rendered:
+                return False, "expected a plain <form method=\"post\"> settings form on scope=%r" % (scope,)
+        # A save posted without any script (a plain, URL-encoded POST
+        # body, exactly what a no-JS browser submits) still round-trips
+        # the Quiet hours schedule — the one control this plan leaves on
+        # the Display page for this setting.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-nojs-")
         try:
             ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_post({}, ctx)
+            flash_key = config_page.handle_post(
+                {"scope": "display", "quiet_hours_start": "22:15", "quiet_hours_end": "06:45"}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED for a plain no-JS Quiet-hours-schedule save, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["quiet_hours_start"] != "22:15" or on_disk["quiet_hours_end"] != "06:45":
+                return False, "expected the plain POST's schedule to round-trip, got %r" % (on_disk,)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        return True, ""
+    check(
+        "D-09's no-JS floor holds at this plan's own commit: scripts-blocked Display and Device "
+        "renders each carry a reachable fallback Save button inside a plain server-rendered form, "
+        "and a plain (no-JS) POST still round-trips the Quiet hours schedule",
+        _no_js_floor_holds_on_display_and_device_after_the_checkbox_removal)
+
+    def _handle_post_display_enabled_three_shapes():
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1, T-22-16): retargeted from
+        # "absent means off" to "absent means leave unchanged" — the
+        # regression this whole plan exists to close. The explicit-value
+        # and crafted-value shapes are unchanged from before this plan.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            device_config.save_device_config(tmpdir, display_enabled=True)
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({"theme": "black"}, ctx)
             if flash_key != config_page.FLASH_SAVED:
                 return False, "expected FLASH_SAVED for an absent display_enabled, got %r" % (flash_key,)
             on_disk = device_config.load_device_config(tmpdir)
-            if on_disk["display_enabled"] is not False:
-                return False, "expected display_enabled False on disk, got %r" % (on_disk["display_enabled"],)
+            if on_disk["display_enabled"] is not True:
+                return False, (
+                    "expected an absent display_enabled to LEAVE the stored True value unchanged, "
+                    "got %r" % (on_disk["display_enabled"],))
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
@@ -1265,8 +1283,46 @@ def main():
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
     check(
-        "handle_post() resolves display_enabled through all three checkbox shapes: absent persists False, DISPLAY_CHECKBOX_VALUE persists True, and a crafted value returns the save-failed flash key and leaves a pre-existing device_config.json byte-identical",
+        "handle_post() resolves display_enabled through all three shapes: absent LEAVES the stored "
+        "value unchanged (D-12.1, retargeted from the pre-22-05 absent-means-False bug), "
+        "DISPLAY_CHECKBOX_VALUE persists True, and a crafted value returns the save-failed flash key "
+        "and leaves a pre-existing device_config.json byte-identical",
         _handle_post_display_enabled_three_shapes)
+
+    def _handle_post_theme_only_save_never_flips_display_or_quiet_hours_off():
+        # T-22-16 / 22-RESEARCH.md Pitfall 1: THE named regression this
+        # plan exists to prevent — a settings save that touches only an
+        # unrelated field (theme) must never silently switch the screen
+        # or quiet hours off, in ANY of their four starting combinations.
+        for start_display, start_quiet in (
+                (True, True), (True, False), (False, True), (False, False)):
+            tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-regression-")
+            try:
+                device_config.save_device_config(
+                    tmpdir, display_enabled=start_display, quiet_hours_enabled=start_quiet)
+                ctx = {"state_dir": tmpdir}
+                flash_key = config_page.handle_post({"theme": "white"}, ctx)
+                if flash_key != config_page.FLASH_SAVED:
+                    return False, "expected FLASH_SAVED for a theme-only save, got %r" % (flash_key,)
+                on_disk = device_config.load_device_config(tmpdir)
+                if on_disk["display_enabled"] is not start_display:
+                    return False, (
+                        "REGRESSION (T-22-16): a theme-only save flipped display_enabled from %r to %r"
+                        % (start_display, on_disk["display_enabled"]))
+                if on_disk["quiet_hours_enabled"] is not start_quiet:
+                    return False, (
+                        "REGRESSION (T-22-16): a theme-only save flipped quiet_hours_enabled from "
+                        "%r to %r" % (start_quiet, on_disk["quiet_hours_enabled"]))
+                if on_disk["theme"] != "white":
+                    return False, "expected the theme change itself to still persist, got %r" % (on_disk["theme"],)
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        return True, ""
+    check(
+        "REGRESSION GUARD (T-22-16, 22-RESEARCH.md Pitfall 1): a settings save that only changes the "
+        "theme leaves display_enabled and quiet_hours_enabled EXACTLY as they were, across all four "
+        "starting True/False combinations — the frame can never go dark after an unrelated save",
+        _handle_post_theme_only_save_never_flips_display_or_quiet_hours_off)
 
     def _every_settings_group_is_named_exactly_once():
         # heading-color-consistency debug session, extended by 06.6.4.1
@@ -1568,6 +1624,12 @@ def main():
         # screens.GROUP_CALENDAR has no entry in `builders` here any
         # more either (the same accepted, documented fate Theme's own
         # entry already had), dropping the count from seven to six.
+        #
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): Display's own entry is
+        # ALSO gone — display_group() is retired outright and
+        # screens.GROUP_DISPLAY is no longer a member of ANY screen
+        # type's own group tuple, dropping the count from six to five
+        # (+0/-1: "Display" removed from the expected list below).
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -1576,13 +1638,12 @@ def main():
             r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
         expected = [
             "Runway", "Diagnostic LED", "Quiet hours",
-            "Wake interval", config_page.DISPLAY_SECTION_HEADING,
-            "Notifications"]
+            "Wake interval", "Notifications"]
         if found != expected:
             return False, "expected %r in document order, got %r" % (expected, found)
         return True, ""
     check(
-        "render() carries exactly six data-dirty-section elements, in document order Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Notifications (Theme's own entry retired along with theme_fieldset(), 21-05-PLAN.md Task 1 D-06; Calendar's own entry retired from this legacy scope by 21-07-PLAN.md Task 1 D-13/Pitfall 2)",
+        "render() carries exactly five data-dirty-section elements, in document order Runway/Diagnostic LED/Quiet hours/Wake interval/Notifications (Theme's own entry retired along with theme_fieldset(), 21-05-PLAN.md Task 1 D-06; Calendar's own entry retired from this legacy scope by 21-07-PLAN.md Task 1 D-13/Pitfall 2; Display's own entry retired outright by 22-05-PLAN.md Task 1 X1/D-04/D-12.1)",
         _render_exactly_five_dirty_sections_in_order)
 
     def _runway_fieldset_returns_single_top_level_div():
@@ -2092,7 +2153,17 @@ def main():
             # DEFAULT_NOTIFICATIONS's own True/True. The topic URL still
             # carries forward the (here, never-set) on-disk value, and lang
             # falls back to "en" (this test's ctx carries no "lang" key).
-            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}:
+            # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): display_enabled is
+            # True here, not the pre-22-05 False — this posted form omits
+            # display_enabled entirely, and that field's absence now means
+            # "leave unchanged" UNCONDITIONALLY (never "switch it off"),
+            # so on this fresh state directory it falls through to
+            # DEFAULT_DISPLAY_ENABLED (True), never to a hard-coded False.
+            # quiet_hours_enabled stays False here too, but for a different
+            # reason now: its own absence also means "leave unchanged",
+            # and DEFAULT_QUIET_HOURS_ENABLED already IS False, so the
+            # value is coincidentally unchanged from the pre-22-05 fixture.
+            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": True, "wake_interval_s": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -3269,23 +3340,10 @@ def main():
         "56px preview band) - the selectors config_page.py's new markup depends on",
         _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors)
 
-    def _style_css_needs_no_new_selector_for_display_group():
-        # 12-05-PLAN.md Task 2 bullet 5: a cross-file guard that style.css
-        # needs no new selector for the Display group - both classes
-        # display_group() depends on (.theme-status, .settings-checkbox)
-        # are already declared above, matching led_group()'s/
-        # quiet_hours_group()'s own precedent (12-UI-SPEC.md: zero new
-        # selectors, zero new declarations, zero new design tokens).
-        source = _read_static("style.css")
-        if ".theme-status {" not in source:
-            return False, "expected style.css to already declare a .theme-status rule"
-        checkbox_selector = '.settings-checkbox input[type="checkbox"] {'
-        if checkbox_selector not in source:
-            return False, "expected style.css to already declare a %r rule" % (checkbox_selector,)
-        return True, ""
-    check(
-        "style.css already declares .theme-status and .settings-checkbox - the Display group introduces zero new CSS selectors",
-        _style_css_needs_no_new_selector_for_display_group)
+    # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the check that used to live
+    # here (_style_css_needs_no_new_selector_for_display_group) is deleted
+    # outright along with display_group() itself — there is no longer a
+    # Display group for style.css to need, or not need, a new selector for.
 
     def _theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme():
         # 06.6.4.1.1-05: the cross-module route contract — every chip's
@@ -3712,6 +3770,11 @@ def main():
         # `builders` here any more either (Calendar's own data-dirty-
         # section entry only ever renders on the Display scope now,
         # exactly like Theme's).
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the count drops to 5 —
+        # display_group() is retired outright and screens.GROUP_DISPLAY
+        # is no longer a member of any screen type's own group tuple, so
+        # this legacy render no longer contributes a Display entry either
+        # (+0/-1: "Display" removed from the expected-groups comment).
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -3720,17 +3783,17 @@ def main():
             return False, "expected zero <fieldset> elements on the rendered Settings page"
         if "<legend" in rendered:
             return False, "expected zero <legend> elements on the rendered Settings page"
-        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 6:
+        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 5:
             return False, (
-                "expected exactly 6 %s occurrences (Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Notifications), got %d"
+                "expected exactly 5 %s occurrences (Runway/Diagnostic LED/Quiet hours/Wake interval/Notifications), got %d"
                 % (config_page.DIRTY_SECTION_ATTR, rendered.count(config_page.DIRTY_SECTION_ATTR)))
         return True, ""
     check(
-        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly six "
-        "data-dirty-section groups (Runway/Diagnostic LED/Quiet hours/Wake interval/Display/"
+        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly five "
+        "data-dirty-section groups (Runway/Diagnostic LED/Quiet hours/Wake interval/"
         "Notifications — Theme's own entry retired along with theme_fieldset(), 21-05-PLAN.md Task 1 "
         "D-06; Calendar's own entry retired from this legacy scope by 21-07-PLAN.md Task 1 D-13/"
-        "Pitfall 2)",
+        "Pitfall 2; Display's own entry retired outright by 22-05-PLAN.md Task 1 X1/D-04/D-12.1)",
         _settings_page_has_zero_fieldsets_and_five_dirty_sections)
 
     def _selected_runway_card_and_theme_chip_carry_a_background_wash():
@@ -5812,6 +5875,12 @@ def main():
         # --nested modifier so their own <h2> renders at the extended
         # .theme-status--nested/.page-section--nested > h2 tier
         # (20-04-PLAN.md Task 1's own CSS selector).
+        #
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the floor drops from 5 to
+        # 4 — Display's own nested card (theme-status--nested) is retired
+        # outright along with display_group() itself, leaving Frame
+        # colours/Calendar (page-section--nested) and Runway/Quiet hours
+        # (theme-status--nested).
         ctx = {
             "device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0,
             "calendar_configured": True, "calendar_last_synced_at": None,
@@ -5822,8 +5891,8 @@ def main():
             if needle not in display:
                 return False, "expected %r on the Display scope" % (needle,)
         nested_count = display.count("theme-status--nested") + display.count("page-section--nested")
-        if nested_count < 5:
-            return False, "expected at least 5 --nested occurrences on Display, got %d" % nested_count
+        if nested_count < 4:
+            return False, "expected at least 4 --nested occurrences on Display, got %d" % nested_count
         return True, ""
     check(
         "every grouped card the Display scope renders under one of its three supersections carries "
@@ -5859,7 +5928,12 @@ def main():
             layout.FRAME_STRIP_HEADING,
             config_page.DISPLAY_LOOK_HEADING, config_page.FRAME_COLOURS_HEADING,
             config_page.CALENDAR_SECTION_HEADING, config_page.DISPLAY_WATCHES_HEADING,
-            "Runway", config_page.DISPLAY_ON_HEADING, config_page.DISPLAY_SECTION_HEADING,
+            "Runway", config_page.DISPLAY_ON_HEADING,
+            # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): config_page.
+            # DISPLAY_SECTION_HEADING ("Screen on / off") is retired
+            # outright along with display_group() — the Frame strip is
+            # the only Screen on/off control left, so "When it is on" now
+            # renders only the Quiet hours card.
             config_page.QUIET_HOURS_SECTION_HEADING,
         ]
         if headings != expected:
@@ -5874,10 +5948,11 @@ def main():
         return True, ""
     check(
         "the Display scope's rendered <h2> order is exactly Look, Frame colours, Calendar, What it "
-        "watches, Runway, When it is on, Screen on / off, Quiet hours (Theme's and the standalone "
-        "Flight-colours card's own former headings both retired into one Frame colours heading, "
-        "21-05-PLAN.md Task 1 D-06), and every calendar_theme_id radio carries a "
-        "form=\"settings-form\" attribute (D-12 fix, 20-REVIEW.md verification gap)",
+        "watches, Runway, When it is on, Quiet hours (Theme's and the standalone Flight-colours "
+        "card's own former headings both retired into one Frame colours heading, 21-05-PLAN.md "
+        "Task 1 D-06; Screen on/off's own heading retired outright by 22-05-PLAN.md Task 1 "
+        "X1/D-04/D-12.1), and every calendar_theme_id radio carries a form=\"settings-form\" "
+        "attribute (D-12 fix, 20-REVIEW.md verification gap)",
         _display_h2_order_matches_d12_after_calendar_placement_fix)
 
     # ==================================================================
@@ -5954,15 +6029,22 @@ def main():
         "(D-19/Pitfall 1, the required structural fix)",
         _display_render_carries_no_form_nested_inside_a_form)
 
-    def _four_scheduled_inputs_carry_form_settings_form():
+    def _two_scheduled_inputs_carry_form_settings_form():
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): retargeted from four
+        # scheduled inputs to two — the display_enabled and
+        # quiet_hours_enabled checkboxes this check used to pin are
+        # retired outright, along with display_group() and
+        # quiet_hours_group()'s own on/off checkbox. Only the Quiet
+        # hours schedule itself (Start/End) still cross-submits via
+        # form="settings-form" now.
         rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
         for needle in (
-                '<input type="checkbox" name="display_enabled" value="on" checked form="settings-form"',
-                '<input type="checkbox" name="quiet_hours_enabled" value="on" checked form="settings-form"',
                 '<input type="time" name="quiet_hours_start" value="22:00" required form="settings-form"',
                 '<input type="time" name="quiet_hours_end" value="06:00" required form="settings-form"'):
             if needle not in rendered:
                 return False, "expected %r in the rendered Display page" % (needle,)
+        if 'name="display_enabled"' in rendered or 'name="quiet_hours_enabled"' in rendered:
+            return False, "expected no display_enabled/quiet_hours_enabled input on the Display page"
         return True, ""
     # ==================================================================
     # 21-04-PLAN.md Task 1 (D-01/D-02): the Frame strip replaces the two
@@ -5996,8 +6078,12 @@ def main():
         _display_render_has_exactly_one_quick_action_pair_inside_the_strip)
 
     def _schedule_cards_carry_no_quick_action_markup():
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): retargeted to Quiet hours
+        # only — the Screen on/off card this loop used to also check is
+        # retired outright along with display_group() itself, so there is
+        # no longer a second card to check here.
         rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-        for heading in (config_page.DISPLAY_SECTION_HEADING, config_page.QUIET_HOURS_SECTION_HEADING):
+        for heading in (config_page.QUIET_HOURS_SECTION_HEADING,):
             start = rendered.index('<h2 class="text-heading">%s</h2>' % heading)
             next_heading = rendered.find('<h2 class="text-heading"', start + 1)
             segment = rendered[start:next_heading] if next_heading != -1 else rendered[start:]
@@ -6005,8 +6091,9 @@ def main():
                 return False, "expected the %r card to carry no quick-action markup" % (heading,)
         return True, ""
     check(
-        "neither the Screen on/off card nor the Quiet hours card carries any quick-action markup "
-        "any more — both switches moved into the shared Frame strip (D-01/D-02)",
+        "the Quiet hours card carries no quick-action markup any more — its switch moved into the "
+        "shared Frame strip (D-01/D-02); the Screen on/off card this check used to also cover is "
+        "retired outright by 22-05-PLAN.md Task 1 (X1/D-04/D-12.1)",
         _schedule_cards_carry_no_quick_action_markup)
 
     def _quick_action_forms_carry_return_to_the_display_route():
@@ -6047,9 +6134,11 @@ def main():
         _frame_strip_renders_after_header_before_first_section_intro)
 
     check(
-        "all four scheduled inputs (display_enabled, quiet_hours_enabled, quiet_hours_start, "
-        "quiet_hours_end) carry form=\"settings-form\" via the SETTINGS_FORM_ID constant (D-19)",
-        _four_scheduled_inputs_carry_form_settings_form)
+        "the two remaining scheduled inputs (quiet_hours_start, quiet_hours_end) carry "
+        "form=\"settings-form\" via the SETTINGS_FORM_ID constant (D-19), and neither "
+        "display_enabled nor quiet_hours_enabled renders on the Display page any more "
+        "(22-05-PLAN.md Task 1, X1/D-04/D-12.1)",
+        _two_scheduled_inputs_carry_form_settings_form)
 
     def _applies_next_wake_sentence_appears_exactly_twice():
         # 21-04-PLAN.md Task 1 (D-01/D-02): the constant moved to
@@ -6329,19 +6418,30 @@ def main():
                 return False, "expected a device-page submission to ignore a stray calendar_disconnect field (D-11)"
             if config_page.submitted_calendar_signal({"scope": "display", "calendar_disconnect": "on"}) != config_page.CALENDAR_URL_SIGNAL_CLEAR:
                 return False, "expected a display-page submission's calendar_disconnect field to resolve clear now that Calendar renders there (D-11)"
-            # The legacy unscoped body keeps its absent-means-False contract.
+            # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1, T-22-16): inverted from
+            # the pre-22-05 "the legacy unscoped body keeps its
+            # absent-means-False contract" — display_enabled and
+            # quiet_hours_enabled now resolve absent to "leave unchanged"
+            # UNCONDITIONALLY, including on this legacy unscoped
+            # SCOPE_ALL path, which is precisely the regression this
+            # plan exists to close: before this fix, this exact call
+            # would have silently switched the screen back off.
             key = config_page.handle_post({"theme": "white"}, {"state_dir": tmp})
             cfg = device_config.load_device_config(tmp)
-            if key != config_page.FLASH_SAVED or cfg["display_enabled"] is not False:
-                return False, "expected the legacy unscoped save to keep absent-checkbox-means-False"
+            if key != config_page.FLASH_SAVED or cfg["display_enabled"] is not True:
+                return False, (
+                    "expected the legacy unscoped save to LEAVE display_enabled unchanged (True), "
+                    "got %r" % (cfg["display_enabled"],))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "handle_post() treats a checkbox absent from an out-of-scope group as 'leave unchanged' (a Display "
-        "save never flips the LED, a Device save never flips the screen or quiet hours), keeps "
-        "absent-means-False inside the submitted scope and for the legacy unscoped form, and a "
-        "scoped submission without the Calendar group always carries the calendar forward",
+        "handle_post() treats a checkbox absent from an out-of-scope group as 'leave unchanged' (a "
+        "Display save never flips the LED, a Device save never flips the screen or quiet hours), "
+        "keeps absent-means-False for led_enabled whenever it IS in scope, leaves display_enabled/"
+        "quiet_hours_enabled unchanged even in-scope and on the legacy unscoped form (D-12.1, "
+        "22-05-PLAN.md Task 1), and a scoped submission without the Calendar group always carries "
+        "the calendar forward",
         _handle_post_scope_carries_out_of_scope_checkboxes_forward)
 
     # --- 19-12-PLAN.md Task 2 (D-23/D-22): the conditional screen selector
@@ -6526,9 +6626,16 @@ def main():
         # colours card's own FRAME_COLOURS_CAPTION, is a fixed, complete,
         # locked sentence (21-UI-SPEC.md §D) that never gains this
         # suffix, so it is deliberately NOT added to this list.
+        #
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): QUIET_HOURS_SECTION_
+        # CAPTION is ALSO removed from this list — it no longer ends on
+        # the generic "applies on the next scheduled poll" clause this
+        # suffix mechanism augments; Task 2 gives it its own one computed
+        # delay sentence (companion/frame_state.py) instead, pinned by
+        # its own dedicated check below.
         for caption in (
                 config_page.RUNWAY_SECTION_CAPTION,
-                config_page.LED_SECTION_CAPTION, config_page.QUIET_HOURS_SECTION_CAPTION,
+                config_page.LED_SECTION_CAPTION,
                 config_page.WAKE_INTERVAL_SECTION_CAPTION):
             # escape_html() is what the render pipeline actually applies —
             # several of these captions carry an apostrophe (e.g. "the
@@ -6545,31 +6652,13 @@ def main():
                 return False, "expected %r to carry no suffix when the next-wake value is unknown" % (caption,)
         return True, ""
     check(
-        "each of Runway/LED/Quiet-hours/Wake-interval's own caption gains the '(next wake ≈ "
+        "each of Runway/LED/Wake-interval's own caption gains the '(next wake ≈ "
         "HH:MM)' suffix when the value is known, and is byte-identical to its own constant when it "
         "is not (D-13; narrowed by 21-05-PLAN.md Task 1 D-06 once THEME_SECTION_CAPTION/"
-        "theme_fieldset() are retired — the Frame colours card's own caption never gains this suffix)",
+        "theme_fieldset() are retired, and by 22-05-PLAN.md Task 1 X1/D-04/D-12.1 once Quiet hours' "
+        "own caption moves to its own computed delay sentence instead — the Frame colours card's own "
+        "caption never gains this suffix either)",
         _affected_captions_gain_the_suffix_only_when_known)
-
-    def _display_section_caption_never_gains_a_suffix():
-        known_ctx = {
-            "device_config": {"wake_interval_s": 900, "display_enabled": True},
-            "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
-            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
-        }
-        # GROUP_DISPLAY is an everyday group (companion/screens.py) — it
-        # renders on the Display scope, not Device.
-        rendered = config_page.render(known_ctx, scope=config_page.SCOPE_DISPLAY)
-        escaped_caption = escape_html(config_page.DISPLAY_SECTION_CAPTION)
-        if escaped_caption not in rendered:
-            return False, "expected DISPLAY_SECTION_CAPTION to render unchanged"
-        if (escaped_caption + " (next wake") in rendered:
-            return False, "expected DISPLAY_SECTION_CAPTION to never gain a next-wake suffix (D-01/D-13)"
-        return True, ""
-    check(
-        "DISPLAY_SECTION_CAPTION never gains a next-wake suffix, even when the value is known "
-        "(12-CONTEXT.md D-01's own honest ~5-minute-latency exception)",
-        _display_section_caption_never_gains_a_suffix)
 
     def _device_header_shows_next_wake_line_when_known():
         known_ctx = {

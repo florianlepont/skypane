@@ -220,11 +220,17 @@ def scope_groups(scope, screen_id=None):
     # SCOPE_ALL's fixed order, since render()/handle_post()'s own tests
     # pin the invariant that the two live scopes' groups are disjoint and
     # their union equals this tuple's own set exactly.
+    #
+    # 22-05-PLAN.md Task 1 (D-12.2): screens.GROUP_DISPLAY is removed from
+    # this hand-maintained tuple in the SAME commit that removes it from
+    # companion/screens.py's own registry — leaving it here even one
+    # commit longer would fail the pinned
+    # _scope_groups_follow_the_screen_registry union invariant
+    # immediately, which is the point of that check.
     return (
         screens.GROUP_THEME, screens.GROUP_RUNWAY, screens.GROUP_LED,
         screens.GROUP_QUIET_HOURS, screens.GROUP_WAKE_INTERVAL,
-        screens.GROUP_DISPLAY, screens.GROUP_CALENDAR,
-        screens.GROUP_NOTIFICATIONS)
+        screens.GROUP_CALENDAR, screens.GROUP_NOTIFICATIONS)
 
 
 def submitted_scope(form):
@@ -326,16 +332,21 @@ POLL_SECTION_CAPTION = (
 # the merged form — see led_group() below.
 LED_SECTION_HEADING = "Diagnostic LED"
 
-# 10-05-PLAN.md / 10-UI-SPEC.md Copywriting Contract: the Quiet hours
-# group's heading and caption, locked verbatim. Unlike Theme/Runway/LED's
-# captions, this one deliberately restates the "could now be hours away"
-# duration caveat (D-02) directly in its own sentence, rather than a
-# separate flash message — this is the one settings field on the page
-# whose wait can stretch from minutes to hours.
+# 10-05-PLAN.md / 10-UI-SPEC.md Copywriting Contract, superseded by
+# 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the "could now be hours away"
+# duration caveat this caption used to restate directly is retired along
+# with its own on/off checkbox below - the Frame strip is now the ONLY
+# on/off control, so this caption states enable-by-schedule semantics
+# instead (the schedule below is what the strip's switch turns on and
+# off). 22-05-PLAN.md Task 2 appends the one computed delay sentence
+# (companion/frame_state.py) as this caption's second sentence, replacing
+# the retired "which may now be hours away" wording with a real, computed
+# time rather than a fixed literal.
 QUIET_HOURS_SECTION_HEADING = "Quiet hours"
 QUIET_HOURS_SECTION_CAPTION = (
-    "Pauses the frame's wake, poll and display cycle overnight. Applies "
-    "on the next scheduled poll, which may now be hours away.")
+    "Pauses the frame's wake, poll and display cycle during the schedule "
+    "below — the Frame strip's Quiet hours switch is what turns it on "
+    "and off.")
 # 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
 # comment above.
 QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
@@ -433,22 +444,16 @@ NOTIFICATIONS_SILENT_CHECKBOX_VALUE = "on"
 NOTIFICATIONS_TEST_ROUTE = "/settings/notifications/test"
 ERROR_NOTIFICATIONS_URL_TOO_LONG = "That link is too long."
 
-# 12-UI-SPEC.md Copywriting Contract, locked verbatim (D-02, 12-CONTEXT.md).
-# Unlike every other caption on this page, this one does not reuse the
-# generic "applies on the next scheduled poll" clause: while the display is
-# off, the device does not follow wake_interval_s or quiet hours at all — D-01
-# pins the off-state check-in to a fixed 300s cadence, independent of both —
-# so this field's apply-timing genuinely differs and earns its own honest
-# sentence instead. The caption must never say "instant" or "immediate" —
-# D-02 is explicit the change is not, and the UI must not imply otherwise.
-DISPLAY_SECTION_HEADING = "Screen on / off"
-DISPLAY_SECTION_CAPTION = (
-    "Turns the physical panel off remotely, without touching the "
-    "hardware. Takes effect within about 5 minutes, both switching off "
-    "and back on.")
-# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
-# comment above.
-DISPLAY_SECTION_CAPTION_ID = "display-caption"
+# 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): DISPLAY_SECTION_HEADING,
+# DISPLAY_SECTION_CAPTION and DISPLAY_SECTION_CAPTION_ID (12-UI-SPEC.md's
+# former Copywriting Contract, D-02, 12-CONTEXT.md) are retired outright
+# along with display_group() below - the Frame strip is now the ONLY
+# on/off control for the screen, and its own caption (companion/layout.py,
+# 22-04-PLAN.md) is the one place that states when the change lands,
+# computed from companion/frame_state.py rather than a fixed "within
+# about 5 minutes" literal the audit could not substantiate (22-RESEARCH.md).
+# DISPLAY_CHECKBOX_VALUE (above) stays defined: handle_post() still
+# validates an explicit legacy/crafted display_enabled value against it.
 
 # 20-07-PLAN.md Task 2 (D-19): the Screen on/off and Quiet hours routes
 # the strip's switches still post to. Home's own (module-private, on
@@ -1699,87 +1704,73 @@ def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=
     )
 
 
-def quiet_hours_group(
-        current_enabled, current_start, current_end, errors=None, submitted=None,
-        next_wake_clock=None):
+def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
     """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md;
-    restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1): this card is
-    now a SIBLING of `<form id="{SETTINGS_FORM_ID}">`, never a literal
-    descendant — see `display_group()`'s own Task 2 docstring paragraph
-    for the full reasoning (its own instant switch would otherwise be a
-    `<form>` nested inside `<form id="{SETTINGS_FORM_ID}">`, which HTML
-    forbids). The enable checkbox and both time inputs keep submitting
-    with the shared Save via a `form="{SETTINGS_FORM_ID}"` attribute on
-    each, the same cross-DOM idiom `display_group()` now uses too.
+    restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1; its own on/off
+    checkbox retired outright by 22-05-PLAN.md Task 1, X1/D-04/D-12.1):
+    this card is a SIBLING of `<form id="{SETTINGS_FORM_ID}">`, never a
+    literal descendant. Both time inputs keep submitting with the shared
+    Save via a `form="{SETTINGS_FORM_ID}"` attribute on each, the same
+    cross-DOM idiom Runway's own radios and the screen-type `<select>`
+    already use.
 
     Same `.theme-status` wrapper idiom, same `<h2 class="text-heading">`
     naming as before this task (no `<fieldset>`/`<legend>`, for the
-    identical reason `led_group()`'s own docstring already documents: a
-    `<legend>` only has accessible-name semantics inside a `<fieldset>`,
-    which these sibling groups deliberately do not have) — only the
-    card's DOM position and the three controls' `form=` attribute
-    change.
+    identical reason `led_group()`'s own docstring already documents).
 
-    Controls render in this locked order (10-UI-SPEC.md's Interaction
-    Contract): the enable checkbox, then a "Start" `<input type="time">`,
-    then an "End" `<input type="time">`, each its own full-width line.
-    They are deliberately NOT wrapped in `.theme-status__row` or any other
+    Controls render in this locked order: heading, caption, the three
+    presets, then a "Start" `<input type="time">`, then an "End"
+    `<input type="time">`, each its own full-width line. They are
+    deliberately NOT wrapped in `.theme-status__row` or any other
     side-by-side layout — 10-UI-SPEC.md rejects that explicitly, both to
     avoid two native time pickers wrapping at a narrow (320-375px)
     viewport and to stay consistent with 06.6.4.1 (D-01)'s removal of this
     page's two-column grid.
 
-    The checkbox's wrapping `<label>` carries `class="settings-checkbox"`
-    — the generalised name Task 2 of 10-05-PLAN.md introduces, once
-    `led_group()`'s own single-consumer checkbox-normalization class is
-    renamed to serve both groups identically.
+    22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the `current_enabled`/
+    `quiet_hours_enabled` checkbox this function used to render here is
+    gone outright — the Frame strip is now the ONLY control for turning
+    Quiet hours on or off (T-22-16), matching Screen on/off's own fate
+    (`display_group()`, retired in the same commit). Neither time input
+    is ever given a `disabled` attribute tied to that on/off state — they
+    stay fully interactive regardless, resolving 10-RESEARCH.md's Open
+    Question 2 / Assumption A1 in the affirmative: a user can
+    pre-configure a window whether or not Quiet hours is currently on.
+    `handle_post()`'s own `quiet_hours_enabled` resolution is unaffected
+    by this markup change — it already treats an absent field as "leave
+    unchanged" (D-12.1), so removing this checkbox does not, by itself,
+    change what an unrelated settings save persists.
 
-    Unlike an "unchecked disables the fields" pattern, this group's Start/
-    End inputs are NEVER given a `disabled` attribute or a dimmed/
-    `.disabled` visual treatment tied to the checkbox's state — they stay
-    fully interactive and save independently of it, resolving
-    10-RESEARCH.md's Open Question 2 / Assumption A1 in the affirmative: a
-    user can pre-configure a window before ever turning it on.
-
-    Every interpolated current value — the heading, the caption, the
-    checkbox value, and both current times — is routed through
-    `escape_html()`, matching this file's universal escaping discipline.
+    Every interpolated current value — the heading, the caption, and
+    both current times — is routed through `escape_html()`, matching
+    this file's universal escaping discipline.
 
     19-07-PLAN.md Task 2 (D-07/A-25): `errors`/`submitted` (both fully
-    defaulted) let a rejected save repopulate all three controls from the
+    defaulted) let a rejected save repopulate both time controls from the
     submission and render each field's own error message directly after
     it. Both time inputs additionally gain a `required` attribute — a
     client-side convenience only (D-07's explicit instruction); the
     server-side HH:MM gate `handle_post()` runs before this render is
-    ever reached is the real control, and the inputs stay enabled
-    regardless of the enable checkbox either way — the
-    pre-configure-before-enabling behaviour this docstring's own
-    Interaction Contract paragraph above locks is unchanged.
+    ever reached is the real control.
 
     19-10-PLAN.md (D-14/S-04): three `type="button"` presets (Night, Work
-    day, Always on) render between the enable checkbox and the Start
-    input — a CLIENT-SIDE affordance only, with NO server change. Each
-    button carries `data-preset-start`/`data-preset-end`/
-    `data-preset-enabled` attributes that a small addition to
-    `companion/static/dirty-state.js` reads and writes into this same
-    form's `quiet_hours_start`/`quiet_hours_end`/`quiet_hours_enabled`
-    fields — `handle_post()`'s validation of those three fields is
-    completely untouched. On a no-JS browser the three buttons are
-    simply inert (they carry no `type="submit"`, so they cannot even
-    accidentally submit the form); the time inputs and checkbox
-    themselves remain fully usable either way, an acceptable degradation
-    matching this page's established graceful-degradation convention.
+    day, Always on) render between the caption and the Start input — a
+    CLIENT-SIDE affordance only, with NO server change. Each button
+    carries `data-preset-start`/`data-preset-end`/`data-preset-enabled`
+    attributes that `companion/static/dirty-state.js` reads and writes
+    into this same form's `quiet_hours_start`/`quiet_hours_end` fields
+    (and, when a `quiet_hours_enabled` element still exists in the DOM —
+    it no longer does on this page — the Always-on preset's own
+    `data-preset-enabled="0"`) — `handle_post()`'s validation of the two
+    time fields is completely untouched. On a no-JS browser the three
+    buttons are simply inert (they carry no `type="submit"`, so they
+    cannot even accidentally submit the form); both time inputs remain
+    fully usable either way, an acceptable degradation matching this
+    page's established graceful-degradation convention.
     """
-    checked = _submitted_checkbox_checked(
-        submitted, "quiet_hours_enabled", QUIET_HOURS_CHECKBOX_VALUE, current_enabled)
-    enabled_error_attrs = _field_error_attrs(errors, "quiet_hours_enabled", "quiet-hours-enabled")
-    enabled_error_html = _field_error_html(errors, "quiet_hours_enabled", "quiet-hours-enabled")
-
     # 19-11-PLAN.md Task 3 (D-12/A-30): the group's single hint links to
     # BOTH time inputs (there is no separate per-field hint for Start vs
-    # End) via `_field_error_attrs()`'s `hint_id` parameter — the enable
-    # checkbox above is not in D-12's own named single-control list and
-    # keeps its unlinked (error-only) attrs.
+    # End) via `_field_error_attrs()`'s `hint_id` parameter.
     effective_start = _submitted_or_current(submitted, "quiet_hours_start", current_start)
     start_error_attrs = _field_error_attrs(
         errors, "quiet_hours_start", "quiet-hours-start", hint_id=QUIET_HOURS_SECTION_CAPTION_ID)
@@ -1824,17 +1815,14 @@ def quiet_hours_group(
     # render here, above a hairline and the shared "applies on next
     # wake" sentence, is gone — it now renders once, in the shared
     # Frame strip at the top of Home and Display (the shared strip
-    # helper in companion/layout.py), never a second time in this
-    # card. Everything below (the scheduled checkbox, the presets, both time
-    # inputs, the Save button) is unchanged.
+    # helper in companion/layout.py), never a second time in this card.
+    # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the scheduled on/off
+    # checkbox that used to render next is retired outright too — the
+    # presets, both time inputs and the Save button are unchanged.
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        '<label class="settings-checkbox">'
-        '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s form="%s"%s> %s'
-        "</label>"
-        "%s"
         "%s"
         '<label>%s <input type="time" name="quiet_hours_start" value="%s" required form="%s"%s></label>'
         "%s"
@@ -1845,11 +1833,7 @@ def quiet_hours_group(
         DIRTY_SECTION_ATTR, escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
-        escape_html(_with_next_wake(i18n.t(QUIET_HOURS_SECTION_CAPTION), next_wake_clock)),
-        escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", SETTINGS_FORM_ID,
-        enabled_error_attrs,
-        escape_html(i18n.t("Enable quiet hours")),
-        enabled_error_html,
+        escape_html(i18n.t(QUIET_HOURS_SECTION_CAPTION)),
         preset_row_html,
         escape_html(i18n.t("Start")),
         escape_html(effective_start), SETTINGS_FORM_ID, start_error_attrs,
@@ -2109,84 +2093,18 @@ def notifications_test_section():
     ) % escape_html(i18n.t(NOTIFICATIONS_TEST_BUTTON_TEXT))
 
 
-def display_group(current_display_enabled, errors=None, submitted=None):
-    """The Display settings group (12-UI-SPEC.md, 12-CONTEXT.md D-08/D-09;
-    restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1): this card is
-    now a SIBLING of `<form id="{SETTINGS_FORM_ID}">`, never a literal
-    descendant — `render()` no longer folds this builder's output into
-    `groups_html`, and calls it separately, emitting it after `</form>`
-    closes (the same slot the merged Calendar card's own disconnect
-    form already occupies). This is the required structural fix for the
-    instant switch below: its own `<form method="post" action="{QUICK_DISPLAY_
-    ROUTE}">` would otherwise nest inside `<form id="{SETTINGS_FORM_ID}">`,
-    which HTML forbids. The `display_enabled` checkbox keeps submitting
-    with the shared Save via a `form="{SETTINGS_FORM_ID}"` attribute
-    instead — the exact cross-DOM submission idiom already shipped for
-    the dirty-bar's Save button and the screen-type `<select>` in this
-    same file.
-
-    Same `.theme-status` wrapper idiom, same `<h2 class="text-heading">`
-    naming as before this task (no `<fieldset>`/`<legend>`, for the
-    identical reason `led_group()`'s own docstring already documents) —
-    only the card's DOM position and the checkbox's `form=` attribute
-    change; its own `name`/`value`/`checked` sequence, and every
-    surrounding paragraph/label, are unchanged from before this task.
-
-    `DISPLAY_SECTION_CAPTION` states the ~5-minute apply latency in both
-    directions (D-02) rather than the generic next-scheduled-poll clause
-    every sibling caption ends on, because this is the one field on the
-    page whose apply-timing is genuinely different — see the constant's
-    own comment above for why.
-
-    21-04-PLAN.md Task 1 (D-01/D-02): the instant-switch slot that used
-    to render here, above a hairline and the shared "Applies the next
-    time the frame wakes up." sentence, at the top of this card, is
-    gone — it now renders once, in the shared Frame strip at the top
-    of Home and Display (the shared strip helper in companion/
-    layout.py), never a second time in this card. Everything below
-    (the scheduled checkbox, the
-    Save button) is unchanged.
-
-    Every interpolated current value — the heading, the caption, and
-    the checkbox value — is routed through `escape_html()`, matching
-    this file's universal escaping discipline.
-
-    19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
-    defaulted) let a rejected save repopulate this checkbox's `checked`
-    state from the submission (absent-means-unchecked, matching
-    `handle_post()`'s own resolution of this exact field) and render its
-    "unexpected switch value" error, anchored on the checkbox itself.
-
-    19-12-PLAN.md Task 3 (D-13): deliberately takes NO `next_wake_clock`
-    parameter, unlike every sibling group builder above. D-13's suffix
-    is derived from `wake_interval_s`/`SKYPANE_SLEEP_S`, which this
-    field's own honest ~5-minute latency sentence (above) already
-    supersedes for this one group — appending a wake-interval-derived
-    figure here would contradict that sentence, per 12-CONTEXT.md D-01.
-    """
-    checked = _submitted_checkbox_checked(
-        submitted, "display_enabled", DISPLAY_CHECKBOX_VALUE, current_display_enabled)
-    error_attrs = _field_error_attrs(
-        errors, "display_enabled", "display-enabled", hint_id=DISPLAY_SECTION_CAPTION_ID)
-    error_html = _field_error_html(errors, "display_enabled", "display-enabled")
-    return (
-        '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption" id="%s">%s</p>'
-        '<label class="settings-checkbox">'
-        '<input type="checkbox" name="display_enabled" value="%s"%s form="%s"%s> %s'
-        "</label>"
-        "%s"
-        "</div>"
-    ) % (
-        DIRTY_SECTION_ATTR, escape_html(i18n.t(DISPLAY_SECTION_HEADING)),
-        escape_html(i18n.t(DISPLAY_SECTION_HEADING)),
-        escape_html(DISPLAY_SECTION_CAPTION_ID), escape_html(i18n.t(DISPLAY_SECTION_CAPTION)),
-        escape_html(DISPLAY_CHECKBOX_VALUE), " checked" if checked else "", SETTINGS_FORM_ID,
-        error_attrs,
-        escape_html(i18n.t("Enable display")),
-        error_html,
-    )
+# 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): display_group() is retired
+# outright — it used to render the Screen on/off card (a checkbox plus
+# its own instant-switch slot, the latter already moved to the shared
+# Frame strip by 21-04-PLAN.md Task 1). The Frame strip is now the ONLY
+# control for the screen's on/off state, so this settings page no
+# longer has anything left to render for it: no schedule, no checkbox,
+# no card at all. screens.GROUP_DISPLAY has no entry in `builders`
+# below any more (matching screens.GROUP_THEME/screens.GROUP_CALENDAR's
+# own precedent for a group with no generic per-group renderer), and it
+# is no longer a member of any screen type's own group tuple
+# (companion/screens.py) or of `scope_groups()`'s legacy SCOPE_ALL tuple
+# (D-12.2) either.
 
 
 def _masked_calendar_url(url):
@@ -2982,16 +2900,15 @@ def _display_groups_html(builders, groups):
             i18n.t(DISPLAY_WATCHES_INTRO))
         + runway_html
     )
-    # 20-07-PLAN.md Task 2: display_group()/quiet_hours_group() are
-    # called here (still, exactly as before this task — the same
-    # dict-of-lambdas `builders` this function has always read from),
-    # but their OWN return value is now a card that carries its own
-    # instant-switch <form> and scheduled inputs bound to
-    # SETTINGS_FORM_ID via the form= attribute, never itself joined into
-    # anything rendered inside the physical form.
-    display_html = (
-        _nested_wrapper_html(builders[screens.GROUP_DISPLAY](), "theme-status", "theme-status--nested")
-        if screens.GROUP_DISPLAY in groups else "")
+    # 20-07-PLAN.md Task 2: quiet_hours_group() is called here (still,
+    # exactly as before this task — the same dict-of-lambdas `builders`
+    # this function has always read from), but its OWN return value is a
+    # card that carries scheduled inputs bound to SETTINGS_FORM_ID via
+    # the form= attribute, never itself joined into anything rendered
+    # inside the physical form. 22-05-PLAN.md Task 1 (X1/D-04/D-12.1):
+    # display_group()/screens.GROUP_DISPLAY are gone outright — the
+    # Frame strip is the only Screen on/off control left, so this
+    # supersection now renders only the Quiet hours schedule card.
     quiet_hours_html = (
         _nested_wrapper_html(
             builders[screens.GROUP_QUIET_HOURS](), "theme-status", "theme-status--nested")
@@ -2999,7 +2916,7 @@ def _display_groups_html(builders, groups):
     on_supersection_html = (
         layout.section_intro_html(
             DISPLAY_ON_SECTION_ID, i18n.t(DISPLAY_ON_HEADING), i18n.t(DISPLAY_ON_INTRO))
-        + display_html + quiet_hours_html
+        + quiet_hours_html
     )
     return watches_supersection_html, on_supersection_html
 
@@ -3040,8 +2957,10 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "tracked_runway", device_config.DEFAULT_RUNWAY_ID)
     current_led_enabled = device_cfg.get(
         "led_enabled", device_config.DEFAULT_LED_ENABLED)
-    current_quiet_enabled = device_cfg.get(
-        "quiet_hours_enabled", device_config.DEFAULT_QUIET_HOURS_ENABLED)
+    # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): current_quiet_enabled is no
+    # longer read here — quiet_hours_group() no longer renders an on/off
+    # checkbox at all (the Frame strip is the only control for it), so
+    # there is nothing left on this page to pre-fill from that value.
     current_quiet_start = device_cfg.get(
         "quiet_hours_start", device_config.DEFAULT_QUIET_HOURS_START)
     current_quiet_end = device_cfg.get(
@@ -3058,12 +2977,10 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     current_wake_interval_s = device_cfg.get("wake_interval_s")
     if current_wake_interval_s is None:
         current_wake_interval_s = ctx.get("wake_interval_env_default")
-    # D-09 (12-CONTEXT.md): an explicit boolean default, matching
-    # current_led_enabled's/current_quiet_enabled's own precedent — a config
-    # predating this field renders the box checked, not unchecked, so
-    # nothing changes for an installation already in service.
-    current_display_enabled = device_cfg.get(
-        "display_enabled", device_config.DEFAULT_DISPLAY_ENABLED)
+    # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): current_display_enabled is no
+    # longer read here either — display_group() is retired outright, and
+    # the Frame strip (companion/layout.py, fed straight from device_cfg
+    # itself) is the only remaining renderer of the screen's on/off state.
     # Phase 16 (16-05-PLAN.md): read fresh per request, matching every
     # other ctx-threaded value in this function. An explicit `.get()` with
     # no `or` fallback — `None` is meaningful here (no calendar theme
@@ -3209,13 +3126,15 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
             current_led_enabled, errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock),
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
-            current_quiet_enabled, current_quiet_start, current_quiet_end,
-            errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
+            current_quiet_start, current_quiet_end,
+            errors=errors, submitted=submitted),
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
             current_wake_interval_s, errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock),
-        screens.GROUP_DISPLAY: lambda: display_group(
-            current_display_enabled, errors=errors, submitted=submitted),
+        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): screens.GROUP_DISPLAY has
+        # no entry here any more — display_group() is retired outright,
+        # matching screens.GROUP_THEME/screens.GROUP_CALENDAR's own
+        # precedent for a group with no generic per-group renderer.
         screens.GROUP_NOTIFICATIONS: lambda: notifications_group(
             notifications_configured, current_notifications_battery,
             current_notifications_silent, errors=errors, submitted=submitted),
@@ -3713,32 +3632,47 @@ def handle_post(form, ctx, errors=None):
 
     Three properties are load-bearing here, not incidental:
 
-    First, the LED, quiet-hours-enable and display-enable checkboxes'
-    absent-means-False semantics is deliberately different from theme's,
-    runway's, and the quiet-hours times' absent-means-unchanged semantics.
-    A field absent from `form` for `theme`/`tracked_runway`/
-    `quiet_hours_start`/`quiet_hours_end` means "leave unchanged" and is
-    passed as `None`, which `save_device_config()` carries forward from the
-    current on-disk value — because a radio group, a select, and a
-    text/time input always submit *some* value once one is set, absence
-    there only ever means "this page didn't render that control." An HTML
-    checkbox is different: an *unchecked* checkbox is omitted from the
-    POST body entirely, so `led_enabled`'s, `quiet_hours_enabled`'s and
-    `display_enabled`'s absence must each resolve to `False`, never to
-    "leave unchanged" — carrying either forward instead would silently
-    re-enable a disabled LED, a curfew the user just turned off, or a
-    display the user just switched off, on every save that happens to
-    leave the box unchecked. Exactly three shapes are resolved for each
-    checkbox field and no others: absent -> `False`; equal to its own
-    `*_CHECKBOX_VALUE` -> `True`; anything else (a crafted/hostile value)
-    -> reject the whole submission.
+    First (rewritten by 22-05-PLAN.md Task 1, X1/D-04/D-12.1, T-22-16):
+    `led_enabled` keeps its historical absent-means-False semantics —
+    its checkbox is still rendered on the Device page, so an *unchecked*
+    box genuinely means the user unticked it, and an absent field means
+    the same thing an unchecked checkbox always has: `False`, never
+    "leave unchanged". `display_enabled` and `quiet_hours_enabled` are
+    DIFFERENT as of this plan: NEITHER settings page renders a checkbox
+    for either field any more (the Frame strip's own quick-toggle route,
+    `companion/app.py`'s `_handle_quick_toggle()`, is the sole normal
+    writer of both now), so this field's absence from a `/settings` POST
+    body no longer means "the user unticked a box that was on the
+    page" — it means "this form never had a control for it at all".
+    Resolving that to `False` (the pre-22-05 behaviour) was a real,
+    severe bug hiding behind a since-retired UI affordance: it silently
+    switched the physical screen and quiet hours OFF on every settings
+    save that happened to omit the field — which, for two fields with no
+    checkbox left anywhere, was EVERY settings save, including a save
+    that only changed the theme. The frame going dark after a household
+    member merely changes their theme is the exact regression this
+    fix — and its own pinned four-starting-combination check — exists to
+    prevent (22-RESEARCH.md's own named "blast radius severe enough to
+    warrant the same rigor" risk, T-22-16). Both fields now resolve
+    absent to `None` (leave unchanged) UNCONDITIONALLY: an explicit value
+    still reaching this handler (a crafted request, or a legacy
+    submission that still names the field) is still validated by exact
+    equality against `DISPLAY_CHECKBOX_VALUE`/`QUIET_HOURS_CHECKBOX_VALUE`
+    and still honoured when it matches, and an unexpected value still
+    rejects the whole submission exactly as `led_enabled`'s own third
+    shape always has. So, for all three checkboxes: `led_enabled`
+    resolves absent -> `False`, equal to `LED_CHECKBOX_VALUE` -> `True`,
+    anything else -> reject; `display_enabled`/`quiet_hours_enabled`
+    resolve absent -> `None` (unchanged), equal to their own
+    `*_CHECKBOX_VALUE` -> `True`, anything else -> reject.
 
-    Second, an unchecked "Enable quiet hours" checkbox still persists any
-    edited `quiet_hours_start`/`quiet_hours_end` values — this resolves
-    10-RESEARCH.md's Assumption A1 / Open Question 2 in the affirmative,
-    per 10-UI-SPEC.md's locked Interaction Contract: a user can
-    pre-configure a window before ever turning it on. This is a decision,
-    not an oversight.
+    Second, an explicit `quiet_hours_start`/`quiet_hours_end` value still
+    persists even when `quiet_hours_enabled` itself is absent or resolves
+    to `False`/unchanged — this resolves 10-RESEARCH.md's Assumption A1 /
+    Open Question 2 in the affirmative, per 10-UI-SPEC.md's locked
+    Interaction Contract: a user can pre-configure a window whether or
+    not Quiet hours is currently on. This is a decision, not an
+    oversight.
 
     Third, rejection stays all-or-nothing across all eight fields, now more
     so than before the merge: because there is still one form and one
@@ -3781,18 +3715,16 @@ def handle_post(form, ctx, errors=None):
 
     On success, the frame's next scheduled poll cycle (server/poll_loop.py,
     D-06/D-28) is the first place any of the eight changes actually take
-    effect — no push mechanism exists, and none is added here. `display_
-    enabled` is the one exception to "next scheduled poll": D-01
-    (12-CONTEXT.md) pins the off-state check-in to a fixed 300s cadence
-    independent of `wake_interval_s`, which is why `DISPLAY_SECTION_CAPTION`
-    states its own honest ~5-minute latency rather than reusing this
-    generic clause. The caller (companion/app.py) redirects back to
-    `SETTINGS_ROUTE`, whose banner then renders the D-07 confirmation copy
-    the FLASH_SAVED key maps to, telling the user their change was saved
-    but has not yet reached the physical frame. No quiet-hours-specific or
-    display-specific flash message exists — saving reuses FLASH_SAVED/
-    FLASH_SAVE_FAILED verbatim, per 10-UI-SPEC.md's/12-UI-SPEC.md's
-    Copywriting Contract.
+    effect — no push mechanism exists, and none is added here. The caller
+    (companion/app.py) redirects back to `SETTINGS_ROUTE`, whose banner
+    then renders the FLASH_SAVED confirmation copy — as of 22-05-PLAN.md
+    Task 2 (D-04), one computed delay sentence derived from the same
+    `wake.next_wake_status()` triple the Frame strip and every quiet-hours
+    caption read, rather than a fixed literal — telling the user their
+    change was saved but has not yet reached the physical frame. No
+    quiet-hours-specific or display-specific flash message exists — saving
+    reuses FLASH_SAVED/FLASH_SAVE_FAILED verbatim, per 10-UI-SPEC.md's/
+    12-UI-SPEC.md's Copywriting Contract.
 
     Phase 16 (16-05-PLAN.md) adds one more form field, `calendar_theme_id`
     — a plain tracked field with no checkbox. It is validated by the
@@ -3871,9 +3803,12 @@ def handle_post(form, ctx, errors=None):
     `screens.GROUP_NOTIFICATIONS`, and three more form fields:
     `notifications_topic_url`, `notifications_battery`,
     `notifications_silent`. The two checkboxes follow the identical
-    in-scope-absent-means-False resolution `led_enabled`/`quiet_hours_
-    enabled`/`display_enabled` above already use — a crafted value
-    rejects the whole save, same as every sibling checkbox gate. The
+    in-scope-absent-means-False resolution `led_enabled` above already
+    uses (22-05-PLAN.md Task 1 narrows this to `led_enabled` alone —
+    `display_enabled`/`quiet_hours_enabled` resolve absent to `None`,
+    unconditionally, per this docstring's own First paragraph above) — a
+    crafted value rejects the whole save, same as every sibling checkbox
+    gate. The
     topic URL is genuinely different from every scalar field above: an
     empty (stripped) submission means "leave the stored URL unchanged"
     (this codebase's established empty-numeric-input convention,
@@ -4016,10 +3951,23 @@ def handle_post(form, ctx, errors=None):
     else:
         _note_error(errors, "led_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
         return FLASH_SAVE_FAILED
-    if screens.GROUP_QUIET_HOURS not in in_scope:
+    # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1, T-22-16): quiet_hours_enabled
+    # is no longer a form control ANY scope renders — the Frame strip is
+    # the only place left that switches it, via its own separate quick-
+    # toggle route (companion/app.py's _handle_quick_toggle(), an
+    # entirely different write path that already passes an explicit
+    # `quiet_hours_enabled=True/False` straight to
+    # `device_config.save_device_config()`). Absence from THIS form's
+    # body therefore means "this page never had a way to change it",
+    # not "the user unticked a box" — resolving to `None` (leave
+    # unchanged) UNCONDITIONALLY, regardless of scope, is what closes
+    # the "a settings save switches quiet hours off" regression
+    # (22-RESEARCH.md Pitfall 1). An explicit value — from a crafted or
+    # legacy submission that still names this field — is still honoured,
+    # and an unexpected value still rejects the whole save exactly as
+    # before; only the "absent" branch's outcome changed.
+    if submitted_qh_enabled is None:
         quiet_hours_enabled = None
-    elif submitted_qh_enabled is None:
-        quiet_hours_enabled = False
     elif submitted_qh_enabled == QUIET_HOURS_CHECKBOX_VALUE:
         quiet_hours_enabled = True
     else:
@@ -4044,10 +3992,15 @@ def handle_post(form, ctx, errors=None):
         ):
             _note_error(errors, "wake_interval_s", ERROR_WAKE_INTERVAL_RANGE)
             return FLASH_SAVE_FAILED
-    if screens.GROUP_DISPLAY not in in_scope:
+    # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1, T-22-16): display_enabled
+    # follows the identical unconditional-absent-means-unchanged
+    # resolution quiet_hours_enabled's own comment above documents in
+    # full — the Frame strip's quick-toggle route is the only remaining
+    # writer of this field via a real settings-page control, and no
+    # scope has ever rendered a display_enabled checkbox since
+    # display_group() was retired in this same commit.
+    if submitted_display is None:
         display_enabled = None
-    elif submitted_display is None:
-        display_enabled = False
     elif submitted_display == DISPLAY_CHECKBOX_VALUE:
         display_enabled = True
     else:
