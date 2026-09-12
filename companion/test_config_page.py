@@ -551,6 +551,20 @@ EXPECTED_CHECK_COUNT = 219
 # recomputed directly against the real on-disk check(...) call count
 # at execution time (220/220 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 220
+# 22-01-PLAN.md Task 2 (D-01/B1): +1. Two existing checks were retargeted
+# in place, not deleted (the dirty-section-attr/forbidden-syntax check
+# now also pins B1's own delegation fix - no surviving
+# form.addEventListener("change" registration, document-level delegation
+# gated on e.target.form === form; the style.css fallback-attr check now
+# requires BOTH .dirty-ready and .dirty-shown in the fallback-hide
+# selector, and that neither the old .js-gated nor the old
+# single-marker .dirty-ready-only selector survives). One new check:
+# dirty-state.js's first dirty-shown occurrence comes after both its
+# first dirty-ready occurrence and its bar.hidden = false branch. 220 + 1
+# = 221, recomputed directly against the real on-disk check(...) call
+# count at execution time (221/221 pass), not trusted from arithmetic
+# alone.
+EXPECTED_CHECK_COUNT = 221
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -3023,14 +3037,53 @@ def main():
         # fallback-hide selector from drifting apart.
         if "dirty-ready" not in source:
             return False, "expected dirty-state.js to reference the literal string dirty-ready"
+        # 22-01-PLAN.md Task 2 (D-01/B1): retargeted (not deleted) from a
+        # plain literal-reference check to also pin B1's own fix - the
+        # bug was purely in the listener attachment point (form vs
+        # document), so this is the one check keeping that regression
+        # from silently coming back. No form.addEventListener("change"
+        # registration may survive; document-level delegation, gated on
+        # the control's own .form property, must be present instead.
+        if 'form.addEventListener("change"' in source:
+            return False, "expected no surviving form.addEventListener(\"change\" registration (B1 regression)"
+        if source.count("document.addEventListener") < 2:
+            return False, "expected at least two document.addEventListener registrations (change and input)"
+        if "e.target.form === form" not in source and "e.target.form===form" not in source:
+            return False, "expected the document-level delegation to gate on e.target.form === form"
         for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
             if forbidden in source:
                 return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
         return True, ""
     check(
-        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and the dirty-ready marker, and "
-        "contains none of innerHTML/let /const /=>/backtick",
+        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and the dirty-ready marker, "
+        "delegates change/input at document level gated on e.target.form === form with no surviving "
+        "form.addEventListener(\"change\" registration (B1), and contains none of innerHTML/let /const /=>/backtick",
         _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax)
+
+    def _dirty_state_js_dirty_shown_marker_set_only_inside_update_bar():
+        # 22-01-PLAN.md Task 2 (D-01/B1): the second, narrower liveness
+        # marker style.css's retargeted fallback-hide rule now also keys
+        # on - must only ever be set after the bar's existence is proven
+        # (the same data-dirty-bar guard _dirty_state_js_sets_dirty_
+        # ready_only_after_bar_guard above already pins for dirty-ready),
+        # and specifically inside updateBar()'s own bar.hidden = false
+        # branch, never at script-init time next to dirty-ready itself -
+        # that positional distinction is what makes it a proven-liveness
+        # marker rather than a second element-presence one.
+        source = _read_static("dirty-state.js")
+        if "dirty-shown" not in source:
+            return False, "expected dirty-state.js to reference the literal string dirty-shown"
+        if source.index("dirty-shown") <= source.index("dirty-ready"):
+            return False, "expected the first dirty-shown occurrence to come after the first dirty-ready occurrence"
+        if "bar.hidden = false" not in source:
+            return False, "expected dirty-state.js to still set bar.hidden = false"
+        if source.index("dirty-shown") <= source.index("bar.hidden = false"):
+            return False, "expected dirty-shown to be set after the bar.hidden = false branch is entered"
+        return True, ""
+    check(
+        "dirty-state.js's first dirty-shown occurrence comes after both its first dirty-ready occurrence and its "
+        "bar.hidden = false branch (B1: proven liveness, not element presence)",
+        _dirty_state_js_dirty_shown_marker_set_only_inside_update_bar)
 
     def _dirty_state_js_sets_dirty_ready_only_after_bar_guard():
         # 19-10-PLAN.md (D-09/A-27): the same source-ordering technique
@@ -3112,22 +3165,31 @@ def main():
         window = source[idx:idx + 120]
         if "display: none" not in window and "display:none" not in window:
             return False, "expected the fallback-hide rule to set display: none near the attribute reference"
-        # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready -
-        # the fallback now hides only once dirty-state.js has proven the
-        # bar exists, not merely because nav-dropdown.js's unconditional
-        # .js class is present. The selector prefix sits BEFORE the
-        # attribute reference (".dirty-ready [data-static-save-fallback]"),
-        # so widen the window backwards too rather than only forwards.
+        # 19-10-PLAN.md (D-09/A-27): retargeted from .js to .dirty-ready;
+        # 22-01-PLAN.md Task 2 (D-01/B1) retargets it AGAIN, from a single
+        # .dirty-ready marker (element presence) to requiring BOTH
+        # .dirty-ready AND .dirty-shown (proven liveness) - the fallback
+        # button must stay reachable until dirty-state.js has actually
+        # shown the bar once, not merely found its two DOM nodes. The
+        # selector prefix sits BEFORE the attribute reference
+        # (".dirty-ready.dirty-shown [data-static-save-fallback]"), so
+        # widen the window backwards too rather than only forwards.
         selector_window = source[max(0, idx - 40):idx + 120]
         if "dirty-ready" not in selector_window:
             return False, "expected the fallback-hide rule's selector to reference dirty-ready"
+        if "dirty-shown" not in selector_window:
+            return False, "expected the fallback-hide rule's selector to ALSO reference dirty-shown (B1: two markers, not one)"
         old_selector = ".js [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
         if old_selector in source:
             return False, "expected the old .js-gated selector to be gone entirely"
+        single_marker_selector = ".dirty-ready [%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR
+        if single_marker_selector in source:
+            return False, "expected the old single-marker .dirty-ready-only selector to be gone entirely (B1)"
         return True, ""
     check(
-        "style.css contains the .dirty-ready-gated fallback-hide rule referencing "
-        "config_page.STATIC_SAVE_FALLBACK_ATTR's literal value, and no longer the old .js-gated selector",
+        "style.css contains the .dirty-ready.dirty-shown-gated (both markers, B1) fallback-hide rule referencing "
+        "config_page.STATIC_SAVE_FALLBACK_ATTR's literal value, and no longer the old .js-gated or "
+        "single-marker .dirty-ready-only selector",
         _style_css_references_static_save_fallback_attr)
 
     def _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors():

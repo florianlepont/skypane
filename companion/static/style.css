@@ -706,24 +706,33 @@ a:hover {
 }
 
 /* Unified save bar (06.6.4.1 D-04, retargeted by 19-10-PLAN.md D-09/
- * A-27): hides the form's always-rendered bottom Save settings button
- * once dirty-state.js has PROVEN its own replacement bar exists, so the
- * dirty-state bar is the sole visible save affordance rather than both
- * showing at once. This used to key on `.js` — added to <html>
- * unconditionally as `nav-dropdown.js`'s very first statement (the same
- * mechanism the `.js .mobile-nav` rules above still rely on) — but `.js`
- * says nothing about whether dirty-state.js itself succeeded, so any
- * failure in that other, unrelated file left this fallback button
- * hidden with no working replacement: no way to save settings at all
- * (A-27). `.dirty-ready` is instead added by dirty-state.js itself, only
- * once it has confirmed `[data-dirty-bar]` and `[data-dirty-count]` both
- * exist — see that file's own header comment — so this rule now applies
- * if and only if a working replacement bar is actually present. Without
- * JS, or if dirty-state.js's own guard fails, `.dirty-ready` never
- * appears, this rule never matches, and the bottom button remains the
- * only way to save (D-06 graceful degradation, now also the D-09 no-
- * way-to-save fix). */
-.dirty-ready [data-static-save-fallback] {
+ * A-27, then again by 22-01-PLAN.md Task 2 D-01/B1): hides the form's
+ * always-rendered bottom Save settings button once dirty-state.js has
+ * PROVEN its own replacement bar is actually live, so the dirty-state
+ * bar is the sole visible save affordance rather than both showing at
+ * once. This used to key on `.js` — added to <html> unconditionally as
+ * `nav-dropdown.js`'s very first statement (the same mechanism the
+ * `.js .mobile-nav` rules above still rely on) — but `.js` says nothing
+ * about whether dirty-state.js itself succeeded, so any failure in that
+ * other, unrelated file left this fallback button hidden with no
+ * working replacement: no way to save settings at all (A-27).
+ * `.dirty-ready` was the first fix: added by dirty-state.js itself, only
+ * once it confirmed `[data-dirty-bar]`/`[data-dirty-count]` exist. That
+ * turned out to still be element PRESENCE, not proven liveness (B1) —
+ * every field attached to the form only via `form=` lived outside it, so
+ * the bar's own listeners never fired for them, and the fallback still
+ * hid while the replacement bar silently never worked for those fields.
+ * This rule now requires a SECOND, narrower marker too: `.dirty-shown`,
+ * written only inside dirty-state.js's own updateBar() function, in the
+ * branch that actually reveals the bar with real content — never at
+ * script-init time. The fallback button hides if and only if BOTH
+ * classes are present, i.e. only once a working replacement has
+ * genuinely displayed at least once. Without JS, or if either of
+ * dirty-state.js's own guards fails, at least one class never appears,
+ * this rule never matches, and the bottom button remains the only way to
+ * save (D-06 graceful degradation, the D-09 no-way-to-save fix, and now
+ * B1's proven-liveness fix). */
+.dirty-ready.dirty-shown [data-static-save-fallback] {
   display: none;
 }
 

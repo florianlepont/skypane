@@ -58,6 +58,55 @@
  * checkbox, then reusing notifyDirty()/updateBar() to mark the form
  * dirty - never a synthetic change event.
  *
+ * 22-01-PLAN.md Task 2 (D-01/B1, T1, T8): several settings groups (see
+ * config_page.py's own DIRTY_SECTION_ATTR wrappers) live OUTSIDE the
+ * physical <form id="settings-form">, cross-submitting only via a form=
+ * attribute on each control — a deliberate structural choice
+ * (companion/pages/config_page.py's own docstrings: the rules/calendar/
+ * screen/quiet-hours/imagery cards each need their own <form>, which
+ * HTML forbids nesting inside this one). The change/input listeners
+ * below used to be registered on the form element itself, and a <form>
+ * element never receives a change/input event from a control that is
+ * merely form=-associated with it while living elsewhere in the DOM (the
+ * DOM event model dispatches at the control's OWN position, not its
+ * associated form's). So every one of those fields could change on
+ * screen and the bar would never appear. form.elements was ALREADY
+ * correct here (the WHATWG spec builds it from both descendants and any
+ * form=-matching element anywhere in the document) - snapshotValues(),
+ * countDifferences() and dirtySectionLabels() needed no change at all.
+ * The fix is purely the listener attachment point: delegate at the
+ * document level instead (below), filtered to e.target.form === form so
+ * a change anywhere else on the page (another form entirely, a page with
+ * no dirty form at all) is still a correct no-op. The DOM structure
+ * itself is preserved deliberately, not undone.
+ *
+ * The second half of the same defect (B1): [data-dirty-bar] and
+ * [data-dirty-count] merely existing in the DOM used to be enough to
+ * write the marker below — element PRESENCE, not proven liveness — and
+ * style.css's fallback-hide rule keyed on that one marker alone. Any
+ * failure in this file after that point (this exact listener bug, or any
+ * future one) still hid the always-rendered bottom Save button while the
+ * bar itself never worked, leaving no way to save at all. A second,
+ * narrower marker (set only inside updateBar()'s own bar.hidden = false
+ * branch — i.e., only once the bar has genuinely been displayed with
+ * real content at least once) is added below; style.css now requires
+ * BOTH classes before hiding the fallback button.
+ *
+ * T1: suppressGuard used to be set on Cancel and never cleared again for
+ * the rest of the page's life, so the beforeunload leave-guard stayed
+ * permanently disarmed after one Cancel. updateBar() now resets it to
+ * false at its own top whenever a real edit exists (countDifferences() >
+ * 0), re-arming the guard the moment the next edit is detected.
+ *
+ * T8: form.reset() (Cancel's handler, below) restores every field's
+ * value but fires no change event, so theme-preview.js's live preview
+ * kept showing the discarded theme after Cancel. Cancel now also calls
+ * window.SkyPaneLivePreview.refresh() (theme-preview.js's own small
+ * exposed namespace, added for this exact purpose) when that global is
+ * present — a direct function call, not a synthesized DOM event, since
+ * this file cannot cheaply construct a real change event for a cross-DOM
+ * form= field.
+ *
  * D-06 (20-11-PLAN.md Task 3): updateBar()'s own connector words are now
  * read once from the dirty-bar element itself, via five data-* attributes
  * server-rendered and translated by config_page.py's dirty_bar_html — the
@@ -250,11 +299,25 @@
 
   function updateBar() {
     var count = countDifferences();
+    // T1: re-arm the leave-guard the moment a real edit exists again —
+    // Cancel (below) is the only place that ever sets suppressGuard to
+    // true, and it must not stay true for the rest of the page's life.
+    if (count > 0) {
+      suppressGuard = false;
+    }
     if (count <= 0) {
       bar.hidden = true;
       return;
     }
     bar.hidden = false;
+    // B1/D-01: the second, narrower liveness marker — set only here,
+    // inside the branch that actually reveals the bar with real content,
+    // never at script-init time (that is what dirty-ready above still
+    // means: the script ran and found its nodes, nothing more). See this
+    // file's own header comment for the full fallback-contract rationale.
+    if (document.documentElement.className.indexOf("dirty-shown") === -1) {
+      document.documentElement.className += " dirty-shown";
+    }
     var labels = dirtySectionLabels();
     if (labels.length === 0) {
       // Never-silent fallback: a differing field sits outside every
@@ -284,8 +347,24 @@
 
   var suppressGuard = false;
 
-  form.addEventListener("change", updateBar);
-  form.addEventListener("input", updateBar);
+  // B1/D-01 (22-01-PLAN.md Task 2): document-level delegation, filtered
+  // to this form's own associated elements via the native .form
+  // property (authoritative for both real descendants and any
+  // form=-attached field living elsewhere in the DOM) — see this
+  // file's own header comment for the full defect history. A change/
+  // input anywhere else on the page (a different form, or a page with
+  // no dirty form at all) resolves e.target.form !== form and is a
+  // no-op.
+  document.addEventListener("change", function (e) {
+    if (e.target && e.target.form === form) {
+      updateBar();
+    }
+  });
+  document.addEventListener("input", function (e) {
+    if (e.target && e.target.form === form) {
+      updateBar();
+    }
+  });
 
   // D-10/A-28: warn before a real navigation discards unsaved edits.
   // Keyed on countDifferences() - the exact same predicate the bar
@@ -325,6 +404,17 @@
       // belt-and-braces against a browser whose reset() timing races
       // the unload event, not the primary mechanism.
       suppressGuard = true;
+      // T8: form.reset() fires no change event, so the live theme
+      // preview (a sibling script, cross-DOM from every form=-attached
+      // theme chip) never hears about the discarded value on its own.
+      // Call its exposed refresh entry point directly instead of trying
+      // to synthesize a change event for a cross-DOM field - see this
+      // file's own header comment. Guarded: most pages carry no
+      // .frame-colours card at all, so theme-preview.js never defines
+      // this global on those pages.
+      if (window.SkyPaneLivePreview) {
+        window.SkyPaneLivePreview.refresh();
+      }
     });
   }
 
