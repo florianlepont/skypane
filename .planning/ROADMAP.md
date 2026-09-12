@@ -1013,7 +1013,7 @@ Plans:
 **Goal:** Make the companion usable by both people in the household in their own language (French and English, switchable per browser), redesign Home to be useful and pleasant at a glance with the quick actions moved to Display/Device, regroup Display so every everyday setting lives there (theme with a live preview from the last real flight, flight colours, calendar, runway, screen, quiet hours) with a strongly improved calendar and flight-colours experience, add push notifications for battery-low and frame-silent transitions, and add a simple mode that hides everything advanced — see 20-PRD.md D-01..D-36.
 **Requirements**: CFG-13, CFG-14, CFG-15, CFG-16, CFG-17, CFG-18
 **Depends on:** Phase 19
-**Plans:** 5/12 plans executed
+**Plans:** 8/12 plans executed
 
 Plans:
 
