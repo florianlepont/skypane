@@ -1035,3 +1035,13 @@ Plans:
 - [x] 21-06: Artwork upload restored in the resolve flow (wave 4)
 - [x] 21-07: Calendar in one tile — masked URL, replace link, small grey Disconnect (wave 5)
 - [x] 21-08: Closing — design-system skill, FR/EN sweep, suite + ruff gate, validation map (wave 6)
+
+### Phase 22: Companion audit round 4: fix the blocking Display save bar, contradictory frame-state signals, duplicate screen and quiet-hours controls, UTC and i18n leaks and layout defects, then make the companion dynamic (live updates, switches, transitions, modern controls)
+
+**Goal:** Act on the fourth companion audit (22-AUDIT.md, developer-validated 2026-09-12; full report with evidence at https://claude.ai/code/artifact/af979b96-c02d-41bc-ad04-9623ff0d143a) — first the one blocker (B1: the Display page cannot be saved with JS on because its `form=`-attached fields never reach `dirty-state.js`'s form-scoped listeners and the fallback Save is hidden), then the contradictory frame-state signals (X2: one quiet-hours-aware next-wake shared by strip, tiles and captions, with a grace window), the duplicate screen/quiet-hours controls and their three delay wordings (X1), the UTC/ISO and i18n leaks (B4, B5, B16), the layout defects measured at the pixel level (login row, Frame strip cells, orphan buttons and cards, filter Clear, nav status, FR table overflow), the design-contract drifts (serif legends, accent overload in the strip, hover fill on the segmented control), the verified CSS/JS defects (permanent beforeunload suppression, Disconnect styled as primary, lost disclosure markers, sticky headers, dirty bar overlap); and finally make the companion feel alive — self-refreshing Home/strip with a live countdown, real switches over fetch with toasts, a motion budget under prefers-reduced-motion, native multi-page view transitions, an SSE event stream, and the modern controls (runway map, 24 h quiet-hours dial, wake-interval slider with battery-life readout, day timeline, punctuality grid, battery ring), all framework-free, build-free and with the no-JS fallback intact — see 22-AUDIT.md's sequencing (weeks 1–6).
+**Requirements**: TBD (to be assigned at planning; the audit IDs B1–B18, X1–X9, C1–C6, T1–T16, D1–D24 are the working handles)
+**Depends on:** Phase 21
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 22 to break down — suggested waves: week 1 blocker + signals + leaks; week 2 design contract; weeks 3–4 dynamic; weeks 5–6 the app that lives)
