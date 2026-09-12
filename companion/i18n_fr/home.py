@@ -44,8 +44,19 @@ CATALOG = {
     "Arriving": "À l’arrivée",
 
     # --- Status card headline (20-UI-SPEC.md §A) ------------------------
+    # 22-04-PLAN.md Task 1 (critical constraint 8): "Attendue depuis %s"
+    # (feminine agreement, from this call site's own former grammatical
+    # context) is reconciled here to 22-UI-SPEC.md's locked Copywriting
+    # Contract value, "Attendu depuis %s" (no agreement) — the same
+    # French key this module's own frame-state headline consumer
+    # (companion/layout.py's frame_strip_html(), via
+    # _FRAME_HEADLINE_LATE_TEXT) now renders live. 22-02-SUMMARY.md
+    # flagged this exact discrepancy as unresolved pending a real
+    # consumer; this plan is that consumer, so it reconciles it here
+    # rather than leaving it for 22-05 (which owns no file this string
+    # lives in).
     "Next update ≈ %s": "Prochaine mise à jour ≈ %s",
-    "Expected since %s": "Attendue depuis %s",
+    "Expected since %s": "Attendu depuis %s",
 
     # --- Status card: the visually-hidden landmark heading --------------
     "Status": "Statut",

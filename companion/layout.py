@@ -26,6 +26,16 @@ from companion.auth import UI_THEME_COOKIE_NAME
 # reverse).
 import companion.i18n as i18n
 import companion.prefs as prefs
+# 22-04-PLAN.md Task 1 (D-03/CFG-26): companion.wake/companion.frame_state
+# are both shared, page-independent modules exactly like companion.auth/
+# companion.i18n/companion.prefs above — importing them carries no cycle
+# (neither imports companion.layout), and R-01 (this module's own docstring)
+# is respected: companion.wake is a thin shim over server/wake.py, never a
+# direct server/ import from here. frame_strip_html() below is the one
+# consumer of both, so the strip's headline/dot/delay-sentence decision is
+# resolved by companion.frame_state.resolve_state(), never re-derived here.
+import companion.wake as wake
+import companion.frame_state as frame_state
 
 SITE_TITLE = "SkyPane"
 
@@ -204,6 +214,20 @@ QUICK_ACTION_QUIET_ON_TEMPLATE = "On — %s to %s"
 QUICK_ACTION_QUIET_OFF_TEXT = "Off"
 QUICK_ACTION_QUIET_TURN_ON_BUTTON = "Turn on"
 QUICK_ACTION_QUIET_TURN_OFF_BUTTON = "Turn off"
+# QUICK_ACTION_APPLIES_SENTENCE ("Applies the next time the frame wakes
+# up.") is no longer USED by frame_strip_html() as of 22-04-PLAN.md
+# Task 1 (D-04): it used to be a static per-control caption regardless
+# of state; the one computed delay sentence below — companion/
+# frame_state.py's DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN, resolved from the
+# SAME state result the headline reads — replaces it, and the retired
+# TEXT survives only as DELAY_UNKNOWN's own wording (the honest
+# no-check-in fallback; see _FRAME_DELAY_UNKNOWN_TEXT below, kept
+# byte-identical to this constant on purpose). The constant itself
+# stays defined (not deleted) because companion/pages/config_page.py
+# and companion/test_config_page.py — both owned by plan 22-05 in this
+# same wave — still reference it directly; that plan is the one that
+# retires the settings form's own remaining static-caption consumer and
+# this constant together, in its own commit.
 QUICK_ACTION_APPLIES_SENTENCE = "Applies the next time the frame wakes up."
 
 # 21-04-PLAN.md Task 1 (D-01): the strip's own heading. Byte-identical
@@ -215,15 +239,48 @@ QUICK_ACTION_APPLIES_SENTENCE = "Applies the next time the frame wakes up."
 # because layout.py may never import a page module.
 FRAME_STRIP_HEADING = "Frame"
 
-# 21-04-PLAN.md Task 1 (D-01/R-01): moved here byte-identical from
-# companion/pages/home_page.py — home_page.py's own next-update
-# computation is deleted outright by Task 3, and frame_strip_html()
-# below is now the only renderer of this headline, shared by Home and
-# Display. Byte-identical English values, so companion/i18n_fr/
-# home.py's existing "Next update ≈ %s"/"Expected since %s" entries
-# keep resolving unchanged.
-NEXT_UPDATE_TEMPLATE = "Next update ≈ %s"
-EXPECTED_SINCE_TEMPLATE = "Expected since %s"
+# 22-04-PLAN.md Task 1 (D-03/CFG-26): NEXT_UPDATE_TEMPLATE/
+# EXPECTED_SINCE_TEMPLATE are retired as independently-named constants —
+# companion/frame_state.py's HEADLINE_DUE/HEADLINE_HELD/HEADLINE_LATE are
+# now the ONE canonical registry of this copy, and frame_strip_html()
+# below calls frame_state.resolve_state()/headline_template() to decide
+# which applies; this module never re-derives that decision.
+#
+# The six _FRAME_*_TEXT constants below exist ONLY because this is a
+# scanned module: companion/test_i18n.py's D-08 AST scan proves a string
+# is alive by tracing a real `i18n.t(SOME_MODULE_CONSTANT)` call site in
+# one of a fixed list of files, and that scan cannot follow an imported
+# module's attribute access (`frame_state.HEADLINE_DUE`) — frame_state.py
+# is not itself in that scanned list yet (a deliberate 22-02-PLAN.md
+# choice; plan 22-08 owns widening the scanner to include it, which will
+# make these six local copies redundant, not wrong). Until then, keep
+# every value here byte-identical to its frame_state.py counterpart —
+# never independently reworded — and select among them by comparing
+# frame_state.headline_template()/delay_sentence_template()'s own return
+# value, so the DECISION stays sourced from that module, not re-derived
+# here; only the wording's scanner-visible home is local.
+_FRAME_HEADLINE_DUE_TEXT = "Next update ≈ %s"
+_FRAME_HEADLINE_HELD_TEXT = "Next wake around %s · quiet hours"
+_FRAME_HEADLINE_LATE_TEXT = "Expected since %s"
+_FRAME_DELAY_DUE_TEXT = "Applies at the next wake, around %s."
+_FRAME_DELAY_HELD_TEXT = "Applies when quiet hours end, around %s."
+# Byte-identical to QUICK_ACTION_APPLIES_SENTENCE above by construction
+# (same value, not a coincidence) — the retired static caption's own
+# TEXT survives as exactly this one computed branch's wording.
+_FRAME_DELAY_UNKNOWN_TEXT = QUICK_ACTION_APPLIES_SENTENCE
+
+# The frame's held state reuses the app's existing neutral "off" dot
+# (companion/static/style.css's own comment: "a neutral, everyday state
+# ... never a problem") — never a new colour, never the warn dot
+# (22-UI-SPEC.md §3.3 rule 1). "late" is `.dot--warn`; there is no
+# fourth, "error" tier in the frame-state vocabulary any more (D-03
+# collapses the strip's old unconditional "any lateness is a warning"
+# behaviour into exactly three states).
+_FRAME_DOT_CLASS_BY_STATE = {
+    frame_state.STATE_DUE: "dot--ok",
+    frame_state.STATE_HELD: "dot--off",
+    frame_state.STATE_LATE: "dot--warn",
+}
 
 _STATUS_DOT_CLASSES = {
     "ok": "dot--ok",
@@ -1665,15 +1722,48 @@ def stat_tile(caption, content_html, status=None, icon=None, caption_title=None)
     ) % (css_class, title_attr, caption_html, content_html)
 
 
+def _frame_strip_cell_html(extra_class, label_row_html, state_row_html, caption_row_html):
+    """One Frame-strip cell wrapper (22-04-PLAN.md Task 1, B13): every
+    cell — both switches and the update cell alike — is the SAME
+    wrapper element with the SAME three-row internal structure (label,
+    then state plus control, then caption); only `extra_class` (the
+    switch cells' `quick-action quick-action--on/off` control-state
+    modifier — the update cell never receives one) and each row's own
+    content differ. A cell with nothing to put in a row still emits
+    that row's own div, empty — an empty track, never an omitted row —
+    which is what lets all three cells' rows line up instead of each
+    cell laying itself out independently (today's Screen/Quiet-hours/
+    Update cells measure 119/165/69px tall for exactly that reason).
+
+    A harness asserts the three cells' ROW class attributes
+    (`frame-strip__row frame-strip__row--label/--state/
+    --caption`) are byte-identical across all three cells; the outer
+    wrapper's own class list legitimately differs (only the two switch
+    cells carry `quick-action`/`quick-action--on/off` — that left edge
+    is a control-state signal, and painting it on the non-interactive
+    update cell would claim a state it does not have).
+    """
+    cell_class = "frame-strip__cell"
+    if extra_class:
+        cell_class = cell_class + " " + extra_class
+    return (
+        '<div class="%s">'
+        '<div class="frame-strip__row frame-strip__row--label">%s</div>'
+        '<div class="frame-strip__row frame-strip__row--state">%s</div>'
+        '<div class="frame-strip__row frame-strip__row--caption">%s</div>'
+        "</div>"
+    ) % (cell_class, label_row_html, state_row_html, caption_row_html)
+
+
 def frame_strip_html(ctx, return_to, next_wake_iso=None):
-    """The "Frame" strip (D-01/D-02/D-05, 21-CONTEXT.md; R-01): one
-    shared body, called identically by home_page.render() (with
-    `return_to=HOME_ROUTE`) and config_page.render()'s Display scope
-    (with `return_to=DISPLAY_ROUTE`) — the two pages' copies of the
-    Screen/Quiet-hours instant switches and the next-update headline
-    can therefore never disagree, the same "one function, two call
-    sites" contract sidebar_nav()'s own docstring already states for
-    the nav.
+    """The "Frame" strip (D-01/D-02/D-05, 21-CONTEXT.md; R-01; D-03/
+    CFG-26, 22-02-PLAN.md/22-04-PLAN.md Task 1): one shared body, called
+    identically by home_page.render() (with `return_to=HOME_ROUTE`) and
+    config_page.render()'s Display scope (with `return_to=DISPLAY_
+    ROUTE`) — the two pages' copies of the Screen/Quiet-hours instant
+    switches and the next-update headline can therefore never disagree,
+    the same "one function, two call sites" contract sidebar_nav()'s
+    own docstring already states for the nav.
 
     `ctx["device_config"]` supplies `display_enabled`/`quiet_hours_
     enabled`/`quiet_hours_start`/`quiet_hours_end` — read with the
@@ -1696,33 +1786,54 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
     passes (Home passes HOME_ROUTE, Display passes DISPLAY_ROUTE —
     both members of that same whitelist by construction).
 
-    `next_wake_iso` (D-01, moved byte-identical from home_page.
-    _status_card_html()'s own headline computation) renders NOTHING —
-    not even the wrapping `.frame-strip__cell--update` div — when it
-    is falsy or fails to parse; this function never fabricates a
-    placeholder "Next update ≈ —" line. When it parses, the headline
-    reuses `.status-card__headline`/`--warn` verbatim (the exact CSS
-    rule and contrast gate 20-04-PLAN.md already shipped and
-    companion/test_contrast_check.py already pins) — the "largest
-    text in the strip" D-01 asks for, via font-weight (Emphasis, 16px
-    semibold) rather than a bigger font size, since there is no larger
-    role left in the four-size scale to reach for.
+    `next_wake_iso` is accepted (and every existing call site in
+    home_page.py/config_page.py keeps passing it, unchanged, since both
+    modules are owned by other plans in this same wave) but is no
+    longer this function's own source of truth for lateness — 22-04-
+    PLAN.md Task 1 (D-03/CFG-26) replaces the local, quiet-hours-blind
+    `age >= 0` warn trigger with `companion.wake.next_wake_status()` /
+    `companion.frame_state.resolve_state()`, called fresh here against
+    the SAME `ctx["last_checkin_ts"]`/`ctx["device_config"]` inputs the
+    caller already used to compute the `next_wake_iso` it passes in —
+    calling that same deterministic function twice is not the
+    re-derivation CFG-26 forbids (the two calls can never disagree,
+    since they share identical inputs); duplicating the DECISION logic
+    itself (a second grace-window/quiet-hours computation) would be.
+    The parameter stays in the signature only for call-site
+    compatibility with those two modules.
+
+    Renders no update cell at all — not even an empty
+    `.frame-strip__cell--update` wrapper — when no next-wake data is
+    available (`frame_state.resolve_state()` degrades to
+    `STATE_UNKNOWN`): this function never fabricates a placeholder
+    "Next update ≈ —" line or claims a state it does not have.
+
+    Three states, one dot vocabulary (22-UI-SPEC.md §3.3): due draws
+    `.dot--ok`, held draws `.dot--off` (the app's existing neutral,
+    "not a problem" dot — never a new colour), late draws `.dot--warn`
+    and the ONLY state whose headline carries the
+    `status-card__headline--warn` class — which, per the 20-04 contrast
+    gate, resolves to `--color-text` visually; the warn signal is
+    carried by the wording and the dot, never by text colour (rule 2).
 
     The switch cells reuse `.quick-action`/`.quick-action--on`/`--off`
-    byte-for-byte from the relocated `display_group()`/`quiet_hours_
-    group()` markup, including the trailing "Applies the next time the
-    frame wakes up." caption each already carried — D-02's own
-    instruction that this caption "moves with them into the strip"
-    rather than being left orphaned in either card. `.frame-strip__cell`
-    is added ALONGSIDE `.quick-action`/`.quick-action--on/off` on the
-    SAME element (not a second wrapper) — companion/static/style.css's
-    `.frame-strip__cell.quick-action` flex-sizing rule only matches an
-    element carrying both classes together. The only structural
-    addition beyond the relocated markup is the `return_to` hidden
-    field. No second on/off dot is added inside a switch cell —
+    for their control-state left edge (unchanged), now folded into
+    `_frame_strip_cell_html()`'s shared three-row wrapper — the label
+    row, the state-plus-control row (state text and the `<form>`
+    together), and the caption row (the one computed delay sentence,
+    D-04). No second on/off dot is added inside a switch cell —
     `.quick-action--on`/`--off`'s own 4px left-edge colour already is
     that signal (the same anti-duplication principle status_row()'s
     own docstring states for verdict/detail).
+
+    Both switch forms carry the literal attribute `data-quick-switch`
+    (D-04 handshake, 22-05-PLAN.md Task 3, same wave): the stable hook
+    that plan's leave-guard suppression keys on, since
+    `quick-action__form` — the only class either form carried before
+    this task — is a presentation class a later CSS change could
+    legitimately rename. Do not delete this attribute as apparently
+    unused from this module's own perspective; companion/static/
+    dirty-state.js is its consumer.
 
     The whole strip is a hand-built `<div class="frame-strip stat-tile
     stat-tile--accent">` — it borrows `stat_tile()`'s CSS classes for
@@ -1736,34 +1847,64 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
     Pure markup — no `<script>`, no inline handler.
     """
     device_cfg = ctx.get("device_config") or {}
+    now_value = ctx.get("now")
+
+    # D-03/CFG-26 (22-02-PLAN.md Task 1, 22-04-PLAN.md Task 1): the one
+    # state resolution. `wake.next_wake_status()` is the SAME function,
+    # against the SAME (last_checkin_ts, device_config) pair, every
+    # caller of this function already used to compute the `next_wake_iso`
+    # argument above — see this function's own docstring for why calling
+    # it again here is not a second, disagreeing computation.
+    resolved_next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
+        ctx.get("last_checkin_ts"), device_cfg)
+    resolved_state = frame_state.resolve_state(
+        resolved_next_wake_iso, effective_interval_s, hold_reason, now_value)
+    headline_template_value = frame_state.headline_template(resolved_state)
+    delay_template_value = frame_state.delay_sentence_template(
+        resolved_next_wake_iso, effective_interval_s, hold_reason, now_value)
+
+    next_wake_clock = None
+    if resolved_next_wake_iso:
+        next_wake_parsed = parse_iso(resolved_next_wake_iso)
+        if next_wake_parsed is not None:
+            next_wake_clock = local_clock_text(next_wake_parsed, now_parsed=parse_iso(now_value))
+
+    # D-04: the one computed delay sentence, shared verbatim by both
+    # switch cells' captions — replacing the four retired wordings a
+    # static per-control literal used to carry regardless of state.
+    if delay_template_value == frame_state.DELAY_HELD and next_wake_clock is not None:
+        delay_sentence_text = i18n.t(_FRAME_DELAY_HELD_TEXT) % next_wake_clock
+    elif delay_template_value == frame_state.DELAY_DUE and next_wake_clock is not None:
+        delay_sentence_text = i18n.t(_FRAME_DELAY_DUE_TEXT) % next_wake_clock
+    else:
+        delay_sentence_text = i18n.t(_FRAME_DELAY_UNKNOWN_TEXT)
+    delay_caption_html = '<p class="text-label section-caption">%s</p>' % escape_html(
+        delay_sentence_text)
+
     display_enabled = device_cfg.get("display_enabled", True)
     is_display_on = display_enabled is not False
     next_display_state = QUICK_STATE_OFF if is_display_on else QUICK_STATE_ON
     display_state_text = i18n.t(QUICK_ACTION_ON_TEXT if is_display_on else QUICK_ACTION_OFF_TEXT)
-    display_cell_html = (
-        '<div class="frame-strip__cell quick-action quick-action--%s">'
-        '<div class="quick-action__text">'
-        '<span class="text-label quick-action__label">%s%s</span>'
+    display_label_html = '<span class="text-label quick-action__label">%s%s</span>' % (
+        icon_html("icon-power", size=16, extra_class="quick-action__icon"),
+        escape_html(i18n.t(QUICK_ACTION_SCREEN_LABEL)))
+    display_state_row_html = (
         '<span class="text-body quick-action__state">%s</span>'
-        "</div>"
-        '<form method="post" action="/quick/display" class="quick-action__form">'
+        '<form method="post" action="/quick/display" class="quick-action__form" data-quick-switch>'
         '<input type="hidden" name="%s" value="%s">'
         '<input type="hidden" name="return_to" value="%s">'
         '<button type="submit">%s</button>'
         "</form>"
-        '<p class="text-label section-caption">%s</p>'
-        "</div>"
     ) % (
-        "on" if is_display_on else "off",
-        icon_html("icon-power", size=16, extra_class="quick-action__icon"),
-        escape_html(i18n.t(QUICK_ACTION_SCREEN_LABEL)),
         escape_html(display_state_text),
         QUICK_STATE_FIELD, escape_html(next_display_state),
         escape_html(return_to),
         escape_html(i18n.t(
             QUICK_ACTION_SWITCH_OFF_BUTTON if is_display_on else QUICK_ACTION_SWITCH_ON_BUTTON)),
-        escape_html(i18n.t(QUICK_ACTION_APPLIES_SENTENCE)),
     )
+    display_cell_html = _frame_strip_cell_html(
+        "quick-action quick-action--%s" % ("on" if is_display_on else "off"),
+        display_label_html, display_state_row_html, delay_caption_html)
 
     quiet_enabled = device_cfg.get("quiet_hours_enabled", False)
     is_quiet_on = quiet_enabled is True
@@ -1773,53 +1914,44 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
     quiet_state_text = (
         i18n.t(QUICK_ACTION_QUIET_ON_TEMPLATE) % (quiet_start, quiet_end)
         if is_quiet_on else i18n.t(QUICK_ACTION_QUIET_OFF_TEXT))
-    quiet_cell_html = (
-        '<div class="frame-strip__cell quick-action quick-action--%s">'
-        '<div class="quick-action__text">'
-        '<span class="text-label quick-action__label">%s%s</span>'
+    quiet_label_html = '<span class="text-label quick-action__label">%s%s</span>' % (
+        icon_html("icon-moon", size=16, extra_class="quick-action__icon"),
+        escape_html(i18n.t(QUICK_ACTION_QUIET_LABEL)))
+    quiet_state_row_html = (
         '<span class="text-body quick-action__state">%s</span>'
-        "</div>"
-        '<form method="post" action="/quick/quiet-hours" class="quick-action__form">'
+        '<form method="post" action="/quick/quiet-hours" class="quick-action__form" data-quick-switch>'
         '<input type="hidden" name="%s" value="%s">'
         '<input type="hidden" name="return_to" value="%s">'
         '<button type="submit">%s</button>'
         "</form>"
-        '<p class="text-label section-caption">%s</p>'
-        "</div>"
     ) % (
-        "on" if is_quiet_on else "off",
-        icon_html("icon-moon", size=16, extra_class="quick-action__icon"),
-        escape_html(i18n.t(QUICK_ACTION_QUIET_LABEL)),
         escape_html(quiet_state_text),
         QUICK_STATE_FIELD, escape_html(next_quiet_state),
         escape_html(return_to),
         escape_html(i18n.t(
             QUICK_ACTION_QUIET_TURN_OFF_BUTTON if is_quiet_on else QUICK_ACTION_QUIET_TURN_ON_BUTTON)),
-        escape_html(i18n.t(QUICK_ACTION_APPLIES_SENTENCE)),
     )
+    quiet_cell_html = _frame_strip_cell_html(
+        "quick-action quick-action--%s" % ("on" if is_quiet_on else "off"),
+        quiet_label_html, quiet_state_row_html, delay_caption_html)
 
     update_cell_html = ""
-    if next_wake_iso:
-        next_wake_parsed = parse_iso(next_wake_iso)
-        if next_wake_parsed is not None:
-            next_wake_clock = local_clock_text(
-                next_wake_parsed, now_parsed=parse_iso(ctx.get("now")))
-            age = age_seconds(next_wake_iso, ctx.get("now"))
-            is_past = age is not None and age >= 0
-            if is_past:
-                headline_text = escape_html(
-                    i18n.t(EXPECTED_SINCE_TEMPLATE) % next_wake_clock)
-                headline_html = (
-                    '<p class="status-card__headline status-card__headline--warn">'
-                    '<span class="dot dot--warn"></span>%s</p>'
-                ) % headline_text
-            else:
-                headline_text = escape_html(
-                    i18n.t(NEXT_UPDATE_TEMPLATE) % next_wake_clock)
-                headline_html = '<p class="status-card__headline">%s</p>' % headline_text
-            update_cell_html = (
-                '<div class="frame-strip__cell frame-strip__cell--update">%s</div>'
-                % headline_html)
+    if next_wake_clock is not None:
+        dot_class = _FRAME_DOT_CLASS_BY_STATE.get(resolved_state, "dot--ok")
+        headline_class = "status-card__headline"
+        if headline_template_value == frame_state.HEADLINE_LATE:
+            headline_i18n_source = _FRAME_HEADLINE_LATE_TEXT
+            headline_class = headline_class + " status-card__headline--warn"
+        elif headline_template_value == frame_state.HEADLINE_HELD:
+            headline_i18n_source = _FRAME_HEADLINE_HELD_TEXT
+        else:
+            headline_i18n_source = _FRAME_HEADLINE_DUE_TEXT
+        headline_text = escape_html(i18n.t(headline_i18n_source) % next_wake_clock)
+        update_state_row_html = (
+            '<p class="%s"><span class="dot %s"></span>%s</p>'
+        ) % (headline_class, dot_class, headline_text)
+        update_cell_html = _frame_strip_cell_html(
+            "frame-strip__cell--update", "", update_state_row_html, "")
 
     return (
         '<div class="frame-strip stat-tile stat-tile--accent" aria-labelledby="frame-strip-heading">'

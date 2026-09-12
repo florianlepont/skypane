@@ -4651,7 +4651,11 @@ def main():
         headline_pairs = (
             (frame_state.HEADLINE_DUE, "Prochaine mise à jour ≈ %s"),
             (frame_state.HEADLINE_HELD, "Prochain réveil vers %s · heures calmes"),
-            (frame_state.HEADLINE_LATE, "Attendue depuis %s"),
+            # 22-04-PLAN.md Task 1 (critical constraint 8): reconciled
+            # from "Attendue depuis %s" (feminine agreement) to the
+            # locked Copywriting Contract value, in companion/i18n_fr/
+            # home.py, in the same commit as this plan's real consumer.
+            (frame_state.HEADLINE_LATE, "Attendu depuis %s"),
         )
         for english, french in headline_pairs:
             if i18n.t_lang(english, "en") != english:

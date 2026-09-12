@@ -580,6 +580,16 @@ EXPECTED_CHECK_COUNT = 223
 EXPECTED_CHECK_COUNT = 228
 
 
+# 22-04-PLAN.md Task 1: +7 (228 -> 235) — the Frame strip's own new
+# frame_state.resolve_state()-consuming behaviour (the nightly-held
+# regression, the due/grace-window identity, the late warn-dot/plain-text
+# check, the no-check-in check, the three-cell one-row-structure check,
+# the data-quick-switch exactly-twice check, and the no-re-derived-
+# lateness source guard), re-derived by RUNNING the harness, not by
+# arithmetic.
+EXPECTED_CHECK_COUNT = 235
+
+
 # --- fixture helpers ---------------------------------------------------
 
 
@@ -9565,6 +9575,209 @@ def main():
         "rule bodies declares a new custom property, and .manual-resolution__status--superseded is gone "
         "now that plan 14-06 has retired it (phase 14 plan 14-03 Task 2, retargeted in place by 14-06 Task 2)",
         _phase14_task2_new_css_selectors_exhaustive)
+
+    # ======================================================================
+    # 22-04-PLAN.md Task 1 (D-03/CFG-26, X2): the Frame strip reads the one
+    # frame_state.resolve_state() result instead of re-deriving lateness
+    # ======================================================================
+
+    def _frame_strip_ctx(last_checkin_ts, device_config, now):
+        return {
+            "last_checkin_ts": last_checkin_ts, "device_config": device_config, "now": now,
+        }
+
+    def _frame_strip_update_cell_slice(rendered):
+        # The update cell is always the LAST child of `.frame-strip__cells`
+        # (rendered after both switch cells, or omitted entirely) — so its
+        # own opening tag through the end of the string, minus the two
+        # closing `</div>` tags for `.frame-strip__cells` and `.frame-strip`
+        # itself, is exactly this cell's own markup (nested nested divs
+        # inside it make a naive "next </div>" search find the wrong,
+        # innermost closing tag instead).
+        marker = '<div class="frame-strip__cell frame-strip__cell--update">'
+        if marker not in rendered:
+            return None
+        start = rendered.index(marker)
+        closing = "</div></div>"
+        if not rendered.endswith(closing):
+            return None
+        return rendered[start:-len(closing)]
+
+    def _frame_strip_nightly_regression_held_is_neutral_never_warn():
+        # The exact X2 nightly false alarm (22-UI-SPEC.md §3.3 rule 6):
+        # quiet hours 23:00-07:00, last check-in 22:58, clock 02:00,
+        # Europe/Paris (a non-DST date) — the strip must render the held
+        # copy with the neutral dot, no warn anywhere in its markup.
+        paris = timezone(timedelta(hours=1))
+        qh_config = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        checkin = datetime(2026, 1, 15, 22, 58, 0, tzinfo=paris)
+        clock = datetime(2026, 1, 16, 2, 0, 0, tzinfo=paris)
+        ctx = _frame_strip_ctx(checkin.isoformat(), qh_config, clock.isoformat())
+        rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        cell = _frame_strip_update_cell_slice(rendered)
+        if cell is None:
+            return False, "expected an update cell to render for a held frame"
+        if "dot--off" not in cell:
+            return False, "expected the held headline to carry the neutral dot--off"
+        for warn_token in (
+                "dot--warn", "stat-tile--warn", "status-card__headline--warn",
+                "Expected since", "Attendu depuis"):
+            if warn_token in rendered:
+                return False, "expected zero %r in a held render, found it" % (warn_token,)
+        if "Next wake around" not in cell:
+            return False, "expected the held headline wording"
+        return True, ""
+    check(
+        "the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00 Europe/"
+        "Paris): the Frame strip renders the held copy with the neutral dot--off and zero warn/"
+        "error tokens anywhere, including no 'Expected since'/'Attendu depuis' (X2, D-03/CFG-26)",
+        _frame_strip_nightly_regression_held_is_neutral_never_warn)
+
+    def _frame_strip_due_is_identical_inside_and_outside_the_grace_window():
+        # 22-UI-SPEC.md §3.3 rule 3: the grace window is invisible — the
+        # SAME "Next update ≈ HH:MM" copy and classes render whether now
+        # is before next_wake or up to 2x the effective interval past it.
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        checkin_iso = "2026-08-27T11:00:00+00:00"
+        before_ctx = _frame_strip_ctx(checkin_iso, device_cfg, "2026-08-27T11:10:00+00:00")
+        inside_grace_ctx = _frame_strip_ctx(checkin_iso, device_cfg, "2026-08-27T11:40:00+00:00")
+        rendered_before = _frame_strip_update_cell_slice(
+            layout.frame_strip_html(before_ctx, return_to=layout.HOME_ROUTE))
+        rendered_inside_grace = _frame_strip_update_cell_slice(
+            layout.frame_strip_html(inside_grace_ctx, return_to=layout.HOME_ROUTE))
+        if rendered_before is None or rendered_inside_grace is None:
+            return False, "expected an update cell to render in both the before and grace fixtures"
+        if rendered_before != rendered_inside_grace:
+            return False, (
+                "expected identical copy and classes before and inside the grace window, got %r "
+                "vs %r" % (rendered_before, rendered_inside_grace))
+        if "dot--ok" not in rendered_before or "status-card__headline--warn" in rendered_before:
+            return False, "expected the due headline to carry dot--ok and no warn modifier"
+        return True, ""
+    check(
+        "a due result renders byte-identical copy and classes whether 'now' is before next_wake "
+        "or up to 2x the effective interval past it — the grace window is invisible (22-UI-SPEC.md "
+        "§3.3 rule 3)",
+        _frame_strip_due_is_identical_inside_and_outside_the_grace_window)
+
+    def _frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class():
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        # 11:00 + 900s = 11:15 due; 2x grace = 1800s -> late from 11:45.
+        ctx = _frame_strip_ctx(
+            "2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T12:00:00+00:00")
+        rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        cell = _frame_strip_update_cell_slice(rendered)
+        if cell is None:
+            return False, "expected an update cell to render for a late frame"
+        if "dot--warn" not in cell:
+            return False, "expected the late headline to carry the warn dot"
+        if "Expected since" not in cell:
+            return False, "expected the late headline wording"
+        if 'status-card__headline status-card__headline--warn' not in cell:
+            return False, "expected the headline's own --warn class hook"
+        return True, ""
+    check(
+        "a late result renders the warn dot and 'Expected since HH:MM', with the headline's own "
+        "text-colour class staying the plain status-card__headline--warn hook (never a status "
+        "colour as text, 22-UI-SPEC.md §3.3 rule 2)",
+        _frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class)
+
+    def _frame_strip_no_checkin_renders_no_update_cell_and_claims_no_state():
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        ctx = _frame_strip_ctx(None, device_cfg, "2026-08-27T12:00:00+00:00")
+        rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        if "frame-strip__cell--update" in rendered or "status-card__headline" in rendered:
+            return False, "expected no update cell and no headline when there is no check-in yet"
+        return True, ""
+    check(
+        "the Frame strip renders no update headline and claims no state when there is no check-in "
+        "recorded at all (frame_state.STATE_UNKNOWN)",
+        _frame_strip_no_checkin_renders_no_update_cell_and_claims_no_state)
+
+    def _frame_strip_three_cells_share_one_row_structure_switch_cells_keep_left_edge():
+        # B13: every cell — both switches and the update cell — shares
+        # the SAME three-row internal grid (label/state/caption row
+        # classes byte-identical across all three); only the two switch
+        # cells' OUTER wrapper carries the quick-action--on/off
+        # control-state left edge, never the update cell.
+        device_cfg = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        ctx = _frame_strip_ctx("2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T11:10:00+00:00")
+        rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        # `frame-strip__cell` is the FIRST space-separated class token on
+        # every cell wrapper (both switches and update alike) — matched
+        # this way (not a bare substring search) so the plural container
+        # `frame-strip__cells` is never mistaken for a fourth cell.
+        cell_open_re = re.compile(r'<div class="([^"]*)">')
+        cells = [
+            cls for cls in cell_open_re.findall(rendered)
+            if cls.split(" ")[0] == "frame-strip__cell"]
+        if len(cells) != 3:
+            return False, "expected exactly three frame-strip__cell wrappers, got %d (%r)" % (
+                len(cells), cells)
+        row_class_re = re.compile(r'<div class="(frame-strip__row[^"]*)">')
+        # Slice the rendered strip into per-cell fragments so each cell's
+        # own three row classes are compared, not a flattened file-wide list.
+        cell_starts = [
+            m.start() for m in cell_open_re.finditer(rendered)
+            if m.group(1).split(" ")[0] == "frame-strip__cell"]
+        cell_starts.append(len(rendered))
+        row_class_sets = []
+        for i in range(3):
+            fragment = rendered[cell_starts[i]:cell_starts[i + 1]]
+            row_classes = row_class_re.findall(fragment)
+            if len(row_classes) != 3:
+                return False, "expected exactly three row divs per cell, got %d in %r" % (
+                    len(row_classes), fragment)
+            row_class_sets.append(row_classes)
+        if row_class_sets[0] != row_class_sets[1] or row_class_sets[1] != row_class_sets[2]:
+            return False, "expected byte-identical row-class lists across all three cells, got %r" % (
+                row_class_sets,)
+        update_cell = cells[2]
+        if "quick-action--on" in update_cell or "quick-action--off" in update_cell:
+            return False, "expected the update cell to never carry the switch cells' left-edge class"
+        if not (cells[0].count("quick-action--on") + cells[0].count("quick-action--off") == 1
+                and cells[1].count("quick-action--on") + cells[1].count("quick-action--off") == 1):
+            return False, "expected each switch cell to keep its own control-state left edge"
+        return True, ""
+    check(
+        "all three Frame-strip cells share one wrapper and one three-row internal grid (identical "
+        "row-class lists), while only the two switch cells' outer wrapper keeps the quick-action--"
+        "on/off control-state left edge (B13)",
+        _frame_strip_three_cells_share_one_row_structure_switch_cells_keep_left_edge)
+
+    def _frame_strip_both_switch_forms_carry_data_quick_switch_exactly_twice():
+        # D-04 handshake (22-05-PLAN.md Task 3, same wave): the stable
+        # hook that plan's leave-guard suppression keys on.
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        ctx = _frame_strip_ctx("2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T11:10:00+00:00")
+        rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        count = rendered.count("data-quick-switch")
+        if count != 2:
+            return False, "expected exactly 2 occurrences of data-quick-switch, got %d" % count
+        return True, ""
+    check(
+        "a rendered Frame strip contains exactly 2 occurrences of the literal attribute "
+        "data-quick-switch, one on each strip switch form (D-04 handshake with plan 22-05)",
+        _frame_strip_both_switch_forms_carry_data_quick_switch_exactly_twice)
+
+    def _frame_strip_no_re_derived_lateness_in_source():
+        source_path = os.path.join(HERE, "layout.py")
+        with open(source_path, "r", encoding="utf-8") as fh:
+            source = fh.read()
+        if "age_seconds(next_wake" in source:
+            return False, "expected layout.py to never re-derive lateness via age_seconds(next_wake...)"
+        return True, ""
+    check(
+        "companion/layout.py no longer computes an age_seconds(next_wake...) >= 0 warn trigger — "
+        "the strip consumes frame_state.resolve_state(), it never re-derives lateness (CFG-26)",
+        _frame_strip_no_re_derived_lateness_in_source)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
