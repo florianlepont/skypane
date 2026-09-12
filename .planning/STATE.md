@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-04-PLAN.md
-last_updated: "2026-09-12T22:36:14.223Z"
+stopped_at: Completed 22-05-PLAN.md
+last_updated: "2026-09-12T23:26:42.836Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 190
-  percent: 94
+  completed_plans: 192
+  percent: 95
 ---
 
 ---
@@ -357,6 +357,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P02 | ~20min | 2 tasks | 5 files |
 | Phase 22 P03 | 40min | 2 tasks | 3 files |
 | Phase 22 P04 | 95min | 3 tasks | 7 files |
+| Phase 22 P05 | ~110min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -624,6 +625,8 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-03: resolution_stats()'s 'Other' bucket for unknown route_source stays a row appended to results, not folded into _SOURCE_ROWS's fixed known-mechanism enumeration; the stats section omission is scoped to total==0 only, not the _DB_UNAVAILABLE sentinel
 - [Phase 22]: frame_strip_html() keeps its next_wake_iso parameter for call-site compatibility with wave-3 sibling plans, recomputing wake.next_wake_status() fresh from ctx instead — home_page.py/config_page.py are owned by plans 22-07/22-05 this wave and could not be edited
 - [Phase 22]: DEVICE_STATE_TEXT widened to a fourth 'off' key for the frame's held state, mirroring PIPELINE_STATE_TEXT's 22-03 precedent — a held frame must never light the Health nav notification dot
+- [Phase 22]: 22-05: Frame strip becomes the sole on/off control for Screen and Quiet hours; display_enabled/quiet_hours_enabled resolve absent to unconditional leave-unchanged, closing T-22-16
+- [Phase 22]: 22-05: One computed delay sentence (companion/frame_state.py) replaces the Quiet hours caption's tail and the post-save flash; frame_state.DELAY_UNKNOWN's French value reconciled to the locked 22-UI-SPEC.md wording
 
 ### Pending Todos
 
@@ -714,8 +717,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-12T22:36:14.170Z
-Stopped at: Completed 22-04-PLAN.md
+Last session: 2026-09-12T23:26:13.202Z
+Stopped at: Completed 22-05-PLAN.md
 
 Resume file: 
 
