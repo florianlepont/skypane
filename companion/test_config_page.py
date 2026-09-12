@@ -539,6 +539,18 @@ EXPECTED_CHECK_COUNT = 218
 # directly against the real on-disk check(...) call count at execution
 # time (219/219 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 219
+# 21-07-PLAN.md Task 3 (D-13/R-08/Pitfall 2): +1. Both Calendar-card
+# fusion CSS rules (.page-section:has(+ .calendar-disconnect-form),
+# .calendar-disconnect-form) are deleted from style.css, and the now-
+# empty @supports selector(:has(*)) block that used to hold the first
+# of the two is deleted outright — the whole-file pinned block count
+# (_strong_selected_treatment_is_keyed_to_the_live_checked_radio, this
+# file's own history comment at lines ~172/~215) moves from 2 to 1,
+# retargeted in place with no count change. One new check: neither
+# retired selector appears anywhere in style.css. 219 + 1 = 220,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (220/220 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 220
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -3730,18 +3742,26 @@ def main():
         # positive restore rule rather than a re-scoped guard.
         source = _read_static("style.css")
 
-        # Phase 15 D-05 adds a SECOND @supports selector(:has(*)) block —
-        # the arrivals-checkbox CSS-only reveal — placed after this one
-        # (the live-selection-state block quick task 260904-bbi added).
-        # index() below still resolves to this block's own opening brace
-        # (the first occurrence), so every selector-position assertion
-        # below (idx < supports_idx meaning "lives inside this block")
-        # is unaffected by the second, later block's existence.
+        # Phase 15 D-05 used to add a SECOND @supports selector(:has(*))
+        # block — the arrivals-checkbox CSS-only reveal — placed after
+        # this one (the live-selection-state block quick task 260904-bbi
+        # added); that block's own arrivals-reveal rule was later
+        # retired outright by 21-05-PLAN.md Task 1 (D-06/D-09), but the
+        # block itself survived one more phase because a SECOND,
+        # unrelated rule (20-04-PLAN.md's Calendar-card fusion) still
+        # lived inside it. 21-07-PLAN.md Task 3 (D-13/R-08/Pitfall 2)
+        # retires that fusion rule too — with no rule left inside it,
+        # the block itself is deleted outright, moving the file's own
+        # total block count from 2 to 1. index() below still resolves to
+        # this (the only remaining) block's own opening brace, so every
+        # selector-position assertion below (idx < supports_idx meaning
+        # "lives inside this block") is unaffected.
         supports_marker = "@supports selector(:has(*)) {"
-        if source.count(supports_marker) != 2:
+        if source.count(supports_marker) != 1:
             return False, (
-                "expected exactly two %r blocks (this live-selection-state one, plus Phase 15 D-05's "
-                "arrivals-reveal one), got %d" % (supports_marker, source.count(supports_marker)))
+                "expected exactly one %r block (the live-selection-state one — the Calendar-card "
+                "fusion block that used to follow it is retired outright by 21-07-PLAN.md Task 3), "
+                "got %d" % (supports_marker, source.count(supports_marker)))
         supports_idx = source.index(supports_marker)
 
         wash = "background: color-mix(in srgb, var(--color-accent) 12%, transparent);"
@@ -3836,6 +3856,25 @@ def main():
         "live :has(input:checked) state inside one @supports selector(:has(*)) block, for both .theme-chip and "
         ".runway-card, with every pre-existing --selected fallback rule surviving verbatim (quick task 260904-bbi)",
         _strong_selected_treatment_is_keyed_to_the_live_checked_radio)
+
+    def _calendar_fusion_css_retired_from_the_stylesheet():
+        # 21-07-PLAN.md Task 3 (D-13/R-08/Pitfall 2): both retired
+        # fusion rules must be gone from the real stylesheet, not merely
+        # dead-but-present — a plan that deletes the merged card's
+        # separate-siblings markup while leaving this CSS behind would
+        # ship dead rules that no longer match anything (Pitfall 2).
+        source = _read_static("style.css")
+        for retired_selector in (
+                ".page-section:has(+ .calendar-disconnect-form)",
+                ".calendar-disconnect-form {"):
+            if retired_selector in source:
+                return False, "expected %r to be retired from style.css entirely" % (retired_selector,)
+        return True, ""
+    check(
+        "style.css carries neither retired Calendar-card fusion selector "
+        "(.page-section:has(+ .calendar-disconnect-form), .calendar-disconnect-form) anywhere "
+        "(D-13/R-08/Pitfall 2)",
+        _calendar_fusion_css_retired_from_the_stylesheet)
 
     def _saved_but_unchecked_card_degrades_to_a_quiet_current_marker():
         # quick task 260904-bbi: the server-rendered --selected class is
