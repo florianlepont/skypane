@@ -313,6 +313,17 @@ EXPECTED_CHECK_COUNT = 100  # 20-10-PLAN.md Task 2 (D-05): +3 (97 -> 100) —
 # key of the merged CATALOG. Recomputed directly against the real
 # on-disk check(...) call count at execution time (100/100 pass), not
 # trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 103  # 20-10-PLAN.md Task 3 (D-05): +3 (100 -> 103) —
+# a French render of Flights translates the page title, column headers
+# and filter label while a seeded callsign stays untranslated data; a
+# fully-seeded French render shows the direction words, the unresolved-
+# airline fallback, the no-callsign note, the disclosure summary and the
+# filter's Clear button with no English leaking in, the seeded callsign
+# stays untranslated, and the identical seeded render under the default
+# language still carries every pre-existing English needle; and every
+# key of companion/i18n_fr/flights.py is a key of the merged CATALOG.
+# Recomputed directly against the real on-disk check(...) call count at
+# execution time (103/103 pass), not trusted from arithmetic alone.
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -3225,6 +3236,102 @@ def main():
         "the rendered History page contains no prefix-registry table and no element carrying the "
         "registry table's own headers",
         _no_prefix_registry_duplicated_on_history)
+
+    # ======================================================================
+    # 20-10-PLAN.md Task 3 (D-05): the Flights page through i18n.t(), with
+    # companion/i18n_fr/flights.py's own French catalogue.
+    # ======================================================================
+
+    def _flights_french_render_translates_headings_not_data():
+        import companion.prefs as _prefs
+        tmp = _mkstate("flights-fr-headings")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "aaa111", "callsign": "FLT1",
+                 "airline": "AFR", "origin": "LFPO", "destination": "LFPG",
+                 "confirmed_state": "departing", "corroborated": "True"},
+            ])
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        for needle in (
+                ">Vols<", "Modèle", "Trajet", "Sens", "Indicatif",
+                "Filtrer par indicatif ou code hex"):
+            if needle not in rendered:
+                return False, "expected the French %r in a French Flights render" % (needle,)
+        if "FLT1" not in rendered:
+            return False, "expected the seeded callsign 'FLT1' to stay untranslated data"
+        return True, ""
+    check(
+        "a French render of Flights shows the French page title, column headers and filter label, "
+        "while a seeded callsign stays untranslated data (D-05, 20-10-PLAN.md Task 3)",
+        _flights_french_render_translates_headings_not_data)
+
+    def _flights_full_seeded_render_french_end_to_end():
+        import companion.prefs as _prefs
+        tmp = _mkstate("flights-fr-full")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "aaa111", "callsign": "FLT1",
+                 "airline": None, "confirmed_state": "departing", "corroborated": "True"},
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "bbb222", "callsign": "",
+                 "airline": None, "confirmed_state": "arriving", "corroborated": "False"},
+            ])
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered_fr = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            for needle in (
+                    ">Vols<", "Compagnie inconnue", "aucun indicatif",
+                    "Au départ", "À l’arrivée", "Modèle", "Trajet", "Sens",
+                    "Plus de détails", "Effacer"):
+                if needle not in rendered_fr:
+                    return False, "expected the French %r in the French Flights render" % (needle,)
+            for english_only in (
+                    "Airline unknown", "no callsign", "Departing", "Arriving",
+                    ">Type<", ">Route<", ">State<"):
+                if english_only in rendered_fr:
+                    return False, "expected no English %r leaking into the French render" % (
+                        english_only,)
+            if "FLT1" not in rendered_fr:
+                return False, "expected the seeded callsign to stay untranslated data"
+
+            rendered_en = history_page.render(_history_ctx(tmp))
+            for needle in (
+                    '<h1 class="page-title">Flights</h1>', history_page.AIRLINE_FALLBACK_TEXT,
+                    history_page.NO_CALLSIGN_NOTE_TEXT, "Departing", "Arriving",
+                    ">Type<", ">Route<", ">State<"):
+                if needle not in rendered_en:
+                    return False, "expected the English %r in the default-language Flights render" % (
+                        needle,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a fully-seeded Flights render under lang='fr' shows every new French string (column "
+        "headers, direction words, the unresolved-airline fallback, the no-callsign note, the "
+        "disclosure summary and the filter's Clear button) with no English leaking in, the seeded "
+        "callsign stays untranslated data, and the identical seeded render under the default "
+        "language still carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 3)",
+        _flights_full_seeded_render_french_end_to_end)
+
+    def _flights_catalog_keys_all_present_in_merged_catalog():
+        import companion.i18n_fr as i18n_fr
+        import companion.i18n_fr.flights as i18n_fr_flights
+        missing = [k for k in i18n_fr_flights.CATALOG if k not in i18n_fr.CATALOG]
+        if missing:
+            return False, "keys missing from the merged CATALOG: %r" % (missing,)
+        return True, ""
+    check(
+        "every key in companion/i18n_fr/flights.py's own CATALOG is also a key of the merged "
+        "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up "
+        "(20-10-PLAN.md Task 3)",
+        _flights_catalog_keys_all_present_in_merged_catalog)
 
     # ======================================================================
     # Section 3: one end-to-end check - a real companion/app.py subprocess,
