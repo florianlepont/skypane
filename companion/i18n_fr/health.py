@@ -40,14 +40,14 @@ CATALOG = {
     "warning": "avertissement",
     "error": "erreur",
     "issue": "problème",
-    "Device check-in is stale.": "La connexion de l’appareil est ancienne.",
-    "Flight data is stale.": "Les données de vol sont anciennes.",
-    "A battery reading shows an abnormal drop.":
-        "Un relevé de batterie montre une baisse anormale.",
+    "Device check-in is stale.": "Le cadre ne répond plus.",
+    "Flight data is stale.": "Données de vol anciennes.",
+    "Battery dropped abnormally.":
+        "Baisse anormale de batterie.",
     "Data sources disagreed recently.":
-        "Les sources de données se sont contredites récemment.",
-    "Some airlines are unidentified.": "Certaines compagnies ne sont pas identifiées.",
-    "All data sources failed.": "Toutes les sources de données ont échoué.",
+        "Sources en désaccord récemment.",
+    "Some airlines are unidentified.": "Compagnies non identifiées.",
+    "All data sources failed.": "Toutes les sources ont échoué.",
 
     # --- CFG-05 source-fault landing block ------------------------------
     "ADS-B source outage": "Panne de source ADS-B",

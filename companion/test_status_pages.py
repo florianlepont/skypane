@@ -1329,8 +1329,8 @@ def main():
         # reads as a run of sentences again.
         ordinary = health_page._anomaly_category_text(
             ["Device check-in is stale.",
-             "A battery reading shows an abnormal drop."])
-        if "a battery reading" not in ordinary:
+             "Battery dropped abnormally."])
+        if "battery dropped abnormally" not in ordinary:
             return False, (
                 "expected an ordinary non-acronym phrase to still be "
                 "lower-cased mid-sentence, got %r" % (ordinary,))
@@ -1607,7 +1607,7 @@ def main():
                     "modifier with a single, healthy battery reading, got %r" % battery_tag)
             if health_page.ANOMALY_BANNER_TEXT in rendered:
                 return False, "did not expect the anomaly banner with a single, healthy battery reading"
-            if "A battery reading shows an abnormal drop." in rendered:
+            if "Battery dropped abnormally." in rendered:
                 return False, "did not expect the abnormal-drop copy with a single battery reading"
             return True, ""
         finally:
@@ -1650,10 +1650,10 @@ def main():
             count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
             if count != 1:
                 return False, "expected the anomaly banner copy exactly once, found %d" % count
-            if "A battery reading shows an abnormal drop." in rendered:
+            if "Battery dropped abnormally." in rendered:
                 return False, "the abnormal-drop detail copy must no longer be rendered on the page"
             if health_page.collect_anomalies("ok", "ok", "error", False) != [
-                    "A battery reading shows an abnormal drop."]:
+                    "Battery dropped abnormally."]:
                 return False, "collect_anomalies() must still compute the abnormal-drop item directly"
             return True, ""
         finally:

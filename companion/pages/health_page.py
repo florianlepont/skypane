@@ -1359,7 +1359,7 @@ def collect_anomalies(
     if pipeline_state != "ok":
         anomalies.append(i18n.t("Flight data is stale."))
     if battery_state != "ok":
-        anomalies.append(i18n.t("A battery reading shows an abnormal drop."))
+        anomalies.append(i18n.t("Battery dropped abnormally."))
     if disagreement_warn:
         anomalies.append(i18n.t("Data sources disagreed recently."))
     if coverage_state != "ok":
@@ -2034,7 +2034,7 @@ def _battery_section(trend_rows, daily_rows=None):
     unknown, not a staleness signal like Device/Pipeline's silence.
     (2) a real coupling — `render()` passes this function's second
     return value straight into `collect_anomalies()`, which appends the
-    literal copy "A battery reading shows an abnormal drop." for any
+    literal copy "Battery dropped abnormally." for any
     non-`"ok"` battery state. A `"warn"` here would make a freshly
     provisioned deployment with zero readings display a banner
     asserting an abnormal drop that never happened. Keeping `"ok"`
