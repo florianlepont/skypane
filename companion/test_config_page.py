@@ -461,6 +461,16 @@ EXPECTED_CHECK_COUNT = 211  # Polish fix 5 (Registry labels shown in
 # recomputed directly against the real on-disk check(...) call count
 # at execution time (211/211 pass), not trusted from arithmetic alone.
 
+EXPECTED_CHECK_COUNT = 212  # D-12 fix (20-REVIEW.md verification gap):
+# +1 (the Display scope's rendered <h2> order is exactly Look, Theme,
+# Flight colours, Calendar, What it watches, Runway, When it is on,
+# Screen on / off, Quiet hours - restoring D-12's locked Theme ->
+# Flight colours -> Calendar reading order inside "Look" - and every
+# calendar_theme_id radio carries a form="settings-form" attribute).
+# 211 + 1 = 212, recomputed directly against the real on-disk check(...)
+# call count at execution time (212/212 pass), not trusted from
+# arithmetic alone.
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -4674,7 +4684,13 @@ def main():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
         ctx["device_config"] = dict(ctx["device_config"], calendar_theme_id="black")
         rendered = config_page.render(ctx)
-        checked_ids = re.findall(r'name="calendar_theme_id" value="([^"]*)" class="visually-hidden" checked', rendered)
+        # D-12 fix (20-REVIEW.md verification gap): every calendar_theme_id
+        # radio now also carries a form="settings-form" attribute between
+        # class="visually-hidden" and checked - see the Display <h2>-order
+        # check further below for the full form= assertion.
+        checked_ids = re.findall(
+            r'name="calendar_theme_id" value="([^"]*)" class="visually-hidden" form="settings-form" checked',
+            rendered)
         if checked_ids != ["black"]:
             return False, "expected exactly the saved calendar_theme_id ('black') checked, got %r" % (checked_ids,)
         return True, ""
@@ -4687,7 +4703,9 @@ def main():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
         ctx["device_config"] = dict(ctx["device_config"], theme="black")
         rendered = config_page.render(ctx)
-        checked_ids = re.findall(r'name="calendar_theme_id" value="([^"]*)" class="visually-hidden" checked', rendered)
+        checked_ids = re.findall(
+            r'name="calendar_theme_id" value="([^"]*)" class="visually-hidden" form="settings-form" checked',
+            rendered)
         if checked_ids != ["black"]:
             return False, (
                 "expected the currently-selected base theme ('black') checked by default, got %r"
@@ -5373,6 +5391,45 @@ def main():
         "every grouped card the Display scope renders under one of its three supersections carries "
         "a --nested modifier class (D-12)",
         _every_grouped_card_under_a_display_supersection_carries_nested_class)
+
+    def _display_h2_order_matches_d12_after_calendar_placement_fix():
+        # D-12 fix (20-REVIEW.md verification gap): before this fix, the
+        # physical <form id="settings-form"> closed right after the
+        # Calendar card, which forced Flight colours (a real <form> that
+        # cannot nest inside another <form>) to render after "What it
+        # watches" instead of between Theme and Calendar. This pins the
+        # exact <h2> order the fix restores, and that Calendar's compact
+        # chip-grid radios still post through the physical form despite
+        # the card itself no longer being a literal descendant of it.
+        ctx = {
+            "device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+            "calendar_configured": True, "calendar_last_synced_at": None,
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+        }
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        headings = re.findall(r'<h2[^>]*>(.*?)</h2>', display)
+        expected = [
+            config_page.DISPLAY_LOOK_HEADING, "Theme", config_page.RULES_SECTION_HEADING,
+            config_page.CALENDAR_SECTION_HEADING, config_page.DISPLAY_WATCHES_HEADING,
+            "Runway", config_page.DISPLAY_ON_HEADING, config_page.DISPLAY_SECTION_HEADING,
+            config_page.QUIET_HOURS_SECTION_HEADING,
+        ]
+        if headings != expected:
+            return False, "expected <h2> order %r, got %r" % (expected, headings)
+        calendar_radio_count = display.count('name="calendar_theme_id"')
+        calendar_radio_with_form_count = len(
+            re.findall(r'name="calendar_theme_id"[^>]*form="%s"' % config_page.SETTINGS_FORM_ID, display))
+        if calendar_radio_count == 0 or calendar_radio_with_form_count != calendar_radio_count:
+            return False, (
+                "expected every one of the %d calendar_theme_id radios to carry form=\"%s\", got %d"
+                % (calendar_radio_count, config_page.SETTINGS_FORM_ID, calendar_radio_with_form_count))
+        return True, ""
+    check(
+        "the Display scope's rendered <h2> order is exactly Look, Theme, Flight colours, Calendar, "
+        "What it watches, Runway, When it is on, Screen on / off, Quiet hours, and every "
+        "calendar_theme_id radio carries a form=\"settings-form\" attribute (D-12 fix, "
+        "20-REVIEW.md verification gap)",
+        _display_h2_order_matches_d12_after_calendar_placement_fix)
 
     # ==================================================================
     # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): the instant switches, and

@@ -964,7 +964,8 @@ def _palette_hex(index):
 
 
 def _theme_chip_grid_html(
-        field_name, selected_theme_id, extra_class="", extra_attr="", chip_extra_class=""):
+        field_name, selected_theme_id, extra_class="", extra_attr="", chip_extra_class="",
+        radio_form_id=None):
     """Phase 15 D-05: the chip-grid renderer `theme_fieldset()` calls
     TWICE — once for the always-present departures grid
     (`field_name="theme"`, no `extra_class`/`extra_attr`, so it renders
@@ -1002,7 +1003,20 @@ def _theme_chip_grid_html(
     only the new attribute is added; the live theme preview's own image
     (a sibling element `theme_fieldset()` renders above the grid) is
     what that new attribute is ever read to update.
+
+    D-12 fix (20-REVIEW.md verification gap): `radio_form_id`, when
+    given, adds an explicit `form="{radio_form_id}"` attribute to every
+    radio input this grid renders — the SAME `form=` idiom
+    `runway_fieldset()`'s own radios and `display_group()`/
+    `quiet_hours_group()`'s scheduled inputs already use (Polish fix 4,
+    D-19/Pitfall 1), so this grid keeps posting through the physical
+    settings form even when `render()` renders its enclosing card as a
+    sibling of that form rather than a literal descendant. Defaults to
+    `None` (no attribute at all, byte-identical to before this fix) —
+    Theme's own two always-in-form grids and the rule-add-form's grid
+    never pass it.
     """
+    form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     chips = []
     for theme_id in device_config.THEME_IDS:
         selected = theme_id == selected_theme_id
@@ -1025,7 +1039,7 @@ def _theme_chip_grid_html(
         arriving_hex = _palette_hex(theme["arriving_index"])
         chips.append(
             '<label class="%s" data-preview-src="%s%s.png?live=1">'
-            '<input type="radio" name="%s" value="%s" class="visually-hidden"%s>'
+            '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
             '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
             'width="320" height="120" loading="lazy" style="background:%s">'
             '<span class="theme-chip__body">'
@@ -1039,7 +1053,7 @@ def _theme_chip_grid_html(
             "</label>"
             % (
                 chip_class, THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
-                escape_html(field_name), escaped_id, checked,
+                escape_html(field_name), escaped_id, form_attr_html, checked,
                 THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
                 escape_html(i18n.t(THEME_PREVIEW_ALT_TEMPLATE) % label),
                 escape_html(departing_hex),
@@ -2131,15 +2145,26 @@ def calendar_group(
         current_calendar_theme_id, current_theme_id,
         errors=None, submitted=None, simple_mode=False):
     """The Calendar card (20-09-PLAN.md Task 1, 20-UI-SPEC.md Section
-    Anatomy E; D-14a..d): a sibling inside the single merged `<form
-    action="{SETTINGS_ROUTE}">`, in the "Look" supersection, right after
-    Theme — unchanged position from before this plan. It nests no form
-    of its own: the feed-URL field and its Connect/Replace button moved
-    to their own dedicated route (`calendar_connect_section()` below,
-    D-14c), rendered by `render()` as a sibling of this whole form, so
-    this function is exactly as safe to nest inside `<form
-    id="settings-form">` as it always was — a status row, one compact
-    chip-grid radio group and a `<details>` disclosure, nothing else.
+    Anatomy E; D-14a..d): in the "Look" supersection, after Theme and
+    Flight colours (D-12 fix, 20-REVIEW.md verification gap — see
+    `render()`'s own docstring for the exact document-order change).
+    It nests no form of its own: the feed-URL field and its
+    Connect/Replace button moved to their own dedicated route
+    (`calendar_connect_section()` below, D-14c) — a status row, one
+    compact chip-grid radio group and a `<details>` disclosure, nothing
+    else.
+
+    D-12 fix: this card is now rendered by `render()` as a SIBLING of
+    `<form id="settings-form">`, not a literal descendant — the
+    physical form now closes right after the Theme card, before this
+    card, so Flight colours' own real `<form>` elements can sit between
+    them without ever nesting a `<form>` inside another. The compact
+    chip-grid radio group below still IS a saved setting, so it keeps
+    posting through the physical form via the `form="settings-form"`
+    attribute `_theme_chip_grid_html(radio_form_id=...)` now adds to
+    every one of its radios — the same idiom `runway_fieldset()`'s own
+    radios and `display_group()`/`quiet_hours_group()`'s scheduled
+    inputs already use.
 
     **D-14b — the status row.** `layout.status_row("", verdict, detail,
     state)`: label is `""` because the card's own `<h2>Calendar</h2>`
@@ -2171,9 +2196,11 @@ def calendar_group(
     own name, "calendar_theme_id", is unchanged); `role="radiogroup"` +
     `aria-labelledby` points at this
     card's own `<h2 id="{CALENDAR_HEADING_ID}">` rather than minting a
-    second, redundant visually-hidden label. It stays a literal
-    descendant of `<form id="settings-form">` because it IS a saved
-    setting, unlike the feed URL.
+    second, redundant visually-hidden label. Each radio also carries an
+    explicit `form="settings-form"` attribute (D-12 fix above) because
+    it IS a saved setting, unlike the feed URL — it must keep posting
+    through the physical form even though this card itself now renders
+    as a sibling of that form, not a literal descendant.
 
     **D-14a — the "How it works" disclosure.** Collapses to
     `CALENDAR_HOW_IT_WORKS_SIMPLE`'s one plain sentence when `simple_mode`
@@ -2225,7 +2252,13 @@ def calendar_group(
     chip_grid_html = _theme_chip_grid_html(
         "calendar_theme_id", selected_calendar_theme_id,
         extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
-        extra_attr='role="radiogroup" aria-labelledby="%s"' % escape_html(CALENDAR_HEADING_ID))
+        extra_attr='role="radiogroup" aria-labelledby="%s"' % escape_html(CALENDAR_HEADING_ID),
+        # D-12 fix (20-REVIEW.md verification gap): this card now
+        # renders as a sibling of <form id="settings-form"> on the
+        # Display scope (see render()'s own docstring) - the same
+        # form= idiom runway_fieldset()'s radios already use keeps
+        # this saved setting posting through the physical form.
+        radio_form_id=SETTINGS_FORM_ID)
 
     if simple_mode:
         how_it_works_html = (
@@ -2864,76 +2897,77 @@ def _nested_wrapper_html(html_fragment, base_class, nested_class):
 
 def _display_groups_html(builders, groups):
     """The Display scope's three headed supersections (D-12, 20-UI-SPEC.md
-    Section Anatomy C): "Look" over Theme and Calendar, "What it watches"
-    over Runway, "When it is on" over Screen on/off and Quiet hours — each
-    grouped card gains the `--nested` modifier (`_nested_wrapper_html()`
-    above). Replaces the flat `"".join(builders[g]() ...)` join the
-    Device and legacy all-scope paths still use unchanged (this task's
-    own instruction: leave those two untouched).
+    Section Anatomy C): "Look" over Theme, Flight colours and Calendar (in
+    that order), "What it watches" over Runway, "When it is on" over
+    Screen on/off and Quiet hours — each grouped card gains the `--nested`
+    modifier (`_nested_wrapper_html()` above). Replaces the flat
+    `"".join(builders[g]() ...)` join the Device and legacy all-scope
+    paths still use unchanged (this task's own instruction: leave those
+    two untouched).
 
-    Returns a 3-tuple `(in_form_html, watches_supersection_html,
-    on_supersection_html)`. 20-07-PLAN.md Task 2 (D-19/Pitfall 1): Screen
-    on/off and Quiet hours are no longer literal descendants of
-    `<form id="{SETTINGS_FORM_ID}">` (their own instant-switch `<form>`s
-    would otherwise nest inside it, which HTML forbids), so "When it is
-    on"'s own header and both its cards must render as a unit AFTER
-    `</form>` closes.
+    Returns a 4-tuple `(in_form_html, calendar_card_html,
+    watches_supersection_html, on_supersection_html)`.
 
-    Polish fix 4 (D-14c): "What it watches" (Runway) is, as of this fix,
-    ALSO no longer a literal descendant of `<form id="{SETTINGS_FORM_ID}">`
-    — its own radio inputs instead carry an explicit
-    `form="{SETTINGS_FORM_ID}"` attribute (`runway_fieldset()`'s own
-    docstring), the same idiom Screen on/off's scheduled inputs already
-    use. This is what lets `render()` close `<form id="{SETTINGS_FORM_ID}">`
-    right after the Calendar card and render `calendar_connect_section()`/
-    `calendar_disconnect_section()` (both real, separate `<form>`s) as
-    its immediate siblings, still strictly before "What it watches" in
-    document order — never nesting one `<form>` inside another. `render()`
-    emits `in_form_html` inside the form, `watches_supersection_html` and
-    `on_supersection_html` both after it, in that order, keeping the
-    locked Look/What it watches/When it is on reading order across the
-    form boundary.
+    D-12 fix (20-REVIEW.md verification gap): before this fix, the
+    physical `<form id="{SETTINGS_FORM_ID}">` closed right after the
+    Calendar card, which — because Flight colours' own add-form and each
+    delete-row are real `<form>` elements that cannot nest inside another
+    `<form>` — forced Flight colours to render after "What it watches"
+    instead of between Theme and Calendar as D-12 specifies. The fix:
+    `in_form_html` now holds ONLY the "Look" intro heading plus Theme, so
+    `render()` can close `</form>` right after Theme — before Flight
+    colours' own `<form>`s ever need to sit alongside it. `calendar_card_
+    html` (Calendar's card, nested-wrapped exactly like Theme/Runway) is
+    returned separately so `render()` can place it AFTER Flight colours,
+    restoring D-12's locked Theme -> Flight colours -> Calendar order.
+    Calendar's own compact chip-grid radios keep posting through the
+    physical form via the `form="{SETTINGS_FORM_ID}"` attribute
+    `calendar_group()` now adds to them (the same idiom `runway_fieldset()`'s
+    radios already use) — it is still a saved setting, unlike the feed
+    URL, even though its card is no longer a literal descendant of the
+    form.
 
-    Flight colours (the per-flight colour-rules editor) is ALSO
-    conceptually part of "Look" per D-12's own locked order (Theme,
-    Flight colours, Calendar) but is deliberately NOT built here: its own
-    add form and each delete row are real `<form>` elements, and every
-    card `in_form_html` assembles is a literal descendant of
-    `<form id="settings-form">` (unchanged from before this plan) — HTML
-    forbids nesting a `<form>` inside another `<form>` (the exact Pitfall
-    1 this phase's own D-13 amendment names for Screen on/off and Quiet
-    hours, which this task resolves for those two specifically). `render()`
-    keeps emitting the Flight colours section as a sibling after
-    `watches_supersection_html` — the same relative position (immediately
-    after Runway, before "When it is on") it already occupied before this
-    fix — which is the position its own `<form>` requirement demands
-    (this task's own explicit instruction: "keep each of them in whatever
-    DOM position its own form requirements demand"). Its visual reading
-    therefore still lands after "What it watches" rather than literally
-    between Theme and Calendar; a future plan could close that remaining
-    gap the same way this fix closes Calendar's, for instance by giving
-    Flight colours a dedicated route.
+    20-07-PLAN.md Task 2 (D-19/Pitfall 1): Screen on/off and Quiet hours
+    are no longer literal descendants of `<form id="{SETTINGS_FORM_ID}">`
+    (their own instant-switch `<form>`s would otherwise nest inside it,
+    which HTML forbids), so "When it is on"'s own header and both its
+    cards must render as a unit AFTER `</form>` closes.
+
+    Polish fix 4 (D-14c), still true after the D-12 fix above: "What it
+    watches" (Runway) is ALSO not a literal descendant of
+    `<form id="{SETTINGS_FORM_ID}">` — its own radio inputs instead carry
+    an explicit `form="{SETTINGS_FORM_ID}"` attribute (`runway_fieldset()`'s
+    own docstring), the same idiom Calendar's chip grid now reuses too.
+    `render()` emits `in_form_html` inside the form; `calendar_card_html`,
+    `watches_supersection_html` and `on_supersection_html` all after it,
+    in that order (with Flight colours and the calendar connect/disconnect
+    forms interleaved between `in_form_html` and `calendar_card_html`) —
+    keeping the locked Look/What it watches/When it is on reading order
+    across the form boundary.
     """
     theme_html = (
         _nested_wrapper_html(builders[screens.GROUP_THEME](), "theme-status", "theme-status--nested")
         if screens.GROUP_THEME in groups else "")
-    calendar_html = (
+    calendar_card_html = (
         _nested_wrapper_html(builders[screens.GROUP_CALENDAR](), "page-section", "page-section--nested")
         if screens.GROUP_CALENDAR in groups else "")
     runway_html = (
         _nested_wrapper_html(builders[screens.GROUP_RUNWAY](), "theme-status", "theme-status--nested")
         if screens.GROUP_RUNWAY in groups else "")
+    # D-12 fix: the "Look" intro heading now precedes Theme ONLY inside
+    # the physical form — Flight colours and Calendar both render after
+    # `</form>` closes (see render()'s own docstring for the exact
+    # interleaving), but visually and structurally still read as part of
+    # "Look", since no second `section_intro_html()` heading separates
+    # them from Theme.
     in_form_html = (
         layout.section_intro_html(
             DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
-        + theme_html + calendar_html
+        + theme_html
     )
-    # Polish fix 4 (D-14c): "What it watches" (Runway) now renders AFTER
-    # `<form id="{SETTINGS_FORM_ID}">` closes — a sibling, not a literal
-    # descendant — so calendar_connect_section()/calendar_disconnect_
-    # section() (both real, separate <form>s, rendered by render()
-    # immediately after `</form>` and before this supersection) land
-    # right after the Calendar card, never after Runway.
+    # Polish fix 4 (D-14c), unchanged by the D-12 fix above: "What it
+    # watches" (Runway) renders AFTER `<form id="{SETTINGS_FORM_ID}">`
+    # closes — a sibling, not a literal descendant.
     watches_supersection_html = (
         layout.section_intro_html(
             DISPLAY_WATCHES_SECTION_ID, i18n.t(DISPLAY_WATCHES_HEADING),
@@ -2959,7 +2993,7 @@ def _display_groups_html(builders, groups):
             DISPLAY_ON_SECTION_ID, i18n.t(DISPLAY_ON_HEADING), i18n.t(DISPLAY_ON_INTRO))
         + display_html + quiet_hours_html
     )
-    return in_form_html, watches_supersection_html, on_supersection_html
+    return in_form_html, calendar_card_html, watches_supersection_html, on_supersection_html
 
 
 def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
@@ -3194,19 +3228,18 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         show_rules = bool(screen.get("has_colour_rules"))
         show_poll = False
         show_calendar_disconnect = screens.GROUP_CALENDAR in groups
-        # 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C):
+        # 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C),
+        # restructured by the D-12 fix (20-REVIEW.md verification gap):
         # three headed supersections replace the flat join — see
         # _display_groups_html()'s own docstring for the Flight-colours/
-        # Calendar placement reasoning. Task 2 (D-19/Pitfall 1): the
-        # third element ("When it is on"'s own header plus the Screen
-        # on/off and Quiet hours cards) renders AFTER </form> closes —
-        # see the same docstring's own "returns a 3-tuple" paragraph.
-        # Polish fix 4 (D-14c): the second element ("What it watches"'s
-        # own header plus the Runway card) ALSO renders AFTER </form>
-        # closes now, immediately after the calendar connect/disconnect
-        # siblings render() emits below — see that same docstring.
-        groups_html, display_watches_supersection_html, display_on_supersection_html = (
-            _display_groups_html(builders, groups))
+        # Calendar placement reasoning. `groups_html` (Look intro +
+        # Theme only) renders inside the form; `display_calendar_card_
+        # html` renders after Flight colours, below; the third and
+        # fourth elements ("What it watches"'s own header plus Runway,
+        # and "When it is on"'s own header plus the Screen on/off and
+        # Quiet hours cards) both render AFTER </form> closes too.
+        (groups_html, display_calendar_card_html, display_watches_supersection_html,
+            display_on_supersection_html) = _display_groups_html(builders, groups)
     elif scope == SCOPE_DEVICE:
         # 19-12-PLAN.md Task 3 (D-13): "Home and Device show" — the
         # Next-wake line joins the screen caption/selector in the same
@@ -3237,6 +3270,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # their own instant-switch <form> never has a chance to nest
         # inside this scope's <form id="settings-form">.
         groups_html = "".join(builders[g]() for g in groups if g in builders)
+        display_calendar_card_html = ""
         display_watches_supersection_html = ""
         display_on_supersection_html = ""
     else:
@@ -3251,6 +3285,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # live scoped pages; SCOPE_ALL stays exactly as it was.
         show_calendar_disconnect = False
         groups_html = "".join(builders[g]() for g in groups if g in builders)
+        display_calendar_card_html = ""
         display_watches_supersection_html = ""
         display_on_supersection_html = ""
 
@@ -3281,14 +3316,14 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # `.calendar-disconnect-form` is what makes the `:has(+
     # .calendar-disconnect-form)` fused-card CSS (20-04-PLAN.md) apply.
     #
-    # Polish fix 4 (D-14c): on the Display scope, `</form>` now closes
-    # right after the Calendar card (Runway moved to
-    # display_watches_supersection_html, rendered as a sibling further
-    # below) — so calendar_connect_html/calendar_disconnect_html, emitted
-    # here, land immediately after the Calendar card and strictly before
-    # "What it watches"/Runway, never after it. Device/SCOPE_ALL never
-    # have show_calendar_disconnect True, so this reordering changes
-    # nothing for either.
+    # D-12 fix (20-REVIEW.md verification gap), superseding Polish fix
+    # 4's own placement: on the Display scope, `</form>` now closes
+    # right after the Theme card (see _display_groups_html()'s own
+    # docstring), so calendar_connect_html/calendar_disconnect_html,
+    # emitted here, land immediately after display_calendar_card_html
+    # below — never after Runway. Device/SCOPE_ALL never have
+    # show_calendar_disconnect True, so this reordering changes nothing
+    # for either.
     calendar_connect_html = (
         calendar_connect_section(calendar_configured, errors=errors)
         if show_calendar_disconnect else "")
@@ -3311,6 +3346,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "%s"
         "%s"
+        "%s"
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
@@ -3318,10 +3354,28 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         groups_html,
         STATIC_SAVE_FALLBACK_ATTR,
         escape_html(i18n.t("Save settings")),
+        # D-12 fix (20-REVIEW.md verification gap): Flight colours
+        # (rules_section_html) now renders immediately after `</form>`
+        # closes, BEFORE the Calendar card — restoring D-12's locked
+        # Theme -> Flight colours -> Calendar reading order inside
+        # "Look". Always "" on the Device scope (show_rules is False
+        # there); on SCOPE_ALL it is never nested and this slot's
+        # relative position there is new surface (SCOPE_ALL is the
+        # legacy, never-served render this task leaves otherwise
+        # untouched — show_rules is only True there alongside
+        # show_calendar_disconnect=False, so calendar_connect_html/
+        # calendar_disconnect_html/display_calendar_card_html are all ""
+        # and this reordering has no visible effect on that scope).
+        rules_section_html,
+        # D-12 fix: the Calendar card itself, nested-wrapped exactly
+        # like Theme/Runway, now renders here — after Flight colours,
+        # before its own connect/disconnect forms. Always "" on
+        # Device/SCOPE_ALL (computed above).
+        display_calendar_card_html,
         calendar_connect_html,
         calendar_disconnect_html,
-        # 20-07-PLAN.md Task 1 (D-12), restructured by Polish fix 4
-        # (D-14c): "What it watches"'s own header plus the Runway card —
+        # 20-07-PLAN.md Task 1 (D-12), restructured by the D-12 fix
+        # above: "What it watches"'s own header plus the Runway card —
         # always "" on the Device/SCOPE_ALL paths (both set it to ""
         # explicitly above), so this addition changes nothing for
         # either. On Display, this now renders AFTER the calendar
@@ -3329,14 +3383,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # Calendar in document order even though neither is any longer a
         # literal descendant of the same <form>.
         display_watches_supersection_html,
-        # 20-07-PLAN.md Task 1 (D-10/D-11): on the Display scope, Flight
-        # colours (rules_section_html) keeps its existing relative
-        # position — immediately after "What it watches"/Runway, before
-        # the Notifications test form and "When it is on" — unchanged by
-        # Polish fix 4, which only moves the calendar connect/disconnect
-        # siblings earlier. Device/SCOPE_ALL never have both non-empty at
-        # once, so this changes nothing for either.
-        rules_section_html,
         # 20-11-PLAN.md Task 1 (D-19/Pitfall 1): "" on Display/SCOPE_ALL
         # (computed above), so this addition changes nothing for either
         # — only the Device scope's own render gains this sibling form,
