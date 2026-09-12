@@ -237,6 +237,25 @@ Every decision below is locked (it comes from the PRD, which records the develop
   already have artwork, and nothing else. The button is always visible now
   that simple mode is gone (D-17).
 
+### Resolutions of the research's and UI-SPEC's open questions (2026-09-12, orchestrator)
+
+Locked for planning; each is a one-line change if the developer later prefers otherwise.
+
+- **R-01 Strip helper lives in `layout.py`** as `frame_strip_html(ctx, return_to)`; `home_page.render()` and `config_page.render()` (Display scope) each call it with their own `ctx` — no `page_shell()` change for the strip (research Q1, UI-SPEC §A).
+- **R-02 Redirect back to the pressed page via a hidden `return_to` field** validated against `{HOME_ROUTE, DISPLAY_ROUTE}` in `_handle_quick_toggle()`, defaulting to `DISPLAY_ROUTE` — not the `Referer`-based `_referring_tab()`, so the redirect does not depend on a header a browser may strip (research A.2 offered both; UI-SPEC Structural Note 1 chose `return_to`). All three redirects in the handler use the resolved target.
+- **R-03 Nav reminder: one `layout.py` function computes the two states** (`nav_status_html(device_cfg)` or equivalent) and is called by both nav renderers; `app.py`'s `_page_shell_for()` passes `ctx["device_config"]` through `page_shell()` as one new keyword argument (defaulted to `None`, in which case no reminder is rendered — the login shell and error pages stay unchanged). The strip and the reminder read the same two fields, so they cannot disagree (research Q2).
+- **R-04 French copy for the reminder is fully French**: "Écran allumé / Écran éteint · Heures calmes activées / Heures calmes désactivées" (the PRD's "Heures calmes off" was a drafting shorthand; UI-SPEC §B's assumption is confirmed).
+- **R-05 No-JS floor of the Frame colours card = three stacked labelled chip-grid fieldsets (departures, arrivals, calendar) plus the rules block (list + add form, with its own compact grid) as the fourth block** — D-08 and D-10 read together (research Q3).
+- **R-06 Home's three tiles restore the phase-19 LAYOUT with the phase-20 content logic**: three `stat_tile()` calls in `.home-status-grid`, fed by the same verdict/detail derivation `_status_card_html()` uses today (no duplicated verdict); never copy the phase-19 function body verbatim (research Q4).
+- **R-07 `theme_arriving` clear signal**: the validation gate in `handle_post()` exempts the empty string, and the resolution block maps `""` → `CLEAR_THEME_ARRIVING`, absent → carry forward, member → value; the `theme_arriving_enabled` checkbox and `ARRIVING_CHECKBOX_VALUE` are deleted (research B.3, Pitfall 1). `calendar_theme_id=""` keeps mapping to `None` through `normalise_calendar_theme_id()`.
+- **R-08 Calendar card CSS**: the two `:has()`/border-radius fusion rules (`style.css` ~2193-2197 and ~5369-5381) are retired and the card is rendered as one `<section class="card">` by one function; the `:has()` block-count pin in the CSS tests is re-derived (research C.2, Pitfall 2).
+- **R-09 The small grey Disconnect button** is a new additive class pair on this app's bare `<button>` idiom (UI-SPEC §E names it; no `.btn` family exists) — one rule block, tokens only.
+- **R-10 The masked feed URL** shows the host plus "…" (a new small helper next to `calendar_connect_section()`); the full URL is never rendered once connected (research C.4).
+- **R-11 `theme-preview.js`** is rewritten to scope its chip lookups to the Frame colours card (`data-colour-usage` rows, one `data-preview-src` per chip) instead of a single page-wide `querySelector` (research B.5, Pitfall 3); still ES5, still one `<img src>` write and class toggles only.
+- **R-12 Flights detail row**: a new static script `static/flight-rows.js` registered through the six-touch-point contract; `list-filter.js` also hides the sibling detail row of a filtered-out main row (UI-SPEC Structural Note 5). The Corroboration column becomes dot-only with a visually-hidden label (`status_dot(visually_hide_label=True)`, default `False`).
+- **R-13 Removing simple mode deletes the orphaned FR catalogue entries in the same commit** as their English constants (research Pitfall 5), and `_edit_toggle_html`'s gate is deleted once, by the D-17 plan, which D-20's plan depends on (Pitfall 6).
+- **R-14 Waves**: B (Frame colours) and C (Calendar) both rewrite adjacent slices of `config_page.py`'s Display assembly — they are sequenced, not parallel; A (strip/Home/nav) touches `layout.py`, `app.py`, `home_page.py` and the Display `render()` call site only; D touches `history_page.py`, `list-filter.js`, `style.css`; E touches `prefs.py`, `auth.py`, `app.py`, `layout.py`, three page modules and five harnesses; F touches `airlines_page.py`. The planner must derive waves from these overlaps (`style.css` and the test harnesses are the shared files — one owner per wave).
+
 ### Claude's Discretion
 
 - Exact CSS class names and the internal layout of the strip and the Frame colours card, within the tokens and idioms of the design-system skill (`sketch-findings-skypane`) and the phase 21 UI-SPEC.
