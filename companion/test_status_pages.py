@@ -590,6 +590,15 @@ EXPECTED_CHECK_COUNT = 228
 EXPECTED_CHECK_COUNT = 235
 
 
+# 22-04-PLAN.md Task 2: +6 (235 -> 241) — the strip's CSS block-scoped
+# checks (align-items: stretch/no center, the quiet strip-button rule's
+# specificity/source-order/wash, the three-edge hover with .frame-strip
+# excluded, the retired heading-size override, the one .time-value role,
+# and the header comment's accent-reservation delta), re-derived by
+# RUNNING the harness, not by arithmetic.
+EXPECTED_CHECK_COUNT = 241
+
+
 # --- fixture helpers ---------------------------------------------------
 
 
@@ -9778,6 +9787,133 @@ def main():
         "companion/layout.py no longer computes an age_seconds(next_wake...) >= 0 warn trigger — "
         "the strip consumes frame_state.resolve_state(), it never re-derives lateness (CFG-26)",
         _frame_strip_no_re_derived_lateness_in_source)
+
+    # ======================================================================
+    # 22-04-PLAN.md Task 2 (B13, C2, C6, T9, C5): the strip's CSS — stretch
+    # cells, quiet strip buttons, the demoted headline, the repaired tile
+    # hover, and the one time-value role. Block-scoped source checks only —
+    # a line-wise grep pipe cannot see that a declaration belongs to a
+    # selector, so every check here slices the rule BLOCK first.
+    # ======================================================================
+
+    def _css_source():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path, "r", encoding="utf-8") as fh:
+            return fh.read()
+
+    def _block(css_source, selector_needle, opening="{"):
+        start = css_source.index(selector_needle)
+        brace_open = css_source.index(opening, start)
+        depth = 1
+        i = brace_open + 1
+        while depth > 0:
+            nxt_open = css_source.find("{", i)
+            nxt_close = css_source.find("}", i)
+            if nxt_close == -1:
+                raise ValueError("unterminated block for %r" % (selector_needle,))
+            if nxt_open != -1 and nxt_open < nxt_close:
+                depth += 1
+                i = nxt_open + 1
+            else:
+                depth -= 1
+                i = nxt_close + 1
+        return css_source[start:i]
+
+    def _frame_strip_cells_stretch_not_center():
+        css_source = _css_source()
+        block = _block(css_source, ".frame-strip__cells {")
+        if "align-items: stretch" not in block:
+            return False, "expected align-items: stretch inside .frame-strip__cells"
+        if "align-items: center" in block:
+            return False, "expected zero align-items: center inside .frame-strip__cells"
+        return True, ""
+    check(
+        "the .frame-strip__cells block declares align-items: stretch and zero align-items: center "
+        "(B13) — a block-scoped check, since a line-wise grep pipe would already read 0 on the "
+        "unmodified file (the selector and declaration sit on different lines) and pass vacuously",
+        _frame_strip_cells_stretch_not_center)
+
+    def _frame_strip_cell_button_quiet_rule_after_submit_no_important_no_id():
+        css_source = _css_source()
+        submit_pos = css_source.index('button[type="submit"] {')
+        rule_pos = css_source.index(".frame-strip__cell button {")
+        if rule_pos <= submit_pos:
+            return False, "expected .frame-strip__cell button to appear AFTER button[type=\"submit\"]"
+        block = _block(css_source, ".frame-strip__cell button {")
+        if "!important" in block:
+            return False, "expected no !important in the quiet strip-button rule"
+        if "#" in block.split("{", 1)[0]:
+            return False, "expected no id selector in the quiet strip-button rule's own selector"
+        for expected in (
+                "color-mix(in srgb, var(--color-text) 4.5%, transparent)",
+                "color-mix(in srgb, var(--color-text) 9%, transparent)",
+                "box-shadow: none"):
+            if expected not in block:
+                return False, "expected the base quiet wash value %r reused verbatim" % (expected,)
+        return True, ""
+    check(
+        "the .frame-strip__cell button quiet-button rule (C2) appears at a later line than "
+        "button[type=\"submit\"], carries no !important and no id selector, and reuses the base "
+        "quiet wash (4.5%/9%) verbatim — never a new wash value (T-22-13)",
+        _frame_strip_cell_button_quiet_rule_after_submit_no_important_no_id)
+
+    def _stat_tile_hover_three_edge_frame_strip_excluded():
+        css_source = _css_source()
+        block = _block(css_source, ".stat-tile:not(.frame-strip):hover")
+        if "border-color: transparent" in block:
+            return False, "expected zero border-color: transparent inside the .stat-tile hover block"
+        if "border-inline-color" not in block or "border-block-end-color" not in block:
+            return False, (
+                "expected both border-inline-color and border-block-end-color inside the "
+                ".stat-tile hover block")
+        if ":not(.frame-strip)" not in block.split("{", 1)[0]:
+            return False, "expected the hover reveal to be :not(.frame-strip)-scoped (T9)"
+        return True, ""
+    check(
+        "the .stat-tile hover/focus-within block declares zero border-color: transparent and both "
+        "border-inline-color and border-block-end-color (T9: the top status/accent rail survives "
+        "hover), and the whole reveal is :not(.frame-strip)-scoped so the strip never lifts",
+        _stat_tile_hover_three_edge_frame_strip_excluded)
+
+    def _frame_strip_update_headline_no_heading_size_override():
+        css_source = _css_source()
+        if ".frame-strip__cell--update .status-card__headline" in css_source:
+            return False, "expected the retired Phase 21 heading-size override to be gone (C6)"
+        return True, ""
+    check(
+        "the Phase 21 .frame-strip__cell--update .status-card__headline heading-size override is "
+        "gone — the line returns to its own 16px semibold Emphasis base (C6)",
+        _frame_strip_update_headline_no_heading_size_override)
+
+    def _time_value_role_defined_once():
+        css_source = _css_source()
+        block = _block(css_source, ".time-value {")
+        for expected in ("var(--font-ui)", "font-variant-numeric: tabular-nums"):
+            if expected not in block:
+                return False, "expected %r inside the .time-value block" % (expected,)
+        primary_block = _block(css_source, ".time-value--primary {")
+        if "var(--font-body-size)" not in primary_block or "var(--weight-semibold)" not in primary_block:
+            return False, "expected the primary modifier to use body-size + semibold (C5)"
+        return True, ""
+    check(
+        "the one .time-value role (C5) declares --font-ui and tabular-nums, with a --primary "
+        "modifier stepping up to body-size + semibold — no new token, no new family, no new size",
+        _time_value_role_defined_once)
+
+    def _accent_reservation_header_comment_no_longer_lists_strip_buttons():
+        css_source = _css_source()
+        header_end = css_source.index("*/")
+        header = css_source[:header_end]
+        if "Frame strip's two switch buttons" not in header:
+            return False, "expected the header comment to record the C2 accent-reservation delta"
+        if "this list LOSES two entries and gains none" not in header:
+            return False, "expected the header comment to state the arithmetic, not just assert it"
+        return True, ""
+    check(
+        "the style.css header comment's accent-reservation list is edited to record C2's delta "
+        "(the Frame strip's two switch buttons are no longer accent-filled) — the arithmetic is "
+        "written into the comment, not merely asserted (22-UI-SPEC.md §1)",
+        _accent_reservation_header_comment_no_longer_lists_strip_buttons)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,

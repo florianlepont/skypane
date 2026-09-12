@@ -1946,7 +1946,19 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
             headline_i18n_source = _FRAME_HEADLINE_HELD_TEXT
         else:
             headline_i18n_source = _FRAME_HEADLINE_DUE_TEXT
-        headline_text = escape_html(i18n.t(headline_i18n_source) % next_wake_clock)
+        # C5 (22-04-PLAN.md Task 2): the clock value is its own
+        # `.time-value` element, not baked into the sentence's escaped
+        # text — every one of the three headline templates carries
+        # exactly one "%s", so splitting on it and escaping each of the
+        # three pieces (the leading text, the clock span, the trailing
+        # text) separately still crosses escape_html() at every
+        # interpolation site, matching this function's own discipline.
+        headline_before, headline_after = i18n.t(headline_i18n_source).split("%s", 1)
+        headline_text = "%s%s%s" % (
+            escape_html(headline_before),
+            '<span class="time-value time-value--primary">%s</span>' % escape_html(next_wake_clock),
+            escape_html(headline_after),
+        )
         update_state_row_html = (
             '<p class="%s"><span class="dot %s"></span>%s</p>'
         ) % (headline_class, dot_class, headline_text)

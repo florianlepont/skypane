@@ -44,6 +44,27 @@
  * to this list. Do not broaden this list without updating
  * 06.6.1-UI-SPEC.md's Color section.
  *
+ * 22-04-PLAN.md Task 2 (C2, 22-UI-SPEC.md §1 "Accent reservation — the
+ * delta this phase makes"): this list LOSES two entries and gains none.
+ * The Frame strip's two switch buttons ("Switch off"/"Switch on",
+ * "Turn off"/"Turn on") are `type="submit"` and used to be covered by
+ * the "primary buttons" entry above — a `.frame-strip__cell button`
+ * rule (equal (0,1,1) specificity to `button[type="submit"]`, placed
+ * after it in source order, the same mechanism `.logout-form button`/
+ * `.dirty-bar__cancel` already use) now repaints them with the ordinary
+ * quiet-button wash instead, so "primary buttons" no longer includes
+ * them. The arithmetic is: 06.6.4.1-04 already removed the Disconnect
+ * button's accent fill as a specificity BUG fix, not a reservation
+ * change (it was never a deliberate entry on this list to begin with);
+ * this task's own removal is the first of the two genuine losses this
+ * phase makes, and 22-05-PLAN.md's own settings-form work makes no
+ * change to this list at all. After this task, `.stat-tile--accent`'s
+ * own top rail is the Frame strip's ONLY remaining accent, and the
+ * page's accent has returned to Save/the page's one primary action —
+ * this sentence states the result; it does not itself remove anything
+ * from the list above, since "primary buttons" is still correct for
+ * every OTHER submit button in the app.
+ *
  * Colour-separation contract (heading-color-consistency debug session):
  * `--color-accent` must stay measurably distinguishable from every
  * `--color-status-*` signal colour, in BOTH themes. This was prose-only
@@ -1630,6 +1651,29 @@ button:active {
   color: var(--color-text);
 }
 
+/* 22-04-PLAN.md Task 2 (C2, T-22-13): the Frame strip's two switch
+ * buttons ("Switch off"/"Switch on", "Turn off"/"Turn on") are
+ * `<button type="submit">` and would otherwise inherit the primary
+ * accent fill above. `.frame-strip__cell button` and
+ * `button[type="submit"]` share equal (0,1,1) specificity — an element
+ * selector plus a class selector on the same side either way — so this
+ * rule is placed after `button[type="submit"]` in source order, which
+ * is what actually wins the cascade here (the exact `.logout-form
+ * button`/`.dirty-bar__cancel` precedent above, never raised further:
+ * a higher specificity would start beating class-scoped controls this
+ * app also relies on). Restates the base `button` rule's own quiet
+ * wash/border explicitly (never a new wash value — 4.5%/9% is the
+ * existing register) and neutralizes `box-shadow` for the identical
+ * reason `.logout-form button`/`.dirty-bar__cancel` do: this is a
+ * submit button and would otherwise inherit the primary inset
+ * highlight. */
+.frame-strip__cell button {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  box-shadow: none;
+  color: var(--color-text);
+}
+
 /* 06.6.4 (D-01b): the quiet-button hover reveal. Placement here is
  * load-bearing: this rule MUST sit after both `.logout-form button`
  * (0,1,1) and `.dirty-bar__cancel` (0,1,0) above in source order.
@@ -1640,7 +1684,11 @@ button:active {
  * rule uniform and easy to audit. Without this placement the two
  * quietest controls in the app would have no hover feedback. The primary
  * button is unaffected — its own hover rule above carries higher
- * specificity and restates the neutralized border explicitly. */
+ * specificity and restates the neutralized border explicitly.
+ * 22-04-PLAN.md Task 2: `.frame-strip__cell button` (0,1,1) above is
+ * ALSO equal specificity to this rule, and is placed before it in
+ * source order too, so the strip's own switch buttons get the same
+ * hover wash for free, exactly like the two quiet buttons above. */
 button:hover {
   background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
   border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
@@ -3102,10 +3150,26 @@ summary::-webkit-details-marker {
 /* :focus-within alongside :hover on purpose: several tiles now contain
  * focusable children (the sparkline hit targets from Phase 06.5), and a
  * keyboard user should get the same lift affordance a mouse user gets.
- * border-color: transparent clears the resting hairline the moment the
- * shadow appears, so the two treatments never overlap (D-03). */
-.stat-tile:hover, .stat-tile:focus-within {
-  border-color: transparent;
+ *
+ * 22-04-PLAN.md Task 2 (T9): this declaration used to clear the resting
+ * hairline the moment the shadow appears, on all four edges, "so the
+ * two treatments never overlap (D-03)" — that stops being true of the
+ * TOP edge as of this task: `border-inline-color`/`border-block-end-color`
+ * (side-and-bottom only) replace the four-edge `border-color: transparent`
+ * shorthand, leaving `border-block-start` — a modifier tile's own
+ * status/accent rail (`.stat-tile--ok/--warn/--error/--accent` above) —
+ * intact through hover/focus-within instead of erasing it. The two
+ * treatments still never overlap on the three edges this rule still
+ * clears; only the top rail is now exempt, deliberately.
+ *
+ * `:not(.frame-strip)` scopes the WHOLE hover/focus-within reveal (the
+ * border change and the lift alike) away from the Frame strip: the
+ * strip is a control area, not a browsable card, and must not lift 1px
+ * or lose its own top rail just because a button inside it is hovered
+ * or focused. */
+.stat-tile:not(.frame-strip):hover, .stat-tile:not(.frame-strip):focus-within {
+  border-inline-color: transparent;
+  border-block-end-color: transparent;
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-1px);
 }
@@ -5069,18 +5133,6 @@ a.airline-card {
   gap: var(--space-sm);
 }
 
-.quick-action {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--color-border);
-  border-left-width: 4px;
-  border-radius: var(--radius-control);
-  background: var(--color-canvas);
-}
-
 .quick-action--on {
   border-left-color: var(--color-status-ok);
 }
@@ -5091,13 +5143,6 @@ a.airline-card {
 
 .quick-action--neutral {
   border-left-color: var(--color-border);
-}
-
-.quick-action__text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
 }
 
 .quick-action__label {
@@ -5128,19 +5173,65 @@ a.airline-card {
   min-width: 96px;
 }
 
-/* 21-04-PLAN.md Task 1 (D-01/D-02): the Screen on/off and Quiet hours
- * cards no longer embed an instant switch of their own — both switches
- * now render once, in the shared Frame strip below — so the divider
- * rule that used to separate a card's own switch from its scheduled
- * controls (.quick-action-slot, 20-04-PLAN.md Task 1) has no consumer
- * left and is deleted rather than kept as stale, misleading CSS.
- *
- * The Frame strip (D-01, D-02, D-05) — one shared surface holding the
- * Screen switch, the Quiet hours switch and the next-update headline,
- * atop Home and Display alike (layout.frame_strip_html()). Reuses
- * .stat-tile/.stat-tile--accent verbatim for the card surface itself
- * (padding, border-radius, hairline, accent top-border) — this rule
- * adds only the internal 3-cell flex layout. */
+/* 22-04-PLAN.md Task 2 (B13): every Frame-strip cell — both switch cells
+ * and the update cell alike — shares this ONE wrapper: padding, hairline,
+ * radius and surface, plus a fixed three-row internal grid (label, then
+ * state plus control, then caption; layout.py's _frame_strip_cell_html()
+ * is the one Python builder for all three). A cell with nothing to put
+ * in a row still renders that row's own (empty) track, which is what
+ * keeps all three cells' rows lined up — today (before this task) the
+ * Screen cell puts its button on the label row while the Quiet-hours
+ * cell pushes it to its own row, which is why the three cells measure
+ * 119/165/69px tall instead of one shared height. `.quick-action`'s own
+ * `--on/--off/--neutral` left-edge colour below stays exclusive to the
+ * two switch cells (added below, on the SAME element, never here) — the
+ * update cell never carries `.quick-action` at all, so it can never
+ * paint a control-state signal it does not have. */
+.frame-strip__cell {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  row-gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+}
+
+/* The switch cells' own control-state left edge (D-01) — `.quick-action`
+ * is added alongside `.frame-strip__cell` on the SAME element; only the
+ * border WIDTH lives here, the colour comes from `--on`/`--off`/
+ * `--neutral` above, matching the pre-restructure contract exactly. */
+.frame-strip__cell.quick-action {
+  border-left-width: 4px;
+}
+
+/* Row 2 (state plus control): state text and the switch's own <form>
+ * side by side, matching the pre-restructure `.quick-action` row's own
+ * layout — now scoped to one grid row instead of the whole cell. Every
+ * cell (including the update cell, whose row 2 is the headline
+ * paragraph alone) shares this rule; it is a no-op for a cell with only
+ * one child in this row. */
+.frame-strip__row--state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+/* The Frame strip (D-01, D-02, D-05; 22-04-PLAN.md Task 2, B13) — one
+ * shared surface holding the Screen switch, the Quiet hours switch and
+ * the next-update headline, atop Home and Display alike
+ * (layout.frame_strip_html()). Reuses .stat-tile/.stat-tile--accent
+ * verbatim for the card surface itself (padding, border-radius,
+ * hairline, accent top-border) — this rule adds only the flex layout
+ * that lays the three cells out side by side; each cell's own chrome
+ * now comes from `.frame-strip__cell` above, not from this container.
+ * `align-items: stretch` (was `center`) is B13's own fix: all three
+ * cells now report equal offsetHeight at every width, because a
+ * flex-stretched item's own internal grid can only ever be as tall as
+ * its OWN three rows demand at minimum — never shorter than its
+ * siblings. */
 .frame-strip {
   margin-bottom: var(--space-lg);
 }
@@ -5148,42 +5239,13 @@ a.airline-card {
 .frame-strip__cells {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-lg);
 }
 
-/* Both classes on the SAME element (.frame-strip__cell.quick-action
- * quick-action--on/off) — this is what lets each switch cell keep
- * .quick-action's own flex-row/padding/border/background chrome while
- * also sizing itself as a flex item of .frame-strip__cells above. The
- * two switch cells share the row, each wrapping to its own line first
- * before the update cell does. flex-wrap here (not on the base
- * .quick-action rule, which has no other consumer left after this
- * task) lets the relocated "Applies the next time the frame wakes up."
- * caption — carried over as a THIRD child alongside .quick-action__text
- * and the <form>, never dropped (D-02) — fall onto its own full-width
- * line under the label/state and the form/button instead of squeezing
- * into the same row as a third space-between item. */
-.frame-strip__cell.quick-action {
-  flex: 1 1 220px;
-  flex-wrap: wrap;
-}
-
-.frame-strip__cell.quick-action > .section-caption {
-  flex: 1 1 100%;
-  margin: 0;
-}
-
+.frame-strip__cell.quick-action,
 .frame-strip__cell--update {
-  flex: 1 1 160px;
-  min-width: 0;
-}
-
-/* Phase 21 polish (D-01): the next update is the largest text in the
- * strip — one step above the switch cells' body-size state text. */
-.frame-strip__cell--update .status-card__headline {
-  font-size: var(--font-heading-size);
-  line-height: 1.2;
+  flex: 1 1 220px;
 }
 
 @media (max-width: 699.98px) {
@@ -5365,9 +5427,11 @@ a.airline-card__zoom {
     flex-wrap: wrap;
   }
 
-  .quick-action {
-    flex-wrap: wrap;
-  }
+  /* 22-04-PLAN.md Task 2: `.quick-action` no longer establishes its own
+   * flex row (that layout moved onto `.frame-strip__row--state`, one
+   * row inside the cell's own grid) — this sub-960px `flex-wrap: wrap`
+   * override is retired as dead alongside it, not left as stale CSS
+   * with no element left to match its old flex-row context. */
 }
 
 /* Recent flights on a phone: callsign and time share the first row and
@@ -5517,7 +5581,53 @@ a.airline-card__zoom {
 /* 21-04-PLAN.md Task 3 (D-04): .status-card__rows had exactly one
  * consumer (the deleted _status_card_html()'s own <div>) and is
  * deleted with it; .status-card__headline/--warn above survive — the
- * strip now reuses both verbatim for its own next-update line. */
+ * strip now reuses both verbatim for its own next-update line.
+ *
+ * C6, 22-04-PLAN.md Task 2: the Phase 21 polish override on the update
+ * cell's own headline element (`d9e0338`) — it set that one element's
+ * font-size to the heading-size custom property and a tighter
+ * line-height — promoted this line to the 22px Section-heading size, and
+ * is retired outright: it competed with the 22px regular serif section
+ * headings beside it. `.status-card__headline` above returns to its own
+ * 16px semibold Emphasis base for every consumer, strip included. Its
+ * intent — being the most prominent thing IN the strip — still holds
+ * without the override, because the switch cells' own state text
+ * (`.quick-action__state`) is Body-size REGULAR, not semibold. */
+
+/* C5, 22-04-PLAN.md Task 2: the one time-value role, replacing four
+ * treatments this phase found (14px grey label on Home, 16px bold mono
+ * on Health, 14px mono in tables, mono under the picture) with one
+ * shared rule. `--font-ui` (never mono — mono stays reserved for
+ * identifiers: callsign, ICAO24 hex, the masked calendar URL) plus
+ * `font-variant-numeric: tabular-nums` so a changing clock/countdown
+ * digit never reflows its neighbours. No new token, no new family, no
+ * new size: `--font-body-size`/`--font-label-size` and `--weight-
+ * regular`/`--weight-semibold` are the same four-size/two-weight scale
+ * every other rule in this file already draws from. `.time-value` alone
+ * is the supporting-value shape (label-size, regular); `.time-value--
+ * primary` is the primary-value shape (body-size, semibold) — a
+ * modifier, not a second role. The relative age accompanying either
+ * shape is a SIBLING element, not a variant of this class, at the
+ * file's own existing 70% muted color-mix() strength
+ * (`.time-value__age`, matching `.quick-action__label`'s own use of the
+ * identical mix). This plan applies the primary shape to the Frame
+ * strip's own next-wake clock text only; later plans (22-06, 22-07,
+ * 22-09, 22-12) adopt it at their own render sites. */
+.time-value {
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+}
+
+.time-value--primary {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+}
+
+.time-value__age {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
 
 /* --- 21-UI-SPEC.md §E: the merged Calendar card (D-13/D-14, R-08/R-09)
  * ------------------------------------------------------------------------
