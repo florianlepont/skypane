@@ -302,6 +302,17 @@ EXPECTED_CHECK_COUNT = 97  # 20-10-PLAN.md Task 1 (D-36): +5 (92 -> 97) — a
 # asserted), and a French render shows "Modifier les images"/"Terminé".
 # Recomputed directly against the real on-disk check(...) call count at
 # execution time (97/97 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 100  # 20-10-PLAN.md Task 2 (D-05): +3 (97 -> 100) —
+# a French render translates the page title, filter label, lightbox
+# aria-label and toggle text while a real curated airline name stays
+# untranslated data; a fully-seeded French render (gap strip + resolve
+# panel) shows every new French string with no English leaking in, the
+# seeded example callsign stays untranslated, and the identical seeded
+# render under the default language still carries every pre-existing
+# English needle; and every key of companion/i18n_fr/airlines.py is a
+# key of the merged CATALOG. Recomputed directly against the real
+# on-disk check(...) call count at execution time (100/100 pass), not
+# trusted from arithmetic alone.
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -2886,6 +2897,93 @@ def main():
         "a French render of Airlines shows 'Modifier les images' when closed and 'Terminé' when "
         "open (D-05, D-09, D-36, 20-10-PLAN.md Task 1)",
         _airlines_french_render_shows_translated_toggle_labels)
+
+    # ======================================================================
+    # 20-10-PLAN.md Task 2 (D-05): the rest of Airlines through i18n.t(),
+    # with companion/i18n_fr/airlines.py's own French catalogue.
+    # ======================================================================
+
+    def _airlines_french_render_translates_headings_not_data():
+        import companion.prefs as _prefs
+        try:
+            _prefs.set_request_prefs(lang="fr")
+            rendered = airlines_page.render({})
+        finally:
+            _prefs.set_request_prefs(lang="en")
+        for needle in (
+                ">Compagnies<", "Filtrer par compagnie ou indicatif",
+                "Illustration de la compagnie", "Modifier les images"):
+            if needle not in rendered:
+                return False, "expected the French %r in a French Airlines render" % (needle,)
+        if "Air France" not in rendered:
+            return False, "expected the seeded/curated airline name 'Air France' to stay untranslated data"
+        return True, ""
+    check(
+        "a French render of Airlines shows the French page title, filter label, lightbox aria-label "
+        "and toggle text, while a real airline name ('Air France') stays untranslated data (D-05, "
+        "20-10-PLAN.md Task 2)",
+        _airlines_french_render_translates_headings_not_data)
+
+    def _airlines_full_seeded_render_french_end_to_end():
+        import companion.prefs as _prefs
+        tmp = _mkstate("airlines-fr")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 5, "first_seen": "2026-01-01T00:00:00+00:00",
+                    "last_seen": "2026-01-02T00:00:00+00:00", "example_callsign": "XYZ123",
+                },
+            })
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered_fr = airlines_page.render({"state_dir": tmp})
+                resolve_fr = airlines_page.render(
+                    {"state_dir": tmp, "resolve_prefix": "XYZ", "edit_mode": True})
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            for needle in (
+                    ">Compagnies<", "Compagnies non identifiées",
+                    "Le cadre a vu ces indicatifs mais ne connaît pas la compagnie",
+                    "Modifier les images"):
+                if needle not in rendered_fr:
+                    return False, "expected the French %r in the French Airlines render" % (needle,)
+            for needle in (
+                    "Identifier un vol non reconnu", "Nom de la compagnie",
+                    "Enregistrer le nom de la compagnie"):
+                if needle not in resolve_fr:
+                    return False, "expected the French %r in the French resolve-panel render" % (needle,)
+            if "XYZ123" not in rendered_fr and "XYZ123" not in resolve_fr:
+                return False, "expected the seeded example callsign to stay untranslated data"
+
+            rendered_en = airlines_page.render({"state_dir": tmp})
+            for needle in (
+                    '<h1 class="page-title">Airlines</h1>', airlines_page.GAP_STRIP_HEADING,
+                    airlines_page.GAP_STRIP_BODY, airlines_page.CHANGE_PICTURES_TEXT):
+                if needle not in rendered_en:
+                    return False, "expected the English %r in the default-language Airlines render" % (
+                        needle,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a fully-seeded Airlines render under lang='fr' shows the French gap-strip heading/sentence, "
+        "toggle label and resolve-panel copy with no English leaking in, the seeded example callsign "
+        "stays untranslated data, and the identical seeded render under the default language still "
+        "carries every pre-existing English needle (D-05, 20-10-PLAN.md Task 2)",
+        _airlines_full_seeded_render_french_end_to_end)
+
+    def _airlines_catalog_keys_all_present_in_merged_catalog():
+        import companion.i18n_fr as i18n_fr
+        import companion.i18n_fr.airlines as i18n_fr_airlines
+        missing = [k for k in i18n_fr_airlines.CATALOG if k not in i18n_fr.CATALOG]
+        if missing:
+            return False, "keys missing from the merged CATALOG: %r" % (missing,)
+        return True, ""
+    check(
+        "every key in companion/i18n_fr/airlines.py's own CATALOG is also a key of the merged "
+        "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up "
+        "(20-10-PLAN.md Task 2)",
+        _airlines_catalog_keys_all_present_in_merged_catalog)
 
     # ======================================================================
     # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's
