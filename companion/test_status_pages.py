@@ -537,6 +537,20 @@ EXPECTED_CHECK_COUNT = 213
 # pre-existing root-sandbox anomaly_active() failure, unrelated to
 # this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 213
+# 21-04-PLAN.md Task 2 (D-03/R-03/R-04): +5 (the sidebar and mobile
+# dropdown each carry exactly one .nav-status link with no <form>/
+# <button>, sitting after the brand and before the primary nav list;
+# nav_status_html()'s two dots follow all four Screen/Quiet-hours on/
+# off combinations; a French render reads "Écran allumé"/"Heures
+# calmes désactivées" with no leftover English "off" in a visible
+# label; nav_status_html(None)/({}) both return "" and
+# page_shell(device_config=None) renders no .nav-status at all; the
+# login shell, which never takes a device_config parameter, carries
+# no .nav-status markup). 213 + 5 = 218, recomputed directly against
+# the real on-disk check(...) call count at execution time (217/218
+# pass — the one documented pre-existing root-sandbox anomaly_active()
+# failure, unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 218
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -6531,6 +6545,109 @@ def main():
         "the Advanced group (Health, Device) and the nav status dot always render, in both "
         "the sidebar and the mobile dropdown, on a plain request (D-17)",
         _advanced_group_always_renders_in_both_nav_copies)
+
+    # ======================================================================
+    # Section 1.6b: the nav state reminder (D-03/R-03/R-04,
+    # 21-04-PLAN.md Task 2) — one shared body, both nav copies, computed
+    # from the same ctx["device_config"] the Frame strip reads.
+    # ======================================================================
+
+    _NAV_STATUS_DEVICE_CFG = {"display_enabled": True, "quiet_hours_enabled": False}
+
+    def _nav_status_appears_once_in_each_nav_copy_after_the_brand():
+        rendered = layout.page_shell(
+            title="Home", active="home", body="", ui_theme="auto",
+            device_config=_NAV_STATUS_DEVICE_CFG)
+        if rendered.count('class="nav-status text-label"') != 2:
+            return False, (
+                "expected exactly one .nav-status link in the sidebar and one in the mobile "
+                "dropdown, got %d" % rendered.count('class="nav-status text-label"'))
+        for match in re.finditer(r'<a class="nav-status text-label"[^>]*>(.*?)</a>', rendered):
+            segment = match.group(0)
+            if "<form" in segment or "<button" in segment:
+                return False, "expected the nav-status link to carry no <form> or <button>"
+        brand_pos = rendered.index('<span class="site-title sidebar-title">')
+        sidebar_nav_status_pos = rendered.index('class="nav-status text-label"', brand_pos)
+        sidebar_nav_list_pos = rendered.index('<nav class="sidebar-nav"', brand_pos)
+        if not (brand_pos < sidebar_nav_status_pos < sidebar_nav_list_pos):
+            return False, "expected the sidebar's nav-status link between the brand and the primary nav list"
+        mobile_panel_pos = rendered.index('<div id="%s" class="mobile-nav">' % layout.MOBILE_NAV_ID)
+        mobile_nav_status_pos = rendered.index('class="nav-status text-label"', mobile_panel_pos)
+        mobile_nav_list_pos = rendered.index('<nav class="mobile-nav__nav"', mobile_panel_pos)
+        if not (mobile_panel_pos < mobile_nav_status_pos < mobile_nav_list_pos):
+            return False, "expected the mobile dropdown's nav-status link to be its first child, before its own <nav>"
+        return True, ""
+    check(
+        "the sidebar and the mobile dropdown each contain exactly one .nav-status link, with no "
+        "<form> or <button> inside it, sitting after the brand and before the primary nav list "
+        "in document order (D-03)",
+        _nav_status_appears_once_in_each_nav_copy_after_the_brand)
+
+    def _nav_status_dot_classes_follow_the_four_on_off_combinations():
+        for display_enabled, quiet_hours_enabled, screen_dot, quiet_dot in (
+                (True, False, "dot--ok", "dot--off"),
+                (False, False, "dot--off", "dot--off"),
+                (True, True, "dot--ok", "dot--ok"),
+                (False, True, "dot--off", "dot--ok")):
+            rendered = layout.nav_status_html(
+                {"display_enabled": display_enabled, "quiet_hours_enabled": quiet_hours_enabled})
+            first_dot = re.search(r'<span class="dot ([^"]+)"></span>', rendered).group(1)
+            second_dot = re.findall(r'<span class="dot ([^"]+)"></span>', rendered)[1]
+            if first_dot != screen_dot or second_dot != quiet_dot:
+                return False, (
+                    "display_enabled=%r quiet_hours_enabled=%r: expected dots (%r, %r), got (%r, %r)"
+                    % (display_enabled, quiet_hours_enabled, screen_dot, quiet_dot, first_dot, second_dot))
+        return True, ""
+    check(
+        "nav_status_html()'s two dots follow all four Screen/Quiet-hours on/off combinations "
+        "(dot--ok for on, dot--off for off) (D-03)",
+        _nav_status_dot_classes_follow_the_four_on_off_combinations)
+
+    def _french_nav_status_reads_ecran_allume_heures_calmes_desactivees():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            rendered = layout.nav_status_html(_NAV_STATUS_DEVICE_CFG)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if "Écran allumé" not in rendered or "Heures calmes désactivées" not in rendered:
+            return False, "expected the fully-French reminder text, got %r" % (rendered,)
+        # Check the VISIBLE dot-label text only — "dot--off" is a
+        # legitimate CSS class name, not leaked English text, so the
+        # whole markup string is not the thing to scan for "off".
+        labels = re.findall(r'<span class="dot-label">([^<]*)</span>', rendered)
+        for label in labels:
+            if "off" in label.lower():
+                return False, "expected no leftover English 'off' in a visible label, got %r" % (label,)
+        return True, ""
+    check(
+        "under lang='fr' the reminder reads 'Écran allumé' and 'Heures calmes désactivées' — "
+        "fully French, never 'Heures calmes off' (R-04)",
+        _french_nav_status_reads_ecran_allume_heures_calmes_desactivees)
+
+    def _nav_status_html_none_or_falsy_device_config_renders_nothing():
+        if layout.nav_status_html(None) != "":
+            return False, "expected nav_status_html(None) to return the empty string"
+        if layout.nav_status_html({}) != "":
+            return False, "expected nav_status_html({}) to return the empty string"
+        rendered = layout.page_shell(title="Home", active="home", body="", ui_theme="auto")
+        if "nav-status" in rendered:
+            return False, "expected page_shell(device_config=None) to render no .nav-status at all"
+        return True, ""
+    check(
+        "nav_status_html(None) and nav_status_html({}) both return '', and "
+        "page_shell(..., device_config=None) — the default, used by login/404/error pages — "
+        "renders no .nav-status at all (D-03)",
+        _nav_status_html_none_or_falsy_device_config_renders_nothing)
+
+    def _login_shell_carries_no_nav_status_and_is_unchanged():
+        rendered = layout.login_shell("", ui_theme="auto")
+        if "nav-status" in rendered:
+            return False, "expected the login shell to carry no .nav-status markup at all"
+        return True, ""
+    check(
+        "login_shell() — which never takes a device_config parameter — carries no .nav-status "
+        "markup, unchanged by this task (D-03)",
+        _login_shell_carries_no_nav_status_and_is_unchanged)
 
     # ======================================================================
     # Section 1.7: companion/layout.py's new status_row()/

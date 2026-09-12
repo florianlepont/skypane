@@ -1108,9 +1108,43 @@ select.visually-hidden {
   background: var(--color-status-error);
 }
 
+/* 21-04-PLAN.md Task 2 (D-03): a fourth, additive entry in this same
+ * dot vocabulary — "off" is a neutral, everyday state (Screen off,
+ * Quiet hours off), never a problem, so it gets its own muted-grey
+ * dot rather than reusing warn/error. Reuses the exact color-mix
+ * value .quick-action--off's own left-edge rule already uses — no
+ * new colour literal. */
+.dot--off {
+  background: color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+
 .dot-label {
   font-size: var(--font-label-size);
   vertical-align: middle;
+}
+
+/* 21-04-PLAN.md Task 2 (D-03): the nav's state-only reminder — a plain
+ * link, no button, no form (the phase 18 audit's "no actions in the
+ * nav" finding). Sits between the brand and the primary nav list in
+ * both the sidebar and the mobile dropdown (nav_status_html()'s own
+ * two call sites). Full-strength --color-text on the sidebar surface
+ * — the same pairing .sidebar-link's own unmodified colour rule
+ * already relies on site-wide (contrast measured and pinned in
+ * companion/test_contrast_check.py). */
+.nav-status {
+  display: block;
+  padding: 0 var(--space-sm) var(--space-sm);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.nav-status:hover {
+  text-decoration: underline;
+}
+
+.nav-status__sep {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  margin: 0 2px;
 }
 
 /* Banners: a near-neutral card surface, a hairline border and a 3px

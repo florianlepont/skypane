@@ -2399,6 +2399,12 @@ class Handler(BaseHTTPRequestHandler):
         dispatch) and always calls `render(ctx)` itself with no way to
         pass through an already-rendered body carrying `errors`/
         `submitted`.
+
+        21-04-PLAN.md Task 2 (D-03/R-03): passes `ctx["device_config"]`
+        through as `page_shell()`'s new `device_config` keyword — the
+        one call site that covers both the GET path and the rejected-
+        save POST's redisplay, so the nav's state reminder is always
+        computed from the same value the Frame strip reads.
         """
         flash_html = (
             layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
@@ -2406,7 +2412,7 @@ class Handler(BaseHTTPRequestHandler):
         return layout.page_shell(
             title=_PAGE_TITLES[route], active=layout.nav_slug(route), body=body,
             ui_theme=ctx["ui_theme"], flash=flash_html,
-            health_alert=ctx["health_severity"])
+            health_alert=ctx["health_severity"], device_config=ctx["device_config"])
 
     def _render_tab(self, route, render):
         """Render one authenticated tab: `render(ctx) -> body markup`

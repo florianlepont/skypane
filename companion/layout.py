@@ -940,7 +940,65 @@ def _health_alert_markup(severity):
     ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(i18n.t(HEALTH_ALERT_SUFFIX_TEXT)))
 
 
-def sidebar_nav(active, health_alert=None):
+NAV_SCREEN_ON_TEXT = "Screen on"
+NAV_SCREEN_OFF_TEXT = "Screen off"
+NAV_QUIET_ON_TEXT = "Quiet hours on"
+NAV_QUIET_OFF_TEXT = "Quiet hours off"
+NAV_STATUS_ARIA_LABEL_TEXT = "Screen and quiet hours status — go to Home"
+
+
+def nav_status_html(device_config):
+    """The nav's state-only reminder — D-03 (21-CONTEXT.md, R-03): one
+    shared body, called by BOTH `sidebar_nav()` and `_mobile_nav_html()`
+    below, so the two nav copies can never disagree about the frame's
+    current Screen/Quiet-hours state — the same "one function, two call
+    sites" contract `sidebar_nav()`'s own docstring already states for
+    `_nav_links()`.
+
+    Reads the exact same two `device_config` fields `layout.frame_
+    strip_html()` reads (`display_enabled`/`quiet_hours_enabled`), so
+    the strip and this reminder can never disagree either — there is
+    only one source of truth for both.
+
+    Returns `""` when `device_config` is falsy — `None` means "no
+    request context available" (the login shell, a 404, any error
+    page rendered before a session exists), and degrades to no
+    reminder at all, matching `_health_alert_markup()`'s own documented
+    "absence is the correct signal, not merely convenient" contract.
+
+    A plain `<a href="/">` — no `<form>`, no `<button>`, no script
+    (D-03: "the nav shows a state reminder, not buttons" — the phase 18
+    audit finding that the nav must carry no actions). The visible text
+    is two dot+word segments ("Screen on · Quiet hours off"); the
+    link's own `aria-label` states where it goes, since the visible
+    text alone does not read as a link destination to a screen-reader
+    user. Every value crosses `escape_html()`; every string crosses
+    `i18n.t()` at its interpolation site.
+    """
+    if not device_config:
+        return ""
+    display_enabled = device_config.get("display_enabled", True)
+    is_display_on = display_enabled is not False
+    quiet_enabled = device_config.get("quiet_hours_enabled", False)
+    is_quiet_on = quiet_enabled is True
+    screen_dot_class = "dot--ok" if is_display_on else "dot--off"
+    screen_text = i18n.t(NAV_SCREEN_ON_TEXT if is_display_on else NAV_SCREEN_OFF_TEXT)
+    quiet_dot_class = "dot--ok" if is_quiet_on else "dot--off"
+    quiet_text = i18n.t(NAV_QUIET_ON_TEXT if is_quiet_on else NAV_QUIET_OFF_TEXT)
+    return (
+        '<a class="nav-status text-label" href="%s" aria-label="%s">'
+        '<span class="dot %s"></span><span class="dot-label">%s</span>'
+        '<span class="nav-status__sep"> · </span>'
+        '<span class="dot %s"></span><span class="dot-label">%s</span>'
+        "</a>"
+    ) % (
+        HOME_ROUTE, escape_html(i18n.t(NAV_STATUS_ARIA_LABEL_TEXT)),
+        screen_dot_class, escape_html(screen_text),
+        quiet_dot_class, escape_html(quiet_text),
+    )
+
+
+def sidebar_nav(active, health_alert=None, device_config=None):
     """The vertical Primary-navigation landmark shown by page_shell()'s
     dashboard sidebar column at desktop width.
 
@@ -970,6 +1028,15 @@ def sidebar_nav(active, health_alert=None):
     (background tint, radius) lives in companion/static/style.css's
     `.sidebar-link--active` rule, not here; the class names themselves
     are unchanged.
+
+    `device_config` (D-03, 21-04-PLAN.md Task 2, keyword-with-default
+    so no existing positional call site changes meaning): threaded
+    straight to `nav_status_html()`, whose own reminder markup is
+    prepended before this function's `<nav>` — i.e. between the brand
+    (`page_shell()`'s own `.sidebar-title` span) and the primary nav
+    list, exactly where 21-UI-SPEC.md §B places it. `None` (no request
+    context) renders no reminder at all, byte-identical to this
+    function's own pre-21-04 output.
     """
     parts = []
     for group_label, group_links in _nav_groups(active):
@@ -1000,8 +1067,9 @@ def sidebar_nav(active, health_alert=None):
         else:
             parts.append("".join(links))
     return (
+        "%s"
         '<nav class="sidebar-nav" aria-label="Primary navigation">%s</nav>'
-        % "".join(parts))
+    ) % (nav_status_html(device_config), "".join(parts))
 
 
 def _theme_form_html(resolved_theme):
@@ -1073,7 +1141,8 @@ def _logout_form_html():
 
 
 def _mobile_nav_html(
-        active, theme_form_html, health_alert=None, lang_form_html=""):
+        active, theme_form_html, health_alert=None, lang_form_html="",
+        device_config=None):
     """The hamburger toggle button plus the dropdown panel it controls —
     the <960px nav renderer (D-06, 06.6.1-UI-SPEC.md's Layout Contract).
 
@@ -1103,6 +1172,13 @@ def _mobile_nav_html(
     `"warn"`/`"error"` draws `_health_alert_markup()` with that exact
     severity after the Health link's label, mirroring sidebar_nav()'s
     own contract exactly so the two nav renderers can never disagree.
+
+    `device_config` (D-03, 21-04-PLAN.md Task 2): threaded straight to
+    `nav_status_html()`, whose own reminder markup becomes the first
+    child of `#mobile-nav`, before its `<nav>` — mirroring `sidebar_
+    nav()`'s own "under the brand, above the list" placement exactly.
+    `None` renders no reminder at all, byte-identical to this
+    function's own pre-21-04 output.
     """
     parts = []
     for group_label, group_links in _nav_groups(active):
@@ -1140,10 +1216,11 @@ def _mobile_nav_html(
         % (lang_form_html, theme_form_html, _logout_form_html()))
     panel_html = (
         '<div id="%s" class="mobile-nav">'
+        "%s"
         '<nav class="mobile-nav__nav" aria-label="Primary navigation">%s</nav>'
         "%s"
         "</div>"
-    ) % (MOBILE_NAV_ID, "".join(links), footer_html)
+    ) % (MOBILE_NAV_ID, nav_status_html(device_config), "".join(links), footer_html)
     return toggle_html + panel_html
 
 
@@ -1222,7 +1299,7 @@ FLASH_SLOT_MARKER = "<!--flash-slot-->"
 
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
-        health_alert=None, lang=None):
+        health_alert=None, lang=None, device_config=None):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and every nav label are escaped here. `body`, `flash` and
@@ -1245,15 +1322,28 @@ def page_shell(
     (~40 of them) has to change, since `companion/app.py`'s
     `page_context()` already calls `prefs.set_request_prefs()` once
     per request before any page module renders.
+
+    `device_config` (D-03, 21-04-PLAN.md Task 2, R-03): defaults to
+    `None`, the exact same "no request context available" degrade
+    contract `health_alert`'s own docstring above already documents —
+    threaded through to both `sidebar_nav()` and `_mobile_nav_html()`,
+    which each pass it straight to `nav_status_html()`. `companion/
+    app.py`'s `_page_shell_for()` is the one call site that passes
+    `ctx["device_config"]`, covering both the GET path and a rejected-
+    save POST's redisplay; every other call site (login, 404, the
+    preview-image error pages) leaves this `None`, so those pages'
+    nav renders no reminder — byte-identical to this function's own
+    pre-21-04 output.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
-    sidebar_html = sidebar_nav(active, health_alert=health_alert)
+    sidebar_html = sidebar_nav(
+        active, health_alert=health_alert, device_config=device_config)
     theme_form_html = _theme_form_html(resolved_theme)
     lang_form_html = _lang_form_html(resolved_lang)
     mobile_nav_html = _mobile_nav_html(
         active, theme_form_html, health_alert=health_alert,
-        lang_form_html=lang_form_html)
+        lang_form_html=lang_form_html, device_config=device_config)
     flash_html = flash or ""
     banner_html = banner or ""
 
