@@ -75,6 +75,10 @@ from server.plane import render as panel_render  # noqa: E402
 # importing server.poll_loop) - used solely to seed a real unresolved-
 # prefix registry for the gap-strip checks below.
 import server.poll_loop as poll_loop  # noqa: E402
+# 21-06-PLAN.md Task 1 (D-19): same crossing point, used solely to seed
+# a real Step-B manual-resolution entry (name saved, no artwork yet)
+# for the upload-zone-unconditional checks below.
+from server.plane import manual_resolutions  # noqa: E402
 
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -410,6 +414,30 @@ EXPECTED_CHECK_COUNT = 113
 # recomputed directly against the real on-disk check(...) call count
 # at execution time (113/113 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 113
+# 21-06-PLAN.md Task 1 (D-19): +1 - a new check that a default
+# (edit_mode absent) render of a Step-B entry (name saved, no artwork
+# yet) contains exactly one upload zone, zero delete forms and zero
+# replace forms. 113 + 1 = 114, recomputed directly against the real
+# on-disk check(...) call count at execution time (114/114 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 114
+# 21-06-PLAN.md Task 2 (D-19): net 0 — three checks retargeted in
+# place, no check added or removed. _airlines_default_render_has_no_
+# edit_only_forms now also asserts exactly one upload zone present
+# (the lightbox's own copy is unconditional too) and switches its
+# replace/delete absence assertions to exact `class="..."` matching
+# (a bare substring would false-positive on lightbox__replace-hint/
+# -icon, which now render unconditionally as part of the upload
+# zone's own markup). _airlines_default_render_step_b_upload_zone_
+# unconditional now expects exactly two upload zones (fallback panel
+# + lightbox) instead of one, since both surfaces' guards are dropped
+# together. _airlines_edit_query_param_exact_one_membership_test drops
+# RESOLVE_UPLOAD_ZONE_CLASS from its edit-only tuple and instead
+# asserts it present across every query variant (the exact-"1"
+# membership test no longer governs it). 114 + 0 = 114, recomputed
+# directly against the real on-disk check(...) call count at
+# execution time (114/114 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 114
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -3250,18 +3278,85 @@ def main():
 
     def _airlines_default_render_has_no_edit_only_forms():
         rendered = airlines_page.render({})
+        # 21-06-PLAN.md Task 1 (D-19) dropped RESOLVE_UPLOAD_ZONE_CLASS
+        # from this asserted-absent tuple. 21-06-PLAN.md Task 2 (D-19)
+        # retargets it further: the dialog's own upload zone is
+        # unconditional now too, so this default render (the everyday
+        # view-only lightbox) must contain exactly one of it. Replace
+        # and delete stay edit-only (D-20).
+        #
+        # Exact `class="{token}"` (with the closing quote), never a
+        # bare substring - LIGHTBOX_REPLACE_FORM_CLASS
+        # ("lightbox__replace") is itself a prefix of several sibling
+        # classes (lightbox__replace-zone, lightbox__replace-icon,
+        # lightbox__replace-hint) that render unconditionally as part
+        # of the now-unconditional upload zone's own markup.
         for token in (
                 airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
                 airlines_page.LIGHTBOX_DELETE_CLASS):
-            if token in rendered:
+            if ('class="%s"' % token) in rendered:
                 return False, "expected no %r in a default (edit_mode absent) render" % (token,)
+        upload_count = rendered.count('class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS)
+        if upload_count != 1:
+            return False, (
+                "expected exactly one %r in a default (edit_mode absent) render, got %d"
+                % (airlines_page.RESOLVE_UPLOAD_ZONE_CLASS, upload_count))
         return True, ""
     check(
         "a default airlines_page.render({}) call (edit_mode absent, the everyday view-only "
-        "lightbox) contains none of the replace, upload-zone or delete edit-only forms (D-22, "
-        "19-08-PLAN.md Task 3)",
+        "lightbox) contains none of the replace or delete edit-only forms, but exactly one "
+        "upload zone - unconditional now (D-19), unlike replace/delete which stay behind "
+        "\"Change pictures\" (D-20, D-22, 19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md "
+        "Tasks 1 and 2)",
         _airlines_default_render_has_no_edit_only_forms)
+
+    def _airlines_default_render_step_b_upload_zone_unconditional():
+        # 21-06-PLAN.md Task 1 (D-19): a Step-B entry (name saved, no
+        # artwork yet) offers the upload zone in the no-JS resolve
+        # panel without ?edit=1 - naming an airline and giving it a
+        # picture is one job. The shared delete form stays edit_mode-
+        # gated (D-20), and this no-JS fallback panel has no replace
+        # form of its own.
+        #
+        # 21-06-PLAN.md Task 2 (D-19) drops the identical guard on the
+        # lightbox's own copy, and airlines_page.render() always emits
+        # both the fallback panel and the lightbox when there is at
+        # least one card - so a Step-B render now carries TWO upload
+        # zones (one per surface), not one. This is the intended
+        # outcome of both decisions landing together, not a
+        # double-count bug (per 21-06-PLAN.md Task 1's own instruction
+        # to "fix the count, not the intent").
+        tmp = _mkstate("a-step-b-upload-default")
+        try:
+            result = manual_resolutions.add_entry(tmp, "NEW", "Totally Novel Airline")
+            if result != manual_resolutions.ADD_OK:
+                return False, "test setup failure: add_entry returned %r" % (result,)
+            rendered = airlines_page.render({"state_dir": tmp, "resolve_prefix": "NEW"})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        upload_count = rendered.count('class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS)
+        if upload_count != 2:
+            return False, (
+                "expected exactly two %r (fallback panel + lightbox) in a default "
+                "(edit_mode absent) Step-B render, got %d"
+                % (airlines_page.RESOLVE_UPLOAD_ZONE_CLASS, upload_count))
+        # Exact `class="{token}"` (with the closing quote), never a bare
+        # substring - LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
+        # is itself a prefix of several sibling classes
+        # (lightbox__replace-zone, lightbox__replace-icon,
+        # lightbox__replace-hint) that render unconditionally as part of
+        # the upload zone's own markup.
+        if ('class="%s"' % airlines_page.LIGHTBOX_DELETE_CLASS) in rendered:
+            return False, "expected zero delete forms in a default (edit_mode absent) Step-B render"
+        if ('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS) in rendered:
+            return False, "expected zero replace forms in a default (edit_mode absent) Step-B render"
+        return True, ""
+    check(
+        "a default (edit_mode absent) render of a Step-B entry (name saved, no artwork yet) "
+        "contains exactly two upload zones (the no-JS fallback panel's own copy plus the "
+        "lightbox's), zero manual-delete forms and zero replace forms (D-19/D-20, "
+        "21-06-PLAN.md Tasks 1 and 2)",
+        _airlines_default_render_step_b_upload_zone_unconditional)
 
     def _airlines_default_render_keeps_exactly_one_resolve_name_form():
         rendered = airlines_page.render({})
@@ -4382,17 +4477,28 @@ def main():
             # membership test app.py's page_context() applies survives
             # the full query-string round trip, against a real running
             # service.
+            #
+            # 21-06-PLAN.md Task 2 (D-19): RESOLVE_UPLOAD_ZONE_CLASS
+            # moved out of this edit-only tuple - the lightbox's upload
+            # zone is unconditional now, so it is asserted present
+            # across every query variant below instead, proving it
+            # survives the real HTTP round trip regardless of edit
+            # mode.
             edit_only_tokens = (
                 airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
                 airlines_page.LIGHTBOX_DELETE_CLASS,
             )
+            upload_zone_class_attr = 'class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS
             for query in ("?edit=2", "?edit=true", "?edit="):
                 status, _headers, body = http_request(
                     base + "/airlines" + query, cookie=session_cookie)
                 if status != 200:
                     return False, "expected 200 for /airlines%s, got %d" % (query, status)
                 body_text = body.decode("utf-8", "replace")
+                if upload_zone_class_attr not in body_text:
+                    return False, (
+                        "expected /airlines%s to still render the upload zone (D-19, "
+                        "unconditional)" % (query,))
                 for token in edit_only_tokens:
                     if ('class="%s"' % token) in body_text:
                         return False, (
@@ -4402,15 +4508,18 @@ def main():
             if status != 200:
                 return False, "expected 200 for /airlines?edit=1, got %d" % status
             body_text = body.decode("utf-8", "replace")
+            if upload_zone_class_attr not in body_text:
+                return False, "expected /airlines?edit=1 to still render the upload zone (D-19)"
             for token in edit_only_tokens:
                 if ('class="%s"' % token) not in body_text:
                     return False, "expected /airlines?edit=1 to enable edit mode - missing a %r form" % (token,)
             return True, ""
         check(
             "a real authenticated GET of /airlines?edit=2, ?edit=true and ?edit= does not enable "
-            "edit mode (the exact-\"1\" membership test), while /airlines?edit=1 does render all "
-            "three edit-only forms, against a real running service (D-22, T-19-31, "
-            "19-08-PLAN.md Task 3)",
+            "edit mode (the exact-\"1\" membership test) but still renders the now-unconditional "
+            "upload zone (D-19), while /airlines?edit=1 additionally renders the replace and "
+            "delete edit-only forms, against a real running service (D-19, D-22, T-19-31, "
+            "19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md Task 2)",
             _airlines_edit_query_param_exact_one_membership_test)
 
     finally:
