@@ -438,6 +438,18 @@ EXPECTED_CHECK_COUNT = 114
 # directly against the real on-disk check(...) call count at
 # execution time (114/114 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 114
+# 22-02-PLAN.md Task 1 (D-03/CFG-26): net 0 — the quiet-hours-active
+# fixtures (a window opening during the base interval, an enabled-but-
+# inactive window, an active window beating a screen-off cadence, and
+# the richer next_wake_status() accessor's None-triple/interval/
+# hold_reason results) were added as new assertions INSIDE the existing
+# _wake_next_wake_at_iso_contract() check function rather than as new
+# check(...) call sites, matching the style every assertion above it
+# already uses (one check() call bundling several named assertions).
+# 114 + 0 = 114, recomputed directly against the real on-disk check(...)
+# call count at execution time (114/114 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 114
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -4366,6 +4378,7 @@ def main():
     def _wake_next_wake_at_iso_contract():
         import companion.wake as wake
         from server import device_config as _dc
+        from datetime import datetime, timedelta, timezone
         # None for a falsy/unparseable ts, or no known interval.
         if wake.next_wake_at_iso(None, {}) is not None:
             return False, "expected None for a falsy last_checkin_ts"
@@ -4375,27 +4388,132 @@ def main():
             return False, "expected None for an unparseable last_checkin_ts"
         if wake.next_wake_at_iso("2026-08-27T11:55:00+00:00", {}) is not None:
             return False, "expected None for a config with no known interval and no env fallback"
-        # A screen-on config: last_checkin + wake_interval_s.
+        # A screen-on config: last_checkin + wake_interval_s. Pre-existing
+        # fixture, pinned byte-identical — 22-02-PLAN.md Task 1 must not
+        # move this string, since this config carries no quiet-hours key
+        # at all and quiet_hours_status() degrades to (None, None) for it.
         got = wake.next_wake_at_iso(
             "2026-08-27T11:55:00+00:00", {"wake_interval_s": 900, "display_enabled": True})
         if got != "2026-08-27T12:10:00+00:00":
             return False, "expected last_checkin + wake_interval_s, got %r" % (got,)
         # A screen-off config: last_checkin + DISPLAY_OFF_SLEEP_S, the D-13
         # screen-off rule — wins over wake_interval_s regardless of its value.
+        # Pre-existing fixture, pinned byte-identical for the same reason.
         got = wake.next_wake_at_iso(
             "2026-08-27T11:55:00+00:00",
             {"wake_interval_s": 900, "display_enabled": False})
-        from datetime import datetime, timedelta, timezone
         expected = (
             datetime(2026, 8, 27, 11, 55, 0, tzinfo=timezone.utc)
             + timedelta(seconds=_dc.DISPLAY_OFF_SLEEP_S)).isoformat()
         if got != expected:
             return False, "expected last_checkin + DISPLAY_OFF_SLEEP_S for a screen-off config, got %r" % (got,)
+
+        # --- 22-02-PLAN.md Task 1 (D-03/CFG-26): the quiet-hours-active
+        # fixtures the phase's validation contract lists as a Wave 0 gap
+        # (22-VALIDATION.md line 48) — the existing pinned test above
+        # covered screen-on/screen-off only, never a held frame, which is
+        # exactly the case X2 is about.
+
+        # Fixture A: quiet hours 23:00-07:00 Europe/Paris, last check-in
+        # 22:58 Europe/Paris (a non-DST date), interval 900s. The naive
+        # last_checkin + interval candidate (23:13) falls INSIDE the
+        # window that opens two minutes after the check-in — the window
+        # must win, returning the window's end (07:00 the next day), not
+        # 23:13. This is the exact fixture 22-UI-SPEC.md §3.3 rule 6 (the
+        # nightly regression) is built from.
+        qh_config_a = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        checkin_a = datetime(2026, 1, 15, 22, 58, 0, tzinfo=timezone(timedelta(hours=1)))
+        got = wake.next_wake_at_iso(checkin_a.isoformat(), qh_config_a)
+        expected_a = datetime(2026, 1, 16, 7, 0, 0, tzinfo=timezone(timedelta(hours=1))).isoformat()
+        if got != expected_a:
+            return False, (
+                "fixture A (quiet hours 23:00-07:00, check-in 22:58, interval 900s): "
+                "expected the window's end (%r), not the naive 23:13 candidate, got %r"
+                % (expected_a, got))
+        status_a = wake.next_wake_status(checkin_a.isoformat(), qh_config_a)
+        if status_a[0] != expected_a:
+            return False, "fixture A: next_wake_status()'s ISO element disagreed with next_wake_at_iso()"
+        if status_a[2] != wake.HOLD_QUIET_HOURS:
+            return False, "fixture A: expected hold_reason == HOLD_QUIET_HOURS, got %r" % (status_a[2],)
+        if (checkin_a + timedelta(seconds=status_a[1])).isoformat() != expected_a:
+            return False, (
+                "fixture A: effective_interval_s (%r) added back to the check-in did not "
+                "reproduce the returned ISO string" % (status_a[1],))
+
+        # Fixture B: quiet hours enabled, but nowhere near active at the
+        # check-in instant NOR at the check-in-plus-interval candidate —
+        # returns the plain interval, unmodified. The window is evaluated
+        # relative to last_checkin_ts, never at a render-time "now".
+        qh_config_b = dict(qh_config_a)
+        checkin_b = datetime(2026, 1, 15, 10, 0, 0, tzinfo=timezone(timedelta(hours=1)))
+        got = wake.next_wake_at_iso(checkin_b.isoformat(), qh_config_b)
+        expected_b = (checkin_b + timedelta(seconds=900)).isoformat()
+        if got != expected_b:
+            return False, (
+                "fixture B (quiet hours enabled but inactive at check-in and at "
+                "check-in+interval): expected the plain interval (%r), got %r"
+                % (expected_b, got))
+        status_b = wake.next_wake_status(checkin_b.isoformat(), qh_config_b)
+        if status_b[2] is not None:
+            return False, "fixture B: expected hold_reason is None when quiet hours never engages"
+
+        # Fixture C: quiet hours active AND the screen off — the window
+        # still wins when its remaining time is longer than
+        # DISPLAY_OFF_SLEEP_S (300s); the screen-off cadence alone would
+        # otherwise have won every 5 minutes all night.
+        qh_config_c = {
+            "wake_interval_s": 900, "display_enabled": False,
+            "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        checkin_c = datetime(2026, 1, 16, 1, 0, 0, tzinfo=timezone(timedelta(hours=1)))
+        got = wake.next_wake_at_iso(checkin_c.isoformat(), qh_config_c)
+        expected_c = datetime(2026, 1, 16, 7, 0, 0, tzinfo=timezone(timedelta(hours=1))).isoformat()
+        if got != expected_c:
+            return False, (
+                "fixture C (quiet hours active AND screen off): expected the window's end "
+                "(%r), got %r — the window must win over the 300s screen-off cadence"
+                % (expected_c, got))
+        status_c = wake.next_wake_status(checkin_c.isoformat(), qh_config_c)
+        if status_c[2] != wake.HOLD_QUIET_HOURS:
+            return False, "fixture C: expected hold_reason == HOLD_QUIET_HOURS"
+
+        # Fixture D: the richer accessor's None-triple for the same
+        # never-raise edge cases the bare-ISO wrapper already covers.
+        if wake.next_wake_status(None, {}) != (None, None, None):
+            return False, "expected (None, None, None) for a falsy last_checkin_ts"
+        if wake.next_wake_status("2026-08-27T11:55:00+00:00", {}) != (None, None, None):
+            return False, (
+                "expected (None, None, None) for a config with no known interval and no "
+                "env fallback")
+
+        # Fixture E: the richer accessor returns the effective interval
+        # and hold reason (None) alongside the ISO string for the two
+        # pre-existing, non-quiet-hours fixtures above.
+        status_on = wake.next_wake_status(
+            "2026-08-27T11:55:00+00:00", {"wake_interval_s": 900, "display_enabled": True})
+        if status_on != ("2026-08-27T12:10:00+00:00", 900, None):
+            return False, "expected the screen-on fixture's richer result to carry interval=900, " \
+                "hold_reason=None, got %r" % (status_on,)
+        status_off = wake.next_wake_status(
+            "2026-08-27T11:55:00+00:00", {"wake_interval_s": 900, "display_enabled": False})
+        if status_off != (expected, _dc.DISPLAY_OFF_SLEEP_S, None):
+            return False, "expected the screen-off fixture's richer result to carry " \
+                "interval=DISPLAY_OFF_SLEEP_S, hold_reason=None, got %r" % (status_off,)
         return True, ""
     check(
-        "wake.next_wake_at_iso() returns None for a falsy/unparseable ts or an unknown interval, "
-        "last_checkin + wake_interval_s for a screen-on config, and last_checkin + DISPLAY_OFF_SLEEP_S "
-        "for a screen-off config (D-13's screen-off rule)",
+        "wake.next_wake_at_iso()/next_wake_status() return None/(None, None, None) for a "
+        "falsy/unparseable ts or an unknown interval, last_checkin + wake_interval_s for a "
+        "screen-on config, last_checkin + DISPLAY_OFF_SLEEP_S for a screen-off config (D-13's "
+        "screen-off rule), and — 22-02-PLAN.md Task 1, D-03/CFG-26 — the quiet-hours-active "
+        "fixtures: a window opening during the base interval wins over the naive candidate, an "
+        "enabled-but-nowhere-near-active window changes nothing, an active window beats a "
+        "300s screen-off cadence, and the richer accessor carries the same effective interval "
+        "and hold reason for every fixture above",
         _wake_next_wake_at_iso_contract)
 
     def _battery_module_never_imports_pages_or_server():
