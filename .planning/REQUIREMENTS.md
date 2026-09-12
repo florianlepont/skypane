@@ -42,12 +42,12 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-16**: The theme picker shows a live preview of the selected theme rendered with the last real flight, following the selection
 - [x] **CFG-17**: User can receive a push notification (ntfy-style topic) when the battery goes low or the frame stops checking in, and when each condition clears — sent once per transition from the poll loop
 - [~] **CFG-18**: ~~User can enable a simple mode (per browser) that hides the Advanced pages and every advanced affordance while keeping the everyday pages fully usable~~ — delivered in phase 20, then withdrawn by the developer's feedback ("à quoi sert le toggle simple/complet ?"); superseded by CFG-23 (phase 21)
-- [ ] **CFG-19**: The two everyday frame controls (Screen on/off, Quiet hours) and the next update time sit in a "Frame" strip at the top of Home and of Display, with a state-only reminder in the nav; Home is the strip, the three separate tiles Frame / Battery / Flight data, then the frame picture and the recent flights side by side
-- [ ] **CFG-20**: One "Frame colours" view on Display replaces the four theme chip grids: live preview on the left, a four-row assignment list (Departures, Arrivals, Calendar flights, Per-flight rules) on the right, one chip grid for the selected row, "Same as departures" for arrivals and calendar, the rule list and add form under the rules row; still saveable without script
-- [ ] **CFG-21**: The Calendar card holds status and feed URL together; once connected, "Replace the feed URL" is a plain link and "Disconnect" a small grey secondary button that still confirms
-- [ ] **CFG-22**: The Flights table fits a 1280 px desktop with no horizontal scroll in either language, with the hex, ISO timestamp, runway and copy button moved to an expandable detail row
-- [ ] **CFG-23**: The simple/full mode switch, its route and cookie, every gate it drove, and the Health "Pause updates" button are removed
-- [ ] **CFG-24**: Naming an unrecognised airline on Airlines offers the picture upload again without the "Change pictures" toggle, which keeps only replace/delete of existing artwork
+- [x] **CFG-19**: The two everyday frame controls (Screen on/off, Quiet hours) and the next update time sit in a "Frame" strip at the top of Home and of Display, with a state-only reminder in the nav; Home is the strip, the three separate tiles Frame / Battery / Flight data, then the frame picture and the recent flights side by side
+- [x] **CFG-20**: One "Frame colours" view on Display replaces the four theme chip grids: live preview on the left, a four-row assignment list (Departures, Arrivals, Calendar flights, Per-flight rules) on the right, one chip grid for the selected row, "Same as departures" for arrivals and calendar, the rule list and add form under the rules row; still saveable without script
+- [x] **CFG-21**: The Calendar card holds status and feed URL together; once connected, "Replace the feed URL" is a plain link and "Disconnect" a small grey secondary button that still confirms
+- [x] **CFG-22**: The Flights table fits a 1280 px desktop with no horizontal scroll in either language, with the hex, ISO timestamp, runway and copy button moved to an expandable detail row
+- [x] **CFG-23**: The simple/full mode switch, its route and cookie, every gate it drove, and the Health "Pause updates" button are removed
+- [x] **CFG-24**: Naming an unrecognised airline on Airlines offers the picture upload again without the "Change pictures" toggle, which keeps only replace/delete of existing artwork
 
 ## v2 Requirements
 
@@ -131,12 +131,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-16 | Phase 20 | Complete (#63) |
 | CFG-17 | Phase 20 | Complete (#63) |
 | CFG-18 | Phase 20 | Withdrawn — superseded by CFG-23 |
-| CFG-19 | Phase 21 | Pending (planning) |
-| CFG-20 | Phase 21 | Pending (planning) |
-| CFG-21 | Phase 21 | Pending (planning) |
-| CFG-22 | Phase 21 | Pending (planning) |
-| CFG-23 | Phase 21 | Pending (planning) |
-| CFG-24 | Phase 21 | Pending (planning) |
+| CFG-19 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
+| CFG-20 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
+| CFG-21 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
+| CFG-22 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
+| CFG-23 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
+| CFG-24 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.
 
