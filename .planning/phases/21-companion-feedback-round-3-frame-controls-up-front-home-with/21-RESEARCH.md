@@ -593,7 +593,7 @@ Not applicable in the "external tool" sense — this phase's only environment de
 
 **If this table is empty:** not applicable — every entry above stems from direct code reads (file:line evidence given), not from unverified training-data assumptions about the codebase; these are flagged as "assumptions" only in the sense of "an inference from the evidence that the planner should double-check," not "an unverified claim."
 
-## Open Questions
+## Open Questions (RESOLVED — see 21-CONTEXT.md R-01/R-02/R-03 for Q1-Q2, R-05 for Q3, R-06 for Q4)
 
 1. **Where does the Frame strip helper live, and how does it reach `ctx["device_config"]` from within `layout.py`'s existing nav/shell renderers?**
    - What we know: D-01 offers either a new `companion/pages/frame_strip.py` or a function in `companion/layout.py`; `page_shell()`'s current signature has no device-config parameter; `home_page.py`/`config_page.py` both already have `ctx["device_config"]` directly.
