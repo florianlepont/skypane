@@ -35,8 +35,17 @@ GROUP_CALENDAR = "calendar"
 # Everyday groups render on the Display page; advanced groups on the
 # Device page. The split is a property of the GROUP, not of the screen
 # type: a screen type simply lists which groups it has.
-EVERYDAY_GROUPS = (GROUP_THEME, GROUP_QUIET_HOURS, GROUP_DISPLAY)
-ADVANCED_GROUPS = (GROUP_RUNWAY, GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_CALENDAR)
+#
+# 20-07-PLAN.md Task 1 (D-10/D-11): Runway and Calendar move here from
+# ADVANCED_GROUPS — a household member finds every everyday setting on
+# Display now (Look/What it watches/When it is on), and Device keeps
+# only hardware, data and diagnostics groups. grep-confirmed (2026-09-11)
+# unused by any production code or test — kept here for documentation/
+# honesty only; these two module-level tuples gate nothing themselves,
+# unlike each screen type's own "everyday_groups"/"advanced_groups" keys
+# below, which config_page.scope_groups() actually reads.
+EVERYDAY_GROUPS = (GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_DISPLAY, GROUP_QUIET_HOURS)
+ADVANCED_GROUPS = (GROUP_LED, GROUP_WAKE_INTERVAL)
 
 DEFAULT_SCREEN_ID = "plane-frame"
 
@@ -46,10 +55,17 @@ SCREEN_TYPES = {
         "description": (
             "The e-ink frame showing the aircraft currently using the "
             "watched Orly runway."),
-        # Display-page groups, in render order.
-        "everyday_groups": (GROUP_THEME, GROUP_QUIET_HOURS, GROUP_DISPLAY),
+        # Display-page groups, in render order (20-07-PLAN.md Task 1,
+        # D-10/D-11: Runway and Calendar joined this tuple this phase —
+        # the per-supersection grouping (Look/What it watches/When it is
+        # on) is config_page.render()'s own concern, but this order does
+        # not contradict it: theme and calendar under "Look", runway
+        # under "What it watches", display and quiet_hours under "When
+        # it is on").
+        "everyday_groups": (
+            GROUP_THEME, GROUP_CALENDAR, GROUP_RUNWAY, GROUP_DISPLAY, GROUP_QUIET_HOURS),
         # Device-page groups, in render order.
-        "advanced_groups": (GROUP_RUNWAY, GROUP_LED, GROUP_WAKE_INTERVAL, GROUP_CALENDAR),
+        "advanced_groups": (GROUP_LED, GROUP_WAKE_INTERVAL),
         # Whether the Device page also shows the per-flight colour rules
         # editor and the manual refresh ("poll now") control — both are
         # plane-specific today.

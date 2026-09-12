@@ -13,6 +13,9 @@ only renders the button/copy for it.
 """
 import re
 
+from companion import i18n  # D-05, 20-07-PLAN.md Task 1: the Display page's
+# three supersection headings/intros render through i18n.t() (Task 3
+# widens this to every user-visible string in this file).
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
@@ -27,11 +30,12 @@ from companion import wake
 # second string, exactly as the plan directs. This does not create an
 # import cycle: airlines_page.py never imports config_page.py.
 #
-# 19-12-PLAN.md Task 2 (D-22, Device-page half): EDIT_QUERY_PARAM joins
-# the same deliberate exception, for the identical reason — the Device
-# page's "Edit artwork" link is built from airlines_page's own query-
-# param constant rather than a retyped "edit" literal.
-from companion.pages.airlines_page import DELETE_BUTTON_TEXT, EDIT_QUERY_PARAM
+# 20-07-PLAN.md Task 3 (D-36): the former EDIT_QUERY_PARAM import (19-12-
+# PLAN.md Task 2's Device-page "Edit artwork" link) is gone along with
+# that link itself — 20-10 renders the replacement "Change pictures"
+# button directly on airlines_page.py, which already owns
+# EDIT_QUERY_PARAM; nothing here needs it any more.
+from companion.pages.airlines_page import DELETE_BUTTON_TEXT
 from server import device_config, panel_format
 from server.plane import calendar_rules, colour_rules
 
@@ -96,24 +100,41 @@ SCOPE_FIELD_NAME = "scope"
 RETURN_TO_FIELD_NAME = "return_to"
 
 DISPLAY_PAGE_TITLE = "Display"
-DISPLAY_PAGE_PURPOSE = (
-    "How the frame looks. Changes reach the frame the next time it wakes up.")
+# 20-07-PLAN.md Task 1 (D-12): the Display page now carries every
+# everyday group (Look/What it watches/When it is on), so its purpose
+# sentence widens from "how the frame looks" to the whole page's scope.
+DISPLAY_PAGE_PURPOSE = "Everything about what the frame shows and when."
 DEVICE_PAGE_TITLE = "Device"
 DEVICE_PAGE_PURPOSE = (
     "Hardware, data and diagnostics for the frame. Nothing here needs "
     "changing day to day.")
 SCREEN_CAPTION_TEMPLATE = "Screen: %s"
+
+# 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C): the
+# three headed supersections Display's own groups render under, in this
+# locked order. Each heading/intro pair is rendered through the shared
+# section-intro helper layout.py promoted from health_page.py's own
+# former private copy (20-03-PLAN.md).
+DISPLAY_LOOK_SECTION_ID = "display-look"
+DISPLAY_LOOK_HEADING = "Look"
+DISPLAY_LOOK_INTRO = (
+    "— the theme, flight colours and calendar that decide how the "
+    "picture looks.")
+DISPLAY_WATCHES_SECTION_ID = "display-watches"
+DISPLAY_WATCHES_HEADING = "What it watches"
+DISPLAY_WATCHES_INTRO = "— which Orly runway the frame is watching."
+DISPLAY_ON_SECTION_ID = "display-on"
+DISPLAY_ON_HEADING = "When it is on"
+DISPLAY_ON_INTRO = "— when the screen is lit and when it stays quiet."
 # 19-12-PLAN.md Task 2 (D-23): the conditional screen-type <select> — an
 # element id (not a class) because its own <label> targets it via `for`.
 SCREEN_SELECTOR_ID = "screen-id-selector"
 SCREEN_SELECTOR_LABEL_TEXT = "Screen type"
-# The Device-page-only link to the artwork editor (D-22's Device-page
-# half, 19-12-PLAN.md Task 2). Built from airlines_page.AIRLINES_ROUTE
-# (rebound below as layout.AIRLINES_ROUTE, already duplicated there) and
-# airlines_page.EDIT_QUERY_PARAM — never a retyped "/airlines?edit=1"
-# literal.
-EDIT_ARTWORK_LINK_TEXT = "Edit artwork"
-EDIT_ARTWORK_LINK_CAPTION = "Opens Airlines with the artwork-editing forms available."
+# 20-07-PLAN.md Task 3 (D-36): the Device page's own artwork-editing
+# link and its former builder function are deleted outright — the
+# developer did not understand it. See airlines_page.py, where 20-10
+# renders the replacement "Change pictures" button at the top of the
+# gallery instead.
 
 
 def scope_groups(scope, screen_id=None):
@@ -271,11 +292,19 @@ QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
 # real-Unicode punctuation convention (see its em dashes elsewhere).
 QUIET_HOURS_PRESET_NIGHT_START = device_config.DEFAULT_QUIET_HOURS_START
 QUIET_HOURS_PRESET_NIGHT_END = device_config.DEFAULT_QUIET_HOURS_END
-QUIET_HOURS_PRESET_NIGHT_LABEL = "Night (%s–%s)" % (
+# 20-07-PLAN.md Task 3 (D-05): the %s-templated form, translated through
+# i18n.t() BEFORE substitution (this codebase's established pattern,
+# health_page.py's SOURCE_FAULT_BODY_TEMPLATE, 20-03-PLAN.md) — never an
+# already-formatted string translated as one opaque catalogue key, which
+# would bake this specific device's own configured times into the
+# French entry forever.
+QUIET_HOURS_PRESET_NIGHT_LABEL_TEMPLATE = "Night (%s–%s)"
+QUIET_HOURS_PRESET_NIGHT_LABEL = QUIET_HOURS_PRESET_NIGHT_LABEL_TEMPLATE % (
     QUIET_HOURS_PRESET_NIGHT_START, QUIET_HOURS_PRESET_NIGHT_END)
 QUIET_HOURS_PRESET_WORKDAY_START = "08:00"
 QUIET_HOURS_PRESET_WORKDAY_END = "18:00"
-QUIET_HOURS_PRESET_WORKDAY_LABEL = "Work day (%s–%s)" % (
+QUIET_HOURS_PRESET_WORKDAY_LABEL_TEMPLATE = "Work day (%s–%s)"
+QUIET_HOURS_PRESET_WORKDAY_LABEL = QUIET_HOURS_PRESET_WORKDAY_LABEL_TEMPLATE % (
     QUIET_HOURS_PRESET_WORKDAY_START, QUIET_HOURS_PRESET_WORKDAY_END)
 # "Always on (off)": this preset UNCHECKS the enable checkbox and leaves
 # both times untouched - "off" means the curfew is disabled while the
@@ -320,6 +349,36 @@ DISPLAY_SECTION_CAPTION = (
 # 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
 # comment above.
 DISPLAY_SECTION_CAPTION_ID = "display-caption"
+
+# 20-07-PLAN.md Task 2 (D-19): the Screen on/off and Quiet hours groups'
+# own instant-switch quick-action slot. Home's own (module-private, on
+# the Home page) route/copy constants are byte-for-byte duplicates,
+# never imported (a page module may never import another page module,
+# companion/pages/__init__.py's own boundary) — 20-06 deletes Home's
+# own copies once its soon-to-be-retired Quick actions card is retired
+# (D-16). The quick-action `<form>`s'
+# own action attributes below are written as literal path text, not a
+# `%s` interpolation of these constants (this file's own acceptance
+# gate greps the literal form-action text) — but the two constants stay
+# defined here, equal to those same paths, for
+# companion/test_config_page.py's own checks to reference without
+# retyping either path a third time.
+QUICK_DISPLAY_ROUTE = "/quick/display"
+QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
+QUICK_ACTION_SCREEN_LABEL = "Screen"
+QUICK_ACTION_ON_TEXT = "On"
+QUICK_ACTION_OFF_TEXT = "Off"
+QUICK_ACTION_SWITCH_ON_BUTTON = "Switch on"
+QUICK_ACTION_SWITCH_OFF_BUTTON = "Switch off"
+QUICK_ACTION_QUIET_LABEL = "Quiet hours"
+QUICK_ACTION_QUIET_ON_TEMPLATE = "On — %s to %s"
+QUICK_ACTION_QUIET_OFF_TEXT = "Off"
+QUICK_ACTION_QUIET_TURN_ON_BUTTON = "Turn on"
+QUICK_ACTION_QUIET_TURN_OFF_BUTTON = "Turn off"
+# D-19/20-UI-SPEC.md Section Anatomy D: one shared sentence for both
+# switches — never two independently-worded copies of the identical
+# fact.
+QUICK_ACTION_APPLIES_SENTENCE = "Applies the next time the frame wakes up."
 
 # Read elsewhere, not just here — this module's existing
 # duplicated-not-imported must-equal discipline (matches
@@ -619,7 +678,7 @@ def _field_error_html(errors, field, control_id):
         return ""
     return (
         '<p class="field-error text-label" id="%s-error" role="alert">%s</p>'
-    ) % (escape_html(control_id), escape_html(message))
+    ) % (escape_html(control_id), escape_html(i18n.t(message)))
 
 
 def _describedby_attr(*ids):
@@ -659,10 +718,17 @@ def _with_next_wake(caption, next_wake_clock):
     "next scheduled poll" clause (12-CONTEXT.md D-01), and appending a
     wake-interval-derived figure there would contradict that sentence —
     see `render()`'s own comment at that group for the same exception.
+
+    20-07-PLAN.md Task 3 (D-05): `caption` is translated by the CALLER
+    (every call site below passes `i18n.t(SOME_CAPTION_CONSTANT)`) — this
+    function only translates its OWN suffix template, and does so BEFORE
+    substituting `next_wake_clock` into it, matching this codebase's
+    established "%-template translated first, formatted second" pattern
+    (health_page.py's SOURCE_FAULT_BODY_TEMPLATE, 20-03-PLAN.md).
     """
     if not next_wake_clock:
         return caption
-    return caption + (NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE % next_wake_clock)
+    return caption + (i18n.t(NEXT_WAKE_CAPTION_SUFFIX_TEMPLATE) % next_wake_clock)
 
 
 def _field_error_attrs(errors, field, control_id, hint_id=None):
@@ -789,16 +855,17 @@ def _theme_chip_grid_html(field_name, selected_theme_id, extra_class="", extra_a
             '<span class="theme-chip__dot" style="background:%s"></span>'
             "</span>"
             "</span>"
-            '<span class="theme-chip__check">%s<span class="visually-hidden">Selected</span></span>'
+            '<span class="theme-chip__check">%s<span class="visually-hidden">%s</span></span>'
             "</label>"
             % (
                 chip_class, escape_html(field_name), escaped_id, checked,
                 THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
-                escape_html(THEME_PREVIEW_ALT_TEMPLATE % label),
+                escape_html(i18n.t(THEME_PREVIEW_ALT_TEMPLATE) % label),
                 escape_html(departing_hex),
                 escape_html(label),
                 escape_html(departing_hex), escape_html(arriving_hex),
                 layout.icon_html("icon-check"),
+                escape_html(i18n.t("Selected")),
             )
         )
     grid_class = "theme-chip-grid"
@@ -908,7 +975,7 @@ def theme_fieldset(
         '<p class="text-label section-caption" id="%s">%s</p>'
         % (
             escape_html(THEME_SECTION_CAPTION_ID),
-            escape_html(_with_next_wake(THEME_SECTION_CAPTION, next_wake_clock)),
+            escape_html(_with_next_wake(i18n.t(THEME_SECTION_CAPTION), next_wake_clock)),
         ))
     if len(device_config.THEME_IDS) == 1:
         theme_id = (
@@ -919,21 +986,29 @@ def theme_fieldset(
         arriving_hex = _palette_hex(theme["arriving_index"])
         return (
             '<div class="theme-status" %s="%s">'
-            '<h2 class="text-heading">Theme</h2>'
+            '<h2 class="text-heading">%s</h2>'
             "%s"
             '<div class="theme-status__row">'
             '<span class="theme-swatch" aria-hidden="true">'
             '<span class="theme-swatch__chip" style="background:%s"></span>'
             '<span class="theme-swatch__chip" style="background:%s"></span>'
             "</span>"
-            '<span class="text-body">%s · current</span>'
+            '<span class="text-body">%s · %s</span>'
             "</div>"
             "</div>"
         ) % (
-            DIRTY_SECTION_ATTR, escape_html("Theme"),
+            DIRTY_SECTION_ATTR, escape_html(i18n.t("Theme")),
+            escape_html(i18n.t("Theme")),
             caption_html,
             departing_hex, arriving_hex,
+            # D-05: theme names (device_config.theme_label()) are not
+            # translated by this plan — they are a cross-page, registry-
+            # wide concern (Theme's own chip grid, Calendar, the Flight-
+            # colours rule rows, etc.) touching server/device_config.py,
+            # out of this plan's own files_modified scope; flagged in
+            # 20-07-SUMMARY.md for a later phase.
             escape_html(device_config.theme_label(theme_id)),
+            escape_html(i18n.t("current")),
         )
 
     effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
@@ -975,7 +1050,7 @@ def theme_fieldset(
     # aria-labelledby target above.
     return (
         '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading" id="%s">Theme</h2>'
+        '<h2 class="text-heading" id="%s">%s</h2>'
         "%s"
         "%s%s"
         '<label class="settings-checkbox">'
@@ -986,18 +1061,19 @@ def theme_fieldset(
         "%s%s"
         "</div>"
     ) % (
-        DIRTY_SECTION_ATTR, escape_html("Theme"),
+        DIRTY_SECTION_ATTR, escape_html(i18n.t("Theme")),
         escape_html(THEME_GROUP_HEADING_ID),
+        escape_html(i18n.t("Theme")),
         caption_html,
         first_grid, theme_error_html,
         escape_html(THEME_ARRIVING_TOGGLE_ID),
         escape_html(ARRIVING_CHECKBOX_VALUE),
         " checked" if checkbox_checked else "",
         theme_arriving_enabled_attrs,
-        escape_html(THEME_ARRIVING_CHECKBOX_LABEL),
+        escape_html(i18n.t(THEME_ARRIVING_CHECKBOX_LABEL)),
         theme_arriving_enabled_error_html,
         escape_html(THEME_ARRIVING_GROUP_HEADING_ID),
-        escape_html(THEME_DIRECTION_LABEL),
+        escape_html(i18n.t(THEME_DIRECTION_LABEL)),
         second_grid, theme_arriving_error_html,
     )
 
@@ -1090,11 +1166,15 @@ def runway_fieldset(
         escaped_id = escape_html(runway_id)
         image_html = ""
         if runway_id in images_available:
+            # D-05: device_config.runway_label()'s own text ("Runway 3
+            # (07/25)") is a registry value, not this file's own copy —
+            # left untranslated, matching device_config.theme_label()'s
+            # own precedent (flagged in 20-07-SUMMARY.md).
             image_html = (
                 '<img class="runway-card__image" src="%s%s.png" alt="%s">'
                 % (
                     RUNWAY_IMAGE_ROUTE_PREFIX, escaped_id,
-                    escape_html(RUNWAY_IMAGE_ALT_TEMPLATE % label),
+                    escape_html(i18n.t(RUNWAY_IMAGE_ALT_TEMPLATE) % label),
                 )
             )
         cards.append(
@@ -1102,11 +1182,12 @@ def runway_fieldset(
             '<input type="radio" name="tracked_runway" value="%s" class="visually-hidden"%s>'
             '<span class="runway-card__number">%s</span>'
             "%s"
-            '<span class="runway-card__check">%s<span class="visually-hidden">Selected</span></span>'
+            '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
             "</label>"
             % (
                 card_class, escaped_id, checked, escape_html(label),
                 image_html, layout.icon_html("icon-check"),
+                escape_html(i18n.t("Selected")),
             )
         )
     runway_error_html = _field_error_html(errors, "tracked_runway", "tracked-runway")
@@ -1114,16 +1195,17 @@ def runway_fieldset(
         escape_html(RUNWAY_GROUP_HEADING_ID), _describedby_attr(RUNWAY_SECTION_CAPTION_ID))
     return (
         '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading" id="%s">Runway</h2>'
+        '<h2 class="text-heading" id="%s">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
         '<div class="runway-row" %s>%s</div>'
         "%s"
         "</div>"
     ) % (
-        DIRTY_SECTION_ATTR, escape_html("Runway"),
+        DIRTY_SECTION_ATTR, escape_html(i18n.t("Runway")),
         escape_html(RUNWAY_GROUP_HEADING_ID),
+        escape_html(i18n.t("Runway")),
         escape_html(RUNWAY_SECTION_CAPTION_ID),
-        escape_html(_with_next_wake(RUNWAY_SECTION_CAPTION, next_wake_clock)),
+        escape_html(_with_next_wake(i18n.t(RUNWAY_SECTION_CAPTION), next_wake_clock)),
         row_attr,
         "".join(cards),
         runway_error_html,
@@ -1204,16 +1286,17 @@ def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
         '<label class="settings-checkbox">'
-        '<input type="checkbox" name="led_enabled" value="%s"%s%s> Enable diagnostic LED'
+        '<input type="checkbox" name="led_enabled" value="%s"%s%s> %s'
         "</label>"
         "%s"
         "</div>"
     ) % (
-        DIRTY_SECTION_ATTR, escape_html(LED_SECTION_HEADING),
-        escape_html(LED_SECTION_HEADING),
+        DIRTY_SECTION_ATTR, escape_html(i18n.t(LED_SECTION_HEADING)),
+        escape_html(i18n.t(LED_SECTION_HEADING)),
         escape_html(LED_SECTION_CAPTION_ID),
-        escape_html(_with_next_wake(LED_SECTION_CAPTION, next_wake_clock)),
+        escape_html(_with_next_wake(i18n.t(LED_SECTION_CAPTION), next_wake_clock)),
         escape_html(LED_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
+        escape_html(i18n.t("Enable diagnostic LED")),
         error_html,
     )
 
@@ -1221,15 +1304,23 @@ def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=
 def quiet_hours_group(
         current_enabled, current_start, current_end, errors=None, submitted=None,
         next_wake_clock=None):
-    """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md): a
-    fourth sibling of the Theme/Runway/Diagnostic LED groups inside the
-    single merged `<form action="{SETTINGS_ROUTE}">`, built against
-    `led_group()`'s exact structure above — same `.theme-status` wrapper
-    idiom, same `<h2 class="text-heading">` naming (no `<fieldset>`/
-    `<legend>`, for the identical reason `led_group()`'s own docstring
-    already documents: a `<legend>` only has accessible-name semantics
-    inside a `<fieldset>`, which these sibling groups deliberately do not
-    have).
+    """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md;
+    restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1): this card is
+    now a SIBLING of `<form id="{SETTINGS_FORM_ID}">`, never a literal
+    descendant — see `display_group()`'s own Task 2 docstring paragraph
+    for the full reasoning (its own instant switch would otherwise be a
+    `<form>` nested inside `<form id="{SETTINGS_FORM_ID}">`, which HTML
+    forbids). The enable checkbox and both time inputs keep submitting
+    with the shared Save via a `form="{SETTINGS_FORM_ID}"` attribute on
+    each, the same cross-DOM idiom `display_group()` now uses too.
+
+    Same `.theme-status` wrapper idiom, same `<h2 class="text-heading">`
+    naming as before this task (no `<fieldset>`/`<legend>`, for the
+    identical reason `led_group()`'s own docstring already documents: a
+    `<legend>` only has accessible-name semantics inside a `<fieldset>`,
+    which these sibling groups deliberately do not have) — only the
+    card's DOM position and the three controls' `form=` attribute
+    change.
 
     Controls render in this locked order (10-UI-SPEC.md's Interaction
     Contract): the enable checkbox, then a "Start" `<input type="time">`,
@@ -1319,39 +1410,87 @@ def quiet_hours_group(
     ) % (
         QUIET_HOURS_PRESET_ATTR,
         escape_html(QUIET_HOURS_PRESET_NIGHT_START), escape_html(QUIET_HOURS_PRESET_NIGHT_END),
-        escape_html(QUIET_HOURS_PRESET_NIGHT_LABEL),
+        escape_html(
+            i18n.t(QUIET_HOURS_PRESET_NIGHT_LABEL_TEMPLATE)
+            % (QUIET_HOURS_PRESET_NIGHT_START, QUIET_HOURS_PRESET_NIGHT_END)),
         QUIET_HOURS_PRESET_ATTR,
         escape_html(QUIET_HOURS_PRESET_WORKDAY_START), escape_html(QUIET_HOURS_PRESET_WORKDAY_END),
-        escape_html(QUIET_HOURS_PRESET_WORKDAY_LABEL),
+        escape_html(
+            i18n.t(QUIET_HOURS_PRESET_WORKDAY_LABEL_TEMPLATE)
+            % (QUIET_HOURS_PRESET_WORKDAY_START, QUIET_HOURS_PRESET_WORKDAY_END)),
         QUIET_HOURS_PRESET_ATTR,
-        escape_html(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL),
+        escape_html(i18n.t(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL)),
+    )
+
+    # D-19 (20-UI-SPEC.md Section Anatomy D): the instant switch, above a
+    # hairline and the shared "applies on next wake" sentence, at the top
+    # of the card, before the scheduled checkbox/time inputs. `is_on`
+    # reads the CURRENT persisted state (`current_enabled`/`current_start`/
+    # `current_end`), never the submission being repopulated below —
+    # matching Home's own (soon-to-be-retired, D-16) Quick-actions
+    # widget, whose `quiet_on = cfg.get(...) is True` this mirrors
+    # exactly.
+    is_on = current_enabled is True
+    next_state = layout.QUICK_STATE_OFF if is_on else layout.QUICK_STATE_ON
+    state_text = (
+        i18n.t(QUICK_ACTION_QUIET_ON_TEMPLATE) % (current_start, current_end)
+        if is_on else i18n.t(QUICK_ACTION_QUIET_OFF_TEXT))
+    quick_action_html = (
+        '<div class="quick-action-slot">'
+        '<div class="quick-action quick-action--%s">'
+        '<div class="quick-action__text">'
+        '<span class="text-label quick-action__label">%s%s</span>'
+        '<span class="text-body quick-action__state">%s</span>'
+        "</div>"
+        '<form method="post" action="/quick/quiet-hours" class="quick-action__form">'
+        '<input type="hidden" name="%s" value="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+        "</div>"
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (
+        "on" if is_on else "off",
+        layout.icon_html("icon-moon", size=16, extra_class="quick-action__icon"),
+        escape_html(i18n.t(QUICK_ACTION_QUIET_LABEL)),
+        escape_html(state_text),
+        layout.QUICK_STATE_FIELD, escape_html(next_state),
+        escape_html(i18n.t(
+            QUICK_ACTION_QUIET_TURN_OFF_BUTTON if is_on else QUICK_ACTION_QUIET_TURN_ON_BUTTON)),
+        escape_html(i18n.t(QUICK_ACTION_APPLIES_SENTENCE)),
     )
 
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
+        "%s"
         '<label class="settings-checkbox">'
-        '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s%s> Enable quiet hours'
+        '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s form="%s"%s> %s'
         "</label>"
         "%s"
         "%s"
-        '<label>Start <input type="time" name="quiet_hours_start" value="%s" required%s></label>'
+        '<label>%s <input type="time" name="quiet_hours_start" value="%s" required form="%s"%s></label>'
         "%s"
-        '<label>End <input type="time" name="quiet_hours_end" value="%s" required%s></label>'
+        '<label>%s <input type="time" name="quiet_hours_end" value="%s" required form="%s"%s></label>'
         "%s"
         "</div>"
     ) % (
-        DIRTY_SECTION_ATTR, escape_html(QUIET_HOURS_SECTION_HEADING),
-        escape_html(QUIET_HOURS_SECTION_HEADING),
+        DIRTY_SECTION_ATTR, escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
+        escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
-        escape_html(_with_next_wake(QUIET_HOURS_SECTION_CAPTION, next_wake_clock)),
-        escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", enabled_error_attrs,
+        escape_html(_with_next_wake(i18n.t(QUIET_HOURS_SECTION_CAPTION), next_wake_clock)),
+        quick_action_html,
+        escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", SETTINGS_FORM_ID,
+        enabled_error_attrs,
+        escape_html(i18n.t("Enable quiet hours")),
         enabled_error_html,
         preset_row_html,
-        escape_html(effective_start), start_error_attrs,
+        escape_html(i18n.t("Start")),
+        escape_html(effective_start), SETTINGS_FORM_ID, start_error_attrs,
         start_error_html,
-        escape_html(effective_end), end_error_attrs,
+        escape_html(i18n.t("End")),
+        escape_html(effective_end), SETTINGS_FORM_ID, end_error_attrs,
         end_error_html,
     )
 
@@ -1431,40 +1570,46 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        "<label>Wake interval (seconds) "
+        "<label>%s "
         '<input type="number" name="wake_interval_s" min="%d" max="%d"'
         ' placeholder="%s"%s%s></label>'
         "%s"
         "</div>"
     ) % (
-        DIRTY_SECTION_ATTR, escape_html(WAKE_INTERVAL_SECTION_HEADING),
-        escape_html(WAKE_INTERVAL_SECTION_HEADING),
+        DIRTY_SECTION_ATTR, escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
+        escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
         escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID),
-        escape_html(_with_next_wake(WAKE_INTERVAL_SECTION_CAPTION, next_wake_clock)),
+        escape_html(_with_next_wake(i18n.t(WAKE_INTERVAL_SECTION_CAPTION), next_wake_clock)),
+        escape_html(i18n.t("Wake interval (seconds)")),
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
-        escape_html(WAKE_INTERVAL_PLACEHOLDER_TEXT),
+        escape_html(i18n.t(WAKE_INTERVAL_PLACEHOLDER_TEXT)),
         value_attr, error_attrs,
         error_html,
     )
 
 
 def display_group(current_display_enabled, errors=None, submitted=None):
-    """The Display settings group (12-UI-SPEC.md, 12-CONTEXT.md D-08/D-09):
-    a sixth and last sibling of the Theme/Runway/Diagnostic LED/Quiet
-    hours/Wake interval groups inside the single merged `<form
-    action="{SETTINGS_ROUTE}">`, built directly against `led_group()`'s
-    exact structure above — a lone checkbox with no dependent fields is
-    exactly `led_group()`'s shape, not `quiet_hours_group()`'s (which has
-    two dependent time inputs this group deliberately does not gain). Same
-    `.theme-status` wrapper idiom, same `<h2 class="text-heading">` naming
-    (no `<fieldset>`/`<legend>`, for the identical reason `led_group()`'s
-    own docstring already documents).
+    """The Display settings group (12-UI-SPEC.md, 12-CONTEXT.md D-08/D-09;
+    restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1): this card is
+    now a SIBLING of `<form id="{SETTINGS_FORM_ID}">`, never a literal
+    descendant — `render()` no longer folds this builder's output into
+    `groups_html`, and calls it separately, emitting it after `</form>`
+    closes (the same slot `calendar_disconnect_section()` already
+    occupies). This is the required structural fix for the instant
+    switch below: its own `<form method="post" action="{QUICK_DISPLAY_
+    ROUTE}">` would otherwise nest inside `<form id="{SETTINGS_FORM_ID}">`,
+    which HTML forbids. The `display_enabled` checkbox keeps submitting
+    with the shared Save via a `form="{SETTINGS_FORM_ID}"` attribute
+    instead — the exact cross-DOM submission idiom already shipped for
+    the dirty-bar's Save button and the screen-type `<select>` in this
+    same file.
 
-    The developer's own framing challenge for this phase — *"pas possible
-    de juste faire ON/OFF ?"* — is the reason this function must stay this
-    small: exactly one `.theme-status` wrapper, one `.settings-checkbox`
-    label, one checkbox input, and nothing else. No helper field, no
-    schedule, no sibling control whose enabled state depends on this one.
+    Same `.theme-status` wrapper idiom, same `<h2 class="text-heading">`
+    naming as before this task (no `<fieldset>`/`<legend>`, for the
+    identical reason `led_group()`'s own docstring already documents) —
+    only the card's DOM position and the checkbox's `form=` attribute
+    change; its own `name`/`value`/`checked` sequence, and every
+    surrounding paragraph/label, are unchanged from before this task.
 
     `DISPLAY_SECTION_CAPTION` states the ~5-minute apply latency in both
     directions (D-02) rather than the generic next-scheduled-poll clause
@@ -1472,9 +1617,20 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     page whose apply-timing is genuinely different — see the constant's
     own comment above for why.
 
-    Every interpolated current value — the heading, the caption, and the
-    checkbox value — is routed through `escape_html()`, matching this
-    file's universal escaping discipline.
+    D-19 (20-UI-SPEC.md Section Anatomy D): the instant-switch slot — the
+    switch itself, posting to `QUICK_DISPLAY_ROUTE` (unchanged from
+    `/quick/display`'s own existing session-gated route and redirect
+    target, 20-01-PLAN.md Task 2), above a hairline, followed by the
+    shared "Applies the next time the frame wakes up." sentence — renders
+    at the top of this card, before the scheduled checkbox. `is_on` is
+    resolved the same way Home's own (soon-to-be-retired, D-16)
+    Quick-actions widget resolves it: `is not False`, so a config
+    predating this field (`None`) reads as on, matching
+    `DEFAULT_DISPLAY_ENABLED`'s own default-on posture.
+
+    Every interpolated current value — the heading, the caption, the
+    checkbox value, and every quick-action string — is routed through
+    `escape_html()`, matching this file's universal escaping discipline.
 
     19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
     defaulted) let a rejected save repopulate this checkbox's `checked`
@@ -1494,20 +1650,50 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     error_attrs = _field_error_attrs(
         errors, "display_enabled", "display-enabled", hint_id=DISPLAY_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "display_enabled", "display-enabled")
+    is_on = current_display_enabled is not False
+    next_state = layout.QUICK_STATE_OFF if is_on else layout.QUICK_STATE_ON
+    quick_action_html = (
+        '<div class="quick-action-slot">'
+        '<div class="quick-action quick-action--%s">'
+        '<div class="quick-action__text">'
+        '<span class="text-label quick-action__label">%s%s</span>'
+        '<span class="text-body quick-action__state">%s</span>'
+        "</div>"
+        '<form method="post" action="/quick/display" class="quick-action__form">'
+        '<input type="hidden" name="%s" value="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+        "</div>"
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (
+        "on" if is_on else "off",
+        layout.icon_html("icon-power", size=16, extra_class="quick-action__icon"),
+        escape_html(i18n.t(QUICK_ACTION_SCREEN_LABEL)),
+        escape_html(i18n.t(QUICK_ACTION_ON_TEXT if is_on else QUICK_ACTION_OFF_TEXT)),
+        layout.QUICK_STATE_FIELD, escape_html(next_state),
+        escape_html(i18n.t(
+            QUICK_ACTION_SWITCH_OFF_BUTTON if is_on else QUICK_ACTION_SWITCH_ON_BUTTON)),
+        escape_html(i18n.t(QUICK_ACTION_APPLIES_SENTENCE)),
+    )
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
+        "%s"
         '<label class="settings-checkbox">'
-        '<input type="checkbox" name="display_enabled" value="%s"%s%s> Enable display'
+        '<input type="checkbox" name="display_enabled" value="%s"%s form="%s"%s> %s'
         "</label>"
         "%s"
         "</div>"
     ) % (
-        DIRTY_SECTION_ATTR, escape_html(DISPLAY_SECTION_HEADING),
-        escape_html(DISPLAY_SECTION_HEADING),
-        escape_html(DISPLAY_SECTION_CAPTION_ID), escape_html(DISPLAY_SECTION_CAPTION),
-        escape_html(DISPLAY_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
+        DIRTY_SECTION_ATTR, escape_html(i18n.t(DISPLAY_SECTION_HEADING)),
+        escape_html(i18n.t(DISPLAY_SECTION_HEADING)),
+        escape_html(DISPLAY_SECTION_CAPTION_ID), escape_html(i18n.t(DISPLAY_SECTION_CAPTION)),
+        quick_action_html,
+        escape_html(DISPLAY_CHECKBOX_VALUE), " checked" if checked else "", SETTINGS_FORM_ID,
+        error_attrs,
+        escape_html(i18n.t("Enable display")),
         error_html,
     )
 
@@ -1606,9 +1792,9 @@ def calendar_group(
     # make the drift state unreachable and indistinguishable from a
     # calendar that was never connected.
     if drift:
-        status_html = escape_html(CALENDAR_STATUS_PERMISSION_UNSAFE)
+        status_html = escape_html(i18n.t(CALENDAR_STATUS_PERMISSION_UNSAFE))
     elif not configured:
-        status_html = escape_html(CALENDAR_STATUS_NOT_CONFIGURED)
+        status_html = escape_html(i18n.t(CALENDAR_STATUS_NOT_CONFIGURED))
     else:
         usable = (
             bool(last_synced_at)
@@ -1618,10 +1804,10 @@ def calendar_group(
             timestamp_html = layout.concise_timestamp_html(
                 last_synced_at, now, fallback="")
             status_html = "%s%s." % (
-                escape_html(CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX),
+                escape_html(i18n.t(CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX)),
                 timestamp_html)
         else:
-            status_html = escape_html(CALENDAR_STATUS_CONFIGURED_PENDING)
+            status_html = escape_html(i18n.t(CALENDAR_STATUS_CONFIGURED_PENDING))
 
     selected_calendar_theme_id = _submitted_or_current(
         submitted, "calendar_theme_id",
@@ -1672,17 +1858,17 @@ def calendar_group(
         "</div>"
         "</div>"
     ) % (
-        DIRTY_SECTION_ATTR, escape_html(CALENDAR_SECTION_HEADING),
-        escape_html(CALENDAR_SECTION_HEADING),
-        escape_html(CALENDAR_SECTION_CAPTION),
+        DIRTY_SECTION_ATTR, escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
+        escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
+        escape_html(i18n.t(CALENDAR_SECTION_CAPTION)),
         status_html,
-        escape_html(CALENDAR_URL_FIELD_LABEL),
+        escape_html(i18n.t(CALENDAR_URL_FIELD_LABEL)),
         CALENDAR_URL_MAX_LEN, calendar_url_error_attrs,
-        escape_html(CALENDAR_URL_HINT_ID), escape_html(CALENDAR_URL_HINT),
+        escape_html(CALENDAR_URL_HINT_ID), escape_html(i18n.t(CALENDAR_URL_HINT)),
         calendar_url_error_html,
-        escape_html(CALENDAR_THEME_FIELD_LABEL),
+        escape_html(i18n.t(CALENDAR_THEME_FIELD_LABEL)),
         calendar_theme_error_attrs, theme_options,
-        escape_html(CALENDAR_THEME_HINT_ID), escape_html(CALENDAR_THEME_HINT),
+        escape_html(CALENDAR_THEME_HINT_ID), escape_html(i18n.t(CALENDAR_THEME_HINT)),
         calendar_theme_error_html,
     )
 
@@ -1729,10 +1915,10 @@ def calendar_disconnect_section(configured, drift):
         "</form>"
     ) % (
         CALENDAR_DISCONNECT_ROUTE,
-        escape_html(CALENDAR_DISCONNECT_CONFIRM_QUESTION),
+        escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_QUESTION)),
         escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
         CALENDAR_DISCONNECT_CONFIRM_FIELD,
-        escape_html(CALENDAR_DISCONNECT_CHECKBOX_LABEL),
+        escape_html(i18n.t(CALENDAR_DISCONNECT_CHECKBOX_LABEL)),
     )
 
 
@@ -1749,16 +1935,18 @@ def calendar_disconnect_confirm_page(ctx):
     The form posts back to the SAME route with the confirm field
     pre-filled to the accepted value and a real, plain submit button —
     the one and only way this page itself can cause a disconnect. The
-    cancel path is a plain link back to the Device page, never a second
-    form (nothing to submit, nothing to confirm). Every dynamic value
-    passes through `escape_html()`, matching this file's universal
+    cancel path is a plain link back to the Display page (20-07-PLAN.md
+    Task 1, D-11: Calendar moved from Device to Display this phase, so
+    this is the page the disconnect action itself now lives on), never a
+    second form (nothing to submit, nothing to confirm). Every dynamic
+    value passes through `escape_html()`, matching this file's universal
     escaping discipline; `ctx` is accepted (unused today) for the same
     reason `render()`'s own scoped builders all take it — so a future
     reader adding a ctx-derived detail here never has to widen this
     function's own signature to do it.
     """
     return (
-        layout.page_header(CALENDAR_DISCONNECT_CONFIRM_HEADING)
+        layout.page_header(i18n.t(CALENDAR_DISCONNECT_CONFIRM_HEADING))
         + '<p class="text-body">%s</p>'
         '<form method="post" action="%s">'
         '<input type="hidden" name="%s" value="%s">'
@@ -1766,11 +1954,11 @@ def calendar_disconnect_confirm_page(ctx):
         "</form>"
         '<p><a class="text-label" href="%s">%s</a></p>'
     ) % (
-        escape_html(CALENDAR_DISCONNECT_CONFIRM_SENTENCE),
+        escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_SENTENCE)),
         CALENDAR_DISCONNECT_ROUTE,
         CALENDAR_DISCONNECT_CONFIRM_FIELD, escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
-        escape_html(CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT),
-        layout.DEVICE_ROUTE, escape_html(CALENDAR_DISCONNECT_CANCEL_TEXT),
+        escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT)),
+        layout.DISPLAY_ROUTE, escape_html(i18n.t(CALENDAR_DISCONNECT_CANCEL_TEXT)),
     )
 
 
@@ -1825,17 +2013,18 @@ def poll_trigger_section(cooldown_remaining):
     # re-enable it client-side.
     caption_html = (
         '<p class="text-label section-caption">%s</p>'
-        % escape_html(POLL_SECTION_CAPTION))
+        % escape_html(i18n.t(POLL_SECTION_CAPTION)))
     if cooldown_remaining > 0:
-        cooldown_text = POLL_COOLDOWN_HELPER_TEXT.format(n=cooldown_remaining)
-        template = POLL_COOLDOWN_HELPER_TEXT.format(n=POLL_COOLDOWN_TEMPLATE_TOKEN)
+        translated_helper_text = i18n.t(POLL_COOLDOWN_HELPER_TEXT)
+        cooldown_text = translated_helper_text.format(n=cooldown_remaining)
+        template = translated_helper_text.format(n=POLL_COOLDOWN_TEMPLATE_TOKEN)
         return (
             "%s"
             '<form method="post" action="/poll-now">'
             '<button type="submit" id="%s" disabled '
             'data-cooldown="%s" data-cooldown-text-id="%s" '
             'data-cooldown-template="%s" data-cooldown-token="%s">'
-            "Trigger poll now</button>"
+            "%s</button>"
             "</form>"
             '<p class="text-body" id="%s">%s</p>'
         ) % (
@@ -1845,6 +2034,7 @@ def poll_trigger_section(cooldown_remaining):
             escape_html(POLL_COOLDOWN_TEXT_ID),
             escape_html(template),
             escape_html(POLL_COOLDOWN_TEMPLATE_TOKEN),
+            escape_html(i18n.t("Trigger poll now")),
             POLL_COOLDOWN_TEXT_ID,
             escape_html(cooldown_text),
         )
@@ -1852,12 +2042,13 @@ def poll_trigger_section(cooldown_remaining):
         "%s"
         '<form method="post" action="/poll-now">'
         '<button type="submit" id="%s" data-submit-pending="%s">'
-        "Trigger poll now</button>"
+        "%s</button>"
         "</form>"
     ) % (
         caption_html,
         POLL_TRIGGER_BUTTON_ID,
-        escape_html(POLL_SUBMIT_PENDING_TEXT),
+        escape_html(i18n.t(POLL_SUBMIT_PENDING_TEXT)),
+        escape_html(i18n.t("Trigger poll now")),
     )
 
 
@@ -1920,7 +2111,7 @@ def _rule_add_form_html():
     """
     kind_options = "".join(
         '<option value="%s">%s</option>'
-        % (escape_html(kind), escape_html(RULE_KIND_LABELS[kind]))
+        % (escape_html(kind), escape_html(i18n.t(RULE_KIND_LABELS[kind])))
         for kind in colour_rules.RULE_KINDS
     )
     theme_options = "".join(
@@ -1948,11 +2139,11 @@ def _rule_add_form_html():
         "</form>"
     ) % (
         RULES_ADD_ROUTE,
-        escape_html(RULE_KIND_FIELD_LABEL), kind_options,
-        escape_html(RULE_VALUE_FIELD_LABEL),
-        escape_html(RULE_VALUE_HINT),
-        escape_html(RULE_THEME_FIELD_LABEL), theme_options,
-        escape_html(RULE_ADD_BUTTON_TEXT),
+        escape_html(i18n.t(RULE_KIND_FIELD_LABEL)), kind_options,
+        escape_html(i18n.t(RULE_VALUE_FIELD_LABEL)),
+        escape_html(i18n.t(RULE_VALUE_HINT)),
+        escape_html(i18n.t(RULE_THEME_FIELD_LABEL)), theme_options,
+        escape_html(i18n.t(RULE_ADD_BUTTON_TEXT)),
     )
 
 
@@ -1985,9 +2176,9 @@ def _rule_row_html(index, kind, value, theme_id, created_at, now):
         '<form method="post" action="%s">'
         '<button type="submit">%s</button>'
         "</form>"
-    ) % (_rule_delete_action(kind, value), DELETE_BUTTON_TEXT)
+    ) % (_rule_delete_action(kind, value), escape_html(i18n.t(DELETE_BUTTON_TEXT)))
     cells = (
-        "<td>%s</td>" % escape_html(RULE_KIND_LABELS.get(kind, kind)),
+        "<td>%s</td>" % escape_html(i18n.t(RULE_KIND_LABELS.get(kind, kind))),
         '<td class="mono">%s</td>' % escape_html(value),
         "<td>%s</td>" % _rule_theme_swatch_html(theme_id),
         "<td>%s</td>" % layout.concise_timestamp_html(created_at, now, fallback=""),
@@ -2001,7 +2192,7 @@ def _rules_table_html(rows, now):
     `airlines_page._manual_resolution_table_html()`'s own
     `.data-table-wrap`/`.data-table`/`thead`/`tbody` structure.
     """
-    header_cells = "".join("<th>%s</th>" % escape_html(h) for h in RULE_HEADERS)
+    header_cells = "".join("<th>%s</th>" % escape_html(i18n.t(h)) for h in RULE_HEADERS)
     body_rows = [
         _rule_row_html(index, kind, value, theme_id, created_at, now)
         for index, (kind, value, theme_id, created_at) in enumerate(rows)
@@ -2040,20 +2231,20 @@ def _rules_cards_html(rows, now):
             '<div class="data-card__secondary">'
             '<span class="data-card__label">%s</span>%s'
             "</div>"
-        ) % (escape_html(RULE_HEADERS[0]), escape_html(RULE_KIND_LABELS.get(kind, kind)))
+        ) % (escape_html(i18n.t(RULE_HEADERS[0])), escape_html(i18n.t(RULE_KIND_LABELS.get(kind, kind))))
         added_secondary = (
             '<div class="data-card__secondary">'
             '<span class="data-card__label">%s</span>%s'
             "</div>"
         ) % (
-            escape_html(RULE_HEADERS[3]),
+            escape_html(i18n.t(RULE_HEADERS[3])),
             layout.concise_timestamp_html(created_at, now, fallback=""),
         )
         delete_form = (
             '<form method="post" action="%s">'
             '<button type="submit">%s</button>'
             "</form>"
-        ) % (_rule_delete_action(kind, value), DELETE_BUTTON_TEXT)
+        ) % (_rule_delete_action(kind, value), escape_html(i18n.t(DELETE_BUTTON_TEXT)))
         items.append(
             '<li class="data-card">%s%s%s%s</li>'
             % (primary, kind_secondary, added_secondary, delete_form))
@@ -2090,14 +2281,14 @@ def _rules_section_html(ctx):
     now = ctx.get("now")
     rows = colour_rules.rule_rows(registry)
 
-    heading = '<h2 class="text-heading">%s</h2>' % escape_html(RULES_SECTION_HEADING)
+    heading = '<h2 class="text-heading">%s</h2>' % escape_html(i18n.t(RULES_SECTION_HEADING))
     caption = (
         '<p class="text-label section-caption">%s</p>'
-        % escape_html(RULES_SECTION_CAPTION))
+        % escape_html(i18n.t(RULES_SECTION_CAPTION)))
     add_form = _rule_add_form_html()
 
     if not rows:
-        body = layout.empty_state(RULES_EMPTY_HEADING, RULES_EMPTY_BODY)
+        body = layout.empty_state(i18n.t(RULES_EMPTY_HEADING), i18n.t(RULES_EMPTY_BODY))
         return '<section class="page-section">%s%s%s%s</section>' % (
             heading, caption, add_form, body)
 
@@ -2109,6 +2300,111 @@ def _rules_section_html(ctx):
     table_html = _rules_table_html(rows, now)
     return '<section class="page-section">%s%s%s%s%s</section>' % (
         heading, caption, add_form, cards_html, table_html)
+
+
+def _nested_wrapper_html(html_fragment, base_class, nested_class):
+    """Appends the `--nested` modifier to a group builder's own outer
+    wrapper class (20-07-PLAN.md Task 1, 20-UI-SPEC.md Section Anatomy
+    C): a card rendered under one of Display's three supersections
+    carries `theme-status--nested`/`page-section--nested` so its own
+    `<h2>` renders one rung below the supersection's own heading (the
+    extended `.theme-status--nested > h2`/`.page-section--nested > h2`
+    selector, 20-04-PLAN.md Task 1) rather than the un-nested 22px serif
+    tier Device's own groups keep. `nested_class` is passed as a literal
+    string by every call site (never derived from `base_class` at
+    runtime) so the modifier this function actually emits stays
+    grep-visible in this file's own source, matching every sibling
+    class-literal already written out in full throughout this module.
+
+    Every group builder in this file emits its outer wrapper's class
+    attribute exactly once, as the literal substring `class="{base_class}"`
+    (grep-confirmed above, each function) — never as a second, inner
+    occurrence — so a single, count-limited `str.replace()` is the whole
+    mechanism: no builder's own signature or internals change, matching
+    this task's own "relocates and re-wraps, never rebuilds" scope.
+    """
+    needle = 'class="%s"' % base_class
+    replacement = 'class="%s %s"' % (base_class, nested_class)
+    return html_fragment.replace(needle, replacement, 1)
+
+
+def _display_groups_html(builders, groups):
+    """The Display scope's three headed supersections (D-12, 20-UI-SPEC.md
+    Section Anatomy C): "Look" over Theme and Calendar, "What it watches"
+    over Runway, "When it is on" over Screen on/off and Quiet hours — each
+    grouped card gains the `--nested` modifier (`_nested_wrapper_html()`
+    above). Replaces the flat `"".join(builders[g]() ...)` join the
+    Device and legacy all-scope paths still use unchanged (this task's
+    own instruction: leave those two untouched).
+
+    Returns a 2-tuple `(in_form_html, on_supersection_html)` — 20-07-
+    PLAN.md Task 2 (D-19/Pitfall 1): Screen on/off and Quiet hours are no
+    longer literal descendants of `<form id="{SETTINGS_FORM_ID}">` (their
+    own instant-switch `<form>`s would otherwise nest inside it, which
+    HTML forbids), so "When it is on"'s own header and both its cards
+    must render as a unit AFTER `</form>` closes — `render()` emits
+    `in_form_html` inside the form and `on_supersection_html` after it,
+    in that order, keeping the locked Look/What it watches/When it is on
+    reading order across the form boundary.
+
+    Flight colours (the per-flight colour-rules editor) is ALSO
+    conceptually part of "Look" per D-12's own locked order (Theme,
+    Flight colours, Calendar) but is deliberately NOT built here: its own
+    add form and each delete row are real `<form>` elements, and every
+    card `in_form_html` assembles is a literal descendant of
+    `<form id="settings-form">` (unchanged from before this plan) — HTML
+    forbids nesting a `<form>` inside another `<form>` (the exact Pitfall
+    1 this phase's own D-13 amendment names for Screen on/off and Quiet
+    hours, which this task resolves for those two specifically). `render()`
+    keeps emitting the Flight colours section as a sibling immediately
+    after `</form>` closes — the same DOM position it already occupied
+    before this plan — which is the position its own `<form>` requirement
+    demands (this task's own explicit instruction: "keep each of them in
+    whatever DOM position its own form requirements demand"). Its visual
+    reading therefore lands after "When it is on" rather than literally
+    between Theme and Calendar; 20-09 (Calendar/Flight colours redesign)
+    is positioned to close that remaining gap, for instance by giving
+    Flight colours a dedicated route the way `calendar_disconnect_
+    section()` already has for Calendar.
+    """
+    theme_html = (
+        _nested_wrapper_html(builders[screens.GROUP_THEME](), "theme-status", "theme-status--nested")
+        if screens.GROUP_THEME in groups else "")
+    calendar_html = (
+        _nested_wrapper_html(builders[screens.GROUP_CALENDAR](), "page-section", "page-section--nested")
+        if screens.GROUP_CALENDAR in groups else "")
+    runway_html = (
+        _nested_wrapper_html(builders[screens.GROUP_RUNWAY](), "theme-status", "theme-status--nested")
+        if screens.GROUP_RUNWAY in groups else "")
+    in_form_html = (
+        layout.section_intro_html(
+            DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
+        + theme_html + calendar_html
+        + layout.section_intro_html(
+            DISPLAY_WATCHES_SECTION_ID, i18n.t(DISPLAY_WATCHES_HEADING),
+            i18n.t(DISPLAY_WATCHES_INTRO))
+        + runway_html
+    )
+    # 20-07-PLAN.md Task 2: display_group()/quiet_hours_group() are
+    # called here (still, exactly as before this task — the same
+    # dict-of-lambdas `builders` this function has always read from),
+    # but their OWN return value is now a card that carries its own
+    # instant-switch <form> and scheduled inputs bound to
+    # SETTINGS_FORM_ID via the form= attribute, never itself joined into
+    # `in_form_html` above.
+    display_html = (
+        _nested_wrapper_html(builders[screens.GROUP_DISPLAY](), "theme-status", "theme-status--nested")
+        if screens.GROUP_DISPLAY in groups else "")
+    quiet_hours_html = (
+        _nested_wrapper_html(
+            builders[screens.GROUP_QUIET_HOURS](), "theme-status", "theme-status--nested")
+        if screens.GROUP_QUIET_HOURS in groups else "")
+    on_supersection_html = (
+        layout.section_intro_html(
+            DISPLAY_ON_SECTION_ID, i18n.t(DISPLAY_ON_HEADING), i18n.t(DISPLAY_ON_INTRO))
+        + display_html + quiet_hours_html
+    )
+    return in_form_html, on_supersection_html
 
 
 def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
@@ -2239,10 +2535,13 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     dirty_bar_html = (
         '<div class="dirty-bar" data-dirty-bar hidden role="status">'
         "<span data-dirty-count>%s</span>"
-        '<button type="submit" class="dirty-bar__save" form="%s">Save settings</button>'
-        '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>Cancel</button>'
+        '<button type="submit" class="dirty-bar__save" form="%s">%s</button>'
+        '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
         "</div>"
-    ) % (escape_html(DIRTY_BAR_INITIAL_TEXT), SETTINGS_FORM_ID)
+    ) % (
+        escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT)), SETTINGS_FORM_ID,
+        escape_html(i18n.t("Save settings")), escape_html(i18n.t("Cancel")),
+    )
 
     # Phase 15 D-10 (15-05-PLAN.md, 15-UI-SPEC.md Section Anatomy §2's
     # Open Question 1, confirmed): the rules section renders immediately
@@ -2283,42 +2582,64 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
             ctx.get("now"), current_calendar_theme_id, current_theme_id,
             errors=errors, submitted=submitted),
     }
-    groups_html = "".join(builders[g]() for g in groups if g in builders)
-
     # 19-12-PLAN.md Task 2 (D-23): the conditional selector joins the
     # screen caption in BOTH scoped headers' action_html slot — with
     # today's single-member registry it renders as "", so both headers
     # stay byte-identical to their pre-D-23 output.
     if scope == SCOPE_DISPLAY:
         header = layout.page_header(
-            DISPLAY_PAGE_TITLE, purpose=DISPLAY_PAGE_PURPOSE,
+            i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
             action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
         hidden_html = _scope_fields_html(scope, layout.DISPLAY_ROUTE)
-        show_rules = show_poll = show_calendar_disconnect = False
+        # 20-07-PLAN.md Task 1 (D-10/D-11): Flight colours and the
+        # calendar-disconnect form move to Display with their groups —
+        # these two flags used to be Device-only (set only in the
+        # elif scope == SCOPE_DEVICE: branch below); Poll (Manual
+        # refresh) stays Device-only, unaffected by this move.
+        show_rules = bool(screen.get("has_colour_rules"))
+        show_poll = False
+        show_calendar_disconnect = screens.GROUP_CALENDAR in groups
+        # 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C):
+        # three headed supersections replace the flat join — see
+        # _display_groups_html()'s own docstring for the Flight-colours/
+        # Calendar placement reasoning. Task 2 (D-19/Pitfall 1): the
+        # second element ("When it is on"'s own header plus the Screen
+        # on/off and Quiet hours cards) renders AFTER </form> closes —
+        # see the same docstring's own "returns a 2-tuple" paragraph.
+        groups_html, display_on_supersection_html = _display_groups_html(builders, groups)
     elif scope == SCOPE_DEVICE:
-        # 19-12-PLAN.md Task 2 (D-22, Device-page half): the Edit
-        # artwork link is Device-only, joining the screen caption/
-        # selector in the same action_html slot.
         # 19-12-PLAN.md Task 3 (D-13): "Home and Device show" — the
-        # Next-wake line joins the same slot, Device-only (Display
-        # instead carries the per-caption suffixes via next_wake_clock
-        # threaded into the builders dict above).
+        # Next-wake line joins the screen caption/selector in the same
+        # action_html slot (Display instead carries the per-caption
+        # suffixes via next_wake_clock threaded into the builders dict
+        # above).
+        # 20-07-PLAN.md Task 3 (D-36): the Edit-artwork link that used to
+        # join this same slot is gone outright.
         header = layout.page_header(
-            DEVICE_PAGE_TITLE, purpose=DEVICE_PAGE_PURPOSE,
+            i18n.t(DEVICE_PAGE_TITLE), purpose=i18n.t(DEVICE_PAGE_PURPOSE),
             action_html=(
                 _screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors)
-                + _edit_artwork_link_html()
                 + _next_wake_caption_html(next_wake_clock)))
         hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
-        show_rules = bool(screen.get("has_colour_rules"))
+        # 20-07-PLAN.md Task 1 (D-10/D-11): Flight colours and the
+        # calendar-disconnect form are no longer Device concerns — both
+        # groups they act on (Runway/Calendar) moved to Display's
+        # everyday_groups this phase, so Device's own screens.GROUP_
+        # CALENDAR-in-groups test would always be False now anyway; kept
+        # explicit here rather than relying on that emptiness.
+        show_rules = False
         show_poll = bool(screen.get("has_manual_poll"))
-        # 19-11-PLAN.md Task 1 (D-08/A-26): the standalone disconnect
-        # form is Device-only, matching screens.GROUP_CALENDAR's own
-        # scoping — a screen type without the Calendar group has nothing
-        # to disconnect either.
-        show_calendar_disconnect = screens.GROUP_CALENDAR in groups
+        show_calendar_disconnect = False
+        # 20-07-PLAN.md Task 1 (D-10): Device's own advanced_groups no
+        # longer includes GROUP_DISPLAY/GROUP_QUIET_HOURS at all (both
+        # moved to Display's everyday_groups), so this flat join never
+        # calls display_group()/quiet_hours_group() on this scope —
+        # their own instant-switch <form> never has a chance to nest
+        # inside this scope's <form id="settings-form">.
+        groups_html = "".join(builders[g]() for g in groups if g in builders)
+        display_on_supersection_html = ""
     else:
-        header = layout.page_header("Settings")
+        header = layout.page_header(i18n.t("Settings"))
         hidden_html = ""
         show_rules = show_poll = True
         # SCOPE_ALL is the legacy whole-page render, kept byte-identical
@@ -2328,19 +2649,35 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # confirmed-form flow is new surface Task 1 adds only to the two
         # live scoped pages; SCOPE_ALL stays exactly as it was.
         show_calendar_disconnect = False
+        groups_html = "".join(builders[g]() for g in groups if g in builders)
+        display_on_supersection_html = ""
 
     rules_section_html = _rules_section_html(ctx) if show_rules else ""
+    if rules_section_html and scope == SCOPE_DISPLAY:
+        # 20-07-PLAN.md Task 1 (D-12): only the Display scope's copy of
+        # Flight colours sits under a supersection heading — SCOPE_ALL's
+        # legacy render (the only other scope show_rules is ever true
+        # for) stays byte-identical to its own pre-Phase-19 output.
+        rules_section_html = _nested_wrapper_html(
+            rules_section_html, "page-section", "page-section--nested")
     poll_section_html = (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>'
         "%s"
-        "</section>" % (escape_html(POLL_SECTION_HEADING), poll_trigger_section(cooldown_remaining))
+        "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(cooldown_remaining))
         if show_poll else "")
     # 19-11-PLAN.md Task 1 (D-08/A-26): a sibling of the settings <form>,
     # never a descendant — see calendar_disconnect_section()'s own
-    # docstring for why. Emitted immediately after </form> closes, before
-    # the rules/poll sections, so it reads right after the Calendar group
-    # it acts on despite living outside the form that group is inside.
+    # docstring for why. Emitted immediately after </form> closes.
+    # 20-07-PLAN.md Task 1 (D-10/D-11): on the Display scope, Flight
+    # colours (rules_section_html) renders first, immediately followed
+    # by the calendar-disconnect form — the "Theme, Flight colours,
+    # Calendar" reading order the Calendar group's own card (still a
+    # literal <form id="settings-form"> descendant, per
+    # _display_groups_html()'s own docstring) can no longer carry on its
+    # own once its own supersection's other members force the form to
+    # stay open past it. Device/SCOPE_ALL never have both non-empty at
+    # once, so this reordering changes nothing for either.
     calendar_disconnect_html = (
         calendar_disconnect_section(calendar_configured, calendar_drift)
         if show_calendar_disconnect else "")
@@ -2350,8 +2687,9 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         + '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
         "%s"
         "%s"
-        '<button type="submit" %s>Save settings</button>'
+        '<button type="submit" %s>%s</button>'
         "</form>"
+        "%s"
         "%s"
         "%s"
         "%s"
@@ -2362,8 +2700,14 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         hidden_html,
         groups_html,
         STATIC_SAVE_FALLBACK_ATTR,
-        calendar_disconnect_html,
+        escape_html(i18n.t("Save settings")),
         rules_section_html,
+        calendar_disconnect_html,
+        # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): "When it is on"'s own
+        # header plus the Screen on/off and Quiet hours cards — always ""
+        # on the Device/SCOPE_ALL paths (both set it to "" explicitly
+        # above), so this addition changes nothing for either.
+        display_on_supersection_html,
         poll_section_html,
         dirty_bar_html,
     )
@@ -2374,9 +2718,13 @@ def _screen_caption_html(screen):
     the visible end of the companion/screens.py seam. Rendered as an
     already-safe block for page_header()'s `action_html` slot.
     """
+    # D-05: screen["label"] (device_config-adjacent registry text, e.g.
+    # "Plane frame") is not translated by this plan — a cross-page,
+    # registry-wide concern out of scope here, matching the theme/runway
+    # label precedent (flagged in 20-07-SUMMARY.md).
     return (
         '<p class="page-header__screen text-label">%s</p>'
-        % escape_html(SCREEN_CAPTION_TEMPLATE % screen["label"]))
+        % escape_html(i18n.t(SCREEN_CAPTION_TEMPLATE) % screen["label"]))
 
 
 NEXT_WAKE_HEADER_LABEL = "Next wake"
@@ -2397,8 +2745,8 @@ def _next_wake_caption_html(next_wake_clock):
         '<p class="page-header__screen text-label">%s</p>'
         % escape_html(
             "%s %s" % (
-                NEXT_WAKE_HEADER_LABEL,
-                NEXT_WAKE_HEADER_VALUE_TEMPLATE % next_wake_clock)))
+                i18n.t(NEXT_WAKE_HEADER_LABEL),
+                i18n.t(NEXT_WAKE_HEADER_VALUE_TEMPLATE) % next_wake_clock)))
 
 
 def _screen_selector_html(current_screen_id, errors=None):
@@ -2452,31 +2800,9 @@ def _screen_selector_html(current_screen_id, errors=None):
         '<select name="screen_id" id="%s" form="%s">%s</select>'
         "%s"
     ) % (
-        SCREEN_SELECTOR_ID, escape_html(SCREEN_SELECTOR_LABEL_TEXT),
+        SCREEN_SELECTOR_ID, escape_html(i18n.t(SCREEN_SELECTOR_LABEL_TEXT)),
         SCREEN_SELECTOR_ID, SETTINGS_FORM_ID, "".join(options),
         error_html,
-    )
-
-
-def _edit_artwork_link_html():
-    """The Device page's own "Edit artwork" link to `/airlines?edit=1`
-    (D-22's Device-page half, 19-12-PLAN.md Task 2) — built from
-    `layout.AIRLINES_ROUTE` (already duplicated there, the same
-    duplicated-not-imported route this file's other cross-page
-    constants use) and `EDIT_QUERY_PARAM` (imported from airlines_page,
-    the deliberate exception this file's own import comment above
-    documents), never a retyped "/airlines?edit=1" literal. Rendered as
-    an already-safe block for `layout.page_header()`'s `action_html`
-    slot, in the section-caption voice.
-    """
-    return (
-        '<p class="page-header__screen text-label">'
-        '<a class="text-label" href="%s?%s=1">%s</a></p>'
-        '<p class="text-label section-caption">%s</p>'
-    ) % (
-        layout.AIRLINES_ROUTE, EDIT_QUERY_PARAM,
-        escape_html(EDIT_ARTWORK_LINK_TEXT),
-        escape_html(EDIT_ARTWORK_LINK_CAPTION),
     )
 
 
