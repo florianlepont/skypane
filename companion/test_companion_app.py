@@ -388,6 +388,11 @@ EXPECTED_CHECK_COUNT = 242  # 20-08-PLAN.md Task 3 (D-22..D-24/D-32): +4
 # the real on-disk check(...) call count at execution time (240/242
 # pass — the two documented WR-11 root-sandbox failures, unrelated to
 # this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 241  # post-wave-3 retarget (20-07/D-36): -1 — the
+# Device page's Edit-artwork link was deleted outright, so
+# _device_page_edit_artwork_link_opens_airlines_with_edit_forms() (which
+# exercised it end to end) is removed rather than retargeted; no
+# replacement link exists to assert against. 242 - 1 = 241.
 
 
 def _ago_iso(seconds):
@@ -3702,24 +3707,43 @@ def main():
         # --- Phase 18: Home page, quick actions, scoped settings saves ---
 
         def _home_page_renders_widgets():
+            # 20-06 (D-16) rebuilt Home: the Quick-actions card is gone
+            # (the screen/quiet-hours switches moved to Display, the
+            # Refresh-now button moved to Device), replaced by a hero
+            # row (the current picture in a `.preview-frame` figure
+            # beside a `.status-card` built on `layout.status_row()`)
+            # plus a full-width recent-flights section. Retargeted per
+            # 20-06-SUMMARY.md/20-12-PLAN.md (20-06/D-16).
             status, _headers, body = http_request(base + "/", cookie=session_cookie)
             if status != 200:
                 return False, "expected 200 for GET /, got %d" % status
             text = body.decode("utf-8", errors="replace")
             for needle in (
-                    '<h1 class="page-title">Home</h1>', "Quick actions",
-                    'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
-                    'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
-                    'action="%s"' % app_module.POLL_ROUTE,
-                    "On the frame now", "Recent flights", 'href="/flights"',
+                    '<h1 class="page-title">Home</h1>',
+                    'status-card" aria-labelledby="home-status-heading"',
+                    'class="status-row', 'class="home-hero"',
+                    "Recent flights", 'href="/flights"',
                     'class="nav-group nav-group--advanced"'):
                 if needle not in text:
                     return False, "expected %r in the Home page" % needle
+            # The hero's left half renders either the .preview-frame
+            # figure (a gallery entry exists) or the shared empty-state
+            # block (none does yet, as in this fresh harness) — either
+            # is proof the hero row itself renders.
+            if 'class="preview-frame"' not in text and "Nothing rendered yet." not in text:
+                return False, "expected either the preview-frame figure or its empty state in the Home hero"
+            for absent in (
+                    "Quick actions", "On the frame now",
+                    'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
+                    'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+                    'action="%s"' % app_module.POLL_ROUTE):
+                if absent in text:
+                    return False, "expected %r to be absent from the rebuilt Home page (20-06/D-16)" % absent
             return True, ""
         check(
-            "authenticated GET / renders the Home page with the status tiles, the three quick-action "
-            "forms (screen, quiet hours, refresh), the current-panel card, the recent-flights list, "
-            "and the grouped Advanced navigation",
+            "authenticated GET / renders the rebuilt Home page (20-06/D-16) with the hero preview-frame "
+            "figure, the status-card's status-row markup, and the recent-flights list under the grouped "
+            "Advanced navigation, and carries none of the retired quick-action forms",
             _home_page_renders_widgets)
 
         def _quick_display_toggle_round_trip():
@@ -3852,10 +3876,18 @@ def main():
             device_text = device_body.decode("utf-8", errors="replace")
             if 'name="theme"' not in display_text or 'name="quiet_hours_enabled"' not in display_text:
                 return False, "expected the Display page to carry the theme and quiet-hours groups"
-            if 'name="tracked_runway"' in display_text or 'name="led_enabled"' in display_text:
-                return False, "expected the Display page NOT to carry the runway or LED groups"
-            if 'name="tracked_runway"' not in device_text or 'name="wake_interval_s"' not in device_text:
-                return False, "expected the Device page to carry the runway and wake-interval groups"
+            # 20-07 (D-10/D-11) moved Runway (and Calendar/the rules
+            # editor) from Device to Display; only the LED group stayed
+            # on Device — Display carries tracked_runway but never
+            # led_enabled.
+            if 'name="tracked_runway"' not in display_text:
+                return False, "expected the Display page to carry the runway group (moved from Device, 20-07/D-10)"
+            if 'name="led_enabled"' in display_text:
+                return False, "expected the Display page NOT to carry the LED group"
+            if 'name="tracked_runway"' in device_text:
+                return False, "expected the Device page NOT to carry the runway group (moved to Display, 20-07/D-10)"
+            if 'name="wake_interval_s"' not in device_text:
+                return False, "expected the Device page to carry the wake-interval group"
             if 'name="theme"' in device_text.replace('name="theme_id"', ""):
                 # the rules add-form's own theme select is name="theme_id"; the
                 # settings theme radios are name="theme" and must be absent.
@@ -3868,42 +3900,31 @@ def main():
                     return False, "expected the %s page to carry its hidden return_to field" % scope
                 if "Screen: Plane frame" not in text:
                     return False, "expected the %s page to name its screen type" % scope
-            if "Manual refresh" not in device_text or "Per-flight colour rules" not in device_text:
-                return False, "expected the Device page to carry the rules editor and manual refresh"
-            if "Manual refresh" in display_text or "Per-flight colour rules" in display_text:
-                return False, "expected the Display page NOT to carry the rules editor or manual refresh"
+            # 20-07 (D-10/D-11) moved the rules editor ("Per-flight
+            # colour rules") to Display alongside Calendar and Runway;
+            # Manual refresh stayed on Device.
+            if "Manual refresh" not in device_text:
+                return False, "expected the Device page to carry Manual refresh"
+            if "Per-flight colour rules" in device_text:
+                return False, "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)"
+            if "Per-flight colour rules" not in display_text:
+                return False, "expected the Display page to carry the rules editor (moved from Device, 20-07/D-10)"
+            if "Manual refresh" in display_text:
+                return False, "expected the Display page NOT to carry Manual refresh"
             return True, ""
         check(
-            "GET /display and GET /device split the settings groups per companion/screens.py, each carrying "
-            "its hidden scope/return_to fields and the screen-type caption; the rules editor and manual "
-            "refresh live on Device only",
+            "GET /display and GET /device split the settings groups per companion/screens.py (20-07 moved "
+            "Runway/Calendar/the rules editor to Display, D-10/D-11), each carrying its hidden "
+            "scope/return_to fields and the screen-type caption; Manual refresh lives on Device only",
             _display_and_device_pages_split_the_groups)
 
-        def _device_page_edit_artwork_link_opens_airlines_with_edit_forms():
-            # 19-12-PLAN.md Task 2 (D-22, Device-page half): the real-HTTP
-            # end-to-end link between plan 19-08's ?edit=1 gate and this
-            # plan's Device-page anchor.
-            _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
-            device_text = device_body.decode("utf-8", errors="replace")
-            if "/airlines?edit=1" not in device_text:
-                return False, "expected the Device page to carry an Edit-artwork link to /airlines?edit=1"
-            status, _headers, body = http_request(
-                base + "/airlines?edit=1", cookie=session_cookie)
-            if status != 200:
-                return False, "expected 200 following the Edit-artwork link, got %d" % status
-            text = body.decode("utf-8", errors="replace")
-            # Exact class="{token}" match, matching companion/
-            # test_view_pages.py's own precise-marker discipline for
-            # these same three edit-only forms (LIGHTBOX_REPLACE_FORM_
-            # CLASS is itself a prefix of several sibling classes).
-            for token in ("lightbox__replace", "resolve-upload-zone", "lightbox__delete"):
-                if ('class="%s"' % token) not in text:
-                    return False, "expected the edit-only form carrying class=%r on the followed page" % token
-            return True, ""
-        check(
-            "the Device page's Edit-artwork link opens /airlines?edit=1, and following it returns 200 with "
-            "the artwork-editing forms present (D-22, Device-page half)",
-            _device_page_edit_artwork_link_opens_airlines_with_edit_forms)
+        # 20-07-PLAN.md (D-36) deleted the Device page's Edit-artwork
+        # link outright (_edit_artwork_link_html() and its call site are
+        # gone from companion/pages/config_page.py) — the check that
+        # used to exercise it end to end,
+        # _device_page_edit_artwork_link_opens_airlines_with_edit_forms(),
+        # is removed rather than retargeted; there is no replacement
+        # link on either Display or Device to assert against.
 
         def _html_pages_are_no_store():
             status, headers, _ = http_request(base + "/", cookie=session_cookie)
@@ -5630,9 +5651,10 @@ def main():
                 if add_result != colour_rules.ADD_OK_NEW:
                     return False, "test setup failure: add_rule() returned %r" % (add_result,)
 
-                status, _headers, body = http_request(rbase + "/device", cookie=rsession)
+                # 20-07 (D-10/D-11) moved the rules editor to Display.
+                status, _headers, body = http_request(rbase + "/display", cookie=rsession)
                 if status != 200:
-                    return False, "expected 200 GET /device, got %d" % status
+                    return False, "expected 200 GET /display, got %d" % status
                 page = body.decode("utf-8")
 
                 add_form_marker = 'action="%s"' % config_page.RULES_ADD_ROUTE
@@ -5914,7 +5936,8 @@ def main():
                 rbase = rules_harness.base_url()
                 rsession = _login(rules_harness)
 
-                status, _headers, body = http_request(rbase + "/device", cookie=rsession)
+                # 20-07 (D-10/D-11) moved the rules editor to Display.
+                status, _headers, body = http_request(rbase + "/display", cookie=rsession)
                 if status != 200:
                     return False, "expected 200, got %d" % status
                 if b"FRESHRD1" in body:
@@ -5925,7 +5948,7 @@ def main():
                 if add_result != colour_rules.ADD_OK_NEW:
                     return False, "test setup failure: add_rule() returned %r" % (add_result,)
 
-                status, _headers, body = http_request(rbase + "/device", cookie=rsession)
+                status, _headers, body = http_request(rbase + "/display", cookie=rsession)
                 if status != 200:
                     return False, "expected 200, got %d" % status
                 if b"FRESHRD1" not in body:

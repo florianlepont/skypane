@@ -2040,7 +2040,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if result == colour_rules.ADD_OK_NEW:
             return self.redirect(
-                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
         if result == colour_rules.ADD_OK_REPLACED:
             # Both segments are already known-valid at this point (that is
             # exactly why add_rule() returned ADD_OK_REPLACED rather than
@@ -2051,7 +2051,7 @@ class Handler(BaseHTTPRequestHandler):
                 normalised_kind, submitted_key)
             return self.redirect(
                 "%s?flash=%s&rule=%s"
-                % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
+                % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
                    quote(normalised_value, safe="")))
         if result == colour_rules.ADD_REJECTED_KEY:
             flash_key = FLASH_KEY_RULE_KEY_INVALID
@@ -2062,7 +2062,7 @@ class Handler(BaseHTTPRequestHandler):
             # unrecognised result all reuse the generic save-failed key —
             # a result must never fall through to no flash at all.
             flash_key = FLASH_KEY_RULE_SAVE_FAILED
-        return self.redirect("%s?flash=%s" % (DEVICE_ROUTE, quote(flash_key)))
+        return self.redirect("%s?flash=%s" % (DISPLAY_ROUTE, quote(flash_key)))
 
     def _handle_rule_delete(self, kind, value):
         """POST /settings/rules/{kind}/{value}/delete (Phase 15 D-10,
@@ -2094,11 +2094,11 @@ class Handler(BaseHTTPRequestHandler):
         deleted = colour_rules.delete_rule(state_dir, normalised_kind, normalised_value)
         if deleted:
             return self.redirect(
-                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
         if existed:
             return self.redirect(
-                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
-        return self.redirect(DEVICE_ROUTE)
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
+        return self.redirect(DISPLAY_ROUTE)
 
     def _handle_calendar_disconnect_post(self):
         """POST /settings/calendar/disconnect (19-11-PLAN.md Task 1,
@@ -2147,14 +2147,14 @@ class Handler(BaseHTTPRequestHandler):
         if confirm != config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE:
             ctx = self.page_context()
             body = config_page.calendar_disconnect_confirm_page(ctx)
-            return self.send_html(200, self._page_shell_for(DEVICE_ROUTE, body, ctx))
+            return self.send_html(200, self._page_shell_for(DISPLAY_ROUTE, body, ctx))
         state_dir = self.args.state_dir
         if calendar_rules.save_calendar_url(
                 state_dir, calendar_rules.CLEAR_CALENDAR_URL):
             return self.redirect(
-                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
+                "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
         return self.redirect(
-            "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+            "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
 
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
