@@ -445,6 +445,14 @@ EXPECTED_CHECK_COUNT = 209  # 20-11-PLAN.md Task 2 (D-22..D-24): +4 (a
 # after "Aperçu avec votre dernier vol : "). 205 + 4 = 209, recomputed
 # directly against the real on-disk check(...) call count at execution
 # time (209/209 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 210  # Polish fix 4 (Calendar connect form belongs
+# with its card, D-14c): +1 (on the Display scope,
+# calendar_connect_section()'s own <form> opening tag renders
+# immediately after the Calendar card and strictly before the Runway
+# card's own radio input, never after the whole page's groups).
+# 209 + 1 = 210, recomputed directly against the real on-disk check(...)
+# call count at execution time (210/210 pass), not trusted from
+# arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1481,8 +1489,13 @@ def main():
             return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
         if rendered.count("runway-card--selected") != 1:
             return False, "expected exactly one runway-card--selected modifier"
-        if 'value="3" class="visually-hidden" checked' not in rendered:
-            return False, "expected the selected card's radio to carry class=\"visually-hidden\" and checked"
+        # Polish fix 4 (D-14c): each radio now also carries an explicit
+        # form="settings-form" attribute (config_page.SETTINGS_FORM_ID),
+        # inserted between class="visually-hidden" and checked.
+        if 'value="3" class="visually-hidden" form="%s" checked' % config_page.SETTINGS_FORM_ID not in rendered:
+            return False, (
+                "expected the selected card's radio to carry class=\"visually-hidden\", "
+                "form=\"settings-form\" and checked")
         if "display:none" in rendered or "display: none" in rendered:
             return False, "expected the radio hidden via the visually-hidden utility class, never display:none"
         if rendered.count('class="visually-hidden"') < 3:
@@ -1731,9 +1744,14 @@ def main():
             "device_config": {"theme": "black", "tracked_runway": "06-24"},
             "poll_cooldown_remaining": 0,
         })
-        if 'value="06-24" class="visually-hidden" checked' not in rendered:
+        # Polish fix 4 (D-14c): each runway radio now also carries an
+        # explicit form="settings-form" attribute, inserted between
+        # class="visually-hidden" and checked.
+        if ('value="06-24" class="visually-hidden" form="%s" checked'
+                % config_page.SETTINGS_FORM_ID) not in rendered:
             return False, "expected the non-default saved runway (06-24) to be marked selected"
-        if 'value="3" class="visually-hidden" checked' in rendered:
+        if ('value="3" class="visually-hidden" form="%s" checked'
+                % config_page.SETTINGS_FORM_ID) in rendered:
             return False, "expected runway 3 (not the saved value) to NOT be marked selected"
         if rendered.count("runway-card--selected") != 1:
             return False, "expected exactly one runway-card--selected modifier"
@@ -4990,6 +5008,34 @@ def main():
         "Device by 20-07-PLAN.md Task 1/D-11)",
         _calendar_disconnect_form_is_not_inside_settings_form_on_display_scope)
 
+    def _calendar_connect_form_appears_before_the_runway_card_on_display_scope():
+        # Polish fix 4 (D-14c): calendar_connect_section() used to render
+        # after the WHOLE Display scope — below Runway and Flight
+        # colours — far from the Calendar card. It now renders
+        # immediately after </form> closes (which itself now closes
+        # right after the Calendar card, since "What it watches"/Runway
+        # moved to a later sibling supersection), so its own <form>'s
+        # opening tag appears strictly BEFORE the Runway card's own
+        # radio input in document order.
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        calendar_heading_index = rendered.index(
+            '<h2 class="text-heading" id="%s">%s</h2>'
+            % (config_page.CALENDAR_HEADING_ID, config_page.CALENDAR_SECTION_HEADING))
+        connect_form_index = rendered.index(
+            '<form method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
+        runway_index = rendered.index('name="tracked_runway"')
+        if not (calendar_heading_index < connect_form_index < runway_index):
+            return False, (
+                "expected Calendar heading < connect form < Runway card, got %d, %d, %d"
+                % (calendar_heading_index, connect_form_index, runway_index))
+        return True, ""
+    check(
+        "on the Display scope, calendar_connect_section()'s own <form> opening tag renders "
+        "immediately after the Calendar card and strictly before the Runway card's own radio "
+        "input, never after the whole page's groups (Polish fix 4, D-14c)",
+        _calendar_connect_form_appears_before_the_runway_card_on_display_scope)
+
     def _calendar_disconnect_form_absent_when_not_configured_or_on_device_scope():
         # 20-07-PLAN.md Task 1 (D-11): Calendar never renders on Device
         # any more — retargeted in place (was: "...or on Display scope,
@@ -5931,7 +5977,10 @@ def main():
             # is read back from there now (retargeted from DEVICE_ROUTE).
             _s, _h, body = http_request(
                 base + companion_app.DISPLAY_ROUTE, cookie=session_cookie)
-            if b'value="06-24" class="visually-hidden" checked' not in body:
+            # Polish fix 4 (D-14c): each runway radio now also carries an
+            # explicit form="settings-form" attribute.
+            if (b'value="06-24" class="visually-hidden" form="%s" checked'
+                    % config_page.SETTINGS_FORM_ID.encode()) not in body:
                 return False, "expected the newly-saved runway (06-24) to be shown selected"
             return True, ""
         check(
