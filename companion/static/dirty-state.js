@@ -407,6 +407,30 @@
     suppressGuard = true;
   });
 
+  // 22-05-PLAN.md Task 3 (D-04): a Frame strip switch is its own,
+  // separate <form> (action="/quick/display" or "/quick/quiet-hours",
+  // companion/layout.py's frame_strip_html(), 22-04-PLAN.md Task 1) —
+  // submitting it navigates away exactly like the settings form's own
+  // Save does, but the settings form's own submit listener above never
+  // fires for it (it is a different <form> element entirely). Without
+  // this, activating a strip switch while the settings form has unsaved
+  // edits raised the same leave-page dialog Save itself is exempt from,
+  // for a change the strip is itself about to apply. Delegated at the
+  // document level (the switch could be either of two forms, never
+  // exactly this file's own form variable) and keyed below on the
+  // submitting form's own pinned handshake attribute (22-04-PLAN.md
+  // Task 1's own named deliverable on both strip switch forms) — never
+  // a presentation class, which a later CSS change could rename with no
+  // semantic meaning behind it. Every OTHER form's submit (a page with
+  // no strip at all, or a deliberately crafted third-party form) still
+  // leaves suppressGuard untouched here, so the leave-guard still arms
+  // for it exactly as before.
+  document.addEventListener("submit", function (e) {
+    if (e.target && e.target.hasAttribute && e.target.hasAttribute("data-quick-switch")) {
+      suppressGuard = true;
+    }
+  });
+
   if (cancelBtn) {
     cancelBtn.addEventListener("click", function () {
       form.reset();

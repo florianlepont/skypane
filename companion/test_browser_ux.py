@@ -87,7 +87,7 @@ from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
-EXPECTED_CHECK_COUNT = 5  # 22-01-PLAN.md Task 1: one check (the Flights
+EXPECTED_CHECK_COUNT = 6  # 22-01-PLAN.md Task 1: one check (the Flights
 # detail row), proving the harness itself (subprocess, seed, real
 # browser, real selectors) against a behaviour that already works today.
 # 22-01-PLAN.md Task 3: +4 (Display reveal/persist across all four
@@ -96,6 +96,15 @@ EXPECTED_CHECK_COUNT = 5  # 22-01-PLAN.md Task 1: one check (the Flights
 # T1/T8 together). 1 + 4 = 5, recomputed directly against the real
 # on-disk check(...) call count at execution time (5/5 pass), not
 # trusted from arithmetic alone.
+# 22-05-PLAN.md Task 3 (D-04): +1. A real-browser proof that activating a
+# Frame strip switch with unsaved Display edits present navigates with
+# NO beforeunload dialog, while a plain nav-link navigation with the
+# same unsaved edit still raises one. The Display reveal/persist check
+# above is retargeted in place (its own "Enable-display checkbox" bullet
+# is retired along with display_group(), 22-05-PLAN.md Task 1) — no
+# count change from that edit. 5 + 1 = 6, recomputed directly against
+# the real on-disk check(...) call count at execution time (6/6 pass),
+# not trusted from arithmetic alone.
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -363,22 +372,17 @@ def main():
                         if not page.eval_on_selector(runway_sel, "el => el.checked"):
                             return False, "expected the saved runway card to be checked after reload"
 
-                        # 3. Enable-display checkbox (a sibling of the form).
-                        page.goto(base_url + "/display")
-                        display_sel = 'input[name="display_enabled"]'
-                        was_checked = page.eval_on_selector(display_sel, "el => el.checked")
-                        _click_control(page, display_sel)
-                        if bar.is_hidden():
-                            return False, "expected the save bar to become visible after the Enable-display checkbox"
-                        count_text = page.locator("[data-dirty-count]").inner_text()
-                        if "Screen on / off" not in count_text:
-                            return False, "expected the bar to name Screen on / off, got %r" % count_text
-                        with page.expect_navigation():
-                            page.locator(".dirty-bar__save").click()
-                        page.goto(base_url + "/display")
-                        now_checked = page.eval_on_selector(display_sel, "el => el.checked")
-                        if now_checked == was_checked:
-                            return False, "expected the Enable-display checkbox to have flipped and persisted"
+                        # 3. Enable-display checkbox — RETIRED outright by
+                        # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the Frame
+                        # strip is now the ONLY on/off control for the
+                        # screen, so this settings page no longer renders
+                        # a display_enabled checkbox for the B1 regression
+                        # to cover here at all. No replacement checkbox
+                        # exists on Display any more (Quiet hours' own
+                        # on/off checkbox is retired the same way) — the
+                        # remaining two field kinds below (radio, time
+                        # input) still prove the cross-DOM form=
+                        # delegation this check exists for.
 
                         # 4. Quiet-hours time field (a sibling of the form).
                         page.goto(base_url + "/display")
@@ -398,9 +402,10 @@ def main():
                     finally:
                         context.close()
                 check(
-                    "Display: a theme chip, a runway card, the Enable-display checkbox and a quiet-hours "
-                    "time field each reveal the save bar, name their own section, and persist on save "
-                    "(B1, all four form=-attached field kinds)",
+                    "Display: a theme chip, a runway card and a quiet-hours time field each reveal the "
+                    "save bar, name their own section, and persist on save (B1, form=-attached radio "
+                    "and time-input field kinds — the Enable-display checkbox this check also covered "
+                    "is retired outright by 22-05-PLAN.md Task 1, X1/D-04/D-12.1)",
                     _display_reveal_and_persist_across_all_field_kinds)
 
                 def _device_reveal_and_persist_stays_in_step_with_display():
@@ -519,6 +524,71 @@ def main():
                     "Cancel restores the form value AND the live theme preview (T8), and a subsequent edit "
                     "re-arms the leave-guard (T1)",
                     _cancel_restores_preview_and_rearms_guard)
+
+                def _strip_switch_navigates_without_the_leave_guard_while_other_navigation_still_warns():
+                    # 22-05-PLAN.md Task 3 (D-04): a real browser proof,
+                    # not a read of dirty-state.js's private suppressGuard
+                    # variable. Chromium (headless, under Playwright)
+                    # surfaces a beforeunload guard's own preventDefault()
+                    # as a real `dialog` event of type "beforeunload" -
+                    # confirmed experimentally against a minimal fixture
+                    # before this check was written - so listening for
+                    # that event and asserting its presence/absence is a
+                    # genuine, non-cosmetic behavioural probe.
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        base_url = harness.base_url()
+                        page.goto(base_url + "/display")
+                        dialogs = []
+                        page.on("dialog", lambda d: (dialogs.append(d.type), d.accept()))
+
+                        theme_ids = device_config.THEME_IDS
+                        original_sel = 'input[name="theme"]:checked'
+                        original_value = page.eval_on_selector(original_sel, "el => el.value")
+                        other_theme = next(t for t in theme_ids if t != original_value)
+
+                        # An unsaved Display edit, then activating the
+                        # Frame strip's own Screen switch: navigates and
+                        # persists, with NO beforeunload dialog - the
+                        # strip is itself about to apply the very change
+                        # the dialog would otherwise warn about.
+                        _click_control(page, 'input[name="theme"][value="%s"]' % other_theme)
+                        before = device_config.load_device_config(harness.tmpdir)["display_enabled"]
+                        with page.expect_navigation():
+                            page.click('form[action="/quick/display"] button[type="submit"]')
+                        if dialogs:
+                            return False, (
+                                "expected NO beforeunload dialog when activating the strip's own "
+                                "switch with unsaved edits present, got %r" % (dialogs,))
+                        after = device_config.load_device_config(harness.tmpdir)["display_enabled"]
+                        if after == before:
+                            return False, "expected the strip switch's own change to persist"
+
+                        # Reset: reload, make the SAME kind of unsaved
+                        # edit again, then navigate away by a plain nav
+                        # link - no [data-quick-switch] form involved at
+                        # all - and the guard must still warn.
+                        page.goto(base_url + "/display")
+                        dialogs[:] = []
+                        current_value = page.eval_on_selector(original_sel, "el => el.value")
+                        alt_theme = next(t for t in theme_ids if t != current_value)
+                        _click_control(page, 'input[name="theme"][value="%s"]' % alt_theme)
+                        with page.expect_navigation():
+                            page.click('a[href="/"]')
+                        if "beforeunload" not in dialogs:
+                            return False, (
+                                "expected a PLAIN navigation with the same unsaved edit to still "
+                                "raise the beforeunload dialog, got %r" % (dialogs,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "activating a Frame strip switch with unsaved Display edits present navigates and "
+                    "persists with NO beforeunload dialog, while a plain nav-link navigation with the "
+                    "same unsaved edit still raises one (22-05-PLAN.md Task 3, D-04)",
+                    _strip_switch_navigates_without_the_leave_guard_while_other_navigation_still_warns)
             finally:
                 browser.close()
     finally:
