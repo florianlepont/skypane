@@ -68,7 +68,7 @@ CATALOG = {
     # from the one shared catalogue regardless of which page calls it.
     "Up to date": "À jour",
     "A little stale": "Un peu daté",
-    "Stale — the server may be down": "Daté — le serveur est peut-être en panne",
+    "Stale — the server may be down": "Données anciennes — le serveur est peut-être en panne",
     "Healthy": "Bonne",
     "Dropping quickly": "Baisse rapidement",
     "No reading yet": "Aucune mesure pour l’instant",
