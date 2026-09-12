@@ -439,6 +439,46 @@ EXPECTED_CHECK_COUNT = 267  # 20-12-PLAN.md Task 2 (D-30/D-31): +16
 # reachable by URL, Flights/Airlines keeping their full content, the
 # mode surviving three sequential requests, and the full-mode mirror
 # of each toggled behaviour). 251 + 16 = 267.
+# 21-01-PLAN.md Task 1 (D-17): -19. Section 5's entire 16-check block is
+# deleted outright (the simple/full display-mode mechanism it
+# exercised no longer exists; the full-mode-only behaviour it also
+# proved is picked up by this plan's own new checks in test_view_
+# pages.py/test_config_page.py). The two POST-to-the-deleted-route
+# checks are replaced by one new check pinning that a valid-session
+# POST there now takes the unknown-route 404 path (T-21-01).
+# 267 - 16 - 2 + 1 = 250, recomputed directly against the real on-disk
+# check(...) call count at execution time (248/250 pass — the two
+# documented WR-11 root-sandbox failures, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 250
+# 21-01-PLAN.md Task 3 (D-17): +1 (the package-wide guard check pinning
+# the display-mode switch's removal). 250 + 1 = 251, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (249/251 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 251
+
+# 21-03-PLAN.md Task 2 (D-15/R-12): +5. flight-rows.js's own six-touch-
+# point registration adds 5 new checks (public-route smoke, ES5-safety/
+# required-token scan, route==src agreement, exactly-one-script-tag,
+# a real GET proving the served body) mirroring theme-preview.js's own
+# block; the "ten deferred scripts" check is retargeted in place to
+# eleven (net 0 for that one). 251 + 5 = 256, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (254/256 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 256
+# 21-04-PLAN.md Task 1 (D-01/R-02): +2 (POST /quick/display and POST
+# /quick/quiet-hours each gain one check proving return_to round-trips
+# to / and to /display, falls back to /display for a hostile value
+# (https://evil.example/, //evil.example, /flights) or an absent
+# field, and the invalid-state early return honours return_to too).
+# 256 + 2 = 258, recomputed directly against the real on-disk check(...)
+# call count at execution time (256/258 pass — the two documented
+# WR-11 root-sandbox failures, unrelated to this plan), not trusted
+# from arithmetic alone.
+EXPECTED_CHECK_COUNT = 258
 
 
 def _ago_iso(seconds):
@@ -2352,14 +2392,13 @@ def main():
             def _resolved_ui_theme(self):
                 return "auto"
 
-            # 20-01-PLAN.md Task 2: page_context() now also resolves
-            # lang/simple_mode via these two methods — a minimal stand-in
-            # matching the real Handler's own cookie-then-default shape.
+            # 20-01-PLAN.md Task 2: page_context() also resolves lang via
+            # this method — a minimal stand-in matching the real
+            # Handler's own cookie-then-default shape. D-17 (21-01-PLAN.md
+            # Task 1): the sibling _mode_from_request() stand-in is
+            # deleted along with the real method it mirrored.
             def _lang_from_request(self):
                 return "en"
-
-            def _mode_from_request(self):
-                return "full"
 
         def _page_context_threads_wake_interval_env_default():
             tmp = tempfile.mkdtemp(prefix="skypane-page-context-")
@@ -2836,8 +2875,16 @@ def main():
                 "poll_cooldown_remaining", "gallery_entries", "runway_images",
                 "health_severity", "now",
                 "resolve_prefix", "manual_resolutions",
-                # 20-01-PLAN.md Task 2 (D-04/D-29):
-                "lang", "simple_mode",
+                # 20-01-PLAN.md Task 2 (D-04):
+                "lang",
+                # D-17 (21-01-PLAN.md Task 1): the sibling ctx key that
+                # used to back the now-deleted display-mode switch is
+                # removed from page_context()'s return dict along with
+                # the rest of that mechanism, so it is removed from this
+                # tuple too — companion/pages/__init__.py's own
+                # docstring bullet for it is outside this plan's
+                # files_modified list and is flagged as a deviation in
+                # 21-01-SUMMARY.md rather than edited here.
             )
             docstring = pages_package.__doc__
             for key in documented_keys:
@@ -3470,20 +3517,30 @@ def main():
             banned = (
                 "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
                 "insertAdjacentHTML", "document.write", "eval(", "fetch(",
-                "XMLHttpRequest", "setTimeout(", "setInterval(")
+                "XMLHttpRequest", "setTimeout(", "setInterval(",
+                # 21-05-PLAN.md Task 3 (D-08/R-11): the retired page-wide
+                # single-grid lookup this rewrite replaces — a genuine
+                # rewrite of the selector strategy, never a patch that
+                # keeps binding to only the first of several chip grids.
+                'querySelector(".theme-chip-grid")')
             for token in banned:
                 if token in src:
                     return False, "theme-preview.js must not contain %r" % token
-            required = ("addEventListener", "querySelector", "getAttribute", "data-preview-src")
+            required = (
+                "addEventListener", "querySelector", "getAttribute", "data-preview-src",
+                # 21-05-PLAN.md Task 3 (D-08/D-12): the row->panel->chip
+                # attribute contract this rewrite depends on.
+                "data-usage-panel")
             for token in required:
                 if token not in src:
                     return False, "expected %r in theme-preview.js" % token
             return True, ""
         check(
             "theme-preview.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
-            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers), and "
-            "carries the chip-selection src swap (addEventListener/querySelector/getAttribute/"
-            "data-preview-src all present) (D-22..D-24)",
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers/a page-wide "
+            "single-grid lookup), and carries the row->panel->chip src-swap contract (addEventListener/"
+            "querySelector/getAttribute/data-preview-src/data-usage-panel all present) (D-08/D-12/R-11, "
+            "extended by 21-05-PLAN.md Task 3 from D-22..D-24's own original single-grid version)",
             _theme_preview_script_es5_safe_and_no_html_write)
 
         def _theme_preview_script_route_src_agree():
@@ -3513,28 +3570,114 @@ def main():
             "and no inline <script> without a src (D-32)",
             _theme_preview_script_tag_exactly_once_and_no_bare_inline_script)
 
-        def _ten_deferred_scripts_before_closing_body():
-            # Retargeted in place from _nine_deferred_scripts_before_
-            # closing_body() (20-08-PLAN.md Task 3, D-22..D-24/D-32):
-            # theme-preview.js is the tenth unconditional script.
+        # --- 21-03-PLAN.md Task 2 (D-15/R-12): flight-rows.js ---
+
+        check(
+            "GET /static/flight-rows.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/flight-rows.js"))
+
+        def _flight_rows_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "flight-rows.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest", "setTimeout(", "setInterval(")
+            for token in banned:
+                if token in src:
+                    return False, "flight-rows.js must not contain %r" % token
+            required = (
+                "addEventListener", "querySelectorAll", "data-row-toggle",
+                "flight-detail-row--collapsed", "aria-expanded", "aria-controls")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in flight-rows.js" % token
+            return True, ""
+        check(
+            "flight-rows.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers), and "
+            "carries the detail-row toggle contract (addEventListener/querySelectorAll/"
+            "data-row-toggle/flight-detail-row--collapsed/aria-expanded/aria-controls all "
+            "present) (D-15/R-12)",
+            _flight_rows_script_es5_safe_and_no_html_write)
+
+        def _flight_rows_script_route_src_agree():
+            import companion.app as app_module
+            if layout.FLIGHT_ROWS_SCRIPT_SRC != app_module.FLIGHT_ROWS_SCRIPT_ROUTE:
+                return False, "flight-rows script route drift: %r vs %r" % (
+                    layout.FLIGHT_ROWS_SCRIPT_SRC, app_module.FLIGHT_ROWS_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.FLIGHT_ROWS_SCRIPT_SRC equals companion.app.FLIGHT_ROWS_SCRIPT_ROUTE",
+            _flight_rows_script_route_src_agree)
+
+        def _flight_rows_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.FLIGHT_ROWS_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            # No inline <script> without a src anywhere in a rendered page —
+            # the CSP's own "no inline script" rule (D-32), pinned here so a
+            # future change cannot silently reintroduce one.
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one flight-rows.js <script> tag "
+            "and no inline <script> without a src (D-15/R-12)",
+            _flight_rows_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _real_get_flight_rows_route_serves_expected_body():
+            # 21-03-PLAN.md Task 2's own acceptance criteria: a real GET
+            # of the route returns 200 whose body contains data-row-
+            # toggle and flight-detail-row--collapsed and contains none
+            # of innerHTML, document.write, "=>", " let ", " const ".
+            status, headers, body = http_request(base + "/static/flight-rows.js")
+            if status != 200:
+                return False, "expected 200 from GET /static/flight-rows.js, got %d" % status
+            text = body.decode("utf-8")
+            for token in ("data-row-toggle", "flight-detail-row--collapsed"):
+                if token not in text:
+                    return False, "expected %r in the served flight-rows.js body" % token
+            for banned in ("innerHTML", "document.write", "=>", " let ", " const "):
+                if banned in text:
+                    return False, "did not expect %r in the served flight-rows.js body" % banned
+            return True, ""
+        check(
+            "a real GET of /static/flight-rows.js returns 200 with data-row-toggle and "
+            "flight-detail-row--collapsed present, and none of innerHTML/document.write/"
+            "=>/ let / const  (21-03-PLAN.md Task 2)",
+            _real_get_flight_rows_route_serves_expected_body)
+
+        def _eleven_deferred_scripts_before_closing_body():
+            # Retargeted in place from _ten_deferred_scripts_before_
+            # closing_body() (21-03-PLAN.md Task 2, D-15/R-12):
+            # flight-rows.js is the eleventh unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 10:
-                return False, "expected exactly 10 deferred <script src= tags before </body>, got %d" % count
+            if count != 11:
+                return False, "expected exactly 11 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
                     layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
-                    layout.THEME_PREVIEW_SCRIPT_SRC):
+                    layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly ten deferred <script src= tags "
+            "a rendered authenticated page contains exactly eleven deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
-            "poll-cooldown.js, confirm-submit.js and theme-preview.js",
-            _ten_deferred_scripts_before_closing_body)
+            "poll-cooldown.js, confirm-submit.js, theme-preview.js and flight-rows.js",
+            _eleven_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
@@ -3801,11 +3944,20 @@ def main():
         # field-level message, and persists nothing ---
 
         def _rejected_settings_save_rerenders_200_with_input_and_error_persists_nothing():
+            # 21-05-PLAN.md Task 1 (D-06): retargeted to a real
+            # scope="display" submission — a genuine browser's Display
+            # save always carries the hidden scope/return_to fields
+            # (_scope_fields_html()), and theme's own repopulated chip
+            # grid now lives exclusively inside the Frame colours card,
+            # which only ever renders on the Display scope, never on
+            # the legacy unscoped SCOPE_ALL render this check used to
+            # post against.
             from companion.pages import config_page
             before = device_config.load_device_config(harness.tmpdir)
             status, headers, body = http_request(
                 base + "/settings", method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode({
+                    "scope": "display", "return_to": "/display",
                     "theme": "black", "tracked_runway": before["tracked_runway"],
                     "quiet_hours_start": "",
                 }).encode())
@@ -3835,43 +3987,52 @@ def main():
         # --- Phase 18: Home page, quick actions, scoped settings saves ---
 
         def _home_page_renders_widgets():
-            # 20-06 (D-16) rebuilt Home: the Quick-actions card is gone
-            # (the screen/quiet-hours switches moved to Display, the
-            # Refresh-now button moved to Device), replaced by a hero
-            # row (the current picture in a `.preview-frame` figure
-            # beside a `.status-card` built on `layout.status_row()`)
-            # plus a full-width recent-flights section. Retargeted per
-            # 20-06-SUMMARY.md/20-12-PLAN.md (20-06/D-16).
+            # 21-04-PLAN.md Task 3 (D-04/D-05, Rule 1 — this task's own
+            # Home rebuild directly breaks this check's old assertions):
+            # the phase-20 hero/.status-card is gone, replaced by the
+            # shared Frame strip, three stat-tile elements and a
+            # .home-columns.home-picture-row holding the picture beside
+            # recent flights. Unlike 20-06's own rebuild, D-01 now puts
+            # the Screen/Quiet-hours instant-switch forms BACK on Home
+            # (inside the strip) — so their action attributes are no
+            # longer in the "must be absent" list; only the retired
+            # Quick-actions card copy and the Poll/Refresh-now form stay
+            # absent.
             status, _headers, body = http_request(base + "/", cookie=session_cookie)
             if status != 200:
                 return False, "expected 200 for GET /, got %d" % status
             text = body.decode("utf-8", errors="replace")
             for needle in (
                     '<h1 class="page-title">Home</h1>',
-                    'status-card" aria-labelledby="home-status-heading"',
-                    'class="status-row', 'class="home-hero"',
+                    'class="frame-strip stat-tile stat-tile--accent"',
+                    'class="dashboard-grid home-status-grid"',
+                    'class="home-columns home-picture-row"',
                     "Recent flights", 'href="/flights"',
                     'class="nav-group nav-group--advanced"'):
                 if needle not in text:
                     return False, "expected %r in the Home page" % needle
-            # The hero's left half renders either the .preview-frame
+            # The picture column renders either the .preview-frame
             # figure (a gallery entry exists) or the shared empty-state
             # block (none does yet, as in this fresh harness) — either
-            # is proof the hero row itself renders.
+            # is proof the picture column itself renders.
             if 'class="preview-frame"' not in text and "Nothing rendered yet." not in text:
-                return False, "expected either the preview-frame figure or its empty state in the Home hero"
+                return False, "expected either the preview-frame figure or its empty state on Home"
+            if 'action="%s"' % app_module.QUICK_DISPLAY_ROUTE not in text:
+                return False, "expected the Frame strip's Screen switch form on Home (D-01)"
+            if 'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE not in text:
+                return False, "expected the Frame strip's Quiet hours switch form on Home (D-01)"
             for absent in (
                     "Quick actions", "On the frame now",
-                    'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
-                    'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+                    "status-card__rows", "home-hero",
                     'action="%s"' % app_module.POLL_ROUTE):
                 if absent in text:
-                    return False, "expected %r to be absent from the rebuilt Home page (20-06/D-16)" % absent
+                    return False, "expected %r to be absent from the rebuilt Home page (D-04)" % absent
             return True, ""
         check(
-            "authenticated GET / renders the rebuilt Home page (20-06/D-16) with the hero preview-frame "
-            "figure, the status-card's status-row markup, and the recent-flights list under the grouped "
-            "Advanced navigation, and carries none of the retired quick-action forms",
+            "authenticated GET / renders the rebuilt Home page (D-01/D-04/D-05) with the Frame "
+            "strip's two switch forms, three stat-tile elements, the picture/recent-flights row, "
+            "and the recent-flights list under the grouped Advanced navigation, carrying none of "
+            "the retired Quick-actions card or Poll form",
             _home_page_renders_widgets)
 
         def _quick_display_toggle_round_trip():
@@ -3932,6 +4093,56 @@ def main():
             "POST /quick/quiet-hours with state=on then state=off flips quiet_hours_enabled on disk, "
             "redirects to Display (D-16) with the matching flash, and never touches display_enabled",
             _quick_quiet_hours_toggle_round_trip)
+
+        def _make_quick_toggle_return_to_check(route, flash_key):
+            # 21-04-PLAN.md Task 1 (D-01/R-02/T-21-12): return_to=/ redirects
+            # to Home, return_to=/display redirects to Display, and a
+            # hostile/absent value falls back to Display — never string-
+            # prefix-matched, never parsed as a URL. One factory, both
+            # routes, so the two forms' whitelist-then-fallback contract
+            # can never silently diverge.
+            def _check():
+                for return_to, expected_location in (
+                        ("/", "/?flash=%s" % flash_key),
+                        ("/display", "/display?flash=%s" % flash_key),
+                        ("https://evil.example/", "/display?flash=%s" % flash_key),
+                        ("//evil.example", "/display?flash=%s" % flash_key),
+                        ("/flights", "/display?flash=%s" % flash_key)):
+                    status, headers, _ = http_request(
+                        base + route, method="POST", cookie=session_cookie,
+                        data=urllib.parse.urlencode({"state": "on", "return_to": return_to}).encode())
+                    if status != 303 or headers.get("Location") != expected_location:
+                        return False, "return_to=%r: expected 303 to %r, got %d/%r" % (
+                            return_to, expected_location, status, headers.get("Location"))
+                # Absent return_to: the same fallback-to-Display behaviour
+                # this route already had before this task.
+                status, headers, _ = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": "off"}).encode())
+                if status != 303 or headers.get("Location") != "/display?flash=%s" % (
+                        app_module.FLASH_KEY_DISPLAY_OFF if route == app_module.QUICK_DISPLAY_ROUTE
+                        else app_module.FLASH_KEY_QUIET_OFF):
+                    return False, "expected an absent return_to to fall back to Display"
+                # The invalid-state early return honours return_to too.
+                status, headers, _ = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": "toggle", "return_to": "/"}).encode())
+                if status != 303 or headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED:
+                    return False, (
+                        "expected the invalid-state early return to honour return_to=/, got %d/%r"
+                        % (status, headers.get("Location")))
+                return True, ""
+            return _check
+        check(
+            "POST /quick/display honours return_to (/ or /display), falls back to Display for a "
+            "hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and "
+            "the invalid-state early return honours return_to too (D-01/R-02)",
+            _make_quick_toggle_return_to_check(app_module.QUICK_DISPLAY_ROUTE, app_module.FLASH_KEY_DISPLAY_ON))
+        check(
+            "POST /quick/quiet-hours honours return_to (/ or /display), falls back to Display for a "
+            "hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and "
+            "the invalid-state early return honours return_to too (D-01/R-02)",
+            _make_quick_toggle_return_to_check(app_module.QUICK_QUIET_HOURS_ROUTE, app_module.FLASH_KEY_QUIET_ON))
 
         check(
             "unauthenticated POST /quick/display redirects to /login without page content",
@@ -4028,15 +4239,19 @@ def main():
                     return False, "expected the %s page to carry its hidden return_to field" % scope
                 if "Screen: Plane frame" not in text:
                     return False, "expected the %s page to name its screen type" % scope
-            # 20-07 (D-10/D-11) moved the rules editor (renamed "Flight
-            # colours" by 20-09-PLAN.md Task 3/D-15a; was "Per-flight
-            # colour rules") to Display alongside Calendar and Runway;
-            # Manual refresh stayed on Device.
+            # 20-07 (D-10/D-11) moved the rules editor to Display
+            # alongside Calendar and Runway; Manual refresh stayed on
+            # Device. 21-05-PLAN.md Task 1 (D-06/D-10): the rules
+            # editor's own standalone "Flight colours" card/heading is
+            # retired outright — it now lives inside the Frame colours
+            # card's own "Per-flight rules" usage panel, located here
+            # via its own data-usage-panel-target attribute.
             if "Manual refresh" not in device_text:
                 return False, "expected the Device page to carry Manual refresh"
-            if "Flight colours" in device_text:
+            rules_panel_marker = 'data-usage-panel-target="rules"'
+            if rules_panel_marker in device_text:
                 return False, "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)"
-            if "Flight colours" not in display_text:
+            if rules_panel_marker not in display_text:
                 return False, "expected the Display page to carry the rules editor (moved from Device, 20-07/D-10)"
             if "Manual refresh" in display_text:
                 return False, "expected the Display page NOT to carry Manual refresh"
@@ -4166,10 +4381,11 @@ def main():
             "logout costs a signed-out caller nothing)",
             _logout_post_without_session_redirects_to_login)
 
-        # --- 20-01-PLAN.md Task 2 (D-02/D-29, T-20-01/T-20-02): the two ---
-        # --- new nav-footer switch routes, POST /ui-lang and             ---
-        # --- POST /ui-mode — byte-for-byte siblings of the /ui-theme     ---
-        # --- family above.                                               ---
+        # --- 20-01-PLAN.md Task 2 (D-02, T-20-01/T-20-02): the new       ---
+        # --- nav-footer switch route, POST /ui-lang — a byte-for-byte    ---
+        # --- sibling of the /ui-theme family above. D-17 (21-01-PLAN.md  ---
+        # --- Task 1): the sibling display-mode switch route is deleted;  ---
+        # --- see the replacement unknown-route check below.               ---
 
         def _ui_lang_post_round_trip():
             for submitted, expect_cookie in (("fr", True), ("en", True), ("de", False)):
@@ -4220,54 +4436,32 @@ def main():
             "sp_ui_lang cookie (T-20-01)",
             _ui_lang_post_without_session_redirects_to_login)
 
-        def _ui_mode_post_round_trip():
-            for submitted, expect_cookie in (("simple", True), ("full", True), ("garbage", False)):
-                status, headers, _ = http_request(
-                    base + "/ui-mode", method="POST", cookie=session_cookie,
-                    data=urllib.parse.urlencode({"ui_mode": submitted}).encode())
-                if status != 303:
-                    return False, "expected 303 for ui_mode=%s, got %d" % (submitted, status)
-                if headers.get("Location") != "/":
-                    return False, (
-                        "expected a redirect to the referring tab (default /), got %r"
-                        % headers.get("Location"))
-                set_cookie = headers.get("Set-Cookie", "")
-                if expect_cookie:
-                    if "%s=%s" % (auth.UI_MODE_COOKIE_NAME, submitted) not in set_cookie:
-                        return False, "expected %s=%s in %r" % (
-                            auth.UI_MODE_COOKIE_NAME, submitted, set_cookie)
-                    for needle in ("HttpOnly", "SameSite=Strict"):
-                        if needle not in set_cookie:
-                            return False, "expected %r in the sp_ui_mode cookie header: %r" % (
-                                needle, set_cookie)
-                else:
-                    if auth.UI_MODE_COOKIE_NAME in set_cookie:
-                        return False, (
-                            "expected no sp_ui_mode Set-Cookie header for an unrecognised "
-                            "ui_mode=%s, got %r" % (submitted, set_cookie))
-            return True, ""
-        check(
-            "POST /ui-mode with ui_mode=simple/full sets the sp_ui_mode cookie (HttpOnly, "
-            "SameSite=Strict) and redirects to the referring tab; ui_mode=garbage sets no cookie",
-            _ui_mode_post_round_trip)
+        # D-17 (21-01-PLAN.md Task 1): the two round-trip checks that
+        # used to live here (its cookie round trip, its no-session
+        # redirect) are deleted — the sibling display-mode switch route
+        # itself is gone. The replacement check below (the threat
+        # model's own T-21-01 pin) proves a valid-session POST to the
+        # now-unrecognised path takes the ordinary unknown-route 404,
+        # not that any cookie round-trips (there is no cookie any more).
 
-        def _ui_mode_post_without_session_redirects_to_login():
+        def _post_to_the_deleted_display_mode_route_with_session_now_404s():
             status, headers, _ = http_request(
-                base + "/ui-mode", method="POST", data=b"ui_mode=simple")
-            if status != 303 or headers.get("Location") != "/login":
+                base + "/ui-mode", method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"value": "simple"}).encode())
+            if status != 404:
                 return False, (
-                    "expected an unauthenticated POST /ui-mode to redirect to /login, "
-                    "got %d/%r" % (status, headers.get("Location")))
+                    "expected a valid-session POST /ui-mode to take the unknown-route "
+                    "404 path now that the route is deleted (D-17/T-21-01), got %d" % status)
             set_cookie = headers.get("Set-Cookie", "")
-            if auth.UI_MODE_COOKIE_NAME in set_cookie:
+            if "sp_ui_mode" in set_cookie:
                 return False, (
-                    "expected no sp_ui_mode Set-Cookie header on an unauthenticated "
-                    "POST /ui-mode, got %r" % set_cookie)
+                    "expected no sp_ui_mode Set-Cookie header — the cookie name is never "
+                    "written by any code path any more, got %r" % set_cookie)
             return True, ""
         check(
-            "POST /ui-mode with no session cookie redirects to /login and does not set a "
-            "sp_ui_mode cookie (T-20-01)",
-            _ui_mode_post_without_session_redirects_to_login)
+            "POST /ui-mode with a valid session now takes the unknown-route 404 path "
+            "(D-17, the route/handler/dispatch line are deleted together)",
+            _post_to_the_deleted_display_mode_route_with_session_now_404s)
 
         # --- D-03: language resolution from cookie / Accept-Language ---
 
@@ -6386,7 +6580,15 @@ def main():
             # distinct needles (token, host, path segment,
             # query-parameter name, whole URL) anywhere the operator can
             # see: the redirect's Location header, or the served body of
-            # either response.
+            # either response. 21-07-PLAN.md Task 2 (D-14/R-10): the
+            # SERVED SETTINGS PAGE is now the one legitimate exception —
+            # the URL was saved successfully (the sync failure is a
+            # separate, later fetch problem), so the page now renders
+            # correctly connected, and D-14's own masked-URL line
+            # legitimately shows the bare host + "…" there. The plain
+            # hostname therefore stays forbidden everywhere else (the
+            # Location header, the redirect response body) but is
+            # narrowed to "masked form only" for the final served page.
             calendar_harness = _InProcessHarness()
             try:
                 session = _login(calendar_harness)
@@ -6416,7 +6618,11 @@ def main():
                         return False, "leak in the redirect response body: %r" % (needle,)
                 status2, _h2, page_body = http_request(
                     calendar_harness.base_url() + location, cookie=session)
-                for needle in needles:
+                if layout.escape_html("%s…" % hostname).encode() not in page_body:
+                    return False, (
+                        "expected the masked host + ellipsis fragment to be served once "
+                        "connected (D-14/R-10)")
+                for needle in (token, path_segment, query_param, url):
                     if needle.encode() in page_body:
                         return False, (
                             "leak in the served response body: %r found on the "
@@ -6425,7 +6631,10 @@ def main():
             finally:
                 calendar_harness.stop()
         check(
-            "T-17-FLASH: a raised error whose message embeds the full URL never surfaces the token, host, path segment, query-parameter name, or whole URL in the Location header or any served response body",
+            "T-17-FLASH: a raised error whose message embeds the full URL never surfaces the token, "
+            "path segment, query-parameter name, or whole URL in the Location header or any served "
+            "response body — the served Settings page legitimately shows the masked host + ellipsis "
+            "once connected (D-14/R-10, extended by 21-07-PLAN.md Task 2)",
             _calendar_sync_failure_never_leaks_the_url)
 
         def _calendar_disconnect_reports_deletion_and_erases_entries():
@@ -7111,226 +7320,87 @@ def main():
             _calendar_save_does_not_touch_the_manual_poll_cooldown)
 
         # ==============================================================
-        # Section 5 (20-12-PLAN.md Task 2, D-30/D-31): simple mode, end
-        # to end over real HTTP, with the sp_ui_mode=simple cookie set
-        # on a real signed-in session — never the layout.sidebar_nav()/
-        # config_page.render() unit-level calls 20-01/20-09's own
-        # checks already cover in companion/test_status_pages.py/
-        # companion/test_config_page.py. Every check below reuses this
-        # section's own fresh session (never a prior check's mutated
-        # settings state).
+        # 21-01-PLAN.md Task 3 (D-17): a package-wide guard pinning the
+        # removal — a mechanical source scan, following the same shape
+        # as test_status_pages.py's own
+        # _no_module_in_companion_redefines_the_alpha_threshold.
         # ==============================================================
 
-        simple_session = _login(harness)
-        simple_cookie = "%s; %s=simple" % (simple_session, auth.UI_MODE_COOKIE_NAME)
-        full_cookie = "%s; %s=full" % (simple_session, auth.UI_MODE_COOKIE_NAME)
+        # The exact deleted identifiers/route literals this scan pins —
+        # necessarily spelled out verbatim here, since the whole point
+        # of the scan below is to detect these exact strings reappearing
+        # anywhere else under companion/.
+        _DISPLAY_MODE_SWITCH_TOKENS = (
+            "simple_mode", "MODE_CHOICES", "DEFAULT_MODE", "_MODE_CTX",
+            "UI_MODE_COOKIE_NAME", "MODE_ROUTE", '"/ui-mode"', "sp_ui_mode")
+        # companion/pages/__init__.py's own ctx-contract docstring still
+        # documents a ctx key this removal deletes (added by 20-01-
+        # PLAN.md Task 2, deleted by 21-01-PLAN.md Task 1) — a real,
+        # tracked doc-staleness gap, left in place because companion/
+        # pages/__init__.py is outside this plan's own files_modified
+        # boundary (21-01-SUMMARY.md's Deviations section flags it for a
+        # follow-up plan). This is the ONLY exemption this scan grants,
+        # and only for this one file/token pair — a genuine
+        # reintroduction of any token in any OTHER file, or any OTHER
+        # token in this same file, still fails the check below.
+        _EXEMPT_PATH_TOKEN_PAIRS = frozenset({
+            (os.path.join("companion", "pages", "__init__.py"), _DISPLAY_MODE_SWITCH_TOKENS[0]),
+        })
 
-        _NAV_FOOTER_SWITCH_ACTIONS = ('action="/ui-lang"', 'action="/ui-theme"', 'action="/ui-mode"')
-
-        def _make_simple_mode_nav_hidden_check(route):
-            def _fn():
-                status, _headers, body = http_request(base + route, cookie=simple_cookie)
-                text = body.decode("utf-8", "replace")
-                if status != 200:
-                    return False, "GET %s under sp_ui_mode=simple returned %d" % (route, status)
-                if "Advanced" in text:
-                    return False, "GET %s under sp_ui_mode=simple still shows the Advanced nav group" % route
-                if 'href="/health"' in text:
-                    return False, "GET %s under sp_ui_mode=simple still links to /health" % route
-                if 'href="/device"' in text:
-                    return False, "GET %s under sp_ui_mode=simple still links to /device" % route
-                if layout.NAV_NOTIFICATION_CLASS in text:
-                    return False, "GET %s under sp_ui_mode=simple still shows the nav status dot" % route
-                for action in _NAV_FOOTER_SWITCH_ACTIONS:
-                    if action not in text:
-                        return False, "GET %s under sp_ui_mode=simple is missing the %s nav-footer switch" % (route, action)
-                return True, ""
-            return _fn
-
-        for _simple_route in ("/", "/display", "/flights", "/airlines"):
-            check(
-                "GET %s under sp_ui_mode=simple hides the Advanced nav group, the /health and "
-                "/device links, the nav status dot, and still carries the three nav-footer switches (D-30)"
-                % _simple_route,
-                _make_simple_mode_nav_hidden_check(_simple_route))
-
-        def _home_hides_health_link_in_simple_mode():
-            status, _headers, body = http_request(base + "/", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET / under sp_ui_mode=simple returned %d" % status
-            if "See details on Health" in text:
-                return False, "GET / under sp_ui_mode=simple still shows the Health link"
+        def _no_module_or_static_script_in_companion_reintroduces_the_display_mode_switch():
+            """D-17 pins the removal of the simple/full display-mode
+            switch across six modules (prefs.py, auth.py, app.py,
+            layout.py, three page modules) — a partial reintroduction
+            of any one of the tokens above in any of them would
+            otherwise be invisible until a much later, unrelated bug
+            report. Scans every *.py file under companion/ (excluding
+            this package's own test_*.py harness files and __pycache__
+            — this check's own literal token list would otherwise match
+            itself and every other harness that documents the removal
+            in a comment) plus every companion/static/*.js file.
+            """
+            companion_dir = HERE
+            offenders = []
+            for root, dirs, files in os.walk(companion_dir):
+                dirs[:] = [d for d in dirs if d != "__pycache__"]
+                for name in files:
+                    if name.startswith("test_") and name.endswith(".py"):
+                        continue
+                    if not (name.endswith(".py") or name.endswith(".js")):
+                        continue
+                    path = os.path.join(root, name)
+                    rel_path = os.path.relpath(path, REPO_ROOT)
+                    with open(path, "r", encoding="utf-8") as fh:
+                        source = fh.read()
+                    for token in _DISPLAY_MODE_SWITCH_TOKENS:
+                        if token in source and (rel_path, token) not in _EXEMPT_PATH_TOKEN_PAIRS:
+                            offenders.append("%s: %r" % (rel_path, token))
+            if offenders:
+                return False, (
+                    "expected zero display-mode-switch tokens anywhere under companion/ "
+                    "(excluding test_*.py harnesses and the one documented pre-existing "
+                    "companion/pages/__init__.py docstring exemption), found: %r" % (offenders,))
             return True, ""
-
         check(
-            "Home hides the \"See details on Health\" link under sp_ui_mode=simple (D-30)",
-            _home_hides_health_link_in_simple_mode)
+            "no *.py module or *.js static script anywhere under companion/ (test_*.py harnesses "
+            "excluded) reintroduces any part of the deleted simple/full display-mode switch "
+            "(D-17) — six modules' worth of removal, pinned by one mechanical scan",
+            _no_module_or_static_script_in_companion_reintroduces_the_display_mode_switch)
 
-        def _airlines_hides_change_pictures_button_in_simple_mode():
-            status, _headers, body = http_request(base + "/airlines", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET /airlines under sp_ui_mode=simple returned %d" % status
-            if "Change pictures" in text:
-                return False, "GET /airlines under sp_ui_mode=simple still shows the \"Change pictures\" button"
-            return True, ""
-
-        check(
-            "Airlines hides the \"Change pictures\" button under sp_ui_mode=simple (D-30/D-36)",
-            _airlines_hides_change_pictures_button_in_simple_mode)
-
-        def _display_disclosures_collapse_to_one_sentence_in_simple_mode():
-            status, _headers, body = http_request(base + "/display", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET /display under sp_ui_mode=simple returned %d" % status
-            if "<summary>How it works</summary>" in text:
-                return False, "the Calendar card's disclosure is still a <details> in simple mode"
-            if "<summary>How rules combine</summary>" in text:
-                return False, "the Flight-colours disclosure is still a <details> in simple mode"
-            if "It only colours a flight already on screen." not in text:
-                return False, "the Calendar card's own one-sentence simple-mode copy is missing"
-            if "The most specific match wins." not in text:
-                return False, "the Flight-colours section's own one-sentence simple-mode copy is missing"
-            return True, ""
-
-        check(
-            "Display collapses both \"How it works\"/\"How rules combine\" disclosures to one "
-            "plain sentence under sp_ui_mode=simple (D-30)",
-            _display_disclosures_collapse_to_one_sentence_in_simple_mode)
-
-        def _display_still_carries_all_six_everyday_groups_in_simple_mode():
-            status, _headers, body = http_request(base + "/display", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET /display under sp_ui_mode=simple returned %d" % status
-            needles = (
-                'data-dirty-section="Theme"', 'data-dirty-section="Calendar"',
-                'data-dirty-section="Runway"', 'data-dirty-section="Screen on / off"',
-                'data-dirty-section="Quiet hours"', "Flight colours")
-            missing = [n for n in needles if n not in text]
-            if missing:
-                return False, "GET /display under sp_ui_mode=simple is missing group(s): %r" % (missing,)
-            return True, ""
-
-        check(
-            "Display still renders all six everyday groups under sp_ui_mode=simple (D-31)",
-            _display_still_carries_all_six_everyday_groups_in_simple_mode)
-
-        def _health_and_device_still_reachable_by_url_in_simple_mode():
-            for route in ("/health", "/device"):
-                status, _headers, _body = http_request(base + route, cookie=simple_cookie)
-                if status != 200:
-                    return False, (
-                        "GET %s under sp_ui_mode=simple returned %d, expected 200 - simple "
-                        "mode is presentation only, never access control (D-30)" % (route, status))
-            return True, ""
-
-        check(
-            "GET /health and GET /device still return 200 for a signed-in session under "
-            "sp_ui_mode=simple (D-30: presentation, not access control)",
-            _health_and_device_still_reachable_by_url_in_simple_mode)
-
-        def _flights_and_airlines_keep_their_full_content_in_simple_mode():
-            status, _headers, body = http_request(base + "/flights", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200 or "Recent flights table, scrollable" not in text:
-                return False, "GET /flights under sp_ui_mode=simple lost its own table (D-31)"
-            status, _headers, body = http_request(base + "/airlines", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200 or "Illustration reference for every airline" not in text:
-                return False, "GET /airlines under sp_ui_mode=simple lost its own gallery (D-31)"
-            return True, ""
-
-        check(
-            "Flights and Airlines keep their full content under sp_ui_mode=simple (D-31)",
-            _flights_and_airlines_keep_their_full_content_in_simple_mode)
-
-        def _simple_mode_survives_three_sequential_requests():
-            for route in ("/", "/display", "/flights"):
-                status, _headers, body = http_request(base + route, cookie=simple_cookie)
-                text = body.decode("utf-8", "replace")
-                if status != 200:
-                    return False, "GET %s under sp_ui_mode=simple returned %d" % (route, status)
-                if "Advanced" in text:
-                    return False, (
-                        "GET %s under sp_ui_mode=simple showed the Advanced nav group after a "
-                        "prior request in the same cookie session - the mode did not survive "
-                        "navigation" % route)
-            return True, ""
-
-        check(
-            "sp_ui_mode=simple survives navigation across three sequential requests",
-            _simple_mode_survives_three_sequential_requests)
-
-        # --- The full-mode mirror: everything D-30 hides comes back ---------
-
-        def _make_full_mode_nav_shown_check(route):
-            def _fn():
-                status, _headers, body = http_request(base + route, cookie=full_cookie)
-                text = body.decode("utf-8", "replace")
-                if status != 200:
-                    return False, "GET %s under sp_ui_mode=full returned %d" % (route, status)
-                if "Advanced" not in text:
-                    return False, "GET %s under sp_ui_mode=full is missing the Advanced nav group" % route
-                if 'href="/health"' not in text:
-                    return False, "GET %s under sp_ui_mode=full is missing the /health nav link" % route
-                if 'href="/device"' not in text:
-                    return False, "GET %s under sp_ui_mode=full is missing the /device nav link" % route
-                for action in _NAV_FOOTER_SWITCH_ACTIONS:
-                    if action not in text:
-                        return False, "GET %s under sp_ui_mode=full is missing the %s nav-footer switch" % (route, action)
-                return True, ""
-            return _fn
-
-        for _full_route in ("/", "/display"):
-            check(
-                "GET %s under sp_ui_mode=full shows the Advanced nav group, the /health and "
-                "/device links, and still carries the three nav-footer switches"
-                % _full_route,
-                _make_full_mode_nav_shown_check(_full_route))
-
-        def _home_shows_health_link_in_full_mode():
-            status, _headers, body = http_request(base + "/", cookie=full_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET / under sp_ui_mode=full returned %d" % status
-            if "See details on Health" not in text:
-                return False, "GET / under sp_ui_mode=full is missing the Health link"
-            return True, ""
-
-        check(
-            "Home shows the \"See details on Health\" link under sp_ui_mode=full",
-            _home_shows_health_link_in_full_mode)
-
-        def _airlines_shows_change_pictures_button_in_full_mode():
-            status, _headers, body = http_request(base + "/airlines", cookie=full_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET /airlines under sp_ui_mode=full returned %d" % status
-            if "Change pictures" not in text:
-                return False, "GET /airlines under sp_ui_mode=full is missing the \"Change pictures\" button"
-            return True, ""
-
-        check(
-            "Airlines shows the \"Change pictures\" button under sp_ui_mode=full",
-            _airlines_shows_change_pictures_button_in_full_mode)
-
-        def _display_disclosures_are_full_details_in_full_mode():
-            status, _headers, body = http_request(base + "/display", cookie=full_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET /display under sp_ui_mode=full returned %d" % status
-            if "<summary>How it works</summary>" not in text:
-                return False, "the Calendar card's disclosure is not a <details> under sp_ui_mode=full"
-            if "<summary>How rules combine</summary>" not in text:
-                return False, "the Flight-colours disclosure is not a <details> under sp_ui_mode=full"
-            return True, ""
-
-        check(
-            "Display shows both disclosures as full <details> under sp_ui_mode=full",
-            _display_disclosures_are_full_details_in_full_mode)
+        # D-17 (21-01-PLAN.md Task 1): the former Section 5 block
+        # (20-12-PLAN.md Task 2, D-30/D-31) exercised the display-mode
+        # switch's on/off states over real HTTP end to end, keyed off a
+        # per-browser cookie for that now-deleted preference. The
+        # mechanism it tested no longer exists — every check in that
+        # block (both nav-visibility factories and their loop-generated
+        # calls, the per-page hide/show pairs for Home's Health link,
+        # Airlines' "Change pictures" toggle and Display's two
+        # disclosures, and the cross-request persistence check) is
+        # deleted in full. The behaviour the "on" side of each pair
+        # proved is now the ONLY behaviour, and is covered by this
+        # plan's own new checks in test_view_pages.py (Home's health
+        # link, Airlines' "Change pictures" toggle) and test_config_
+        # page.py (Display's two full <details> disclosures).
 
     finally:
         harness.stop()

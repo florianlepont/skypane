@@ -1018,3 +1018,20 @@ Plans:
 Plans:
 
 - [x] TBD (run /gsd-plan-phase 20 to break down) (completed 2026-09-12)
+
+### Phase 21: Companion feedback round 3: frame controls up front, Home with three tiles, one Frame colours view, calendar tile, flights table, artwork upload restored
+
+**Goal:** Act on the developer's third round of feedback after phase 20 — put the Screen on/off and Quiet hours switches and the next update time in a "Frame" strip at the top of Home and Display with a state-only reminder in the nav, rebuild Home as strip + the three phase-19 tiles + picture and recent flights side by side, merge the four theme chip grids into one "Frame colours" view (preview left, four-row assignment list right), put the calendar status and feed URL in one tile with a quiet replace link and a small grey disconnect button, make the Flights table fit 1280 px without horizontal scroll, remove the simple/full mode and the Health pause button, and restore the artwork upload in the Airlines resolve flow — see 21-PRD.md D-01..D-20.
+**Requirements**: CFG-19, CFG-20, CFG-21, CFG-22, CFG-23, CFG-24
+**Depends on:** Phase 20
+**Plans:** 8/8 plans complete — verified 2026-09-12 (21-VERIFICATION.md 10/10, 21-REVIEW.md resolved, 21-HUMAN-UAT.md 8 browser-only items pending)
+
+Plans:
+- [x] 21-01: Simple mode removed — prefs, cookie, route, nav switch, every gate (wave 1)
+- [x] 21-02: Health "Pause updates" button and freshness.js pause branch removed (wave 2)
+- [x] 21-03: Compact Flights table, detail row, flight-rows.js (wave 2)
+- [x] 21-04: Frame strip, nav state reminder, Home rebuilt (wave 3)
+- [x] 21-05: One "Frame colours" view and the empty-string clear signal (wave 4)
+- [x] 21-06: Artwork upload restored in the resolve flow (wave 4)
+- [x] 21-07: Calendar in one tile — masked URL, replace link, small grey Disconnect (wave 5)
+- [x] 21-08: Closing — design-system skill, FR/EN sweep, suite + ruff gate, validation map (wave 6)

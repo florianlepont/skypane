@@ -334,14 +334,9 @@ REFRESH_PILL_TEXT = "Updating…"
 # from a fresh fetch — never a client-side clock tick.
 FRESHNESS_PREFIX_TEXT = "Updated "
 
-# 19-09-PLAN.md (D-02): the Pause/Resume control's two labels, emitted
-# as data-pause-text/data-resume-text attributes on the button itself
-# rather than hardcoded in companion/static/freshness.js — the same
-# "Python owns the copy, the static script only reads attributes"
-# convention companion/static/poll-cooldown.js already established for
-# its own countdown template text.
-REFRESH_PAUSE_TEXT = "Pause updates"
-REFRESH_RESUME_TEXT = "Resume updates"
+# 21-02-PLAN.md (D-18): the Pause/Resume control that used to live here
+# is deleted — the freshness loop in companion/static/freshness.js now
+# always runs, unconditionally, with no client-side pause state to label.
 
 # 19-09-PLAN.md (D-02): the single, greppable definition of every DOM
 # region companion/static/freshness.js swaps wholesale, replacing each
@@ -855,21 +850,17 @@ _SPARKLINE_DENSE_POINT_THRESHOLD = _sparkline_dense_threshold(_SPARKLINE_NARROWE
 # human-verification list.
 _SPARKLINE_DENSE_HIT_RADIUS_PX = 4
 
-# 260902-l0b: a fixed month-abbreviation table, deliberately NOT
-# `datetime.strftime("%b")` — `%b` is locale-dependent: a server
-# process with any other locale active would silently render a
-# French/German/etc. abbreviation here. A fixed table has no such
-# failure mode. This comment used to add "this app's own UI text is
-# English throughout" — that predates D-01 (20-01-PLAN.md) and no
-# longer describes this app; it is left English-only here as a
-# deliberate, narrow scope boundary of 20-03-PLAN.md Task 2, which
-# names only `layout.local_clock_text()`/`layout.relative_age_text()`
-# for D-07's language-aware date text, not this chart's own private
-# axis-label helper.
-_MONTH_ABBR = (
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-)
+# Phase 21 polish: the hover/tap readout's own text, as constants so the
+# French catalogue (companion/i18n_fr/health.py) carries them.
+BATTERY_AVERAGE_WHEN_ONE_TEMPLATE = "%s — daily average (%d reading)"
+BATTERY_AVERAGE_WHEN_MANY_TEMPLATE = "%s — daily average (%d readings)"
+BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = "%s — daily average"
+
+# Phase 21 polish: the chart's month abbreviation now comes from
+# layout.month_abbr() — the same fixed, locale-independent tables
+# local_clock_text() uses (English or French by the request's
+# language), replacing this module's former private English-only table
+# (260902-l0b) that 20-03-PLAN.md Task 2 had left out of D-07's scope.
 
 
 def _axis_clock_label(ts):
@@ -908,7 +899,7 @@ def _axis_day_label(ts):
     parsed = layout.parse_iso(ts)
     if parsed is None:
         return ts or ""
-    return "%d %s" % (parsed.day, _MONTH_ABBR[parsed.month - 1])
+    return "%d %s" % (parsed.day, layout.month_abbr(parsed.month))
 
 
 def _battery_reading_parts(mv, ts, now):
@@ -997,10 +988,11 @@ def _daily_reading_parts(mv, ts, reading_count):
     value = "%d mV" % mv
     day_label = _axis_day_label(ts)
     if isinstance(reading_count, int) and not isinstance(reading_count, bool) and reading_count > 0:
-        noun = "reading" if reading_count == 1 else "readings"
-        when = "%s — daily average (%d %s)" % (day_label, reading_count, noun)
+        template = (BATTERY_AVERAGE_WHEN_ONE_TEMPLATE if reading_count == 1
+                    else BATTERY_AVERAGE_WHEN_MANY_TEMPLATE)
+        when = i18n.t(template) % (day_label, reading_count)
     else:
-        when = "%s — daily average" % day_label
+        when = i18n.t(BATTERY_AVERAGE_WHEN_BARE_TEMPLATE) % day_label
     return value, when
 
 
@@ -2906,34 +2898,20 @@ def render(ctx):
     clock_html = (
         '<span class="mono" data-refresh-clock title="%s">%s</span>'
         % (escape_html(now), escape_html(_clock_text)))
-    # 19-09-PLAN.md (D-02, A-20): the visible Pause/Resume control.
-    # `data-pause-text`/`data-resume-text` carry both labels so
-    # freshness.js never hardcodes copy — it only ever writes back a
-    # value this module already escaped. `aria-pressed` reflects
-    # "paused", not "resumed": the button always starts in its
-    # not-pressed, not-paused state on a fresh server render, matching
-    # every real render (a render only ever happens while the page is
-    # not mid-pause on the client — see freshness.js's own header for
-    # why a swap never fires while paused). The button's own visible
-    # text doubles as its accessible name; no separate aria-label is
-    # needed.
-    pause_text = escape_html(i18n.t(REFRESH_PAUSE_TEXT))
-    resume_text = escape_html(i18n.t(REFRESH_RESUME_TEXT))
-    toggle_html = (
-        '<button type="button" data-refresh-toggle aria-pressed="false" '
-        'data-pause-text="%s" data-resume-text="%s">%s</button>'
-        % (pause_text, resume_text, pause_text))
-    # Quick task 260903-peo (UIR-18): the pill, the clock and (19-09-
-    # PLAN.md) the toggle button all join inside ONE block-level wrapper
-    # — load-bearing, not decorative. `.page-header` is a plain block
-    # box; 260902-ep7 (BUG 1) fixed a measured 28px title-to-purpose gap
-    # caused by a stranded inline-level child (the bare pill span)
-    # forcing an anonymous block box between the block <h1> and the
-    # block <p class="page-header__purpose">. The pill escapes that only
-    # because `.page-header .refresh-pill` is absolutely positioned; a
-    # second bare inline node next to it would recreate the exact same
-    # condition. Wrapping all three in one block-level <p> keeps
-    # `.page-header`'s children all block-level, and
+    # 21-02-PLAN.md (D-18): the Pause/Resume button that used to sit here
+    # is deleted outright — no replacement control, no placeholder. The
+    # freshness line is now just the prefix, the clock and the pill.
+    #
+    # Quick task 260903-peo (UIR-18): the pill and the clock still join
+    # inside ONE block-level wrapper — load-bearing, not decorative.
+    # `.page-header` is a plain block box; 260902-ep7 (BUG 1) fixed a
+    # measured 28px title-to-purpose gap caused by a stranded inline-level
+    # child (the bare pill span) forcing an anonymous block box between
+    # the block <h1> and the block <p class="page-header__purpose">. The
+    # pill escapes that only because `.page-header .refresh-pill` is
+    # absolutely positioned; a second bare inline node next to it would
+    # recreate the exact same condition. Wrapping both in one block-level
+    # <p> keeps `.page-header`'s children all block-level, and
     # `.page-header .refresh-pill` — a descendant selector — still
     # matches straight through the wrapper, so the pill's `top: 8px;
     # right: 0` offsets (anchored to `.page-header`, the nearest
@@ -2945,8 +2923,8 @@ def render(ctx):
     # honest for exactly as long as it takes the next successful swap to
     # replace it, never longer.
     freshness_html = (
-        '<p class="page-header__freshness text-label">%s%s%s%s</p>'
-        % (escape_html(i18n.t(FRESHNESS_PREFIX_TEXT)), clock_html, pill_html, toggle_html))
+        '<p class="page-header__freshness text-label">%s%s%s</p>'
+        % (escape_html(i18n.t(FRESHNESS_PREFIX_TEXT)), clock_html, pill_html))
 
     # §5.2 (D-10): two id-anchored sections. Screen holds the
     # Device-freshness tile wrapped in its own single-tile dashboard-grid

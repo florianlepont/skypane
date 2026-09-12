@@ -28,6 +28,11 @@ key across sibling modules, see companion/i18n_fr/__init__.py):
 - "Departing" / "Arriving" — companion/i18n_fr/home.py already owns
   these exact keys (history_page._CONFIRMED_STATE_LABELS' own two
   values are byte-identical to home_page's direction words).
+- "Flight" — companion/i18n_fr/rules.py already owns this exact key
+  (colour_rules.RULE_KIND_CALLSIGN's own display label, "Vol") —
+  21-03-PLAN.md Task 1 (D-15)'s new Flight-column header is the
+  identical English source string, so it reuses that entry rather than
+  redefining it here.
 
 Copy follows D-09 (20-CONTEXT.md): sentence case, the typographic
 apostrophe (U+2019, never a straight quote), and a non-breaking space
@@ -47,7 +52,20 @@ CATALOG = {
         "dans une minute.",
 
     # --- Table/column headers and the mobile card's dt labels -----------
-    "Type": "Modèle",
+    # 21-03-PLAN.md Task 1 (D-15): "Type" (formerly "Modèle") is
+    # deleted — the aircraft-type word is no longer a standalone header;
+    # it now lives inside the Flight column's data-only "{airline} ·
+    # {aircraft type}" secondary line, which is never translated (the
+    # type/airline text is data, not a UI label — 21-UI-SPEC.md §F).
+    "When": "Quand",
+    # 21-03-PLAN.md Task 1 (D-15): the visually-hidden toggle-column
+    # header naming the Task 2 row-toggle button's column.
+    "Details": "Détails",
+    # 21-03-PLAN.md Task 2 (D-15): the row-toggle button's own two
+    # states, read by companion/static/flight-rows.js from the
+    # data-more-text/data-less-text attributes this module renders.
+    "More": "Plus",
+    "Less": "Moins",
     "Route": "Trajet",
     "State": "Sens",
     "Hex": "Code hex",
@@ -102,4 +120,5 @@ CATALOG = {
     # --- The unresolved-airline link to Health (D-21) --------------------
     "View unresolved prefixes": "Voir les préfixes non résolus",
     "Airline unknown": "Compagnie inconnue",
+    "Route unavailable": "Trajet indisponible",
 }

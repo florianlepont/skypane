@@ -75,6 +75,10 @@ from server.plane import render as panel_render  # noqa: E402
 # importing server.poll_loop) - used solely to seed a real unresolved-
 # prefix registry for the gap-strip checks below.
 import server.poll_loop as poll_loop  # noqa: E402
+# 21-06-PLAN.md Task 1 (D-19): same crossing point, used solely to seed
+# a real Step-B manual-resolution entry (name saved, no artwork yet)
+# for the upload-zone-unconditional checks below.
+from server.plane import manual_resolutions  # noqa: E402
 
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -355,6 +359,85 @@ EXPECTED_CHECK_COUNT = 107  # Polish fix 5 (Registry labels shown in
 # "Piste 3 (07/25)" — with no English label leaking in). 106 + 1 = 107,
 # recomputed directly against the real on-disk check(...) call count
 # at execution time (107/107 pass), not trusted from arithmetic alone.
+# 21-01-PLAN.md Task 2 (D-17): -2. The two airlines toggle checks that
+# exercised its now-deleted display-mode gate are deleted outright
+# (the toggle's gate no longer exists; existing default/edit_mode=True
+# coverage is unaffected). The Home health-link check is rewritten in
+# place to assert the link always renders (net 0 for that one).
+# 107 - 2 = 105, recomputed directly against the
+# real on-disk check(...) call count at execution time (105/105 pass),
+# not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 105
+
+# 21-03-PLAN.md Task 1 (D-15): +3 net. Several pre-existing desktop-row
+# checks were retargeted in place (no count change) to the new
+# five-column/two-line-cell shape; three genuinely new checks were
+# added (status_dot()'s visually_hide_label keyword default, the
+# dot-only Corroboration cell, the When/Flight one-primary/one-
+# secondary shape). 105 + 3 = 108, recomputed directly against the real
+# on-disk check(...) call count at execution time (108/108 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 108
+
+# 21-03-PLAN.md Task 2 (D-15/R-12): +3 net. Three genuinely new checks
+# were added (the detail-row/summary-row pairing by aria-controls/id
+# with no hidden/inline-style and aria-expanded="false", the hex/ISO/
+# runway living in the detail row and not the summary row, no inline
+# <script>/on*= handler anywhere on the page); one pre-existing check
+# (the newest-first row count) and one (the one-line-cell contract) were
+# retargeted in place (no count change) for the new sibling detail row.
+# 108 + 3 = 111, recomputed directly against the real on-disk check(...)
+# call count at execution time (111/111 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 111
+
+# 21-03-PLAN.md Task 3 (D-15): +2. The static half of the 880px
+# width-budget guarantee a Python harness can actually assert: the
+# table.data-table--flights padding rule uses var(--space-sm) on both
+# axes, and the rendered <thead> carries exactly six <th> cells in
+# both en and fr. 111 + 2 = 113, recomputed directly against the real
+# on-disk check(...) call count at execution time (113/113 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 113
+# 21-04-PLAN.md Task 3 (D-04/D-05/R-06): net 0 — four checks retargeted
+# in place at the rebuilt Home (the document-order check now asserts
+# header -> .frame-strip -> .home-status-grid -> .home-picture-row with
+# .preview-frame before the recent-flights section; the quick-action
+# check now asserts quick-action markup exists exactly once, inside
+# the strip, with exactly three stat-tile elements and the Frame
+# verdict exactly once; the headline check now calls
+# layout.frame_strip_html() instead of the deleted
+# home_page._status_card_html(); the Health-link check now calls
+# home_page._status_tiles_html()), plus one new assertion folded into
+# the already-seeded-state check (.preview-frame before a real
+# .recent-flight row). No check added or removed. 113 + 0 = 113,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (113/113 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 113
+# 21-06-PLAN.md Task 1 (D-19): +1 - a new check that a default
+# (edit_mode absent) render of a Step-B entry (name saved, no artwork
+# yet) contains exactly one upload zone, zero delete forms and zero
+# replace forms. 113 + 1 = 114, recomputed directly against the real
+# on-disk check(...) call count at execution time (114/114 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 114
+# 21-06-PLAN.md Task 2 (D-19): net 0 — three checks retargeted in
+# place, no check added or removed. _airlines_default_render_has_no_
+# edit_only_forms now also asserts exactly one upload zone present
+# (the lightbox's own copy is unconditional too) and switches its
+# replace/delete absence assertions to exact `class="..."` matching
+# (a bare substring would false-positive on lightbox__replace-hint/
+# -icon, which now render unconditionally as part of the upload
+# zone's own markup). _airlines_default_render_step_b_upload_zone_
+# unconditional now expects exactly two upload zones (fallback panel
+# + lightbox) instead of one, since both surfaces' guards are dropped
+# together. _airlines_edit_query_param_exact_one_membership_test drops
+# RESOLVE_UPLOAD_ZONE_CLASS from its edit-only tuple and instead
+# asserts it present across every query variant (the exact-"1"
+# membership test no longer governs it). 114 + 0 = 114, recomputed
+# directly against the real on-disk check(...) call count at
+# execution time (114/114 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 114
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -693,8 +776,13 @@ def main():
             ]
             _seed_runway_events(tmp, events)
             rendered = history_page.render(_history_ctx(tmp))
-            if rendered.count("<tr") != 4:  # 1 header row + 3 body rows
-                return False, "expected exactly 3 body rows, got %d <tr" % (rendered.count("<tr") - 1)
+            # 21-03-PLAN.md Task 2 (D-15): each summary row now carries a
+            # sibling .flight-detail-row <tr> - 1 header + 3 summary + 3
+            # detail = 7, not 1 header + 3 summary = 4.
+            if rendered.count("<tr") != 7:
+                return False, (
+                    "expected exactly 3 summary rows + 3 detail rows + 1 "
+                    "header row, got %d <tr" % rendered.count("<tr"))
             idx3 = rendered.find("FLT3")
             idx2 = rendered.find("FLT2")
             idx1 = rendered.find("FLT1")
@@ -877,8 +965,13 @@ def main():
             # keeps checking the same wrapper class is still present.
             if '<div class="data-table-wrap"' not in rendered:
                 return False, "expected the flight table to be wrapped in .data-table-wrap"
-            if '<table class="data-table">' not in rendered:
-                return False, "expected the .data-table itself to still be present"
+            # 21-03-PLAN.md Task 1 (D-15): the table now also carries the
+            # scoped data-table--flights modifier (the 8px, not 16px,
+            # cell-padding rule) - still a substring match, not an
+            # exact-tag match, so a future class addition doesn't retrip
+            # this check either.
+            if 'class="data-table data-table--flights"' not in rendered:
+                return False, "expected the .data-table--flights modifier to still be present"
             if "dot--" not in rendered:
                 return False, "expected the Corroboration cell's status_dot() dot class to survive the wrap"
             return True, ""
@@ -889,11 +982,12 @@ def main():
         _history_table_wrapped_for_horizontal_scroll_dot_survives)
 
     def _six_columns_named_and_ordered():
-        # A-36/D-19: proves the 7->6 column reduction shipped (the
-        # Runway column dropped) - the header labels come from
+        # 21-03-PLAN.md Task 1 (D-15): proves the 6->5-data-column
+        # compaction shipped, plus the sixth, visually-hidden "Details"
+        # toggle-column header - the five data header labels come from
         # history_page._HEADERS itself (the contract), not a re-typed
-        # literal list. Was _seven_columns_named_and_ordered() /
-        # 06.6.1-02 (D-02)'s own 9->7 pin before this task's drop.
+        # literal list. Was _six_columns_named_and_ordered() /
+        # A-36/D-19's own 7->6 pin before this task's drop.
         tmp = _mkstate("h-6col")
         try:
             _seed_runway_events(tmp, [
@@ -902,24 +996,33 @@ def main():
             rendered = history_page.render(_history_ctx(tmp))
             th_count = len(re.findall(r"<th>", rendered))
             if th_count != 6:
-                return False, "expected exactly 6 <th> cells, got %d" % th_count
+                return False, "expected exactly 6 <th> cells (5 data + 1 toggle), got %d" % th_count
             positions = []
             for header in history_page._HEADERS:
                 idx = rendered.find("<th>%s</th>" % header)
                 if idx == -1:
                     return False, "expected header %r to appear as a <th>" % header
                 positions.append(idx)
+            details_th = '<th><span class="visually-hidden">Details</span></th>'
+            details_idx = rendered.find(details_th)
+            if details_idx == -1:
+                return False, "expected the sixth <th> to be the visually-hidden Details toggle header"
+            positions.append(details_idx)
             if positions != sorted(positions):
-                return False, "expected the 6 headers in history_page._HEADERS' own left-to-right order"
+                return False, "expected the 6 headers (5 data + Details) in left-to-right order"
             if "<th>Hex</th>" in rendered or "<th>Airline</th>" in rendered:
                 return False, "did not expect standalone Hex/Airline header cells after the merge"
             if "<th>Runway</th>" in rendered:
                 return False, "did not expect a standalone Runway header cell after A-36/D-19's drop"
+            if "<th>Type</th>" in rendered or "<th>Callsign</th>" in rendered or "<th>Timestamp</th>" in rendered:
+                return False, "did not expect the retired Type/Callsign/Timestamp header cells"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "History renders exactly the 6 headers in history_page._HEADERS, in order, with no standalone Hex/Airline/Runway column (A-36/D-19)",
+        "History renders exactly the 5 data headers in history_page._HEADERS plus a sixth, "
+        "visually-hidden 'Details' toggle-column header, all in order, with no standalone "
+        "Hex/Airline/Runway/Type/Callsign/Timestamp column (21-03-PLAN.md Task 1, D-15)",
         _six_columns_named_and_ordered)
 
     def _runway_survives_in_row_title_and_mobile_details():
@@ -993,11 +1096,13 @@ def main():
         "aria-label naming what it scrolls (A-36/D-19)",
         _scroller_focusable_and_named)
 
-    def _desktop_timestamp_cell_clock_only_no_relative_age():
-        # A-36/D-19: the desktop Timestamp cell must drop the relative-
-        # age suffix layout.concise_timestamp_html() adds (that suffix
-        # is what made the column too wide) while still carrying the
-        # full ISO string in a title attribute.
+    def _desktop_when_cell_clock_primary_relative_age_secondary():
+        # 21-03-PLAN.md Task 1 (D-15): the desktop When cell now REINTRODUCES
+        # a relative-age line, deliberately - but as a second, STACKED
+        # cell-secondary line (never an inline suffix, Pitfall 4), and the
+        # full ISO string is no longer carried in a title attribute on
+        # this cell at all (it moves into the Task 2 detail row's own
+        # "Full timestamp" dt/dd pair instead).
         tmp = _mkstate("h-clock-only")
         try:
             raw_ts = "2026-08-27T10:00:00+00:00"
@@ -1013,21 +1118,33 @@ def main():
             if tr_match is None:
                 return False, "could not locate row block for data-filter-group=0"
             tr_block = tr_match.group(1)
-            if "title=\"%s\"" % layout.escape_html(raw_ts) not in tr_block:
-                return False, "expected the full ISO timestamp in a title attribute"
-            if " ago" in tr_block:
-                return False, "did not expect a relative-age suffix (\" ago\") in the desktop row"
+            if "title=\"%s\"" % layout.escape_html(raw_ts) in tr_block:
+                return False, "did not expect the full ISO timestamp in a title attribute any more"
+            if "5m ago" not in tr_block:
+                return False, "expected the When cell's relative-age secondary line ('5m ago')"
+            first_td_match = re.search(r"<td>(.*?)</td>", tr_block, re.S)
+            if first_td_match is None:
+                return False, "expected a first <td> (the When cell)"
+            when_cell = first_td_match.group(1)
+            if '<span class="cell-primary">12:00</span>' not in when_cell:
+                return False, "expected the When cell's primary slot to carry the local clock text"
+            if '<span class="cell-secondary">5m ago</span>' not in when_cell:
+                return False, "expected the When cell's secondary slot to carry the relative age"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the desktop Timestamp cell shows a local clock with no relative-age suffix, and the "
-        "full ISO timestamp still lives in a title attribute (A-36/D-19)",
-        _desktop_timestamp_cell_clock_only_no_relative_age)
+        "the desktop When cell shows a local clock primary line plus a STACKED relative-age "
+        "secondary line, with no title attribute carrying the full ISO string any more (21-03-"
+        "PLAN.md Task 1, D-15)",
+        _desktop_when_cell_clock_primary_relative_age_secondary)
 
-    def _merged_values_survive_in_same_cell():
-        # The merge removed *columns*, not *data* - and both halves must
-        # land inside the same <td>, which a count-only check cannot prove.
+    def _merged_flight_cell_carries_callsign_airline_and_type():
+        # 21-03-PLAN.md Task 1 (D-15): the Flight column's merge changed
+        # shape - callsign (primary) plus "{airline} · {aircraft type}"
+        # (secondary), and the hex value is no longer shown anywhere in
+        # the desktop table's visible text (it moves into the Task 2
+        # detail row instead, still to come in this same plan).
         tmp = _mkstate("h-merge-data")
         try:
             _seed_runway_events(tmp, [
@@ -1040,7 +1157,7 @@ def main():
             rendered = history_page.render(_history_ctx(tmp))
             expected_type_label = panel_render._TYPE_DISPLAY_LABELS.get("A320", "A320")
             expected_airline_label = panel_render.display_airline_name("AFR")
-            for value in ("AFR123", "39d301", expected_type_label, expected_airline_label):
+            for value in ("AFR123", expected_type_label, expected_airline_label):
                 if value not in rendered:
                     return False, "expected merged value %r to still appear somewhere" % value
             # Scope the same-<td> check to the desktop table's <tbody> -
@@ -1058,35 +1175,47 @@ def main():
             if idx == -1 or td_start == -1 or td_end == -1:
                 return False, "could not locate the callsign's enclosing <td>"
             cell = tbody[td_start:td_end]
-            if "39d301" not in cell:
-                return False, "expected the hex value inside the same <td> as the callsign"
+            if expected_airline_label not in cell or expected_type_label not in cell:
+                return False, "expected the airline/aircraft-type secondary line inside the same <td> as the callsign"
+            if "39d301" in cell:
+                return False, "did not expect the hex value visible inside the Flight cell"
+            # The hex still lives in the row's own data-filter-text
+            # attribute (list-filter.js's match key, unchanged) - only
+            # the VISIBLE Flight <td> content is asserted hex-free above.
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the callsign and hex merged values both appear, inside the same <td>",
-        _merged_values_survive_in_same_cell)
+        "the Flight cell's callsign and its airline/aircraft-type secondary line both appear "
+        "inside the same <td>, and the hex value is not visible in the desktop table (21-03-"
+        "PLAN.md Task 1, D-15)",
+        _merged_flight_cell_carries_callsign_airline_and_type)
 
     def _merged_cells_stay_one_line():
         # Row-height contract (Variant A guard, data-density.md's "What to
         # Avoid"): the merged cells must stay on one line - Variant A
         # ("Stacked cells") was rejected specifically because a taller row
         # works against fast scanning. A future two-line "improvement"
-        # must fail this check, not read as progress.
+        # must fail this check, not read as progress. Scoped to the
+        # SUMMARY row only (21-03-PLAN.md Task 2, D-15): the sibling
+        # .flight-detail-row legitimately carries a <dl>/<div> grid -
+        # that is a different <tr>, not the summary row's own <td>s, and
+        # this check must not conflate the two.
         tmp = _mkstate("h-oneline")
         try:
             _seed_runway_events(tmp, [
                 {"ts": "2026-08-27T10:00:00+00:00", "hex": "d7", "callsign": "LINE1"},
             ])
             rendered = history_page.render(_history_ctx(tmp))
-            tbody_match = re.search(r"<tbody>(.*)</tbody>", rendered, re.S)
-            if not tbody_match:
-                return False, "expected a <tbody> element in the rendered table"
-            tbody = tbody_match.group(1)
-            if "<br" in tbody:
-                return False, "did not expect a <br> inside the table body (one-line cell contract)"
-            if "<div" in tbody or "<p " in tbody:
-                return False, "did not expect a block-level element inside a <td> (one-line cell contract)"
+            summary_tr_match = re.search(
+                r'<tr class="row"[^>]*>(.*?)</tr>', rendered, re.S)
+            if not summary_tr_match:
+                return False, "expected a summary <tr> in the rendered table"
+            summary_tr = summary_tr_match.group(1)
+            if "<br" in summary_tr:
+                return False, "did not expect a <br> inside the summary row (one-line cell contract)"
+            if "<div" in summary_tr or "<p " in summary_tr:
+                return False, "did not expect a block-level element inside the summary row's <td>s (one-line cell contract)"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -1308,6 +1437,32 @@ def main():
         "(quick task 260902-w4t, UIR-04)",
         _status_dot_title_backward_compatible_and_escaped)
 
+    def _status_dot_visually_hide_label_defaults_false_byte_identical():
+        # 21-03-PLAN.md Task 1 (D-15): status_dot()'s new fourth keyword,
+        # visually_hide_label, must be fully backward-compatible - every
+        # pre-existing call site (which never passes it) gets a
+        # byte-identical return value, matching stat_tile()'s own
+        # keyword-with-default contract this parameter copies.
+        without_keyword = layout.status_dot("ok", "All good", "A tooltip")
+        explicit_false = layout.status_dot("ok", "All good", "A tooltip", visually_hide_label=False)
+        if explicit_false != without_keyword:
+            return False, "expected visually_hide_label=False to be byte-identical to omitting it"
+        if 'class="dot-label"' not in without_keyword:
+            return False, "expected the pre-existing call shape to keep its plain dot-label class"
+        hidden = layout.status_dot("ok", "All good", "A tooltip", visually_hide_label=True)
+        if 'class="dot-label visually-hidden"' not in hidden:
+            return False, "expected visually_hide_label=True to add the visually-hidden class"
+        if 'title="A tooltip"' not in hidden:
+            return False, "expected the title attribute to survive visually_hide_label=True unchanged"
+        if ">All good<" not in hidden:
+            return False, "expected the escaped label text to survive visually_hide_label=True unchanged"
+        return True, ""
+    check(
+        "layout.status_dot()'s visually_hide_label keyword defaults to False with a byte-"
+        "identical return value, and True adds the visually-hidden class to the label span "
+        "while leaving its text/title unchanged (21-03-PLAN.md Task 1, D-15)",
+        _status_dot_visually_hide_label_defaults_false_byte_identical)
+
     # Relocated ahead of its original first use (was defined further down,
     # in Section 1c) so this section's own new UIR-04 check below — the
     # first check in file order that needs it — can call it: Python
@@ -1358,6 +1513,76 @@ def main():
         "long form only in a title attribute, in both the desktop and mobile renderings "
         "(quick task 260902-w4t, UIR-04)",
         _corroboration_none_row_shows_short_label_with_tooltip)
+
+    def _desktop_corroboration_cell_dot_only_no_visible_word():
+        # 21-03-PLAN.md Task 1 (D-15): the desktop Corroboration cell's
+        # visible label is gone (status_dot(visually_hide_label=True)) -
+        # the dot alone remains visible; the word is still present for
+        # a screen reader, carried by the visually-hidden class, never
+        # deleted outright. The phone card's own Corroboration <dd> is
+        # unaffected (D-16) and may still show the word visibly.
+        tmp = _mkstate("h-corrob-dot-only")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "cdo01", "callsign": "CDOTONLY",
+                 "corroborated": "True"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for the corroboration-dot-only row"
+            if 'class="dot-label visually-hidden"' not in tr_block:
+                return False, "expected the desktop Corroboration cell's label to carry visually-hidden"
+            # The word itself is still IN the markup (a screen reader
+            # must still announce it) - only its CSS class changes to
+            # visually-hidden. Assert the accessible name survives,
+            # never that the text vanished from the document.
+            if ">Both agree<" not in tr_block:
+                return False, "expected the corroboration word to survive (in the accessibility tree) inside the desktop <tr>"
+            if 'class="dot-label visually-hidden"' in li_block:
+                return False, "did not expect the mobile card's own Corroboration <dd> to be hidden too"
+            if ">Both agree<" not in li_block:
+                return False, "expected the mobile card's Corroboration <dd> to still show the word (D-16)"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the desktop Corroboration cell renders the dot only, with the visible word hidden via "
+        "visually-hidden (not deleted); the mobile card's own Corroboration <dd> still shows the "
+        "word (21-03-PLAN.md Task 1, D-15/D-16)",
+        _desktop_corroboration_cell_dot_only_no_visible_word)
+
+    def _when_and_flight_cells_each_carry_one_primary_one_secondary():
+        # 21-03-PLAN.md Task 1 (D-15): both new two-line cells are built
+        # through the shared _merged_cell() pattern - exactly one
+        # cell-primary and one cell-secondary span each.
+        tmp = _mkstate("h-when-flight-merged")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "wf01", "callsign": "WHENFLT",
+                 "aircraft_type": "A320", "airline": "AFR"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            if tr_block is None:
+                return False, "could not locate row block for the When/Flight merged-cell row"
+            td_matches = re.findall(r"<td>(.*?)</td>", tr_block, re.S)
+            if len(td_matches) < 2:
+                return False, "expected at least 2 <td> cells (When, Flight)"
+            when_cell, flight_cell = td_matches[0], td_matches[1]
+            for name, cell in (("When", when_cell), ("Flight", flight_cell)):
+                if cell.count('class="cell-primary"') + cell.count('class="cell-primary mono"') != 1:
+                    return False, "expected exactly one cell-primary span in the %s cell" % name
+                if cell.count("cell-secondary") != 1:
+                    return False, "expected exactly one cell-secondary span in the %s cell" % name
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the desktop When and Flight cells each carry exactly one cell-primary span and one "
+        "cell-secondary span (21-03-PLAN.md Task 1, D-15)",
+        _when_and_flight_cells_each_carry_one_primary_one_secondary)
 
     def _data_table_wrap_scroll_edge_affordance_css():
         # quick task 260902-w4t (UIR-04, 3d): the CSS-only, pointer-inert
@@ -1535,11 +1760,12 @@ def main():
         "a real flight's data-filter-text attribute (lowercased escaped callsign+hex) appears on both the desktop <tr> and the mobile <li>",
         _filter_text_attribute_on_both_representations)
 
-    def _desktop_callsign_hex_cell_two_copy_buttons():
-        # D-23: the dedicated Callsign+Hex cell function carries exactly
-        # 2 copy buttons (callsign, hex), each immediately followed by
-        # its data-copy-feedback sibling (copy-button.js's exact
-        # contract).
+    def _desktop_flight_cell_carries_no_copy_buttons():
+        # 21-03-PLAN.md Task 1 (D-15): the retired _callsign_hex_cell()'s
+        # 2 copy buttons (callsign, hex) do not move onto the new Flight
+        # cell - they move into the Task 2 detail row instead (a later
+        # task in this same plan). At this point the desktop Flight <td>
+        # carries zero copy buttons.
         tmp = _mkstate("h-copy-desktop")
         try:
             _seed_runway_events(tmp, [
@@ -1556,22 +1782,174 @@ def main():
             if idx == -1 or td_start == -1 or td_end == -1:
                 return False, "could not locate the callsign's enclosing <td>"
             cell = tbody[td_start:td_end]
-            if cell.count("data-copy-value") != 2:
+            if cell.count("data-copy-value") != 0:
                 return False, (
-                    "expected exactly 2 copy buttons in the desktop "
-                    "Callsign+Hex cell, got %d" % cell.count("data-copy-value"))
-            feedback_pairs = len(re.findall(r"</button><span[^>]*data-copy-feedback", cell))
-            if feedback_pairs != 2:
-                return False, (
-                    "expected each copy button to be immediately "
-                    "followed by its data-copy-feedback sibling, found %d pairs"
-                    % feedback_pairs)
+                    "expected zero copy buttons in the desktop Flight cell, got %d"
+                    % cell.count("data-copy-value"))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the desktop Callsign+Hex cell contains exactly 2 copy buttons, each immediately followed by its data-copy-feedback sibling",
-        _desktop_callsign_hex_cell_two_copy_buttons)
+        "the desktop Flight cell contains zero copy buttons (21-03-PLAN.md Task 1, D-15 - they "
+        "move into the Task 2 detail row instead)",
+        _desktop_flight_cell_carries_no_copy_buttons)
+
+    def _detail_row_pairs_with_summary_row_by_aria_controls_and_id():
+        # 21-03-PLAN.md Task 2 (D-15/R-12): one detail <tr> per summary
+        # row, matched by aria-controls/id, neither carrying `hidden`
+        # nor an inline `style=` (the no-JS floor is a fully visible
+        # detail row); the toggle's aria-expanded starts "false".
+        tmp = _mkstate("h-detail-row-pairing")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "dr01", "callsign": "DETAIL1"},
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "dr02", "callsign": "DETAIL2"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            detail_row_count = rendered.count('class="flight-detail-row"')
+            if detail_row_count != 2:
+                return False, "expected exactly 2 detail rows (one per summary row), got %d" % detail_row_count
+            for index in (0, 1):
+                if ('aria-controls="flight-detail-%d"' % index) not in rendered:
+                    return False, "expected row %d's toggle to name flight-detail-%d via aria-controls" % (index, index)
+                if ('id="flight-detail-%d"' % index) not in rendered:
+                    return False, "expected a detail row with id=flight-detail-%d" % index
+            detail_tr_matches = re.findall(
+                r'<tr class="flight-detail-row"[^>]*>', rendered)
+            if len(detail_tr_matches) != 2:
+                return False, "expected exactly 2 <tr class=\"flight-detail-row\"> opening tags"
+            for tag in detail_tr_matches:
+                if "hidden" in tag:
+                    return False, "did not expect a detail row to carry the hidden attribute"
+                if "style=" in tag:
+                    return False, "did not expect a detail row to carry an inline style attribute"
+            if rendered.count('aria-expanded="false"') < 2:
+                return False, "expected both row-toggle buttons to start aria-expanded=\"false\""
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "each summary row gets exactly one sibling detail row, matched by aria-controls/id, "
+        "with no hidden attribute and no inline style (the no-JS floor), and every row-toggle "
+        "starts aria-expanded=\"false\" (21-03-PLAN.md Task 2, D-15/R-12)",
+        _detail_row_pairs_with_summary_row_by_aria_controls_and_id)
+
+    def _detail_row_carries_hex_iso_runway_not_in_summary_row():
+        # 21-03-PLAN.md Task 2 (D-15): the hex, the raw ISO timestamp
+        # and the runway appear inside the detail row and NOT in the
+        # summary row's own slice.
+        tmp = _mkstate("h-detail-row-content")
+        try:
+            raw_ts = "2026-08-27T10:00:00+00:00"
+            _seed_runway_events(tmp, [
+                {
+                    "ts": raw_ts, "hex": "3944F2", "callsign": "DETCONTENT",
+                    "tracked_runway": "3",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            summary_match = re.search(r'<tr class="row"[^>]*>(.*?)</tr>', rendered, re.S)
+            detail_match = re.search(
+                r'<tr class="flight-detail-row"[^>]*>(.*?)</tr>', rendered, re.S)
+            if summary_match is None or detail_match is None:
+                return False, "could not locate the summary/detail row pair"
+            summary_block = summary_match.group(1)
+            detail_block = detail_match.group(1)
+            runway_label = device_config.runway_label("3")
+            for value in ("3944F2", raw_ts, runway_label):
+                if value not in detail_block:
+                    return False, "expected %r inside the detail row" % (value,)
+                if value in summary_block:
+                    return False, "did not expect %r visible inside the summary row" % (value,)
+            if 'colspan="6"' not in detail_block and 'colspan="6"' not in rendered:
+                return False, "expected the detail row's <td> to span all 6 columns"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the hex, the raw ISO timestamp and the runway render inside the detail row and NOT in "
+        "the summary row's own slice (21-03-PLAN.md Task 2, D-15)",
+        _detail_row_carries_hex_iso_runway_not_in_summary_row)
+
+    def _flights_render_has_no_inline_script_or_handler_attribute():
+        # 21-03-PLAN.md Task 2 (D-15/R-12): the rendered page contains no
+        # inline <script> and no on*= handler attribute anywhere.
+        tmp = _mkstate("h-no-inline-script")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "ni01", "callsign": "NOINLINE"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", rendered):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            if re.search(r'\son[a-z]+="', rendered):
+                return False, "expected no on*= inline handler attribute"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a rendered Flights page contains no inline <script> and no on*= handler attribute "
+        "(21-03-PLAN.md Task 2, D-15/R-12)",
+        _flights_render_has_no_inline_script_or_handler_attribute)
+
+    def _flights_table_padding_rule_uses_space_sm_token_both_axes():
+        # 21-03-PLAN.md Task 3 (D-15): the static half of the 880px
+        # width-budget guarantee a Python harness can actually assert -
+        # style.css's table.data-table--flights padding rule uses
+        # var(--space-sm) on BOTH axes, never a literal px value (the
+        # UI-SPEC's own column-width arithmetic depends on this token,
+        # not a hardcoded number, staying in sync with --space-sm).
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        rule_match = re.search(
+            r"table\.data-table--flights td,\s*\ntable\.data-table--flights th\s*\{([^}]*)\}",
+            css, re.S)
+        if rule_match is None:
+            return False, "expected a table.data-table--flights td/th padding rule in style.css"
+        rule_body = rule_match.group(1)
+        if "padding: var(--space-sm) var(--space-sm);" not in rule_body:
+            return False, (
+                "expected the padding rule to use var(--space-sm) on both axes, not a literal "
+                "px value")
+        return True, ""
+    check(
+        "style.css's table.data-table--flights padding rule uses var(--space-sm) on both axes, "
+        "never a literal px value (21-03-PLAN.md Task 3, D-15)",
+        _flights_table_padding_rule_uses_space_sm_token_both_axes)
+
+    def _flights_thead_carries_exactly_six_cells_in_both_languages():
+        # 21-03-PLAN.md Task 3 (D-15): the other static half of the
+        # width-budget guarantee - the rendered table's <thead> carries
+        # exactly six <th> cells in both en and fr, the fact the width
+        # budget depends on (six columns at 8px horizontal padding each
+        # = 96px of padding inside the real 880px box).
+        import companion.prefs as _prefs
+        tmp = _mkstate("h-thead-six-both-languages")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "th01", "callsign": "THEADSIX"},
+            ])
+            rendered_en = history_page.render(_history_ctx(tmp))
+            thead_en = re.search(r"<thead>(.*?)</thead>", rendered_en, re.S)
+            if thead_en is None or len(re.findall(r"<th>", thead_en.group(1))) != 6:
+                return False, "expected exactly 6 <th> cells in the English <thead>"
+
+            _prefs.set_request_prefs(lang="fr")
+            try:
+                rendered_fr = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            thead_fr = re.search(r"<thead>(.*?)</thead>", rendered_fr, re.S)
+            if thead_fr is None or len(re.findall(r"<th>", thead_fr.group(1))) != 6:
+                return False, "expected exactly 6 <th> cells in the French <thead>"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered Flights table's <thead> carries exactly six <th> cells in both en and fr "
+        "(21-03-PLAN.md Task 3, D-15)",
+        _flights_thead_carries_exactly_six_cells_in_both_languages)
 
     def _mobile_details_three_copy_buttons():
         # D-23: the mobile card's details region carries all 3 copy
@@ -1705,12 +2083,15 @@ def main():
         _quick_260903_peo_desktop_copy_reveal_stylesheet_contract)
 
     def _quick_260903_peo_desktop_row_copy_buttons_and_eye_button_discriminator():
-        # UIR-17's cross-file guard: the [data-copy-value] discriminator
-        # the reveal rule above depends on cannot silently disappear. A
-        # real rendered desktop row still carries both copy buttons with
-        # their aria-labels and data-copy-feedback siblings intact, and
-        # the same row's View-panel/eye trigger carries
-        # data-view-panel-src and NEVER data-copy-value.
+        # UIR-17's original cross-file guard proved the desktop <tr>'s
+        # copy buttons carried the [data-copy-value] discriminator the
+        # reveal rule depends on. 21-03-PLAN.md Task 1 (D-15) moves
+        # those copy buttons off the summary <tr> entirely (they land in
+        # the Task 2 detail row instead, a later task in this same
+        # plan) - this check is retargeted to prove the summary <tr> now
+        # carries ZERO copy buttons, while the View-panel/eye trigger
+        # (which never carried data-copy-value to begin with) still
+        # renders unaffected.
         tmp = _mkstate("h-copy-reveal-discriminator")
         try:
             names = ["2026-08-27T10-00-00+00-00.png"]
@@ -1722,20 +2103,10 @@ def main():
             tr_block = _row_block(rendered, "tr", 0)
             if tr_block is None:
                 return False, "could not locate the seeded row's desktop <tr>"
-            if tr_block.count("data-copy-value") != 2:
+            if tr_block.count("data-copy-value") != 0:
                 return False, (
-                    "expected exactly 2 copy buttons (callsign, hex) in the "
-                    "desktop row, got %d" % tr_block.count("data-copy-value"))
-            if tr_block.count("data-copy-feedback") != 2:
-                return False, "expected each copy button's data-copy-feedback sibling to survive"
-            # A-37/D-20: the bare _COPY_*_LABEL constants are now %s
-            # templates - format each against this row's own callsign
-            # (history_page._row_copy_name()'s fallback order) rather
-            # than asserting the raw, un-formatted template string.
-            row_name = history_page._row_copy_name("REVEAL", "rev01")
-            for label in (history_page._COPY_CALLSIGN_LABEL, history_page._COPY_HEX_LABEL):
-                if layout.escape_html(label % row_name) not in tr_block:
-                    return False, "expected %r as an aria-label in the desktop row" % (label % row_name)
+                    "expected zero copy buttons in the desktop summary row, got %d"
+                    % tr_block.count("data-copy-value"))
             if "data-view-panel-src" not in tr_block:
                 return False, "expected the row's View-panel/eye trigger to still render"
             view_panel_start = tr_block.index("data-view-panel-src")
@@ -1744,15 +2115,15 @@ def main():
             if "data-copy-value" in view_panel_tag:
                 return False, (
                     "the View-panel/eye button must never carry data-copy-value "
-                    "— that is the sole discriminator separating it from the "
-                    "two copy buttons the desktop reveal rule targets")
+                    "— that is the sole discriminator separating it from any "
+                    "copy button the desktop reveal rule targets")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a real rendered desktop History row keeps both copy buttons (aria-labels, "
-        "data-copy-feedback siblings intact) and its View-panel/eye trigger never carries "
-        "data-copy-value — the discriminator the desktop reveal rule depends on "
+        "a real rendered desktop History summary row carries zero copy buttons (21-03-PLAN.md "
+        "Task 1, D-15) and its View-panel/eye trigger never carries data-copy-value — the "
+        "discriminator the desktop reveal rule depends on "
         "(quick task 260903-peo, UIR-17)",
         _quick_260903_peo_desktop_row_copy_buttons_and_eye_button_discriminator)
 
@@ -1788,7 +2159,11 @@ def main():
 
     def _each_copy_button_aria_label_names_its_own_row():
         # A-37/D-20: each row's copy buttons must name THAT row's own
-        # callsign, not merely differ from each other.
+        # callsign, not merely differ from each other. 21-03-PLAN.md
+        # Task 1 (D-15) moves the desktop copy buttons off the summary
+        # <tr> (they land in the Task 2 detail row instead, a later
+        # task in this same plan) - retargeted to the mobile <li>'s own
+        # copy buttons, which are unchanged (D-16).
         tmp = _mkstate("h-copy-own-row")
         try:
             _seed_runway_events(tmp, [
@@ -1800,12 +2175,12 @@ def main():
             # own ordering) - the later timestamp (OWNROW2) lands at
             # data-filter-group=0, the earlier one (OWNROW1) at 1.
             for index, callsign in ((0, "OWNROW2"), (1, "OWNROW1")):
-                tr_block = _row_block(rendered, "tr", index)
-                if tr_block is None:
-                    return False, "could not locate row block for data-filter-group=%d" % index
-                if callsign not in tr_block:
+                li_block = _row_block(rendered, "li", index)
+                if li_block is None:
+                    return False, "could not locate mobile row block for data-filter-group=%d" % index
+                if callsign not in li_block:
                     return False, "expected %r inside its own row's markup" % callsign
-                if ('aria-label="Copy callsign %s"' % callsign) not in tr_block:
+                if ('aria-label="Copy callsign %s"' % callsign) not in li_block:
                     return False, (
                         "expected row %d's callsign copy button to name its own "
                         "callsign %r" % (index, callsign))
@@ -1813,8 +2188,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "each row's callsign copy button carries an aria-label naming that row's own "
-        "callsign, not a shared/generic name (A-37/D-20)",
+        "each row's mobile-card callsign copy button carries an aria-label naming that row's "
+        "own callsign, not a shared/generic name (A-37/D-20, retargeted off the desktop row by "
+        "21-03-PLAN.md Task 1)",
         _each_copy_button_aria_label_names_its_own_row)
 
     def _copy_button_script_propagates_execcommand_success():
@@ -2902,18 +3278,85 @@ def main():
 
     def _airlines_default_render_has_no_edit_only_forms():
         rendered = airlines_page.render({})
+        # 21-06-PLAN.md Task 1 (D-19) dropped RESOLVE_UPLOAD_ZONE_CLASS
+        # from this asserted-absent tuple. 21-06-PLAN.md Task 2 (D-19)
+        # retargets it further: the dialog's own upload zone is
+        # unconditional now too, so this default render (the everyday
+        # view-only lightbox) must contain exactly one of it. Replace
+        # and delete stay edit-only (D-20).
+        #
+        # Exact `class="{token}"` (with the closing quote), never a
+        # bare substring - LIGHTBOX_REPLACE_FORM_CLASS
+        # ("lightbox__replace") is itself a prefix of several sibling
+        # classes (lightbox__replace-zone, lightbox__replace-icon,
+        # lightbox__replace-hint) that render unconditionally as part
+        # of the now-unconditional upload zone's own markup.
         for token in (
                 airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
                 airlines_page.LIGHTBOX_DELETE_CLASS):
-            if token in rendered:
+            if ('class="%s"' % token) in rendered:
                 return False, "expected no %r in a default (edit_mode absent) render" % (token,)
+        upload_count = rendered.count('class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS)
+        if upload_count != 1:
+            return False, (
+                "expected exactly one %r in a default (edit_mode absent) render, got %d"
+                % (airlines_page.RESOLVE_UPLOAD_ZONE_CLASS, upload_count))
         return True, ""
     check(
         "a default airlines_page.render({}) call (edit_mode absent, the everyday view-only "
-        "lightbox) contains none of the replace, upload-zone or delete edit-only forms (D-22, "
-        "19-08-PLAN.md Task 3)",
+        "lightbox) contains none of the replace or delete edit-only forms, but exactly one "
+        "upload zone - unconditional now (D-19), unlike replace/delete which stay behind "
+        "\"Change pictures\" (D-20, D-22, 19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md "
+        "Tasks 1 and 2)",
         _airlines_default_render_has_no_edit_only_forms)
+
+    def _airlines_default_render_step_b_upload_zone_unconditional():
+        # 21-06-PLAN.md Task 1 (D-19): a Step-B entry (name saved, no
+        # artwork yet) offers the upload zone in the no-JS resolve
+        # panel without ?edit=1 - naming an airline and giving it a
+        # picture is one job. The shared delete form stays edit_mode-
+        # gated (D-20), and this no-JS fallback panel has no replace
+        # form of its own.
+        #
+        # 21-06-PLAN.md Task 2 (D-19) drops the identical guard on the
+        # lightbox's own copy, and airlines_page.render() always emits
+        # both the fallback panel and the lightbox when there is at
+        # least one card - so a Step-B render now carries TWO upload
+        # zones (one per surface), not one. This is the intended
+        # outcome of both decisions landing together, not a
+        # double-count bug (per 21-06-PLAN.md Task 1's own instruction
+        # to "fix the count, not the intent").
+        tmp = _mkstate("a-step-b-upload-default")
+        try:
+            result = manual_resolutions.add_entry(tmp, "NEW", "Totally Novel Airline")
+            if result != manual_resolutions.ADD_OK:
+                return False, "test setup failure: add_entry returned %r" % (result,)
+            rendered = airlines_page.render({"state_dir": tmp, "resolve_prefix": "NEW"})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        upload_count = rendered.count('class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS)
+        if upload_count != 2:
+            return False, (
+                "expected exactly two %r (fallback panel + lightbox) in a default "
+                "(edit_mode absent) Step-B render, got %d"
+                % (airlines_page.RESOLVE_UPLOAD_ZONE_CLASS, upload_count))
+        # Exact `class="{token}"` (with the closing quote), never a bare
+        # substring - LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
+        # is itself a prefix of several sibling classes
+        # (lightbox__replace-zone, lightbox__replace-icon,
+        # lightbox__replace-hint) that render unconditionally as part of
+        # the upload zone's own markup.
+        if ('class="%s"' % airlines_page.LIGHTBOX_DELETE_CLASS) in rendered:
+            return False, "expected zero delete forms in a default (edit_mode absent) Step-B render"
+        if ('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS) in rendered:
+            return False, "expected zero replace forms in a default (edit_mode absent) Step-B render"
+        return True, ""
+    check(
+        "a default (edit_mode absent) render of a Step-B entry (name saved, no artwork yet) "
+        "contains exactly two upload zones (the no-JS fallback panel's own copy plus the "
+        "lightbox's), zero manual-delete forms and zero replace forms (D-19/D-20, "
+        "21-06-PLAN.md Tasks 1 and 2)",
+        _airlines_default_render_step_b_upload_zone_unconditional)
 
     def _airlines_default_render_keeps_exactly_one_resolve_name_form():
         rendered = airlines_page.render({})
@@ -2951,9 +3394,10 @@ def main():
         _airlines_edit_mode_render_has_exactly_one_of_each_edit_only_form)
 
     # ======================================================================
-    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle -
-    # gated on simple_mode, never touching D-22's own ctx["edit_mode"]
-    # gate on the lightbox forms checked just above.
+    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle,
+    # unconditional since 21-01-PLAN.md Task 2 (D-17/D-20) — never
+    # touching D-22's own ctx["edit_mode"] gate on the lightbox forms
+    # checked just above.
     # ======================================================================
 
     def _airlines_default_render_has_one_change_pictures_toggle():
@@ -2989,40 +3433,12 @@ def main():
         "back to /airlines with no query (D-36, 20-10-PLAN.md Task 1)",
         _airlines_edit_mode_render_shows_done_toggle_with_no_query)
 
-    def _airlines_simple_mode_render_has_no_toggle_or_caption():
-        rendered = airlines_page.render({"simple_mode": True})
-        if "airlines-edit-toggle" in rendered:
-            return False, "expected no airlines-edit-toggle anchor when simple_mode is on (D-30)"
-        if airlines_page.EDIT_TOGGLE_CAPTION in rendered:
-            return False, "expected no explanatory sentence when simple_mode is on (D-30)"
-        return True, ""
-    check(
-        "a render with simple_mode=True contains no airlines-edit-toggle anchor and no "
-        "explanatory sentence (D-30, 20-10-PLAN.md Task 1)",
-        _airlines_simple_mode_render_has_no_toggle_or_caption)
-
-    def _airlines_simple_mode_and_edit_mode_still_renders_lightbox_forms():
-        # D-30: simple mode hides only the entry point (this toggle),
-        # never the ?edit=1-gated forms it links to - typing the URL by
-        # hand must still work, so this is a pinned check, not an
-        # assumption.
-        rendered = airlines_page.render({"simple_mode": True, "edit_mode": True})
-        if "airlines-edit-toggle" in rendered:
-            return False, "expected no airlines-edit-toggle anchor even with edit_mode=True, when simple_mode is on"
-        for token in (
-                airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
-                airlines_page.LIGHTBOX_DELETE_CLASS):
-            if token not in rendered:
-                return False, (
-                    "expected the %r edit-only form to still render with simple_mode=True, "
-                    "edit_mode=True" % (token,))
-        return True, ""
-    check(
-        "a render with simple_mode=True AND edit_mode=True hides the toggle but still renders "
-        "every edit-only lightbox form - the ?edit=1 gating stays untouched by simple mode "
-        "(D-30, 20-10-PLAN.md Task 1)",
-        _airlines_simple_mode_and_edit_mode_still_renders_lightbox_forms)
+    # D-17 (21-01-PLAN.md Task 2): the two checks that used to exercise
+    # the display-mode gate on airlines_page._edit_toggle_html() are
+    # deleted — that gate itself is deleted (D-20: the toggle is
+    # unconditional now). Coverage that the toggle renders by default
+    # is unaffected and stays live in
+    # _airlines_default_render_has_one_change_pictures_toggle above.
 
     def _airlines_french_render_shows_translated_toggle_labels():
         import companion.prefs as _prefs
@@ -3273,11 +3689,16 @@ def main():
     def _hex_only_row_promotes_hex_to_primary():
         # quick task 260902-w4t (UIR-06): a callsign-less row must never
         # render a dead copy button on a blank primary value. When a hex
-        # is present it is promoted to the primary slot (desktop cell
-        # AND mobile card primary line), with a "no callsign" secondary
-        # note carrying NO copy button of its own. When both callsign
-        # and hex are absent, render() must not raise and the cell must
-        # carry zero copy buttons.
+        # is present it is promoted to the primary slot on the MOBILE
+        # card's primary line (D-16, unchanged), with a "no callsign"
+        # secondary note carrying NO copy button of its own.
+        #
+        # 21-03-PLAN.md Task 1 (D-15): the desktop Flight cell no longer
+        # shows the hex at all (it is not visible on the summary row any
+        # more; it moves into the Task 2 detail row instead, a later
+        # task in this same plan) - a callsign-less row's desktop
+        # primary slot is simply empty, with zero copy buttons, never a
+        # dead/blank-value affordance either way.
         tmp = _mkstate("h-hex-only")
         try:
             _seed_runway_events(tmp, [
@@ -3290,39 +3711,35 @@ def main():
             ])
             rendered = history_page.render(_history_ctx(tmp))
 
-            # Row 0: hex-only, desktop.
+            # Row 0: hex-only, desktop - empty primary, zero copy buttons,
+            # hex never visible.
             tr_block = _row_block(rendered, "tr", 0)
             li_block = _row_block(rendered, "li", 0)
             if tr_block is None or li_block is None:
                 return False, "could not locate row block for the hex-only row"
-            if '<span class="cell-primary">34560d</span>' not in tr_block:
-                return False, "expected the desktop cell's primary slot to carry the hex"
-            if ('<span class="cell-secondary">%s</span>'
-                    % history_page.NO_CALLSIGN_NOTE_TEXT) not in tr_block:
-                return False, "expected the desktop cell's secondary slot to carry the no-callsign note"
-            if tr_block.count("data-copy-value") != 1:
+            if "34560d" in tr_block:
+                return False, "did not expect the hex value visible in the desktop summary row"
+            if tr_block.count("data-copy-value") != 0:
                 return False, (
-                    "expected exactly 1 copy button in the hex-only desktop cell, got %d"
+                    "expected zero copy buttons in the hex-only desktop row, got %d"
                     % tr_block.count("data-copy-value"))
-            if 'data-copy-value="34560d"' not in tr_block:
-                return False, "expected the lone copy button to copy the hex value"
 
-            # Row 0: hex-only, mobile primary line (never blank).
+            # Row 0: hex-only, mobile primary line (never blank, D-16 unchanged).
             if '<span class="cell-primary mono">34560d</span>' not in li_block:
                 return False, "expected the mobile card's primary line to carry the hex"
             if ('<span class="cell-secondary">%s</span>'
                     % history_page.NO_CALLSIGN_NOTE_TEXT) not in li_block:
                 return False, "expected the mobile card's primary line to carry the no-callsign note"
 
-            # Row 1: both falsy - no crash, zero copy buttons in that cell.
+            # Row 1: both falsy - no crash, zero copy buttons in the Flight cell.
             tr_block_1 = _row_block(rendered, "tr", 1)
             if tr_block_1 is None:
                 return False, "could not locate row block for the both-falsy row"
-            callsign_hex_td = re.search(r"<td>(.*?)</td>", tr_block_1, re.S)
-            if callsign_hex_td is None:
-                return False, "expected a <td> for the both-falsy row's Callsign+Hex cell"
-            if callsign_hex_td.group(1).count("data-copy-value") != 0:
-                return False, "expected zero copy buttons in the both-falsy Callsign+Hex cell"
+            flight_td = re.search(r"<td>(.*?)</td>", tr_block_1, re.S)
+            if flight_td is None:
+                return False, "expected a <td> for the both-falsy row's When cell"
+            if tr_block_1.count("data-copy-value") != 0:
+                return False, "expected zero copy buttons in the both-falsy desktop row"
 
             # Row 2 (control): callsign-present branch is unaffected.
             tr_block_2 = _row_block(rendered, "tr", 2)
@@ -3334,9 +3751,10 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a callsign-less row with a hex promotes the hex to the primary slot (desktop cell and "
-        "mobile card) with a no-copy-button 'no callsign' note, a callsign+hex row is unaffected, "
-        "and a row with neither renders without raising and with zero copy buttons "
+        "a callsign-less row's desktop Flight cell is empty with zero copy buttons and no "
+        "visible hex (21-03-PLAN.md Task 1, D-15); the mobile card still promotes the hex to "
+        "its primary slot with a no-copy-button 'no callsign' note (D-16); a callsign+hex row "
+        "is unaffected; a row with neither renders without raising "
         "(quick task 260902-w4t, UIR-06)",
         _hex_only_row_promotes_hex_to_primary)
 
@@ -3392,7 +3810,7 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         for needle in (
-                ">Vols<", "Modèle", "Trajet", "Sens", "Indicatif",
+                ">Vols<", ">Quand<", ">Trajet<", ">Sens<", "Indicatif",
                 "Filtrer par indicatif ou code hex"):
             if needle not in rendered:
                 return False, "expected the French %r in a French Flights render" % (needle,)
@@ -3421,13 +3839,13 @@ def main():
                 _prefs.set_request_prefs(lang="en")
             for needle in (
                     ">Vols<", "Compagnie inconnue", "aucun indicatif",
-                    "Au départ", "À l’arrivée", "Modèle", "Trajet", "Sens",
+                    "Au départ", "À l’arrivée", ">Quand<", ">Vol<", ">Trajet<", ">Sens<",
                     "Plus de détails", "Effacer"):
                 if needle not in rendered_fr:
                     return False, "expected the French %r in the French Flights render" % (needle,)
             for english_only in (
                     "Airline unknown", "no callsign", "Departing", "Arriving",
-                    ">Type<", ">Route<", ">State<"):
+                    ">When<", ">Flight<", ">Route<", ">State<"):
                 if english_only in rendered_fr:
                     return False, "expected no English %r leaking into the French render" % (
                         english_only,)
@@ -3438,7 +3856,7 @@ def main():
             for needle in (
                     '<h1 class="page-title">Flights</h1>', history_page.AIRLINE_FALLBACK_TEXT,
                     history_page.NO_CALLSIGN_NOTE_TEXT, "Departing", "Arriving",
-                    ">Type<", ">Route<", ">State<"):
+                    ">When<", ">Flight<", ">Route<", ">State<"):
                 if needle not in rendered_en:
                     return False, "expected the English %r in the default-language Flights render" % (
                         needle,)
@@ -3513,13 +3931,18 @@ def main():
                 return False, "expected the hostile callsign to be escaped"
             if rendered.count('class="recent-flight"') != 2:
                 return False, "expected exactly two recent-flight rows"
+            # 21-04-PLAN.md Task 3 (D-04): .preview-frame precedes the
+            # first real .recent-flight row inside .home-picture-row.
+            if rendered.index('<figure class="preview-frame">') > rendered.index(
+                    'class="recent-flight"'):
+                return False, "expected .preview-frame before .recent-flight in document order"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "home_page.render() with seeded flights, a battery reading and a gallery entry renders "
         "the hero picture, the battery percentage estimate, escaped recent flights, and the "
-        "Next-update headline",
+        "Next-update headline, with .preview-frame before .recent-flight in document order (D-04)",
         _home_page_render_with_seeded_state)
 
     def _recent_flight_thumb_resolved_vs_placeholder():
@@ -3587,20 +4010,33 @@ def main():
         if "preview-frame__flight" in hero_without_flight:
             return False, "expected no flight one-liner when there is no current flight"
 
+        # 21-04-PLAN.md Task 3 (D-04): retargeted document-order check —
+        # .status-card/.home-hero no longer exist; the new order is
+        # header -> .frame-strip -> .home-status-grid -> .home-picture-
+        # row, with .preview-frame before .recent-flight inside the last.
         full_ctx = {
             "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
             "now": "2026-08-27T12:00:00+00:00", "health_state": {}, "device_config": {},
             "state_dir": "/tmp/skypane-no-such-state-dir",
         }
         rendered = home_page.render(full_ctx)
+        header_pos = rendered.index('<h1 class="page-title">')
+        strip_pos = rendered.index('class="frame-strip stat-tile stat-tile--accent"')
+        tiles_pos = rendered.index('class="dashboard-grid home-status-grid"')
+        picture_row_pos = rendered.index('class="home-columns home-picture-row"')
+        if not (header_pos < strip_pos < tiles_pos < picture_row_pos):
+            return False, (
+                "expected header -> .frame-strip -> .home-status-grid -> .home-picture-row, "
+                "got positions %d, %d, %d, %d" % (header_pos, strip_pos, tiles_pos, picture_row_pos))
         if rendered.index('<figure class="preview-frame">') > rendered.index(
-                'class="page-section status-card"'):
-            return False, "expected .preview-frame before .status-card in document order (D-18)"
+                'id="home-flights"'):
+            return False, "expected .preview-frame before the recent-flights section inside .home-picture-row"
         return True, ""
     check(
         "the hero's flight one-liner (callsign in .mono, then airline, then the route) appears "
-        "when the current flight is known and is absent otherwise, and .preview-frame precedes "
-        ".status-card in document order (D-18's picture-first stacking)",
+        "when the current flight is known and is absent otherwise, and the page reads header -> "
+        ".frame-strip -> .home-status-grid -> .home-picture-row (.preview-frame before "
+        ".recent-flight inside it) (D-04)",
         _hero_figure_precedes_status_card_with_flight_one_liner_when_known)
 
     def _home_page_french_render_translates_headings_and_alt_text_not_data():
@@ -3774,42 +4210,72 @@ def main():
         "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up",
         _home_catalog_keys_all_present_in_merged_catalog)
 
-    def _home_page_full_render_has_no_quick_actions_and_three_status_rows():
+    def _home_page_full_render_has_quick_action_only_inside_the_strip_and_three_tiles():
+        # 21-04-PLAN.md Task 3 (D-04/D-05): retargeted — D-01 puts the
+        # Screen/Quiet-hours instant switches ON Home now, inside the
+        # shared Frame strip, so "no quick-action anywhere" (the old
+        # D-16 assertion) is no longer the correct claim; the new claim
+        # is "quick-action markup exists exactly once, inside the
+        # strip, and nowhere else on the page."
         from companion.pages import home_page
         ctx = {
             "health_state": {"device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"},
             "device_config": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
-            "now": "2026-08-27T12:00:00+00:00", "simple_mode": False,
+            "now": "2026-08-27T12:00:00+00:00",
         }
         rendered = home_page.render(ctx)
-        if "quick-action" in rendered or "/quick/" in rendered:
-            return False, "expected no quick-action markup or /quick/ action anywhere on Home (D-16)"
-        if rendered.count('<div class="status-row') != 3:
-            return False, "expected exactly three status-row blocks"
+        if "status-card__rows" in rendered or "home-hero" in rendered:
+            return False, "expected no status-card__rows or home-hero markup on the rebuilt Home page"
+        strip_start = rendered.index('class="frame-strip stat-tile stat-tile--accent"')
+        tiles_start = rendered.index('class="dashboard-grid home-status-grid"')
+        outside_strip = rendered[:strip_start] + rendered[tiles_start:]
+        if "quick-action" in outside_strip:
+            return False, "expected no quick-action markup anywhere outside .frame-strip"
+        strip_segment = rendered[strip_start:tiles_start]
+        on_off_count = strip_segment.count("quick-action--on") + strip_segment.count("quick-action--off")
+        if on_off_count != 2:
+            return False, (
+                "expected exactly two quick-action--on/off cells inside .frame-strip, got %d"
+                % on_off_count)
+        if rendered.count('class="stat-tile ') != 3:
+            return False, "expected exactly three stat-tile elements, got %d" % (
+                rendered.count('class="stat-tile '),)
         for label in (home_page.FRAME_ROW_LABEL, home_page.BATTERY_ROW_LABEL,
                       home_page.DATA_ROW_LABEL):
             if label not in rendered:
-                return False, "expected the %r status-row label" % (label,)
+                return False, "expected the %r tile label" % (label,)
         if rendered.count(home_page.FRAME_STATE_TEXT["ok"]) != 1:
             return False, (
                 "expected the Frame state sentence to appear exactly once — the "
                 "20-RESEARCH.md Pitfall 3 duplicated-verdict regression test")
         return True, ""
     check(
-        "a rendered Home page carries no quick-action markup and no /quick/ action anywhere "
-        "(D-16), exactly three status-row blocks labelled Frame/Battery/Flight data, and the "
-        "Frame verdict sentence exactly once",
-        _home_page_full_render_has_no_quick_actions_and_three_status_rows)
+        "a rendered Home page carries no status-card__rows/home-hero markup, quick-action markup "
+        "only inside .frame-strip (exactly two cells) and nowhere else, exactly three stat-tile "
+        "elements labelled Frame/Battery/Flight data, and the Frame verdict sentence exactly once "
+        "(D-04/D-05)",
+        _home_page_full_render_has_quick_action_only_inside_the_strip_and_three_tiles)
 
     def _home_status_card_headline_next_update_or_expected_since():
-        from companion.pages import home_page
+        # 21-04-PLAN.md Task 3 (D-01/D-04): retargeted at
+        # layout.frame_strip_html() — home_page._status_card_html() is
+        # deleted; the headline computation it owned moved to the
+        # strip helper unchanged (Task 1).
+        import companion.wake as wake
         base_ctx = {
             "device_config": {"wake_interval_s": 900, "display_enabled": True},
             "health_state": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
         }
+
+        def _strip_html(ctx):
+            next_wake_iso = wake.next_wake_at_iso(
+                ctx.get("last_checkin_ts"), ctx.get("device_config"))
+            return layout.frame_strip_html(
+                ctx, return_to=layout.HOME_ROUTE, next_wake_iso=next_wake_iso)
+
         future_ctx = dict(
             base_ctx, last_checkin_ts="2026-08-27T11:55:00+00:00", now="2026-08-27T12:00:00+00:00")
-        rendered_future = home_page._status_card_html(future_ctx)
+        rendered_future = _strip_html(future_ctx)
         # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
         # UTC+2, in effect in late August) — still AFTER the 12:00 UTC
         # "now", so this is the not-yet-due branch.
@@ -3820,7 +4286,7 @@ def main():
 
         past_ctx = dict(
             base_ctx, last_checkin_ts="2026-08-27T11:00:00+00:00", now="2026-08-27T12:00:00+00:00")
-        rendered_past = home_page._status_card_html(past_ctx)
+        rendered_past = _strip_html(past_ctx)
         # 11:00 UTC + 15 minutes = 11:15 UTC, already BEFORE the 12:00 UTC
         # "now" — the overdue, warn-treatment branch.
         if "Expected since" not in rendered_past:
@@ -3829,37 +4295,41 @@ def main():
             return False, "expected the warn modifier for an overdue next-update"
 
         missing_checkin = dict(base_ctx, last_checkin_ts=None, now="2026-08-27T12:00:00+00:00")
-        if "status-card__headline" in home_page._status_card_html(missing_checkin):
+        if "status-card__headline" in _strip_html(missing_checkin):
             return False, "expected no headline at all when there is no check-in yet"
         missing_interval = dict(
             base_ctx, device_config={}, last_checkin_ts="2026-08-27T11:55:00+00:00",
             now="2026-08-27T12:00:00+00:00")
-        if "status-card__headline" in home_page._status_card_html(missing_interval):
+        if "status-card__headline" in _strip_html(missing_interval):
             return False, "expected no headline at all when the wake interval is unknown"
         return True, ""
     check(
-        "the status card's headline reads 'Next update ≈ HH:MM' for a future next-update, "
+        "the Frame strip's headline reads 'Next update ≈ HH:MM' for a future next-update, "
         "'Expected since HH:MM' in the warn treatment for a past one, and renders no headline "
-        "at all when either the check-in or the wake interval is unknown (D-17)",
+        "at all when either the check-in or the wake interval is unknown (D-01, moved from the "
+        "deleted _status_card_html())",
         _home_status_card_headline_next_update_or_expected_since)
 
-    def _home_status_card_health_link_gated_by_simple_mode():
+    def _home_status_card_always_shows_health_link():
+        """D-17 (21-01-PLAN.md Task 2): the display-mode gate that used
+        to hide this link is deleted — replaces a deleted check that
+        tested that now-removed mechanism. 21-04-PLAN.md Task 3:
+        retargeted at _status_tiles_html(), the deleted
+        _status_card_html()'s own replacement.
+        """
         from companion.pages import home_page
         ctx = {
             "health_state": {}, "device_config": {},
             "state_dir": "/tmp/skypane-no-such-state-dir", "now": "2026-08-27T12:00:00+00:00",
         }
-        full_mode_rendered = home_page._status_card_html(dict(ctx, simple_mode=False))
-        simple_mode_rendered = home_page._status_card_html(dict(ctx, simple_mode=True))
-        if home_page.HEALTH_LINK_TEXT not in full_mode_rendered:
-            return False, "expected the Health link when simple_mode is off"
-        if home_page.HEALTH_LINK_TEXT in simple_mode_rendered:
-            return False, "expected no Health link when simple_mode is on (D-30)"
+        rendered = home_page._status_tiles_html(ctx)
+        if home_page.HEALTH_LINK_TEXT not in rendered:
+            return False, "expected the Health link to always render (D-17)"
         return True, ""
     check(
-        "the status card's 'See details on Health' link is present with simple_mode off and "
-        "absent with it on (D-30)",
-        _home_status_card_health_link_gated_by_simple_mode)
+        "a default Home render always carries the status tiles section's 'See details on "
+        "Health' link (D-17)",
+        _home_status_card_always_shows_health_link)
 
     def _home_page_render_degrades_with_nothing():
         from companion.pages import home_page
@@ -4007,17 +4477,28 @@ def main():
             # membership test app.py's page_context() applies survives
             # the full query-string round trip, against a real running
             # service.
+            #
+            # 21-06-PLAN.md Task 2 (D-19): RESOLVE_UPLOAD_ZONE_CLASS
+            # moved out of this edit-only tuple - the lightbox's upload
+            # zone is unconditional now, so it is asserted present
+            # across every query variant below instead, proving it
+            # survives the real HTTP round trip regardless of edit
+            # mode.
             edit_only_tokens = (
                 airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,
-                airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
                 airlines_page.LIGHTBOX_DELETE_CLASS,
             )
+            upload_zone_class_attr = 'class="%s"' % airlines_page.RESOLVE_UPLOAD_ZONE_CLASS
             for query in ("?edit=2", "?edit=true", "?edit="):
                 status, _headers, body = http_request(
                     base + "/airlines" + query, cookie=session_cookie)
                 if status != 200:
                     return False, "expected 200 for /airlines%s, got %d" % (query, status)
                 body_text = body.decode("utf-8", "replace")
+                if upload_zone_class_attr not in body_text:
+                    return False, (
+                        "expected /airlines%s to still render the upload zone (D-19, "
+                        "unconditional)" % (query,))
                 for token in edit_only_tokens:
                     if ('class="%s"' % token) in body_text:
                         return False, (
@@ -4027,15 +4508,18 @@ def main():
             if status != 200:
                 return False, "expected 200 for /airlines?edit=1, got %d" % status
             body_text = body.decode("utf-8", "replace")
+            if upload_zone_class_attr not in body_text:
+                return False, "expected /airlines?edit=1 to still render the upload zone (D-19)"
             for token in edit_only_tokens:
                 if ('class="%s"' % token) not in body_text:
                     return False, "expected /airlines?edit=1 to enable edit mode - missing a %r form" % (token,)
             return True, ""
         check(
             "a real authenticated GET of /airlines?edit=2, ?edit=true and ?edit= does not enable "
-            "edit mode (the exact-\"1\" membership test), while /airlines?edit=1 does render all "
-            "three edit-only forms, against a real running service (D-22, T-19-31, "
-            "19-08-PLAN.md Task 3)",
+            "edit mode (the exact-\"1\" membership test) but still renders the now-unconditional "
+            "upload zone (D-19), while /airlines?edit=1 additionally renders the replace and "
+            "delete edit-only forms, against a real running service (D-19, D-22, T-19-31, "
+            "19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md Task 2)",
             _airlines_edit_query_param_exact_one_membership_test)
 
     finally:

@@ -56,12 +56,16 @@ PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"
 SESSION_TTL_S = 12 * 3600
 SESSION_COOKIE_NAME = "sp_session"
 UI_THEME_COOKIE_NAME = "sp_ui_theme"
-# D-02/D-29 (20-01-PLAN.md Task 2): the language and simple-mode
-# per-browser cookies, added directly beside UI_THEME_COOKIE_NAME —
-# all three share secure_cookie_flag() below, so the Secure flag can
-# never drift between them.
+# D-02 (20-01-PLAN.md Task 2): the language per-browser cookie, added
+# directly beside UI_THEME_COOKIE_NAME — both share secure_cookie_
+# flag() below, so the Secure flag can never drift between them.
 UI_LANG_COOKIE_NAME = "sp_ui_lang"
-UI_MODE_COOKIE_NAME = "sp_ui_mode"
+# D-17 (21-01-PLAN.md Task 1): the sibling per-browser cookie that
+# backed the now-removed simple/full display-mode switch is deleted
+# along with the feature. A browser that still holds a stale copy of
+# that cookie is simply never read again — no migration, no
+# explicit-ignore branch; nothing under companion/ names that cookie
+# any more.
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_LOCKOUT_S = 300
 INSECURE_COOKIES_ENV_VAR = "SKYPANE_COMPANION_INSECURE_COOKIES"

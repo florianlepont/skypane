@@ -12,6 +12,7 @@ server.poll_loop.run_once() call all live there, not here — this module
 only renders the button/copy for it.
 """
 import re
+from urllib.parse import urlsplit
 
 from companion import i18n  # D-05, 20-07-PLAN.md Task 1: the Display page's
 # three supersection headings/intros render through i18n.t() (Task 3
@@ -145,6 +146,57 @@ DISPLAY_ON_INTRO = "— when the screen is lit and when it stays quiet."
 # element id (not a class) because its own <label> targets it via `for`.
 SCREEN_SELECTOR_ID = "screen-id-selector"
 SCREEN_SELECTOR_LABEL_TEXT = "Screen type"
+
+# 21-05-PLAN.md Task 1 (D-06..D-12, 21-UI-SPEC.md §D): the "Frame
+# colours" card that replaces the four separate theme chip grids
+# (departures/arrivals/calendar/rules) with one live preview plus a
+# four-row `colour_usage` assignment radiogroup and four usage panels.
+# The usage values below are this card's own radiogroup values — a
+# purely client-side/display concern, never submitted to handle_post()
+# (no `form=` attribute on the colour_usage radios themselves) and
+# entirely distinct from the three underlying SAVED field names
+# (theme/theme_arriving/calendar_theme_id) each usage's own chip grid
+# still posts through via `form="settings-form"`.
+FRAME_COLOURS_HEADING = "Frame colours"
+FRAME_COLOURS_HEADING_ID = "frame-colours-heading"
+FRAME_COLOURS_CAPTION = (
+    "Choose the colour theme for departures, arrivals, calendar "
+    "flights and your own rules.")
+COLOUR_USAGE_FIELD_NAME = "colour_usage"
+COLOUR_USAGE_DEPARTURES = "departures"
+COLOUR_USAGE_ARRIVALS = "arrivals"
+COLOUR_USAGE_CALENDAR = "calendar"
+COLOUR_USAGE_RULES = "rules"
+# Locked order (D-07) — every row-building loop below walks this exact
+# tuple, so the row order and the no-JS floor's stacked-panel order can
+# never drift apart.
+COLOUR_USAGES = (
+    COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR,
+    COLOUR_USAGE_RULES)
+FRAME_COLOURS_ROW_LABELS = {
+    COLOUR_USAGE_DEPARTURES: "Departures",
+    COLOUR_USAGE_ARRIVALS: "Arrivals",
+    COLOUR_USAGE_CALENDAR: "Calendar flights",
+    COLOUR_USAGE_RULES: "Per-flight rules",
+}
+# The attribute-as-CSS-hook/JS-hook contract theme-preview.js (Task 3)
+# reads: each row's own radio names which usage panel it selects, and
+# each panel carries the matching target.
+COLOUR_USAGE_PANEL_ATTR = "data-usage-panel"
+COLOUR_USAGE_PANEL_TARGET_ATTR = "data-usage-panel-target"
+# D-09/R-07: the leading "Same as departures" chip Arrivals/Calendar's
+# own grids gain, submitting the empty string (the clear signal
+# handle_post() now maps to device_config.CLEAR_THEME_ARRIVING/None,
+# Task 2) — reused verbatim as both the chip's own label and the row's
+# own "no override" meta text (21-UI-SPEC.md §D copy table).
+SAME_AS_DEPARTURES_LABEL = "Same as departures"
+# D-07: the rules row's own meta text — singular/plural/empty, mirroring
+# this file's own %d-template convention elsewhere (e.g.
+# POLL_COOLDOWN_HELPER_TEXT's "{n}" — this one uses a plain %d instead,
+# matching 21-UI-SPEC.md's own copy table literally).
+FRAME_COLOURS_RULES_COUNT_SINGULAR = "1 rule"
+FRAME_COLOURS_RULES_COUNT_PLURAL_TEMPLATE = "%d rules"
+FRAME_COLOURS_RULES_EMPTY_META = "No rules yet"
 # 20-07-PLAN.md Task 3 (D-36): the Device page's own artwork-editing
 # link and its former builder function are deleted outright — the
 # developer did not understand it. See airlines_page.py, where 20-10
@@ -213,26 +265,15 @@ QUIET_HOURS_CHECKBOX_VALUE = "on"
 # handle_post()'s validator so the two can never drift apart.
 DISPLAY_CHECKBOX_VALUE = "on"
 
-# Phase 15 D-05 (15-UI-SPEC.md Copywriting Contract): the arrivals-theme-
-# override checkbox's sole accepted submitted value - a fourth consumer of
-# the same absent-means-off idiom LED_CHECKBOX_VALUE/
-# QUIET_HOURS_CHECKBOX_VALUE/DISPLAY_CHECKBOX_VALUE already establish,
-# shared by theme_fieldset()'s markup and handle_post()'s validator so the
-# two can never drift apart.
-ARRIVING_CHECKBOX_VALUE = "on"
-# An element id, not a class - unlike the three checkboxes above, this one
-# is referenced by companion/static/style.css's `:has()` reveal selector,
-# which must target one specific control rather than a class three other
-# checkboxes on this page already share.
-THEME_ARRIVING_TOGGLE_ID = "theme-arriving-toggle"
-# The attribute-as-CSS-hook naming the revealed second (arrivals) chip
-# grid, following this app's existing data-dirty-section/
-# data-static-save-fallback/data-filter-group convention.
-ARRIVAL_GRID_ATTR = "data-arrival-grid"
-# Locked-English copy (15-UI-SPEC.md Copywriting Contract) - do not
-# paraphrase.
-THEME_ARRIVING_CHECKBOX_LABEL = "Use a different theme for arrivals"
-THEME_DIRECTION_LABEL = "Arrivals theme"
+# 21-05-PLAN.md Task 1 (D-06..D-12): the arrivals-theme-override
+# checkbox and its five own constants (the checkbox's accepted
+# submitted value, its toggle element id, the revealed grid's own CSS
+# hook, its locked label copy, and the direction label above that
+# grid) are all retired outright — D-09 replaces the whole apparatus
+# with a "Same as departures" leading chip inside the Frame colours
+# card's arrivals usage panel, which submits the empty string instead
+# of gating a second grid's visibility behind a checkbox. See
+# _frame_colours_card_html() below.
 
 # quick task 260901-re6: each settings group used to render a description
 # sentence above its control (THEME_SECTION_DESCRIPTION/
@@ -257,9 +298,6 @@ THEME_DIRECTION_LABEL = "Arrivals theme"
 # other three, it is consumed by a two-branch renderer
 # (poll_trigger_section()), so it must be interpolated on both branches
 # or it would silently vanish for the whole cooldown window.
-THEME_SECTION_CAPTION = (
-    "Panel colors for departing/arriving flights. Applies on the "
-    "device's next scheduled poll, not immediately.")
 RUNWAY_SECTION_CAPTION = (
     "Which Orly runway the device watches. Applies on the next "
     "scheduled poll, not immediately.")
@@ -276,9 +314,6 @@ LED_SECTION_CAPTION = (
 # a *_GROUP_HEADING_ID; every hint below gets a *_CAPTION_ID/*_HINT_ID
 # regardless, since a hint can describe a single-control field too (a
 # checkbox, a time/number input, a <select>) with no radiogroup at all.
-THEME_SECTION_CAPTION_ID = "theme-caption"
-THEME_GROUP_HEADING_ID = "theme-group-heading"
-THEME_ARRIVING_GROUP_HEADING_ID = "theme-arriving-group-heading"
 RUNWAY_SECTION_CAPTION_ID = "runway-caption"
 RUNWAY_GROUP_HEADING_ID = "runway-group-heading"
 LED_SECTION_CAPTION_ID = "led-caption"
@@ -415,35 +450,27 @@ DISPLAY_SECTION_CAPTION = (
 # comment above.
 DISPLAY_SECTION_CAPTION_ID = "display-caption"
 
-# 20-07-PLAN.md Task 2 (D-19): the Screen on/off and Quiet hours groups'
-# own instant-switch quick-action slot. Home's own (module-private, on
-# the Home page) route/copy constants are byte-for-byte duplicates,
-# never imported (a page module may never import another page module,
-# companion/pages/__init__.py's own boundary) — 20-06 deletes Home's
-# own copies once its soon-to-be-retired Quick actions card is retired
-# (D-16). The quick-action `<form>`s'
-# own action attributes below are written as literal path text, not a
-# `%s` interpolation of these constants (this file's own acceptance
-# gate greps the literal form-action text) — but the two constants stay
-# defined here, equal to those same paths, for
+# 20-07-PLAN.md Task 2 (D-19): the Screen on/off and Quiet hours routes
+# the strip's switches still post to. Home's own (module-private, on
+# the Home page) route constants are byte-for-byte duplicates, never
+# imported (a page module may never import another page module,
+# companion/pages/__init__.py's own boundary). The instant-switch
+# `<form>`s' own action attributes are written as literal path text,
+# not a `%s` interpolation of these constants (this file's own
+# acceptance gate greps the literal form-action text) — but the two
+# constants stay defined here, equal to those same paths, for
 # companion/test_config_page.py's own checks to reference without
 # retyping either path a third time.
+#
+# 21-04-PLAN.md Task 1 (D-01/D-02/R-01): the eleven constants naming
+# the switches' own labels/state text/button text, and the markup
+# blocks that used to build each switch, both moved out of this
+# module entirely — the shared strip helper in companion/layout.py is
+# now their one write site, since the Screen/Quiet-hours instant switches render in the
+# shared Frame strip at the top of Home and Display, not inside these
+# two scheduled-controls cards any more.
 QUICK_DISPLAY_ROUTE = "/quick/display"
 QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
-QUICK_ACTION_SCREEN_LABEL = "Screen"
-QUICK_ACTION_ON_TEXT = "On"
-QUICK_ACTION_OFF_TEXT = "Off"
-QUICK_ACTION_SWITCH_ON_BUTTON = "Switch on"
-QUICK_ACTION_SWITCH_OFF_BUTTON = "Switch off"
-QUICK_ACTION_QUIET_LABEL = "Quiet hours"
-QUICK_ACTION_QUIET_ON_TEMPLATE = "On — %s to %s"
-QUICK_ACTION_QUIET_OFF_TEXT = "Off"
-QUICK_ACTION_QUIET_TURN_ON_BUTTON = "Turn on"
-QUICK_ACTION_QUIET_TURN_OFF_BUTTON = "Turn off"
-# D-19/20-UI-SPEC.md Section Anatomy D: one shared sentence for both
-# switches — never two independently-worded copies of the identical
-# fact.
-QUICK_ACTION_APPLIES_SENTENCE = "Applies the next time the frame wakes up."
 
 # Read elsewhere, not just here — this module's existing
 # duplicated-not-imported must-equal discipline (matches
@@ -561,18 +588,25 @@ RULES_DELETE_ROUTE_SUFFIX = "/delete"
 CALENDAR_DISCONNECT_ROUTE = "/settings/calendar/disconnect"
 
 # 20-09-PLAN.md Task 3 (D-15a..e): renamed from "Per-flight colour
-# rules" — heading and caption both through t() at the render site. The
-# old precedence/replace-on-add sentence moves into a <details>
-# disclosure (RULES_HOW_RULES_COMBINE_*, below), collapsing to one
-# plain sentence in simple mode (D-30).
-RULES_SECTION_HEADING = "Flight colours"
+# rules" — caption through t() at the render site. The old precedence/
+# replace-on-add sentence moves into a <details> disclosure
+# (RULES_HOW_RULES_COMBINE_*, below). D-17 (21-01-PLAN.md Task 2): that
+# disclosure no longer has a collapsed one-sentence variant — it always
+# renders in full. 21-05-PLAN.md Task 1 (D-06/D-10): the standalone
+# "Flight colours" card and its own heading constant are retired
+# outright — this content now renders inside the Frame colours
+# card's own "Per-flight rules" usage panel, named by that panel's own
+# <legend>, never by a second heading of its own. The caption survives,
+# unchanged, as the panel's own lead-in sentence.
 RULES_SECTION_CAPTION = "Give one flight, one aircraft or one airline its own theme."
 RULES_HOW_RULES_COMBINE_SUMMARY = "How rules combine"
 RULES_HOW_RULES_COMBINE_BODY = (
     "The most specific match wins — a flight rule beats an aircraft "
     "rule, which beats an airline rule — and adding a key that's "
     "already in use replaces the existing rule for it.")
-RULES_HOW_RULES_COMBINE_SIMPLE = "The most specific match wins."
+# D-17 (21-01-PLAN.md Task 2): the one-sentence collapsed disclosure
+# variant is deleted along with the display mode that selected it —
+# the "How rules combine" <details> below always renders in full now.
 # D-15b: the segmented "Match by" control's own visually-hidden group
 # label — kept distinct from each segment's own visible text
 # (RULE_KIND_LABELS) and technical title (RULE_KIND_TITLES) below.
@@ -666,8 +700,9 @@ CALENDAR_HOW_IT_WORKS_BODY = (
     "It can only colour a flight that happens to be on screen — it "
     "does not track or announce anything on its own. Applies on the "
     "frame's next scheduled poll, not immediately.")
-# D-30: simple mode collapses the disclosure above to this one sentence.
-CALENDAR_HOW_IT_WORKS_SIMPLE = "It only colours a flight already on screen."
+# D-17 (21-01-PLAN.md Task 2): the one-sentence collapsed disclosure
+# variant is deleted along with the display mode that selected it —
+# the "How it works" <details> below always renders in full now.
 # D-14b: the status-row verdict/detail pair replaces the old, one-piece
 # CALENDAR_STATUS_* sentences this plan retires. "Not connected" covers
 # both the never-configured and the permission-drifted states — a
@@ -687,6 +722,13 @@ CALENDAR_STATUS_FETCH_FAILED_DETAIL = "The feed could not be read"
 # flash key or a validation path with the settings Save button.
 CALENDAR_CONNECT_BUTTON_TEXT = "Connect calendar"
 CALENDAR_REPLACE_URL_SUMMARY = "Replace the feed URL"
+# 21-07-PLAN.md Task 1 (D-14, Structural Note 6): the SAME form/route
+# posts the URL field in both states, but the button reads shorter once
+# a feed is already stored — "Connect calendar" only ever applies to a
+# first-time paste. Two constants, not one text swapped in place, so
+# each stays a plain, greppable literal like every other button label
+# in this module.
+CALENDAR_REPLACE_BUTTON_TEXT = "Replace"
 # 20-09-PLAN.md Task 2 (D-14c): companion/app.py rebinds this rather
 # than retyping the literal, mirroring CALENDAR_DISCONNECT_ROUTE's own
 # rebinding convention immediately above (app.py imports this module,
@@ -705,17 +747,19 @@ CALENDAR_URL_HINT = (
     "Your calendar's private iCal link. Stored on the server and never "
     "shown back here — pasting a new one replaces the old.")
 CALENDAR_URL_HINT_ID = "calendar-url-hint"
-# Names both halves of what disconnecting does (D-07): the operator
-# deserves to see the flights-deletion consequence before they act, not
-# discover it afterwards. 19-11-PLAN.md (D-08/A-26): the in-form checkbox
-# this label used to sit beside is retired — the same wording now labels
-# the standalone disconnect button calendar_disconnect_section() renders
-# (below) and, unchanged, the confirmation copy the frame's disconnect
-# promise keeps.
-CALENDAR_DISCONNECT_CHECKBOX_LABEL = (
-    "Disconnect this calendar and delete the flights it supplied")
+# 21-07-PLAN.md Task 1 (D-14): the merged card's own small grey button
+# reads the short "Disconnect" — never the long checkbox-era sentence a
+# now-retired constant used to carry (that sentence survives, unchanged,
+# as the confirmation page's own fuller copy below; only the button
+# label shortened). A cross-DOM `form=` attribute (CALENDAR_DISCONNECT_
+# FORM_ID) is what lets this button submit a <form> that is never its
+# own DOM ancestor — the same idiom the dirty bar's own Save button
+# already uses for the identical HTML-forms-can't-nest reason.
+CALENDAR_DISCONNECT_BUTTON_TEXT = "Disconnect"
+CALENDAR_DISCONNECT_FORM_ID = "calendar-disconnect-form"
 # Matches the shape of LED_CHECKBOX_VALUE/QUIET_HOURS_CHECKBOX_VALUE/
-# DISPLAY_CHECKBOX_VALUE/ARRIVING_CHECKBOX_VALUE above. 19-11-PLAN.md
+# DISPLAY_CHECKBOX_VALUE and the now-retired arrivals-override
+# checkbox's own former value above. 19-11-PLAN.md
 # (D-08/A-26): the checkbox markup that used to submit this value is
 # retired, but the value itself is NOT — submitted_calendar_signal()'s
 # gates 1-3 below still compare a submitted calendar_disconnect field
@@ -726,9 +770,9 @@ CALENDAR_DISCONNECT_CHECKBOX_LABEL = (
 CALENDAR_DISCONNECT_CHECKBOX_VALUE = "on"
 
 # 19-11-PLAN.md Task 1 (D-08/A-26): the dedicated disconnect route's own
-# confirm gate — the single definition site the markup
-# (calendar_disconnect_section()/calendar_disconnect_confirm_page()
-# below), the client-side misclick guard (companion/static/
+# confirm gate — the single definition site the markup (the merged
+# calendar_group()'s own disconnect form/calendar_disconnect_confirm_
+# page() below), the client-side misclick guard (companion/static/
 # confirm-submit.js, Task 2), and the handler
 # (companion/app.py's _handle_calendar_disconnect_post()) all read,
 # rather than each retyping the field name/accepted value as a literal.
@@ -740,8 +784,9 @@ CALENDAR_DISCONNECT_CONFIRM_FIELD = "confirm"
 CALENDAR_DISCONNECT_CONFIRM_VALUE = "yes"
 # The question companion/static/confirm-submit.js passes to
 # window.confirm() (a misclick guard only — see that file's own header
-# comment) — carried to the browser via calendar_disconnect_section()'s
-# own data-confirm attribute, never duplicated in the script itself.
+# comment) — carried to the browser via the merged calendar_group()'s
+# own disconnect form's data-confirm attribute, never duplicated in the
+# script itself.
 CALENDAR_DISCONNECT_CONFIRM_QUESTION = (
     "Disconnect this calendar and delete the flights it supplied?")
 # The server-rendered two-step confirmation page's own copy
@@ -931,7 +976,7 @@ def _submitted_or_current(submitted, field, current):
 def _submitted_checkbox_checked(submitted, field, checked_value, current_checked):
     """The rendered `checked` state for one of the absent-means-False
     checkbox fields (led_enabled/quiet_hours_enabled/display_enabled/
-    theme_arriving_enabled) on a rejected save's re-render.
+    the two Notifications checkboxes) on a rejected save's re-render.
 
     When a real submission happened (`submitted is not None` — always a
     dict, even an empty one, once a POST reaches this module:
@@ -965,20 +1010,27 @@ def _palette_hex(index):
 
 def _theme_chip_grid_html(
         field_name, selected_theme_id, extra_class="", extra_attr="", chip_extra_class="",
-        radio_form_id=None):
-    """Phase 15 D-05: the chip-grid renderer `theme_fieldset()` calls
-    TWICE — once for the always-present departures grid
-    (`field_name="theme"`, no `extra_class`/`extra_attr`, so it renders
-    byte-identical to the pre-Phase-14 markup: `<div class=
-    "theme-chip-grid">`), once for the revealed arrivals grid
-    (`field_name="theme_arriving"`, `extra_class="theme-chip-grid--
-    arrivals"`, `extra_attr=ARRIVAL_GRID_ATTR`). Factored out of
-    `theme_fieldset()`'s old single inline loop so the two grids can never
-    drift apart: they differ ONLY in the radio group's `name`, which chip
-    is marked `checked`/`--selected`, and this grid's own wrapper class/
-    attribute — everything else (the hidden-radio selectable-card idiom,
-    the `/theme-preview/{id}.png` source, the `_palette_hex()` swatch
-    dots, the check glyph) is one shared definition.
+        radio_form_id=None, leading_chip_html=""):
+    """Phase 15 D-05: the ONE chip-grid renderer, called once per usage
+    panel inside the Frame colours card (21-05-PLAN.md Task 1, D-06..
+    D-12) — departures (`field_name="theme"`), arrivals
+    (`field_name="theme_arriving"`), calendar flights
+    (`field_name="calendar_theme_id"`) and the rule-add form
+    (`field_name="rule_theme_id"`). They differ ONLY in the radio
+    group's `name`, which chip is marked `checked`/`--selected`, this
+    grid's own wrapper class/attribute, and (arrivals/calendar) a
+    leading non-theme chip — everything else (the hidden-radio
+    selectable-card idiom, the `/theme-preview/{id}.png` source, the
+    `_palette_hex()` swatch dots, the check glyph) is one shared
+    definition.
+
+    21-05-PLAN.md Task 1 (D-09, Structural Note 3): `leading_chip_html`
+    is a fourth, additive, purely-interpolated seam — a pre-built HTML
+    fragment (typically one "Same as departures" chip submitting the
+    empty string) inserted before the loop over `device_config.
+    THEME_IDS`. Defaults to `""`, so every call that omits it (the
+    departures grid, the rule-add form's own compact grid) renders
+    byte-identical to before this addition.
 
     20-09-PLAN.md Task 1/3 (D-14d/D-15b): `chip_extra_class` is a THIRD,
     independent seam — distinct from `extra_class` (the grid wrapper's
@@ -1067,13 +1119,18 @@ def _theme_chip_grid_html(
     if extra_class:
         grid_class = grid_class + " " + extra_class
     attr_html = (" %s" % extra_attr) if extra_attr else ""
-    return '<div class="%s"%s>%s</div>' % (grid_class, attr_html, "".join(chips))
+    return '<div class="%s"%s>%s%s</div>' % (
+        grid_class, attr_html, leading_chip_html, "".join(chips))
 
 
-def _theme_live_preview_html(current_theme_id, state_dir):
-    """The `<figure class="theme-live-preview">` `theme_fieldset()`
-    renders directly above the chip grid (D-22..D-24, 20-11-PLAN.md
-    Task 2, 20-UI-SPEC.md Section Anatomy H/copy table E).
+def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
+    """The `<figure class="theme-live-preview">` the Frame colours
+    card (21-05-PLAN.md Task 1) renders as the left column of its own
+    two-column layout (D-22..D-24, 20-11-PLAN.md Task 2, 20-UI-SPEC.md
+    Section Anatomy H/copy table E; 21-UI-SPEC.md §D). `extra_class`
+    (additive, defaulting to `""`) lets the one live call site add its
+    own `frame-colours__preview` layout modifier without a second,
+    duplicated figure builder.
 
     The `<img src>` is `{THEME_PREVIEW_ROUTE_PREFIX}{theme_id}.png?live=1`
     for the SAVED theme (`current_theme_id`, membership-tested against
@@ -1121,13 +1178,17 @@ def _theme_live_preview_html(current_theme_id, state_dir):
         caption_text = i18n.t(THEME_LIVE_PREVIEW_CAPTION_WITH_FLIGHT_TEMPLATE) % callsign
     else:
         caption_text = i18n.t(THEME_LIVE_PREVIEW_CAPTION_SAMPLE)
+    figure_class = "theme-live-preview"
+    if extra_class:
+        figure_class = figure_class + " " + extra_class
     return (
-        '<figure class="theme-live-preview">'
+        '<figure class="%s">'
         '<img class="theme-live-preview__image" src="%s%s.png?live=1" '
         'width="%d" height="%d" loading="eager" alt="%s">'
         '<figcaption class="text-label">%s</figcaption>'
         "</figure>"
     ) % (
+        figure_class,
         THEME_PREVIEW_ROUTE_PREFIX, escape_html(live_theme_id),
         THEME_LIVE_PREVIEW_WIDTH, THEME_LIVE_PREVIEW_HEIGHT,
         escape_html(i18n.t(THEME_LIVE_PREVIEW_ALT_TEMPLATE) % label),
@@ -1135,224 +1196,268 @@ def _theme_live_preview_html(current_theme_id, state_dir):
     )
 
 
-def theme_fieldset(
-        current_theme_id, current_theme_arriving=None, errors=None, submitted=None,
-        next_wake_clock=None, state_dir=None):
-    """D-04: a read-only theme status block when exactly one theme is
-    registered (`len(device_config.THEME_IDS) == 1`) — a one-option radio
-    group has no real decision value. Falls back to the editable D-01
-    chip-grid markup below the moment a second theme is registered; this
-    is a `len()` check, not a hardcoded single-theme assumption.
-
-    Both branches render the same single `THEME_SECTION_CAPTION`
-    paragraph directly under the `<h2>` heading (quick task 260901-re6)
-    — `caption_html` below is computed once and reused by both, rather
-    than each branch carrying its own copy of the markup template.
-
-    06.6.4.1.1-05 (D-01/D-02/D-03/D-08, sketch 004 variant B — the
-    developer-confirmed winner): the multi-theme branch no longer emits a
-    `<fieldset>`/`<legend>` radio list. It now emits a `.theme-status`
-    card (the same wrapper Runway and Diagnostic LED already use) holding
-    a `.theme-chip-grid` of one `.theme-chip` per `THEME_IDS` entry — a
-    compact, wrapping card, not stacked 44px native radios. This means
-    the whole rendered Settings page now emits zero `<fieldset>` and zero
-    `<legend>` elements: all four groups (Theme, Runway, Diagnostic LED,
-    Poll) are named by an `<h2 class="text-heading">` at one consistent
-    heading level.
-
-    Each chip reuses `.runway-card`'s own selectable-card mechanism
-    verbatim: a visually-hidden native radio inside the `<label>`, so
-    keyboard and no-JS selection keep working natively; a `--selected`
-    modifier and the radio's `checked` attribute computed from the SAME
-    server-side membership comparison (`theme_id == current_theme_id`),
-    never a client-side `:has()` trick; and an always-present check glyph
-    whose visibility follows the CSS modifier alone. The radio's `name`,
-    `value`, and `checked` semantics are byte-for-byte unchanged from the
-    retired radio-list markup, so `handle_post()`'s existing
-    `device_config.THEME_IDS` membership validation keeps working
-    untouched.
-
-    Each chip additionally carries a real rendered preview (D-03/D-04):
-    an `<img>` pointing at the plan-01 `/theme-preview/{id}.png` route
-    (rebound above as `THEME_PREVIEW_ROUTE_PREFIX`), with
-    `style="background:{departing_hex}"` as a graceful-degradation
-    fallback if that theme's render ever 404s — the chip still shows that
-    theme's own colour instead of a broken-image glyph. `width`/`height`
-    are the real served pixel dimensions (not a CSS `aspect-ratio`, per
-    UIR-07's lesson) so the browser reserves the correct box before the
-    image arrives, and `loading="lazy"` keeps below-the-fold chips off
-    the critical path (mirroring the Airlines gallery's own precedent).
-
-    Phase 15 D-05: `current_theme_arriving` (an id or `None`, defaulting
-    to `None` so every pre-Phase-14 call site keeps working unchanged)
-    extends the multi-theme branch with a `settings-checkbox` toggle plus
-    a SECOND, identical chip grid for the arrivals override — both always
-    rendered in the HTML (the CSS-only `:has()` reveal in
-    companion/static/style.css hides the second grid when the box is
-    unchecked; a browser without `:has()` support just always shows both,
-    denser but never broken). The single-theme read-only branch above is
-    untouched: a one-option "choice" has no arrivals override worth
-    offering either. The second grid pre-selects the EFFECTIVE arrivals
-    theme — `current_theme_arriving` when set, otherwise the same
-    `current_theme_id` the first grid has selected — so an operator who
-    ticks the box starts from the theme already in use, not from nothing.
-
-    19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
-    defaulted, so every pre-Phase-19 call site is unaffected) let a
-    rejected save re-render this group with the user's own submission.
-    `theme`/`theme_arriving` are membership-test ("hostile-request
-    shape") fields — a submitted id that matches nothing in
-    `device_config.THEME_IDS` simply pre-selects nothing in the
-    corresponding chip grid, and the field's error message renders once,
-    directly after that grid. Neither radio group's individual `<input>`
-    gains an `aria-invalid`/`aria-describedby` pair: no single input in
-    a same-named radio group is uniquely "the" control the message
-    describes. `theme_arriving_enabled` (a genuine checkbox with one
-    natural control) DOES gain that pair, anchored on
-    `THEME_ARRIVING_TOGGLE_ID`. The single-theme read-only branch above
-    has no editable control and is therefore never passed a `theme`
-    error in practice — this function does not special-case that away.
-
-    19-11-PLAN.md Task 3 (D-12/A-30): this multi-theme branch's two chip
-    grids gain the group semantics a `<fieldset>`/`<legend>` would
-    otherwise supply, WITHOUT adding either element (the four pinned
-    zero-`<fieldset>` checks in `companion/test_config_page.py` forbid
-    it, and this file's own docstrings above already give the reason).
-    `role="radiogroup"` plus `aria-labelledby` — pointing at this
-    group's own `<h2>` (`THEME_GROUP_HEADING_ID`) for the first grid,
-    and at the "Arrivals theme" label (`THEME_ARRIVING_GROUP_HEADING_ID`)
-    for the second — is the compatible alternative D-12 itself names.
-    Both grids ALSO gain `aria-describedby` pointing at the shared
-    `THEME_SECTION_CAPTION_ID` hint (there is only one hint for the
-    whole group, describing both grids identically), via
-    `_theme_chip_grid_html()`'s existing `extra_attr` seam — the exact
-    seam the arrivals grid's own `ARRIVAL_GRID_ATTR` already uses,
-    reused rather than duplicated with a second seam. The single-theme
-    read-only branch below has no radio group at all (a one-option
-    "choice" is not one), so it gains neither attribute.
-
-    20-11-PLAN.md Task 2 (D-22..D-24, 20-UI-SPEC.md Section Anatomy H/
-    copy table E): the multi-theme branch gains a `<figure class=
-    "theme-live-preview">` directly above the chip grid — `_theme_live_
-    preview_html()` below builds it from `current_theme_id` (the SAVED
-    value, never `effective_theme_id`'s own submitted/pending value:
-    D-24's own no-JS floor is "the preview shows the saved theme",
-    which must hold even while a rejected save is being redisplayed
-    with the chip grid's own selection repopulated from the submission)
-    and `state_dir` (new, optional, defaulting to `None` so every
-    pre-Task-2 call site keeps rendering byte-identical output — the
-    single-theme read-only branch above never had a chip grid to sit a
-    preview above, and gains none here either). The chip grid itself
-    (`first_grid` below) is UNCHANGED beyond the new live-render-path
-    attribute each chip's own `<label>` gains
-    (`_theme_chip_grid_html()`'s own Task 2 docstring paragraph) — the
-    18 thumbnails still render the fixed fictional scene, still
-    comparable side by side.
+def _same_as_departures_chip_html(field_name, checked, radio_form_id=None):
+    """21-05-PLAN.md Task 1 (D-09): the leading, non-theme chip
+    Arrivals'/Calendar's own usage panels prepend to their chip grid
+    via `_theme_chip_grid_html()`'s `leading_chip_html` seam — submits
+    the EMPTY STRING for `field_name` (R-07's clear signal), never a
+    real theme id. Reuses `.theme-chip`/`.theme-chip__body`/
+    `.theme-chip__check`'s own markup shape (21-UI-SPEC.md §D: "reuses
+    .theme-chip's own markup shape with no <img> preview") — a
+    swatch-less name-only body, never a fabricated theme-coloured
+    preview for "no override".
     """
-    caption_html = (
-        '<p class="text-label section-caption" id="%s">%s</p>'
-        % (
-            escape_html(THEME_SECTION_CAPTION_ID),
-            escape_html(_with_next_wake(i18n.t(THEME_SECTION_CAPTION), next_wake_clock)),
-        ))
-    if len(device_config.THEME_IDS) == 1:
-        theme_id = (
-            current_theme_id if current_theme_id in device_config.THEMES
-            else device_config.THEME_IDS[0])
-        theme = device_config.THEMES[theme_id]
-        departing_hex = _palette_hex(theme["departing_index"])
-        arriving_hex = _palette_hex(theme["arriving_index"])
-        return (
-            '<div class="theme-status" %s="%s">'
-            '<h2 class="text-heading">%s</h2>'
-            "%s"
-            '<div class="theme-status__row">'
-            '<span class="theme-swatch" aria-hidden="true">'
-            '<span class="theme-swatch__chip" style="background:%s"></span>'
-            '<span class="theme-swatch__chip" style="background:%s"></span>'
-            "</span>"
-            '<span class="text-body">%s · %s</span>'
-            "</div>"
-            "</div>"
-        ) % (
-            DIRTY_SECTION_ATTR, escape_html(i18n.t("Theme")),
-            escape_html(i18n.t("Theme")),
-            caption_html,
-            departing_hex, arriving_hex,
-            # Polish fix 5 (D-05): translated at this display site — see
-            # _theme_chip_grid_html()'s own comment for why the id
-            # (theme_id) itself never changes.
-            escape_html(i18n.t(device_config.theme_label(theme_id))),
-            escape_html(i18n.t("current")),
-        )
-
-    live_preview_html = _theme_live_preview_html(current_theme_id, state_dir)
-    effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
-    first_grid_attr = 'role="radiogroup" aria-labelledby="%s"%s' % (
-        escape_html(THEME_GROUP_HEADING_ID), _describedby_attr(THEME_SECTION_CAPTION_ID))
-    first_grid = _theme_chip_grid_html(
-        "theme", effective_theme_id, extra_attr=first_grid_attr)
-    theme_error_html = _field_error_html(errors, "theme", "theme")
-
-    checkbox_checked = _submitted_checkbox_checked(
-        submitted, "theme_arriving_enabled", ARRIVING_CHECKBOX_VALUE,
-        current_theme_arriving is not None)
-    theme_arriving_enabled_attrs = _field_error_attrs(
-        errors, "theme_arriving_enabled", THEME_ARRIVING_TOGGLE_ID)
-    theme_arriving_enabled_error_html = _field_error_html(
-        errors, "theme_arriving_enabled", THEME_ARRIVING_TOGGLE_ID)
-
-    submitted_theme_arriving = _submitted_or_current(
-        submitted, "theme_arriving", current_theme_arriving)
-    effective_arriving = (
-        submitted_theme_arriving if submitted_theme_arriving is not None
-        else effective_theme_id)
-    second_grid_attr = 'role="radiogroup" aria-labelledby="%s"%s %s' % (
-        escape_html(THEME_ARRIVING_GROUP_HEADING_ID),
-        _describedby_attr(THEME_SECTION_CAPTION_ID), ARRIVAL_GRID_ATTR)
-    second_grid = _theme_chip_grid_html(
-        "theme_arriving", effective_arriving,
-        extra_class="theme-chip-grid--arrivals", extra_attr=second_grid_attr)
-    theme_arriving_error_html = _field_error_html(errors, "theme_arriving", "theme-arriving")
-    # Only the revealed (second) grid gets a label: before the checkbox
-    # exists there is exactly one grid and it needs no label (unchanged
-    # today); once revealed, the <h2>Theme</h2> heading plus the
-    # checkbox's own "...for arrivals" wording already disambiguate the
-    # first grid as the default/departures one — a second "Departures"
-    # label on the first grid would be an extra line of chrome that
-    # wording already makes redundant (15-UI-SPEC.md Section Anatomy §1).
-    # 19-11-PLAN.md Task 3 (D-12/A-30): this label also carries
-    # THEME_ARRIVING_GROUP_HEADING_ID — the second grid's own
-    # aria-labelledby target above.
+    form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
+    chip_class = "theme-chip theme-chip--placeholder"
+    if checked:
+        chip_class += " theme-chip--selected"
     return (
-        '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading" id="%s">%s</h2>'
-        "%s"
-        "%s"
-        "%s%s"
-        '<label class="settings-checkbox">'
-        '<input type="checkbox" name="theme_arriving_enabled" id="%s" value="%s"%s%s> %s'
+        '<label class="%s">'
+        '<input type="radio" name="%s" value="" class="visually-hidden"%s%s>'
+        '<span class="theme-chip__body theme-chip__body--placeholder">'
+        '<span class="theme-chip__name">%s</span>'
+        "</span>"
+        '<span class="theme-chip__check">%s<span class="visually-hidden">%s</span></span>'
         "</label>"
+    ) % (
+        chip_class, escape_html(field_name), form_attr_html, " checked" if checked else "",
+        escape_html(i18n.t(SAME_AS_DEPARTURES_LABEL)),
+        layout.icon_html("icon-check"), escape_html(i18n.t("Selected")),
+    )
+
+
+def _frame_colours_row_html(usage, checked, label, meta_text, departing_hex, arriving_hex):
+    """21-05-PLAN.md Task 1 (D-07/D-08): one `<li><label class=
+    "frame-colours__row">` pair of the four-row `colour_usage`
+    radiogroup — the visually-hidden native radio supplies the group's
+    real selection semantics (the whole row IS its label, the
+    `.runway-card`/`.theme-chip` idiom's fourth/fifth consumer);
+    `data-usage-panel` names the usage panel this row shows — the same
+    id as the radio's own `value`, which is what theme-preview.js
+    actually reads (`input.value`); the attribute is the server-side
+    statement of that pairing for tests and readers (21-REVIEW.md
+    WR-02), not a second script contract. This
+    radio carries no `form=` attribute and is NEVER submitted to
+    `handle_post()` — it is a pure display-selection control, always
+    defaulting to `departures` checked, matching 21-UI-SPEC.md §D's own
+    static markup.
+    """
+    return (
+        '<li><label class="frame-colours__row">'
+        '<input type="radio" name="%s" value="%s" class="visually-hidden"%s %s="%s">'
+        '<span class="frame-colours__swatch theme-chip__swatches" aria-hidden="true">'
+        '<span class="theme-chip__dot" style="background:%s"></span>'
+        '<span class="theme-chip__dot" style="background:%s"></span>'
+        "</span>"
+        '<span class="frame-colours__label">%s</span>'
+        '<span class="frame-colours__meta">%s</span>'
+        "</label></li>"
+    ) % (
+        COLOUR_USAGE_FIELD_NAME, escape_html(usage), " checked" if checked else "",
+        COLOUR_USAGE_PANEL_ATTR, escape_html(usage),
+        escape_html(departing_hex), escape_html(arriving_hex),
+        escape_html(label), escape_html(meta_text),
+    )
+
+
+def _frame_colours_usage_panel_html(usage, label, inner_html):
+    """21-05-PLAN.md Task 1 (D-08, locked no-JS floor): one
+    `<fieldset class="frame-colours__usage-panel">` per usage, carrying
+    `data-usage-panel-target` (theme-preview.js's own collapse-at-load
+    hook, Task 3) — the server NEVER emits `hidden` here; a script-free
+    page shows all four fieldsets, each with a real, VISIBLE `<legend>`
+    matching its own row's label, so a no-JS reader sees four clearly
+    labelled stacked sections in the same order as the radiogroup above
+    them, and every control inside still submits its real value.
+    """
+    return (
+        '<fieldset class="frame-colours__usage-panel" %s="%s">'
+        '<legend class="frame-colours__panel-legend">%s</legend>'
         "%s"
-        '<p class="text-label theme-direction-label" id="%s">%s</p>'
-        "%s%s"
+        "</fieldset>"
+    ) % (COLOUR_USAGE_PANEL_TARGET_ATTR, escape_html(usage), escape_html(label), inner_html)
+
+
+def _frame_colours_card_html(
+        ctx, current_theme_id, current_theme_arriving, current_calendar_theme_id,
+        errors=None, submitted=None, state_dir=None):
+    """21-05-PLAN.md Task 1 (D-06..D-12): the ONE "Frame colours" card
+    that replaces `theme_fieldset()` (departures/arrivals), the
+    Calendar card's own compact `calendar_theme_id` grid, and the
+    retired standalone "Flight colours" card — one live preview, a
+    four-row `colour_usage` assignment radiogroup (D-07/D-08), and four
+    usage panels (departures/arrivals/calendar chip grids plus the
+    rules row's own list-and-add-form, D-10), rendered as a SIBLING of
+    `<form id="settings-form">` (Structural Note 2) — every saved
+    control inside still cross-submits via `form="settings-form"`.
+
+    `errors`/`submitted` repopulate the three chip grids from a
+    rejected save exactly like the retired `theme_fieldset()` did;
+    `colour_usage` itself is never submitted (no `form=` attribute on
+    those radios) and is therefore never repopulated — it always
+    defaults to `departures` checked, matching 21-UI-SPEC.md §D's own
+    static markup.
+    """
+    live_preview_html = _theme_live_preview_html(
+        current_theme_id, state_dir, extra_class="frame-colours__preview")
+
+    effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
+    departures_grid_attr = 'role="radiogroup" aria-labelledby="%s"' % escape_html(
+        FRAME_COLOURS_HEADING_ID)
+    departures_grid = _theme_chip_grid_html(
+        "theme", effective_theme_id, extra_attr=departures_grid_attr,
+        radio_form_id=SETTINGS_FORM_ID)
+    theme_error_html = _field_error_html(errors, "theme", "theme")
+    departures_safe_id = (
+        effective_theme_id if effective_theme_id in device_config.THEMES
+        else device_config.DEFAULT_THEME_ID)
+    departures_theme = device_config.THEMES[departures_safe_id]
+    departures_dep_hex = _palette_hex(departures_theme["departing_index"])
+    departures_arr_hex = _palette_hex(departures_theme["arriving_index"])
+    departures_meta = i18n.t(device_config.theme_label(departures_safe_id))
+    departures_panel = _frame_colours_usage_panel_html(
+        COLOUR_USAGE_DEPARTURES, i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES]),
+        departures_grid + theme_error_html)
+
+    effective_arriving = _submitted_or_current(submitted, "theme_arriving", current_theme_arriving)
+    arrivals_same_checked = not effective_arriving
+    arrivals_leading_chip = _same_as_departures_chip_html(
+        "theme_arriving", arrivals_same_checked, radio_form_id=SETTINGS_FORM_ID)
+    arrivals_grid_attr = 'role="radiogroup" aria-labelledby="%s"' % escape_html(
+        FRAME_COLOURS_HEADING_ID)
+    arrivals_grid = _theme_chip_grid_html(
+        "theme_arriving", effective_arriving,
+        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
+        extra_attr=arrivals_grid_attr, radio_form_id=SETTINGS_FORM_ID,
+        leading_chip_html=arrivals_leading_chip)
+    theme_arriving_error_html = _field_error_html(errors, "theme_arriving", "theme-arriving")
+    if arrivals_same_checked:
+        arrivals_meta = i18n.t(SAME_AS_DEPARTURES_LABEL)
+        arrivals_dep_hex, arrivals_arr_hex = departures_dep_hex, departures_arr_hex
+    else:
+        arrivals_safe_id = (
+            effective_arriving if effective_arriving in device_config.THEMES
+            else departures_safe_id)
+        arrivals_theme = device_config.THEMES[arrivals_safe_id]
+        arrivals_dep_hex = _palette_hex(arrivals_theme["departing_index"])
+        arrivals_arr_hex = _palette_hex(arrivals_theme["arriving_index"])
+        arrivals_meta = i18n.t(device_config.theme_label(arrivals_safe_id))
+    arrivals_panel = _frame_colours_usage_panel_html(
+        COLOUR_USAGE_ARRIVALS, i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS]),
+        arrivals_grid + theme_arriving_error_html)
+
+    effective_calendar = _submitted_or_current(
+        submitted, "calendar_theme_id", current_calendar_theme_id)
+    calendar_same_checked = not effective_calendar
+    calendar_leading_chip = _same_as_departures_chip_html(
+        "calendar_theme_id", calendar_same_checked, radio_form_id=SETTINGS_FORM_ID)
+    calendar_grid_attr = 'role="radiogroup" aria-labelledby="%s"' % escape_html(
+        FRAME_COLOURS_HEADING_ID)
+    calendar_grid = _theme_chip_grid_html(
+        "calendar_theme_id", effective_calendar,
+        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
+        extra_attr=calendar_grid_attr, radio_form_id=SETTINGS_FORM_ID,
+        leading_chip_html=calendar_leading_chip)
+    calendar_theme_error_html = _field_error_html(errors, "calendar_theme_id", "calendar-theme")
+    if calendar_same_checked:
+        calendar_meta = i18n.t(SAME_AS_DEPARTURES_LABEL)
+        calendar_dep_hex, calendar_arr_hex = departures_dep_hex, departures_arr_hex
+    else:
+        calendar_safe_id = (
+            effective_calendar if effective_calendar in device_config.THEMES
+            else departures_safe_id)
+        calendar_theme = device_config.THEMES[calendar_safe_id]
+        calendar_dep_hex = _palette_hex(calendar_theme["departing_index"])
+        calendar_arr_hex = _palette_hex(calendar_theme["arriving_index"])
+        calendar_meta = i18n.t(device_config.theme_label(calendar_safe_id))
+    calendar_panel = _frame_colours_usage_panel_html(
+        COLOUR_USAGE_CALENDAR, i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_CALENDAR]),
+        calendar_grid + calendar_theme_error_html)
+
+    # D-10: the rules row's own panel — the existing rule list (or the
+    # empty state), the existing add form (its own <form>, a legal
+    # descendant of this <fieldset> since neither is a <form>), and the
+    # "How rules combine" disclosure, relocated verbatim from the
+    # retired standalone Flight-colours card — only that outer card and
+    # its own heading are gone; every inner piece is unchanged.
+    registry = ctx.get("colour_rules")
+    if not isinstance(registry, dict):
+        registry = {kind: {} for kind in colour_rules.RULE_KINDS}
+    rule_rows = colour_rules.rule_rows(registry)
+    rules_caption_html = '<p class="text-label section-caption">%s</p>' % escape_html(
+        i18n.t(RULES_SECTION_CAPTION))
+    rules_add_form_html = _rule_add_form_html()
+    rules_suggestions_html = _rule_suggestion_chips_html(ctx.get("state_dir"))
+    rules_how_combine_html = (
+        '<details><summary>%s</summary><p class="text-body">%s</p></details>'
+    ) % (
+        escape_html(i18n.t(RULES_HOW_RULES_COMBINE_SUMMARY)),
+        escape_html(i18n.t(RULES_HOW_RULES_COMBINE_BODY)),
+    )
+    if not rule_rows:
+        rules_body_html = (
+            '<div class="empty-state-plain"><p class="text-label">%s %s</p></div>'
+        ) % (escape_html(i18n.t(RULES_EMPTY_HEADING)), escape_html(i18n.t(RULES_EMPTY_BODY)))
+        rules_meta = i18n.t(FRAME_COLOURS_RULES_EMPTY_META)
+    else:
+        rules_body_html = _rule_list_html(rule_rows)
+        rule_count = len(rule_rows)
+        if rule_count == 1:
+            rules_meta = i18n.t(FRAME_COLOURS_RULES_COUNT_SINGULAR)
+        else:
+            rules_meta = i18n.t(FRAME_COLOURS_RULES_COUNT_PLURAL_TEMPLATE) % rule_count
+    rules_panel_inner = (
+        rules_caption_html + rules_add_form_html + rules_suggestions_html
+        + rules_body_html + rules_how_combine_html)
+    rules_panel = _frame_colours_usage_panel_html(
+        COLOUR_USAGE_RULES, i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_RULES]),
+        rules_panel_inner)
+
+    # The rules row's own swatch: there is no single "current" theme for
+    # a whole registry of per-flight rules, so its two dots read a
+    # neutral, border-toned value (an existing CSS variable, not a new
+    # colour literal) rather than fabricating a false per-flight colour.
+    # A function-local variable, not a module constant — this raw CSS
+    # token is never real, translatable prose, and test_i18n.py's own
+    # D-08 completeness scan only walks module-level ALL_CAPS constants.
+    rules_row_swatch_hex = "var(--color-border)"
+    rows_data = (
+        (COLOUR_USAGE_DEPARTURES, departures_dep_hex, departures_arr_hex, departures_meta),
+        (COLOUR_USAGE_ARRIVALS, arrivals_dep_hex, arrivals_arr_hex, arrivals_meta),
+        (COLOUR_USAGE_CALENDAR, calendar_dep_hex, calendar_arr_hex, calendar_meta),
+        (COLOUR_USAGE_RULES, rules_row_swatch_hex, rules_row_swatch_hex, rules_meta),
+    )
+    list_items = "".join(
+        _frame_colours_row_html(
+            usage, usage == COLOUR_USAGE_DEPARTURES,
+            i18n.t(FRAME_COLOURS_ROW_LABELS[usage]), meta_text, dep_hex, arr_hex)
+        for usage, dep_hex, arr_hex, meta_text in rows_data)
+
+    panels_html = departures_panel + arrivals_panel + calendar_panel + rules_panel
+
+    return (
+        '<div class="page-section frame-colours" %s="%s">'
+        '<h2 class="text-heading" id="%s">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        '<div class="frame-colours__layout">'
+        "%s"
+        '<div class="frame-colours__assign">'
+        '<ul class="frame-colours__list" role="radiogroup" aria-labelledby="%s">%s</ul>'
+        "</div>"
+        # Phase 21 polish: the usage panels (one chip grid per usage, the
+        # rules block) sit in a full-width third grid cell under the
+        # preview/rows pair, so the chips flow across the whole card
+        # instead of stacking two per row inside the right-hand column.
+        '<div class="frame-colours__panels">%s</div>'
+        "</div>"
         "</div>"
     ) % (
-        DIRTY_SECTION_ATTR, escape_html(i18n.t("Theme")),
-        escape_html(THEME_GROUP_HEADING_ID),
-        escape_html(i18n.t("Theme")),
-        caption_html,
+        DIRTY_SECTION_ATTR, escape_html(i18n.t(FRAME_COLOURS_HEADING)),
+        escape_html(FRAME_COLOURS_HEADING_ID), escape_html(i18n.t(FRAME_COLOURS_HEADING)),
+        escape_html(i18n.t(FRAME_COLOURS_CAPTION)),
         live_preview_html,
-        first_grid, theme_error_html,
-        escape_html(THEME_ARRIVING_TOGGLE_ID),
-        escape_html(ARRIVING_CHECKBOX_VALUE),
-        " checked" if checkbox_checked else "",
-        theme_arriving_enabled_attrs,
-        escape_html(i18n.t(THEME_ARRIVING_CHECKBOX_LABEL)),
-        theme_arriving_enabled_error_html,
-        escape_html(THEME_ARRIVING_GROUP_HEADING_ID),
-        escape_html(i18n.t(THEME_DIRECTION_LABEL)),
-        second_grid, theme_arriving_error_html,
+        escape_html(FRAME_COLOURS_HEADING_ID), list_items,
+        panels_html,
     )
 
 
@@ -1439,12 +1544,12 @@ def runway_fieldset(
     (where this group is still a literal descendant of
     `<form id="{SETTINGS_FORM_ID}">`), the attribute is a harmless
     no-op — the browser's explicit `form=` association resolves to the
-    exact enclosing form either way. On the Display scope, `render()`'s
-    `_display_groups_html()` now renders this group as a SIBLING of
-    `<form id="{SETTINGS_FORM_ID}">` (never nested inside it), which is
-    what lets `calendar_connect_section()`'s own separate `<form>` sit
-    between the Calendar card and this group in document order without
-    ever nesting one `<form>` inside another.
+    exact enclosing form either way. On the Display scope, `render()`
+    now renders this group as a SIBLING of `<form id="{SETTINGS_FORM_
+    ID}">` (never nested inside it), which is what lets the merged
+    Calendar card's own connect/replace `<form>` (21-07-PLAN.md Task 1)
+    sit between the Calendar card and this group in document order
+    without ever nesting one `<form>` inside another.
     """
     effective_runway_id = _submitted_or_current(
         submitted, "tracked_runway", current_runway_id)
@@ -1715,49 +1820,17 @@ def quiet_hours_group(
         escape_html(i18n.t(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL)),
     )
 
-    # D-19 (20-UI-SPEC.md Section Anatomy D): the instant switch, above a
-    # hairline and the shared "applies on next wake" sentence, at the top
-    # of the card, before the scheduled checkbox/time inputs. `is_on`
-    # reads the CURRENT persisted state (`current_enabled`/`current_start`/
-    # `current_end`), never the submission being repopulated below —
-    # matching Home's own (soon-to-be-retired, D-16) Quick-actions
-    # widget, whose `quiet_on = cfg.get(...) is True` this mirrors
-    # exactly.
-    is_on = current_enabled is True
-    next_state = layout.QUICK_STATE_OFF if is_on else layout.QUICK_STATE_ON
-    state_text = (
-        i18n.t(QUICK_ACTION_QUIET_ON_TEMPLATE) % (current_start, current_end)
-        if is_on else i18n.t(QUICK_ACTION_QUIET_OFF_TEXT))
-    quick_action_html = (
-        '<div class="quick-action-slot">'
-        '<div class="quick-action quick-action--%s">'
-        '<div class="quick-action__text">'
-        '<span class="text-label quick-action__label">%s%s</span>'
-        '<span class="text-body quick-action__state">%s</span>'
-        "</div>"
-        '<form method="post" action="/quick/quiet-hours" class="quick-action__form">'
-        '<input type="hidden" name="%s" value="%s">'
-        '<button type="submit">%s</button>'
-        "</form>"
-        "</div>"
-        '<p class="text-label section-caption">%s</p>'
-        "</div>"
-    ) % (
-        "on" if is_on else "off",
-        layout.icon_html("icon-moon", size=16, extra_class="quick-action__icon"),
-        escape_html(i18n.t(QUICK_ACTION_QUIET_LABEL)),
-        escape_html(state_text),
-        layout.QUICK_STATE_FIELD, escape_html(next_state),
-        escape_html(i18n.t(
-            QUICK_ACTION_QUIET_TURN_OFF_BUTTON if is_on else QUICK_ACTION_QUIET_TURN_ON_BUTTON)),
-        escape_html(i18n.t(QUICK_ACTION_APPLIES_SENTENCE)),
-    )
-
+    # 21-04-PLAN.md Task 1 (D-01/D-02): the instant switch that used to
+    # render here, above a hairline and the shared "applies on next
+    # wake" sentence, is gone — it now renders once, in the shared
+    # Frame strip at the top of Home and Display (the shared strip
+    # helper in companion/layout.py), never a second time in this
+    # card. Everything below (the scheduled checkbox, the presets, both time
+    # inputs, the Save button) is unchanged.
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        "%s"
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s form="%s"%s> %s'
         "</label>"
@@ -1773,7 +1846,6 @@ def quiet_hours_group(
         escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
         escape_html(_with_next_wake(i18n.t(QUIET_HOURS_SECTION_CAPTION), next_wake_clock)),
-        quick_action_html,
         escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", SETTINGS_FORM_ID,
         enabled_error_attrs,
         escape_html(i18n.t("Enable quiet hours")),
@@ -1892,32 +1964,39 @@ def notifications_group(
     against `led_group()`'s exact `.theme-status`/`<h2 class=
     "text-heading">` fieldset-free idiom.
 
-    **Write-only URL, matching `calendar_connect_section()`'s established
-    contract (T-20-12)**: `configured` is a bare bool — never the URL
-    itself, never a masked fragment of it. `layout.status_row("",
-    verdict, "", state)` reports only whether a topic URL is stored; the
-    text input always renders with NO `value` attribute and nothing
-    derived from the stored URL, in both states. Wrapped in
-    `<details><summary>Replace the URL</summary>` while `configured` is
-    true, unwrapped otherwise — the identical disclosure shape
-    `calendar_connect_section()` already uses for the identical reason.
+    **Write-only URL — never masked, unlike the Calendar card's own
+    connect/replace field (T-20-12)**: `configured` is a bare bool —
+    never the URL itself, never a masked fragment of it, in any state.
+    `layout.status_row("", verdict, "", state)` reports only whether a
+    topic URL is stored; the text input always renders with NO `value`
+    attribute and nothing derived from the stored URL, in both states.
+    Wrapped in `<details><summary>Replace the URL</summary>` while
+    `configured` is true, unwrapped otherwise — the identical disclosure
+    shape the merged Calendar card's own connect/replace form uses
+    (`calendar_group()`, 21-07-PLAN.md Task 1) for the identical reason.
+    This field deliberately does NOT follow Calendar's own D-14/R-10
+    widening (host + "…" once connected) — no equivalent developer
+    request exists for Notifications, and this docstring is the one
+    place recording that the two write-only-looking fields are no
+    longer identical in what they show once connected.
 
-    Unlike `calendar_connect_section()`, this field is NOT a dedicated
-    route: it is a plain member of the tracked settings form, waiting on
-    the page-wide Save exactly like every other Device field (the
-    plan's own explicit instruction — "All three controls are part of
-    #settings-form and wait on Save"). Only the "Send a test" button
-    (`notifications_test_section()` below) is its own immediate-POST
-    form, a sibling of `#settings-form` — mirroring the Calendar Connect
-    form's/the rules add-form's own reasoning for that identical shape:
-    an immediate action must never wait on, or nest inside, the
+    Unlike the Calendar card's own connect/replace form, this field is
+    NOT a dedicated route: it is a plain member of the tracked settings
+    form, waiting on the page-wide Save exactly like every other Device
+    field (the plan's own explicit instruction — "All three controls are
+    part of #settings-form and wait on Save"). Only the "Send a test"
+    button (`notifications_test_section()` below) is its own immediate-
+    POST form, a sibling of `#settings-form` — mirroring the Calendar
+    Connect form's/the rules add-form's own reasoning for that identical
+    shape: an immediate action must never wait on, or nest inside, the
     page-wide Save form (D-19/Pitfall 1).
 
     19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
     defaulted) let a rejected save repopulate both checkboxes from the
     submission and render each field's own error message — the topic
     URL has no repopulation (nothing to repopulate; a write-only field),
-    matching `calendar_connect_section()`'s identical omission.
+    matching the merged Calendar card's own connect/replace field's
+    identical omission.
     """
     status_html = layout.status_row(
         "",
@@ -2001,20 +2080,20 @@ def notifications_group(
 def notifications_test_section():
     """The "Send a test" button (D-26, 20-11-PLAN.md Task 1): its own
     small `<form method="post" action="{NOTIFICATIONS_TEST_ROUTE}">`, a
-    sibling of `<form id="{SETTINGS_FORM_ID}">` — mirroring
-    `calendar_connect_section()`'s/the rules add-form's own reasoning
-    for the identical shape (D-19/Pitfall 1: an immediate action's own
-    `<form>` must never nest inside the settings form). `render()`
-    renders this immediately after `</form>` closes, on the Device
-    scope only (`screens.GROUP_NOTIFICATIONS` is never a member of
-    `scope_groups(SCOPE_DISPLAY)` or the legacy SCOPE_ALL tuple, so this
-    section is correctly omitted from both).
+    sibling of `<form id="{SETTINGS_FORM_ID}">` — mirroring the merged
+    Calendar card's own connect/replace form's/the rules add-form's own
+    reasoning for the identical shape (D-19/Pitfall 1: an immediate
+    action's own `<form>` must never nest inside the settings form).
+    `render()` renders this immediately after `</form>` closes, on the
+    Device scope only (`screens.GROUP_NOTIFICATIONS` is never a member
+    of `scope_groups(SCOPE_DISPLAY)` or the legacy SCOPE_ALL tuple, so
+    this section is correctly omitted from both).
 
     The action attribute below is written as literal path text, not a
-    `%s` interpolation of `NOTIFICATIONS_TEST_ROUTE` — matching
-    `calendar_connect_section()`'s own established convention for the
-    identical class of grep (this module's acceptance gate greps the
-    literal form-action text).
+    `%s` interpolation of `NOTIFICATIONS_TEST_ROUTE` — matching the
+    merged Calendar card's own connect/replace form's established
+    convention for the identical class of grep (this module's
+    acceptance gate greps the literal form-action text).
 
     Carries no `data-confirm`: sending a test push is neither
     destructive nor state-changing on this side — the handler
@@ -2036,9 +2115,9 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     now a SIBLING of `<form id="{SETTINGS_FORM_ID}">`, never a literal
     descendant — `render()` no longer folds this builder's output into
     `groups_html`, and calls it separately, emitting it after `</form>`
-    closes (the same slot `calendar_disconnect_section()` already
-    occupies). This is the required structural fix for the instant
-    switch below: its own `<form method="post" action="{QUICK_DISPLAY_
+    closes (the same slot the merged Calendar card's own disconnect
+    form already occupies). This is the required structural fix for the
+    instant switch below: its own `<form method="post" action="{QUICK_DISPLAY_
     ROUTE}">` would otherwise nest inside `<form id="{SETTINGS_FORM_ID}">`,
     which HTML forbids. The `display_enabled` checkbox keeps submitting
     with the shared Save via a `form="{SETTINGS_FORM_ID}"` attribute
@@ -2059,20 +2138,18 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     page whose apply-timing is genuinely different — see the constant's
     own comment above for why.
 
-    D-19 (20-UI-SPEC.md Section Anatomy D): the instant-switch slot — the
-    switch itself, posting to `QUICK_DISPLAY_ROUTE` (unchanged from
-    `/quick/display`'s own existing session-gated route and redirect
-    target, 20-01-PLAN.md Task 2), above a hairline, followed by the
-    shared "Applies the next time the frame wakes up." sentence — renders
-    at the top of this card, before the scheduled checkbox. `is_on` is
-    resolved the same way Home's own (soon-to-be-retired, D-16)
-    Quick-actions widget resolves it: `is not False`, so a config
-    predating this field (`None`) reads as on, matching
-    `DEFAULT_DISPLAY_ENABLED`'s own default-on posture.
+    21-04-PLAN.md Task 1 (D-01/D-02): the instant-switch slot that used
+    to render here, above a hairline and the shared "Applies the next
+    time the frame wakes up." sentence, at the top of this card, is
+    gone — it now renders once, in the shared Frame strip at the top
+    of Home and Display (the shared strip helper in companion/
+    layout.py), never a second time in this card. Everything below
+    (the scheduled checkbox, the
+    Save button) is unchanged.
 
-    Every interpolated current value — the heading, the caption, the
-    checkbox value, and every quick-action string — is routed through
-    `escape_html()`, matching this file's universal escaping discipline.
+    Every interpolated current value — the heading, the caption, and
+    the checkbox value — is routed through `escape_html()`, matching
+    this file's universal escaping discipline.
 
     19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
     defaulted) let a rejected save repopulate this checkbox's `checked`
@@ -2092,37 +2169,10 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     error_attrs = _field_error_attrs(
         errors, "display_enabled", "display-enabled", hint_id=DISPLAY_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "display_enabled", "display-enabled")
-    is_on = current_display_enabled is not False
-    next_state = layout.QUICK_STATE_OFF if is_on else layout.QUICK_STATE_ON
-    quick_action_html = (
-        '<div class="quick-action-slot">'
-        '<div class="quick-action quick-action--%s">'
-        '<div class="quick-action__text">'
-        '<span class="text-label quick-action__label">%s%s</span>'
-        '<span class="text-body quick-action__state">%s</span>'
-        "</div>"
-        '<form method="post" action="/quick/display" class="quick-action__form">'
-        '<input type="hidden" name="%s" value="%s">'
-        '<button type="submit">%s</button>'
-        "</form>"
-        "</div>"
-        '<p class="text-label section-caption">%s</p>'
-        "</div>"
-    ) % (
-        "on" if is_on else "off",
-        layout.icon_html("icon-power", size=16, extra_class="quick-action__icon"),
-        escape_html(i18n.t(QUICK_ACTION_SCREEN_LABEL)),
-        escape_html(i18n.t(QUICK_ACTION_ON_TEXT if is_on else QUICK_ACTION_OFF_TEXT)),
-        layout.QUICK_STATE_FIELD, escape_html(next_state),
-        escape_html(i18n.t(
-            QUICK_ACTION_SWITCH_OFF_BUTTON if is_on else QUICK_ACTION_SWITCH_ON_BUTTON)),
-        escape_html(i18n.t(QUICK_ACTION_APPLIES_SENTENCE)),
-    )
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        "%s"
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="display_enabled" value="%s"%s form="%s"%s> %s'
         "</label>"
@@ -2132,7 +2182,6 @@ def display_group(current_display_enabled, errors=None, submitted=None):
         DIRTY_SECTION_ATTR, escape_html(i18n.t(DISPLAY_SECTION_HEADING)),
         escape_html(i18n.t(DISPLAY_SECTION_HEADING)),
         escape_html(DISPLAY_SECTION_CAPTION_ID), escape_html(i18n.t(DISPLAY_SECTION_CAPTION)),
-        quick_action_html,
         escape_html(DISPLAY_CHECKBOX_VALUE), " checked" if checked else "", SETTINGS_FORM_ID,
         error_attrs,
         escape_html(i18n.t("Enable display")),
@@ -2140,77 +2189,158 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     )
 
 
+def _masked_calendar_url(url):
+    """host + "…" — never the path, query, fragment or userinfo of the
+    stored calendar feed URL (21-07-PLAN.md Task 2, D-14/R-10).
+
+    Parses with `urlsplit()` and returns ONLY its `netloc` plus an
+    ellipsis — a real URL parse, never a byte-offset truncation of the
+    raw secret string (a naive `url[:20] + "…"` would NOT be safe: a
+    short host could still leak leading path/query/token characters
+    depending on its length). On ANY failure — a falsy `url`, a
+    `ValueError` from `urlsplit()`, or a netloc that parses out empty —
+    this returns the empty string, and the caller omits its whole
+    masked-URL line entirely rather than render a fabricated placeholder
+    (21-UI-SPEC.md's own "omit, don't fabricate" Empty/Error
+    convention).
+
+    This is a deliberate, narrow widening of this module's write-only
+    convention for secret URLs (T-16-SECRET/T-17-SECRET): every OTHER
+    secret-URL field in this file (the Calendar card's own connect/
+    replace field, Notifications' topic-URL field) never reads its
+    stored value back for display at all. D-14/R-10 explicitly asks for
+    "host + '…'" once connected, which requires reading the value back
+    — this helper is the ONE place in the whole codebase that does, and
+    it is scoped as tightly as the requirement allows: host only, never
+    the path, query, fragment or userinfo, and only ever reached by
+    `calendar_group()`'s own connected-state branch below.
+    """
+    if not url:
+        return ""
+    try:
+        netloc = urlsplit(url).netloc
+    except ValueError:
+        return ""
+    if not netloc:
+        return ""
+    return "%s…" % netloc
+
+
 def calendar_group(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
-        current_calendar_theme_id, current_theme_id,
-        errors=None, submitted=None, simple_mode=False):
-    """The Calendar card (20-09-PLAN.md Task 1, 20-UI-SPEC.md Section
-    Anatomy E; D-14a..d): in the "Look" supersection, after Theme and
-    Flight colours (D-12 fix, 20-REVIEW.md verification gap — see
-    `render()`'s own docstring for the exact document-order change).
-    It nests no form of its own: the feed-URL field and its
-    Connect/Replace button moved to their own dedicated route
-    (`calendar_connect_section()` below, D-14c) — a status row, one
-    compact chip-grid radio group and a `<details>` disclosure, nothing
-    else.
+        errors=None, submitted=None, state_dir=None):
+    """The Calendar card (21-07-PLAN.md Task 1, 21-UI-SPEC.md Section
+    Anatomy E; D-13/D-14): ONE `<div class="page-section">`, in the
+    "Look" supersection, after the Frame colours card (D-06, 21-05-
+    PLAN.md Task 1). Retires the three-piece split (a status-only card,
+    a separate connect/replace mini-form card, and a standalone
+    disconnect form) a run of earlier plans (20-04/20-07/20-09) built up
+    — D-13 wants genuine nesting, not three DOM siblings visually glued
+    by a `:has()` CSS trick (21-RESEARCH.md Pitfall 2).
 
-    D-12 fix: this card is now rendered by `render()` as a SIBLING of
-    `<form id="settings-form">`, not a literal descendant — the
-    physical form now closes right after the Theme card, before this
-    card, so Flight colours' own real `<form>` elements can sit between
-    them without ever nesting a `<form>` inside another. The compact
-    chip-grid radio group below still IS a saved setting, so it keeps
-    posting through the physical form via the `form="settings-form"`
-    attribute `_theme_chip_grid_html(radio_form_id=...)` now adds to
-    every one of its radios — the same idiom `runway_fieldset()`'s own
-    radios and `display_group()`/`quiet_hours_group()`'s scheduled
-    inputs already use.
+    In document order: the status row, then a state branch (below), then
+    the "How it works" disclosure — always inside this one wrapper. The
+    disconnect action's own confirmed `<form>` is the ONE piece that
+    still cannot live inside this div (HTML forbids a `<form>` nested in
+    another `<form>`, and this card's own connect/replace form is
+    itself a `<form>`) — it renders as a second, data-only fragment,
+    concatenated onto this function's return value as a plain sibling,
+    never as a second value the caller has to remember to place. Every
+    caller therefore gets both pieces, correctly ordered, from one call.
+
+    21-05-PLAN.md Task 1 (D-06): the compact `calendar_theme_id` chip
+    grid this card used to render (D-14d) is retired outright — it now
+    lives inside the Frame colours card's own "Calendar flights" usage
+    panel, alongside a "Same as departures" leading chip (D-09).
+    `current_calendar_theme_id`/`current_theme_id`/`errors["calendar_
+    theme_id"]` are therefore no longer this function's concern.
+    `errors`/`submitted` stay: `errors` reaches the write-only URL
+    field's own error message (the one field this merged card still
+    validates); `submitted` stays fully defaulted, unused, purely for
+    call-site symmetry with every other group builder — there is
+    nothing else here to repopulate.
+
+    21-07-PLAN.md Task 2 (D-14/R-10): `state_dir` (fully defaulted,
+    `None` when the caller has none to give) is the ONE new parameter
+    this task adds — it is read exactly once, only in the connected
+    branch below, purely to compute the masked feed-URL line via
+    `_masked_calendar_url()` (`calendar_rules.configured_calendar_url(
+    state_dir)`). This is the single call site in this module that
+    reads a stored calendar secret back for display; every other
+    reader of `configured` never touches the value itself.
+
+    D-12 fix (carried forward): this card renders as a SIBLING of
+    `<form id="settings-form">`, not a literal descendant — nothing
+    inside it posts through the physical form any more.
 
     **D-14b — the status row.** `layout.status_row("", verdict, detail,
     state)`: label is `""` because the card's own `<h2>Calendar</h2>`
-    already names the subject (a repeated "CALENDAR" label would be
-    redundant chrome). Four branches, `drift` first — a permission-
-    drifted stored link (D-02) wins over everything else, because
-    `configured` is already `False` in that state (D-08 —
+    already names the subject. Four branches, `drift` first — a
+    permission-drifted stored link (D-02) wins over everything else,
+    because `configured` is already `False` in that state (D-08 —
     `calendar_is_configured()`'s own bool contract) and a later check
-    would therefore never see the drift branch at all, making it
-    indistinguishable from a calendar that was never connected. Then not
+    would therefore never see the drift branch at all. Then not
     configured. Then configured: "usable" (a parseable, age-computable
     `last_synced_at`) renders the entry count plus the language-aware
     relative age (D-07, `layout.relative_age_text()`) as the detail, with
-    a genuinely fresh verdict word ("Connected") — never the same
-    sentence twice (this primitive's own documented anti-duplication
-    contract, D-21). Configured but never usable branches on whether an
-    attempt has ever been recorded (`last_attempt_at is not None`): at
-    least one attempt with no usable sync yet is the ONE derivable
-    failed-fetch category this module has fields for (T-20-30) — the
-    fixed, mapped `CALENDAR_STATUS_FETCH_FAILED_DETAIL` sentence, never
-    a caught exception's own text (which `server/plane/calendar_rules.py`
-    does not persist anywhere this function could read it from). No
+    a genuinely fresh verdict word ("Connected"). Configured but never
+    usable branches on whether an attempt has ever been recorded
+    (`last_attempt_at is not None`): at least one attempt with no usable
+    sync yet is the ONE derivable failed-fetch category this module has
+    fields for (T-20-30) — the fixed, mapped `CALENDAR_STATUS_FETCH_
+    FAILED_DETAIL` sentence, never a caught exception's own text. No
     attempt recorded yet is the ordinary "just connected" wait state.
 
-    **D-14d — the compact chip grid.** `_theme_chip_grid_html(
-    "calendar_theme_id", ..., extra_class="theme-chip-grid--compact")` —
-    the third consumer of that existing builder (after Theme's own two
-    grids) — replaces the retired native drop-down field outright (its
-    own name, "calendar_theme_id", is unchanged); `role="radiogroup"` +
-    `aria-labelledby` points at this
-    card's own `<h2 id="{CALENDAR_HEADING_ID}">` rather than minting a
-    second, redundant visually-hidden label. Each radio also carries an
-    explicit `form="settings-form"` attribute (D-12 fix above) because
-    it IS a saved setting, unlike the feed URL — it must keep posting
-    through the physical form even though this card itself now renders
-    as a sibling of that form, not a literal descendant.
+    **D-13/D-14 — the state branch.** `configured` picks between two
+    shapes: not connected (including the drifted case, since `drift`
+    forces `configured` False) renders the write-only feed-URL field
+    inside its own `<form method="post" action="{CALENDAR_CONNECT_
+    ROUTE}">` with the primary "Connect calendar" button, unwrapped;
+    connected renders a masked-URL line (host + "…", via `_masked_
+    calendar_url()` — 21-07-PLAN.md Task 2, D-14/R-10; OMITTED
+    entirely, not fabricated, when the mask cannot
+    be computed) followed by a `<p class="calendar-actions">` holding
+    the SAME connect form — now labelled "Replace" (`CALENDAR_REPLACE_
+    BUTTON_TEXT`) — behind a `<details class="calendar-url-disclosure">
+    <summary class="text-link">Replace the feed URL</summary>`
+    disclosure, plus the small grey Disconnect button, right-aligned on
+    the same line. The write-only contract is unchanged in either
+    state: the input never carries a `value` attribute (T-16-SECRET/
+    T-17-SECRET/T-20-12) — the masked line is a wholly separate, host-
+    only fragment, never derived from or fed back into that field.
 
-    **D-14a — the "How it works" disclosure.** Collapses to
-    `CALENDAR_HOW_IT_WORKS_SIMPLE`'s one plain sentence when `simple_mode`
-    is true (D-30) — server-side omission of the longer wording, not a
-    CSS hide, since the text itself differs between the two renders.
+    The drifted state additionally gets its own small Disconnect button
+    (no Replace disclosure — drift's own verdict already reads "Not
+    connected", so there is no successfully-connected feed to
+    "replace") so a drifted, unreadable stored link can still be
+    cleared without first pasting a new one over it — the identical
+    `configured or drift` predicate the retired standalone disconnect
+    form used (D-02: a drifted file still exists and still holds a URL).
 
-    19-07-PLAN.md Task 2 (D-07/T-19-12) precedent, carried forward:
-    `errors`/`submitted` (both fully defaulted) let a rejected save
-    repopulate `calendar_theme_id`'s chip-grid selection from the
-    submission and render its error message.
+    **D-14 — the cross-form Disconnect button.** The disconnect
+    `<form id="{CALENDAR_DISCONNECT_FORM_ID}">` is a genuinely separate
+    DOM element (a data-only sibling of this card's own outer `<div>`,
+    concatenated onto the return value below) carrying only its hidden,
+    EMPTY confirm field — a bare POST of that form therefore submits no
+    confirm value at all, landing on `_handle_calendar_disconnect_post()`
+    's own server-rendered confirmation page (`calendar_disconnect_
+    confirm_page()` below) rather than erasing anything. That page IS
+    the real control; the visible button (rendered inline, wherever this
+    function's state branch puts it) additionally carries `data-
+    confirm`/`data-confirm-value` attributes `companion/static/
+    confirm-submit.js` reads to show one native `confirm()` dialog and,
+    on acceptance only, fill this same hidden field with `CALENDAR_
+    DISCONNECT_CONFIRM_VALUE` before letting the submit proceed — a
+    misclick guard layered on top, never a substitute for the server-
+    side gate. The button reaches the form it does not contain via a
+    `form="{CALENDAR_DISCONNECT_FORM_ID}"` attribute — the same cross-
+    DOM submission idiom the dirty bar's own Save button already uses,
+    required here because HTML forbids nesting this `<form>` inside the
+    card's own connect/replace `<form>` or inside the card's outer
+    `<div>` sitting next to one.
+
+    **D-14a — the "How it works" disclosure.** Always renders in full,
+    at the bottom of the card, in every state.
     """
     # Drift first (D-02): a drifted file makes `configured` already
     # False (D-08), so checking `not configured` before `drift` would
@@ -2243,89 +2373,6 @@ def calendar_group(
             state = "warn"
     status_html = layout.status_row("", verdict, detail, state)
 
-    selected_calendar_theme_id = _submitted_or_current(
-        submitted, "calendar_theme_id",
-        current_calendar_theme_id if current_calendar_theme_id is not None
-        else current_theme_id)
-    calendar_theme_error_html = _field_error_html(
-        errors, "calendar_theme_id", "calendar-theme")
-    chip_grid_html = _theme_chip_grid_html(
-        "calendar_theme_id", selected_calendar_theme_id,
-        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
-        extra_attr='role="radiogroup" aria-labelledby="%s"' % escape_html(CALENDAR_HEADING_ID),
-        # D-12 fix (20-REVIEW.md verification gap): this card now
-        # renders as a sibling of <form id="settings-form"> on the
-        # Display scope (see render()'s own docstring) - the same
-        # form= idiom runway_fieldset()'s radios already use keeps
-        # this saved setting posting through the physical form.
-        radio_form_id=SETTINGS_FORM_ID)
-
-    if simple_mode:
-        how_it_works_html = (
-            '<p class="text-label section-caption">%s</p>'
-        ) % escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SIMPLE))
-    else:
-        how_it_works_html = (
-            '<details><summary>%s</summary><p class="text-body">%s</p></details>'
-        ) % (
-            escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SUMMARY)),
-            escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_BODY)),
-        )
-
-    return (
-        '<div class="page-section" %s="%s">'
-        '<h2 class="text-heading" id="%s">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
-        "%s"
-        "%s"
-        "%s"
-        "%s"
-        "</div>"
-    ) % (
-        DIRTY_SECTION_ATTR, escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
-        escape_html(CALENDAR_HEADING_ID), escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
-        escape_html(i18n.t(CALENDAR_CAPTION)),
-        status_html,
-        chip_grid_html,
-        calendar_theme_error_html,
-        how_it_works_html,
-    )
-
-
-def calendar_connect_section(configured, errors=None):
-    """The feed-URL field and the "Connect calendar" button (20-09-
-    PLAN.md Task 1/2, D-14c): its OWN small `<form method="post"
-    action="{CALENDAR_CONNECT_ROUTE}">`, a sibling of `<form
-    id="settings-form">`, rendered by `render()` immediately before
-    `calendar_disconnect_section()`'s own output — never a descendant of
-    the settings form (posting a URL through the scoped settings handler
-    would read every absent checkbox on Display as an explicit OFF and
-    silently switch off Quiet hours and the screen, T-20-11) and never
-    behind the page-wide Save.
-
-    Wrapped in `<details><summary>Replace the feed URL</summary>` while
-    `configured` is true; rendered unwrapped otherwise — matching D-14c's
-    own text exactly ("While connected, the URL input is hidden behind a
-    'Replace the feed URL' disclosure").
-
-    The write-only contract is preserved verbatim from the retired
-    in-form field this replaces: the input always renders with no
-    `value` attribute, no populated placeholder, and nothing derived
-    from the stored URL, in both the connected and not-connected states
-    (T-16-SECRET/T-17-SECRET/T-20-12) — `errors` (fully defaulted,
-    matching this file's D-07 idiom for a field-level message) lets a
-    rejected connect attempt render the field's own error message; there
-    is no `submitted` parameter here at all, unlike this file's other
-    D-07 call sites, because there is nothing to repopulate — the one
-    field this form carries is the write-only URL itself.
-
-    Wrapped in its own `.page-section` — a genuinely small, distinct
-    card, not a bare form — so this card's own bottom edge becomes the
-    `:has(+ .calendar-disconnect-form)` fused-card target
-    (companion/static/style.css, 20-04-PLAN.md) when `calendar_disconnect
-    _section()`'s output immediately follows it in the DOM, giving the
-    two forms one continuous, visually-joined unit.
-    """
     error_attrs = _field_error_attrs(
         errors, "calendar_url", "calendar-connect-url", hint_id=CALENDAR_URL_HINT_ID)
     error_html = _field_error_html(errors, "calendar_url", "calendar-connect-url")
@@ -2343,79 +2390,114 @@ def calendar_connect_section(configured, errors=None):
         escape_html(CALENDAR_URL_HINT_ID), escape_html(i18n.t(CALENDAR_URL_HINT)),
         error_html,
     )
+    # The cross-DOM form= attribute below is written as literal id
+    # text, not a %s interpolation of CALENDAR_DISCONNECT_FORM_ID —
+    # matching this file's own established convention for the instant-
+    # switch forms' own action attributes (see CALENDAR_CONNECT_ROUTE's
+    # comment below): this module's acceptance gate greps the literal
+    # attribute text, and the constant itself stays defined for the
+    # disconnect <form>'s own id attribute below and for test_config_
+    # page.py's own checks to reference.
+    disconnect_button_html = (
+        '<button type="submit" form="calendar-disconnect-form" class="calendar-disconnect-btn">%s</button>'
+    ) % escape_html(i18n.t(CALENDAR_DISCONNECT_BUTTON_TEXT))
     # The action attribute below is written as literal path text, not a
     # %s interpolation of CALENDAR_CONNECT_ROUTE — matching this file's
-    # own established convention for the quick-action forms' own action
-    # attributes (see QUICK_DISPLAY_ROUTE's comment above): this module's
-    # acceptance gate greps the literal form-action text, and the
-    # constant itself stays defined for companion/app.py's rebinding and
-    # companion/test_config_page.py's own checks to reference without
-    # retyping the path a third time.
-    form_html = (
-        '<form method="post" action="/settings/calendar/connect" class="rule-add-form">'
-        "%s"
-        '<button type="submit">%s</button>'
-        "</form>"
-    ) % (
-        field_html,
-        escape_html(i18n.t(CALENDAR_CONNECT_BUTTON_TEXT)),
-    )
+    # own established convention for the instant-switch forms' own
+    # action attributes (see QUICK_DISPLAY_ROUTE's comment above): this
+    # module's acceptance gate greps the literal form-action text, and
+    # the constant itself stays defined for companion/app.py's
+    # rebinding and companion/test_config_page.py's own checks to
+    # reference without retyping the path a third time.
     if configured:
-        inner_html = (
-            '<details class="calendar-url-disclosure"><summary>%s</summary>%s</details>'
-        ) % (escape_html(i18n.t(CALENDAR_REPLACE_URL_SUMMARY)), form_html)
+        # 21-07-PLAN.md Task 2 (D-14/R-10): the ONE call site in this
+        # module that reads a stored calendar secret back for display —
+        # host-only, via _masked_calendar_url()'s own real URL parse.
+        # `calendar_rules.configured_calendar_url()` already applies its
+        # own permission-drift guard (calendar_secret_mode_is_unsafe()),
+        # but `configured` being True here means that guard already
+        # passed upstream (calendar_is_configured()'s identical check),
+        # so this second read is consistent with the state this branch
+        # is already committed to rendering.
+        masked_url = _masked_calendar_url(
+            calendar_rules.configured_calendar_url(state_dir) if state_dir else "")
+        masked_url_html = (
+            '<p class="text-body calendar-masked-url">%s</p>' % escape_html(masked_url)
+            if masked_url else "")
+        replace_form_html = (
+            '<form method="post" action="/settings/calendar/connect" class="rule-add-form">'
+            "%s"
+            '<button type="submit">%s</button>'
+            "</form>"
+        ) % (
+            field_html,
+            escape_html(i18n.t(CALENDAR_REPLACE_BUTTON_TEXT)),
+        )
+        disclosure_html = (
+            '<details class="calendar-url-disclosure"><summary class="text-link">%s</summary>%s</details>'
+        ) % (escape_html(i18n.t(CALENDAR_REPLACE_URL_SUMMARY)), replace_form_html)
+        actions_html = (
+            '<p class="calendar-actions">%s%s</p>' % (disclosure_html, disconnect_button_html))
+        state_branch_html = masked_url_html + actions_html
     else:
-        inner_html = form_html
-    return '<div class="page-section">%s</div>' % inner_html
+        connect_form_html = (
+            '<form method="post" action="/settings/calendar/connect" class="rule-add-form">'
+            "%s"
+            '<button type="submit">%s</button>'
+            "</form>"
+        ) % (
+            field_html,
+            escape_html(i18n.t(CALENDAR_CONNECT_BUTTON_TEXT)),
+        )
+        if drift:
+            drift_actions_html = (
+                '<p class="calendar-actions calendar-actions--solo">%s</p>'
+                % disconnect_button_html)
+        else:
+            drift_actions_html = ""
+        state_branch_html = connect_form_html + drift_actions_html
 
-
-def calendar_disconnect_section(configured, drift):
-    """19-11-PLAN.md Task 1 (D-08/A-26): the calendar disconnect action's
-    own standalone, confirmed form — a sibling of `calendar_group()`'s
-    `.page-section`, never a descendant of it or of
-    `<form id="{SETTINGS_FORM_ID}">`. `render()` emits this only on the
-    Device page, immediately after the Calendar group, and never inside
-    the merged settings form — HTML forbids nesting a `<form>` inside
-    another `<form>` anyway (the same structural reason
-    `_rules_section_html()`'s own per-flight rule delete forms are
-    siblings of that form, not descendants), and this action additionally
-    needs its OWN confirmation step, which a field inside the shared
-    settings form could never have.
-
-    Rendered only when `configured or drift` is true — the identical
-    condition the retired in-form checkbox used, and for the identical
-    reason (D-02): a drifted file still exists and still holds a URL, so
-    the promise that disconnecting removes it must not be blocked by a
-    permissions problem.
-
-    The hidden `{CALENDAR_DISCONNECT_CONFIRM_FIELD}` field carries an
-    EMPTY value — a bare POST of this form therefore submits no confirm
-    value at all, landing on `_handle_calendar_disconnect_post()`'s own
-    server-rendered confirmation page (`calendar_disconnect_confirm_
-    page()` below) rather than erasing anything. That page IS the real
-    control (19-CONTEXT.md's own D-08 resolution) — the button below
-    additionally carries `data-confirm`/`data-confirm-value` attributes
-    `companion/static/confirm-submit.js` (Task 2) reads to show one
-    native `confirm()` dialog and, on acceptance only, fill this same
-    hidden field with `CALENDAR_DISCONNECT_CONFIRM_VALUE` before letting
-    the submit proceed — a misclick guard layered on top, never a
-    substitute for the server-side gate.
-    """
-    if not (configured or drift):
-        return ""
-    return (
-        '<form method="post" action="%s" data-confirm="%s" '
-        'data-confirm-value="%s">'
-        '<input type="hidden" name="%s" value="" data-confirm-field>'
-        '<button type="submit">%s</button>'
-        "</form>"
+    how_it_works_html = (
+        '<details><summary>%s</summary><p class="text-body">%s</p></details>'
     ) % (
-        CALENDAR_DISCONNECT_ROUTE,
-        escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_QUESTION)),
-        escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
-        CALENDAR_DISCONNECT_CONFIRM_FIELD,
-        escape_html(i18n.t(CALENDAR_DISCONNECT_CHECKBOX_LABEL)),
+        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SUMMARY)),
+        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_BODY)),
     )
+
+    card_html = (
+        '<div class="page-section" %s="%s">'
+        '<h2 class="text-heading" id="%s">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        "%s"
+        "%s"
+        "%s"
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
+        escape_html(CALENDAR_HEADING_ID), escape_html(i18n.t(CALENDAR_SECTION_HEADING)),
+        escape_html(i18n.t(CALENDAR_CAPTION)),
+        status_html,
+        state_branch_html,
+        how_it_works_html,
+    )
+
+    if configured or drift:
+        disconnect_form_html = (
+            '<form id="%s" method="post" action="%s" data-confirm="%s" '
+            'data-confirm-value="%s">'
+            '<input type="hidden" name="%s" value="" data-confirm-field>'
+            "</form>"
+        ) % (
+            escape_html(CALENDAR_DISCONNECT_FORM_ID),
+            CALENDAR_DISCONNECT_ROUTE,
+            escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_QUESTION)),
+            escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
+            CALENDAR_DISCONNECT_CONFIRM_FIELD,
+        )
+    else:
+        disconnect_form_html = ""
+
+    return card_html + disconnect_form_html
 
 
 def calendar_disconnect_confirm_page(ctx):
@@ -2626,7 +2708,8 @@ def _rule_add_form_html(errors=None, submitted=None):
     always-valid default kind (callsign/"Flight"). Validation errors
     render under the field (phase 19 D-07 idiom), keeping the typed
     value — `errors`/`submitted` are both fully defaulted so the one
-    live call site (`_rules_section_html()` below) keeps calling this
+    live call site (the rules usage panel built by
+    `frame_colours_section_html()`, since 21-05) keeps calling this
     with neither, unaffected by this addition.
     """
     selected_kind = _submitted_or_current(
@@ -2789,7 +2872,8 @@ def _rule_list_html(rows):
     `>=960px`/`<960px` split to maintain. `colour_rules.rule_rows()`
     already orders `rows` most-specific first (callsign, then hex, then
     prefix) and alphabetically within each kind — no re-sort needed
-    here. Returns "" for an empty list; `_rules_section_html()` renders
+    here. Returns "" for an empty list; the rules usage panel
+    (`frame_colours_section_html()`, 21-05) renders
     the empty state instead in that case (never called on the empty
     branch in practice, kept total for the same reason its two retired
     predecessors were).
@@ -2800,73 +2884,6 @@ def _rule_list_html(rows):
         _rule_row_html(kind, value, theme_id)
         for kind, value, theme_id, _created_at in rows)
     return '<ul class="rule-list">%s</ul>' % items
-
-
-def _rules_section_html(ctx):
-    """The Flight colours section's own `<section class="page-section">`
-    (20-09-PLAN.md Task 3, D-15a..e): heading, one caption, the one-line
-    add form, the suggestion chips, then either the plain-sans empty
-    state or the `.rule-list`, followed by the "How rules combine"
-    disclosure.
-
-    **Placement decision** (carried forward from 15-UI-SPEC.md Section
-    Anatomy §2's Open Question 1, unaffected by this plan): this section
-    renders immediately after `</form>` closes, taking the slot the Poll
-    section used to occupy — Poll itself moves one slot later. HTML
-    forbids nesting a `<form>` inside another `<form>`, and the add form
-    plus each delete row are real `<form>` elements, so this section
-    cannot be a descendant of `<form id=SETTINGS_FORM_ID>`. This section
-    carries no `DIRTY_SECTION_ATTR` — it is not part of the tracked
-    settings form, exactly like the Poll section, whose action is
-    likewise immediate.
-
-    Reads the rules registry from `ctx["colour_rules"]` (read fresh per
-    request from `colour_rules.load_colour_rules(state_dir)` — never the
-    poll-cycle process cache), falling back to the empty registry shape
-    when the key is absent so `render({})` still works. D-30: the "How
-    rules combine" disclosure collapses to one plain sentence when
-    `ctx.get("simple_mode")` is true — server-side omission, since the
-    text itself differs between the two renders (matching `calendar_
-    group()`'s own identical D-30 treatment).
-    """
-    registry = ctx.get("colour_rules")
-    if not isinstance(registry, dict):
-        registry = {kind: {} for kind in colour_rules.RULE_KINDS}
-    rows = colour_rules.rule_rows(registry)
-
-    heading = '<h2 class="text-heading">%s</h2>' % escape_html(i18n.t(RULES_SECTION_HEADING))
-    caption = (
-        '<p class="text-label section-caption">%s</p>'
-        % escape_html(i18n.t(RULES_SECTION_CAPTION)))
-    add_form = _rule_add_form_html()
-    suggestions_html = _rule_suggestion_chips_html(ctx.get("state_dir"))
-
-    if ctx.get("simple_mode"):
-        how_rules_combine_html = (
-            '<p class="text-label section-caption">%s</p>'
-        ) % escape_html(i18n.t(RULES_HOW_RULES_COMBINE_SIMPLE))
-    else:
-        how_rules_combine_html = (
-            '<details><summary>%s</summary><p class="text-body">%s</p></details>'
-        ) % (
-            escape_html(i18n.t(RULES_HOW_RULES_COMBINE_SUMMARY)),
-            escape_html(i18n.t(RULES_HOW_RULES_COMBINE_BODY)),
-        )
-
-    if not rows:
-        # D-15d: the muted sans voice, never a serif heading — a plain
-        # `.text-label` paragraph, not `layout.empty_state()` (that
-        # helper's own `.empty-state__heading` carries `.text-heading`,
-        # this app's serif role, which D-15d explicitly forbids here).
-        body_html = (
-            '<div class="empty-state-plain"><p class="text-label">%s %s</p></div>'
-        ) % (escape_html(i18n.t(RULES_EMPTY_HEADING)), escape_html(i18n.t(RULES_EMPTY_BODY)))
-        return '<section class="page-section">%s%s%s%s%s%s</section>' % (
-            heading, caption, add_form, suggestions_html, body_html, how_rules_combine_html)
-
-    list_html = _rule_list_html(rows)
-    return '<section class="page-section">%s%s%s%s%s%s</section>' % (
-        heading, caption, add_form, suggestions_html, list_html, how_rules_combine_html)
 
 
 def _nested_wrapper_html(html_fragment, base_class, nested_class):
@@ -2896,36 +2913,45 @@ def _nested_wrapper_html(html_fragment, base_class, nested_class):
 
 
 def _display_groups_html(builders, groups):
-    """The Display scope's three headed supersections (D-12, 20-UI-SPEC.md
-    Section Anatomy C): "Look" over Theme, Flight colours and Calendar (in
-    that order), "What it watches" over Runway, "When it is on" over
-    Screen on/off and Quiet hours — each grouped card gains the `--nested`
-    modifier (`_nested_wrapper_html()` above). Replaces the flat
-    `"".join(builders[g]() ...)` join the Device and legacy all-scope
-    paths still use unchanged (this task's own instruction: leave those
-    two untouched).
+    """The Display scope's two remaining headed supersections (D-12,
+    21-UI-SPEC.md Section Anatomy C, restructured by 21-05-PLAN.md Task
+    1 D-06 and 21-07-PLAN.md Task 1): "What it watches" over Runway,
+    "When it is on" over Screen on/off and Quiet hours — each grouped
+    card gains the `--nested` modifier (`_nested_wrapper_html()` above).
+    Replaces the flat `"".join(builders[g]() ...)` join the Device and
+    legacy all-scope paths still use unchanged (this task's own
+    instruction: leave those two untouched).
 
-    Returns a 4-tuple `(in_form_html, calendar_card_html,
-    watches_supersection_html, on_supersection_html)`.
+    Returns a 2-tuple `(watches_supersection_html, on_supersection_
+    html)`.
 
-    D-12 fix (20-REVIEW.md verification gap): before this fix, the
-    physical `<form id="{SETTINGS_FORM_ID}">` closed right after the
-    Calendar card, which — because Flight colours' own add-form and each
-    delete-row are real `<form>` elements that cannot nest inside another
-    `<form>` — forced Flight colours to render after "What it watches"
-    instead of between Theme and Calendar as D-12 specifies. The fix:
-    `in_form_html` now holds ONLY the "Look" intro heading plus Theme, so
-    `render()` can close `</form>` right after Theme — before Flight
-    colours' own `<form>`s ever need to sit alongside it. `calendar_card_
-    html` (Calendar's card, nested-wrapped exactly like Theme/Runway) is
-    returned separately so `render()` can place it AFTER Flight colours,
-    restoring D-12's locked Theme -> Flight colours -> Calendar order.
-    Calendar's own compact chip-grid radios keep posting through the
-    physical form via the `form="{SETTINGS_FORM_ID}"` attribute
-    `calendar_group()` now adds to them (the same idiom `runway_fieldset()`'s
-    radios already use) — it is still a saved setting, unlike the feed
-    URL, even though its card is no longer a literal descendant of the
-    form.
+    21-05-PLAN.md Task 1 (D-06, Structural Note 2): the "Look" intro
+    heading and the Frame colours card that replaces Theme are no
+    longer this function's concern at all — `render()`'s own Display
+    branch builds that pair directly (it needs `ctx`/`errors`/
+    `submitted`/`state_dir`, none of which this function receives), as
+    a sibling of `<form id="{SETTINGS_FORM_ID}">` positioned BEFORE
+    Calendar. The physical form therefore now wraps zero visible
+    content on the Display scope (only `render()`'s own hidden scope
+    fields) — every saved control that used to live inside it (the
+    departures/arrivals/calendar theme radios) now cross-submits via
+    `form="{SETTINGS_FORM_ID}"` from outside it instead, exactly as
+    Calendar's own chip grid already did before this task retired it
+    (D-06) and as Runway/Screen/Quiet hours already do.
+
+    21-07-PLAN.md Task 1 (D-13/Pitfall 2): the Calendar card is ALSO no
+    longer this function's concern, and — unlike Frame colours — it is
+    also no longer a member of the generic `builders` dict at all
+    (`render()` calls the merged `calendar_group()` directly). The
+    merged card now embeds its own connect/replace `<form>` in every
+    state (D-13's "not connected" branch always shows one), which would
+    nest inside `<form id="{SETTINGS_FORM_ID}">` on the legacy SCOPE_ALL
+    render if `calendar_group()` stayed in `builders` — the same reason
+    Frame colours left that dict in 21-05. `render()` builds the merged
+    card directly, as a sibling of the physical form, exactly like Frame
+    colours; SCOPE_ALL (never served) simply loses Calendar content, the
+    same accepted, documented consequence 21-05-PLAN.md Task 1 already
+    established for Theme.
 
     20-07-PLAN.md Task 2 (D-19/Pitfall 1): Screen on/off and Quiet hours
     are no longer literal descendants of `<form id="{SETTINGS_FORM_ID}">`
@@ -2933,41 +2959,23 @@ def _display_groups_html(builders, groups):
     which HTML forbids), so "When it is on"'s own header and both its
     cards must render as a unit AFTER `</form>` closes.
 
-    Polish fix 4 (D-14c), still true after the D-12 fix above: "What it
-    watches" (Runway) is ALSO not a literal descendant of
-    `<form id="{SETTINGS_FORM_ID}">` — its own radio inputs instead carry
-    an explicit `form="{SETTINGS_FORM_ID}"` attribute (`runway_fieldset()`'s
-    own docstring), the same idiom Calendar's chip grid now reuses too.
-    `render()` emits `in_form_html` inside the form; `calendar_card_html`,
-    `watches_supersection_html` and `on_supersection_html` all after it,
-    in that order (with Flight colours and the calendar connect/disconnect
-    forms interleaved between `in_form_html` and `calendar_card_html`) —
-    keeping the locked Look/What it watches/When it is on reading order
-    across the form boundary.
+    Polish fix 4 (D-14c), still true: "What it watches" (Runway) is ALSO
+    not a literal descendant of `<form id="{SETTINGS_FORM_ID}">` — its
+    own radio inputs instead carry an explicit
+    `form="{SETTINGS_FORM_ID}"` attribute (`runway_fieldset()`'s own
+    docstring). `render()` emits the Frame colours section, then the
+    merged Calendar card, then this function's `watches_supersection_
+    html`, then `on_supersection_html`, in that order — keeping the
+    locked Look/What it watches/When it is on reading order across the
+    form boundary.
     """
-    theme_html = (
-        _nested_wrapper_html(builders[screens.GROUP_THEME](), "theme-status", "theme-status--nested")
-        if screens.GROUP_THEME in groups else "")
-    calendar_card_html = (
-        _nested_wrapper_html(builders[screens.GROUP_CALENDAR](), "page-section", "page-section--nested")
-        if screens.GROUP_CALENDAR in groups else "")
     runway_html = (
         _nested_wrapper_html(builders[screens.GROUP_RUNWAY](), "theme-status", "theme-status--nested")
         if screens.GROUP_RUNWAY in groups else "")
-    # D-12 fix: the "Look" intro heading now precedes Theme ONLY inside
-    # the physical form — Flight colours and Calendar both render after
-    # `</form>` closes (see render()'s own docstring for the exact
-    # interleaving), but visually and structurally still read as part of
-    # "Look", since no second `section_intro_html()` heading separates
-    # them from Theme.
-    in_form_html = (
-        layout.section_intro_html(
-            DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
-        + theme_html
-    )
-    # Polish fix 4 (D-14c), unchanged by the D-12 fix above: "What it
-    # watches" (Runway) renders AFTER `<form id="{SETTINGS_FORM_ID}">`
-    # closes — a sibling, not a literal descendant.
+    # Polish fix 4 (D-14c), unchanged by the D-06 restructure above:
+    # "What it watches" (Runway) renders AFTER `<form id=
+    # "{SETTINGS_FORM_ID}">` closes — a sibling, not a literal
+    # descendant.
     watches_supersection_html = (
         layout.section_intro_html(
             DISPLAY_WATCHES_SECTION_ID, i18n.t(DISPLAY_WATCHES_HEADING),
@@ -2980,7 +2988,7 @@ def _display_groups_html(builders, groups):
     # but their OWN return value is now a card that carries its own
     # instant-switch <form> and scheduled inputs bound to
     # SETTINGS_FORM_ID via the form= attribute, never itself joined into
-    # `in_form_html` above.
+    # anything rendered inside the physical form.
     display_html = (
         _nested_wrapper_html(builders[screens.GROUP_DISPLAY](), "theme-status", "theme-status--nested")
         if screens.GROUP_DISPLAY in groups else "")
@@ -2993,7 +3001,7 @@ def _display_groups_html(builders, groups):
             DISPLAY_ON_SECTION_ID, i18n.t(DISPLAY_ON_HEADING), i18n.t(DISPLAY_ON_INTRO))
         + display_html + quiet_hours_html
     )
-    return in_form_html, calendar_card_html, watches_supersection_html, on_supersection_html
+    return watches_supersection_html, on_supersection_html
 
 
 def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
@@ -3158,27 +3166,42 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         escape_html(i18n.t("Save settings")), escape_html(i18n.t("Cancel")),
     )
 
-    # Phase 15 D-10 (15-05-PLAN.md, 15-UI-SPEC.md Section Anatomy §2's
-    # Open Question 1, confirmed): the rules section renders immediately
-    # after </form> closes, taking the slot the Poll section used to
-    # occupy — Poll itself moves one slot later, below. See
-    # _rules_section_html()'s own docstring for the full reasoning (HTML
-    # forbids nesting a <form> inside another <form>, and the add form
-    # plus each delete row are real <form> elements, so this section
-    # cannot be a descendant of <form id=SETTINGS_FORM_ID>). Every
-    # existing group's DOM nesting above stays byte-identical; only the
-    # top-level ordering of the two sections after the form changes.
+    # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the per-flight
+    # rules editor is no longer a standalone sibling section at all — it
+    # relocated, verbatim, into the Frame colours card's own "Per-flight
+    # rules" usage panel (see _frame_colours_card_html()'s own
+    # docstring). Every existing group's DOM nesting above stays
+    # byte-identical; only Theme's own former slot is gone.
     screen_id = screens.current_screen_id(ctx)
     screen = screens.screen_type(screen_id)
     if scope not in SCOPES:
         scope = SCOPE_ALL
     groups = scope_groups(scope, screen_id)
 
+    # 21-05-PLAN.md Task 1 (D-06): screens.GROUP_THEME has no entry in
+    # this dict any more — theme_fieldset() is retired outright, and its
+    # replacement (_frame_colours_card_html(), below) is built directly
+    # by render()'s own Display branch rather than through this generic
+    # per-group dict, because it needs ctx/errors/submitted/state_dir
+    # AND because its own rules panel contains real <form> elements that
+    # must never render as a literal descendant of <form id=
+    # "{SETTINGS_FORM_ID}"> (the same constraint that already kept
+    # Flight colours out of this dict). 21-07-PLAN.md Task 1 (D-13/
+    # Pitfall 2): screens.GROUP_CALENDAR has no entry here either any
+    # more, for the identical reason — the merged calendar_group() now
+    # embeds its own connect/replace <form> in EVERY state, which would
+    # nest inside <form id="{SETTINGS_FORM_ID}"> on the legacy SCOPE_ALL
+    # render if left in this dict. render()'s own Display branch calls
+    # calendar_group() directly instead, as a sibling of the physical
+    # form, exactly like Frame colours. On the legacy SCOPE_ALL/Device
+    # paths below, `groups_html`'s own `"".join(builders[g]() for g in
+    # groups if g in builders)` loop simply skips screens.GROUP_THEME/
+    # screens.GROUP_CALENDAR now (both are still members of
+    # `scope_groups(SCOPE_ALL)`'s fixed tuple, just no longer present in
+    # `builders`) — SCOPE_ALL is the legacy, never-served whole-page
+    # render, so this is a deliberate, documented behaviour change to
+    # that path, not an oversight.
     builders = {
-        screens.GROUP_THEME: lambda: theme_fieldset(
-            current_theme_id, current_theme_arriving,
-            errors=errors, submitted=submitted, next_wake_clock=next_wake_clock,
-            state_dir=ctx.get("state_dir")),
         screens.GROUP_RUNWAY: lambda: runway_fieldset(
             current_runway_id, ctx.get("runway_images") or (),
             errors=errors, submitted=submitted, next_wake_clock=next_wake_clock),
@@ -3193,11 +3216,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
             next_wake_clock=next_wake_clock),
         screens.GROUP_DISPLAY: lambda: display_group(
             current_display_enabled, errors=errors, submitted=submitted),
-        screens.GROUP_CALENDAR: lambda: calendar_group(
-            calendar_configured, calendar_drift, calendar_last_synced_at,
-            calendar_last_attempt_at, ctx.get("now"), calendar_entry_count,
-            current_calendar_theme_id, current_theme_id,
-            errors=errors, submitted=submitted, simple_mode=ctx.get("simple_mode")),
         screens.GROUP_NOTIFICATIONS: lambda: notifications_group(
             notifications_configured, current_notifications_battery,
             current_notifications_silent, errors=errors, submitted=submitted),
@@ -3205,7 +3223,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # 20-11-PLAN.md Task 1 (D-19/Pitfall 1): "Send a test" is its own
     # immediate-POST form and must never nest inside <form id=
     # "settings-form"> — rendered as a sibling, after </form> closes,
-    # exactly like calendar_connect_html/calendar_disconnect_html below.
+    # exactly like the merged Calendar card's own disconnect form below.
     # screens.GROUP_NOTIFICATIONS is never a member of scope_groups(
     # SCOPE_DISPLAY) or the legacy SCOPE_ALL tuple, so this is correctly
     # "" on both of those scopes.
@@ -3219,26 +3237,58 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         header = layout.page_header(
             i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
             action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
+        # 21-04-PLAN.md Task 1 (D-02/R-01): the shared Frame strip, once,
+        # directly after the page header and before the "Look"
+        # supersection's own section_intro_html() (the first thing
+        # groups_html renders, below) — the exact same next_wake_iso
+        # already computed above for next_wake_clock feeds it, so there
+        # is no second wake.next_wake_at_iso() call for the same value.
+        frame_strip_section_html = layout.frame_strip_html(
+            ctx, return_to=layout.DISPLAY_ROUTE, next_wake_iso=next_wake_iso)
         hidden_html = _scope_fields_html(scope, layout.DISPLAY_ROUTE)
-        # 20-07-PLAN.md Task 1 (D-10/D-11): Flight colours and the
-        # calendar-disconnect form move to Display with their groups —
-        # these two flags used to be Device-only (set only in the
-        # elif scope == SCOPE_DEVICE: branch below); Poll (Manual
-        # refresh) stays Device-only, unaffected by this move.
-        show_rules = bool(screen.get("has_colour_rules"))
+        # 20-07-PLAN.md Task 1 (D-10/D-11), narrowed by 21-05-PLAN.md
+        # Task 1 (D-06): the calendar-disconnect form moves to Display
+        # with its group; Poll (Manual refresh) stays Device-only,
+        # unaffected by this move. Flight colours is no longer a
+        # standalone section at all (its own show_rules flag is gone
+        # along with _rules_section_html() — see frame_colours_section_
+        # html below).
         show_poll = False
-        show_calendar_disconnect = screens.GROUP_CALENDAR in groups
-        # 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C),
-        # restructured by the D-12 fix (20-REVIEW.md verification gap):
-        # three headed supersections replace the flat join — see
-        # _display_groups_html()'s own docstring for the Flight-colours/
-        # Calendar placement reasoning. `groups_html` (Look intro +
-        # Theme only) renders inside the form; `display_calendar_card_
-        # html` renders after Flight colours, below; the third and
-        # fourth elements ("What it watches"'s own header plus Runway,
-        # and "When it is on"'s own header plus the Screen on/off and
-        # Quiet hours cards) both render AFTER </form> closes too.
-        (groups_html, display_calendar_card_html, display_watches_supersection_html,
+        # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the "Look"
+        # intro heading plus the Frame colours card render here, as a
+        # SIBLING of <form id="{SETTINGS_FORM_ID}"> — not through the
+        # generic per-group `builders` dict (see its own comment above)
+        # — because the rules panel it now holds contains real <form>
+        # elements. `groups_html` (the form's own visible content) is
+        # therefore empty on this scope: every saved theme radio now
+        # cross-submits from outside the form via `form=
+        # "{SETTINGS_FORM_ID}"`, exactly like Runway/Calendar already
+        # do (Structural Note 2's own "the physical form becomes a pure
+        # submission target").
+        frame_colours_section_html = (
+            layout.section_intro_html(
+                DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
+            + _nested_wrapper_html(
+                _frame_colours_card_html(
+                    ctx, current_theme_id, current_theme_arriving, current_calendar_theme_id,
+                    errors=errors, submitted=submitted, state_dir=ctx.get("state_dir")),
+                "page-section frame-colours", "page-section--nested")
+            if screens.GROUP_THEME in groups else "")
+        # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the merged Calendar card
+        # is built directly here — never through the generic `builders`
+        # dict (see that dict's own comment above) — because it embeds
+        # its own connect/replace <form> in every state; nested-wrapped
+        # exactly like Runway used to be through _display_groups_html().
+        display_calendar_card_html = (
+            _nested_wrapper_html(
+                calendar_group(
+                    calendar_configured, calendar_drift, calendar_last_synced_at,
+                    calendar_last_attempt_at, ctx.get("now"), calendar_entry_count,
+                    errors=errors, submitted=submitted, state_dir=ctx.get("state_dir")),
+                "page-section", "page-section--nested")
+            if screens.GROUP_CALENDAR in groups else "")
+        groups_html = ""
+        (display_watches_supersection_html,
             display_on_supersection_html) = _display_groups_html(builders, groups)
     elif scope == SCOPE_DEVICE:
         # 19-12-PLAN.md Task 3 (D-13): "Home and Device show" — the
@@ -3254,92 +3304,86 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
                 _screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors)
                 + _next_wake_caption_html(next_wake_clock)))
         hidden_html = _scope_fields_html(scope, layout.DEVICE_ROUTE)
-        # 20-07-PLAN.md Task 1 (D-10/D-11): Flight colours and the
-        # calendar-disconnect form are no longer Device concerns — both
-        # groups they act on (Runway/Calendar) moved to Display's
-        # everyday_groups this phase, so Device's own screens.GROUP_
-        # CALENDAR-in-groups test would always be False now anyway; kept
-        # explicit here rather than relying on that emptiness.
-        show_rules = False
+        # 21-04-PLAN.md Task 1 (D-01/D-02): the Frame strip renders only
+        # on Home and Display — never on Device.
+        frame_strip_section_html = ""
+        # 20-07-PLAN.md Task 1 (D-10/D-11): the Calendar group (and its
+        # merged disconnect form) is no longer a Device concern at all —
+        # it moved to Display's everyday_groups this phase, and
+        # 21-07-PLAN.md Task 1 removed screens.GROUP_CALENDAR from
+        # `builders` entirely, so Device's own render never builds it.
+        # 21-05-PLAN.md Task 1 (D-06): Flight colours is no longer a
+        # standalone section anywhere — its own show_rules flag is gone
+        # along with _rules_section_html().
         show_poll = bool(screen.get("has_manual_poll"))
-        show_calendar_disconnect = False
         # 20-07-PLAN.md Task 1 (D-10): Device's own advanced_groups no
         # longer includes GROUP_DISPLAY/GROUP_QUIET_HOURS at all (both
         # moved to Display's everyday_groups), so this flat join never
         # calls display_group()/quiet_hours_group() on this scope —
         # their own instant-switch <form> never has a chance to nest
-        # inside this scope's <form id="settings-form">.
+        # inside this scope's <form id="settings-form">. screens.
+        # GROUP_THEME is also never a member of Device's advanced_groups
+        # (only ever Display's everyday_groups/SCOPE_ALL's legacy
+        # tuple), so its absence from `builders` (above) changes
+        # nothing here either.
         groups_html = "".join(builders[g]() for g in groups if g in builders)
+        frame_colours_section_html = ""
         display_calendar_card_html = ""
         display_watches_supersection_html = ""
         display_on_supersection_html = ""
     else:
         header = layout.page_header(i18n.t("Settings"))
         hidden_html = ""
-        show_rules = show_poll = True
+        # 21-04-PLAN.md Task 1 (D-01/D-02): SCOPE_ALL is the legacy,
+        # never-served whole-page render (see its own comment two lines
+        # below) — it never carried the Screen/Quiet-hours instant
+        # switches even before this task, so it carries no Frame strip
+        # either.
+        frame_strip_section_html = ""
+        show_poll = True
         # SCOPE_ALL is the legacy whole-page render, kept byte-identical
         # to its own pre-Phase-19 output for existing harness checks
         # against the full form — never used by a live app.py route
         # (render()'s own module comment). The disconnect action's own
         # confirmed-form flow is new surface Task 1 adds only to the two
         # live scoped pages; SCOPE_ALL stays exactly as it was.
-        show_calendar_disconnect = False
+        # 21-05-PLAN.md Task 1 (D-06): screens.GROUP_THEME is still a
+        # member of scope_groups(SCOPE_ALL)'s own fixed tuple, but this
+        # flat join now silently skips it (it has no entry in `builders`
+        # any more) — SCOPE_ALL's legacy render loses its own former
+        # Theme content as a direct, documented consequence of retiring
+        # theme_fieldset() outright; Flight colours (which this scope
+        # used to render as a separate sibling section) is gone the
+        # same way, for the same reason. 21-07-PLAN.md Task 1 (D-13/
+        # Pitfall 2): the Calendar group is gone from SCOPE_ALL for the
+        # identical reason — screens.GROUP_CALENDAR has no entry in
+        # `builders` any more either.
         groups_html = "".join(builders[g]() for g in groups if g in builders)
+        frame_colours_section_html = ""
         display_calendar_card_html = ""
         display_watches_supersection_html = ""
         display_on_supersection_html = ""
 
-    rules_section_html = _rules_section_html(ctx) if show_rules else ""
-    if rules_section_html and scope == SCOPE_DISPLAY:
-        # 20-07-PLAN.md Task 1 (D-12): only the Display scope's copy of
-        # Flight colours sits under a supersection heading — SCOPE_ALL's
-        # legacy render (the only other scope show_rules is ever true
-        # for) stays byte-identical to its own pre-Phase-19 output.
-        rules_section_html = _nested_wrapper_html(
-            rules_section_html, "page-section", "page-section--nested")
     poll_section_html = (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>'
         "%s"
         "</section>" % (escape_html(i18n.t(POLL_SECTION_HEADING)), poll_trigger_section(cooldown_remaining))
         if show_poll else "")
-    # 19-11-PLAN.md Task 1 (D-08/A-26): a sibling of the settings <form>,
-    # never a descendant — see calendar_disconnect_section()'s own
-    # docstring for why. Emitted immediately after </form> closes.
-    # 20-09-PLAN.md Task 1 (D-14c): the Connect/Replace mini-form renders
-    # immediately before calendar_disconnect_html below, both siblings of
-    # the settings <form> — never a descendant of it, and never behind
-    # the page-wide Save (T-20-11). Guarded by the SAME flag as the
-    # disconnect form: the two always co-occur (only the live Display
-    # scope ever shows either), and calendar_connect_section()'s own
-    # `.page-section` wrapper immediately preceding
-    # `.calendar-disconnect-form` is what makes the `:has(+
-    # .calendar-disconnect-form)` fused-card CSS (20-04-PLAN.md) apply.
-    #
-    # D-12 fix (20-REVIEW.md verification gap), superseding Polish fix
-    # 4's own placement: on the Display scope, `</form>` now closes
-    # right after the Theme card (see _display_groups_html()'s own
-    # docstring), so calendar_connect_html/calendar_disconnect_html,
-    # emitted here, land immediately after display_calendar_card_html
-    # below — never after Runway. Device/SCOPE_ALL never have
-    # show_calendar_disconnect True, so this reordering changes nothing
-    # for either.
-    calendar_connect_html = (
-        calendar_connect_section(calendar_configured, errors=errors)
-        if show_calendar_disconnect else "")
-    calendar_disconnect_html = (
-        calendar_disconnect_section(calendar_configured, calendar_drift)
-        if show_calendar_disconnect else "")
 
     return (
         header
+        # 21-04-PLAN.md Task 1 (D-02/R-01): the shared Frame strip
+        # renders immediately after the page header and before the
+        # form (whose own groups_html opens with the "Look"
+        # supersection's own section_intro_html()) — "" on Device and
+        # SCOPE_ALL.
+        + frame_strip_section_html
         + '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
         "%s"
         "%s"
         '<button type="submit" %s>%s</button>'
         "</form>"
-        "%s"
-        "%s"
         "%s"
         "%s"
         "%s"
@@ -3354,34 +3398,30 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         groups_html,
         STATIC_SAVE_FALLBACK_ATTR,
         escape_html(i18n.t("Save settings")),
-        # D-12 fix (20-REVIEW.md verification gap): Flight colours
-        # (rules_section_html) now renders immediately after `</form>`
-        # closes, BEFORE the Calendar card — restoring D-12's locked
-        # Theme -> Flight colours -> Calendar reading order inside
-        # "Look". Always "" on the Device scope (show_rules is False
-        # there); on SCOPE_ALL it is never nested and this slot's
-        # relative position there is new surface (SCOPE_ALL is the
-        # legacy, never-served render this task leaves otherwise
-        # untouched — show_rules is only True there alongside
-        # show_calendar_disconnect=False, so calendar_connect_html/
-        # calendar_disconnect_html/display_calendar_card_html are all ""
-        # and this reordering has no visible effect on that scope).
-        rules_section_html,
-        # D-12 fix: the Calendar card itself, nested-wrapped exactly
-        # like Theme/Runway, now renders here — after Flight colours,
-        # before its own connect/disconnect forms. Always "" on
-        # Device/SCOPE_ALL (computed above).
+        # 21-05-PLAN.md Task 1 (D-06, Structural Note 2): the "Look"
+        # intro heading plus the Frame colours card now render
+        # immediately after `</form>` closes, BEFORE the Calendar card
+        # — restoring the locked Look-heading -> Frame colours ->
+        # Calendar reading order, now entirely outside the physical
+        # form. Always "" on the Device/SCOPE_ALL paths (both set it to
+        # "" explicitly above).
+        frame_colours_section_html,
+        # 21-07-PLAN.md Task 1 (D-13/Pitfall 2): the merged Calendar
+        # card, nested-wrapped exactly like Runway, now renders here —
+        # after the Frame colours section — carrying its own connect/
+        # replace form and, when connected or drifted, its own data-only
+        # disconnect form as a trailing sibling fragment, both already
+        # concatenated into this one string by calendar_group() itself.
+        # Always "" on Device/SCOPE_ALL (computed above).
         display_calendar_card_html,
-        calendar_connect_html,
-        calendar_disconnect_html,
         # 20-07-PLAN.md Task 1 (D-12), restructured by the D-12 fix
         # above: "What it watches"'s own header plus the Runway card —
         # always "" on the Device/SCOPE_ALL paths (both set it to ""
         # explicitly above), so this addition changes nothing for
-        # either. On Display, this now renders AFTER the calendar
-        # connect/disconnect siblings above, so Runway still follows
-        # Calendar in document order even though neither is any longer a
-        # literal descendant of the same <form>.
+        # either. On Display, this now renders AFTER the Calendar card
+        # above, so Runway still follows Calendar in document order even
+        # though neither is any longer a literal descendant of the same
+        # <form>.
         display_watches_supersection_html,
         # 20-11-PLAN.md Task 1 (D-19/Pitfall 1): "" on Display/SCOPE_ALL
         # (computed above), so this addition changes nothing for either
@@ -3755,25 +3795,34 @@ def handle_post(form, ctx, errors=None):
     Copywriting Contract.
 
     Phase 16 (16-05-PLAN.md) adds one more form field, `calendar_theme_id`
-    — a plain tracked field with no checkbox, so unlike `theme_arriving`
-    it needs no clear sentinel: `None` keeps its single existing meaning,
-    "not supplied, carry forward". It is validated by the identical
-    membership test `theme`/`tracked_runway` already use and passed
-    through as one more keyword argument on the same, still-singular
-    `save_device_config()` call.
+    — a plain tracked field with no checkbox. It is validated by the
+    identical membership test `theme`/`tracked_runway` already use (now
+    also exempting the empty string, 21-05-PLAN.md Task 2 below) and
+    passed through as one more keyword argument on the same,
+    still-singular `save_device_config()` call.
 
-    Phase 15 D-04/D-05 add two more form fields, `theme_arriving_enabled`
-    (the arrivals-override checkbox) and `theme_arriving` (the second
-    grid's selected theme id), with a genuinely different resolution from
-    every other checkbox above: `theme_arriving` is validated by the same
-    membership test `theme` uses, then the CHECKBOX field alone (never
-    `theme_arriving`'s presence) decides whether the validated id is
-    persisted or the override is cleared via
-    `device_config.CLEAR_THEME_ARRIVING` — see the inline comment at that
-    branch for why keying off either `theme_arriving`'s presence or `None`
-    would silently break the clear path. The result is passed as one more
-    keyword argument on the same, still-singular persistence call below;
-    the all-or-nothing rejection contract is unchanged.
+    21-05-PLAN.md Task 2 (D-09/R-07, superseding Phase 15 D-04/D-05):
+    the arrivals-override checkbox and its checkbox-keyed resolution
+    are retired outright along with the Frame colours card's own
+    leading "Same as departures" chip (Task 1) — the clear signal moves
+    from that checkbox's absence to an empty submitted `theme_arriving`
+    value.
+    `theme_arriving`'s own membership gate now exempts the empty string
+    in addition to a real theme id (`("",) + device_config.THEME_IDS`),
+    and the resolution block derives `CLEAR_THEME_ARRIVING` directly
+    from `submitted_theme_arriving == ""` — see the inline comment at
+    that branch for the full three-way shape (out of scope -> `None`;
+    absent -> `None`, carry forward; `""` -> the clear sentinel; a
+    membership-checked id -> that id). `calendar_theme_id`'s own gate
+    gets the identical `("",) + device_config.THEME_IDS` exemption
+    (Pitfall 1: both gates change together, in the same commit, or the
+    "Same as departures" option can never actually be saved) but needs
+    no second resolution block of its own — it never had a checkbox,
+    and `normalise_calendar_theme_id("")`'s own existing `None`-degrade
+    contract already does the right thing once its gate stops
+    rejecting `""` outright. The result is passed as one more keyword
+    argument on the same, still-singular persistence call below; the
+    all-or-nothing rejection contract is unchanged.
 
     Phase 17 plan 03 (D-01/D-02/D-07) adds `calendar_url` and
     `calendar_disconnect`, resolved by `submitted_calendar_signal()`
@@ -3789,16 +3838,12 @@ def handle_post(form, ctx, errors=None):
     never touched the calendar field would silently wipe the calendar's
     flights on every unrelated settings change.
 
-    This checkbox's polarity is the deliberate INVERSE of
-    `theme_arriving_enabled`'s just above: that one is rendered checked
-    when the override is set and its ABSENCE from the submission means
-    clear; `calendar_disconnect` is rendered unchecked always and its
-    PRESENCE means clear. The direction is deliberately the safe one —
-    doing nothing is the default — because D-01/D-02 make the calendar
-    URL field write-only, so it is empty on every single page load
-    regardless of state; an absent-means-clear checkbox here (copying
-    `theme_arriving_enabled`'s own polarity instead of inverting it)
-    would disconnect the calendar on every save that doesn't touch it.
+    `calendar_disconnect` is rendered unchecked always and its PRESENCE
+    means clear — the deliberately safe direction, doing nothing by
+    default — because D-01/D-02 make the calendar URL field write-only,
+    so it is empty on every single page load regardless of state; an
+    absent-means-clear checkbox here would disconnect the calendar on
+    every save that doesn't touch it.
 
     The device-config write goes first, unchanged from every save that
     touches no calendar field, and the secret write is layered after it
@@ -3861,7 +3906,6 @@ def handle_post(form, ctx, errors=None):
     in_scope = set(scope_groups(scope, screens.current_screen_id(ctx)))
     submitted_theme = form.get("theme")
     submitted_theme_arriving = form.get("theme_arriving")
-    submitted_theme_arriving_enabled = form.get("theme_arriving_enabled")
     submitted_runway = form.get("tracked_runway")
     submitted_led = form.get("led_enabled")
     submitted_qh_enabled = form.get("quiet_hours_enabled")
@@ -3909,15 +3953,23 @@ def handle_post(form, ctx, errors=None):
     # value is a hostile-request shape, not a genuine user mistake
     # (16-UI-SPEC.md Flash messages) — reuse the existing generic
     # save-failed flash, no new flash constant.
+    # 21-05-PLAN.md Task 2 (D-09/R-07, Pitfall 1): both gates exempt the
+    # empty string in addition to a real theme id — the Frame colours
+    # card's own "Same as departures" leading chip (Task 1) submits ""
+    # for exactly this field, and a gate that still rejected it would
+    # reject the WHOLE save the instant a user picks that option. Every
+    # other non-member value (a crafted id, a path-traversal-shaped
+    # payload, a SQL-shaped payload) is still rejected exactly as before
+    # — the empty string is carved out, the gate is not weakened.
     if (
         submitted_calendar_theme_id is not None
-        and submitted_calendar_theme_id not in device_config.THEME_IDS
+        and submitted_calendar_theme_id not in ("",) + device_config.THEME_IDS
     ):
         _note_error(errors, "calendar_theme_id", ERROR_INVALID_CHOICE)
         return FLASH_SAVE_FAILED
     if (
         submitted_theme_arriving is not None
-        and submitted_theme_arriving not in device_config.THEME_IDS
+        and submitted_theme_arriving not in ("",) + device_config.THEME_IDS
     ):
         _note_error(errors, "theme_arriving", ERROR_INVALID_CHOICE)
         return FLASH_SAVE_FAILED
@@ -3938,26 +3990,23 @@ def handle_post(form, ctx, errors=None):
     if submitted_qh_end is not None and not _QUIET_HOURS_TIME_RE.match(submitted_qh_end):
         _note_error(errors, "quiet_hours_end", ERROR_QUIET_HOURS_TIME_SHAPE)
         return FLASH_SAVE_FAILED
-    # Phase 15 D-05: keyed on the CHECKBOX field, never on
-    # theme_arriving's presence. D-05 requires the second (arrivals) grid
-    # to always be rendered for no-JS correctness, which means
-    # theme_arriving is essentially ALWAYS present in a real browser
-    # submission with a valid id — a branch keyed on that field's
-    # presence would therefore never fire the clear path. The checkbox is
-    # the only signal that distinguishes "set" from "clear". `None` is
-    # not the clear value either: `None` already means "not supplied,
-    # carry forward" for every parameter of this write path including
-    # this one, so passing it here would make a partial-field save
-    # silently wipe a previously-set override.
+    # 21-05-PLAN.md Task 2 (D-09/R-07): the clear signal is now the
+    # EMPTY STRING submitted for theme_arriving itself (the Frame
+    # colours card's own leading "Same as departures" chip, Task 1) —
+    # never a separate checkbox field, which no longer exists as a form
+    # field at all. Three shapes only: out of scope -> `None`; the
+    # field genuinely absent from the submission (a hostile/legacy
+    # request missing it entirely) -> `None`, carry forward; `""` ->
+    # `device_config.CLEAR_THEME_ARRIVING`; anything else has already
+    # passed the membership gate above, so it is a real theme id.
     if screens.GROUP_THEME not in in_scope:
         theme_arriving = None
-    elif submitted_theme_arriving_enabled is None:
+    elif submitted_theme_arriving is None:
+        theme_arriving = None
+    elif submitted_theme_arriving == "":
         theme_arriving = device_config.CLEAR_THEME_ARRIVING
-    elif submitted_theme_arriving_enabled == ARRIVING_CHECKBOX_VALUE:
-        theme_arriving = submitted_theme_arriving
     else:
-        _note_error(errors, "theme_arriving_enabled", ERROR_UNEXPECTED_SWITCH_VALUE)
-        return FLASH_SAVE_FAILED
+        theme_arriving = submitted_theme_arriving
     if screens.GROUP_LED not in in_scope:
         led_enabled = None
     elif submitted_led is None:

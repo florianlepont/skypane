@@ -21,8 +21,8 @@
  * D-06 (20-11-PLAN.md Task 3): the on-success feedback text is read
  * from each button's own data-copied-text attribute, server-rendered
  * and translated by companion/pages/history_page.py's own emitter —
- * the same shape freshness.js already uses for data-pause-text/
- * data-resume-text. A short, hardcoded fallback covers an un-updated
+ * the same shape freshness.js uses for its own data-* labels (its
+ * former data-pause-text pair was retired in 21-02). A short, hardcoded fallback covers an un-updated
  * caller that has not yet been given the attribute, so the button can
  * never render an empty label.
  *

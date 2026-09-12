@@ -82,12 +82,12 @@ GALLERY_DIRNAME = "gallery"
 GALLERY_DEFAULT_LIMIT = 30
 POLL_COOLDOWN_S = 45  # D-17: tens of seconds, a double-click guard, not an abuse rate-limit.
 THEME_COOKIE_MAX_AGE_S = 365 * 24 * 3600
-# D-02/D-29 (20-01-PLAN.md Task 2): the language/mode cookies reuse
+# D-02 (20-01-PLAN.md Task 2): the language cookie reuses
 # THEME_COOKIE_MAX_AGE_S's own value and reasoning (a per-browser
 # preference the site should remember indefinitely) rather than a
-# second literal.
+# second literal. D-17 (21-01-PLAN.md Task 1): the sibling
+# MODE_COOKIE_MAX_AGE_S is deleted along with the cookie it fed.
 LANG_COOKIE_MAX_AGE_S = THEME_COOKIE_MAX_AGE_S
-MODE_COOKIE_MAX_AGE_S = THEME_COOKIE_MAX_AGE_S
 MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06-05-07).
 # quick task 260902-v26: comfortably above any real high-resolution
 # transparent aircraft PNG — every vendored asset in
@@ -185,6 +185,10 @@ CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
 # THEME_PREVIEW_SCRIPT_SRC must equal this exactly, mirroring the
 # SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the tenth static script.
 THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
+# 21-03-PLAN.md Task 2 (D-15/R-12): companion/layout.py's
+# FLIGHT_ROWS_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the eleventh static script.
+FLIGHT_ROWS_SCRIPT_ROUTE = "/static/flight-rows.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -214,10 +218,13 @@ HISTORY_LEGACY_ROUTE = "/history"
 QUICK_DISPLAY_ROUTE = "/quick/display"
 QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
 THEME_ROUTE = "/ui-theme"
-# D-02/D-29 (20-01-PLAN.md Task 2): the two new nav-footer switch
-# routes, byte-for-byte siblings of THEME_ROUTE above.
+# D-02 (20-01-PLAN.md Task 2): the nav-footer language switch route, a
+# byte-for-byte sibling of THEME_ROUTE above. D-17 (21-01-PLAN.md Task
+# 1): the sibling route constant that used to back the simple/full
+# display-mode switch is deleted along with the rest of that
+# mechanism — a POST to that now-unrecognised path falls through to
+# do_POST()'s own unknown-route 404, like any other unrecognised path.
 LANG_ROUTE = "/ui-lang"
-MODE_ROUTE = "/ui-mode"
 LOGOUT_ROUTE = "/logout"
 # D-22 (06.6.4.1-08): the standalone Preview HTML page is retired — its
 # entire content moved into History (06.6.4.1-05) — so this route is kept
@@ -580,6 +587,7 @@ _FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
 _POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
 _CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
 _THEME_PREVIEW_JS_PATH = os.path.join(_HERE, "static", "theme-preview.js")
+_FLIGHT_ROWS_JS_PATH = os.path.join(_HERE, "static", "flight-rows.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -1152,17 +1160,8 @@ class Handler(BaseHTTPRequestHandler):
             return "fr" if tag.startswith("fr") else "en"
         return prefs.DEFAULT_LANG
 
-    def _mode_from_request(self):
-        """D-29 (20-01-PLAN.md Task 2): the cookie set by POST /ui-mode
-        wins when present and valid; otherwise the default ("full").
-        No header-derived fallback exists for simple mode — unlike
-        language, there is no browser signal to read it from.
-        """
-        cookies = auth.parse_cookies(self.headers.get("Cookie"))
-        cookie_value = cookies.get(auth.UI_MODE_COOKIE_NAME)
-        if cookie_value in prefs.MODE_CHOICES:
-            return cookie_value
-        return prefs.DEFAULT_MODE
+    # D-17 (21-01-PLAN.md Task 1): _mode_from_request() is deleted along
+    # with the rest of the simple-mode mechanism it fed.
 
     # --- form / query parsing -------------------------------------------
 
@@ -1252,11 +1251,10 @@ class Handler(BaseHTTPRequestHandler):
         rule_key = params.get("rule", [None])[0]
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()
-        # D-04/D-29 (20-01-PLAN.md Task 2): resolve this request's
-        # language and simple-mode preference exactly once, immediately,
-        # and publish both through prefs so layout.py's readers (Task 3)
-        # and this dict's own "lang"/"simple_mode" keys below can never
-        # disagree.
+        # D-04 (20-01-PLAN.md Task 2): resolve this request's language
+        # preference exactly once, immediately, and publish it through
+        # prefs so layout.py's readers (Task 3) and this dict's own
+        # "lang" key below can never disagree.
         #
         # Polish fix 2 (French Home status rows): this MUST run before
         # health_page.safe_health_state() below — that call's own
@@ -1272,8 +1270,7 @@ class Handler(BaseHTTPRequestHandler):
         # default (English) regardless of the requester's own language —
         # the exact mechanism behind French Home's Frame/Flight-data rows
         # still showing an English month abbreviation and "ago" (D-07).
-        prefs.set_request_prefs(
-            lang=self._lang_from_request(), mode=self._mode_from_request())
+        prefs.set_request_prefs(lang=self._lang_from_request())
         # WR-04: compute once per request (fail-closed to None on any
         # unanticipated exception — see health_page.safe_health_state()'s
         # docstring) and thread both the derived severity and the full
@@ -1301,7 +1298,6 @@ class Handler(BaseHTTPRequestHandler):
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
             "lang": prefs.current_lang(),
-            "simple_mode": prefs.simple_mode(),
             "device_config": device_cfg,
             # 19-12-PLAN.md Task 2 (D-23): the persisted screen_id, read
             # from the SAME device_config dict already loaded above —
@@ -1676,6 +1672,14 @@ class Handler(BaseHTTPRequestHandler):
         Task 2, D-22..D-24/D-32) — the tenth static script.
         """
         return self._serve_script_file(_THEME_PREVIEW_JS_PATH)
+
+    def _serve_flight_rows_script(self):
+        """Serve companion/static/flight-rows.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_theme_preview_script()'s shape exactly (21-03-PLAN.md
+        Task 2, D-15/R-12) — the eleventh static script.
+        """
+        return self._serve_script_file(_FLIGHT_ROWS_JS_PATH)
 
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
@@ -2395,6 +2399,12 @@ class Handler(BaseHTTPRequestHandler):
         dispatch) and always calls `render(ctx)` itself with no way to
         pass through an already-rendered body carrying `errors`/
         `submitted`.
+
+        21-04-PLAN.md Task 2 (D-03/R-03): passes `ctx["device_config"]`
+        through as `page_shell()`'s new `device_config` keyword — the
+        one call site that covers both the GET path and the rejected-
+        save POST's redisplay, so the nav's state reminder is always
+        computed from the same value the Frame strip reads.
         """
         flash_html = (
             layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
@@ -2402,7 +2412,7 @@ class Handler(BaseHTTPRequestHandler):
         return layout.page_shell(
             title=_PAGE_TITLES[route], active=layout.nav_slug(route), body=body,
             ui_theme=ctx["ui_theme"], flash=flash_html,
-            health_alert=ctx["health_severity"])
+            health_alert=ctx["health_severity"], device_config=ctx["device_config"])
 
     def _render_tab(self, route, render):
         """Render one authenticated tab: `render(ctx) -> body markup`
@@ -2478,6 +2488,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == THEME_PREVIEW_SCRIPT_ROUTE:
             return self._serve_theme_preview_script()
+
+        if path == FLIGHT_ROWS_SCRIPT_ROUTE:
+            return self._serve_flight_rows_script()
 
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:
@@ -2786,32 +2799,40 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_quick_toggle(self, field):
         """Phase 18: the Home page's one-tap switches — POST /quick/display
-        and POST /quick/quiet-hours. The body carries exactly one field,
-        `state`, whose value is the state to switch TO ("on"/"off"), so a
-        repeated submission is idempotent. Every other device-config
-        value is carried forward untouched (save_device_config() treats
-        a None keyword as "leave unchanged"), which is what makes this
-        safe to expose to someone who never opens the settings pages.
-        Session-gated in do_POST() like every other state-changing
-        route.
+        and POST /quick/quiet-hours. The body carries exactly one
+        meaningful field, `state`, whose value is the state to switch
+        TO ("on"/"off"), so a repeated submission is idempotent. Every
+        other device-config value is carried forward untouched
+        (save_device_config() treats a None keyword as "leave
+        unchanged"), which is what makes this safe to expose to
+        someone who never opens the settings pages. Session-gated in
+        do_POST() like every other state-changing route.
 
-        D-16 (20-01-PLAN.md Task 2): every redirect target below is
-        layout.DISPLAY_ROUTE, no longer the bare Home route — the
-        switches themselves move to Display in a later plan
-        (20-06/20-07), but the routes,
-        their flash keys and their tests stay; only `return_to` changes.
-        The field constants (QUICK_STATE_FIELD/QUICK_STATE_ON/
-        QUICK_STATE_OFF) now live in companion/layout.py, a shared
-        module both this file and, from 20-07, config_page.py may
-        import — home_page.py keeps its own identical copies untouched
-        until 20-06 deletes them with the rest of Home's quick-action
-        code.
+        21-04-PLAN.md Task 1 (D-01/R-02): the switches now render once,
+        in the shared Frame strip on BOTH Home and Display — so the
+        redirect target is no longer the fixed layout.DISPLAY_ROUTE
+        literal, but a second form field, `return_to`, carrying
+        whichever of the two pages the switch was pressed on
+        (layout.frame_strip_html()'s own hidden field). It is
+        membership-tested against `(layout.HOME_ROUTE, layout.
+        DISPLAY_ROUTE)` — the same "build a small whitelist, test
+        membership, fall back to a known-safe route" shape
+        `_referring_tab()` above uses for the Referer header — and
+        falls back to `layout.DISPLAY_ROUTE` when absent or
+        unrecognised, exactly this route's own pre-21-04 behaviour
+        (T-21-12: never string-prefix-matched, never parsed as a URL,
+        so `https://evil.example/`, `//evil.example` and `/flights`
+        all fall back to Display rather than becoming an open
+        redirect). All three redirects below use the resolved value.
         """
         form = self.read_form()
+        return_to = form.get("return_to")
+        if return_to not in (layout.HOME_ROUTE, layout.DISPLAY_ROUTE):
+            return_to = layout.DISPLAY_ROUTE
         state = form.get(layout.QUICK_STATE_FIELD)
         if state not in (layout.QUICK_STATE_ON, layout.QUICK_STATE_OFF):
             return self.redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_QUICK_FAILED)))
+                "%s?flash=%s" % (return_to, quote(FLASH_KEY_QUICK_FAILED)))
         enabled = state == layout.QUICK_STATE_ON
         if field == "display_enabled":
             kwargs = {"display_enabled": enabled}
@@ -2823,7 +2844,7 @@ class Handler(BaseHTTPRequestHandler):
             device_config.save_device_config(self.args.state_dir, **kwargs)
         except (ValueError, OSError):
             flash_key = FLASH_KEY_QUICK_FAILED
-        return self.redirect("%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(flash_key)))
+        return self.redirect("%s?flash=%s" % (return_to, quote(flash_key)))
 
     def _handle_theme_post(self):
         form = self.read_form()
@@ -2854,19 +2875,8 @@ class Handler(BaseHTTPRequestHandler):
                    LANG_COOKIE_MAX_AGE_S))
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
-    def _handle_mode_post(self):
-        """POST /ui-mode (D-29, 20-01-PLAN.md Task 2) — byte-for-byte
-        sibling of _handle_theme_post() above.
-        """
-        form = self.read_form()
-        submitted = form.get("ui_mode")
-        cookie_header = None
-        if submitted in prefs.MODE_CHOICES:
-            cookie_header = (
-                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
-                % (auth.UI_MODE_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
-                   MODE_COOKIE_MAX_AGE_S))
-        return self.redirect(self._referring_tab(), set_cookie=cookie_header)
+    # D-17 (21-01-PLAN.md Task 1): _handle_mode_post() is deleted along
+    # with the rest of the simple-mode mechanism it fed.
 
     def do_POST(self):
         parsed = urlsplit(self.path)
@@ -2912,10 +2922,12 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             return self._handle_lang_post()
 
-        if path == MODE_ROUTE:
-            if not self.require_session():
-                return None
-            return self._handle_mode_post()
+        # D-17 (21-01-PLAN.md Task 1): the branch that used to dispatch
+        # the simple/full display-mode switch's POST route is deleted —
+        # a POST to that now-unrecognised path falls through to
+        # do_POST()'s own unknown-route 404 at the bottom of this method,
+        # exactly like any other unrecognised path. A stale client-held
+        # cookie for the deleted preference is simply never read again.
 
         # 19-04-PLAN.md (D-18/A-35, T-19-04): gated too, even though an
         # unauthenticated POST /logout looks harmless at first glance —

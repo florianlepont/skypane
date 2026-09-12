@@ -34,15 +34,9 @@ Every page module in this package exposes:
           SAME resolution companion/i18n.py's t() reads through
           companion.prefs directly. This is presentation only, like
           ctx["edit_mode"] below: no POST handler ever consults it.
-        - simple_mode: a bool, True only when the resolved CFG-18 mode
-          is "simple" (added by 20-01-PLAN.md Task 2, companion.prefs.
-          simple_mode()). **Presentation only, never an access
-          control** — every advanced route keeps its own
-          require_session() gate regardless of this value, and typing
-          an advanced URL by hand still works in simple mode (D-30).
-          Hiding a nav link or a group changes what is offered to
-          render, not what is permitted to execute — the identical
-          statement ctx["edit_mode"]'s own entry below makes.
+        - (simple_mode: the CFG-18 key added by 20-01 was removed by
+          21-01-PLAN.md — CFG-23 withdrew simple mode entirely; no page
+          may read it.)
         - device_config: server.device_config.load_device_config()'s
           already-normalised {"theme": ..., "tracked_runway": ...} dict
         - flash: the resolved flash-banner text (already looked up

@@ -1108,9 +1108,43 @@ select.visually-hidden {
   background: var(--color-status-error);
 }
 
+/* 21-04-PLAN.md Task 2 (D-03): a fourth, additive entry in this same
+ * dot vocabulary — "off" is a neutral, everyday state (Screen off,
+ * Quiet hours off), never a problem, so it gets its own muted-grey
+ * dot rather than reusing warn/error. Reuses the exact color-mix
+ * value .quick-action--off's own left-edge rule already uses — no
+ * new colour literal. */
+.dot--off {
+  background: color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+
 .dot-label {
   font-size: var(--font-label-size);
   vertical-align: middle;
+}
+
+/* 21-04-PLAN.md Task 2 (D-03): the nav's state-only reminder — a plain
+ * link, no button, no form (the phase 18 audit's "no actions in the
+ * nav" finding). Sits between the brand and the primary nav list in
+ * both the sidebar and the mobile dropdown (nav_status_html()'s own
+ * two call sites). Full-strength --color-text on the sidebar surface
+ * — the same pairing .sidebar-link's own unmodified colour rule
+ * already relies on site-wide (contrast measured and pinned in
+ * companion/test_contrast_check.py). */
+.nav-status {
+  display: block;
+  padding: 0 var(--space-sm) var(--space-sm);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.nav-status:hover {
+  text-decoration: underline;
+}
+
+.nav-status__sep {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  margin: 0 2px;
 }
 
 /* Banners: a near-neutral card surface, a hairline border and a 3px
@@ -1675,7 +1709,7 @@ button:hover {
  * the table's column widths never shift for the ~1.5s a confirmation
  * is visible. Colour and label-voice values (12px/semibold/uppercase/
  * 0.06em, this file's existing label-voice register — see
- * .theme-direction-label above) are reused verbatim; --color-status-ok
+ * .frame-colours__panel-legend below) are reused verbatim; --color-status-ok
  * is the existing token, no new custom property, no accent use. */
 .copy-btn--copied .copy-btn__label {
   display: inline;
@@ -2146,56 +2180,35 @@ button:disabled {
     letter-spacing: 0.06em;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
-}
 
-/* Phase 15 D-05: the "Arrivals theme" label above the revealed second
- * (arrivals) chip grid. Composes the existing 12px/semibold/uppercase/
- * 0.06em/70%-muted label voice (.data-table th, .stat-tile__caption et
- * al.) verbatim, written out as its own selector rather than added to
- * that selector list — matching how those six label-voice selectors are
- * already written out separately, each in its own structural context. No
- * new size, weight, family or colour token. */
-.theme-direction-label {
-  font-size: 12px;
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* Phase 15 D-05: the arrivals-override reveal — a second, later, separate
- * feature-query block from the live-selection-state one above — both
- * grids are UNCONDITIONALLY rendered in the HTML (D-05's own "must always
- * be present" requirement); this block only ever HIDES the second grid
- * and its label once :has() is supported and the toggle is unchecked. A
- * browser without :has() support skips this whole block and simply
- * always shows both grids — denser, never broken, never dependent on
- * script. Scoped through .theme-status:has(#theme-arriving-toggle) so
- * the [data-arrival-grid] attribute selector can never accidentally match
- * an unrelated future component. Plain display: none, no transition, no
- * animation — this codebase adds no motion to a reveal of this kind, so
- * prefers-reduced-motion is not implicated. */
-@supports selector(:has(*)) {
-  .theme-status:has(#theme-arriving-toggle):not(:has(#theme-arriving-toggle:checked))
-    [data-arrival-grid],
-  .theme-status:has(#theme-arriving-toggle):not(:has(#theme-arriving-toggle:checked))
-    .theme-direction-label {
-    display: none;
-  }
-
-  /* 20-04-PLAN.md Task 2 (D-14c, 20-UI-SPEC.md §E): the fused Calendar
-   * card — squares the card's bottom corners and zeroes its bottom
-   * margin only when a .calendar-disconnect-form immediately follows it,
-   * so the two <form>s read as one card with a trailing action strip.
-   * Joins this block (rather than opening a third) per
-   * companion/test_config_page.py's own exact-count pin — see this
-   * selector's own declaration further down this file. */
-  .page-section:has(+ .calendar-disconnect-form) {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    margin-bottom: 0;
+  /* 21-05-PLAN.md Task 1 (D-08): the Frame colours card's own
+   * belt-and-braces :has() duplicate of the plain input:checked
+   * sibling rule above (companion/pages/config_page.py's own
+   * .frame-colours__row) — joins this block per the file's own
+   * pinned @supports-block-count convention rather than opening a
+   * third block. Not load-bearing today (the plain rule alone already
+   * covers this same-parent radio+label pair); kept for a future
+   * markup change only. */
+  .frame-colours__list li:has(input:checked) .frame-colours__row {
+    border: 2px solid var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   }
 }
+
+/* 21-05-PLAN.md Task 1 (D-06/D-09): the retired arrivals-override
+ * checkbox's own reveal rule and its "Arrivals theme" direction label
+ * (both scoped to the now-deleted checkbox markup) are removed
+ * outright — the Frame colours card's own usage panels are collapsed
+ * by theme-preview.js at load instead (D-08's no-JS floor: the server
+ * never emits `hidden` on any panel). This @supports block used to
+ * survive for one more, unrelated rule below (the Calendar-card
+ * fusion) — 21-07-PLAN.md Task 3 (D-13/R-08/Pitfall 2) retires that
+ * rule too, and with it the whole block: the Calendar card and its
+ * disconnect form are real nested/sibling DOM now, not two visually-
+ * fused siblings, so no feature-query fallback is needed for either
+ * any more. The whole-file pinned block count (companion/test_config_
+ * page.py) moves from 2 to 1 as a direct result — see that check's
+ * own history comment for the exact before/after. */
 
 /* Shared Settings-page checkbox normalization (quick task 260901-qif,
  * generalised 10-05-PLAN.md Task 2): now used by both the Diagnostic LED
@@ -2474,6 +2487,76 @@ button:disabled {
 .data-table td {
   padding: 13px var(--space-md);
   border-bottom: 1px solid var(--color-border);
+}
+
+/* 21-03-PLAN.md Task 1 (D-15, 21-UI-SPEC.md §F): scoped to Flights' own
+ * table only — no other .data-table consumer (Health, Airlines) gains
+ * this modifier. Six columns (5 data + the "More" toggle) at 8px
+ * horizontal padding each = 96px of padding, leaving a 784px content
+ * budget inside the real 880px column (1280 - 240 sidebar - 32 gap -
+ * 128 .dashboard-main padding) — tokens only, no literal px value, so
+ * this rule tracks --space-sm/--space-md if either token ever changes. */
+table.data-table--flights td,
+table.data-table--flights th {
+  padding: var(--space-sm) var(--space-sm);
+}
+
+/* 21-03-PLAN.md Task 3 (D-15) — Rule 1 auto-fix found by the headless
+ * measurement step: .data-table's own `min-width: max-content` rule
+ * (a deliberate earlier "no-crop" floor, quick task 260901-uzi) sizes
+ * every column to its widest UNWRAPPED line. The When/Flight cells'
+ * primary+separator+secondary spans render inline by default (the
+ * shape _merged_cell() already produces everywhere else in this app),
+ * so a run like "AFR1380 · Air France · A320" wants ~400px on one
+ * line — blowing straight through the 880px column budget regardless
+ * of the padding rule above. Scoped to this table only: the primary
+ * and secondary lines become genuinely STACKED (block-level), so each
+ * column's own max-content width is the WIDER of its two lines, not
+ * their concatenation, matching this task's own "two stacked lines,
+ * never an inline suffix" requirement. The inline middle-dot
+ * separator has no role once the two parts sit on separate lines, so
+ * it is hidden here — never deleted from the DOM, so a future change
+ * that un-scopes this rule finds the separator markup still intact. */
+table.data-table--flights .cell-primary,
+table.data-table--flights .cell-secondary {
+  display: block;
+}
+
+table.data-table--flights .cell-inline-sep {
+  display: none;
+}
+
+/* 21-03-PLAN.md Task 2 (D-15/R-12, 21-UI-SPEC.md §F): the expandable
+ * detail row's own styling — tokens only, no new colour literal. The
+ * no-JS floor (D-15, locked) is a VISIBLE detail row by default; the
+ * collapsing class below is added only by companion/static/
+ * flight-rows.js at load, never rendered server-side. */
+.flight-detail-row td {
+  background: color-mix(in srgb, var(--color-text) 3%, transparent);
+  padding: var(--space-md);
+}
+
+.flight-detail-row__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-sm) var(--space-md);
+  margin: 0;
+}
+
+.flight-detail-row__grid dt {
+  margin: 0;
+}
+
+.flight-detail-row__grid dd {
+  margin: 0 0 var(--space-xs);
+}
+
+/* D-15's own no-JS floor: visible by default. flight-rows.js adds
+ * this class to every .flight-detail-row at load, mirroring
+ * nav-dropdown.js's own "document.documentElement.className += ' js'"
+ * convention for a component-scoped hide instead of a page-wide one. */
+.flight-detail-row--collapsed {
+  display: none;
 }
 
 /* quick task 260902-bl2 (bug 1): the Resolution-statistics table's
@@ -4944,6 +5027,33 @@ a.airline-card {
   margin-bottom: 0;
 }
 
+/* 21-04-PLAN.md Task 3 (D-04): the picture/recent-flights row's own
+ * 3:2 desktop split — D-04's "the picture column is the wider one,
+ * about 3:2". This compound selector (specificity 0,2,0) outranks the
+ * ambient `.home-columns` >=960px equal-split rule above at every
+ * width, so this row stays one column through 1023px and only then
+ * becomes 3fr/2fr — never the generic 1fr/1fr split. Scoped by the
+ * compound class so no other `.home-columns` consumer anywhere else
+ * in the app is affected. */
+.home-columns.home-picture-row {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .home-columns.home-picture-row {
+    grid-template-columns: 3fr 2fr;
+    /* flex-start, not the bare `start` keyword: test_status_pages.py
+     * pins the whole file to exactly one remaining declaration of that
+     * bare keyword's own align-items value (.dashboard-shell's own
+     * D-21 sticky sidebar) — the same precedent the deleted .home-hero
+     * rule already followed for this exact reason. Grid treats
+     * flex-start as an alias of that value, so the effect here — the
+     * shorter column never stretching to match the taller one's own
+     * height — is identical. */
+    align-items: flex-start;
+  }
+}
+
 .quick-actions {
   display: flex;
   flex-direction: column;
@@ -5009,14 +5119,73 @@ a.airline-card {
   min-width: 96px;
 }
 
-/* 20-04-PLAN.md Task 1 (D-19, 20-UI-SPEC.md §D): the divider between a
- * card's instant switch (.quick-action, unmodified, no new rule) and its
- * scheduled controls below — Display's Screen on/off and Quiet hours
- * groups both wrap their .quick-action row in this. */
-.quick-action-slot {
-  padding-bottom: var(--space-md);
-  margin-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+/* 21-04-PLAN.md Task 1 (D-01/D-02): the Screen on/off and Quiet hours
+ * cards no longer embed an instant switch of their own — both switches
+ * now render once, in the shared Frame strip below — so the divider
+ * rule that used to separate a card's own switch from its scheduled
+ * controls (.quick-action-slot, 20-04-PLAN.md Task 1) has no consumer
+ * left and is deleted rather than kept as stale, misleading CSS.
+ *
+ * The Frame strip (D-01, D-02, D-05) — one shared surface holding the
+ * Screen switch, the Quiet hours switch and the next-update headline,
+ * atop Home and Display alike (layout.frame_strip_html()). Reuses
+ * .stat-tile/.stat-tile--accent verbatim for the card surface itself
+ * (padding, border-radius, hairline, accent top-border) — this rule
+ * adds only the internal 3-cell flex layout. */
+.frame-strip {
+  margin-bottom: var(--space-lg);
+}
+
+.frame-strip__cells {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+/* Both classes on the SAME element (.frame-strip__cell.quick-action
+ * quick-action--on/off) — this is what lets each switch cell keep
+ * .quick-action's own flex-row/padding/border/background chrome while
+ * also sizing itself as a flex item of .frame-strip__cells above. The
+ * two switch cells share the row, each wrapping to its own line first
+ * before the update cell does. flex-wrap here (not on the base
+ * .quick-action rule, which has no other consumer left after this
+ * task) lets the relocated "Applies the next time the frame wakes up."
+ * caption — carried over as a THIRD child alongside .quick-action__text
+ * and the <form>, never dropped (D-02) — fall onto its own full-width
+ * line under the label/state and the form/button instead of squeezing
+ * into the same row as a third space-between item. */
+.frame-strip__cell.quick-action {
+  flex: 1 1 220px;
+  flex-wrap: wrap;
+}
+
+.frame-strip__cell.quick-action > .section-caption {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.frame-strip__cell--update {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+/* Phase 21 polish (D-01): the next update is the largest text in the
+ * strip — one step above the switch cells' body-size state text. */
+.frame-strip__cell--update .status-card__headline {
+  font-size: var(--font-heading-size);
+  line-height: 1.2;
+}
+
+@media (max-width: 699.98px) {
+  .frame-strip__cells {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .frame-strip__cell.quick-action,
+  .frame-strip__cell--update {
+    flex-basis: auto;
+  }
 }
 
 .now-showing {
@@ -5061,10 +5230,16 @@ a.airline-card {
  * leading 40px thumbnail column — was 3 columns (callsign, detail,
  * time). The sub-960px override further down this file is retargeted
  * to match. */
+/* Phase 21 polish (D-04): the list now lives in the narrower right-hand
+ * column of .home-columns.home-picture-row at every width, so the
+ * four-column desktop layout (which starved the detail column down to
+ * one character per line and let the nowrap time overlap the callsign)
+ * is retired: thumbnail / callsign / time on the first row, the detail
+ * line under them, at every width — the former sub-960px shape. */
 .recent-flight {
   display: grid;
-  grid-template-columns: 40px minmax(0, auto) minmax(0, 1fr) auto;
-  gap: var(--space-sm) var(--space-md);
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: var(--space-xs) var(--space-md);
   align-items: baseline;
   padding: var(--space-sm) 0;
   border-bottom: 1px solid var(--color-border);
@@ -5085,7 +5260,14 @@ a.airline-card {
 }
 
 .recent-flight__time {
-  white-space: nowrap;
+  text-align: right;
+  max-width: 60%;
+  justify-self: end;
+}
+
+.recent-flight__detail {
+  grid-column: 2 / -1;
+  grid-row: 2;
 }
 
 /* 20-04-PLAN.md Task 1 (D-17.2): the thumbnail itself. object-fit: cover
@@ -5188,16 +5370,8 @@ a.airline-card__zoom {
  * width; only the middle content/detail column collapses into one, and
  * the detail line's own grid-column start moves from 1 to 2 so it never
  * runs back under the thumbnail. */
-@media (max-width: 959.98px) {
-  .recent-flight {
-    grid-template-columns: 40px minmax(0, 1fr) auto;
-  }
-
-  .recent-flight__detail {
-    grid-column: 2 / -1;
-    grid-row: 2;
-  }
-}
+/* (Phase 21 polish: the sub-960px recent-flight override that used to
+ * live here is now the base rule above — one shape at every width.) */
 
 /* =====================================================================
  * Phase 20 — companion suggestions from the audit: bilingual FR/EN,
@@ -5262,30 +5436,14 @@ a.airline-card__zoom {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* --- 20-UI-SPEC.md §B: the Home hero row (D-16..D-20) ------------------
- * Picture-first stacking on phones (D-18) comes from source order alone
- * — .preview-frame is the hero row's first child in the markup, so no
- * CSS `order` property is declared here. */
-.home-hero {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-lg);
-}
-
-@media (min-width: 960px) {
-  .home-hero {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
-    /* flex-start, not the bare `start` keyword: test_status_pages.py
-     * pins the whole file to exactly one remaining declaration of that
-     * bare keyword's own align-items value (.dashboard-shell's own D-21
-     * sticky sidebar). Grid treats flex-start as an alias of that value,
-     * so the effect here — the status card never stretching to match the
-     * picture's own height — is identical. */
-    align-items: flex-start;
-  }
-}
-
-/* Naming caution (20-UI-SPEC.md §B): companion/test_view_pages.py's own
+/* 21-04-PLAN.md Task 3 (D-04): the phase-20 Home hero row (.home-hero,
+ * a two-column picture/status-card grid) is deleted outright —
+ * replaced by the strip -> three tiles -> .home-columns.home-picture-
+ * row shape below. .preview-frame and its own children (Home's
+ * picture figure, `_hero_figure_html()`, unchanged) survive; only the
+ * two-column wrapper around it is gone.
+ *
+ * Naming caution (20-UI-SPEC.md §B): companion/test_view_pages.py's own
  * guard against the string "preview-frame" is scoped to history_page's
  * own render() output only, not a site-wide ban — this class is correct
  * as named on Home. */
@@ -5347,37 +5505,82 @@ a.airline-card__zoom {
   color: var(--color-text);
 }
 
-.status-card__rows {
+/* 21-04-PLAN.md Task 3 (D-04): .status-card__rows had exactly one
+ * consumer (the deleted _status_card_html()'s own <div>) and is
+ * deleted with it; .status-card__headline/--warn above survive — the
+ * strip now reuses both verbatim for its own next-update line. */
+
+/* --- 21-UI-SPEC.md §E: the merged Calendar card (D-13/D-14, R-08/R-09)
+ * ------------------------------------------------------------------------
+ * 21-07-PLAN.md Task 3: retires the two-<form> visual-fusion trick
+ * (20-04-PLAN.md's own :has()-keyed corner-squaring rule, deleted
+ * above, and its own trailing-card shape rule for the disconnect
+ * form's outer wrapper, deleted from here) now that Calendar is
+ * genuinely one nested card (companion/pages/config_page.py's merged
+ * calendar_group(), 21-07-PLAN.md Task 1) plus a real, data-only
+ * sibling <form> that carries no visible surface of its own — nothing
+ * left to fuse.
+ *
+ * .calendar-actions lays out the Replace disclosure and the Disconnect
+ * button on one line, right-aligned relative to each other via
+ * space-between (baseline-aligned, matching a <details><summary> next
+ * to a <button> — neither is a taller block the other must vertically
+ * centre against). .calendar-actions--solo (Claude's Discretion,
+ * additive) is the drift-only state's own single-button variant, where
+ * space-between would otherwise place a lone flex child at the START
+ * of the row instead of the right-aligned position D-14 asks for. */
+.calendar-actions {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin: var(--space-sm) 0 0;
+}
+.calendar-actions--solo {
+  justify-content: flex-end;
 }
 
-/* --- 20-UI-SPEC.md §E: the fused Calendar card (D-14c) -----------------
- * A genuinely new pattern — a two-<form> card visually fused into one.
- * Scoped with :has() inside this file's existing progressive-enhancement
- * convention — companion/test_config_page.py pins the whole file to
- * exactly two feature-query blocks of that shape (the live-selection-
- * state one and Phase 15 D-05's arrivals-reveal one), so this rule joins
- * the second of those two rather than opening a third such block; see
- * that block's own declaration further up this file. A browser without
- * :has() support simply keeps all four of the Calendar card's corners
- * rounded and lets .calendar-disconnect-form render as its own
- * small separate card immediately below, at the normal --space-lg gap —
- * an accepted, non-broken degradation, never unstyled. */
+/* R-09: the small grey Disconnect button — this app's bare <button>
+ * idiom carries the quiet, near-invisible-at-rest wash already; this is
+ * the one additive rule block that also shrinks it (30px/12px, R-09's
+ * own instruction) and keeps it off the accent-filled primary
+ * treatment `button[type="submit"]` would otherwise give it. No
+ * `.btn`/`.btn--secondary`/`.btn--small` family exists anywhere in this
+ * file — R-09 explicitly names this the new class pair to introduce,
+ * not an existing family to reuse. */
+.calendar-disconnect-btn {
+  min-height: 30px;
+  padding: 4px var(--space-sm);
+  font-size: 12px;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: var(--radius-control);
+}
+.calendar-disconnect-btn:hover,
+.calendar-disconnect-btn:focus-visible {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
 
-.calendar-disconnect-form {
-  margin: 0 0 var(--space-lg);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-top: none;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  border-bottom-left-radius: var(--radius-control);
-  border-bottom-right-radius: var(--radius-control);
-  display: flex;
-  justify-content: flex-end;
+/* D-13: the masked feed URL (host + "…", companion/pages/config_page.
+ * py's _masked_calendar_url()) renders in the same monospace token
+ * this file already reserves for machine-derived strings (matching
+ * --font-mono's existing consumers), never the base body font — a
+ * visual cue that this line is a derived fragment, not prose. */
+.calendar-masked-url {
+  font-family: var(--font-mono);
+  margin: var(--space-sm) 0 0;
+}
+
+/* R-08/Pitfall 2: the disclosure summary reads as a link now that it
+ * sits beside a real button on the same line, rather than the default
+ * bold <summary> treatment — this file's plain prose links have never
+ * needed a dedicated class before (every existing <a> inherits the
+ * base accent-coloured rule directly), so .text-link is new, but
+ * trivial: one declaration, reusing --color-accent verbatim. */
+.text-link {
+  color: var(--color-accent);
+  text-decoration: underline;
 }
 
 /* --- 20-UI-SPEC.md §F: "Match by" segmented radios, and the rule rows
@@ -5567,6 +5770,131 @@ a.airline-card__zoom {
 .theme-live-preview figcaption {
   margin-top: var(--space-sm);
   text-align: center;
+}
+
+/* --- 21-UI-SPEC.md §D: the "Frame colours" card (D-06..D-12) -----------
+ * Replaces the retired Theme card/Calendar-card chip-grid/standalone
+ * Flight-colours card with one preview-plus-four-row-assignment layout.
+ * Zero new colour tokens: every accent/wash value below is the exact
+ * literal .theme-chip--selected/.runway-card--selected already use. */
+.frame-colours__layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+}
+@media (min-width: 960px) {
+  .frame-colours__layout {
+    grid-template-columns: minmax(360px, 1fr) minmax(0, 1fr);
+    gap: var(--space-lg);
+    /* flex-start, not the bare "start" keyword: this file pins the
+     * total count of that exact bare declaration to just the sticky
+     * sidebar's own one remaining occurrence (quick task 260901-uzi
+     * finding 1) — flex-start is an equivalent value for Grid, the
+     * same precedent 21-04-PLAN.md's own .home-picture-row rule
+     * already established for the identical reason. */
+    align-items: flex-start;
+  }
+  /* Phase 21 polish: the usage panels span both columns under the
+   * preview/rows pair. */
+  .frame-colours__panels {
+    grid-column: 1 / -1;
+  }
+}
+.frame-colours__preview {
+  margin: 0;
+}
+
+.frame-colours__list {
+  list-style: none;
+  margin: 0 0 var(--space-md);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.frame-colours__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-dominant);
+  cursor: pointer;
+  min-height: 44px;
+}
+.frame-colours__row:hover {
+  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+/* Plain :checked sibling selector — works in every browser, no :has()
+ * needed for a same-parent radio+label pair. The :has() form (below,
+ * inside the file's existing live-selection-state @supports block) is
+ * a belt-and-braces duplicate for a future markup change, not
+ * load-bearing today. */
+input:checked + .frame-colours__row {
+  border: 2px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+/* 21-REVIEW.md CR-01: the radio sits INSIDE the label, so a sibling
+ * selector could never match — :focus-within on the row itself is the
+ * selector that fires for keyboard focus on the hidden radio, in every
+ * browser, no :has() needed. */
+.frame-colours__row:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.frame-colours__swatch {
+  flex: 0 0 auto;
+}
+.frame-colours__label {
+  flex: 1 1 auto;
+  font-weight: var(--weight-regular);
+}
+.frame-colours__meta {
+  flex: 0 0 auto;
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The no-JS floor's own visible <legend> per usage panel (D-08) — the
+ * small-caps muted label voice this file already uses for a secondary
+ * heading (e.g. .rule-row__kind's own text before the .banner__pill
+ * treatment), reused verbatim rather than a new size/weight/tracking. */
+.frame-colours__panel-legend {
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  padding: 0;
+  margin: 0 0 var(--space-sm);
+}
+.frame-colours__usage-panel {
+  border: 0;
+  padding: 0;
+  margin: 0 0 var(--space-lg);
+}
+.frame-colours__usage-panel:last-child {
+  margin-bottom: 0;
+}
+/* 21-05-PLAN.md Task 3 (D-08/D-12, R-11): the ONLY rule that ever hides
+ * a usage panel — added/removed exclusively by theme-preview.js's own
+ * class-at-load pattern (mirroring flight-rows.js's identical
+ * .flight-detail-row--collapsed idiom), never rendered server-side.
+ * The server always emits all four panels with no `hidden` attribute
+ * and no inline style (D-08's own no-JS floor). */
+.frame-colours__usage-panel--collapsed {
+  display: none;
+}
+
+/* D-09: the leading "Same as departures" chip — reuses .theme-chip's
+ * own selectable-card shape with no rendered preview image/swatches
+ * (never a fabricated theme-coloured preview for "no override"). */
+.theme-chip__body--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
 }
 
 /* --- 20-UI-SPEC.md §K: the Airlines "Change pictures" toggle (D-36) ----

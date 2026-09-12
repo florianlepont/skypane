@@ -52,7 +52,18 @@ CATALOG = {
     "Connect calendar": "Connecter le calendrier",
     "Replace the feed URL": "Remplacer l’URL du flux",
 
-    # --- Simple mode's collapsed disclosure sentence (D-30) -------------
-    "It only colours a flight already on screen.":
-        "Il ne fait que colorer un vol déjà affiché à l’écran.",
+    # --- D-13/D-14 (21-07-PLAN.md Task 1): the merged card's connected-
+    #     state Replace button (shorter than "Connect calendar" — it
+    #     never applies to a first-time paste) and the small grey
+    #     Disconnect button's own short label. The longer "Disconnect
+    #     calendar"/"Disconnect this calendar…" strings are untouched,
+    #     unchanged, and stay in companion/i18n_fr/display.py — they
+    #     still belong to the confirmation page alone. -----------------
+    "Replace": "Remplacer",
+    "Disconnect": "Déconnecter",
+
+    # D-17 (21-01-PLAN.md Task 2): the "How it works" disclosure's
+    # collapsed one-sentence French entry is deleted in this same
+    # commit as its English source constant in companion/pages/
+    # config_page.py — the display mode that selected it is gone.
 }

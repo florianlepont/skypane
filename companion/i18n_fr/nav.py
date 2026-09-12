@@ -29,11 +29,13 @@ CATALOG = {
     "Device": "Appareil",
 
     # --- Nav-footer switches (20-UI-SPEC.md §F) -------------------------
+    # D-17 (21-01-PLAN.md Task 1): "Simple mode"/"Simple"/"Full" are
+    # deleted in this same commit as layout._mode_form_html() itself —
+    # the simple/full mode switch these three strings backed is gone,
+    # so keeping their French entries would orphan them and fail
+    # test_i18n.py's dead-translation check (Pitfall 5/R-13).
     "Language": "Langue",
     "Theme": "Thème",
-    "Simple mode": "Mode simple",
-    "Simple": "Simple",
-    "Full": "Complet",
 
     # --- The hamburger toggle's fixed accessible name, and the nav
     #     Health dot's visually-hidden suffix (20-12-PLAN.md Task 1: a
@@ -42,4 +44,20 @@ CATALOG = {
     #     plan) --------------------------------------------------------
     "Open menu": "Ouvrir le menu",
     " — attention needed": " — attention requise",
+
+    # --- The nav state reminder (D-03/R-04, 21-04-PLAN.md Task 2) -------
+    # Fully French — R-04 corrects 21-CONTEXT.md D-03's own "Heures
+    # calmes off" drafting shorthand, which left the second word
+    # untranslated. "Activées"/"désactivées" agrees with the verb pair
+    # this app already ships for the same toggle ("Activer"/
+    # "Désactiver" — companion/i18n_fr/display.py's "Turn on"/"Turn
+    # off"), keeping one consistent activate/deactivate metaphor for
+    # Quiet hours and one consistent on/off, lit/unlit metaphor for
+    # Screen, rather than forcing both toggles onto the same verb.
+    "Screen on": "Écran allumé",
+    "Screen off": "Écran éteint",
+    "Quiet hours on": "Heures calmes activées",
+    "Quiet hours off": "Heures calmes désactivées",
+    "Screen and quiet hours status — go to Home":
+        "État de l’écran et des heures calmes — aller à l’accueil",
 }

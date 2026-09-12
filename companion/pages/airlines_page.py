@@ -1181,23 +1181,25 @@ def _lightbox_html(edit_mode=False):
     close button by attribute, not by position, so this order matters
     only to a human, never to the script.
 
-    19-08-PLAN.md Task 3 (D-22): `edit_mode` (fully defaulted to
-    `False`, so every existing direct call in the harness keeps its
-    current behaviour until retargeted) splits this dialog's forms into
-    two tiers. The resolve-name form (and the always-present
-    resolve-context `<dl>`) stay unconditional — naming a prefix is the
-    everyday action the gap strip's own sentence invites ("Tap one to
-    name it"), so the view-only lightbox still lets a household member
-    do that. `resolve_upload_html`, the replace form and the delete
-    form are the artwork-editing tier: each is emitted only when
-    `edit_mode` is true, and is the empty string otherwise. This needs
-    no change to `companion/static/panel-lookup.js` — all three of its
-    lookups for these elements (`.lightbox__replace`, `.resolve-upload-
-    zone`, `.lightbox__delete`) already sit outside its mandatory
+    19-08-PLAN.md Task 3 (D-22) originally split this dialog's forms
+    into two tiers, gating `resolve_upload_html`, the replace form and
+    the delete form all behind `edit_mode`. 21-06-PLAN.md Task 2 (D-19)
+    moves `resolve_upload_html` into the unconditional tier, alongside
+    the resolve-name form (and the always-present resolve-context
+    `<dl>`) — naming an unrecognised airline and giving it a picture is
+    one job, so the view-only lightbox's own no-artwork-yet upload
+    affordance is no longer hidden behind "Change pictures". The
+    replace form and the delete form stay the artwork-editing tier
+    (D-20): each is emitted only when `edit_mode` is true, and is the
+    empty string otherwise. This needs no change to
+    `companion/static/panel-lookup.js` — all three of its lookups for
+    these elements (`.lightbox__replace`, `.resolve-upload-zone`,
+    `.lightbox__delete`) already sit outside its mandatory
     image/caption/note guard and are each used behind their own
-    `if (form)`-style test, so their total absence from the markup is
-    an already-handled state, exactly like History's own dialog (which
-    never renders any of the three at all).
+    `if (form)`-style test, so a form's absence (now only possible for
+    the replace/delete pair) is an already-handled state, exactly like
+    History's own dialog (which never renders any of the three at
+    all).
 
     Every optional child here is a real, present placeholder — heading
     and manual-note are emitted empty (their own `:empty` CSS collapse
@@ -1225,7 +1227,10 @@ def _lightbox_html(edit_mode=False):
     """
     resolve_context_html = _resolve_context_html(None, None, id_suffix="-dialog")
     resolve_name_html = _resolve_name_form_html("", "-dialog")
-    resolve_upload_html = _resolve_upload_form_html("", "-dialog") if edit_mode else ""
+    # 21-06-PLAN.md Task 2 (D-19): unconditional, matching
+    # _resolve_section_html()'s own Step-B upload zone — no `edit_mode`
+    # gate here. replace_html/delete_html stay gated (D-20).
+    resolve_upload_html = _resolve_upload_form_html("", "-dialog")
     replace_html = _lightbox_replace_form_html() if edit_mode else ""
     delete_html = _manual_delete_form_html("") if edit_mode else ""
     return (
@@ -1656,14 +1661,17 @@ def _resolve_section_html(ctx, edit_mode=False):
     `manual` being `active`/`superseded`, i.e. whenever an entry exists.
     One rule, two render sites, not two rules.
 
-    19-08-PLAN.md Task 3 (D-22): `edit_mode` (fully defaulted to
-    `False`) applies the identical artwork-editing gate `_lightbox_html()`
-    applies, to this no-JS fallback panel's own two entry-bearing
-    branches — Step B's upload zone and both entry-bearing branches'
-    shared delete form are each emitted only when `edit_mode` is true,
-    so the fallback path matches the dialog rather than diverging from
-    it. The resolve-name form (Step A) stays unconditional, for the
-    identical reason `_lightbox_html()` keeps it unconditional.
+    19-08-PLAN.md Task 3 (D-22) originally gated Step B's upload zone
+    on `edit_mode`, matching `_lightbox_html()`'s own gate at the time.
+    21-06-PLAN.md Task 1 (D-19) removes that gate: naming an
+    unrecognised airline and giving it a picture is one job, so Step
+    B's upload zone is unconditional again, in both this fallback panel
+    and the dialog (`_lightbox_html()`'s identical gate is dropped by
+    21-06-PLAN.md Task 2). The shared delete form stays gated on
+    `edit_mode` (D-20) — "Change pictures" keeps only replace/delete of
+    existing artwork. The resolve-name form (Step A) stays
+    unconditional, for the identical reason `_lightbox_html()` keeps it
+    unconditional.
     """
     prefix_raw = ctx.get("resolve_prefix")
     if not prefix_raw:
@@ -1730,7 +1738,10 @@ def _resolve_section_html(ctx, edit_mode=False):
         # Step B — name already saved, no artwork exists yet.
         caption = '<p class="text-label section-caption">%s</p>' % i18n.t(STEP_B_CAPTION)
         upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
-        upload_zone = _resolve_upload_form_html(upload_action, "") if edit_mode else ""
+        # 21-06-PLAN.md Task 1 (D-19): uploading a picture is part of
+        # naming an airline again — no `edit_mode` gate here (unlike
+        # the delete form above, which D-20 keeps gated).
+        upload_zone = _resolve_upload_form_html(upload_action, "")
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
             AIRLINES_ROUTE, i18n.t(STEP_B_SKIP_TEXT))
         return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s%s%s</div>' % (
@@ -1837,17 +1848,16 @@ def _edit_toggle_html(ctx, edit_mode):
     two literal hrefs — never a script, a GET form or a runtime
     query-string builder.
 
-    Gated on `not ctx.get("simple_mode")` (D-30): the anchor and its
-    explanatory sentence are BOTH omitted in simple mode. The
+    D-17/D-20 (21-01-PLAN.md Task 2): this toggle used to be gated on a
+    now-deleted display-mode preference, hiding the anchor and its
+    explanatory sentence entirely when that mode was active. That gate
+    is deleted — the toggle is unconditional now, one deletion serving
+    both decisions (Pitfall 6: plan 21-06/D-19-D-20's upload-restore
+    work depends on this and must not touch this function again). The
     `?edit=1` lightbox forms this toggle links to keep their OWN,
     separate `ctx["edit_mode"]` gate exactly as phase 19 shipped it
-    (D-22) — simple mode hides only this entry point, never the forms
-    themselves, so typing `/airlines?edit=1` by hand still works in
-    simple mode: simple mode is a presentation choice, not access
-    control (D-30). Do not "fix" this into an access-control check.
+    (D-22) — unaffected by this change.
     """
-    if ctx.get("simple_mode"):
-        return ""
     if edit_mode:
         toggle_html = (
             '<a href="/airlines" class="airlines-edit-toggle">%s</a>'

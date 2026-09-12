@@ -506,6 +506,51 @@ EXPECTED_CHECK_COUNT = 213  # WR-03 fix (20-REVIEW.md): +1
 # at execution time (212/213 pass — the one documented pre-existing
 # root-sandbox anomaly_active() failure, unrelated to this fix), not
 # trusted from arithmetic alone.
+# 21-01-PLAN.md Task 1 (D-17): net 0. The nav-footer form-count check
+# is rewritten in place (2 forms per footer copy now, the deleted
+# switch's own form action gone) rather than deleted-plus-added, and
+# the display-mode-gated Advanced-group-omission check is deleted and
+# replaced one-for-one by a check that the Advanced group always
+# renders in both nav copies. 213 + 0 = 213,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (212/213 pass — the one documented pre-existing
+# root-sandbox anomaly_active() failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 213
+# 21-02-PLAN.md Task 1 (D-18): net 0. Two checks rewritten in place —
+# the zero-<form>/one-<button> literal-count check (was two, the
+# Pause/Resume button is deleted) and the persistent-freshness-note
+# check (its toggle assertions become zero-occurrence assertions) —
+# no check added or removed. 213 + 0 = 213, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (212/213 pass — the one documented pre-existing root-sandbox
+# anomaly_active() failure, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 213
+# 21-02-PLAN.md Task 2 (D-18): net 0. _both_tabs_ok_end_to_end() is
+# rewritten in place — the [data-refresh-toggle] served-bytes needle
+# is dropped and replaced with an opposite-direction regression pin
+# (zero occurrences of data-pause-text/wireToggle in the served
+# freshness.js bytes) — same check, no check added or removed. 213 + 0
+# = 213, recomputed directly against the real on-disk check(...) call
+# count at execution time (212/213 pass — the one documented
+# pre-existing root-sandbox anomaly_active() failure, unrelated to
+# this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 213
+# 21-04-PLAN.md Task 2 (D-03/R-03/R-04): +5 (the sidebar and mobile
+# dropdown each carry exactly one .nav-status link with no <form>/
+# <button>, sitting after the brand and before the primary nav list;
+# nav_status_html()'s two dots follow all four Screen/Quiet-hours on/
+# off combinations; a French render reads "Écran allumé"/"Heures
+# calmes désactivées" with no leftover English "off" in a visible
+# label; nav_status_html(None)/({}) both return "" and
+# page_shell(device_config=None) renders no .nav-status at all; the
+# login shell, which never takes a device_config parameter, carries
+# no .nav-status markup). 213 + 5 = 218, recomputed directly against
+# the real on-disk check(...) call count at execution time (217/218
+# pass — the one documented pre-existing root-sandbox anomaly_active()
+# failure, unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 218
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -3461,14 +3506,11 @@ def main():
         # control. Reads the module source directly, filters out
         # nothing.
         #
-        # 19-09-PLAN.md (D-02): retargeted in place — button_count grew
-        # from 1 to 2 when the Pause/Resume control (a real
-        # <button type="button" data-refresh-toggle>) joined the
-        # pre-existing D-16 docstring mention. The zero-<form> half of
-        # this check is exactly why that new button is still compatible
-        # with T-13-13's own promise: it is a bare, formless, GET-free
-        # client-side toggle — it submits nothing anywhere, so it is not
-        # a "state-changing control" in the sense this check polices.
+        # 21-02-PLAN.md (D-18): retargeted in place again — button_count
+        # drops back from 2 to 1 now that the Pause/Resume control (the
+        # <button type="button" data-refresh-toggle> 19-09-PLAN.md added)
+        # is deleted outright, with no replacement. Only the pre-existing
+        # D-16 docstring mention remains.
         source_path = os.path.join(HERE, "pages", "health_page.py")
         with open(source_path, encoding="utf-8") as fh:
             source = fh.read()
@@ -3476,16 +3518,16 @@ def main():
         button_count = source.count("<button")
         if form_count != 0:
             return False, "expected zero '<form' occurrences in health_page.py, got %d" % form_count
-        if button_count != 2:
+        if button_count != 1:
             return False, (
-                "expected exactly two '<button' occurrences (the pre-existing D-16 docstring "
-                "mention plus the 19-09-PLAN.md Pause/Resume control), got %d" % button_count)
+                "expected exactly one '<button' occurrence (the pre-existing D-16 docstring "
+                "mention only, now that the Pause/Resume control is deleted), got %d" % button_count)
         return True, ""
     check(
-        "companion/pages/health_page.py still contains zero HTML form elements and exactly two "
-        "'<button' literals (the pre-existing D-16 docstring mention and the formless Pause/Resume "
-        "toggle) — Health still gains no state-changing (form-submitting) control (phase 13 D-10, "
-        "T-13-13; retargeted in place by 19-09-PLAN.md Task 1, D-02)",
+        "companion/pages/health_page.py still contains zero HTML form elements and exactly one "
+        "'<button' literal (the pre-existing D-16 docstring mention only) — Health still gains no "
+        "state-changing (form-submitting) control (phase 13 D-10, T-13-13; retargeted in place by "
+        "21-02-PLAN.md Task 1, D-18)",
         _health_still_has_no_form_and_exactly_one_button_literal)
 
     def _quick_260902_gjj_muted_captions_compose_section_caption():
@@ -5663,12 +5705,16 @@ def main():
         # survives — a persistent, server-rendered note joins the hidden
         # refresh pill inside ONE block-level wrapper (260902-ep7's
         # anonymous-block-box guard) that is .page-header's next child
-        # right after the <h1> — and gains three more assertions this
-        # task adds: the note carries no relative-age suffix at all, a
-        # single data-refresh-clock span holds the full ISO in its
-        # title, and a single data-refresh-toggle button renders inside
-        # the same wrapper with both label attributes and a starting
-        # aria-pressed="false".
+        # right after the <h1> — and gains two more assertions that task
+        # added: the note carries no relative-age suffix at all, and a
+        # single data-refresh-clock span holds the full ISO in its title.
+        #
+        # 21-02-PLAN.md (D-18): retargeted again — the Pause/Resume
+        # button 19-09-PLAN.md's version of this check asserted is
+        # deleted outright, with no replacement control. The wrapper now
+        # holds only the readout span and the pill, and this check
+        # additionally pins that zero occurrences of data-refresh-toggle,
+        # data-pause-text or data-resume-text survive anywhere in it.
         tmp = _mkstate("h-persistent-freshness")
         try:
             now_iso = _iso(_now())
@@ -5702,31 +5748,20 @@ def main():
             if ('title="%s"' % now_iso) not in clock_tag:
                 return False, "expected the clock span's title to carry the full ISO instant"
 
-            if wrapper_slice.count("data-refresh-toggle") != 1:
-                return False, (
-                    "expected exactly one data-refresh-toggle button, got %d"
-                    % wrapper_slice.count("data-refresh-toggle"))
-            toggle_at = wrapper_slice.index("data-refresh-toggle")
-            toggle_end = wrapper_slice.index("</button>", toggle_at) + len("</button>")
-            toggle_tag_end = wrapper_slice.index(">", toggle_at) + 1
-            toggle_open_tag = wrapper_slice[
-                wrapper_slice.rindex("<", 0, toggle_at):toggle_tag_end]
-            if 'aria-pressed="false"' not in toggle_open_tag:
-                return False, "expected the toggle to start aria-pressed=\"false\""
-            if "data-pause-text=" not in toggle_open_tag:
-                return False, "expected the toggle to carry data-pause-text"
-            if "data-resume-text=" not in toggle_open_tag:
-                return False, "expected the toggle to carry data-resume-text"
-            toggle_label = wrapper_slice[toggle_tag_end:toggle_end - len("</button>")]
-            if not toggle_label.strip():
-                return False, "expected the toggle to have a non-empty accessible label (its own text)"
+            for needle in ("data-refresh-toggle", "data-pause-text", "data-resume-text"):
+                if needle in wrapper_slice:
+                    return False, (
+                        "expected zero occurrences of %r inside .page-header__freshness — "
+                        "the Pause/Resume control is deleted, not replaced (D-18)" % needle)
+            if "<button" in wrapper_slice:
+                return False, "expected no <button> inside .page-header__freshness (D-18)"
 
             # Substring ordering, the same way this guard has always
             # pinned the anonymous-block-box fix: prefix, then clock,
-            # then pill, then toggle, all inside the one wrapper.
+            # then pill, both inside the one wrapper.
             prefix_at = wrapper_slice.index(prefix)
-            if not (prefix_at < clock_at < wrapper_slice.index("data-refresh-pill") < toggle_at):
-                return False, "expected prefix, clock, pill and toggle in that source order"
+            if not (prefix_at < clock_at < wrapper_slice.index("data-refresh-pill")):
+                return False, "expected prefix, then clock, then pill in that source order"
 
             header_start = rendered.index('<div class="page-header">')
             header_end = rendered.index("</div>", header_start) + len("</div>")
@@ -5759,11 +5794,12 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, full ISO "
-        "in the clock span's title) beside the unchanged hidden refresh pill and a new Pause/Resume "
-        "toggle (aria-pressed=\"false\", both label attributes, a non-empty accessible label), all "
+        "in the clock span's title) beside the unchanged hidden refresh pill and NO Pause/Resume "
+        "toggle (zero data-refresh-toggle/data-pause-text/data-resume-text, zero <button>), all "
         "inside one block-level .page-header__freshness wrapper that is the .page-header's next "
-        "child right after the <h1>, in prefix/clock/pill/toggle source order (19-09-PLAN.md Task 1, "
-        "D-02/A-20; supersedes quick task 260903-peo/UIR-18's 'Live — refreshed (Ns ago)' contract)",
+        "child right after the <h1>, in prefix/clock/pill source order (21-02-PLAN.md Task 1, D-18; "
+        "supersedes 19-09-PLAN.md Task 1's Pause/Resume-toggle contract, itself superseding quick "
+        "task 260903-peo/UIR-18's 'Live — refreshed (Ns ago)' contract)",
         _quick_260903_peo_persistent_freshness_note)
 
     def _quick_260902_v2v_uir_03_07_12_13_fixes():
@@ -6435,7 +6471,7 @@ def main():
         "and <html lang=\"en\" otherwise (D-03)",
         _login_shell_html_lang_follows_prefs)
 
-    def _shell_has_three_ordered_theme_forms_each_with_aria_label():
+    def _shell_has_two_ordered_theme_forms_each_with_aria_label():
         rendered = layout.page_shell(
             title="Health", active="health", body="", ui_theme="auto")
         actions_in_order = re.findall(
@@ -6450,20 +6486,22 @@ def main():
         if actions_in_order.count("/ui-theme") != 2:
             return False, "expected exactly 2 /ui-theme forms (sidebar + mobile), got %r" % (
                 actions_in_order.count("/ui-theme"),)
-        if actions_in_order.count("/ui-mode") != 2:
-            return False, "expected exactly 2 /ui-mode forms (sidebar + mobile), got %r" % (
+        # D-17 (21-01-PLAN.md Task 1): the simple-mode switch is deleted —
+        # zero /ui-mode forms anywhere in a rendered shell.
+        if actions_in_order.count("/ui-mode") != 0:
+            return False, "expected zero /ui-mode forms now that the route is deleted, got %r" % (
                 actions_in_order.count("/ui-mode"),)
-        # Document order within EACH footer copy must be lang, theme, mode.
-        first_three = actions_in_order[:3]
-        if first_three != ["/ui-lang", "/ui-theme", "/ui-mode"]:
-            return False, "expected the first footer's forms in order lang/theme/mode, got %r" % (
-                first_three,)
+        # Document order within EACH footer copy must be lang, theme.
+        first_two = actions_in_order[:2]
+        if first_two != ["/ui-lang", "/ui-theme"]:
+            return False, "expected the first footer's forms in order lang/theme, got %r" % (
+                first_two,)
         return True, ""
     check(
-        "a rendered shell contains exactly three aria-labelled theme-form forms per footer "
-        "copy, actions /ui-lang, /ui-theme, /ui-mode in that document order (D-02/D-29, "
-        "20-UI-SPEC.md §I)",
-        _shell_has_three_ordered_theme_forms_each_with_aria_label)
+        "a rendered shell contains exactly two aria-labelled theme-form forms per footer "
+        "copy, actions /ui-lang, /ui-theme in that document order, and zero /ui-mode forms "
+        "(D-02/D-17, 21-UI-SPEC.md §G)",
+        _shell_has_two_ordered_theme_forms_each_with_aria_label)
 
     def _french_shell_nav_reads_the_locked_french_labels():
         try:
@@ -6482,39 +6520,134 @@ def main():
         "Appareil (D-09)",
         _french_shell_nav_reads_the_locked_french_labels)
 
-    def _simple_mode_omits_advanced_group_and_health_dot():
-        try:
-            prefs.set_request_prefs(mode="simple")
-            simple_rendered = layout.page_shell(
-                title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
-            prefs.set_request_prefs(mode="full")
-            full_rendered = layout.page_shell(
-                title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
-        finally:
-            prefs.set_request_prefs(mode="full")
-        if layout.ADVANCED_GROUP_LABEL in simple_rendered:
-            return False, "expected no ADVANCED_GROUP_LABEL text in simple mode"
-        if layout.HEALTH_ROUTE in simple_rendered:
-            return False, "expected no /health href in simple mode's nav"
-        if layout.DEVICE_ROUTE in simple_rendered:
-            return False, "expected no /device href in simple mode's nav"
-        if layout.NAV_NOTIFICATION_CLASS in simple_rendered:
-            return False, "expected no nav status dot in simple mode"
-        # Full mode (the default) must still carry all of the above —
-        # proving the omission is mode-gated, not accidentally missing.
-        if layout.ADVANCED_GROUP_LABEL not in full_rendered:
-            return False, "expected ADVANCED_GROUP_LABEL text in full mode"
-        if layout.HEALTH_ROUTE not in full_rendered:
-            return False, "expected a /health href in full mode's nav"
-        if layout.DEVICE_ROUTE not in full_rendered:
-            return False, "expected a /device href in full mode's nav"
-        if layout.NAV_NOTIFICATION_CLASS not in full_rendered:
-            return False, "expected the nav status dot in full mode (health_alert='warn')"
+    def _advanced_group_always_renders_in_both_nav_copies():
+        """D-17 (21-01-PLAN.md Task 1): the display-mode gate that used
+        to omit the Advanced group (Health, Device) is deleted — the
+        group now renders on every page for every request, in both the
+        sidebar and the mobile-nav dropdown copy. Replaces a deleted
+        check that tested the now-removed omission mechanism.
+        """
+        rendered = layout.page_shell(
+            title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
+        if rendered.count(layout.ADVANCED_GROUP_LABEL) < 2:
+            return False, (
+                "expected the Advanced group label in both the sidebar and the "
+                "mobile-nav dropdown, got %d occurrence(s)"
+                % rendered.count(layout.ADVANCED_GROUP_LABEL))
+        if rendered.count(layout.HEALTH_ROUTE) < 2:
+            return False, "expected a /health href in both nav copies"
+        if rendered.count(layout.DEVICE_ROUTE) < 2:
+            return False, "expected a /device href in both nav copies"
+        if layout.NAV_NOTIFICATION_CLASS not in rendered:
+            return False, "expected the nav status dot (health_alert='warn')"
         return True, ""
     check(
-        "in simple mode the shell contains neither the Advanced group label, /health, /device "
-        "nor the nav status dot; full mode carries all four (D-30)",
-        _simple_mode_omits_advanced_group_and_health_dot)
+        "the Advanced group (Health, Device) and the nav status dot always render, in both "
+        "the sidebar and the mobile dropdown, on a plain request (D-17)",
+        _advanced_group_always_renders_in_both_nav_copies)
+
+    # ======================================================================
+    # Section 1.6b: the nav state reminder (D-03/R-03/R-04,
+    # 21-04-PLAN.md Task 2) — one shared body, both nav copies, computed
+    # from the same ctx["device_config"] the Frame strip reads.
+    # ======================================================================
+
+    _NAV_STATUS_DEVICE_CFG = {"display_enabled": True, "quiet_hours_enabled": False}
+
+    def _nav_status_appears_once_in_each_nav_copy_after_the_brand():
+        rendered = layout.page_shell(
+            title="Home", active="home", body="", ui_theme="auto",
+            device_config=_NAV_STATUS_DEVICE_CFG)
+        if rendered.count('class="nav-status text-label"') != 2:
+            return False, (
+                "expected exactly one .nav-status link in the sidebar and one in the mobile "
+                "dropdown, got %d" % rendered.count('class="nav-status text-label"'))
+        for match in re.finditer(r'<a class="nav-status text-label"[^>]*>(.*?)</a>', rendered):
+            segment = match.group(0)
+            if "<form" in segment or "<button" in segment:
+                return False, "expected the nav-status link to carry no <form> or <button>"
+        brand_pos = rendered.index('<span class="site-title sidebar-title">')
+        sidebar_nav_status_pos = rendered.index('class="nav-status text-label"', brand_pos)
+        sidebar_nav_list_pos = rendered.index('<nav class="sidebar-nav"', brand_pos)
+        if not (brand_pos < sidebar_nav_status_pos < sidebar_nav_list_pos):
+            return False, "expected the sidebar's nav-status link between the brand and the primary nav list"
+        mobile_panel_pos = rendered.index('<div id="%s" class="mobile-nav">' % layout.MOBILE_NAV_ID)
+        mobile_nav_status_pos = rendered.index('class="nav-status text-label"', mobile_panel_pos)
+        mobile_nav_list_pos = rendered.index('<nav class="mobile-nav__nav"', mobile_panel_pos)
+        if not (mobile_panel_pos < mobile_nav_status_pos < mobile_nav_list_pos):
+            return False, "expected the mobile dropdown's nav-status link to be its first child, before its own <nav>"
+        return True, ""
+    check(
+        "the sidebar and the mobile dropdown each contain exactly one .nav-status link, with no "
+        "<form> or <button> inside it, sitting after the brand and before the primary nav list "
+        "in document order (D-03)",
+        _nav_status_appears_once_in_each_nav_copy_after_the_brand)
+
+    def _nav_status_dot_classes_follow_the_four_on_off_combinations():
+        for display_enabled, quiet_hours_enabled, screen_dot, quiet_dot in (
+                (True, False, "dot--ok", "dot--off"),
+                (False, False, "dot--off", "dot--off"),
+                (True, True, "dot--ok", "dot--ok"),
+                (False, True, "dot--off", "dot--ok")):
+            rendered = layout.nav_status_html(
+                {"display_enabled": display_enabled, "quiet_hours_enabled": quiet_hours_enabled})
+            first_dot = re.search(r'<span class="dot ([^"]+)"></span>', rendered).group(1)
+            second_dot = re.findall(r'<span class="dot ([^"]+)"></span>', rendered)[1]
+            if first_dot != screen_dot or second_dot != quiet_dot:
+                return False, (
+                    "display_enabled=%r quiet_hours_enabled=%r: expected dots (%r, %r), got (%r, %r)"
+                    % (display_enabled, quiet_hours_enabled, screen_dot, quiet_dot, first_dot, second_dot))
+        return True, ""
+    check(
+        "nav_status_html()'s two dots follow all four Screen/Quiet-hours on/off combinations "
+        "(dot--ok for on, dot--off for off) (D-03)",
+        _nav_status_dot_classes_follow_the_four_on_off_combinations)
+
+    def _french_nav_status_reads_ecran_allume_heures_calmes_desactivees():
+        try:
+            prefs.set_request_prefs(lang="fr")
+            rendered = layout.nav_status_html(_NAV_STATUS_DEVICE_CFG)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if "Écran allumé" not in rendered or "Heures calmes désactivées" not in rendered:
+            return False, "expected the fully-French reminder text, got %r" % (rendered,)
+        # Check the VISIBLE dot-label text only — "dot--off" is a
+        # legitimate CSS class name, not leaked English text, so the
+        # whole markup string is not the thing to scan for "off".
+        labels = re.findall(r'<span class="dot-label">([^<]*)</span>', rendered)
+        for label in labels:
+            if "off" in label.lower():
+                return False, "expected no leftover English 'off' in a visible label, got %r" % (label,)
+        return True, ""
+    check(
+        "under lang='fr' the reminder reads 'Écran allumé' and 'Heures calmes désactivées' — "
+        "fully French, never 'Heures calmes off' (R-04)",
+        _french_nav_status_reads_ecran_allume_heures_calmes_desactivees)
+
+    def _nav_status_html_none_or_falsy_device_config_renders_nothing():
+        if layout.nav_status_html(None) != "":
+            return False, "expected nav_status_html(None) to return the empty string"
+        if layout.nav_status_html({}) != "":
+            return False, "expected nav_status_html({}) to return the empty string"
+        rendered = layout.page_shell(title="Home", active="home", body="", ui_theme="auto")
+        if "nav-status" in rendered:
+            return False, "expected page_shell(device_config=None) to render no .nav-status at all"
+        return True, ""
+    check(
+        "nav_status_html(None) and nav_status_html({}) both return '', and "
+        "page_shell(..., device_config=None) — the default, used by login/404/error pages — "
+        "renders no .nav-status at all (D-03)",
+        _nav_status_html_none_or_falsy_device_config_renders_nothing)
+
+    def _login_shell_carries_no_nav_status_and_is_unchanged():
+        rendered = layout.login_shell("", ui_theme="auto")
+        if "nav-status" in rendered:
+            return False, "expected the login shell to carry no .nav-status markup at all"
+        return True, ""
+    check(
+        "login_shell() — which never takes a device_config parameter — carries no .nav-status "
+        "markup, unchanged by this task (D-03)",
+        _login_shell_carries_no_nav_status_and_is_unchanged)
 
     # ======================================================================
     # Section 1.7: companion/layout.py's new status_row()/
@@ -9297,16 +9430,23 @@ def main():
             # that the on-disk file says so.
             #
             # 19-09-PLAN.md (D-02): retargeted in place (same check name/
-            # function, same "real served bytes" pattern) — three more
-            # required needles for the fetch-and-swap DOM contract
-            # (the [data-loaded-at]/[data-refresh-pill]/
-            # [data-refresh-toggle] attribute hooks), plus a fourth pass
-            # asserting every one of health_page.REFRESH_SWAP_SELECTORS'
-            # own selector strings appears verbatim in the real served
-            # bytes — the duplicated-not-imported agreement between the
-            # page module's declared swap targets and the script's own,
-            # pinned against the process actually serving them, not only
-            # the two on-disk files agreeing with each other.
+            # function, same "real served bytes" pattern) — required
+            # needles for the fetch-and-swap DOM contract (the
+            # [data-loaded-at]/[data-refresh-pill] attribute hooks), plus
+            # a pass asserting every one of health_page.
+            # REFRESH_SWAP_SELECTORS' own selector strings appears
+            # verbatim in the real served bytes — the duplicated-not-
+            # imported agreement between the page module's declared swap
+            # targets and the script's own, pinned against the process
+            # actually serving them, not only the two on-disk files
+            # agreeing with each other.
+            #
+            # 21-02-PLAN.md (D-18): the [data-refresh-toggle] needle
+            # 19-09-PLAN.md required is removed (the hook no longer
+            # exists) and replaced with the opposite-direction regression
+            # pin below — the served bytes must NOT carry the deleted
+            # pause mechanism's own hooks, so the branch cannot come back
+            # through the served file undetected.
             js_status, _js_headers, js_body = http_request(
                 base + app.FRESHNESS_SCRIPT_ROUTE, cookie=session_cookie)
             if js_status != 200:
@@ -9316,12 +9456,17 @@ def main():
                     ("AUTO_REFRESH_INTERVAL_MS", "the named interval constant"),
                     ("visibilitychange", "the visibility-change listener registration"),
                     ("[data-loaded-at]", "the loaded-at attribute hook"),
-                    ("[data-refresh-pill]", "the refresh-pill attribute hook"),
-                    ("[data-refresh-toggle]", "the refresh-toggle attribute hook")):
+                    ("[data-refresh-pill]", "the refresh-pill attribute hook")):
                 if needle not in js_text:
                     return False, (
                         "expected %s (%r) in the real %s response body"
                         % (label, needle, app.FRESHNESS_SCRIPT_ROUTE))
+            for forbidden in ("data-pause-text", "wireToggle"):
+                if forbidden in js_text:
+                    return False, (
+                        "expected zero occurrences of %r in the real %s response body — "
+                        "the pause branch must not come back through the served file (D-18)"
+                        % (forbidden, app.FRESHNESS_SCRIPT_ROUTE))
             for selector in health_page.REFRESH_SWAP_SELECTORS:
                 if selector not in js_text:
                     return False, (
@@ -9342,10 +9487,11 @@ def main():
             "(STYLE_ROUTE) carries the description-column rule, the demotion rule's new bottom margin and the "
             "prose rhythm rule's selector, and the real served freshness script (FRESHNESS_SCRIPT_ROUTE) "
             "carries the interval constant, the visibility-change listener, the [data-loaded-at]/"
-            "[data-refresh-pill]/[data-refresh-toggle] attribute hooks, and every "
+            "[data-refresh-pill] attribute hooks, carries zero occurrences of the deleted "
+            "data-pause-text/wireToggle pause-branch hooks (D-18), and every "
             "health_page.REFRESH_SWAP_SELECTORS entry verbatim (quick task 260901-tsa; extended in place by "
             "quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick task 260902-chc, "
-            "quick task 260903-btu Task 5a, and 19-09-PLAN.md Task 3)",
+            "quick task 260903-btu Task 5a, 19-09-PLAN.md Task 3, and 21-02-PLAN.md Task 2)",
             _both_tabs_ok_end_to_end)
 
         def _illustration_route_serves_normalized_bytes_end_to_end():

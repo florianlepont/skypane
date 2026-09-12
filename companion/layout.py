@@ -166,6 +166,11 @@ CONFIRM_SUBMIT_SCRIPT_SRC = "/static/confirm-submit.js"
 # contract as the constants above — the tenth static script.
 THEME_PREVIEW_SCRIPT_SRC = "/static/theme-preview.js"
 
+# 21-03-PLAN.md Task 2 (D-15/R-12): must equal companion/app.py's
+# FLIGHT_ROWS_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above — the eleventh static script.
+FLIGHT_ROWS_SCRIPT_SRC = "/static/flight-rows.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 # D-16/D-19 (20-01-PLAN.md Task 2): the quick-action form protocol,
@@ -178,6 +183,47 @@ UI_THEME_CHOICES = ("auto", "light", "dark")
 QUICK_STATE_FIELD = "state"
 QUICK_STATE_ON = "on"
 QUICK_STATE_OFF = "off"
+
+# 21-04-PLAN.md Task 1 (D-01/D-02/R-01): the eleven QUICK_ACTION_*
+# constants, moved here byte-identical from companion/pages/
+# config_page.py — frame_strip_html() below is the ONE write site for
+# both switch cells, and a page module may never import another page
+# module, so home_page.py (Home's own caller) needs these from a
+# shared module too. Every English VALUE is unchanged from
+# config_page.py's own copy, so every French catalogue entry in
+# companion/i18n_fr/display.py keeps resolving correctly — the
+# catalogue is keyed by English string, not by which Python module
+# defines the constant that holds it.
+QUICK_ACTION_SCREEN_LABEL = "Screen"
+QUICK_ACTION_ON_TEXT = "On"
+QUICK_ACTION_OFF_TEXT = "Off"
+QUICK_ACTION_SWITCH_ON_BUTTON = "Switch on"
+QUICK_ACTION_SWITCH_OFF_BUTTON = "Switch off"
+QUICK_ACTION_QUIET_LABEL = "Quiet hours"
+QUICK_ACTION_QUIET_ON_TEMPLATE = "On — %s to %s"
+QUICK_ACTION_QUIET_OFF_TEXT = "Off"
+QUICK_ACTION_QUIET_TURN_ON_BUTTON = "Turn on"
+QUICK_ACTION_QUIET_TURN_OFF_BUTTON = "Turn off"
+QUICK_ACTION_APPLIES_SENTENCE = "Applies the next time the frame wakes up."
+
+# 21-04-PLAN.md Task 1 (D-01): the strip's own heading. Byte-identical
+# English value to home_page.FRAME_ROW_LABEL ("Frame") — both resolve
+# through the SAME companion/i18n_fr/home.py catalogue entry
+# ("Frame": "Cadre"), since the catalogue is keyed by the English
+# string, not by which constant/module holds it. A second, separately
+# named constant (rather than importing FRAME_ROW_LABEL) is required
+# because layout.py may never import a page module.
+FRAME_STRIP_HEADING = "Frame"
+
+# 21-04-PLAN.md Task 1 (D-01/R-01): moved here byte-identical from
+# companion/pages/home_page.py — home_page.py's own next-update
+# computation is deleted outright by Task 3, and frame_strip_html()
+# below is now the only renderer of this headline, shared by Home and
+# Display. Byte-identical English values, so companion/i18n_fr/
+# home.py's existing "Next update ≈ %s"/"Expected since %s" entries
+# keep resolving unchanged.
+NEXT_UPDATE_TEMPLATE = "Next update ≈ %s"
+EXPECTED_SINCE_TEMPLATE = "Expected since %s"
 
 _STATUS_DOT_CLASSES = {
     "ok": "dot--ok",
@@ -749,6 +795,18 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
         escape_html(relative_age_text(age, lang=lang)))
 
 
+def month_abbr(month, lang=None):
+    """Phase 21 polish: the language-aware abbreviated month name, for
+    callers that build their own "D Mon" labels (the Health battery
+    chart's X axis) — the same twelve-entry tables local_clock_text()
+    below selects between, exposed once instead of copied. `lang`
+    defaults to the request's resolved language; `month` is 1..12."""
+    if lang is None:
+        lang = prefs.current_lang()
+    table = _MONTH_ABBR_FR if lang == "fr" else _MONTH_ABBR
+    return table[month - 1]
+
+
 def local_clock_text(parsed, now_parsed=None, lang=None):
     """`parsed` (an aware or naive datetime) rendered on LOCAL_TZ: "HH:MM"
     when it falls on the same local day as `now_parsed` (or when no `now`
@@ -776,8 +834,7 @@ def local_clock_text(parsed, now_parsed=None, lang=None):
                 return clock
             if lang is None:
                 lang = prefs.current_lang()
-            month_abbr = _MONTH_ABBR_FR if lang == "fr" else _MONTH_ABBR
-            return "%d %s %s" % (local.day, month_abbr[local.month - 1], clock)
+            return "%d %s %s" % (local.day, month_abbr(local.month, lang), clock)
         return clock
     except (ValueError, OverflowError, AttributeError):
         return parsed.strftime("%H:%M") if hasattr(parsed, "strftime") else ""
@@ -830,30 +887,21 @@ def _nav_groups(active):
     sidebar and the dropdown can never disagree about which tab sits
     under the "Advanced" label.
 
-    D-30 (20-01-PLAN.md Task 3): in simple mode, the group whose label
-    is ADVANCED_GROUP_LABEL (Health, Device) is omitted from the
-    returned list entirely — server-side omission, not a CSS
-    `display:none` (20-UI-SPEC.md Structural Note 6: this is the
-    choice that also lets a later plan's disclosures render *different
-    text* in simple mode, not two copies of the same markup). This is
-    presentation only: `/health` and `/device` stay reachable by URL
-    and stay session-gated (companion/pages/__init__.py's ctx contract
-    states the same thing for ctx["simple_mode"] itself). Because the
-    Health link is omitted along with the rest of its group, the
-    Health nav-tab notification dot (drawn from `health_alert` at each
-    renderer's own call site) is never emitted either — one omission,
-    not two independent suppressions to keep in sync.
+    D-17 (21-01-PLAN.md Task 1): the group whose label is
+    ADVANCED_GROUP_LABEL (Health, Device) used to be omitted entirely
+    in simple mode (D-30, 20-01-PLAN.md Task 3); that gate is deleted
+    along with simple mode itself — the Advanced group now renders on
+    every page for every request, like every other group. `/health`
+    and `/device` were always reachable by URL and stay session-gated
+    regardless (companion/pages/__init__.py's ctx contract).
     """
     links = _nav_links(active)
     groups = []
     offset = 0
-    simple = prefs.simple_mode()
     for group_label, entries in NAV_GROUPS:
         count = len(entries)
         group_links = links[offset:offset + count]
         offset += count
-        if simple and group_label == ADVANCED_GROUP_LABEL:
-            continue
         groups.append((escape_html(i18n.t(group_label)), group_links))
     return groups
 
@@ -903,7 +951,65 @@ def _health_alert_markup(severity):
     ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(i18n.t(HEALTH_ALERT_SUFFIX_TEXT)))
 
 
-def sidebar_nav(active, health_alert=None):
+NAV_SCREEN_ON_TEXT = "Screen on"
+NAV_SCREEN_OFF_TEXT = "Screen off"
+NAV_QUIET_ON_TEXT = "Quiet hours on"
+NAV_QUIET_OFF_TEXT = "Quiet hours off"
+NAV_STATUS_ARIA_LABEL_TEXT = "Screen and quiet hours status — go to Home"
+
+
+def nav_status_html(device_config):
+    """The nav's state-only reminder — D-03 (21-CONTEXT.md, R-03): one
+    shared body, called by BOTH `sidebar_nav()` and `_mobile_nav_html()`
+    below, so the two nav copies can never disagree about the frame's
+    current Screen/Quiet-hours state — the same "one function, two call
+    sites" contract `sidebar_nav()`'s own docstring already states for
+    `_nav_links()`.
+
+    Reads the exact same two `device_config` fields `layout.frame_
+    strip_html()` reads (`display_enabled`/`quiet_hours_enabled`), so
+    the strip and this reminder can never disagree either — there is
+    only one source of truth for both.
+
+    Returns `""` when `device_config` is falsy — `None` means "no
+    request context available" (the login shell, a 404, any error
+    page rendered before a session exists), and degrades to no
+    reminder at all, matching `_health_alert_markup()`'s own documented
+    "absence is the correct signal, not merely convenient" contract.
+
+    A plain `<a href="/">` — no `<form>`, no `<button>`, no script
+    (D-03: "the nav shows a state reminder, not buttons" — the phase 18
+    audit finding that the nav must carry no actions). The visible text
+    is two dot+word segments ("Screen on · Quiet hours off"); the
+    link's own `aria-label` states where it goes, since the visible
+    text alone does not read as a link destination to a screen-reader
+    user. Every value crosses `escape_html()`; every string crosses
+    `i18n.t()` at its interpolation site.
+    """
+    if not device_config:
+        return ""
+    display_enabled = device_config.get("display_enabled", True)
+    is_display_on = display_enabled is not False
+    quiet_enabled = device_config.get("quiet_hours_enabled", False)
+    is_quiet_on = quiet_enabled is True
+    screen_dot_class = "dot--ok" if is_display_on else "dot--off"
+    screen_text = i18n.t(NAV_SCREEN_ON_TEXT if is_display_on else NAV_SCREEN_OFF_TEXT)
+    quiet_dot_class = "dot--ok" if is_quiet_on else "dot--off"
+    quiet_text = i18n.t(NAV_QUIET_ON_TEXT if is_quiet_on else NAV_QUIET_OFF_TEXT)
+    return (
+        '<a class="nav-status text-label" href="%s" aria-label="%s">'
+        '<span class="dot %s"></span><span class="dot-label">%s</span>'
+        '<span class="nav-status__sep"> · </span>'
+        '<span class="dot %s"></span><span class="dot-label">%s</span>'
+        "</a>"
+    ) % (
+        HOME_ROUTE, escape_html(i18n.t(NAV_STATUS_ARIA_LABEL_TEXT)),
+        screen_dot_class, escape_html(screen_text),
+        quiet_dot_class, escape_html(quiet_text),
+    )
+
+
+def sidebar_nav(active, health_alert=None, device_config=None):
     """The vertical Primary-navigation landmark shown by page_shell()'s
     dashboard sidebar column at desktop width.
 
@@ -933,6 +1039,15 @@ def sidebar_nav(active, health_alert=None):
     (background tint, radius) lives in companion/static/style.css's
     `.sidebar-link--active` rule, not here; the class names themselves
     are unchanged.
+
+    `device_config` (D-03, 21-04-PLAN.md Task 2, keyword-with-default
+    so no existing positional call site changes meaning): threaded
+    straight to `nav_status_html()`, whose own reminder markup is
+    prepended before this function's `<nav>` — i.e. between the brand
+    (`page_shell()`'s own `.sidebar-title` span) and the primary nav
+    list, exactly where 21-UI-SPEC.md §B places it. `None` (no request
+    context) renders no reminder at all, byte-identical to this
+    function's own pre-21-04 output.
     """
     parts = []
     for group_label, group_links in _nav_groups(active):
@@ -963,8 +1078,9 @@ def sidebar_nav(active, health_alert=None):
         else:
             parts.append("".join(links))
     return (
+        "%s"
         '<nav class="sidebar-nav" aria-label="Primary navigation">%s</nav>'
-        % "".join(parts))
+    ) % (nav_status_html(device_config), "".join(parts))
 
 
 def _theme_form_html(resolved_theme):
@@ -1007,27 +1123,8 @@ def _lang_form_html(resolved_lang):
         % (escape_html(i18n.t("Language")), "".join(options)))
 
 
-def _mode_form_html(resolved_mode):
-    """The Simple/Full simple-mode switch (D-29, 20-01-PLAN.md Task 3)
-    — a sibling of _theme_form_html() above, identical in shape. The
-    button labels are the mode names themselves ("Simple"/"Full"),
-    translated through i18n.t() — unlike the language switch's "FR"/
-    "EN", these are real words, not identifiers (20-UI-SPEC.md §I).
-    """
-    options = []
-    labels = {"simple": "Simple", "full": "Full"}
-    for choice in prefs.MODE_CHOICES:
-        is_active = choice == resolved_mode
-        css_class = (
-            "theme-option theme-option--active"
-            if is_active else "theme-option")
-        options.append(
-            '<button type="submit" name="ui_mode" value="%s" class="%s" aria-pressed="%s">%s</button>'
-            % (escape_html(choice), css_class, "true" if is_active else "false",
-               escape_html(i18n.t(labels[choice]))))
-    return (
-        '<form class="theme-form" method="post" action="/ui-mode" aria-label="%s">%s</form>'
-        % (escape_html(i18n.t("Simple mode")), "".join(options)))
+    # D-17 (21-01-PLAN.md Task 1): _mode_form_html() is deleted along
+    # with the rest of the simple-mode mechanism it fed.
 
 
 def _logout_form_html():
@@ -1055,8 +1152,8 @@ def _logout_form_html():
 
 
 def _mobile_nav_html(
-        active, theme_form_html, health_alert=None,
-        lang_form_html="", mode_form_html=""):
+        active, theme_form_html, health_alert=None, lang_form_html="",
+        device_config=None):
     """The hamburger toggle button plus the dropdown panel it controls —
     the <960px nav renderer (D-06, 06.6.1-UI-SPEC.md's Layout Contract).
 
@@ -1068,10 +1165,12 @@ def _mobile_nav_html(
     _theme_form_html(), so page_shell() keeps building it exactly once
     and passing the same string to both copies — this is what makes the
     "both theme-form copies present" check meaningful rather than an
-    accident. `lang_form_html`/`mode_form_html` (D-02/D-29, 20-01-PLAN.md
-    Task 3) follow the identical discipline — page_shell() builds all
-    three exactly once and passes the same strings to both footer
-    copies, so they can never drift.
+    accident. `lang_form_html` (D-02, 20-01-PLAN.md Task 3) follows the
+    identical discipline — page_shell() builds both exactly once and
+    passes the same strings to both footer copies, so they can never
+    drift. D-17 (21-01-PLAN.md Task 1): the sibling `mode_form_html`
+    parameter is removed outright, not merely defaulted — the footer
+    slot it fed no longer exists.
 
     The panel is always rendered without MOBILE_NAV_OPEN_CLASS — the
     server never renders it open. A server-rendered open state would
@@ -1084,6 +1183,13 @@ def _mobile_nav_html(
     `"warn"`/`"error"` draws `_health_alert_markup()` with that exact
     severity after the Health link's label, mirroring sidebar_nav()'s
     own contract exactly so the two nav renderers can never disagree.
+
+    `device_config` (D-03, 21-04-PLAN.md Task 2): threaded straight to
+    `nav_status_html()`, whose own reminder markup becomes the first
+    child of `#mobile-nav`, before its `<nav>` — mirroring `sidebar_
+    nav()`'s own "under the brand, above the list" placement exactly.
+    `None` renders no reminder at all, byte-identical to this
+    function's own pre-21-04 output.
     """
     parts = []
     for group_label, group_links in _nav_groups(active):
@@ -1112,17 +1218,20 @@ def _mobile_nav_html(
     ) % (
         NAV_TOGGLE_ID, escape_html(i18n.t(NAV_TOGGLE_LABEL)), MOBILE_NAV_ID,
         icon_html("icon-hamburger", size=24))
-    # D-02/D-29 (20-01-PLAN.md Task 3, 20-UI-SPEC.md §I): resolved
-    # order — language, theme, simple mode, Sign out.
+    # D-02 (20-01-PLAN.md Task 3): resolved order — language, theme,
+    # Sign out. D-17 (21-01-PLAN.md Task 1, 21-UI-SPEC.md §G): the
+    # simple-mode switch that used to sit between theme and Sign out
+    # is deleted; the footer now holds exactly two switches.
     footer_html = (
-        '<div class="mobile-nav__footer">%s%s%s%s</div>'
-        % (lang_form_html, theme_form_html, mode_form_html, _logout_form_html()))
+        '<div class="mobile-nav__footer">%s%s%s</div>'
+        % (lang_form_html, theme_form_html, _logout_form_html()))
     panel_html = (
         '<div id="%s" class="mobile-nav">'
+        "%s"
         '<nav class="mobile-nav__nav" aria-label="Primary navigation">%s</nav>'
         "%s"
         "</div>"
-    ) % (MOBILE_NAV_ID, "".join(links), footer_html)
+    ) % (MOBILE_NAV_ID, nav_status_html(device_config), "".join(links), footer_html)
     return toggle_html + panel_html
 
 
@@ -1201,7 +1310,7 @@ FLASH_SLOT_MARKER = "<!--flash-slot-->"
 
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
-        health_alert=None, lang=None):
+        health_alert=None, lang=None, device_config=None):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and every nav label are escaped here. `body`, `flash` and
@@ -1224,17 +1333,28 @@ def page_shell(
     (~40 of them) has to change, since `companion/app.py`'s
     `page_context()` already calls `prefs.set_request_prefs()` once
     per request before any page module renders.
+
+    `device_config` (D-03, 21-04-PLAN.md Task 2, R-03): defaults to
+    `None`, the exact same "no request context available" degrade
+    contract `health_alert`'s own docstring above already documents —
+    threaded through to both `sidebar_nav()` and `_mobile_nav_html()`,
+    which each pass it straight to `nav_status_html()`. `companion/
+    app.py`'s `_page_shell_for()` is the one call site that passes
+    `ctx["device_config"]`, covering both the GET path and a rejected-
+    save POST's redisplay; every other call site (login, 404, the
+    preview-image error pages) leaves this `None`, so those pages'
+    nav renders no reminder — byte-identical to this function's own
+    pre-21-04 output.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
-    resolved_mode = "simple" if prefs.simple_mode() else "full"
-    sidebar_html = sidebar_nav(active, health_alert=health_alert)
+    sidebar_html = sidebar_nav(
+        active, health_alert=health_alert, device_config=device_config)
     theme_form_html = _theme_form_html(resolved_theme)
     lang_form_html = _lang_form_html(resolved_lang)
-    mode_form_html = _mode_form_html(resolved_mode)
     mobile_nav_html = _mobile_nav_html(
         active, theme_form_html, health_alert=health_alert,
-        lang_form_html=lang_form_html, mode_form_html=mode_form_html)
+        lang_form_html=lang_form_html, device_config=device_config)
     flash_html = flash or ""
     banner_html = banner or ""
 
@@ -1265,13 +1385,15 @@ def page_shell(
     # 06.6.2-05 (D-17): the sidebar's theme picker and Sign out control,
     # grouped into one footer region — the exact artifact Phase 06.6.3
     # was told to expect by name (a .sidebar-footer wrapper). Replaces
-    # the previous bare theme_form_html-only slot. D-02/D-29
-    # (20-01-PLAN.md Task 3, 20-UI-SPEC.md §I): resolved order —
-    # language, theme, simple mode, Sign out; this and
+    # the previous bare theme_form_html-only slot. D-02 (20-01-PLAN.md
+    # Task 3): resolved order — language, theme, Sign out; this and
     # _mobile_nav_html()'s own footer_html must change together.
+    # D-17 (21-01-PLAN.md Task 1, 21-UI-SPEC.md §G): the simple-mode
+    # switch that used to sit between theme and Sign out is deleted —
+    # the footer now holds exactly two switches, language then theme.
     sidebar_footer_html = (
-        '<div class="sidebar-footer">%s%s%s%s</div>'
-        % (lang_form_html, theme_form_html, mode_form_html, _logout_form_html()))
+        '<div class="sidebar-footer">%s%s%s</div>'
+        % (lang_form_html, theme_form_html, _logout_form_html()))
 
     # 06.6.2-05 (UXA-10): the first focusable element in <body>, before
     # even ICON_DEFS_HTML — a keyboard/screen-reader user's very first
@@ -1341,6 +1463,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -1390,6 +1513,11 @@ def page_shell(
         # page, since only Display (from 20-11) renders
         # .theme-live-preview img plus a .theme-chip-grid.
         THEME_PREVIEW_SCRIPT_SRC,
+        # 21-03-PLAN.md Task 2 (D-15/R-12): eleventh script, same
+        # unconditional/no-op-via-guard-clause convention — served every
+        # page, since only Flights renders .flight-detail-row/
+        # [data-row-toggle].
+        FLIGHT_ROWS_SCRIPT_SRC,
     )
 
 
@@ -1432,7 +1560,7 @@ def anomaly_banner(message, severity="error"):
         % (css_class, role, escape_html(message)))
 
 
-def status_dot(state, label, title=None):
+def status_dot(state, label, title=None, visually_hide_label=False):
     """A small coloured status indicator plus an escaped text label.
 
     `state` maps to exactly one of three fixed CSS class suffixes; an
@@ -1449,12 +1577,32 @@ def status_dot(state, label, title=None):
     discipline `concise_timestamp_html()` uses for its own `title`) and
     added as a `title="..."` attribute on the `dot-label` span, giving a
     shortened visible label room to carry a longer form as a tooltip.
+
+    `visually_hide_label` (21-03-PLAN.md Task 1, D-15) is a
+    keyword-with-default, byte-identical-when-falsy parameter, matching
+    `stat_tile()`'s own `caption_title` contract: every pre-existing call
+    site (which never passes this keyword) gets a return value that is
+    character-for-character what this function returned before this
+    parameter existed. Only Flights' desktop Corroboration cell
+    (`history_page._history_table_html()`) passes `True` — the dot stays
+    visible, the accessible name and `title` tooltip are unchanged, but
+    the label span's class becomes `"dot-label visually-hidden"` instead
+    of `"dot-label"`, removing the visible word so the column can shrink
+    to a dot-only width (21-UI-SPEC.md §F). Health's own call sites
+    (`health_page.py`) never pass this keyword and are unaffected.
     """
     css_class = _STATUS_DOT_CLASSES.get(state, _DEFAULT_STATUS_DOT_CLASS)
     title_attr = ' title="%s"' % escape_html(title) if title else ""
+    label_class = "dot-label visually-hidden" if visually_hide_label else "dot-label"
+    # 21-REVIEW.md WR-03: with the label clipped away, a title on that
+    # span is unreachable by hover — it moves onto the dot itself, the
+    # only visible element left, so the tooltip still exists. The
+    # default (label visible) output is byte-identical to before.
+    dot_title = title_attr if visually_hide_label else ""
+    label_title = "" if visually_hide_label else title_attr
     return (
-        '<span class="dot %s"></span><span class="dot-label"%s>%s</span>'
-        % (css_class, title_attr, escape_html(label)))
+        '<span class="dot %s"%s></span><span class="%s"%s>%s</span>'
+        % (css_class, dot_title, label_class, label_title, escape_html(label)))
 
 
 def stat_tile(caption, content_html, status=None, icon=None, caption_title=None):
@@ -1515,6 +1663,173 @@ def stat_tile(caption, content_html, status=None, icon=None, caption_title=None)
         "%s"
         "</div>"
     ) % (css_class, title_attr, caption_html, content_html)
+
+
+def frame_strip_html(ctx, return_to, next_wake_iso=None):
+    """The "Frame" strip (D-01/D-02/D-05, 21-CONTEXT.md; R-01): one
+    shared body, called identically by home_page.render() (with
+    `return_to=HOME_ROUTE`) and config_page.render()'s Display scope
+    (with `return_to=DISPLAY_ROUTE`) — the two pages' copies of the
+    Screen/Quiet-hours instant switches and the next-update headline
+    can therefore never disagree, the same "one function, two call
+    sites" contract sidebar_nav()'s own docstring already states for
+    the nav.
+
+    `ctx["device_config"]` supplies `display_enabled`/`quiet_hours_
+    enabled`/`quiet_hours_start`/`quiet_hours_end` — read with the
+    exact same literal fallback defaults companion/pages/config_page.py's
+    own display_group()/quiet_hours_group() resolve from server.
+    device_config.DEFAULT_DISPLAY_ENABLED/DEFAULT_QUIET_HOURS_ENABLED/
+    _START/_END. The literals are duplicated here, never imported,
+    because this module's own docstring forbids importing anything
+    from server/ (R-01) — `ctx["device_config"]` already carries these
+    fields fully resolved on every real request (companion/app.py's
+    page_context() calls server.device_config.load_device_config()
+    once per request), so the fallback only matters for a bare/partial
+    ctx built by a test or an empty-state render.
+
+    `return_to` is written verbatim (escaped) into a hidden field on
+    each switch's own form — R-02, 21-CONTEXT.md: `app._handle_quick_
+    toggle()` is what validates it against `{HOME_ROUTE, DISPLAY_
+    ROUTE}` before ever using it as a redirect target; this function
+    has no opinion on validity, it only renders whatever the caller
+    passes (Home passes HOME_ROUTE, Display passes DISPLAY_ROUTE —
+    both members of that same whitelist by construction).
+
+    `next_wake_iso` (D-01, moved byte-identical from home_page.
+    _status_card_html()'s own headline computation) renders NOTHING —
+    not even the wrapping `.frame-strip__cell--update` div — when it
+    is falsy or fails to parse; this function never fabricates a
+    placeholder "Next update ≈ —" line. When it parses, the headline
+    reuses `.status-card__headline`/`--warn` verbatim (the exact CSS
+    rule and contrast gate 20-04-PLAN.md already shipped and
+    companion/test_contrast_check.py already pins) — the "largest
+    text in the strip" D-01 asks for, via font-weight (Emphasis, 16px
+    semibold) rather than a bigger font size, since there is no larger
+    role left in the four-size scale to reach for.
+
+    The switch cells reuse `.quick-action`/`.quick-action--on`/`--off`
+    byte-for-byte from the relocated `display_group()`/`quiet_hours_
+    group()` markup, including the trailing "Applies the next time the
+    frame wakes up." caption each already carried — D-02's own
+    instruction that this caption "moves with them into the strip"
+    rather than being left orphaned in either card. `.frame-strip__cell`
+    is added ALONGSIDE `.quick-action`/`.quick-action--on/off` on the
+    SAME element (not a second wrapper) — companion/static/style.css's
+    `.frame-strip__cell.quick-action` flex-sizing rule only matches an
+    element carrying both classes together. The only structural
+    addition beyond the relocated markup is the `return_to` hidden
+    field. No second on/off dot is added inside a switch cell —
+    `.quick-action--on`/`--off`'s own 4px left-edge colour already is
+    that signal (the same anti-duplication principle status_row()'s
+    own docstring states for verdict/detail).
+
+    The whole strip is a hand-built `<div class="frame-strip stat-tile
+    stat-tile--accent">` — it borrows `stat_tile()`'s CSS classes for
+    the card surface (accent-bordered, "the control area"), never its
+    Python builder: the strip's own `<h2>` needs the Section-heading
+    role (22px serif), not `stat_tile()`'s smaller Label-voice caption
+    role.
+
+    Every interpolated value crosses `escape_html()`; every
+    user-visible string crosses `i18n.t()` at its interpolation site.
+    Pure markup — no `<script>`, no inline handler.
+    """
+    device_cfg = ctx.get("device_config") or {}
+    display_enabled = device_cfg.get("display_enabled", True)
+    is_display_on = display_enabled is not False
+    next_display_state = QUICK_STATE_OFF if is_display_on else QUICK_STATE_ON
+    display_state_text = i18n.t(QUICK_ACTION_ON_TEXT if is_display_on else QUICK_ACTION_OFF_TEXT)
+    display_cell_html = (
+        '<div class="frame-strip__cell quick-action quick-action--%s">'
+        '<div class="quick-action__text">'
+        '<span class="text-label quick-action__label">%s%s</span>'
+        '<span class="text-body quick-action__state">%s</span>'
+        "</div>"
+        '<form method="post" action="/quick/display" class="quick-action__form">'
+        '<input type="hidden" name="%s" value="%s">'
+        '<input type="hidden" name="return_to" value="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (
+        "on" if is_display_on else "off",
+        icon_html("icon-power", size=16, extra_class="quick-action__icon"),
+        escape_html(i18n.t(QUICK_ACTION_SCREEN_LABEL)),
+        escape_html(display_state_text),
+        QUICK_STATE_FIELD, escape_html(next_display_state),
+        escape_html(return_to),
+        escape_html(i18n.t(
+            QUICK_ACTION_SWITCH_OFF_BUTTON if is_display_on else QUICK_ACTION_SWITCH_ON_BUTTON)),
+        escape_html(i18n.t(QUICK_ACTION_APPLIES_SENTENCE)),
+    )
+
+    quiet_enabled = device_cfg.get("quiet_hours_enabled", False)
+    is_quiet_on = quiet_enabled is True
+    next_quiet_state = QUICK_STATE_OFF if is_quiet_on else QUICK_STATE_ON
+    quiet_start = device_cfg.get("quiet_hours_start") or "23:00"
+    quiet_end = device_cfg.get("quiet_hours_end") or "07:00"
+    quiet_state_text = (
+        i18n.t(QUICK_ACTION_QUIET_ON_TEMPLATE) % (quiet_start, quiet_end)
+        if is_quiet_on else i18n.t(QUICK_ACTION_QUIET_OFF_TEXT))
+    quiet_cell_html = (
+        '<div class="frame-strip__cell quick-action quick-action--%s">'
+        '<div class="quick-action__text">'
+        '<span class="text-label quick-action__label">%s%s</span>'
+        '<span class="text-body quick-action__state">%s</span>'
+        "</div>"
+        '<form method="post" action="/quick/quiet-hours" class="quick-action__form">'
+        '<input type="hidden" name="%s" value="%s">'
+        '<input type="hidden" name="return_to" value="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (
+        "on" if is_quiet_on else "off",
+        icon_html("icon-moon", size=16, extra_class="quick-action__icon"),
+        escape_html(i18n.t(QUICK_ACTION_QUIET_LABEL)),
+        escape_html(quiet_state_text),
+        QUICK_STATE_FIELD, escape_html(next_quiet_state),
+        escape_html(return_to),
+        escape_html(i18n.t(
+            QUICK_ACTION_QUIET_TURN_OFF_BUTTON if is_quiet_on else QUICK_ACTION_QUIET_TURN_ON_BUTTON)),
+        escape_html(i18n.t(QUICK_ACTION_APPLIES_SENTENCE)),
+    )
+
+    update_cell_html = ""
+    if next_wake_iso:
+        next_wake_parsed = parse_iso(next_wake_iso)
+        if next_wake_parsed is not None:
+            next_wake_clock = local_clock_text(
+                next_wake_parsed, now_parsed=parse_iso(ctx.get("now")))
+            age = age_seconds(next_wake_iso, ctx.get("now"))
+            is_past = age is not None and age >= 0
+            if is_past:
+                headline_text = escape_html(
+                    i18n.t(EXPECTED_SINCE_TEMPLATE) % next_wake_clock)
+                headline_html = (
+                    '<p class="status-card__headline status-card__headline--warn">'
+                    '<span class="dot dot--warn"></span>%s</p>'
+                ) % headline_text
+            else:
+                headline_text = escape_html(
+                    i18n.t(NEXT_UPDATE_TEMPLATE) % next_wake_clock)
+                headline_html = '<p class="status-card__headline">%s</p>' % headline_text
+            update_cell_html = (
+                '<div class="frame-strip__cell frame-strip__cell--update">%s</div>'
+                % headline_html)
+
+    return (
+        '<div class="frame-strip stat-tile stat-tile--accent" aria-labelledby="frame-strip-heading">'
+        '<h2 id="frame-strip-heading" class="text-heading">%s</h2>'
+        '<div class="frame-strip__cells">%s%s%s</div>'
+        "</div>"
+    ) % (
+        escape_html(i18n.t(FRAME_STRIP_HEADING)),
+        display_cell_html, quiet_cell_html, update_cell_html,
+    )
 
 
 def card_status_class(base_class, status):

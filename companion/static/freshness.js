@@ -98,6 +98,16 @@
  * new (260902-chc's own text already named the identical trade for the
  * mechanism it chose not to build).
  *
+ * --- SUPERSEDED (21-02-PLAN.md, D-18): the Pause/Resume control removed --
+ *
+ * 19-09-PLAN.md added a visible Pause/Resume button and a boolean state
+ * flag that independently gated every tick alongside the tab-visibility
+ * gate below. D-18 deletes that control outright, with no replacement:
+ * the loop below is now unconditional whenever the tab is visible — the
+ * ONLY gate left is the pre-existing tab-visibility mechanism
+ * (intervalHandle/startLoop()/stopLoop()/the visibilitychange listener),
+ * which this plan leaves untouched.
+ *
  * --- The corrected page list -------------------------------------------
  *
  * This script is served to every page on the site (a single cached
@@ -123,10 +133,10 @@
   // seconds, so this cadence notices a newly-warn pipeline well inside a
   // quarter of the threshold that defines it. The resulting steady-state
   // cost, spelled out rather than left for a reader to compute: at most
-  // one authenticated page render per interval per open, visible,
-  // UNPAUSED Health tab, and exactly zero from a backgrounded, closed or
-  // paused one — the number D-12 was written to protect, now reduced
-  // further by 19-09-PLAN.md's own Pause control.
+  // one authenticated page render per interval per open, visible Health
+  // tab, and exactly zero from a backgrounded or closed one — the
+  // number D-12 was written to protect (21-02-PLAN.md, D-18: the
+  // interval is now the only gate — there is no user-facing pause).
   var AUTO_REFRESH_INTERVAL_MS = 45000;
 
   var loadedAtEl = document.querySelector("[data-loaded-at]");
@@ -152,15 +162,6 @@
   // targets, and is a stale/detached node the moment a swap replaces
   // it.
   var loadedAtMs = initialParsed.getTime();
-
-  // 19-09-PLAN.md (D-02): true while the visible Pause/Resume control
-  // (optional — see wireToggle() below) has the loop paused. Distinct
-  // from the tab-visibility gate below (intervalHandle/startLoop/
-  // stopLoop): visibility answers "is this tab in front of the user at
-  // all", this answers "did the user ask this tab specifically to stop
-  // polling". Both gates independently prevent a tick from doing
-  // anything.
-  var paused = false;
 
   // Interaction check: true when the user is mid-interaction with
   // something a swap would disrupt. Its failure mode is silence —
@@ -300,54 +301,15 @@
       ? nextParsed.getTime() : Date.now();
   }
 
-  // 19-09-PLAN.md (D-02): the Pause/Resume button lives inside
-  // .page-header__freshness — one of SWAP_SELECTORS' own entries — so
-  // every successful swap replaces it with a brand-new node from the
-  // fetched document, carrying none of this file's own event listeners.
-  // wireToggle() is therefore called once at startup AND again after
-  // every successful swap; it is always a fresh, guarded, optional
-  // lookup (absent is a legitimate state — not every page renders this
-  // button, and a stale cached shell might not yet either).
-  //
-  // The swapped-in button's own aria-pressed/label always already read
-  // "not paused" (health_page.py's render() has no way to know about
-  // this file's own paused flag and always emits the not-paused
-  // state) — which is exactly correct, since a swap only ever runs
-  // while paused is false (see tick()/doRefresh() below): while
-  // paused, no fetch happens, .page-header__freshness is never
-  // replaced, and the button's listener and visual state both survive
-  // untouched.
-  function setToggleVisual(button, isPaused) {
-    var pauseText = button.getAttribute("data-pause-text") || "";
-    var resumeText = button.getAttribute("data-resume-text") || "";
-    button.setAttribute("aria-pressed", isPaused ? "true" : "false");
-    button.textContent = isPaused ? resumeText : pauseText;
-  }
-
-  function wireToggle() {
-    var button = document.querySelector("[data-refresh-toggle]");
-    if (!button) {
-      return;
-    }
-    button.addEventListener("click", function () {
-      paused = !paused;
-      setToggleVisual(button, paused);
-      if (paused) {
-        stopLoop();
-      } else {
-        startLoop();
-      }
-    });
-  }
-
+  // 21-02-PLAN.md (D-18): the Pause/Resume button that used to live
+  // inside .page-header__freshness — one of SWAP_SELECTORS' own entries
+  // — is deleted outright, with no replacement. applySwap() below no
+  // longer needs to re-wire anything after a swap replaces that
+  // wrapper.
   function applySwap(fromDoc) {
     swapNodes(fromDoc);
     swapBatteryReadout(fromDoc);
     updateLoadedAt(fromDoc);
-    // The freshly swapped-in toggle button (if any) carries no
-    // listener of its own yet — re-wire it every time, immediately
-    // after the swap that just replaced it.
-    wireToggle();
   }
 
   function doRefresh() {
@@ -425,9 +387,6 @@
       stopLoop();
       return;
     }
-    if (paused) {
-      return;
-    }
     if (userIsInteracting()) {
       // Leave the interval running — the next tick tries again.
       return;
@@ -455,12 +414,6 @@
       stopLoop();
       return;
     }
-    if (paused) {
-      // 19-09-PLAN.md (D-02): the user's own pause choice must survive
-      // a visibility round-trip too — a tab hidden while paused, then
-      // shown again, stays paused, never silently resumed.
-      return;
-    }
     startLoop();
     // Catch-up on return: a tab returning after a long hidden stretch
     // would otherwise sit showing minutes-old data for a full interval
@@ -473,11 +426,9 @@
     }
   });
 
-  wireToggle();
-
-  // A page that loads in a background tab starts fully paused (tab
-  // visibility, not the user-facing Pause control above — see the
-  // paused variable's own comment for the distinction).
+  // A page that loads in a background tab starts stopped (tab
+  // visibility only — 21-02-PLAN.md, D-18: there is no separate
+  // user-facing pause state any more).
   if (!document.hidden) {
     startLoop();
   }

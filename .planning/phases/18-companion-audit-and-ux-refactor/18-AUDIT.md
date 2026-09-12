@@ -60,7 +60,7 @@
 | A-37 | Flights | low | fixed (phase 19) | Copy confirmation is invisible to sighted users; all 50 rows share identical accessible names; execCommand result ignored | Backlog. |
 | A-39 | Airlines | low | fixed (phase 19) | Illustration replace/upload/delete forms live in the everyday Airlines lightbox | Backlog: show the replace zone only from Device (or behind an "Edit artwork" toggle). |
 
-## Suggestions (6 — all six shipped: S-02 and S-04 in phase 19, S-01/S-03/S-05/S-06 in phase 20)
+## Suggestions (6 — S-02 and S-04 shipped in phase 19, S-01/S-03/S-05 in phase 20; S-06 shipped in phase 20 then withdrawn in phase 21 at the developer's request)
 
 | ID | Area | Severity | Status | Finding | Fix / next step |
 |---|---|---|---|---|---|
@@ -69,7 +69,7 @@
 | S-03 | Suggestion | suggestion | fixed (phase 20) | Theme picker as a carousel with a live preview of the current flight | Reuse theme_preview.py with the latest runway_events row. |
 | S-04 | Suggestion | suggestion | fixed (phase 19) | Schedule presets for quiet hours |  |
 | S-05 | Suggestion | suggestion | fixed (phase 20) | Notifications for the two things that matter: battery low and frame silent | A daily digest e-mail or a ntfy/Pushover hook from the poll loop. |
-| S-06 | Suggestion | suggestion | fixed (phase 20) | Per-person entry point |  |
+| S-06 | Suggestion | suggestion | withdrawn (phase 21) | Per-person entry point | Simple mode shipped in phase 20 (D-29..D-31) and removed in phase 21 (D-17, CFG-23): the everyday pages are already plain-language and the Advanced group stays separate in the nav. |
 
 ## Pre-existing harness failures (not this phase's)
 

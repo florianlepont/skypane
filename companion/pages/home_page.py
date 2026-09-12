@@ -1,19 +1,22 @@
 """companion/pages/home_page.py — the Home page (phase 18, companion audit
-/ UX refactor; rebuilt by 20-06-PLAN.md, D-16..D-21).
+/ UX refactor; rebuilt by 20-06-PLAN.md, D-16..D-21; rebuilt again by
+21-04-PLAN.md Task 3, D-04/D-05/R-06).
 
 The page a household member lands on after signing in, answering three
 questions without any technical background: is the frame alive, what is
 it showing, and what has it shown recently. D-16 (20-CONTEXT.md) removed
 the "Quick actions" card entirely — the Screen on/off and Quiet hours
-instant switches now live on Display (companion/pages/config_page.py's
-`display_group()`/`quiet_hours_group()`), and the Refresh-now button
-lives on Device's own Manual refresh section. Home is now exactly two
-rows: a hero row (the current picture beside one status card headlined
-by the next update) and the recent flights, full width, with an artwork
-thumbnail per row when — and only when — a real illustration file
-resolves for that row's airline (D-17.2; a truthy normalised key alone
-is not enough, since an airline the app recognises by name but with no
-artwork file on disk would otherwise 404 as a broken-image icon).
+instant switches now live in the shared Frame strip (the strip helper
+in companion/layout.py), rendered once by this page and once by
+Display; the Refresh-now button lives on Device's own Manual
+refresh section. Home now reads: the Frame strip, three status tiles
+(Frame/Battery/Flight data) in a `.dashboard-grid.home-status-grid`,
+then a two-column row holding the current picture beside the recent
+flights — with an artwork thumbnail per row when — and only when — a
+real illustration file resolves for that row's airline (D-17.2; a
+truthy normalised key alone is not enough, since an airline the app
+recognises by name but with no artwork file on disk would otherwise
+404 as a broken-image icon).
 
 Like every page module this one imports nothing from a sibling page
 module (companion/pages/__init__.py's boundary). The status verdicts it
@@ -69,32 +72,23 @@ DIRECTION_ARRIVING_TEXT = "Arriving"
 
 # D-16 (20-CONTEXT.md): the "Quick actions" card — the screen switch, the
 # quiet-hours switch and the Refresh-now button — is gone from Home.
-# The screen/quiet-hours switches now live on Display
-# (companion/pages/config_page.py's display_group()/quiet_hours_group(),
-# 20-07-PLAN.md); Refresh-now lives on Device's own Manual refresh
-# section. The underlying HTTP toggle routes, their flash keys and their
-# handlers are untouched by this move — only their `return_to` changed (20-01-PLAN.md
-# Task 2), and POLL_ROUTE's own handler is untouched too. `QUICK_STATE_
-# FIELD`/`QUICK_STATE_ON`/`QUICK_STATE_OFF` moved to companion/layout.py
-# in the same earlier plan, which is where config_page.py (20-07) reads
-# them from — a page module may never import another page module.
+# D-01 (21-CONTEXT.md, 21-04-PLAN.md Task 1/3): the screen/quiet-hours
+# switches, and the next-update headline that used to live here, now
+# render once, in the shared Frame strip helper (see render() below,
+# called with `return_to=layout.HOME_ROUTE`) —
+# Refresh-now lives on Device's own Manual refresh section. The
+# underlying HTTP toggle routes and their flash keys are untouched by
+# either move, and POLL_ROUTE's own handler is untouched too.
+# `QUICK_STATE_FIELD`/`QUICK_STATE_ON`/`QUICK_STATE_OFF` and (as of
+# 21-04-PLAN.md Task 1) `NEXT_UPDATE_TEMPLATE`/`EXPECTED_SINCE_TEMPLATE`
+# all live in companion/layout.py now — a page module may never import
+# another page module, and both Home and Display need them.
 
 STATUS_HEADING = "Status"
 FRAME_ROW_LABEL = "Frame"
 BATTERY_ROW_LABEL = "Battery"
 DATA_ROW_LABEL = "Flight data"
 HEALTH_LINK_TEXT = "See details on Health"
-
-# D-17: the status card's headline is the next update — a genuinely new
-# sentence each render, never the same FRAME_STATE_TEXT verdict repeated
-# (20-RESEARCH.md Pitfall 3's confirmed root cause: the OLD Frame tile
-# embedded the health state's own combined verdict-plus-timestamp
-# fragment, which already carried its own verdict paragraph).
-# EXPECTED_SINCE_TEMPLATE renders in the warn treatment when the
-# computed next-wake time is already in the past — never presenting a
-# stale time as still upcoming.
-NEXT_UPDATE_TEMPLATE = "Next update ≈ %s"
-EXPECTED_SINCE_TEMPLATE = "Expected since %s"
 
 FRAME_STATE_TEXT = {
     "ok": "Checking in normally",
@@ -236,47 +230,46 @@ def _gallery_name_to_iso(name):
     return candidate if layout.parse_iso(candidate) is not None else None
 
 
-def _status_card_html(ctx):
-    """D-21's status card: a headline (the next update, or "Expected
-    since" when that time is already past) above three status-row
-    rows — Frame, Battery, Flight data. The Frame row's verdict comes
-    from THIS module's own FRAME_STATE_TEXT (never rendered twice —
-    20-RESEARCH.md Pitfall 3); its detail is the health state's own
-    verdict-free timestamp field, added by 20-03-PLAN.md, reduced to
-    plain text by _plain_text_from_markup() above.
+def _tile_content_html(verdict, detail):
+    """The Emphasis-verdict-plus-Label-detail composition every one of
+    the three tiles below shares — a genuinely new pairing every time
+    (never the same sentence twice, 20-RESEARCH.md Pitfall 3's
+    confirmed root cause), so this one helper is the single write site
+    for it rather than three near-identical inline literals. `detail`
+    is omitted ENTIRELY (no placeholder) when falsy, matching every
+    other "omit rather than fabricate" contract in this module.
+    """
+    verdict_html = '<p class="text-body widget-verdict">%s</p>' % escape_html(verdict)
+    if not detail:
+        return verdict_html
+    return verdict_html + '<p class="text-label widget-detail">%s</p>' % escape_html(detail)
+
+
+def _status_tiles_html(ctx):
+    """D-04/R-06 (21-CONTEXT.md, 21-04-PLAN.md Task 3): restores the
+    phase-19 three-tile LAYOUT (`git show 614d41e~1:companion/pages/
+    home_page.py` lines 166-218 — a `.dashboard-grid.home-status-grid`
+    of three `stat_tile()` calls, Frame/Battery/Flight data,
+    plus the "See details on Health" link below the grid) while
+    keeping the CURRENT, bug-fixed content derivation this module's
+    own now-deleted status-card builder used: each tile's verdict
+    comes from THIS module's own FRAME_STATE_TEXT/BATTERY_STATE_TEXT/
+    DATA_STATE_TEXT dicts, and each detail is the health state's own
+    verdict-free field (`device_detail_html`/`pipeline_html`), reduced
+    to plain text by `_plain_text_from_markup()` above — NEVER the
+    health state's own combined device-summary field, which carries
+    the Frame verdict a second time (the phase-19 body's own bug this
+    rebuild does not resurrect). The
+    frame verdict therefore appears exactly once on the whole page.
     """
     health = ctx.get("health_state") or {}
-    now = ctx.get("now")
     device_state = health.get("device_state") or "warn"
     pipeline_state = health.get("pipeline_state") or "warn"
     battery_state = health.get("battery_state") or "warn"
 
-    headline_html = ""
-    next_wake_iso = wake.next_wake_at_iso(
-        ctx.get("last_checkin_ts"), ctx.get("device_config"))
-    if next_wake_iso:
-        next_wake_parsed = layout.parse_iso(next_wake_iso)
-        if next_wake_parsed is not None:
-            next_wake_clock = layout.local_clock_text(
-                next_wake_parsed, now_parsed=layout.parse_iso(now))
-            age = layout.age_seconds(next_wake_iso, now)
-            is_past = age is not None and age >= 0
-            if is_past:
-                headline_text = escape_html(
-                    i18n.t(EXPECTED_SINCE_TEMPLATE) % next_wake_clock)
-                headline_html = (
-                    '<p class="status-card__headline status-card__headline--warn">'
-                    '<span class="dot dot--warn"></span>%s</p>'
-                ) % headline_text
-            else:
-                headline_text = escape_html(
-                    i18n.t(NEXT_UPDATE_TEMPLATE) % next_wake_clock)
-                headline_html = '<p class="status-card__headline">%s</p>' % headline_text
-
     frame_verdict = i18n.t(FRAME_STATE_TEXT.get(device_state, FRAME_STATE_TEXT["warn"]))
     frame_detail = _plain_text_from_markup(health.get("device_detail_html"))
-    frame_row = layout.status_row(
-        i18n.t(FRAME_ROW_LABEL), frame_verdict, frame_detail, device_state)
+    frame_html = _tile_content_html(frame_verdict, frame_detail)
 
     reading = _safe_query(ctx.get("state_dir"), _latest_battery)
     if reading and reading.get("battery_mv"):
@@ -288,32 +281,32 @@ def _status_card_html(ctx):
     else:
         battery_verdict = i18n.t(NO_READING_TEXT)
         battery_detail = ""
-    battery_row = layout.status_row(
-        i18n.t(BATTERY_ROW_LABEL), battery_verdict, battery_detail, battery_state)
+    battery_html = _tile_content_html(battery_verdict, battery_detail)
 
     data_verdict = i18n.t(DATA_STATE_TEXT.get(pipeline_state, DATA_STATE_TEXT["warn"]))
     data_detail = _plain_text_from_markup(health.get("pipeline_html"))
-    data_row = layout.status_row(
-        i18n.t(DATA_ROW_LABEL), data_verdict, data_detail, pipeline_state)
+    data_html = _tile_content_html(data_verdict, data_detail)
 
-    health_link_html = ""
-    if not ctx.get("simple_mode"):
-        # D-30: the "See details on Health" link is presentation-only —
-        # /health itself stays reachable by URL in simple mode.
-        health_link_html = (
-            '<p class="text-label"><a href="/health">%s</a></p>'
-        ) % escape_html(i18n.t(HEALTH_LINK_TEXT))
+    tiles = (
+        layout.stat_tile(i18n.t(FRAME_ROW_LABEL), frame_html, device_state, icon="icon-device")
+        + layout.stat_tile(
+            i18n.t(BATTERY_ROW_LABEL), battery_html, battery_state, icon="icon-battery")
+        + layout.stat_tile(i18n.t(DATA_ROW_LABEL), data_html, pipeline_state, icon="icon-pipeline")
+    )
+
+    # D-17 (21-01-PLAN.md Task 2): the display-mode gate that used to
+    # hide this link is deleted outright — never re-add it here.
+    health_link_html = (
+        '<p class="text-label"><a href="/health">%s</a></p>'
+    ) % escape_html(i18n.t(HEALTH_LINK_TEXT))
 
     return (
-        '<div class="page-section status-card" aria-labelledby="home-status-heading">'
-        '<h2 id="home-status-heading" class="visually-hidden">%s</h2>'
+        '<section class="home-section" aria-labelledby="home-status">'
+        '<h2 class="text-heading" id="home-status">%s</h2>'
+        '<div class="dashboard-grid home-status-grid">%s</div>'
         "%s"
-        '<div class="status-card__rows">%s%s%s</div>'
-        "%s"
-        "</div>"
-    ) % (
-        escape_html(i18n.t(STATUS_HEADING)), headline_html,
-        frame_row, battery_row, data_row, health_link_html)
+        "</section>"
+    ) % (escape_html(i18n.t(STATUS_HEADING)), tiles, health_link_html)
 
 
 def _hero_figure_html(ctx, current_flight_row):
@@ -412,6 +405,12 @@ def _recent_flights_html(rows, now, state_dir):
 
 
 def render(ctx):
+    """D-04 (21-CONTEXT.md, 21-04-PLAN.md Task 3): strip -> three tiles
+    -> a two-column picture/recent-flights row. `_hero_figure_html()`/
+    `_recent_flights_html()` bodies are unchanged — only render()'s own
+    assembly order changes; the phase-20 hero row and its status-card
+    builder are both gone.
+    """
     now = ctx.get("now")
     # D-20: one read, reused for both the hero's flight one-liner (its
     # first row is "the current flight") and the recent-flights list —
@@ -419,11 +418,13 @@ def render(ctx):
     rows = _safe_query(ctx.get("state_dir"), _recent_flights)
     current_flight_row = rows[0] if rows else None
     header = layout.page_header(i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE))
+    next_wake_iso = wake.next_wake_at_iso(ctx.get("last_checkin_ts"), ctx.get("device_config"))
     return (
         header
-        + '<div class="home-hero">'
+        + layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE, next_wake_iso=next_wake_iso)
+        + _status_tiles_html(ctx)
+        + '<div class="home-columns home-picture-row">'
         + _hero_figure_html(ctx, current_flight_row)
-        + _status_card_html(ctx)
-        + "</div>"
         + _recent_flights_html(rows, now, ctx.get("state_dir"))
+        + "</div>"
     )

@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """companion/i18n_fr/rules.py — French strings for the rebuilt Flight
 colours section (companion/pages/config_page.py's _rule_add_form_html()/
-_rule_row_html()/_rules_section_html(), D-15a..e), 20-09-PLAN.md Task 3.
+_rule_row_html() and, since 21-05, the rules usage panel of
+frame_colours_section_html() — formerly _rules_section_html(), D-15a..e),
+20-09-PLAN.md Task 3.
 
 One sibling module of the companion/i18n_fr package (see that
 package's __init__.py for the auto-merge/duplicate-key contract this
@@ -27,8 +29,14 @@ Contract Section D/H is copied verbatim from that table.
 """
 
 CATALOG = {
-    # --- Heading and caption (D-15a) -------------------------------------
-    "Flight colours": "Couleurs de vol",
+    # --- Caption (D-15a) --------------------------------------------------
+    # 21-05-PLAN.md Task 1 (D-06/D-10): "Flight colours" (the retired
+    # standalone card's own heading) is deleted here in the same commit
+    # as RULES_SECTION_HEADING, its English source constant — the
+    # content now renders inside the Frame colours card's own
+    # "Per-flight rules" usage panel, named by that panel's own
+    # <legend> (companion/i18n_fr/display.py's "Per-flight rules" /
+    # "Règles par vol" entry), never by a second heading of its own.
     "Give one flight, one aircraft or one airline its own theme.":
         "Donnez son propre thème à un vol, un avion ou une compagnie.",
 
@@ -56,8 +64,10 @@ CATALOG = {
     "Remove": "Retirer",
     "Remove this rule?": "Retirer cette règle ?",
 
-    # --- Simple mode's collapsed disclosure sentence (D-30) -------------
-    "The most specific match wins.": "La règle la plus précise l’emporte.",
+    # D-17 (21-01-PLAN.md Task 2): the "How rules combine" disclosure's
+    # collapsed one-sentence French entry is deleted in this same
+    # commit as its English source constant in companion/pages/
+    # config_page.py — the display mode that selected it is gone.
 
     # --- Suggestion chips (D-15e) ----------------------------------------
     "Recent:": "Récents :",
