@@ -147,7 +147,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-25 | Phase 22 | Planned (22-01..22-16) |
 | CFG-26 | Phase 22 | Planned (22-01..22-16) |
 | CFG-27 | Phase 22 | Complete (22-05) |
-| CFG-28 | Phase 22 | Planned (22-01..22-16) |
+| CFG-28 | Phase 22 | In progress — 22-06 landed the battery/tooltip half; 22-11 lands the resolve-dialog half |
 | CFG-29 | Phase 22 | Planned (22-01..22-16) |
 | CFG-30 | Phase 22 | Planned (22-01..22-16) |
 | CFG-31 | Phase 22 | Planned (22-01..22-16) |

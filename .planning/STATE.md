@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-05-PLAN.md
-last_updated: "2026-09-12T23:26:42.836Z"
+stopped_at: Completed 22-06-PLAN.md
+last_updated: "2026-09-12T23:57:36.095Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
   completed_plans: 192
-  percent: 95
+  percent: 89
 ---
 
 ---
@@ -26,7 +26,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 94%
+  [██████████] 95%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -358,6 +358,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P03 | 40min | 2 tasks | 3 files |
 | Phase 22 P04 | 95min | 3 tasks | 7 files |
 | Phase 22 P05 | ~110min | 3 tasks | 11 files |
+| Phase 22 P06 | 30min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -627,6 +628,9 @@ Recent decisions affecting current work:
 - [Phase 22]: DEVICE_STATE_TEXT widened to a fourth 'off' key for the frame's held state, mirroring PIPELINE_STATE_TEXT's 22-03 precedent — a held frame must never light the Health nav notification dot
 - [Phase 22]: 22-05: Frame strip becomes the sole on/off control for Screen and Quiet hours; display_enabled/quiet_hours_enabled resolve absent to unconditional leave-unchanged, closing T-22-16
 - [Phase 22]: 22-05: One computed delay sentence (companion/frame_state.py) replaces the Quiet hours caption's tail and the post-save flash; frame_state.DELAY_UNKNOWN's French value reconciled to the locked 22-UI-SPEC.md wording
+- [Phase 22]: Battery day bucketing moves from SQLite date() to Python ZoneInfo(Europe/Paris); no fixed-offset SQL modifier is DST-correct
+- [Phase 22]: A sparkline point's title/aria-label/data-when collapse to one shared string (data-mv already carries the value machine-readably)
+- [Phase 22]: Every title/tooltip on Health's battery section is now a full day-qualified Europe/Paris timestamp, not a bare clock
 
 ### Pending Todos
 
@@ -649,6 +653,7 @@ None yet.
 - This session's sandbox has the `docker` CLI installed but no running daemon, so `firmware/build.sh` (the pinned `espressif/idf:v5.3.1` containerised build) could not be run to confirm Task 2's ESP-IDF-dependent `battery.c` module actually compiles under the real toolchain. Host-testable evidence (four-suite `run_host_tests.sh`, strict `cc` compile of the pure-math half) all passes; the ESP-IDF half is unverified by any build in this session and must be confirmed as part of Task 3's real flash (which requires Docker/ESP-IDF access on the developer's own machine regardless).
 - 06.3-05 Task 1 done (VALIDATION.md reconciled, commit 9bc163e). scripts/run-all-tests.sh exits 1: pre-existing, out-of-scope server/test_poll_loop.py digest-pin failure unrelated to this phase (needs unmerged upstream commit aeac512 merged). Per T-06.3-13, nyquist_compliant stays false while suite is red -- pending human/orchestrator decision. Task 2 (browser visual sign-off) is a human-check step, not yet performed; plan not complete.
 - Phase 06.6.4.1.1 plan 06 stopped at Task 2's blocking developer checkpoint after Task 1's full-suite/coverage/live-route gates passed; see 06.6.4.1.1-06-SUMMARY.md
+- state.advance-plan cannot parse Current Plan/Total Plans in Phase from STATE.md (known recurring limitation, documented repeatedly in this file's own history since Phase 10/11) - Current Position section is stale (references Phase 21) and was not hand-corrected here, out of scope for a single-plan executor
 
 ### Quick Tasks Completed
 
@@ -717,8 +722,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-12T23:26:13.202Z
-Stopped at: Completed 22-05-PLAN.md
+Last session: 2026-09-12T23:56:59.421Z
+Stopped at: Completed 22-06-PLAN.md
 
 Resume file: 
 
