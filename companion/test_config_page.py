@@ -586,6 +586,17 @@ EXPECTED_CHECK_COUNT = 221
 # on-disk check(...) call count at execution time (219/219 pass), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 219
+# 22-05-PLAN.md Task 2 (D-04): +4. Three branch checks (due/held/unknown)
+# pin the Quiet hours caption and the post-save flash reading the SAME
+# one computed delay sentence on one request, plus one repository-wide
+# source scan proving none of the three retired delay wordings survives
+# anywhere under companion/ or server/ (excluding this file's own
+# test_*.py harnesses). The three-shapes handle_post()/live-save-round-
+# trip checks touched by the FLASH_KEY_SAVED template change are
+# retargeted in place, no net count change. 219 + 4 = 223, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (223/223 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 223
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -6140,19 +6151,30 @@ def main():
         "(22-05-PLAN.md Task 1, X1/D-04/D-12.1)",
         _two_scheduled_inputs_carry_form_settings_form)
 
-    def _applies_next_wake_sentence_appears_exactly_twice():
+    def _applies_next_wake_sentence_appears_exactly_three_times():
         # 21-04-PLAN.md Task 1 (D-01/D-02): the constant moved to
         # companion/layout.py along with the switch markup it captions.
+        # 22-05-PLAN.md Task 2 (D-04): retargeted from "exactly twice" to
+        # "exactly three times" — layout.QUICK_ACTION_APPLIES_SENTENCE is
+        # byte-identical to frame_state.DELAY_UNKNOWN (22-04-PLAN.md's own
+        # alias), and _TASK2_BASE_CTX carries no last_checkin_ts, so
+        # frame_state resolves STATE_UNKNOWN/DELAY_UNKNOWN for the Quiet
+        # hours caption's own computed delay sentence too — a THIRD,
+        # genuinely independent consumer of the same translated text, not
+        # a widened count for the same two switches.
         rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
         count = rendered.count(escape_html(layout.QUICK_ACTION_APPLIES_SENTENCE))
-        if count != 2:
+        if count != 3:
             return False, (
-                "expected the shared instant-switch sentence to appear exactly twice, got %d" % count)
+                "expected the shared instant-switch/delay sentence to appear exactly three times, "
+                "got %d" % count)
         return True, ""
     check(
-        "the shared \"Applies the next time the frame wakes up.\" sentence appears exactly twice on "
-        "the Display page — once per instant switch (D-19)",
-        _applies_next_wake_sentence_appears_exactly_twice)
+        "the shared \"Applies the next time the frame wakes up.\" sentence appears exactly three "
+        "times on the Display page — once per instant switch, plus once as the Quiet hours card's "
+        "own computed delay sentence when no check-in data exists yet (D-19, 22-05-PLAN.md Task 2 "
+        "D-04)",
+        _applies_next_wake_sentence_appears_exactly_three_times)
 
     def _handle_post_same_field_set_after_restructure_saves_the_same_config():
         # D-13: only the DOM position of display_group()/quiet_hours_
@@ -6208,7 +6230,7 @@ def main():
             prefs.set_request_prefs(lang="en")
         for french_text in ("Aspect", "Ce qu’il surveille", "Quand il est allumé",
                              "Tout ce que le cadre affiche, et quand.",
-                             "S’applique la prochaine fois que le cadre se réveille."):
+                             "S’applique au prochain réveil du cadre."):
             if french_text not in fr_rendered:
                 return False, "expected %r in the French Display render" % (french_text,)
         for english_text in ("Look", "What it watches", "When it is on",
@@ -6679,6 +6701,121 @@ def main():
         "none at all when it is not (D-13's 'Home and Device show' wording)",
         _device_header_shows_next_wake_line_when_known)
 
+    # ==================================================================
+    # 22-05-PLAN.md Task 2 (D-04): the one computed delay sentence, in
+    # its three branches, for the Quiet hours caption AND the post-save
+    # flash — pinned against the SAME frame_state.py source of truth the
+    # Frame strip itself reads (22-04-PLAN.md).
+    # ==================================================================
+
+    def _quiet_hours_caption_and_flash_agree_on_the_due_branch():
+        ctx = {
+            "device_config": {"wake_interval_s": 900, "quiet_hours_enabled": False},
+            "last_checkin_ts": "2026-08-27T11:55:00+00:00", "now": "2026-08-27T12:00:00+00:00",
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        expected_caption_fragment = escape_html("Applies at the next wake, around 14:10.")
+        if expected_caption_fragment not in display:
+            return False, (
+                "expected the Quiet hours caption to carry the DUE delay sentence with the "
+                "computed clock, not found in %r" % (display,))
+        flash = companion_app._resolve_flash_text(
+            companion_app.FLASH_KEY_SAVED, "/tmp",
+            last_checkin_ts=ctx["last_checkin_ts"], device_cfg=ctx["device_config"])
+        if flash != "Saved — applies at the next wake, around 14:10.":
+            return False, "expected the DUE flash text, got %r" % (flash,)
+        return True, ""
+    check(
+        "with a due result, the Quiet hours caption and the post-save flash both read the DUE delay "
+        "sentence naming the same computed time (D-04)",
+        _quiet_hours_caption_and_flash_agree_on_the_due_branch)
+
+    def _quiet_hours_caption_and_flash_agree_on_the_held_branch():
+        # The nightly regression fixture (22-UI-SPEC.md §3.3 binding rule
+        # 6, 22-02-PLAN.md Task 2's own pinned example): quiet hours
+        # 23:00-07:00 Europe/Paris, last check-in 22:58, clock 02:00 the
+        # next morning (a non-DST January date) — held, never late.
+        device_cfg = {
+            "wake_interval_s": 900, "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        ctx = {
+            "device_config": device_cfg,
+            "last_checkin_ts": "2026-01-15T22:58:00+01:00", "now": "2026-01-16T02:00:00+01:00",
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        expected_caption_fragment = escape_html("Applies when quiet hours end, around 07:00.")
+        if expected_caption_fragment not in display:
+            return False, (
+                "expected the Quiet hours caption to carry the HELD delay sentence naming the "
+                "window's own end, not found in %r" % (display,))
+        flash = companion_app._resolve_flash_text(
+            companion_app.FLASH_KEY_SAVED, "/tmp",
+            last_checkin_ts=ctx["last_checkin_ts"], device_cfg=device_cfg)
+        if flash != "Saved — applies when quiet hours end, around 07:00.":
+            return False, "expected the HELD flash text, got %r" % (flash,)
+        return True, ""
+    check(
+        "with a held result (the nightly regression fixture), the Quiet hours caption and the "
+        "post-save flash both read the HELD delay sentence naming the window's own end, never the "
+        "generic due wording (D-04, 22-UI-SPEC.md §3.3 binding rule 6)",
+        _quiet_hours_caption_and_flash_agree_on_the_held_branch)
+
+    def _quiet_hours_caption_and_flash_agree_on_the_unknown_branch():
+        ctx = {"device_config": {}, "state_dir": "/tmp", "poll_cooldown_remaining": 0}
+        display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        expected_caption_fragment = escape_html("Applies the next time the frame wakes up.")
+        if expected_caption_fragment not in display:
+            return False, (
+                "expected the Quiet hours caption to carry the UNKNOWN delay sentence, not found "
+                "in %r" % (display,))
+        flash = companion_app._resolve_flash_text(companion_app.FLASH_KEY_SAVED, "/tmp")
+        if flash != "Saved — applies the next time the frame wakes up.":
+            return False, "expected the UNKNOWN flash text, got %r" % (flash,)
+        return True, ""
+    check(
+        "with no check-in at all, the Quiet hours caption and the post-save flash both read the "
+        "UNKNOWN delay sentence, which names no time (D-04)",
+        _quiet_hours_caption_and_flash_agree_on_the_unknown_branch)
+
+    def _retired_delay_wordings_appear_nowhere_under_companion_or_server():
+        # The three literal wordings this plan retires — deliberately NOT
+        # typed as a single searchable constant here, so this check's own
+        # source is a real, independent occurrence check, not a
+        # tautology. Excludes this repository's own test_*.py harnesses
+        # (which necessarily name these exact strings, including this
+        # very check, to prove their absence) and, deliberately, includes
+        # companion/frame_state.py's own source (that module documents
+        # the retirement in prose without retyping any of the three
+        # literals — see its own comment).
+        retired = (
+            "Takes effect within about 5 minutes",
+            "Applies on the next scheduled poll, which may now be hours away",
+            "Saved — will apply on the frame's next scheduled refresh",
+        )
+        for root in ("companion", "server"):
+            for dirpath, _dirnames, filenames in os.walk(root):
+                for filename in filenames:
+                    if not filename.endswith(".py"):
+                        continue
+                    if filename.startswith("test_"):
+                        continue
+                    path = os.path.join(dirpath, filename)
+                    with open(path, encoding="utf-8") as fh:
+                        source = fh.read()
+                    for wording in retired:
+                        if wording in source:
+                            return False, "found retired wording %r in %s" % (wording, path)
+        return True, ""
+    check(
+        "none of the three retired delay wordings ('Takes effect within about 5 minutes', "
+        "'Applies on the next scheduled poll, which may now be hours away', 'Saved — will apply "
+        "on the frame's next scheduled refresh') appears anywhere under companion/ or server/, "
+        "excluding this repository's own test_*.py harnesses (D-04)",
+        _retired_delay_wordings_appear_nowhere_under_companion_or_server)
+
     harness = Harness()
     try:
         harness.start()
@@ -6706,8 +6843,17 @@ def main():
             # repository, in companion/app.py's FLASH_MESSAGES mapping —
             # referenced here rather than re-typed, so this file is never
             # a second place that literal sentence lives.
+            #
+            # 22-05-PLAN.md Task 2 (D-04): FLASH_MESSAGES[FLASH_KEY_SAVED]
+            # is now a template ("Saved — %s"), never the whole fixed
+            # sentence — the confirmation body actually served is what
+            # companion_app._resolve_flash_text() resolves it to, given
+            # the SAME facts (no check-in yet recorded on this harness's
+            # own fresh state dir) the real request itself reads.
             confirmation = escape_html(
-                companion_app.FLASH_MESSAGES[companion_app.FLASH_KEY_SAVED])
+                companion_app._resolve_flash_text(
+                    companion_app.FLASH_KEY_SAVED, harness.tmpdir,
+                    last_checkin_ts=None, device_cfg={}))
             if confirmation.encode() not in body:
                 return False, "expected D-07's exact confirmation copy in the response body"
             # 20-07-PLAN.md Task 1 (D-10): the runway group moved from

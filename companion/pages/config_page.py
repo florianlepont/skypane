@@ -20,6 +20,11 @@ from companion import i18n  # D-05, 20-07-PLAN.md Task 1: the Display page's
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
+from companion import frame_state  # 22-05-PLAN.md Task 2 (D-04): the one
+# frame-state resolution and the one delay sentence — the Frame strip
+# (companion/layout.py, 22-04-PLAN.md) and this module's own Quiet hours
+# caption both read frame_state.delay_sentence_template() from the SAME
+# wake.next_wake_status() triple, so the two can never disagree.
 from companion import screens
 from companion import wake
 # 20-07-PLAN.md Task 3 (D-36): the former EDIT_QUERY_PARAM import (19-12-
@@ -350,6 +355,25 @@ QUIET_HOURS_SECTION_CAPTION = (
 # 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
 # comment above.
 QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
+
+# 22-05-PLAN.md Task 2 (D-04): scanner-visibility copies of two of
+# companion/frame_state.py's three delay-sentence constants — byte-
+# identical to frame_state.DELAY_DUE/DELAY_HELD, matching companion/
+# layout.py's own 22-04-PLAN.md Task 1 precedent exactly (that module's
+# own docstring/summary calls this pattern out by name). The D-05 AST
+# i18n completeness scan (companion/test_i18n.py) can trace a same-file
+# top-level scalar used directly as an i18n.t() argument, but not an
+# imported module's attribute access read through a local variable —
+# render()'s own `quiet_hours_delay_template` is exactly such a local
+# variable. The DECISION (which of the three branches applies) still
+# comes from frame_state.delay_sentence_template() alone; only the
+# wording's scanner-visible home is local. frame_state.DELAY_UNKNOWN
+# needs no copy here: companion/layout.py's own
+# `_FRAME_DELAY_UNKNOWN_TEXT` alias already makes that one key scanner-
+# visible (22-04-PLAN.md), so a second copy here would only duplicate,
+# never newly "produce", the same CATALOG key.
+_QUIET_HOURS_DELAY_DUE_TEXT = "Applies at the next wake, around %s."
+_QUIET_HOURS_DELAY_HELD_TEXT = "Applies when quiet hours end, around %s."
 
 # 19-10-PLAN.md (D-14/S-04): three one-tap presets, client-side only - no
 # server change (see quiet_hours_group()'s docstring). The Night preset's
@@ -1704,7 +1728,7 @@ def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=
     )
 
 
-def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
+def quiet_hours_group(current_start, current_end, errors=None, submitted=None, delay_sentence=None):
     """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md;
     restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1; its own on/off
     checkbox retired outright by 22-05-PLAN.md Task 1, X1/D-04/D-12.1):
@@ -1740,6 +1764,19 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
     by this markup change — it already treats an absent field as "leave
     unchanged" (D-12.1), so removing this checkbox does not, by itself,
     change what an unrelated settings save persists.
+
+    22-05-PLAN.md Task 2 (D-04): `delay_sentence` is one fully i18n.t()-
+    translated, already-clock-formatted sentence — the caller (`render()`)
+    computes it once from `wake.next_wake_status()`'s own triple via
+    `companion.frame_state.delay_sentence_template()`, the SAME triple the
+    Frame strip's own captions read (22-04-PLAN.md), so the two can never
+    disagree. Appended as the caption's own second sentence, replacing
+    the retired "Applies on the next scheduled poll, which may now be
+    hours away" wording with a real computed time. Defaults to `None`,
+    which degrades to `frame_state.DELAY_UNKNOWN`'s own translated text —
+    the same degrade every direct call site that does not pass this
+    keyword (a page load with no computed wake data at all) already
+    needs.
 
     Every interpolated current value — the heading, the caption, and
     both current times — is routed through `escape_html()`, matching
@@ -1819,6 +1856,14 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
     # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the scheduled on/off
     # checkbox that used to render next is retired outright too — the
     # presets, both time inputs and the Save button are unchanged.
+    # 22-05-PLAN.md Task 2 (D-04): the caption's own second sentence is
+    # the one computed delay sentence, already translated/formatted by
+    # the caller — this is the ONE place it is escaped, alongside the
+    # caption's own first sentence, in a single combined string (matching
+    # this file's "translate first, escape once" convention).
+    effective_delay_sentence = (
+        delay_sentence if delay_sentence is not None else i18n.t(frame_state.DELAY_UNKNOWN))
+    caption_html = "%s %s" % (i18n.t(QUIET_HOURS_SECTION_CAPTION), effective_delay_sentence)
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
@@ -1833,7 +1878,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None):
         DIRTY_SECTION_ATTR, escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
-        escape_html(i18n.t(QUIET_HOURS_SECTION_CAPTION)),
+        escape_html(caption_html),
         preset_row_html,
         escape_html(i18n.t("Start")),
         escape_html(effective_start), SETTINGS_FORM_ID, start_error_attrs,
@@ -3015,20 +3060,58 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     current_notifications_silent = current_notifications.get(
         "frame_silent", device_config.DEFAULT_NOTIFICATIONS["frame_silent"])
     cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
-    # 19-12-PLAN.md Task 3 (D-13): the same wake.next_wake_at_iso() +
-    # layout.local_clock_text() pipeline home_page.py's Frame tile uses,
+    # 19-12-PLAN.md Task 3 (D-13): the same next-wake + layout.
+    # local_clock_text() pipeline home_page.py's Frame tile uses,
     # computed once here and threaded into every caption site below via
     # _with_next_wake() plus rendered again in the Device header slot.
     # None when the value is unknown (no check-in yet, or no known
     # interval) — every consumer already treats a falsy value as "omit
     # the suffix/line entirely" (D-13: "where the value is known").
+    #
+    # 22-05-PLAN.md Task 2 (D-04): reads wake.next_wake_status()'s full
+    # `(next_wake_iso, effective_interval_s, hold_reason)` triple now,
+    # not just next_wake_at_iso()'s bare ISO string — `next_wake_iso`
+    # itself is byte-identical either way (next_wake_at_iso() is a thin
+    # wrapper over this same call, 22-02-PLAN.md Task 1), so every
+    # existing reader of `next_wake_iso`/`next_wake_clock` below is
+    # unaffected. The two new elements feed `frame_state.
+    # delay_sentence_template()` (below) for the Quiet hours caption's
+    # own computed delay sentence — the SAME triple the Frame strip's
+    # own captions already read (22-04-PLAN.md), so the two can never
+    # disagree; this is the file's own single next-wake call for this
+    # value (comment at the frame_strip_html() call site below).
     next_wake_clock = None
-    next_wake_iso = wake.next_wake_at_iso(ctx.get("last_checkin_ts"), device_cfg)
+    next_wake_iso, next_wake_effective_interval_s, next_wake_hold_reason = wake.next_wake_status(
+        ctx.get("last_checkin_ts"), device_cfg)
     if next_wake_iso:
         next_wake_parsed = layout.parse_iso(next_wake_iso)
         if next_wake_parsed is not None:
             next_wake_clock = layout.local_clock_text(
                 next_wake_parsed, now_parsed=layout.parse_iso(ctx.get("now")))
+    # 22-05-PLAN.md Task 2 (D-04): the ONE computed delay sentence for
+    # Quiet hours' own caption, chosen by frame_state's three branches
+    # from the SAME triple above — never a second, independent
+    # computation. Degrades to DELAY_UNKNOWN's own translated text
+    # (rather than emitting a literal "%s") on the rare case where the
+    # template names a clock but none could be resolved above.
+    quiet_hours_delay_template = frame_state.delay_sentence_template(
+        next_wake_iso, next_wake_effective_interval_s, next_wake_hold_reason)
+    # Branches on frame_state's own return value for equality, then
+    # translates one of THIS module's own scanner-visible local copies —
+    # never the imported constant directly — matching companion/
+    # layout.py's identical pattern (see the constants' own comment
+    # above for why).
+    if quiet_hours_delay_template == frame_state.DELAY_DUE:
+        quiet_hours_delay_sentence = i18n.t(_QUIET_HOURS_DELAY_DUE_TEXT)
+    elif quiet_hours_delay_template == frame_state.DELAY_HELD:
+        quiet_hours_delay_sentence = i18n.t(_QUIET_HOURS_DELAY_HELD_TEXT)
+    else:
+        quiet_hours_delay_sentence = i18n.t(frame_state.DELAY_UNKNOWN)
+    if "%s" in quiet_hours_delay_sentence:
+        if next_wake_clock:
+            quiet_hours_delay_sentence = quiet_hours_delay_sentence % next_wake_clock
+        else:
+            quiet_hours_delay_sentence = i18n.t(frame_state.DELAY_UNKNOWN)
 
     # D-05 (06.6.4.1): the LED group used to be a sibling page-section,
     # appended AFTER the Poll section, rather than a third fieldset
@@ -3127,7 +3210,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
             next_wake_clock=next_wake_clock),
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
             current_quiet_start, current_quiet_end,
-            errors=errors, submitted=submitted),
+            errors=errors, submitted=submitted, delay_sentence=quiet_hours_delay_sentence),
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
             current_wake_interval_s, errors=errors, submitted=submitted,
             next_wake_clock=next_wake_clock),

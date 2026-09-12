@@ -4671,7 +4671,7 @@ def main():
         delay_pairs = (
             (frame_state.DELAY_DUE, "S’applique au prochain réveil, vers %s."),
             (frame_state.DELAY_HELD, "S’applique à la fin des heures calmes, vers %s."),
-            (frame_state.DELAY_UNKNOWN, "S’applique la prochaine fois que le cadre se réveille."),
+            (frame_state.DELAY_UNKNOWN, "S’applique au prochain réveil du cadre."),
         )
         for english, french in delay_pairs:
             if i18n.t_lang(english, "en") != english:

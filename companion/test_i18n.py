@@ -174,20 +174,30 @@ _PROPER_NOUNS_NEVER_TRANSLATED = frozenset({"SkyPane"})
 # three genuinely-new copy strings, translated by plan 22-02 ahead of the
 # plans that consume them. frame_state.py is a deliberately view-free
 # vocabulary module — it defines the due/held/late wording but renders
-# nothing, so no `i18n.t()` call site exists for these three until the
-# Frame strip (22-04), the settings delay sentence (22-05) and Home's
-# tile (22-07) are wired to it. Same shape as part 2 above: defined,
-# correct, and waiting on a consumer rather than dead.
+# nothing, so no `i18n.t()` call site existed for these three until the
+# Frame strip (22-04) and the settings delay sentence (22-05) wired
+# scanner-visible local copies to it.
 #
-# REMOVE THIS FROZENSET when 22-07 lands. At that point all three keys
-# are produced by the D-05 module scan and leaving the exception here
-# would hide a genuinely dead translation instead of documenting a
-# pending one. Plan 22-08 owns this file and should delete it as part of
-# widening the scanner.
+# 22-05-PLAN.md Task 2 (D-04, critical constraint 9): DELAY_DUE
+# ("Applies at the next wake, around %s.") and DELAY_HELD ("Applies
+# when quiet hours end, around %s.") are removed from this frozenset —
+# companion/pages/config_page.py's own quiet-hours delay sentence is a
+# real consumer now, via its own scanner-visible
+# `_QUIET_HOURS_DELAY_DUE_TEXT`/`_QUIET_HOURS_DELAY_HELD_TEXT` local
+# copies (the identical pattern layout.py's own `_FRAME_HEADLINE_HELD_
+# TEXT` already used for HEADLINE_HELD below) — both keys are genuinely
+# produced by the D-05 module scan now, and leaving them here would hide
+# that rather than document a still-pending gap.
+#
+# HEADLINE_HELD ("Next wake around %s · quiet hours") stays — Home's own
+# tile (22-07) is its named consumer per this comment's original text,
+# not this plan; it happens to already be produced today via
+# layout.py's own 22-04-PLAN.md alias, but this plan is not the one that
+# earns removing it, so it is left for 22-07/22-08 to reconcile
+# (REMOVE ENTIRELY when 22-07 lands; plan 22-08 owns this file and
+# should delete the frozenset as part of widening the scanner).
 _FRAME_STATE_AWAITING_CONSUMERS = frozenset({
     "Next wake around %s · quiet hours",
-    "Applies at the next wake, around %s.",
-    "Applies when quiet hours end, around %s.",
 })
 
 

@@ -2806,9 +2806,13 @@ def main():
         # (and never sharing a key with) the older save-triggered-sync
         # flash — every other FLASH_MESSAGES value still carries no
         # runtime placeholder at all.
+        # 22-05-PLAN.md Task 2 (D-04) widens it once more for
+        # FLASH_KEY_SAVED's own "%s" - the one computed delay sentence
+        # (companion/frame_state.py), never a fixed literal any more.
         _interpolated_keys = (
             app_module.FLASH_KEY_POLL_COOLDOWN, app_module.FLASH_KEY_RULE_REPLACED,
-            app_module.FLASH_KEY_CALENDAR_CONNECTED, app_module.FLASH_KEY_CALENDAR_CONNECT_OK)
+            app_module.FLASH_KEY_CALENDAR_CONNECTED, app_module.FLASH_KEY_CALENDAR_CONNECT_OK,
+            app_module.FLASH_KEY_SAVED)
         for key, text in app_module.FLASH_MESSAGES.items():
             if key in _interpolated_keys:
                 continue
@@ -2817,7 +2821,7 @@ def main():
                     "expected no runtime interpolation in FLASH_MESSAGES[%r], got %r "
                     "(UI-SPEC Autonomous Decision 6: flash copy is fixed, never "
                     "interpolated, except the cooldown, rule_replaced, "
-                    "calendar_connected and calendar_connect_ok keys)" % (key, text))
+                    "calendar_connected, calendar_connect_ok and saved keys)" % (key, text))
         return True, ""
     check(
         "every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six "

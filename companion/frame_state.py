@@ -99,12 +99,16 @@ HEADLINE_LATE = "Expected since %s"
 
 # --- The three delay-sentence branches (D-04) ---------------------------
 #
-# Replaces every one of this phase's four retired wordings ("Applies the
-# next time the frame wakes up" as a hard-coded per-control literal,
-# "Takes effect within about 5 minutes", "Applies on the next scheduled
-# poll, which may now be hours away", and the flash variant "Saved —
-# will apply on the frame's next scheduled refresh") with one computed
-# sentence in exactly three branches.
+# Replaces every one of this phase's four retired wordings — "Applies
+# the next time the frame wakes up" as a hard-coded per-control literal,
+# the Screen-off card's own honest-but-fixed few-minutes-latency caption
+# (22-05-PLAN.md Task 1), the Quiet-hours card's own generic could-be-
+# hours-away caption tail (22-05-PLAN.md Task 2), and the post-save
+# flash's own fixed confirmation clause (22-05-PLAN.md Task 2) — with one
+# computed sentence in exactly three branches. 22-05-PLAN.md's own
+# acceptance criteria name the three retired literals verbatim; they are
+# deliberately NOT re-typed here, so this comment itself can never be
+# mistaken for a live occurrence by a repository-wide scan for them.
 
 DELAY_DUE = "Applies at the next wake, around %s."
 DELAY_HELD = "Applies when quiet hours end, around %s."

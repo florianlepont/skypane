@@ -58,7 +58,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    auth, i18n, illustration_normalize, layout, prefs, theme_preview, wake)
+    auth, frame_state, i18n, illustration_normalize, layout, prefs, theme_preview, wake)
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
@@ -354,7 +354,13 @@ FLASH_MESSAGES = {
     FLASH_KEY_QUIET_ON: "Quiet hours turned on — applies the next time the frame wakes up.",
     FLASH_KEY_QUIET_OFF: "Quiet hours turned off — applies the next time the frame wakes up.",
     FLASH_KEY_QUICK_FAILED: "Couldn't change that — please try again.",
-    FLASH_KEY_SAVED: "Saved — will apply on the frame's next scheduled refresh.",
+    # 22-05-PLAN.md Task 2 (D-04): "%s" is filled by _resolve_flash_text()'s
+    # own frame-state special case below with ONE computed delay sentence
+    # (companion/frame_state.py, via the SAME wake.next_wake_status()
+    # triple the Frame strip and the Quiet hours caption both read) —
+    # never the retired fixed literal "will apply on the frame's next
+    # scheduled refresh" this key used to carry.
+    FLASH_KEY_SAVED: "Saved — %s",
     FLASH_KEY_SAVE_FAILED: (
         "Couldn't save settings — please try again. If this keeps "
         "happening, check the companion service logs."),
@@ -366,8 +372,15 @@ FLASH_MESSAGES = {
         "Poll trigger failed — please try again. If this keeps happening, "
         "check the companion service logs."),
     FLASH_KEY_POLL_ALREADY_RUNNING: "A poll is already in progress — try again in a moment.",
+    # 22-05-PLAN.md Task 2 (D-04): reworded to remove the retired "will
+    # apply on the frame's next scheduled refresh" literal (the acceptance
+    # grep for that phrase is repository-wide, not scoped to the settings
+    # save it originally described) — matches FLASH_KEY_RULE_ADDED's own
+    # established "next time it wakes and polls" voice, an accurate,
+    # already-existing wording for this same "next scheduled poll cycle"
+    # fact, not a new claim about illustrations specifically.
     FLASH_KEY_ILLUSTRATION_REPLACED: (
-        "Illustration replaced — will apply on the frame's next scheduled refresh."),
+        "Illustration replaced — the frame will use it next time it wakes and polls."),
     # Actionable, states the real requirements in user terms, and never
     # echoes a server path or any part of the uploaded file back to the
     # client (T-v26-02-08) — validate_illustration_file()'s own problem
@@ -664,7 +677,8 @@ def _validated_next_route(candidate):
     return candidate if candidate in allowed else None
 
 
-def _resolve_flash_text(flash_key, state_dir, rule_key=None):
+def _resolve_flash_text(
+        flash_key, state_dir, rule_key=None, last_checkin_ts=None, device_cfg=None):
     """`rule_key` (Phase 15 D-10, 15-05-PLAN.md) is the second special
     case this function carries, mirroring FLASH_KEY_POLL_COOLDOWN's own
     runtime-value-interpolation shape immediately below: FLASH_KEY_RULE_
@@ -684,10 +698,43 @@ def _resolve_flash_text(flash_key, state_dir, rule_key=None):
     parameter could carry — degrades to the generic FLASH_KEY_RULE_ADDED
     copy rather than ever reaching the page unvalidated; `escape_html()`
     on render (`layout.flash_banner()`) is the second line.
+
+    22-05-PLAN.md Task 2 (D-04): `last_checkin_ts`/`device_cfg` (both
+    fully defaulted, so every pre-existing caller that does not pass
+    them behaves exactly as before) feed the ONE computed delay sentence
+    FLASH_KEY_SAVED's own special case below needs — the SAME
+    `wake.next_wake_status()` triple the Frame strip and the Quiet hours
+    caption both read (`companion/frame_state.py`), so all three can
+    never disagree about when a save reaches the frame.
     """
     if flash_key not in FLASH_MESSAGES:
         return None
     template = FLASH_MESSAGES[flash_key]
+    if flash_key == FLASH_KEY_SAVED:
+        # The three retired wordings this key (and its own settings-page
+        # caption siblings) used to carry — "Takes effect within about 5
+        # minutes", "Applies on the next scheduled poll, which may now be
+        # hours away", "Saved — will apply on the frame's next scheduled
+        # refresh" — are all gone; this is their one shared replacement.
+        next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
+            last_checkin_ts, device_cfg or {})
+        delay_template = frame_state.delay_sentence_template(
+            next_wake_iso, effective_interval_s, hold_reason)
+        delay_text = i18n.t(delay_template)
+        if "%s" in delay_text:
+            next_wake_parsed = layout.parse_iso(next_wake_iso)
+            clock = (
+                layout.local_clock_text(next_wake_parsed)
+                if next_wake_parsed is not None else None)
+            delay_text = (
+                delay_text % clock if clock else i18n.t(frame_state.DELAY_UNKNOWN))
+        # Lower-cased so the computed clause reads naturally after
+        # "Saved — " (every frame_state sentence is written to stand
+        # alone, capitalised, as a settings-caption's own second
+        # sentence — not as a flash banner's trailing clause).
+        if delay_text:
+            delay_text = delay_text[:1].lower() + delay_text[1:]
+        return template % delay_text
     if flash_key == FLASH_KEY_POLL_COOLDOWN:
         return template.format(n=poll_cooldown_remaining(state_dir))
     if flash_key == FLASH_KEY_CALENDAR_CONNECTED:
@@ -1294,6 +1341,11 @@ class Handler(BaseHTTPRequestHandler):
         # (plan 16-03), which is what makes this safe to call
         # unconditionally on every authenticated page render (T-16-DOS).
         calendar_registry = calendar_rules.load_calendar_registry(state_dir)
+        # 22-05-PLAN.md Task 2 (D-04): captured once here and reused for
+        # both the "last_checkin_ts" ctx key below and _resolve_flash_
+        # text()'s own FLASH_KEY_SAVED special case — never a second,
+        # independent read of the same fact.
+        last_checkin_ts = _safe_last_checkin_ts(state_dir)
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
@@ -1311,7 +1363,7 @@ class Handler(BaseHTTPRequestHandler):
             # Data only — the page module that renders it formats it
             # (wake.next_wake_at_iso() + layout.local_clock_text()),
             # matching wake.py's own deliberate no-view-dependency rule.
-            "last_checkin_ts": _safe_last_checkin_ts(state_dir),
+            "last_checkin_ts": last_checkin_ts,
             # D-07 (11-04): the deployed SKYPANE_SLEEP_S, read fresh from
             # this process's own environment on every request — an int in
             # [WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S] or None. An
@@ -1323,7 +1375,9 @@ class Handler(BaseHTTPRequestHandler):
             # (11-RESEARCH.md Open Question 2: an empty numeric input
             # means "leave unchanged", never "clear").
             "wake_interval_env_default": env_wake_interval_default(),
-            "flash": _resolve_flash_text(flash_key, state_dir, rule_key=rule_key),
+            "flash": _resolve_flash_text(
+                flash_key, state_dir, rule_key=rule_key, last_checkin_ts=last_checkin_ts,
+                device_cfg=device_cfg),
             # 06.6.2-06 (UXA-07): the ARIA role the resolved flash text
             # should render with, looked up from the same flash_key this
             # method already resolved above — "status" for any key not
