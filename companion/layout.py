@@ -1617,13 +1617,21 @@ def section_intro_html(section_id, heading, description):
     must never drift from that shape. The description keeps the
     `text-label section-caption` pairing already established for this
     "muted one-sentence-under-a-heading" role.
+
+    WR-03 fix (20-REVIEW.md): `section_id` is escaped too, like every
+    other string this file interpolates into an HTML attribute or text
+    node — this was the one exception to that "escape everything,
+    unconditionally" invariant. Every current call site passes a fixed
+    module-level string constant, so this was not exploitable today,
+    but this helper is shared across page modules going forward and
+    must not be the one place a caller is trusted.
     """
     return (
         '<div class="section-intro">'
         '<h2 id="%s" class="text-heading">%s</h2>'
         '<p class="text-label section-caption">%s</p>'
         "</div>"
-    ) % (section_id, escape_html(heading), escape_html(description))
+    ) % (escape_html(section_id), escape_html(heading), escape_html(description))
 
 
 def empty_state(heading, body):

@@ -499,6 +499,14 @@ EXPECTED_CHECK_COUNT = 212  # Polish fix 2 (French Home status rows):
 # root-sandbox anomaly_active() failure, unrelated to this plan), not
 # trusted from arithmetic alone.
 
+EXPECTED_CHECK_COUNT = 213  # WR-03 fix (20-REVIEW.md): +1
+# (layout.section_intro_html() escapes a hostile section_id argument,
+# never writing it raw into the id="..." attribute). 212 + 1 = 213,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (212/213 pass — the one documented pre-existing
+# root-sandbox anomaly_active() failure, unrelated to this fix), not
+# trusted from arithmetic alone.
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -6585,6 +6593,18 @@ def main():
         "former private _section_intro_html() rendered before the promotion (20-UI-SPEC.md "
         "Section Anatomy C)",
         _section_intro_html_is_byte_identical_to_the_promoted_markup)
+
+    def _section_intro_html_escapes_hostile_section_id():
+        rendered = layout.section_intro_html('"><script>alert(1)</script>', "Heading", "Description")
+        if "<script>" in rendered:
+            return False, "expected a hostile section_id to be escaped, got raw markup: %r" % (rendered,)
+        if "&lt;script&gt;" not in rendered:
+            return False, "expected the escaped section_id to be present: %r" % (rendered,)
+        return True, ""
+    check(
+        "layout.section_intro_html() escapes a hostile section_id argument, never writing it raw "
+        "into the id=\"...\" attribute (WR-03, 20-REVIEW.md)",
+        _section_intro_html_escapes_hostile_section_id)
 
     def _health_page_no_longer_defines_section_intro_html():
         if hasattr(health_page, "_section_intro_html"):
