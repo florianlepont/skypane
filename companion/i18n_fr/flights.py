@@ -80,6 +80,15 @@ CATALOG = {
     "View panel near this time": "Voir le panneau proche de cette heure",
     "Picture shown on the frame": "Image affichée sur le cadre",
     "Picture from %s": "Image du %s",
+    # 20-12-PLAN.md Task 1: COLOUR_CAVEAT's own key, independent of the
+    # LIGHTBOX_NOTE composition below that folds it in verbatim — the
+    # completeness harness treats a constant used only by concatenation
+    # as still needing its own catalogue entry (it is a real, reusable
+    # sentence per its own defining comment in history_page.py).
+    "Colours are nominal render-internal swatches, not colour-accurate "
+    "against real Spectra 6 glass.":
+        "Les couleurs sont des teintes internes de rendu, pas une "
+        "reproduction fidèle du vrai verre Spectra 6.",
     "This is the nearest recorded render, not necessarily from this "
     "exact flight — the panel updates on its own wake/poll cycle. "
     "Colours are nominal render-internal swatches, not colour-accurate "

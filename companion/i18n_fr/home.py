@@ -36,7 +36,7 @@ CATALOG = {
     "Nothing rendered yet.": "Rien n’a encore été généré.",
     "The server saves a copy of each picture it sends to the frame; the "
     "latest one will appear here.":
-        "Le serveur conserve une copie de chaque image envoyée au cadre ; "
+        "Le serveur conserve une copie de chaque image envoyée au cadre ; "
         "la plus récente apparaîtra ici.",
 
     # --- Hero: the flight one-liner's direction word --------------------
