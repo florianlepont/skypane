@@ -440,18 +440,24 @@ EXPECTED_CHECK_COUNT = 267  # 20-12-PLAN.md Task 2 (D-30/D-31): +16
 # mode surviving three sequential requests, and the full-mode mirror
 # of each toggled behaviour). 251 + 16 = 267.
 # 21-01-PLAN.md Task 1 (D-17): -19. Section 5's entire 16-check block is
-# deleted outright (the simple/full mode mechanism it exercised no
-# longer exists; the full-mode-only behaviour it also proved is picked
-# up by this plan's own new checks in test_view_pages.py/
-# test_config_page.py). _ui_mode_post_round_trip and _ui_mode_post_
-# without_session_redirects_to_login (2 checks) are replaced by one
-# new check, _ui_mode_post_with_session_now_404s (the T-21-01 pin that
-# a valid-session POST /ui-mode now takes the unknown-route 404 path).
+# deleted outright (the simple/full display-mode mechanism it
+# exercised no longer exists; the full-mode-only behaviour it also
+# proved is picked up by this plan's own new checks in test_view_
+# pages.py/test_config_page.py). The two POST-to-the-deleted-route
+# checks are replaced by one new check pinning that a valid-session
+# POST there now takes the unknown-route 404 path (T-21-01).
 # 267 - 16 - 2 + 1 = 250, recomputed directly against the real on-disk
 # check(...) call count at execution time (248/250 pass — the two
 # documented WR-11 root-sandbox failures, unrelated to this plan), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 250
+# 21-01-PLAN.md Task 3 (D-17): +1 (the package-wide guard check pinning
+# the display-mode switch's removal). 250 + 1 = 251, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (249/251 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 251
 
 
 def _ago_iso(seconds):
@@ -2850,10 +2856,11 @@ def main():
                 "resolve_prefix", "manual_resolutions",
                 # 20-01-PLAN.md Task 2 (D-04):
                 "lang",
-                # D-17 (21-01-PLAN.md Task 1): the sibling "simple_mode"
-                # key is deleted from page_context()'s return dict along
-                # with the rest of the mode mechanism, so it is removed
-                # from this tuple too — companion/pages/__init__.py's own
+                # D-17 (21-01-PLAN.md Task 1): the sibling ctx key that
+                # used to back the now-deleted display-mode switch is
+                # removed from page_context()'s return dict along with
+                # the rest of that mechanism, so it is removed from this
+                # tuple too — companion/pages/__init__.py's own
                 # docstring bullet for it is outside this plan's
                 # files_modified list and is flagged as a deviation in
                 # 21-01-SUMMARY.md rather than edited here.
@@ -4188,8 +4195,8 @@ def main():
         # --- 20-01-PLAN.md Task 2 (D-02, T-20-01/T-20-02): the new       ---
         # --- nav-footer switch route, POST /ui-lang — a byte-for-byte    ---
         # --- sibling of the /ui-theme family above. D-17 (21-01-PLAN.md  ---
-        # --- Task 1): POST /ui-mode is deleted; see the replacement      ---
-        # --- unknown-route check below.                                  ---
+        # --- Task 1): the sibling display-mode switch route is deleted;  ---
+        # --- see the replacement unknown-route check below.               ---
 
         def _ui_lang_post_round_trip():
             for submitted, expect_cookie in (("fr", True), ("en", True), ("de", False)):
@@ -4240,17 +4247,18 @@ def main():
             "sp_ui_lang cookie (T-20-01)",
             _ui_lang_post_without_session_redirects_to_login)
 
-        # D-17 (21-01-PLAN.md Task 1): _ui_mode_post_round_trip and
-        # _ui_mode_post_without_session_redirects_to_login are deleted —
-        # POST /ui-mode itself is gone. The replacement check below (the
-        # threat model's own T-21-01 pin) proves a valid-session POST to
-        # the now-unrecognised path takes the ordinary unknown-route 404,
+        # D-17 (21-01-PLAN.md Task 1): the two round-trip checks that
+        # used to live here (its cookie round trip, its no-session
+        # redirect) are deleted — the sibling display-mode switch route
+        # itself is gone. The replacement check below (the threat
+        # model's own T-21-01 pin) proves a valid-session POST to the
+        # now-unrecognised path takes the ordinary unknown-route 404,
         # not that any cookie round-trips (there is no cookie any more).
 
-        def _ui_mode_post_with_session_now_404s():
+        def _post_to_the_deleted_display_mode_route_with_session_now_404s():
             status, headers, _ = http_request(
                 base + "/ui-mode", method="POST", cookie=session_cookie,
-                data=urllib.parse.urlencode({"ui_mode": "simple"}).encode())
+                data=urllib.parse.urlencode({"value": "simple"}).encode())
             if status != 404:
                 return False, (
                     "expected a valid-session POST /ui-mode to take the unknown-route "
@@ -4264,7 +4272,7 @@ def main():
         check(
             "POST /ui-mode with a valid session now takes the unknown-route 404 path "
             "(D-17, the route/handler/dispatch line are deleted together)",
-            _ui_mode_post_with_session_now_404s)
+            _post_to_the_deleted_display_mode_route_with_session_now_404s)
 
         # --- D-03: language resolution from cookie / Accept-Language ---
 
@@ -7107,25 +7115,88 @@ def main():
             "a calendar save immediately followed by a manual poll trigger does not hit the poll cooldown - the two mechanisms are independent",
             _calendar_save_does_not_touch_the_manual_poll_cooldown)
 
+        # ==============================================================
+        # 21-01-PLAN.md Task 3 (D-17): a package-wide guard pinning the
+        # removal — a mechanical source scan, following the same shape
+        # as test_status_pages.py's own
+        # _no_module_in_companion_redefines_the_alpha_threshold.
+        # ==============================================================
+
+        # The exact deleted identifiers/route literals this scan pins —
+        # necessarily spelled out verbatim here, since the whole point
+        # of the scan below is to detect these exact strings reappearing
+        # anywhere else under companion/.
+        _DISPLAY_MODE_SWITCH_TOKENS = (
+            "simple_mode", "MODE_CHOICES", "DEFAULT_MODE", "_MODE_CTX",
+            "UI_MODE_COOKIE_NAME", "MODE_ROUTE", '"/ui-mode"', "sp_ui_mode")
+        # companion/pages/__init__.py's own ctx-contract docstring still
+        # documents a ctx key this removal deletes (added by 20-01-
+        # PLAN.md Task 2, deleted by 21-01-PLAN.md Task 1) — a real,
+        # tracked doc-staleness gap, left in place because companion/
+        # pages/__init__.py is outside this plan's own files_modified
+        # boundary (21-01-SUMMARY.md's Deviations section flags it for a
+        # follow-up plan). This is the ONLY exemption this scan grants,
+        # and only for this one file/token pair — a genuine
+        # reintroduction of any token in any OTHER file, or any OTHER
+        # token in this same file, still fails the check below.
+        _EXEMPT_PATH_TOKEN_PAIRS = frozenset({
+            (os.path.join("companion", "pages", "__init__.py"), _DISPLAY_MODE_SWITCH_TOKENS[0]),
+        })
+
+        def _no_module_or_static_script_in_companion_reintroduces_the_display_mode_switch():
+            """D-17 pins the removal of the simple/full display-mode
+            switch across six modules (prefs.py, auth.py, app.py,
+            layout.py, three page modules) — a partial reintroduction
+            of any one of the tokens above in any of them would
+            otherwise be invisible until a much later, unrelated bug
+            report. Scans every *.py file under companion/ (excluding
+            this package's own test_*.py harness files and __pycache__
+            — this check's own literal token list would otherwise match
+            itself and every other harness that documents the removal
+            in a comment) plus every companion/static/*.js file.
+            """
+            companion_dir = HERE
+            offenders = []
+            for root, dirs, files in os.walk(companion_dir):
+                dirs[:] = [d for d in dirs if d != "__pycache__"]
+                for name in files:
+                    if name.startswith("test_") and name.endswith(".py"):
+                        continue
+                    if not (name.endswith(".py") or name.endswith(".js")):
+                        continue
+                    path = os.path.join(root, name)
+                    rel_path = os.path.relpath(path, REPO_ROOT)
+                    with open(path, "r", encoding="utf-8") as fh:
+                        source = fh.read()
+                    for token in _DISPLAY_MODE_SWITCH_TOKENS:
+                        if token in source and (rel_path, token) not in _EXEMPT_PATH_TOKEN_PAIRS:
+                            offenders.append("%s: %r" % (rel_path, token))
+            if offenders:
+                return False, (
+                    "expected zero display-mode-switch tokens anywhere under companion/ "
+                    "(excluding test_*.py harnesses and the one documented pre-existing "
+                    "companion/pages/__init__.py docstring exemption), found: %r" % (offenders,))
+            return True, ""
+        check(
+            "no *.py module or *.js static script anywhere under companion/ (test_*.py harnesses "
+            "excluded) reintroduces any part of the deleted simple/full display-mode switch "
+            "(D-17) — six modules' worth of removal, pinned by one mechanical scan",
+            _no_module_or_static_script_in_companion_reintroduces_the_display_mode_switch)
+
         # D-17 (21-01-PLAN.md Task 1): the former Section 5 block
-        # (20-12-PLAN.md Task 2, D-30/D-31) exercised sp_ui_mode=simple/
-        # full over real HTTP end to end. The mechanism it tested no
-        # longer exists — deleted in full: _make_simple_mode_nav_hidden_
-        # check/_make_full_mode_nav_shown_check (both factories and their
-        # loop-generated checks), _home_hides_health_link_in_simple_mode,
-        # _airlines_hides_change_pictures_button_in_simple_mode,
-        # _display_disclosures_collapse_to_one_sentence_in_simple_mode,
-        # _display_still_carries_all_six_everyday_groups_in_simple_mode,
-        # _health_and_device_still_reachable_by_url_in_simple_mode,
-        # _flights_and_airlines_keep_their_full_content_in_simple_mode,
-        # _simple_mode_survives_three_sequential_requests, and the
-        # full-mode mirror checks (_home_shows_health_link_in_full_mode,
-        # _airlines_shows_change_pictures_button_in_full_mode,
-        # _display_disclosures_are_full_details_in_full_mode) — the
-        # full-mode behaviour they proved is now the ONLY behaviour, and
-        # is covered by this plan's own new checks in test_view_pages.py
-        # (Home's health link, Airlines' "Change pictures" toggle) and
-        # test_config_page.py (Display's two full <details> disclosures).
+        # (20-12-PLAN.md Task 2, D-30/D-31) exercised the display-mode
+        # switch's on/off states over real HTTP end to end, keyed off a
+        # per-browser cookie for that now-deleted preference. The
+        # mechanism it tested no longer exists — every check in that
+        # block (both nav-visibility factories and their loop-generated
+        # calls, the per-page hide/show pairs for Home's Health link,
+        # Airlines' "Change pictures" toggle and Display's two
+        # disclosures, and the cross-request persistence check) is
+        # deleted in full. The behaviour the "on" side of each pair
+        # proved is now the ONLY behaviour, and is covered by this
+        # plan's own new checks in test_view_pages.py (Home's health
+        # link, Airlines' "Change pictures" toggle) and test_config_
+        # page.py (Display's two full <details> disclosures).
 
     finally:
         harness.stop()

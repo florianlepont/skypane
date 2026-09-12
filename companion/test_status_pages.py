@@ -506,13 +506,12 @@ EXPECTED_CHECK_COUNT = 213  # WR-03 fix (20-REVIEW.md): +1
 # at execution time (212/213 pass — the one documented pre-existing
 # root-sandbox anomaly_active() failure, unrelated to this fix), not
 # trusted from arithmetic alone.
-# 21-01-PLAN.md Task 1 (D-17): net 0. _shell_has_three_ordered_theme_
-# forms_each_with_aria_label is rewritten in place (renamed _shell_has_
-# two_ordered_theme_forms_each_with_aria_label — 2 forms/copy, 0
-# /ui-mode forms) rather than deleted-plus-added, and
-# _simple_mode_omits_advanced_group_and_health_dot is deleted and
-# replaced one-for-one by _advanced_group_always_renders_in_both_nav_
-# copies (the Advanced group is no longer mode-gated). 213 + 0 = 213,
+# 21-01-PLAN.md Task 1 (D-17): net 0. The nav-footer form-count check
+# is rewritten in place (2 forms per footer copy now, the deleted
+# switch's own form action gone) rather than deleted-plus-added, and
+# the display-mode-gated Advanced-group-omission check is deleted and
+# replaced one-for-one by a check that the Advanced group always
+# renders in both nav copies. 213 + 0 = 213,
 # recomputed directly against the real on-disk check(...) call count
 # at execution time (212/213 pass — the one documented pre-existing
 # root-sandbox anomaly_active() failure, unrelated to this plan), not
@@ -6497,12 +6496,11 @@ def main():
         _french_shell_nav_reads_the_locked_french_labels)
 
     def _advanced_group_always_renders_in_both_nav_copies():
-        """D-17 (21-01-PLAN.md Task 1): the simple-mode gate that used
+        """D-17 (21-01-PLAN.md Task 1): the display-mode gate that used
         to omit the Advanced group (Health, Device) is deleted — the
         group now renders on every page for every request, in both the
-        sidebar and the mobile-nav dropdown copy. Replaces the deleted
-        _simple_mode_omits_advanced_group_and_health_dot, which tested
-        the now-removed omission mechanism.
+        sidebar and the mobile-nav dropdown copy. Replaces a deleted
+        check that tested the now-removed omission mechanism.
         """
         rendered = layout.page_shell(
             title="Home", active="home", body="", ui_theme="auto", health_alert="warn")

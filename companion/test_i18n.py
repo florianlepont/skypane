@@ -42,10 +42,9 @@ import companion.prefs as prefs  # noqa: E402
 
 # 20-12-PLAN.md Task 1
 EXPECTED_CHECK_COUNT = 24
-# 21-01-PLAN.md Task 1: -2 (the two prefs mode-membership checks,
-# _check_prefs_unknown_mode_leaves_simple_mode_false and
-# _check_prefs_simple_mode_true_for_simple, are deleted along with
-# prefs.simple_mode()/set_request_prefs()'s mode= parameter, D-17).
+# 21-01-PLAN.md Task 1: -2 (the two prefs display-mode-membership
+# checks are deleted along with the reader method and the setter's
+# second keyword parameter they exercised, D-17).
 EXPECTED_CHECK_COUNT = 22
 
 
@@ -634,10 +633,10 @@ def main():
         "prefs.set_request_prefs(lang='de') resolves to 'en'",
         _check_prefs_unknown_lang_degrades_to_en)
 
-    # D-17 (21-01-PLAN.md Task 1): _check_prefs_unknown_mode_leaves_
-    # simple_mode_false and _check_prefs_simple_mode_true_for_simple
-    # are deleted — prefs.simple_mode()/the mode= parameter they
-    # exercised no longer exist.
+    # D-17 (21-01-PLAN.md Task 1): the two display-mode-membership
+    # checks that used to live here are deleted — the reader method
+    # and the setter's second keyword parameter they exercised no
+    # longer exist.
 
     # ==================================================================
     # Catalogue completeness against its own sibling modules

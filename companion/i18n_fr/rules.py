@@ -56,10 +56,10 @@ CATALOG = {
     "Remove": "Retirer",
     "Remove this rule?": "Retirer cette règle ?",
 
-    # D-17 (21-01-PLAN.md Task 2): the collapsed disclosure sentence's
-    # French entry is deleted in this same commit as its English
-    # constant (RULES_HOW_RULES_COMBINE_SIMPLE, companion/pages/
-    # config_page.py) — the display mode that selected it is gone.
+    # D-17 (21-01-PLAN.md Task 2): the "How rules combine" disclosure's
+    # collapsed one-sentence French entry is deleted in this same
+    # commit as its English source constant in companion/pages/
+    # config_page.py — the display mode that selected it is gone.
 
     # --- Suggestion chips (D-15e) ----------------------------------------
     "Recent:": "Récents :",

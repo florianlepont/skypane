@@ -355,13 +355,12 @@ EXPECTED_CHECK_COUNT = 107  # Polish fix 5 (Registry labels shown in
 # "Piste 3 (07/25)" — with no English label leaking in). 106 + 1 = 107,
 # recomputed directly against the real on-disk check(...) call count
 # at execution time (107/107 pass), not trusted from arithmetic alone.
-# 21-01-PLAN.md Task 2 (D-17): -2. _airlines_simple_mode_render_has_no_
-# toggle_or_caption and _airlines_simple_mode_and_edit_mode_still_
-# renders_lightbox_forms are deleted outright (the toggle's display-
-# mode gate no longer exists; existing default/edit_mode=True coverage
-# is unaffected). _home_status_card_health_link_gated_by_simple_mode
-# is rewritten in place as _home_status_card_always_shows_health_link
-# (net 0 for that one). 107 - 2 = 105, recomputed directly against the
+# 21-01-PLAN.md Task 2 (D-17): -2. The two airlines toggle checks that
+# exercised its now-deleted display-mode gate are deleted outright
+# (the toggle's gate no longer exists; existing default/edit_mode=True
+# coverage is unaffected). The Home health-link check is rewritten in
+# place to assert the link always renders (net 0 for that one).
+# 107 - 2 = 105, recomputed directly against the
 # real on-disk check(...) call count at execution time (105/105 pass),
 # not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 105
@@ -2961,9 +2960,10 @@ def main():
         _airlines_edit_mode_render_has_exactly_one_of_each_edit_only_form)
 
     # ======================================================================
-    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle -
-    # gated on simple_mode, never touching D-22's own ctx["edit_mode"]
-    # gate on the lightbox forms checked just above.
+    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle,
+    # unconditional since 21-01-PLAN.md Task 2 (D-17/D-20) — never
+    # touching D-22's own ctx["edit_mode"] gate on the lightbox forms
+    # checked just above.
     # ======================================================================
 
     def _airlines_default_render_has_one_change_pictures_toggle():
@@ -2999,12 +2999,11 @@ def main():
         "back to /airlines with no query (D-36, 20-10-PLAN.md Task 1)",
         _airlines_edit_mode_render_shows_done_toggle_with_no_query)
 
-    # D-17 (21-01-PLAN.md Task 2): _airlines_simple_mode_render_has_no_
-    # toggle_or_caption and _airlines_simple_mode_and_edit_mode_still_
-    # renders_lightbox_forms are deleted — the display-mode gate they
-    # exercised on airlines_page._edit_toggle_html() is deleted (D-20:
-    # the toggle is unconditional now). Coverage that the toggle
-    # renders by default is unaffected and stays live in
+    # D-17 (21-01-PLAN.md Task 2): the two checks that used to exercise
+    # the display-mode gate on airlines_page._edit_toggle_html() are
+    # deleted — that gate itself is deleted (D-20: the toggle is
+    # unconditional now). Coverage that the toggle renders by default
+    # is unaffected and stays live in
     # _airlines_default_render_has_one_change_pictures_toggle above.
 
     def _airlines_french_render_shows_translated_toggle_labels():
@@ -3828,8 +3827,7 @@ def main():
 
     def _home_status_card_always_shows_health_link():
         """D-17 (21-01-PLAN.md Task 2): the display-mode gate that used
-        to hide this link is deleted — replaces the deleted
-        _home_status_card_health_link_gated_by_simple_mode, which
+        to hide this link is deleted — replaces a deleted check that
         tested that now-removed mechanism."""
         from companion.pages import home_page
         ctx = {

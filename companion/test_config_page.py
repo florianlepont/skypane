@@ -470,8 +470,8 @@ EXPECTED_CHECK_COUNT = 212  # D-12 fix (20-REVIEW.md verification gap):
 # 211 + 1 = 212, recomputed directly against the real on-disk check(...)
 # call count at execution time (212/212 pass), not trusted from
 # arithmetic alone.
-# 21-01-PLAN.md Task 2 (D-17): net 0. _rules_simple_mode_collapses_
-# disclosure_to_one_sentence is deleted and replaced one-for-one by
+# 21-01-PLAN.md Task 2 (D-17): net 0. The rules-disclosure collapse
+# check is deleted and replaced one-for-one by
 # _plain_render_carries_both_disclosures_in_full_never_collapsed (the
 # display mode that selected the collapsed variant no longer exists).
 # 212 + 0 = 212, recomputed directly against the real on-disk
@@ -4330,8 +4330,8 @@ def main():
     def _plain_render_carries_both_disclosures_in_full_never_collapsed():
         """D-17 (21-01-PLAN.md Task 2): the display mode that used to
         collapse both disclosures to one plain sentence is deleted —
-        replaces the deleted _rules_simple_mode_collapses_disclosure_
-        to_one_sentence, which tested that now-removed mechanism.
+        replaces a deleted check that tested that now-removed
+        mechanism.
         """
         ctx = {
             "device_config": {"theme": "white", "tracked_runway": "3"},
