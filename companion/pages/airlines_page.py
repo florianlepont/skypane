@@ -1181,23 +1181,25 @@ def _lightbox_html(edit_mode=False):
     close button by attribute, not by position, so this order matters
     only to a human, never to the script.
 
-    19-08-PLAN.md Task 3 (D-22): `edit_mode` (fully defaulted to
-    `False`, so every existing direct call in the harness keeps its
-    current behaviour until retargeted) splits this dialog's forms into
-    two tiers. The resolve-name form (and the always-present
-    resolve-context `<dl>`) stay unconditional — naming a prefix is the
-    everyday action the gap strip's own sentence invites ("Tap one to
-    name it"), so the view-only lightbox still lets a household member
-    do that. `resolve_upload_html`, the replace form and the delete
-    form are the artwork-editing tier: each is emitted only when
-    `edit_mode` is true, and is the empty string otherwise. This needs
-    no change to `companion/static/panel-lookup.js` — all three of its
-    lookups for these elements (`.lightbox__replace`, `.resolve-upload-
-    zone`, `.lightbox__delete`) already sit outside its mandatory
+    19-08-PLAN.md Task 3 (D-22) originally split this dialog's forms
+    into two tiers, gating `resolve_upload_html`, the replace form and
+    the delete form all behind `edit_mode`. 21-06-PLAN.md Task 2 (D-19)
+    moves `resolve_upload_html` into the unconditional tier, alongside
+    the resolve-name form (and the always-present resolve-context
+    `<dl>`) — naming an unrecognised airline and giving it a picture is
+    one job, so the view-only lightbox's own no-artwork-yet upload
+    affordance is no longer hidden behind "Change pictures". The
+    replace form and the delete form stay the artwork-editing tier
+    (D-20): each is emitted only when `edit_mode` is true, and is the
+    empty string otherwise. This needs no change to
+    `companion/static/panel-lookup.js` — all three of its lookups for
+    these elements (`.lightbox__replace`, `.resolve-upload-zone`,
+    `.lightbox__delete`) already sit outside its mandatory
     image/caption/note guard and are each used behind their own
-    `if (form)`-style test, so their total absence from the markup is
-    an already-handled state, exactly like History's own dialog (which
-    never renders any of the three at all).
+    `if (form)`-style test, so a form's absence (now only possible for
+    the replace/delete pair) is an already-handled state, exactly like
+    History's own dialog (which never renders any of the three at
+    all).
 
     Every optional child here is a real, present placeholder — heading
     and manual-note are emitted empty (their own `:empty` CSS collapse
@@ -1225,7 +1227,10 @@ def _lightbox_html(edit_mode=False):
     """
     resolve_context_html = _resolve_context_html(None, None, id_suffix="-dialog")
     resolve_name_html = _resolve_name_form_html("", "-dialog")
-    resolve_upload_html = _resolve_upload_form_html("", "-dialog") if edit_mode else ""
+    # 21-06-PLAN.md Task 2 (D-19): unconditional, matching
+    # _resolve_section_html()'s own Step-B upload zone — no `edit_mode`
+    # gate here. replace_html/delete_html stay gated (D-20).
+    resolve_upload_html = _resolve_upload_form_html("", "-dialog")
     replace_html = _lightbox_replace_form_html() if edit_mode else ""
     delete_html = _manual_delete_form_html("") if edit_mode else ""
     return (
