@@ -1,18 +1,16 @@
 ---
 phase: 20-companion-suggestions-from-the-audit-french-localisation-liv
-verified: 2026-09-12T00:00:00Z
-status: gaps_found
-score: 34/35 must-haves verified
+verified: 2026-09-12T04:36:28Z
+status: passed
+score: 35/35 must-haves verified
 overrides_applied: 0
-gaps:
-  - truth: "D-12: Display's Look supersection holds Theme, Flight colours, Calendar, in that order, under one heading"
-    status: partial
-    reason: "Flight colours cannot be a literal descendant of <form id=settings-form> (its add form and each Remove row are real <form> elements — HTML forbids nesting a <form> inside another <form>). The shipped fix for the calendar-connect placement (polish commit 00c4737) moved Runway out of the form too, so the final Display document order is: Look (Theme, Calendar) -> </form> -> calendar connect/disconnect -> What it watches (Runway) -> Flight colours (no supersection heading at all) -> When it is on (Screen, Quiet hours). Flight colours therefore renders as an orphaned, unheaded section between 'What it watches' and 'When it is on', not inside 'Look' between Theme and Calendar as D-12 specifies. This is documented at length in config_page.py's own _display_groups_html()/render() docstrings as a known, reasoned trade-off (\"a future plan could close that remaining gap\"), not a silent miss — but it was never surfaced to the developer as a locked-decision deviation requiring sign-off, unlike the order deviations the CONTEXT.md's own 'Assumptions flagged' section pre-cleared."
-    artifacts:
-      - path: "companion/pages/config_page.py"
-        issue: "_display_groups_html()/render(): rules_section_html (Flight colours) renders after display_watches_supersection_html (Runway) and before display_on_supersection_html (Screen/Quiet), under no section_intro_html() heading of its own — verified by rendering scope=display and listing <h2> order: Look, Theme, Calendar, What it watches, Runway, Flight colours, When it is on, Screen on/off, Quiet hours"
-    missing:
-      - "Either restructure so Flight colours visually reads as part of Look (e.g. give it its own dedicated non-nested route so it can sit between Theme/Calendar and the form boundary, as the code's own docstring suggests), or get the developer's explicit sign-off to keep the current position via a VERIFICATION.md override."
+re_verification:
+  previous_status: gaps_found
+  previous_score: 34/35
+  gaps_closed:
+    - "D-12: Display's Look supersection holds Theme, Flight colours, Calendar, in that order, under one heading"
+  gaps_remaining: []
+  regressions: []
 human_verification:
   - test: "Push a real battery-low/frame-silent transition end to end with a real ntfy topic pasted into Device -> Notifications, and confirm the phone receives the two paired pushes (D-25..D-28)"
     expected: "A push arrives at the phone with the documented Title/body pair for each of the four transition states, and 'Send a test' reaches the same phone"
@@ -35,9 +33,9 @@ human_verification:
 
 **Phase Goal:** Make the companion usable by both people in the household in their own language (French and English, switchable per browser), redesign Home to be useful and pleasant at a glance with the quick actions moved to Display/Device, regroup Display so every everyday setting lives there with a strongly improved calendar and flight-colours experience, add push notifications for battery-low and frame-silent transitions, and add a simple mode that hides everything advanced.
 
-**Verified:** 2026-09-12
-**Status:** gaps_found
-**Re-verification:** No — initial verification
+**Verified:** 2026-09-12 (re-verification)
+**Status:** passed
+**Re-verification:** Yes — after gap closure (commit `169f51d` and code-review fix commits `e2c71f7`, `37e94cc`, `d1ad760`, `2d4e3d3`, `9597918`)
 
 ## Goal Achievement
 
@@ -56,8 +54,8 @@ human_verification:
 | 9 | D-09: French copy quality (typographic apostrophe, NBSP before `:;?!`, nav labels) | VERIFIED | `test_i18n.py` Check 4 asserts both rules over every CATALOG value; nav labels confirmed Accueil/Affichage/Vols/Compagnies/Avancé/État/Appareil |
 | 10 | D-10: Runway moved to Display's `everyday_groups` | VERIFIED | `companion/screens.py`: `GROUP_RUNWAY` in `everyday_groups`, not `advanced_groups` |
 | 11 | D-11: Calendar + rules render on Display; disconnect/rule forms return to Display | VERIFIED | `scope_groups()`; `show_calendar_disconnect`/`show_rules` gated on `scope == SCOPE_DISPLAY` |
-| 12 | D-12: Display is three headed sections, Look (Theme, Flight colours, Calendar) / What it watches (Runway) / When it is on (Screen, Quiet) | **PARTIAL** | See Gaps — Flight colours renders unheaded, after "What it watches", not inside "Look" |
-| 13 | D-13/Pitfall 1: instant-switch forms never nest inside `<form id=settings-form>` | VERIFIED | live-rendered Display/Device scope HTML: form-tag nesting depth never exceeds 1 |
+| 12 | D-12: Display is three headed sections, Look (Theme, Flight colours, Calendar) / What it watches (Runway) / When it is on (Screen, Quiet) | **VERIFIED** (gap closed by `169f51d`) | Independently re-rendered `config_page.render(ctx, scope=SCOPE_DISPLAY)` and parsed every `<h2>` in document order: `Look, Theme, Flight colours, Calendar, What it watches, Runway, When it is on, Screen on / off, Quiet hours` — exact match to D-12's locked order. The physical `<form id="settings-form">` now closes right after Theme (verified: max `<form>` nesting depth in the rendered document is 1 — never nested), and every one of the 18 rendered `calendar_theme_id` chip-grid radios carries `form="settings-form"`, so Calendar keeps saving through the physical form despite rendering as a sibling. `companion/test_config_page.py`'s new `_display_h2_order_matches_d12_after_calendar_placement_fix` pins this same order and radio-binding contract; full suite 212/212 pass |
+| 13 | D-13/Pitfall 1: instant-switch forms never nest inside `<form id=settings-form>` | VERIFIED | live-rendered Display/Device scope HTML: form-tag nesting depth never exceeds 1 (re-confirmed directly against the current tree with a stdlib `HTMLParser` nesting-depth check) |
 | 14 | D-14a-e: Calendar redesign (one-line purpose, status row, dedicated connect route, chip theme picker) | VERIFIED | `calendar_group()`/`calendar_connect_section()`; `POST /settings/calendar/connect` via `_handle_calendar_connect_post`; write-only URL field confirmed (no `value=` ever emitted) |
 | 15 | D-15a-e: Flight colours redesign (rename, one-line add form, `.rule-row` list, empty state, suggestion chips) | VERIFIED | `_rule_add_form_html()`, `_rule_row_html()`, `RULES_EMPTY_HEADING`, `_rule_suggestion_chips_html()`; native-radio segmented control confirmed as the deliberate, spec-endorsed zero-degraded-state choice over a `rule-form.js` script (20-UI-SPEC.md §F Structural Note 5, adopted in 20-CONTEXT.md's Resolutions) |
 | 16 | D-16: Home has no Quick-actions card; `/quick/*` routes/flash keys untouched, `return_to` now Display | VERIFIED | `home_page.py` render() has no switch/refresh markup; `_handle_quick_toggle()` in `app.py` redirects to `layout.DISPLAY_ROUTE` |
@@ -70,18 +68,37 @@ human_verification:
 | 23 | D-22: chip grid unchanged, live preview added above it, no carousel | VERIFIED | `theme_fieldset()`; grid markup unchanged, `.theme-live-preview` new figure above it |
 | 24 | D-23: `?live=1` renders the most recent runway event, falls back to sample, cached per (theme, event id) | VERIFIED | `companion/theme_preview.py:cache_path()`/`preview_signature()` fold `live_event_id`; `companion/app.py:_safe_latest_runway_event()` |
 | 25 | D-24: preview follows chip selection via `theme-preview.js`, no-JS shows saved theme | VERIFIED | six-touch-point script wiring in `app.py`/`layout.py`; `data-preview-src` swap; server always renders the saved theme's `src` first |
-| 26 | D-25: ntfy-style POST, plain-text body + Title header, reuses `calendar_rules._url_is_safe()`, never raises | VERIFIED | `server/notify.py:send_notification()` |
+| 26 | D-25: ntfy-style POST, plain-text body + Title header, reuses `calendar_rules._url_is_safe()`, never raises | VERIFIED | `server/notify.py:send_notification()`; CR-01 fix (`e2c71f7`) additionally closes a real redirect-based SSRF re-opening: `default_notify_transport()` now goes through `_NO_REDIRECT_OPENER`/`_NoRedirectHandler`, which refuses every 3xx hop outright instead of silently following it via the stdlib default opener; confirmed present in code and covered by `server/test_notify.py`'s new "refuses a 302 pointing at an internal address" check |
 | 27 | D-26: Notifications group on Device (write-only topic URL, two checkboxes, "Send a test"), persisted with config-history entry | VERIFIED | `notifications_group()`; `server/device_config.py:normalise_notifications()`/`save_device_config()`; `server/test_config_history.py` 69/69 |
-| 28 | D-27: exactly one push per genuine transition (battery, frame-silent), silent threshold = shared WARN value, never breaks the poll cycle | VERIFIED | `_notify_battery_transition()`/`_notify_silence_transition()` in `server/poll_loop.py`; `poll_state["notifications"]` remembers last-sent state; both wrapped in try/except; `server/test_poll_loop.py` 96/96. Note: the silence check's one call site is intentionally skipped during "hold" cycles (quiet hours/off) per the code's own documented reasoning — see Gaps note below (not scored as a failure; flagged as informational) |
+| 28 | D-27: exactly one push per genuine transition (battery, frame-silent), silent threshold = shared WARN value, never breaks the poll cycle | VERIFIED | `_notify_battery_transition()`/`_notify_silence_transition()` in `server/poll_loop.py`; `poll_state["notifications"]` remembers last-sent state; both wrapped in try/except. WR-01 fix (`37e94cc`) closes the previously-noted hold-branch gap: `_notify_silence_transition()` now also fires from `run_once()`'s early-return `display_off`/`quiet_hours` hold branch (right after that branch's own `_record_history()`), so a frame that dies mid-hold is no longer silently unreported for as long as the hold lasts — confirmed by the new "WR-01 fix: a display_off hold with a stale device_health check-in still raises exactly one frame_silent push" check; `server/test_poll_loop.py` 97/97 (was 96/96, +1 for this fix) |
 | 29 | D-28: notification body language comes from persisted `notifications.lang`, set at save time from the session's language | VERIFIED | `notify.body_for_lang()`; `notifications_group()` writes `lang` from `ctx.get("lang")` at save, no selector in the group |
 | 30 | D-29: Simple/Full nav-footer switch, session-gated `POST /ui-mode`, `sp_ui_mode` cookie | VERIFIED | `_mode_form_html()`; `_handle_mode_post()` |
 | 31 | D-30: simple mode hides Advanced nav group + Health dot, "See details on Health", "Edit artwork"→"Change pictures", disclosures collapse; advanced URLs still reachable | VERIFIED | `_nav_groups()` server-side omission; `companion/test_status_pages.py`/`test_companion_app.py` simple-mode suite (16 checks) all pass, including `/health`/`/device` still 200 under simple mode |
 | 32 | D-31: simple mode keeps Home, all six Display groups, Flights, Airlines (incl. gap-resolve forms), switches, Sign out | VERIFIED | "PASS Display still renders all six everyday groups under sp_ui_mode=simple" and "PASS Flights and Airlines keep their full content under sp_ui_mode=simple" |
 | 33 | D-32: no inline `<script>`/`on*` handlers introduced | VERIFIED | six-touch-point contract followed for `theme-preview.js`; existing CSP-clean pattern preserved; 20-12 sweep found zero CSP violations/inline scripts across 24 renders |
-| 34 | D-33: every touched harness's `EXPECTED_CHECK_COUNT` re-derived and matches a live run; the five root-sandbox failures untouched | VERIFIED | spot-checked 9 harnesses — every `EXPECTED_CHECK_COUNT` matches its actual pass count exactly; the same 5 pre-existing root-sandbox failures reproduce identically to main and are not counted as gaps |
+| 34 | D-33: every touched harness's `EXPECTED_CHECK_COUNT` re-derived and matches a live run; the five root-sandbox failures untouched | VERIFIED (re-confirmed) | Live re-run of `notify` (8/8), `poll_loop` (97/97), `config_page` (212/212) and `status_pages` (212/213, one root-sandbox `anomaly_active()` failure) each match their file's own `EXPECTED_CHECK_COUNT` exactly; full-suite re-run (`scripts/run-all-tests.sh`) reproduces exactly the five documented root-sandbox failures (2 in `test_companion_app.py`, 2 in `server/test_manual_resolutions.py`, 1 in `test_status_pages.py`'s `anomaly_active()`) and no others |
 | 35 | D-34/D-35/D-36: design-system skill updated; S-01/S-03/S-05/S-06 marked shipped; "Edit artwork" replaced by "Change pictures" on Airlines | VERIFIED | `SKILL.md`/`control-density.md`/`settings-page-patterns.md` all carry new Phase 20 entries; `18-AUDIT.md` marks all four `fixed (phase 20)`; `airlines_page.py`'s toggle confirmed, Device's old link confirmed gone |
 
-**Score:** 34/35 truths verified (one partial — D-12's Flight-colours placement)
+**Score:** 35/35 truths verified
+
+### Gap Closure Detail (D-12)
+
+Commit `169f51d` closed the D-12 gap by restructuring `companion/pages/config_page.py`'s `_display_groups_html()`/`render()`:
+
+- The physical `<form id="settings-form">` now closes right after the **Theme** card (previously it closed after Calendar), so Flight colours' own real `<form>` elements (add form, each Remove row) never need to nest inside it, and never need to be pushed out past "What it watches" to avoid doing so.
+- **Calendar**'s card now renders as a sibling of the physical form (after Flight colours), with its compact theme-chip radios bound back to the physical form via a new `form="settings-form"` attribute on every radio (the same idiom `runway_fieldset()` already used) — so Calendar's theme selection still saves through the one page-wide Save button.
+- Document order is restored to the locked D-12 contract: **Look** (Theme → Flight colours → Calendar) → **What it watches** (Runway) → **When it is on** (Screen on/off → Quiet hours).
+
+Independent re-verification (not just re-reading the SUMMARY):
+
+```
+H2 ORDER: ['Look', 'Theme', 'Flight colours', 'Calendar', 'What it watches',
+           'Runway', 'When it is on', 'Screen on / off', 'Quiet hours']
+MAX FORM NESTING DEPTH: 1
+calendar radios: 18   with form= attribute: 18
+```
+
+produced by directly calling `config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)` in a fresh interpreter and parsing the output with `re.findall(r'<h2[^>]*>(.*?)</h2>', ...)` and a stdlib `HTMLParser`-based form-nesting-depth check — independent of, and matching, `companion/test_config_page.py`'s own new `_display_h2_order_matches_d12_after_calendar_placement_fix` check.
 
 ### Required Artifacts
 
@@ -92,14 +109,15 @@ human_verification:
 | `companion/i18n_fr/__init__.py` | auto-merging `CATALOG` | VERIFIED | present, raises on duplicate key |
 | `companion/test_i18n.py` | completeness/dead-translation harness | VERIFIED | 24/24, `EXPECTED_CHECK_COUNT` matches |
 | `server/wake.py` | shared wake-interval arithmetic | VERIFIED | `effective_wake_interval_s`, `device_staleness_thresholds`, `next_wake_at_iso`, `MISSED_WAKES_WARN` all present; `companion/wake.py` is a re-export shim |
-| `server/notify.py` | `send_notification()` | VERIFIED | present, SSRF-gated, tested (`server/test_notify.py` 7/7) |
+| `server/notify.py` | `send_notification()` | VERIFIED | present, SSRF-gated (including the CR-01 no-redirect-follow fix), tested (`server/test_notify.py` 8/8) |
 | `server/device_config.py` | `notifications` group | VERIFIED | `normalise_notifications` present, validated, config-history-backed |
-| `companion/layout.py` | `status_row()`, `section_intro_html()` | VERIFIED | both present, both consumed by Home/Calendar/Display |
+| `companion/layout.py` | `status_row()`, `section_intro_html()` | VERIFIED | both present, both consumed by Home/Calendar/Display; `section_intro_html()`'s `section_id` argument now escaped too (WR-03 fix, `2d4e3d3`) |
 | `companion/pages/home_page.py` | rebuilt hero/status/recent-flights | VERIFIED | `layout.status_row` calls present |
 | `companion/screens.py` | moved group membership | VERIFIED | `everyday_groups` carries Runway/Calendar |
+| `companion/pages/config_page.py` | Look/What it watches/When it is on supersections in D-12's locked order | VERIFIED | `_display_groups_html()`/`render()` re-structured by `169f51d`; independently re-rendered and confirmed (see Gap Closure Detail above) |
 | `companion/theme_preview.py` | live-event render + cache | VERIFIED | `live_event`-aware `cache_path`/`preview_signature`/`cached_preview_bytes` |
 | `companion/static/theme-preview.js` | chip-selection src swap | VERIFIED | `data-preview-src` swap present |
-| `companion/test_i18n.py` | AST-based scan | VERIFIED | `ast.parse`/`ast.walk` used throughout |
+| `server/poll_loop.py` | battery/silence transition hooks, hold-branch silence check, single battery read, own alert title | VERIFIED | `_notify_battery_transition()`/`_notify_silence_transition()` read `battery_state.json` once per cycle and reuse the value for both the decision and the notification body (WR-02 fix, `d1ad760`); the hold branch now also calls `_notify_silence_transition()` (WR-01 fix, `37e94cc`); both real-transition call sites now send `notify.ALERT_TITLE`, not `notify.TEST_NOTIFICATION_TITLE` (WR-04 fix, `9597918`) |
 | `.claude/skills/sketch-findings-skypane/SKILL.md` | Phase 20 components | VERIFIED | `status-row` and full Phase 20 entry present |
 | `.planning/phases/18-companion-audit-and-ux-refactor/18-AUDIT.md` | S-01 shipped status | VERIFIED | all four suggestions marked `fixed (phase 20)` |
 
@@ -110,14 +128,15 @@ human_verification:
 | `companion/app.py` | `companion/prefs.py` | `page_context()` resolves cookie/Accept-Language once | WIRED | `prefs.set_request_prefs(...)` called once per request path (fixed to run before health-state computation by polish commit `63e4c95`) |
 | `companion/i18n.py` | `companion/i18n_fr` | `CATALOG.get(text, text)` | WIRED | confirmed in `t()` |
 | `companion/layout.py` | `/ui-lang` | nav footer language form | WIRED | `_lang_form_html()` posts to `/ui-lang` |
-| `server/notify.py` | `server/plane/calendar_rules.py` | reused SSRF gate | WIRED | `_url_is_safe` call confirmed first line of `send_notification()` |
+| `server/notify.py` | `server/plane/calendar_rules.py` | reused SSRF gate | WIRED | `_url_is_safe` call confirmed first line of `send_notification()`; CR-01 fix additionally prevents that gate being bypassed via an unvalidated redirect hop |
 | `companion/wake.py` | `server/wake.py` | re-export shim | WIRED | `from server.wake import (...)` |
 | `companion/pages/health_page.py` | `companion/layout.py` | promoted `section_intro_html` | WIRED | `layout.section_intro_html` used by both Health and Display |
-| `server/poll_loop.py` | `server/notify.py` | transition senders | WIRED | both `_notify_*_transition()` call `notify.send_notification` |
+| `server/poll_loop.py` | `server/notify.py` | transition senders | WIRED | both `_notify_*_transition()` call `notify.send_notification`, now with `notify.ALERT_TITLE` (WR-04) and from both the hold branch and the shared call site (WR-01) |
 | `server/poll_loop.py` | `server/wake.py` | shared staleness thresholds | WIRED | `wake.device_staleness_thresholds(...)` in `_notify_silence_transition()` |
 | `companion/app.py` | `companion/theme_preview.py` | `?live=1` cache | WIRED | `cached_preview_bytes(..., live_event=...)` |
 | `companion/pages/config_page.py` | `/theme-preview/{id}.png?live=1` | live preview img src + chip `data-preview-src` | WIRED | confirmed in `theme_fieldset()` |
 | `companion/static/copy-button.js` | `companion/pages/history_page.py` | `data-copied-text` | WIRED | confirmed |
+| Calendar's compact theme-chip radios | `<form id="settings-form">` | `form="settings-form"` attribute | WIRED | every one of the 18 rendered `calendar_theme_id` radios carries the attribute (independently confirmed, see Gap Closure Detail above) |
 
 ### Requirements Coverage
 
@@ -125,20 +144,35 @@ human_verification:
 |-------------|-----------------|--------------|--------|----------|
 | CFG-13 | 01,03,06,07,08,09,10,11,12 | Bilingual FR/EN, per-browser, completeness harness | SATISFIED | full-suite FR sweep passes, `test_i18n.py` 24/24 |
 | CFG-14 | 03,04,06 | Home glanceable page, no quick actions | SATISFIED | `home_page.py` rebuilt, no switch markup, tests pass |
-| CFG-15 | 03,04,07,09 | Display carries every everyday setting; redesigned calendar/rules | **PARTIAL** | everything IS on Display (satisfied), but the "Look" grouping specifically omits Flight colours — see Gaps |
+| CFG-15 | 03,04,07,09 | Display carries every everyday setting; redesigned calendar/rules | SATISFIED | everything is on Display, and the "Look" grouping now correctly holds Theme, Flight colours and Calendar in that order (D-12 gap closed by `169f51d`) |
 | CFG-16 | 04,08,11 | Live theme preview from last real flight, follows selection | SATISFIED | `?live=1` route + `theme-preview.js` verified |
-| CFG-17 | 02,05,11 | Push notification on battery-low/frame-silent, once per transition | SATISFIED | `server/notify.py` + `poll_loop.py` transitions verified; real-device delivery is human-verification |
+| CFG-17 | 02,05,11 | Push notification on battery-low/frame-silent, once per transition | SATISFIED | `server/notify.py` + `poll_loop.py` transitions verified, including the hold-branch (WR-01) and redirect-SSRF (CR-01) fixes; real-device delivery is human-verification |
 | CFG-18 | 01,06,07,09,10,12 | Simple mode hides Advanced pages/affordances, everyday pages stay usable | SATISFIED | full simple-mode test suite (16 checks) passes |
 
-No orphaned requirements: all six phase requirement IDs (CFG-13..CFG-18) are declared across the 12 plans' `requirements:` frontmatter and each has direct code evidence above. `.planning/REQUIREMENTS.md`'s CFG-13..CFG-18 checkboxes are still unchecked `[ ]` — this is expected to be the orchestrator's post-verification bookkeeping step, not a phase gap.
+No orphaned requirements: all six phase requirement IDs (CFG-13..CFG-18) are declared across the 12 plans' `requirements:` frontmatter and each has direct code evidence above.
 
 ### Anti-Patterns Found
 
-None. No `TBD`/`FIXME`/`XXX` markers, no `placeholder`/`coming soon`/`not yet implemented` copy, no empty stub implementations, and no hardcoded-empty props found across every file this phase's 12 plans + 5 polish commits touched.
+None. No `TBD`/`FIXME`/`XXX` markers, no `placeholder`/`coming soon`/`not yet implemented` copy, no empty stub implementations, and no hardcoded-empty props found across every file touched by this phase's 12 plans, its 5 polish commits, the D-12 gap-closure commit (`169f51d`), or the five code-review fix commits (`e2c71f7`, `37e94cc`, `d1ad760`, `2d4e3d3`, `9597918`).
 
 ### Behavioral Spot-Checks / Full Suite
 
-`PYTHON=/home/user/skypane/server/.venv/bin/python bash scripts/run-all-tests.sh` → 265/267 companion-app checks pass; the only two companion-app failures plus the three failures in `server/test_manual_resolutions.py`/`companion/test_status_pages.py`'s `anomaly_active()` case are the five documented root-sandbox (read-only-directory, running-as-root) failures, reproduced identically and not counted as regressions. `ruff check .` → clean. All 21 harnesses otherwise green; `EXPECTED_CHECK_COUNT` spot-checked against 9 of the phase's own harnesses and matches exactly in every case.
+Targeted re-runs (this pass):
+
+| Harness | Result | Notes |
+|---------|--------|-------|
+| `companion/test_config_page.py` | 212/212 pass | includes the new D-12 `<h2>`-order + `form=` pinning check |
+| `server/test_notify.py` | 8/8 pass | includes the new CR-01 no-redirect-follow check |
+| `server/test_poll_loop.py` | 97/97 pass | includes the new WR-01 hold-branch silence check |
+| `companion/test_status_pages.py` | 212/213 pass | the 1 failure is the pre-existing `anomaly_active()` root-sandbox case |
+
+Full-suite re-run: `PYTHON=/home/user/skypane/server/.venv/bin/python bash scripts/run-all-tests.sh` → exactly 3 harnesses report failures, and every individual failing check is one of the five documented root-sandbox cases:
+
+- `companion/test_companion_app.py`: 265/267 pass — the 2 failures are both the read-only-state-dir manual-resolution save/delete cases (WR-11's own known sandbox limitation)
+- `server/test_manual_resolutions.py`: 21/23 pass — the 2 failures are the mirrored read-only-state-dir `add_entry()`/`delete_entry()` cases
+- `companion/test_status_pages.py`: 212/213 pass — the 1 failure is `anomaly_active()`'s non-existent-state-dir case
+
+No other harness in the full run failed. No new or unexpected failures were introduced by any of the six commits under review.
 
 ### Probe Execution
 
@@ -146,23 +180,15 @@ SKIPPED — no `scripts/*/tests/probe-*.sh` files exist in this repository and n
 
 ### Human Verification Required
 
-See the `human_verification` list in the frontmatter above — five items, all genuinely browser/hardware-only (native `confirm()`/`beforeunload` dialogs, screen-reader announcements, real ntfy push delivery, the live-preview JS swap, and multi-browser cookie independence). None of these can be resolved by static analysis or the stdlib HTTP test harnesses this project uses.
+See the `human_verification` list in the frontmatter above — five items, all genuinely browser/hardware-only (native `confirm()`/`beforeunload` dialogs, screen-reader announcements, real ntfy push delivery, the live-preview JS swap, and multi-browser cookie independence). None of these can be resolved by static analysis or the stdlib HTTP test harnesses this project uses. Unchanged from the previous verification pass — none of the six commits reviewed in this re-verification touch this surface.
 
 ### Gaps Summary
 
-One structural gap: **D-12's "Look" supersection is supposed to hold Theme, Flight colours and Calendar together**, but the shipped Display page renders Flight colours as an unheaded section physically positioned between "What it watches" (Runway) and "When it is on" (Screen/Quiet hours) — never inside "Look", and under no supersection heading of its own. This is not an oversight: `companion/pages/config_page.py`'s own `_display_groups_html()`/`render()` docstrings explain the exact HTML constraint that forces it (Flight colours' add-form and each Remove-row are real `<form>` elements, which cannot be literal descendants of `<form id="settings-form">`; the polish fix that correctly repositioned the Calendar-connect form pushed Runway out of the form too, which left Flight colours needing to render after it). The code even flags a possible future fix ("a future plan could close that remaining gap"). Because this is a locked decision (D-12) and the deviation was never explicitly pre-cleared the way the CONTEXT.md's "Assumptions flagged" section pre-cleared the overall section order, it is reported here rather than silently accepted.
+None. The one outstanding gap from the previous verification pass — D-12's "Look" supersection needing to hold Theme, Flight colours and Calendar together, in that order, under one heading — is closed. Commit `169f51d` restructured `companion/pages/config_page.py` so the physical settings form closes right after Theme (instead of after Calendar), letting Flight colours' own real `<form>` elements sit between Theme and Calendar without ever nesting inside another `<form>`, while Calendar's theme-chip radios keep saving through the physical form via an explicit `form="settings-form"` attribute. This was independently re-verified by re-rendering the Display scope in a fresh interpreter and parsing the actual `<h2>` order and form-nesting depth, not by trusting the commit message or the SUMMARY.
 
-**This looks intentional and well-reasoned.** To accept this deviation, add to VERIFICATION.md frontmatter:
+The five code-review fix commits (`e2c71f7` CR-01, `37e94cc` WR-01, `d1ad760` WR-02, `2d4e3d3` WR-03, `9597918` WR-04) were each read in full diff form and confirmed present in the current tree: the notify transport no longer auto-follows redirects, the frame-silent check now also fires from the hold branch, `battery_state.json` is read once per cycle and the same value drives both the decision and the notification body, `section_intro_html()`'s `section_id` argument is now escaped, and real transition pushes now carry their own `ALERT_TITLE` rather than borrowing the test button's title constant.
 
-```yaml
-overrides:
-  - must_have: "D-12: Look holds Theme, Flight colours, Calendar under one heading"
-    reason: "Flight colours' add/remove forms cannot be literal descendants of <form id=settings-form>; positioning it after What it watches (rather than inside Look) is the documented, reasoned trade-off in config_page.py; a dedicated non-form route would close the gap in a later phase"
-    accepted_by: "<developer name>"
-    accepted_at: "<ISO timestamp>"
-```
-
-Everything else — the bilingual sweep, the completeness harness, the Home redesign, the notifications pipeline, simple mode, the live theme preview, and the design-system/audit-record updates — is verified directly against the current codebase and passes.
+All 35 must-haves are now verified. The phase goal is achieved.
 
 ---
 
