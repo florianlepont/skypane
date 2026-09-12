@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-01-PLAN.md
-last_updated: "2026-09-12T19:48:42.089Z"
+stopped_at: Completed 22-02-PLAN.md
+last_updated: "2026-09-12T21:08:48.495Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 187
-  percent: 92
+  completed_plans: 188
+  percent: 93
 ---
 
 ---
@@ -354,6 +354,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 14 P07 | 20min | 1 tasks | 2 files |
 | Phase 14 P06 | 30min | 2 tasks | 4 files |
 | Phase 22 P01 | ~50min | 3 tasks | 8 files |
+| Phase 22 P02 | ~20min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -614,6 +615,9 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-01: the fallback Save button hides only once BOTH .dirty-ready and a new .dirty-shown (proven-liveness) marker are present, closing the no-way-to-save-at-all failure mode
 - [Phase 22]: 22-01: theme-preview.js exposes window.SkyPaneLivePreview.refresh(), the sanctioned cross-file call dirty-state.js's Cancel handler uses for T8 (form.reset() fires no change event)
 - [Phase 22]: 22-01: dirtySectionLabels() retargeted from form.querySelectorAll to document.querySelectorAll - a same-root-cause bug found live while proving Task 3's Display check
+- [Phase 22]: 22-02: server.wake.next_wake_status() checks quiet_hours_status() at BOTH the check-in epoch and the check-in-plus-base-interval epoch, not the check-in epoch alone as 22-RESEARCH.md's Pattern 4 sketch shows — a single check-in-instant check does not satisfy the plan's own worked example (22:58 check-in, 900s interval, 23:00-07:00 window) nor the nightly-regression acceptance criterion, both verified numerically before implementing
+- [Phase 22]: 22-02: companion/i18n_fr/frame_state.py deliberately omits 3 of its 6 planned English->French entries (HEADLINE_DUE/HEADLINE_LATE/DELAY_UNKNOWN) because they collide with pre-existing keys in i18n_fr/home.py/display.py (duplicate key raises ValueError in the auto-merge package) — one collision (EXPECTED_SINCE_TEMPLATE's "Attendue depuis %s" vs. this phase's locked "Attendu depuis %s") is a real, unresolved copy discrepancy left for 22-04/22-05 to reconcile when they delete the retired wordings
+- [Phase 22]: 22-02: companion/test_i18n.py's D-08 Check 2 fails with 3 orphaned keys (companion/frame_state.py's genuinely-new constants have no consumer/call-site yet) — a known, explained, self-resolving-by-22-04/22-05 acceptance-criterion mismatch, not routed around by editing test_i18n.py (owned solely by plan 22-08 in this phase)
 
 ### Pending Todos
 
@@ -704,8 +708,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-12T19:48:04.237Z
-Stopped at: Completed 22-01-PLAN.md
+Last session: 2026-09-12T21:07:14.000Z
+Stopped at: Completed 22-02-PLAN.md
 
 Resume file: 
 
