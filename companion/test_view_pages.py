@@ -375,6 +375,18 @@ EXPECTED_CHECK_COUNT = 105
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 108
 
+# 21-03-PLAN.md Task 2 (D-15/R-12): +3 net. Three genuinely new checks
+# were added (the detail-row/summary-row pairing by aria-controls/id
+# with no hidden/inline-style and aria-expanded="false", the hex/ISO/
+# runway living in the detail row and not the summary row, no inline
+# <script>/on*= handler anywhere on the page); one pre-existing check
+# (the newest-first row count) and one (the one-line-cell contract) were
+# retargeted in place (no count change) for the new sibling detail row.
+# 108 + 3 = 111, recomputed directly against the real on-disk check(...)
+# call count at execution time (111/111 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 111
+
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -712,8 +724,13 @@ def main():
             ]
             _seed_runway_events(tmp, events)
             rendered = history_page.render(_history_ctx(tmp))
-            if rendered.count("<tr") != 4:  # 1 header row + 3 body rows
-                return False, "expected exactly 3 body rows, got %d <tr" % (rendered.count("<tr") - 1)
+            # 21-03-PLAN.md Task 2 (D-15): each summary row now carries a
+            # sibling .flight-detail-row <tr> - 1 header + 3 summary + 3
+            # detail = 7, not 1 header + 3 summary = 4.
+            if rendered.count("<tr") != 7:
+                return False, (
+                    "expected exactly 3 summary rows + 3 detail rows + 1 "
+                    "header row, got %d <tr" % rendered.count("<tr"))
             idx3 = rendered.find("FLT3")
             idx2 = rendered.find("FLT2")
             idx1 = rendered.find("FLT1")
@@ -1127,21 +1144,26 @@ def main():
         # Avoid"): the merged cells must stay on one line - Variant A
         # ("Stacked cells") was rejected specifically because a taller row
         # works against fast scanning. A future two-line "improvement"
-        # must fail this check, not read as progress.
+        # must fail this check, not read as progress. Scoped to the
+        # SUMMARY row only (21-03-PLAN.md Task 2, D-15): the sibling
+        # .flight-detail-row legitimately carries a <dl>/<div> grid -
+        # that is a different <tr>, not the summary row's own <td>s, and
+        # this check must not conflate the two.
         tmp = _mkstate("h-oneline")
         try:
             _seed_runway_events(tmp, [
                 {"ts": "2026-08-27T10:00:00+00:00", "hex": "d7", "callsign": "LINE1"},
             ])
             rendered = history_page.render(_history_ctx(tmp))
-            tbody_match = re.search(r"<tbody>(.*)</tbody>", rendered, re.S)
-            if not tbody_match:
-                return False, "expected a <tbody> element in the rendered table"
-            tbody = tbody_match.group(1)
-            if "<br" in tbody:
-                return False, "did not expect a <br> inside the table body (one-line cell contract)"
-            if "<div" in tbody or "<p " in tbody:
-                return False, "did not expect a block-level element inside a <td> (one-line cell contract)"
+            summary_tr_match = re.search(
+                r'<tr class="row"[^>]*>(.*?)</tr>', rendered, re.S)
+            if not summary_tr_match:
+                return False, "expected a summary <tr> in the rendered table"
+            summary_tr = summary_tr_match.group(1)
+            if "<br" in summary_tr:
+                return False, "did not expect a <br> inside the summary row (one-line cell contract)"
+            if "<div" in summary_tr or "<p " in summary_tr:
+                return False, "did not expect a block-level element inside the summary row's <td>s (one-line cell contract)"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -1719,6 +1741,104 @@ def main():
         "the desktop Flight cell contains zero copy buttons (21-03-PLAN.md Task 1, D-15 - they "
         "move into the Task 2 detail row instead)",
         _desktop_flight_cell_carries_no_copy_buttons)
+
+    def _detail_row_pairs_with_summary_row_by_aria_controls_and_id():
+        # 21-03-PLAN.md Task 2 (D-15/R-12): one detail <tr> per summary
+        # row, matched by aria-controls/id, neither carrying `hidden`
+        # nor an inline `style=` (the no-JS floor is a fully visible
+        # detail row); the toggle's aria-expanded starts "false".
+        tmp = _mkstate("h-detail-row-pairing")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "dr01", "callsign": "DETAIL1"},
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "dr02", "callsign": "DETAIL2"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            detail_row_count = rendered.count('class="flight-detail-row"')
+            if detail_row_count != 2:
+                return False, "expected exactly 2 detail rows (one per summary row), got %d" % detail_row_count
+            for index in (0, 1):
+                if ('aria-controls="flight-detail-%d"' % index) not in rendered:
+                    return False, "expected row %d's toggle to name flight-detail-%d via aria-controls" % (index, index)
+                if ('id="flight-detail-%d"' % index) not in rendered:
+                    return False, "expected a detail row with id=flight-detail-%d" % index
+            detail_tr_matches = re.findall(
+                r'<tr class="flight-detail-row"[^>]*>', rendered)
+            if len(detail_tr_matches) != 2:
+                return False, "expected exactly 2 <tr class=\"flight-detail-row\"> opening tags"
+            for tag in detail_tr_matches:
+                if "hidden" in tag:
+                    return False, "did not expect a detail row to carry the hidden attribute"
+                if "style=" in tag:
+                    return False, "did not expect a detail row to carry an inline style attribute"
+            if rendered.count('aria-expanded="false"') < 2:
+                return False, "expected both row-toggle buttons to start aria-expanded=\"false\""
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "each summary row gets exactly one sibling detail row, matched by aria-controls/id, "
+        "with no hidden attribute and no inline style (the no-JS floor), and every row-toggle "
+        "starts aria-expanded=\"false\" (21-03-PLAN.md Task 2, D-15/R-12)",
+        _detail_row_pairs_with_summary_row_by_aria_controls_and_id)
+
+    def _detail_row_carries_hex_iso_runway_not_in_summary_row():
+        # 21-03-PLAN.md Task 2 (D-15): the hex, the raw ISO timestamp
+        # and the runway appear inside the detail row and NOT in the
+        # summary row's own slice.
+        tmp = _mkstate("h-detail-row-content")
+        try:
+            raw_ts = "2026-08-27T10:00:00+00:00"
+            _seed_runway_events(tmp, [
+                {
+                    "ts": raw_ts, "hex": "3944F2", "callsign": "DETCONTENT",
+                    "tracked_runway": "3",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            summary_match = re.search(r'<tr class="row"[^>]*>(.*?)</tr>', rendered, re.S)
+            detail_match = re.search(
+                r'<tr class="flight-detail-row"[^>]*>(.*?)</tr>', rendered, re.S)
+            if summary_match is None or detail_match is None:
+                return False, "could not locate the summary/detail row pair"
+            summary_block = summary_match.group(1)
+            detail_block = detail_match.group(1)
+            runway_label = device_config.runway_label("3")
+            for value in ("3944F2", raw_ts, runway_label):
+                if value not in detail_block:
+                    return False, "expected %r inside the detail row" % (value,)
+                if value in summary_block:
+                    return False, "did not expect %r visible inside the summary row" % (value,)
+            if 'colspan="6"' not in detail_block and 'colspan="6"' not in rendered:
+                return False, "expected the detail row's <td> to span all 6 columns"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the hex, the raw ISO timestamp and the runway render inside the detail row and NOT in "
+        "the summary row's own slice (21-03-PLAN.md Task 2, D-15)",
+        _detail_row_carries_hex_iso_runway_not_in_summary_row)
+
+    def _flights_render_has_no_inline_script_or_handler_attribute():
+        # 21-03-PLAN.md Task 2 (D-15/R-12): the rendered page contains no
+        # inline <script> and no on*= handler attribute anywhere.
+        tmp = _mkstate("h-no-inline-script")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "ni01", "callsign": "NOINLINE"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", rendered):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            if re.search(r'\son[a-z]+="', rendered):
+                return False, "expected no on*= inline handler attribute"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a rendered Flights page contains no inline <script> and no on*= handler attribute "
+        "(21-03-PLAN.md Task 2, D-15/R-12)",
+        _flights_render_has_no_inline_script_or_handler_attribute)
 
     def _mobile_details_three_copy_buttons():
         # D-23: the mobile card's details region carries all 3 copy

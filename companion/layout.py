@@ -166,6 +166,11 @@ CONFIRM_SUBMIT_SCRIPT_SRC = "/static/confirm-submit.js"
 # contract as the constants above — the tenth static script.
 THEME_PREVIEW_SCRIPT_SRC = "/static/theme-preview.js"
 
+# 21-03-PLAN.md Task 2 (D-15/R-12): must equal companion/app.py's
+# FLIGHT_ROWS_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above — the eleventh static script.
+FLIGHT_ROWS_SCRIPT_SRC = "/static/flight-rows.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 # D-16/D-19 (20-01-PLAN.md Task 2): the quick-action form protocol,
@@ -1316,6 +1321,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -1365,6 +1371,11 @@ def page_shell(
         # page, since only Display (from 20-11) renders
         # .theme-live-preview img plus a .theme-chip-grid.
         THEME_PREVIEW_SCRIPT_SRC,
+        # 21-03-PLAN.md Task 2 (D-15/R-12): eleventh script, same
+        # unconditional/no-op-via-guard-clause convention — served every
+        # page, since only Flights renders .flight-detail-row/
+        # [data-row-toggle].
+        FLIGHT_ROWS_SCRIPT_SRC,
     )
 
 

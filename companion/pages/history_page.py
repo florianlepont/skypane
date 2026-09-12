@@ -163,6 +163,14 @@ _HEADERS = (
 # has no column of formatted data behind it).
 _DETAILS_HEADER_TEXT = "Details"
 
+# 21-03-PLAN.md Task 2 (D-15): the row-toggle button's own two label
+# strings — both escaped server-side through i18n.t() at the button's
+# one render site, then handed to companion/static/flight-rows.js as
+# data-more-text/data-less-text attribute values the script only ever
+# writes back via textContent, never builds itself.
+_MORE_TOGGLE_TEXT = "More"
+_LESS_TOGGLE_TEXT = "Less"
+
 # A-36/D-19: names the .data-table-wrap scroller for keyboard users — at
 # 1,305px inside an 880px column the table scrolled behind a 12px
 # shadow that a keyboard-only user had no way to reach at all.
@@ -801,6 +809,56 @@ def _when_cell_html(raw_ts, now, view_panel_html=""):
     return html
 
 
+def _flight_detail_row_html(row, index):
+    """The D-15/R-12 sibling detail `<tr>`, immediately following the
+    summary row of the same `index` (the same index `_history_table_
+    html()`'s row-toggle button names via `aria-controls`/`id`). Its
+    content is the mobile card's own `<details>` set (`_history_cards_
+    html()`, :952-978-ish), re-wrapped as a `<dl>` inside one
+    `colspan="6"` cell: Hex + its copy button, Full timestamp (the raw
+    ISO) + its copy button, Runway — each `<dt>`/`<dd>` pair OMITTED
+    entirely when its value is absent, never a fabricated "—" (the
+    UI-SPEC's own Empty/Error rule) — followed by a standalone
+    "copy-name" button (the callsign's own copy button, no dt/dd pair:
+    the callsign itself is already visible on the summary row's Flight
+    cell, so only the copy affordance needs a home here, omitted
+    entirely when the row has no callsign). `_copy_button_html()` is
+    reused verbatim; every interpolated value keeps its `escape_html()`
+    wrap, exactly as every other cell in this module already does.
+
+    No `hidden` attribute and no inline style: the no-JS floor is a
+    fully visible detail row (D-15, locked) — companion/static/
+    flight-rows.js adds the collapsing class at load, never this
+    function.
+    """
+    row_name = _row_copy_name(row["callsign"], row["hex"])
+    parts = []
+    if row["hex"]:
+        parts.append(
+            '<div><dt class="text-label">%s</dt><dd class="mono">%s</dd>%s</div>'
+            % (
+                escape_html(i18n.t("Hex")), escape_html(row["hex"]),
+                _copy_button_html(row["hex"], i18n.t(_COPY_HEX_LABEL) % row_name)))
+    if row["raw_ts"]:
+        parts.append(
+            '<div><dt class="text-label">%s</dt><dd class="mono">%s</dd>%s</div>'
+            % (
+                escape_html(i18n.t("Full timestamp")), escape_html(row["raw_ts"]),
+                _copy_button_html(row["raw_ts"], i18n.t(_COPY_TIMESTAMP_LABEL) % row_name)))
+    if row["tracked_runway"]:
+        parts.append(
+            '<div><dt class="text-label">%s</dt><dd>%s</dd></div>'
+            % (escape_html(i18n.t("Runway")), escape_html(row["tracked_runway"])))
+    copy_name_button = (
+        _copy_button_html(row["callsign"], i18n.t(_COPY_CALLSIGN_LABEL) % row_name)
+        if row["callsign"] else "")
+    return (
+        '<tr class="flight-detail-row" id="flight-detail-%d" data-row-detail>'
+        '<td colspan="6"><dl class="flight-detail-row__grid">%s</dl>%s</td>'
+        "</tr>"
+    ) % (index, "".join(parts), copy_name_button)
+
+
 def _history_table_html(formatted_rows, now=None):
     if not formatted_rows:
         return layout.empty_state(i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY))
@@ -849,17 +907,34 @@ def _history_table_html(formatted_rows, now=None):
         # Task 2 also gives the runway a visible home in the sibling
         # detail row; this title attribute is unchanged.
         #
-        # 21-03-PLAN.md Task 1: the sixth <th> (the visually-hidden
-        # "Details" toggle-column header) intentionally has no matching
-        # sixth <td> yet — Task 2 adds the row-toggle button cell AND
-        # the sibling detail <tr> together, in the same commit, so the
-        # table is never left with a toggle-column header and no way
-        # to toggle anything.
+        # 21-03-PLAN.md Task 2 (D-15/R-12): the sixth cell is the
+        # "More"/"Plus" row-toggle button matching the visually-hidden
+        # "Details" header Task 1 already added. data-row-toggle/
+        # aria-controls/aria-expanded are companion/static/
+        # flight-rows.js's own contract (a click flips aria-expanded and
+        # toggles the matching flight-detail-{n} row's collapsed class);
+        # both label strings are escaped server-side through i18n.t()
+        # so the script only ever writes back a value it already
+        # escaped. The button renders "More" by default — the no-JS
+        # floor means the sibling detail row is ALREADY fully visible
+        # without any script running, so this button is inert chrome in
+        # that case, never a broken affordance.
+        toggle_cell = (
+            '<td><button type="button" class="row-toggle" data-row-toggle '
+            'aria-expanded="false" aria-controls="flight-detail-%d" '
+            'data-more-text="%s" data-less-text="%s">%s</button></td>'
+        ) % (
+            index,
+            escape_html(i18n.t(_MORE_TOGGLE_TEXT)),
+            escape_html(i18n.t(_LESS_TOGGLE_TEXT)),
+            escape_html(i18n.t(_MORE_TOGGLE_TEXT)),
+        )
         body_rows.append(
             '<tr class="%s" data-filter-text="%s" data-filter-group="%d" '
-            'title="%s">%s</tr>'
+            'title="%s">%s%s</tr>'
             % (row_class, _filter_text_attr(row), index,
-               escape_html(row["tracked_runway"]), "".join(cells)))
+               escape_html(row["tracked_runway"]), "".join(cells), toggle_cell))
+        body_rows.append(_flight_detail_row_html(row, index))
 
     return (
         '<div class="data-table-wrap" tabindex="0" role="region" '

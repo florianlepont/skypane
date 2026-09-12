@@ -185,6 +185,10 @@ CONFIRM_SUBMIT_SCRIPT_ROUTE = "/static/confirm-submit.js"
 # THEME_PREVIEW_SCRIPT_SRC must equal this exactly, mirroring the
 # SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the tenth static script.
 THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
+# 21-03-PLAN.md Task 2 (D-15/R-12): companion/layout.py's
+# FLIGHT_ROWS_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the eleventh static script.
+FLIGHT_ROWS_SCRIPT_ROUTE = "/static/flight-rows.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -583,6 +587,7 @@ _FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
 _POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
 _CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
 _THEME_PREVIEW_JS_PATH = os.path.join(_HERE, "static", "theme-preview.js")
+_FLIGHT_ROWS_JS_PATH = os.path.join(_HERE, "static", "flight-rows.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -1668,6 +1673,14 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_THEME_PREVIEW_JS_PATH)
 
+    def _serve_flight_rows_script(self):
+        """Serve companion/static/flight-rows.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_theme_preview_script()'s shape exactly (21-03-PLAN.md
+        Task 2, D-15/R-12) — the eleventh static script.
+        """
+        return self._serve_script_file(_FLIGHT_ROWS_JS_PATH)
+
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
         if payload is None:
@@ -2469,6 +2482,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == THEME_PREVIEW_SCRIPT_ROUTE:
             return self._serve_theme_preview_script()
+
+        if path == FLIGHT_ROWS_SCRIPT_ROUTE:
+            return self._serve_flight_rows_script()
 
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:

@@ -61,6 +61,11 @@ CATALOG = {
     # 21-03-PLAN.md Task 1 (D-15): the visually-hidden toggle-column
     # header naming the Task 2 row-toggle button's column.
     "Details": "Détails",
+    # 21-03-PLAN.md Task 2 (D-15): the row-toggle button's own two
+    # states, read by companion/static/flight-rows.js from the
+    # data-more-text/data-less-text attributes this module renders.
+    "More": "Plus",
+    "Less": "Moins",
     "Route": "Trajet",
     "State": "Sens",
     "Hex": "Code hex",
