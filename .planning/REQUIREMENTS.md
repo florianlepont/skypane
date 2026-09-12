@@ -36,12 +36,18 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-10**: User can see a live preview of what the physical panel is currently displaying, via the web interface, without needing SSH access to the server
 - [x] **CFG-11**: User can see a gallery of the most recently rendered panel images via the web interface, for quick visual QA without SSH
 - [x] **CFG-12**: User can select which of Orly's three runways the device tracks (currently hardcoded to runway 3; the two neighboring runways, 06/24 and 02/20, already have corridor geometry in `server/plane/detect.py` — added by the runway3-false-positive fix, currently used only to *exclude* their traffic). Generalizes PLANE-01/02/03's runway-3-specific detection to be parameterized by the selected runway. One runway tracked at a time, applied on the device's next scheduled poll (same timing as CFG-01).
-- [ ] **CFG-13**: User can switch the companion between French and English from any page (per browser); every user-visible string, date and script-driven text follows the choice, with English as the source language and a completeness check keeping the French catalogue in step
-- [ ] **CFG-14**: Home is a glanceable page — the current picture, one status card (frame, battery, flight data, next wake) and the recent flights — with no quick-action widgets on it
-- [ ] **CFG-15**: Display carries every everyday setting (theme, flight colours, calendar, runway, screen on/off with an instant switch, quiet hours with an instant switch), with the calendar and flight-colour rules redesigned for a non-technical user; Device keeps only hardware, data and diagnostics
-- [ ] **CFG-16**: The theme picker shows a live preview of the selected theme rendered with the last real flight, following the selection
-- [ ] **CFG-17**: User can receive a push notification (ntfy-style topic) when the battery goes low or the frame stops checking in, and when each condition clears — sent once per transition from the poll loop
-- [ ] **CFG-18**: User can enable a simple mode (per browser) that hides the Advanced pages and every advanced affordance while keeping the everyday pages fully usable
+- [x] **CFG-13**: User can switch the companion between French and English from any page (per browser); every user-visible string, date and script-driven text follows the choice, with English as the source language and a completeness check keeping the French catalogue in step
+- [x] **CFG-14**: Home is a glanceable page — the current picture, one status card (frame, battery, flight data, next wake) and the recent flights — with no quick-action widgets on it
+- [x] **CFG-15**: Display carries every everyday setting (theme, flight colours, calendar, runway, screen on/off with an instant switch, quiet hours with an instant switch), with the calendar and flight-colour rules redesigned for a non-technical user; Device keeps only hardware, data and diagnostics
+- [x] **CFG-16**: The theme picker shows a live preview of the selected theme rendered with the last real flight, following the selection
+- [x] **CFG-17**: User can receive a push notification (ntfy-style topic) when the battery goes low or the frame stops checking in, and when each condition clears — sent once per transition from the poll loop
+- [~] **CFG-18**: ~~User can enable a simple mode (per browser) that hides the Advanced pages and every advanced affordance while keeping the everyday pages fully usable~~ — delivered in phase 20, then withdrawn by the developer's feedback ("à quoi sert le toggle simple/complet ?"); superseded by CFG-23 (phase 21)
+- [ ] **CFG-19**: The two everyday frame controls (Screen on/off, Quiet hours) and the next update time sit in a "Frame" strip at the top of Home and of Display, with a state-only reminder in the nav; Home is the strip, the three separate tiles Frame / Battery / Flight data, then the frame picture and the recent flights side by side
+- [ ] **CFG-20**: One "Frame colours" view on Display replaces the four theme chip grids: live preview on the left, a four-row assignment list (Departures, Arrivals, Calendar flights, Per-flight rules) on the right, one chip grid for the selected row, "Same as departures" for arrivals and calendar, the rule list and add form under the rules row; still saveable without script
+- [ ] **CFG-21**: The Calendar card holds status and feed URL together; once connected, "Replace the feed URL" is a plain link and "Disconnect" a small grey secondary button that still confirms
+- [ ] **CFG-22**: The Flights table fits a 1280 px desktop with no horizontal scroll in either language, with the hex, ISO timestamp, runway and copy button moved to an expandable detail row
+- [ ] **CFG-23**: The simple/full mode switch, its route and cookie, every gate it drove, and the Health "Pause updates" button are removed
+- [ ] **CFG-24**: Naming an unrecognised airline on Airlines offers the picture upload again without the "Change pictures" toggle, which keeps only replace/delete of existing artwork
 
 ## v2 Requirements
 
@@ -119,6 +125,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-10 | Phase 6 | Pending (not yet planned) |
 | CFG-11 | Phase 6 | Pending (not yet planned) |
 | CFG-12 | Phase 6 | Complete (06-07) |
+| CFG-13 | Phase 20 | Complete (#63) |
+| CFG-14 | Phase 20 | Complete (#63) |
+| CFG-15 | Phase 20 | Complete (#63) |
+| CFG-16 | Phase 20 | Complete (#63) |
+| CFG-17 | Phase 20 | Complete (#63) |
+| CFG-18 | Phase 20 | Withdrawn — superseded by CFG-23 |
+| CFG-19 | Phase 21 | Pending (planning) |
+| CFG-20 | Phase 21 | Pending (planning) |
+| CFG-21 | Phase 21 | Pending (planning) |
+| CFG-22 | Phase 21 | Pending (planning) |
+| CFG-23 | Phase 21 | Pending (planning) |
+| CFG-24 | Phase 21 | Pending (planning) |
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.
 
