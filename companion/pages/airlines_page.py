@@ -53,6 +53,7 @@ from companion.illustration_normalize import (
     ILLUSTRATION_TARGET_HEIGHT,
     ILLUSTRATION_TARGET_WIDTH,
 )
+import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
 from server.plane import illustrations
@@ -80,6 +81,16 @@ GALLERY_PURPOSE_TEXT = (
     "Illustration reference for every airline this frame can recognize.")
 
 CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
+
+# 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle that
+# replaces the Device page's now-deleted "Edit artwork" link
+# (config_page._edit_artwork_link_html(), removed by 20-07-PLAN.md
+# Task 3) with an entry point that lives on the page it acts on.
+CHANGE_PICTURES_TEXT = "Change pictures"
+DONE_TEXT = "Done"
+EDIT_TOGGLE_CAPTION = (
+    "Replace an airline’s picture or add one for an airline that has "
+    "none.")
 
 # 19-08-PLAN.md Task 1 (D-21/A-38): the coverage-gap cards' own explained
 # strip, byte-identical-style copy convention to health_page.py's
@@ -1813,6 +1824,44 @@ def _manual_summary_html(manual_rows):
     return '<button type="button" class="manual-summary" data-filter-set="manual">%s</button>' % summary_text
 
 
+def _edit_toggle_html(ctx, edit_mode):
+    """The "Change pictures"/"Done" toggle (D-36, 20-UI-SPEC.md §K) —
+    the Airlines-side replacement for the Device page's now-deleted
+    "Edit artwork" link. Reuses the `.page-header__screen` wrapper
+    shape that deleted link used (`config_page.py`'s former
+    `_edit_artwork_link_html()`, removed by 20-07-PLAN.md Task 3), so
+    the two look alike wherever a household member has seen one
+    before. One literal `<a class="airlines-edit-toggle">` per branch,
+    two literal hrefs — never a script, a GET form or a runtime
+    query-string builder.
+
+    Gated on `not ctx.get("simple_mode")` (D-30): the anchor and its
+    explanatory sentence are BOTH omitted in simple mode. The
+    `?edit=1` lightbox forms this toggle links to keep their OWN,
+    separate `ctx["edit_mode"]` gate exactly as phase 19 shipped it
+    (D-22) — simple mode hides only this entry point, never the forms
+    themselves, so typing `/airlines?edit=1` by hand still works in
+    simple mode: simple mode is a presentation choice, not access
+    control (D-30). Do not "fix" this into an access-control check.
+    """
+    if ctx.get("simple_mode"):
+        return ""
+    if edit_mode:
+        toggle_html = (
+            '<a href="/airlines" class="airlines-edit-toggle">%s</a>'
+        ) % escape_html(i18n.t(DONE_TEXT))
+    else:
+        toggle_html = (
+            '<a href="/airlines?edit=1" class="airlines-edit-toggle">%s</a>'
+        ) % escape_html(i18n.t(CHANGE_PICTURES_TEXT))
+    return (
+        '<div class="page-header__screen">'
+        "%s"
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (toggle_html, escape_html(i18n.t(EDIT_TOGGLE_CAPTION)))
+
+
 def render(ctx):
     """The Airlines page (D-13 through D-17, extended by phase 13's
     D-03/D-06/D-07/D-10 through D-13, phase 14's coverage-gap grid,
@@ -1977,8 +2026,14 @@ def render(ctx):
     # (its own "" default), so the curated grid renders byte-identically
     # to a no-gaps render today.
     summary_html = _manual_summary_html(manual_rows)
+    # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle is
+    # the first element inside the gallery section, directly under the
+    # page's own heading/purpose block — not in page_header()'s own
+    # action_html slot, which Airlines has no precedent for using.
+    edit_toggle_html = _edit_toggle_html(ctx, edit_mode)
     return (
         layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
+        + edit_toggle_html
         + gap_strip_html
         + filter_html
         + summary_html
