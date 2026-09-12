@@ -100,6 +100,9 @@ CATALOG = {
     # --- Battery trend section -------------------------------------------
     "Battery trend": "Tendance de la batterie",
     "Last 3 months, daily average": "3 derniers mois, moyenne quotidienne",
+    "%s — daily average (%d reading)": "%s — moyenne quotidienne (%d relevé)",
+    "%s — daily average (%d readings)": "%s — moyenne quotidienne (%d relevés)",
+    "%s — daily average": "%s — moyenne quotidienne",
     "Latest %d readings": "%d derniers relevés",
     "No battery readings yet.": "Aucun relevé de batterie pour l’instant.",
     "No battery telemetry recorded yet — check back after the "

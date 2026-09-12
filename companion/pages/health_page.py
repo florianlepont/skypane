@@ -850,21 +850,17 @@ _SPARKLINE_DENSE_POINT_THRESHOLD = _sparkline_dense_threshold(_SPARKLINE_NARROWE
 # human-verification list.
 _SPARKLINE_DENSE_HIT_RADIUS_PX = 4
 
-# 260902-l0b: a fixed month-abbreviation table, deliberately NOT
-# `datetime.strftime("%b")` — `%b` is locale-dependent: a server
-# process with any other locale active would silently render a
-# French/German/etc. abbreviation here. A fixed table has no such
-# failure mode. This comment used to add "this app's own UI text is
-# English throughout" — that predates D-01 (20-01-PLAN.md) and no
-# longer describes this app; it is left English-only here as a
-# deliberate, narrow scope boundary of 20-03-PLAN.md Task 2, which
-# names only `layout.local_clock_text()`/`layout.relative_age_text()`
-# for D-07's language-aware date text, not this chart's own private
-# axis-label helper.
-_MONTH_ABBR = (
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-)
+# Phase 21 polish: the hover/tap readout's own text, as constants so the
+# French catalogue (companion/i18n_fr/health.py) carries them.
+BATTERY_AVERAGE_WHEN_ONE_TEMPLATE = "%s — daily average (%d reading)"
+BATTERY_AVERAGE_WHEN_MANY_TEMPLATE = "%s — daily average (%d readings)"
+BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = "%s — daily average"
+
+# Phase 21 polish: the chart's month abbreviation now comes from
+# layout.month_abbr() — the same fixed, locale-independent tables
+# local_clock_text() uses (English or French by the request's
+# language), replacing this module's former private English-only table
+# (260902-l0b) that 20-03-PLAN.md Task 2 had left out of D-07's scope.
 
 
 def _axis_clock_label(ts):
@@ -903,7 +899,7 @@ def _axis_day_label(ts):
     parsed = layout.parse_iso(ts)
     if parsed is None:
         return ts or ""
-    return "%d %s" % (parsed.day, _MONTH_ABBR[parsed.month - 1])
+    return "%d %s" % (parsed.day, layout.month_abbr(parsed.month))
 
 
 def _battery_reading_parts(mv, ts, now):
@@ -992,10 +988,11 @@ def _daily_reading_parts(mv, ts, reading_count):
     value = "%d mV" % mv
     day_label = _axis_day_label(ts)
     if isinstance(reading_count, int) and not isinstance(reading_count, bool) and reading_count > 0:
-        noun = "reading" if reading_count == 1 else "readings"
-        when = "%s — daily average (%d %s)" % (day_label, reading_count, noun)
+        template = (BATTERY_AVERAGE_WHEN_ONE_TEMPLATE if reading_count == 1
+                    else BATTERY_AVERAGE_WHEN_MANY_TEMPLATE)
+        when = i18n.t(template) % (day_label, reading_count)
     else:
-        when = "%s — daily average" % day_label
+        when = i18n.t(BATTERY_AVERAGE_WHEN_BARE_TEMPLATE) % day_label
     return value, when
 
 

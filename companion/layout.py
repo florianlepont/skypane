@@ -795,6 +795,18 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
         escape_html(relative_age_text(age, lang=lang)))
 
 
+def month_abbr(month, lang=None):
+    """Phase 21 polish: the language-aware abbreviated month name, for
+    callers that build their own "D Mon" labels (the Health battery
+    chart's X axis) — the same twelve-entry tables local_clock_text()
+    below selects between, exposed once instead of copied. `lang`
+    defaults to the request's resolved language; `month` is 1..12."""
+    if lang is None:
+        lang = prefs.current_lang()
+    table = _MONTH_ABBR_FR if lang == "fr" else _MONTH_ABBR
+    return table[month - 1]
+
+
 def local_clock_text(parsed, now_parsed=None, lang=None):
     """`parsed` (an aware or naive datetime) rendered on LOCAL_TZ: "HH:MM"
     when it falls on the same local day as `now_parsed` (or when no `now`
@@ -822,8 +834,7 @@ def local_clock_text(parsed, now_parsed=None, lang=None):
                 return clock
             if lang is None:
                 lang = prefs.current_lang()
-            month_abbr = _MONTH_ABBR_FR if lang == "fr" else _MONTH_ABBR
-            return "%d %s %s" % (local.day, month_abbr[local.month - 1], clock)
+            return "%d %s %s" % (local.day, month_abbr(local.month, lang), clock)
         return clock
     except (ValueError, OverflowError, AttributeError):
         return parsed.strftime("%H:%M") if hasattr(parsed, "strftime") else ""
