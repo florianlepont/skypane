@@ -527,6 +527,16 @@ EXPECTED_CHECK_COUNT = 213
 # anomaly_active() failure, unrelated to this plan), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 213
+# 21-02-PLAN.md Task 2 (D-18): net 0. _both_tabs_ok_end_to_end() is
+# rewritten in place — the [data-refresh-toggle] served-bytes needle
+# is dropped and replaced with an opposite-direction regression pin
+# (zero occurrences of data-pause-text/wireToggle in the served
+# freshness.js bytes) — same check, no check added or removed. 213 + 0
+# = 213, recomputed directly against the real on-disk check(...) call
+# count at execution time (212/213 pass — the one documented
+# pre-existing root-sandbox anomaly_active() failure, unrelated to
+# this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 213
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -9303,16 +9313,23 @@ def main():
             # that the on-disk file says so.
             #
             # 19-09-PLAN.md (D-02): retargeted in place (same check name/
-            # function, same "real served bytes" pattern) — three more
-            # required needles for the fetch-and-swap DOM contract
-            # (the [data-loaded-at]/[data-refresh-pill]/
-            # [data-refresh-toggle] attribute hooks), plus a fourth pass
-            # asserting every one of health_page.REFRESH_SWAP_SELECTORS'
-            # own selector strings appears verbatim in the real served
-            # bytes — the duplicated-not-imported agreement between the
-            # page module's declared swap targets and the script's own,
-            # pinned against the process actually serving them, not only
-            # the two on-disk files agreeing with each other.
+            # function, same "real served bytes" pattern) — required
+            # needles for the fetch-and-swap DOM contract (the
+            # [data-loaded-at]/[data-refresh-pill] attribute hooks), plus
+            # a pass asserting every one of health_page.
+            # REFRESH_SWAP_SELECTORS' own selector strings appears
+            # verbatim in the real served bytes — the duplicated-not-
+            # imported agreement between the page module's declared swap
+            # targets and the script's own, pinned against the process
+            # actually serving them, not only the two on-disk files
+            # agreeing with each other.
+            #
+            # 21-02-PLAN.md (D-18): the [data-refresh-toggle] needle
+            # 19-09-PLAN.md required is removed (the hook no longer
+            # exists) and replaced with the opposite-direction regression
+            # pin below — the served bytes must NOT carry the deleted
+            # pause mechanism's own hooks, so the branch cannot come back
+            # through the served file undetected.
             js_status, _js_headers, js_body = http_request(
                 base + app.FRESHNESS_SCRIPT_ROUTE, cookie=session_cookie)
             if js_status != 200:
@@ -9322,12 +9339,17 @@ def main():
                     ("AUTO_REFRESH_INTERVAL_MS", "the named interval constant"),
                     ("visibilitychange", "the visibility-change listener registration"),
                     ("[data-loaded-at]", "the loaded-at attribute hook"),
-                    ("[data-refresh-pill]", "the refresh-pill attribute hook"),
-                    ("[data-refresh-toggle]", "the refresh-toggle attribute hook")):
+                    ("[data-refresh-pill]", "the refresh-pill attribute hook")):
                 if needle not in js_text:
                     return False, (
                         "expected %s (%r) in the real %s response body"
                         % (label, needle, app.FRESHNESS_SCRIPT_ROUTE))
+            for forbidden in ("data-pause-text", "wireToggle"):
+                if forbidden in js_text:
+                    return False, (
+                        "expected zero occurrences of %r in the real %s response body — "
+                        "the pause branch must not come back through the served file (D-18)"
+                        % (forbidden, app.FRESHNESS_SCRIPT_ROUTE))
             for selector in health_page.REFRESH_SWAP_SELECTORS:
                 if selector not in js_text:
                     return False, (
@@ -9348,10 +9370,11 @@ def main():
             "(STYLE_ROUTE) carries the description-column rule, the demotion rule's new bottom margin and the "
             "prose rhythm rule's selector, and the real served freshness script (FRESHNESS_SCRIPT_ROUTE) "
             "carries the interval constant, the visibility-change listener, the [data-loaded-at]/"
-            "[data-refresh-pill]/[data-refresh-toggle] attribute hooks, and every "
+            "[data-refresh-pill] attribute hooks, carries zero occurrences of the deleted "
+            "data-pause-text/wireToggle pause-branch hooks (D-18), and every "
             "health_page.REFRESH_SWAP_SELECTORS entry verbatim (quick task 260901-tsa; extended in place by "
             "quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick task 260902-chc, "
-            "quick task 260903-btu Task 5a, and 19-09-PLAN.md Task 3)",
+            "quick task 260903-btu Task 5a, 19-09-PLAN.md Task 3, and 21-02-PLAN.md Task 2)",
             _both_tabs_ok_end_to_end)
 
         def _illustration_route_serves_normalized_bytes_end_to_end():
