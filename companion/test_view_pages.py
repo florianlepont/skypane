@@ -395,6 +395,21 @@ EXPECTED_CHECK_COUNT = 111
 # on-disk check(...) call count at execution time (113/113 pass), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 113
+# 21-04-PLAN.md Task 3 (D-04/D-05/R-06): net 0 — four checks retargeted
+# in place at the rebuilt Home (the document-order check now asserts
+# header -> .frame-strip -> .home-status-grid -> .home-picture-row with
+# .preview-frame before the recent-flights section; the quick-action
+# check now asserts quick-action markup exists exactly once, inside
+# the strip, with exactly three stat-tile elements and the Frame
+# verdict exactly once; the headline check now calls
+# layout.frame_strip_html() instead of the deleted
+# home_page._status_card_html(); the Health-link check now calls
+# home_page._status_tiles_html()), plus one new assertion folded into
+# the already-seeded-state check (.preview-frame before a real
+# .recent-flight row). No check added or removed. 113 + 0 = 113,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (113/113 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 113
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -3821,13 +3836,18 @@ def main():
                 return False, "expected the hostile callsign to be escaped"
             if rendered.count('class="recent-flight"') != 2:
                 return False, "expected exactly two recent-flight rows"
+            # 21-04-PLAN.md Task 3 (D-04): .preview-frame precedes the
+            # first real .recent-flight row inside .home-picture-row.
+            if rendered.index('<figure class="preview-frame">') > rendered.index(
+                    'class="recent-flight"'):
+                return False, "expected .preview-frame before .recent-flight in document order"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "home_page.render() with seeded flights, a battery reading and a gallery entry renders "
         "the hero picture, the battery percentage estimate, escaped recent flights, and the "
-        "Next-update headline",
+        "Next-update headline, with .preview-frame before .recent-flight in document order (D-04)",
         _home_page_render_with_seeded_state)
 
     def _recent_flight_thumb_resolved_vs_placeholder():
@@ -3895,20 +3915,33 @@ def main():
         if "preview-frame__flight" in hero_without_flight:
             return False, "expected no flight one-liner when there is no current flight"
 
+        # 21-04-PLAN.md Task 3 (D-04): retargeted document-order check —
+        # .status-card/.home-hero no longer exist; the new order is
+        # header -> .frame-strip -> .home-status-grid -> .home-picture-
+        # row, with .preview-frame before .recent-flight inside the last.
         full_ctx = {
             "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
             "now": "2026-08-27T12:00:00+00:00", "health_state": {}, "device_config": {},
             "state_dir": "/tmp/skypane-no-such-state-dir",
         }
         rendered = home_page.render(full_ctx)
+        header_pos = rendered.index('<h1 class="page-title">')
+        strip_pos = rendered.index('class="frame-strip stat-tile stat-tile--accent"')
+        tiles_pos = rendered.index('class="dashboard-grid home-status-grid"')
+        picture_row_pos = rendered.index('class="home-columns home-picture-row"')
+        if not (header_pos < strip_pos < tiles_pos < picture_row_pos):
+            return False, (
+                "expected header -> .frame-strip -> .home-status-grid -> .home-picture-row, "
+                "got positions %d, %d, %d, %d" % (header_pos, strip_pos, tiles_pos, picture_row_pos))
         if rendered.index('<figure class="preview-frame">') > rendered.index(
-                'class="page-section status-card"'):
-            return False, "expected .preview-frame before .status-card in document order (D-18)"
+                'id="home-flights"'):
+            return False, "expected .preview-frame before the recent-flights section inside .home-picture-row"
         return True, ""
     check(
         "the hero's flight one-liner (callsign in .mono, then airline, then the route) appears "
-        "when the current flight is known and is absent otherwise, and .preview-frame precedes "
-        ".status-card in document order (D-18's picture-first stacking)",
+        "when the current flight is known and is absent otherwise, and the page reads header -> "
+        ".frame-strip -> .home-status-grid -> .home-picture-row (.preview-frame before "
+        ".recent-flight inside it) (D-04)",
         _hero_figure_precedes_status_card_with_flight_one_liner_when_known)
 
     def _home_page_french_render_translates_headings_and_alt_text_not_data():
@@ -4082,42 +4115,72 @@ def main():
         "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up",
         _home_catalog_keys_all_present_in_merged_catalog)
 
-    def _home_page_full_render_has_no_quick_actions_and_three_status_rows():
+    def _home_page_full_render_has_quick_action_only_inside_the_strip_and_three_tiles():
+        # 21-04-PLAN.md Task 3 (D-04/D-05): retargeted — D-01 puts the
+        # Screen/Quiet-hours instant switches ON Home now, inside the
+        # shared Frame strip, so "no quick-action anywhere" (the old
+        # D-16 assertion) is no longer the correct claim; the new claim
+        # is "quick-action markup exists exactly once, inside the
+        # strip, and nowhere else on the page."
         from companion.pages import home_page
         ctx = {
             "health_state": {"device_state": "ok", "pipeline_state": "ok", "battery_state": "ok"},
             "device_config": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
-            "now": "2026-08-27T12:00:00+00:00", "simple_mode": False,
+            "now": "2026-08-27T12:00:00+00:00",
         }
         rendered = home_page.render(ctx)
-        if "quick-action" in rendered or "/quick/" in rendered:
-            return False, "expected no quick-action markup or /quick/ action anywhere on Home (D-16)"
-        if rendered.count('<div class="status-row') != 3:
-            return False, "expected exactly three status-row blocks"
+        if "status-card__rows" in rendered or "home-hero" in rendered:
+            return False, "expected no status-card__rows or home-hero markup on the rebuilt Home page"
+        strip_start = rendered.index('class="frame-strip stat-tile stat-tile--accent"')
+        tiles_start = rendered.index('class="dashboard-grid home-status-grid"')
+        outside_strip = rendered[:strip_start] + rendered[tiles_start:]
+        if "quick-action" in outside_strip:
+            return False, "expected no quick-action markup anywhere outside .frame-strip"
+        strip_segment = rendered[strip_start:tiles_start]
+        on_off_count = strip_segment.count("quick-action--on") + strip_segment.count("quick-action--off")
+        if on_off_count != 2:
+            return False, (
+                "expected exactly two quick-action--on/off cells inside .frame-strip, got %d"
+                % on_off_count)
+        if rendered.count('class="stat-tile ') != 3:
+            return False, "expected exactly three stat-tile elements, got %d" % (
+                rendered.count('class="stat-tile '),)
         for label in (home_page.FRAME_ROW_LABEL, home_page.BATTERY_ROW_LABEL,
                       home_page.DATA_ROW_LABEL):
             if label not in rendered:
-                return False, "expected the %r status-row label" % (label,)
+                return False, "expected the %r tile label" % (label,)
         if rendered.count(home_page.FRAME_STATE_TEXT["ok"]) != 1:
             return False, (
                 "expected the Frame state sentence to appear exactly once — the "
                 "20-RESEARCH.md Pitfall 3 duplicated-verdict regression test")
         return True, ""
     check(
-        "a rendered Home page carries no quick-action markup and no /quick/ action anywhere "
-        "(D-16), exactly three status-row blocks labelled Frame/Battery/Flight data, and the "
-        "Frame verdict sentence exactly once",
-        _home_page_full_render_has_no_quick_actions_and_three_status_rows)
+        "a rendered Home page carries no status-card__rows/home-hero markup, quick-action markup "
+        "only inside .frame-strip (exactly two cells) and nowhere else, exactly three stat-tile "
+        "elements labelled Frame/Battery/Flight data, and the Frame verdict sentence exactly once "
+        "(D-04/D-05)",
+        _home_page_full_render_has_quick_action_only_inside_the_strip_and_three_tiles)
 
     def _home_status_card_headline_next_update_or_expected_since():
-        from companion.pages import home_page
+        # 21-04-PLAN.md Task 3 (D-01/D-04): retargeted at
+        # layout.frame_strip_html() — home_page._status_card_html() is
+        # deleted; the headline computation it owned moved to the
+        # strip helper unchanged (Task 1).
+        import companion.wake as wake
         base_ctx = {
             "device_config": {"wake_interval_s": 900, "display_enabled": True},
             "health_state": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
         }
+
+        def _strip_html(ctx):
+            next_wake_iso = wake.next_wake_at_iso(
+                ctx.get("last_checkin_ts"), ctx.get("device_config"))
+            return layout.frame_strip_html(
+                ctx, return_to=layout.HOME_ROUTE, next_wake_iso=next_wake_iso)
+
         future_ctx = dict(
             base_ctx, last_checkin_ts="2026-08-27T11:55:00+00:00", now="2026-08-27T12:00:00+00:00")
-        rendered_future = home_page._status_card_html(future_ctx)
+        rendered_future = _strip_html(future_ctx)
         # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
         # UTC+2, in effect in late August) — still AFTER the 12:00 UTC
         # "now", so this is the not-yet-due branch.
@@ -4128,7 +4191,7 @@ def main():
 
         past_ctx = dict(
             base_ctx, last_checkin_ts="2026-08-27T11:00:00+00:00", now="2026-08-27T12:00:00+00:00")
-        rendered_past = home_page._status_card_html(past_ctx)
+        rendered_past = _strip_html(past_ctx)
         # 11:00 UTC + 15 minutes = 11:15 UTC, already BEFORE the 12:00 UTC
         # "now" — the overdue, warn-treatment branch.
         if "Expected since" not in rendered_past:
@@ -4137,36 +4200,40 @@ def main():
             return False, "expected the warn modifier for an overdue next-update"
 
         missing_checkin = dict(base_ctx, last_checkin_ts=None, now="2026-08-27T12:00:00+00:00")
-        if "status-card__headline" in home_page._status_card_html(missing_checkin):
+        if "status-card__headline" in _strip_html(missing_checkin):
             return False, "expected no headline at all when there is no check-in yet"
         missing_interval = dict(
             base_ctx, device_config={}, last_checkin_ts="2026-08-27T11:55:00+00:00",
             now="2026-08-27T12:00:00+00:00")
-        if "status-card__headline" in home_page._status_card_html(missing_interval):
+        if "status-card__headline" in _strip_html(missing_interval):
             return False, "expected no headline at all when the wake interval is unknown"
         return True, ""
     check(
-        "the status card's headline reads 'Next update ≈ HH:MM' for a future next-update, "
+        "the Frame strip's headline reads 'Next update ≈ HH:MM' for a future next-update, "
         "'Expected since HH:MM' in the warn treatment for a past one, and renders no headline "
-        "at all when either the check-in or the wake interval is unknown (D-17)",
+        "at all when either the check-in or the wake interval is unknown (D-01, moved from the "
+        "deleted _status_card_html())",
         _home_status_card_headline_next_update_or_expected_since)
 
     def _home_status_card_always_shows_health_link():
         """D-17 (21-01-PLAN.md Task 2): the display-mode gate that used
         to hide this link is deleted — replaces a deleted check that
-        tested that now-removed mechanism."""
+        tested that now-removed mechanism. 21-04-PLAN.md Task 3:
+        retargeted at _status_tiles_html(), the deleted
+        _status_card_html()'s own replacement.
+        """
         from companion.pages import home_page
         ctx = {
             "health_state": {}, "device_config": {},
             "state_dir": "/tmp/skypane-no-such-state-dir", "now": "2026-08-27T12:00:00+00:00",
         }
-        rendered = home_page._status_card_html(ctx)
+        rendered = home_page._status_tiles_html(ctx)
         if home_page.HEALTH_LINK_TEXT not in rendered:
             return False, "expected the Health link to always render (D-17)"
         return True, ""
     check(
-        "a default Home render always carries the status card's 'See details on Health' "
-        "link (D-17)",
+        "a default Home render always carries the status tiles section's 'See details on "
+        "Health' link (D-17)",
         _home_status_card_always_shows_health_link)
 
     def _home_page_render_degrades_with_nothing():

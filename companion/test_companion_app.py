@@ -469,6 +469,16 @@ EXPECTED_CHECK_COUNT = 251
 # (254/256 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 256
+# 21-04-PLAN.md Task 1 (D-01/R-02): +2 (POST /quick/display and POST
+# /quick/quiet-hours each gain one check proving return_to round-trips
+# to / and to /display, falls back to /display for a hostile value
+# (https://evil.example/, //evil.example, /flights) or an absent
+# field, and the invalid-state early return honours return_to too).
+# 256 + 2 = 258, recomputed directly against the real on-disk check(...)
+# call count at execution time (256/258 pass — the two documented
+# WR-11 root-sandbox failures, unrelated to this plan), not trusted
+# from arithmetic alone.
+EXPECTED_CHECK_COUNT = 258
 
 
 def _ago_iso(seconds):
@@ -3958,43 +3968,52 @@ def main():
         # --- Phase 18: Home page, quick actions, scoped settings saves ---
 
         def _home_page_renders_widgets():
-            # 20-06 (D-16) rebuilt Home: the Quick-actions card is gone
-            # (the screen/quiet-hours switches moved to Display, the
-            # Refresh-now button moved to Device), replaced by a hero
-            # row (the current picture in a `.preview-frame` figure
-            # beside a `.status-card` built on `layout.status_row()`)
-            # plus a full-width recent-flights section. Retargeted per
-            # 20-06-SUMMARY.md/20-12-PLAN.md (20-06/D-16).
+            # 21-04-PLAN.md Task 3 (D-04/D-05, Rule 1 — this task's own
+            # Home rebuild directly breaks this check's old assertions):
+            # the phase-20 hero/.status-card is gone, replaced by the
+            # shared Frame strip, three stat-tile elements and a
+            # .home-columns.home-picture-row holding the picture beside
+            # recent flights. Unlike 20-06's own rebuild, D-01 now puts
+            # the Screen/Quiet-hours instant-switch forms BACK on Home
+            # (inside the strip) — so their action attributes are no
+            # longer in the "must be absent" list; only the retired
+            # Quick-actions card copy and the Poll/Refresh-now form stay
+            # absent.
             status, _headers, body = http_request(base + "/", cookie=session_cookie)
             if status != 200:
                 return False, "expected 200 for GET /, got %d" % status
             text = body.decode("utf-8", errors="replace")
             for needle in (
                     '<h1 class="page-title">Home</h1>',
-                    'status-card" aria-labelledby="home-status-heading"',
-                    'class="status-row', 'class="home-hero"',
+                    'class="frame-strip stat-tile stat-tile--accent"',
+                    'class="dashboard-grid home-status-grid"',
+                    'class="home-columns home-picture-row"',
                     "Recent flights", 'href="/flights"',
                     'class="nav-group nav-group--advanced"'):
                 if needle not in text:
                     return False, "expected %r in the Home page" % needle
-            # The hero's left half renders either the .preview-frame
+            # The picture column renders either the .preview-frame
             # figure (a gallery entry exists) or the shared empty-state
             # block (none does yet, as in this fresh harness) — either
-            # is proof the hero row itself renders.
+            # is proof the picture column itself renders.
             if 'class="preview-frame"' not in text and "Nothing rendered yet." not in text:
-                return False, "expected either the preview-frame figure or its empty state in the Home hero"
+                return False, "expected either the preview-frame figure or its empty state on Home"
+            if 'action="%s"' % app_module.QUICK_DISPLAY_ROUTE not in text:
+                return False, "expected the Frame strip's Screen switch form on Home (D-01)"
+            if 'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE not in text:
+                return False, "expected the Frame strip's Quiet hours switch form on Home (D-01)"
             for absent in (
                     "Quick actions", "On the frame now",
-                    'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
-                    'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+                    "status-card__rows", "home-hero",
                     'action="%s"' % app_module.POLL_ROUTE):
                 if absent in text:
-                    return False, "expected %r to be absent from the rebuilt Home page (20-06/D-16)" % absent
+                    return False, "expected %r to be absent from the rebuilt Home page (D-04)" % absent
             return True, ""
         check(
-            "authenticated GET / renders the rebuilt Home page (20-06/D-16) with the hero preview-frame "
-            "figure, the status-card's status-row markup, and the recent-flights list under the grouped "
-            "Advanced navigation, and carries none of the retired quick-action forms",
+            "authenticated GET / renders the rebuilt Home page (D-01/D-04/D-05) with the Frame "
+            "strip's two switch forms, three stat-tile elements, the picture/recent-flights row, "
+            "and the recent-flights list under the grouped Advanced navigation, carrying none of "
+            "the retired Quick-actions card or Poll form",
             _home_page_renders_widgets)
 
         def _quick_display_toggle_round_trip():
@@ -4055,6 +4074,56 @@ def main():
             "POST /quick/quiet-hours with state=on then state=off flips quiet_hours_enabled on disk, "
             "redirects to Display (D-16) with the matching flash, and never touches display_enabled",
             _quick_quiet_hours_toggle_round_trip)
+
+        def _make_quick_toggle_return_to_check(route, flash_key):
+            # 21-04-PLAN.md Task 1 (D-01/R-02/T-21-12): return_to=/ redirects
+            # to Home, return_to=/display redirects to Display, and a
+            # hostile/absent value falls back to Display — never string-
+            # prefix-matched, never parsed as a URL. One factory, both
+            # routes, so the two forms' whitelist-then-fallback contract
+            # can never silently diverge.
+            def _check():
+                for return_to, expected_location in (
+                        ("/", "/?flash=%s" % flash_key),
+                        ("/display", "/display?flash=%s" % flash_key),
+                        ("https://evil.example/", "/display?flash=%s" % flash_key),
+                        ("//evil.example", "/display?flash=%s" % flash_key),
+                        ("/flights", "/display?flash=%s" % flash_key)):
+                    status, headers, _ = http_request(
+                        base + route, method="POST", cookie=session_cookie,
+                        data=urllib.parse.urlencode({"state": "on", "return_to": return_to}).encode())
+                    if status != 303 or headers.get("Location") != expected_location:
+                        return False, "return_to=%r: expected 303 to %r, got %d/%r" % (
+                            return_to, expected_location, status, headers.get("Location"))
+                # Absent return_to: the same fallback-to-Display behaviour
+                # this route already had before this task.
+                status, headers, _ = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": "off"}).encode())
+                if status != 303 or headers.get("Location") != "/display?flash=%s" % (
+                        app_module.FLASH_KEY_DISPLAY_OFF if route == app_module.QUICK_DISPLAY_ROUTE
+                        else app_module.FLASH_KEY_QUIET_OFF):
+                    return False, "expected an absent return_to to fall back to Display"
+                # The invalid-state early return honours return_to too.
+                status, headers, _ = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": "toggle", "return_to": "/"}).encode())
+                if status != 303 or headers.get("Location") != "/?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED:
+                    return False, (
+                        "expected the invalid-state early return to honour return_to=/, got %d/%r"
+                        % (status, headers.get("Location")))
+                return True, ""
+            return _check
+        check(
+            "POST /quick/display honours return_to (/ or /display), falls back to Display for a "
+            "hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and "
+            "the invalid-state early return honours return_to too (D-01/R-02)",
+            _make_quick_toggle_return_to_check(app_module.QUICK_DISPLAY_ROUTE, app_module.FLASH_KEY_DISPLAY_ON))
+        check(
+            "POST /quick/quiet-hours honours return_to (/ or /display), falls back to Display for a "
+            "hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and "
+            "the invalid-state early return honours return_to too (D-01/R-02)",
+            _make_quick_toggle_return_to_check(app_module.QUICK_QUIET_HOURS_ROUTE, app_module.FLASH_KEY_QUIET_ON))
 
         check(
             "unauthenticated POST /quick/display redirects to /login without page content",

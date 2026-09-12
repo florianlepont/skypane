@@ -1108,9 +1108,43 @@ select.visually-hidden {
   background: var(--color-status-error);
 }
 
+/* 21-04-PLAN.md Task 2 (D-03): a fourth, additive entry in this same
+ * dot vocabulary — "off" is a neutral, everyday state (Screen off,
+ * Quiet hours off), never a problem, so it gets its own muted-grey
+ * dot rather than reusing warn/error. Reuses the exact color-mix
+ * value .quick-action--off's own left-edge rule already uses — no
+ * new colour literal. */
+.dot--off {
+  background: color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+
 .dot-label {
   font-size: var(--font-label-size);
   vertical-align: middle;
+}
+
+/* 21-04-PLAN.md Task 2 (D-03): the nav's state-only reminder — a plain
+ * link, no button, no form (the phase 18 audit's "no actions in the
+ * nav" finding). Sits between the brand and the primary nav list in
+ * both the sidebar and the mobile dropdown (nav_status_html()'s own
+ * two call sites). Full-strength --color-text on the sidebar surface
+ * — the same pairing .sidebar-link's own unmodified colour rule
+ * already relies on site-wide (contrast measured and pinned in
+ * companion/test_contrast_check.py). */
+.nav-status {
+  display: block;
+  padding: 0 var(--space-sm) var(--space-sm);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.nav-status:hover {
+  text-decoration: underline;
+}
+
+.nav-status__sep {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  margin: 0 2px;
 }
 
 /* Banners: a near-neutral card surface, a hairline border and a 3px
@@ -5014,6 +5048,33 @@ a.airline-card {
   margin-bottom: 0;
 }
 
+/* 21-04-PLAN.md Task 3 (D-04): the picture/recent-flights row's own
+ * 3:2 desktop split — D-04's "the picture column is the wider one,
+ * about 3:2". This compound selector (specificity 0,2,0) outranks the
+ * ambient `.home-columns` >=960px equal-split rule above at every
+ * width, so this row stays one column through 1023px and only then
+ * becomes 3fr/2fr — never the generic 1fr/1fr split. Scoped by the
+ * compound class so no other `.home-columns` consumer anywhere else
+ * in the app is affected. */
+.home-columns.home-picture-row {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .home-columns.home-picture-row {
+    grid-template-columns: 3fr 2fr;
+    /* flex-start, not the bare `start` keyword: test_status_pages.py
+     * pins the whole file to exactly one remaining declaration of that
+     * bare keyword's own align-items value (.dashboard-shell's own
+     * D-21 sticky sidebar) — the same precedent the deleted .home-hero
+     * rule already followed for this exact reason. Grid treats
+     * flex-start as an alias of that value, so the effect here — the
+     * shorter column never stretching to match the taller one's own
+     * height — is identical. */
+    align-items: flex-start;
+  }
+}
+
 .quick-actions {
   display: flex;
   flex-direction: column;
@@ -5079,14 +5140,66 @@ a.airline-card {
   min-width: 96px;
 }
 
-/* 20-04-PLAN.md Task 1 (D-19, 20-UI-SPEC.md §D): the divider between a
- * card's instant switch (.quick-action, unmodified, no new rule) and its
- * scheduled controls below — Display's Screen on/off and Quiet hours
- * groups both wrap their .quick-action row in this. */
-.quick-action-slot {
-  padding-bottom: var(--space-md);
-  margin-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+/* 21-04-PLAN.md Task 1 (D-01/D-02): the Screen on/off and Quiet hours
+ * cards no longer embed an instant switch of their own — both switches
+ * now render once, in the shared Frame strip below — so the divider
+ * rule that used to separate a card's own switch from its scheduled
+ * controls (.quick-action-slot, 20-04-PLAN.md Task 1) has no consumer
+ * left and is deleted rather than kept as stale, misleading CSS.
+ *
+ * The Frame strip (D-01, D-02, D-05) — one shared surface holding the
+ * Screen switch, the Quiet hours switch and the next-update headline,
+ * atop Home and Display alike (layout.frame_strip_html()). Reuses
+ * .stat-tile/.stat-tile--accent verbatim for the card surface itself
+ * (padding, border-radius, hairline, accent top-border) — this rule
+ * adds only the internal 3-cell flex layout. */
+.frame-strip {
+  margin-bottom: var(--space-lg);
+}
+
+.frame-strip__cells {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+/* Both classes on the SAME element (.frame-strip__cell.quick-action
+ * quick-action--on/off) — this is what lets each switch cell keep
+ * .quick-action's own flex-row/padding/border/background chrome while
+ * also sizing itself as a flex item of .frame-strip__cells above. The
+ * two switch cells share the row, each wrapping to its own line first
+ * before the update cell does. flex-wrap here (not on the base
+ * .quick-action rule, which has no other consumer left after this
+ * task) lets the relocated "Applies the next time the frame wakes up."
+ * caption — carried over as a THIRD child alongside .quick-action__text
+ * and the <form>, never dropped (D-02) — fall onto its own full-width
+ * line under the label/state and the form/button instead of squeezing
+ * into the same row as a third space-between item. */
+.frame-strip__cell.quick-action {
+  flex: 1 1 220px;
+  flex-wrap: wrap;
+}
+
+.frame-strip__cell.quick-action > .section-caption {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.frame-strip__cell--update {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+@media (max-width: 699.98px) {
+  .frame-strip__cells {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .frame-strip__cell.quick-action,
+  .frame-strip__cell--update {
+    flex-basis: auto;
+  }
 }
 
 .now-showing {
@@ -5332,30 +5445,14 @@ a.airline-card__zoom {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* --- 20-UI-SPEC.md §B: the Home hero row (D-16..D-20) ------------------
- * Picture-first stacking on phones (D-18) comes from source order alone
- * — .preview-frame is the hero row's first child in the markup, so no
- * CSS `order` property is declared here. */
-.home-hero {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-lg);
-}
-
-@media (min-width: 960px) {
-  .home-hero {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
-    /* flex-start, not the bare `start` keyword: test_status_pages.py
-     * pins the whole file to exactly one remaining declaration of that
-     * bare keyword's own align-items value (.dashboard-shell's own D-21
-     * sticky sidebar). Grid treats flex-start as an alias of that value,
-     * so the effect here — the status card never stretching to match the
-     * picture's own height — is identical. */
-    align-items: flex-start;
-  }
-}
-
-/* Naming caution (20-UI-SPEC.md §B): companion/test_view_pages.py's own
+/* 21-04-PLAN.md Task 3 (D-04): the phase-20 Home hero row (.home-hero,
+ * a two-column picture/status-card grid) is deleted outright —
+ * replaced by the strip -> three tiles -> .home-columns.home-picture-
+ * row shape below. .preview-frame and its own children (Home's
+ * picture figure, `_hero_figure_html()`, unchanged) survive; only the
+ * two-column wrapper around it is gone.
+ *
+ * Naming caution (20-UI-SPEC.md §B): companion/test_view_pages.py's own
  * guard against the string "preview-frame" is scoped to history_page's
  * own render() output only, not a site-wide ban — this class is correct
  * as named on Home. */
@@ -5417,11 +5514,10 @@ a.airline-card__zoom {
   color: var(--color-text);
 }
 
-.status-card__rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
+/* 21-04-PLAN.md Task 3 (D-04): .status-card__rows had exactly one
+ * consumer (the deleted _status_card_html()'s own <div>) and is
+ * deleted with it; .status-card__headline/--warn above survive — the
+ * strip now reuses both verbatim for its own next-update line. */
 
 /* --- 20-UI-SPEC.md §E: the fused Calendar card (D-14c) -----------------
  * A genuinely new pattern — a two-<form> card visually fused into one.

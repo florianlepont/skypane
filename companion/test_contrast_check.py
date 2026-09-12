@@ -60,6 +60,13 @@ EXPECTED_CHECK_COUNT = 36
 # silently drop it unguarded).
 EXPECTED_CHECK_COUNT = 39
 
+# 21-04-PLAN.md Task 2 (D-03): +2 (the nav state reminder's own text
+# pairing — full-strength body text on the secondary/sidebar surface,
+# light and dark). 39 + 2 = 41, recomputed directly against the real
+# on-disk check(...) call count at execution time (41/41 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 41
+
 
 def main():
     results = []
@@ -149,6 +156,15 @@ def main():
         # strength body text or a different muted context.
         ("light: muted detail text on card surface", "#5D5E62", "#FFFFFF"),
         ("dark: muted detail text on card surface", "#AFB2B6", "#151922"),
+        # 21-04-PLAN.md Task 2 (D-03): the nav's state reminder
+        # (.nav-status) — full-strength body text on the sidebar
+        # surface, the same pairing .sidebar-link's own unmodified
+        # colour rule already relies on site-wide. Not already covered
+        # above: "accent on secondary/sidebar surface" is a DIFFERENT
+        # foreground colour (accent, not body text) on this same
+        # background.
+        ("light: body text on secondary/sidebar surface", "#17191F", "#EEE8DE"),
+        ("dark: body text on secondary/sidebar surface", "#F1F3F6", "#1C222D"),
     )
     for label, fg, bg in live_pairs:
         check(

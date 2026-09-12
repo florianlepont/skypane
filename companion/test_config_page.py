@@ -478,6 +478,20 @@ EXPECTED_CHECK_COUNT = 212  # D-12 fix (20-REVIEW.md verification gap):
 # check(...) call count at execution time (212/212 pass), not trusted
 # from arithmetic alone.
 EXPECTED_CHECK_COUNT = 212
+# 21-04-PLAN.md Task 1 (D-01/D-02): +4 (a Display render carries exactly
+# one .quick-action--on/--off pair per switch, both inside .frame-strip;
+# neither the Screen on/off nor the Quiet hours card carries any
+# quick-action markup any more; both instant-switch forms carry a
+# return_to hidden input whose value is the Display route; the Frame
+# strip renders immediately after the page header and before the first
+# section-intro) plus retargeting three pre-existing checks in place
+# (the <h2> order check now expects "Frame" first; the two
+# instant-switch-forms/applies-sentence checks read
+# layout.QUICK_ACTION_APPLIES_SENTENCE, not the deleted
+# config_page.QUICK_ACTION_APPLIES_SENTENCE). 212 + 4 = 216, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (216/216 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 216
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -5432,6 +5446,11 @@ def main():
         display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         headings = re.findall(r'<h2[^>]*>(.*?)</h2>', display)
         expected = [
+            # 21-04-PLAN.md Task 1 (D-01/D-02): the shared Frame strip's
+            # own <h2> is now the very first heading on the page,
+            # before "Look" — it renders outside <form id="settings-
+            # form"> entirely, immediately after the page header.
+            layout.FRAME_STRIP_HEADING,
             config_page.DISPLAY_LOOK_HEADING, "Theme", config_page.RULES_SECTION_HEADING,
             config_page.CALENDAR_SECTION_HEADING, config_page.DISPLAY_WATCHES_HEADING,
             "Runway", config_page.DISPLAY_ON_HEADING, config_page.DISPLAY_SECTION_HEADING,
@@ -5480,18 +5499,21 @@ def main():
         _display_render_carries_exactly_two_quick_action_forms)
 
     def _quick_action_forms_are_not_descendants_of_settings_form():
+        # 21-04-PLAN.md Task 1 (D-01/D-02): retargeted — both instant-
+        # switch forms now render inside the shared Frame strip, BEFORE
+        # the settings form even opens, not after it closes.
         rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-        settings_form_close = rendered.index("</form>", rendered.index("Save settings"))
+        settings_form_open = rendered.index('<form class="config-form"')
         for route in (config_page.QUICK_DISPLAY_ROUTE, config_page.QUICK_QUIET_HOURS_ROUTE):
             quick_form_pos = rendered.index('action="%s"' % route)
-            if quick_form_pos < settings_form_close:
+            if quick_form_pos >= settings_form_open:
                 return False, (
-                    "expected the %s quick-action form to appear after the settings "
-                    "form's own closing tag, not nested inside it" % route)
+                    "expected the %s instant-switch form to appear in the Frame strip, "
+                    "before the settings form even opens, not nested inside it" % route)
         return True, ""
     check(
-        "neither quick-action form is a descendant of <form id=settings-form> — both appear after "
-        "its own closing tag (D-19/Pitfall 1)",
+        "neither instant-switch form is a descendant of <form id=settings-form> — both render in "
+        "the shared Frame strip, before the settings form even opens (D-01/D-02/Pitfall 1)",
         _quick_action_forms_are_not_descendants_of_settings_form)
 
     def _display_render_carries_no_form_nested_inside_a_form():
@@ -5535,14 +5557,98 @@ def main():
             if needle not in rendered:
                 return False, "expected %r in the rendered Display page" % (needle,)
         return True, ""
+    # ==================================================================
+    # 21-04-PLAN.md Task 1 (D-01/D-02): the Frame strip replaces the two
+    # cards' own instant switches — one .quick-action--on/--off pair,
+    # inside .frame-strip; neither schedule card carries any
+    # quick-action markup any more; each switch's return_to hidden
+    # field carries the Display route; the strip sits right after the
+    # page header, before the first .section-intro.
+    # ==================================================================
+
+    def _display_render_has_exactly_one_quick_action_pair_inside_the_strip():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        on_off_count = (
+            rendered.count('quick-action quick-action--on')
+            + rendered.count('quick-action quick-action--off'))
+        if on_off_count != 2:
+            return False, "expected exactly two .quick-action--on/--off cells (Screen + Quiet hours), got %d" % (
+                on_off_count,)
+        strip_start = rendered.index('<div class="frame-strip stat-tile stat-tile--accent"')
+        strip_end = rendered.index('<form class="config-form"', strip_start)
+        strip_segment = rendered[strip_start:strip_end]
+        if (
+            strip_segment.count('quick-action quick-action--on')
+            + strip_segment.count('quick-action quick-action--off') != 2
+        ):
+            return False, "expected both quick-action cells to sit inside .frame-strip"
+        return True, ""
+    check(
+        "a Display render carries exactly one .quick-action--on/--off pair per switch, both inside "
+        ".frame-strip (D-01/D-02)",
+        _display_render_has_exactly_one_quick_action_pair_inside_the_strip)
+
+    def _schedule_cards_carry_no_quick_action_markup():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        for heading in (config_page.DISPLAY_SECTION_HEADING, config_page.QUIET_HOURS_SECTION_HEADING):
+            start = rendered.index('<h2 class="text-heading">%s</h2>' % heading)
+            next_heading = rendered.find('<h2 class="text-heading"', start + 1)
+            segment = rendered[start:next_heading] if next_heading != -1 else rendered[start:]
+            if "quick-action" in segment:
+                return False, "expected the %r card to carry no quick-action markup" % (heading,)
+        return True, ""
+    check(
+        "neither the Screen on/off card nor the Quiet hours card carries any quick-action markup "
+        "any more — both switches moved into the shared Frame strip (D-01/D-02)",
+        _schedule_cards_carry_no_quick_action_markup)
+
+    def _quick_action_forms_carry_return_to_the_display_route():
+        # A DIFFERENT, pre-existing "return_to" hidden field also lives
+        # inside <form id="settings-form"> itself (_scope_fields_html(),
+        # D-10's own scope-aware save-and-return-to-the-same-page
+        # mechanism) — same field NAME, different form, different
+        # route, no collision in what either POST body actually
+        # carries. Scoped to each quick-action <form>...</form> block
+        # specifically, not a whole-page substring count, so this check
+        # cannot be confused by that unrelated field.
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        needle = '<input type="hidden" name="return_to" value="%s">' % layout.DISPLAY_ROUTE
+        for route in (config_page.QUICK_DISPLAY_ROUTE, config_page.QUICK_QUIET_HOURS_ROUTE):
+            form_start = rendered.index('action="%s"' % route)
+            form_end = rendered.index("</form>", form_start)
+            if needle not in rendered[form_start:form_end]:
+                return False, "expected %r inside the %s form" % (needle, route)
+        return True, ""
+    check(
+        "both instant-switch forms on Display carry a return_to hidden input whose value is the "
+        "Display route (R-02)",
+        _quick_action_forms_carry_return_to_the_display_route)
+
+    def _frame_strip_renders_after_header_before_first_section_intro():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        header_pos = rendered.index('<h1 class="page-title">')
+        strip_pos = rendered.index('<div class="frame-strip stat-tile stat-tile--accent"')
+        intro_pos = rendered.index('class="section-intro"')
+        if not (header_pos < strip_pos < intro_pos):
+            return False, (
+                "expected the page header, then the Frame strip, then the first "
+                "section-intro, got positions %d, %d, %d" % (header_pos, strip_pos, intro_pos))
+        return True, ""
+    check(
+        "the Frame strip renders immediately after the page header and before the first "
+        "section-intro on Display (D-02)",
+        _frame_strip_renders_after_header_before_first_section_intro)
+
     check(
         "all four scheduled inputs (display_enabled, quiet_hours_enabled, quiet_hours_start, "
         "quiet_hours_end) carry form=\"settings-form\" via the SETTINGS_FORM_ID constant (D-19)",
         _four_scheduled_inputs_carry_form_settings_form)
 
     def _applies_next_wake_sentence_appears_exactly_twice():
+        # 21-04-PLAN.md Task 1 (D-01/D-02): the constant moved to
+        # companion/layout.py along with the switch markup it captions.
         rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-        count = rendered.count(escape_html(config_page.QUICK_ACTION_APPLIES_SENTENCE))
+        count = rendered.count(escape_html(layout.QUICK_ACTION_APPLIES_SENTENCE))
         if count != 2:
             return False, (
                 "expected the shared instant-switch sentence to appear exactly twice, got %d" % count)
@@ -5664,7 +5770,7 @@ def main():
         for english_text in (
                 config_page.DISPLAY_LOOK_HEADING, config_page.DISPLAY_WATCHES_HEADING,
                 config_page.DISPLAY_ON_HEADING, config_page.DISPLAY_PAGE_PURPOSE,
-                config_page.QUICK_ACTION_APPLIES_SENTENCE, config_page.THEME_SECTION_CAPTION,
+                layout.QUICK_ACTION_APPLIES_SENTENCE, config_page.THEME_SECTION_CAPTION,
                 config_page.RUNWAY_SECTION_CAPTION, config_page.CALENDAR_CAPTION):
             if escape_html(english_text) not in rendered:
                 return False, "expected the English constant %r to still render verbatim" % (english_text,)

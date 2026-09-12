@@ -44,4 +44,20 @@ CATALOG = {
     #     plan) --------------------------------------------------------
     "Open menu": "Ouvrir le menu",
     " — attention needed": " — attention requise",
+
+    # --- The nav state reminder (D-03/R-04, 21-04-PLAN.md Task 2) -------
+    # Fully French — R-04 corrects 21-CONTEXT.md D-03's own "Heures
+    # calmes off" drafting shorthand, which left the second word
+    # untranslated. "Activées"/"désactivées" agrees with the verb pair
+    # this app already ships for the same toggle ("Activer"/
+    # "Désactiver" — companion/i18n_fr/display.py's "Turn on"/"Turn
+    # off"), keeping one consistent activate/deactivate metaphor for
+    # Quiet hours and one consistent on/off, lit/unlit metaphor for
+    # Screen, rather than forcing both toggles onto the same verb.
+    "Screen on": "Écran allumé",
+    "Screen off": "Écran éteint",
+    "Quiet hours on": "Heures calmes activées",
+    "Quiet hours off": "Heures calmes désactivées",
+    "Screen and quiet hours status — go to Home":
+        "État de l’écran et des heures calmes — aller à l’accueil",
 }
