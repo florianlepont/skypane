@@ -69,6 +69,10 @@ CATALOG = {
     "Running on schedule": "Fonctionne comme prévu",
     "A little behind": "Un peu en retard",
     "Has not run for a long time": "N’a pas fonctionné depuis longtemps",
+    # --- 22-03-PLAN.md Task 1 (B2): the pipeline's real never-ran state ---
+    "No detection yet": "Aucune détection pour l’instant.",
+    "The frame has not reported a flight since it started.":
+        "Le cadre n’a signalé aucun vol depuis son démarrage.",
     "Sources agree": "Les sources concordent",
     "Sources disagreed recently": "Les sources se sont contredites récemment",
     "Nothing to compare yet.": "Rien à comparer pour l’instant.",
@@ -154,12 +158,23 @@ CATALOG = {
 
     # --- Resolution-statistics table --------------------------------------
     "How well we name flights": "Notre capacité à identifier les vols",
-    "No resolution data yet.": "Aucune donnée de résolution pour l’instant.",
-    "No flight events recorded yet — resolution statistics appear "
-    "once the ADS-B pipeline has detected a flight.":
-        "Aucun événement de vol enregistré pour l’instant — les "
-        "statistiques de résolution apparaissent une fois que le "
-        "pipeline ADS-B a détecté un vol.",
+    # 22-03-PLAN.md Task 2 (B3): replaces the former "No resolution data
+    # yet." / "No flight events recorded yet — resolution statistics
+    # appear once the ADS-B pipeline has detected a flight." pair, which
+    # never named the window. Kept as an unformatted "%d" template,
+    # exactly like the English source constant.
+    "No flights in the last %d days": "Aucun vol depuis %d jours",
+    "The frame has not recorded a detection in this window. It will "
+    "appear here after the next wake.":
+        "Le cadre n’a enregistré aucune détection sur cette période. "
+        "Elle apparaîtra ici après le prochain réveil.",
+    "Other": "Autre",
+    "A route source this page does not recognise, or none was recorded "
+    "at all — still counted here so the total always matches every "
+    "event in the window.":
+        "Une source de trajet que cette page ne reconnaît pas, ou "
+        "aucune n’a été enregistrée — comptabilisée ici afin que le "
+        "total corresponde toujours à chaque événement de la période.",
     "Source": "Source",
     "Description": "Description",
     "Fresh lookup": "Recherche fraîche",

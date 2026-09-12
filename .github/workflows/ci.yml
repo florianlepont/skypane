@@ -81,6 +81,9 @@ jobs:
           server/.venv/bin/pip install -r server/requirements.txt
           server/.venv/bin/pip install -r server/requirements-dev.txt
 
+      - name: Download the Chromium browser companion/test_browser_ux.py drives
+        run: server/.venv/bin/python -m playwright install --with-deps chromium
+
       - name: Lint (blocking — rule set lives in pyproject.toml)
         run: server/.venv/bin/ruff check .
 

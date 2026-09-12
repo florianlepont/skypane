@@ -1035,3 +1035,38 @@ Plans:
 - [x] 21-06: Artwork upload restored in the resolve flow (wave 4)
 - [x] 21-07: Calendar in one tile — masked URL, replace link, small grey Disconnect (wave 5)
 - [x] 21-08: Closing — design-system skill, FR/EN sweep, suite + ruff gate, validation map (wave 6)
+
+### Phase 22: Companion audit round 4: fix the blocking Display save bar, contradictory frame-state signals, duplicate screen and quiet-hours controls, UTC and i18n leaks and layout defects
+
+**Goal:** Fix everything the fourth companion audit found (22-AUDIT.md, developer-validated 2026-09-12; evidence report at https://claude.ai/code/artifact/af979b96-c02d-41bc-ad04-9623ff0d143a) — the one blocker first (B1: the Display page cannot be saved with JS on, because its `form=`-attached fields never reach `dirty-state.js`'s form-scoped listeners while the fallback Save is hidden), then the contradictory frame-state signals (X2: one quiet-hours- and screen-off-aware next-wake shared by strip, tiles and captions, with a grace window, so a sleeping frame is never called late), the duplicate screen/quiet-hours controls and their three delay wordings (X1), the UTC/ISO leaks (B4, B5) and the untranslated flash banners, titles and plurals (B16), the pixel-level layout defects (login row, Frame strip cells, orphan buttons, runway grid, nav reminder, filter Clear, FR table overflow, Device fields, preview crop, empty and self-contradicting Health cards), the design-contract drift (serif legends, accent overload in the strip, hover fill on the segmented control, four treatments for one timestamp) and the verified CSS/JS defects (permanently suppressed leave-guard, Disconnect styled as primary, lost disclosure markers, non-sticky headers, save-bar overlap). Ships with a minimal Playwright harness in `scripts/run-all-tests.sh` covering the interactions no string-comparison harness can see — the class of defect B1 belongs to. The audit's dynamism half (D1–D24) is deliberately NOT in this phase; it is Phase 23.
+**Requirements**: CFG-25, CFG-26, CFG-27, CFG-28, CFG-29, CFG-30, CFG-31
+**Depends on:** Phase 21
+**Plans:** 3/16 plans executed
+
+Plans:
+- [x] 22-01-PLAN.md — B1 blocker: document-level dirty-state delegation, the fallback-Save contract, T1/T8, and the Playwright harness (wave 1)
+- [x] 22-02-PLAN.md — D-03: one quiet-hours- and screen-off-aware next wake, plus the view-free frame-state vocabulary (wave 2)
+- [x] 22-03-PLAN.md — B2/B3: a neutral never-ran pipeline state, a verdict-free detail for Home, and naming stats that count every row (wave 2)
+- [ ] 22-04-PLAN.md — X2 consumers: the Frame strip and Health's Frame tile speak one state; B13/C2/C6/T9 and the one time-value role (wave 3)
+- [ ] 22-05-PLAN.md — X1/D-04: one control per setting, one computed delay sentence, and the two silent-regression guards (wave 3)
+- [ ] 22-06-PLAN.md — D-05: Paris local time everywhere, with Europe/Paris day buckets in Python and a DST fixture (wave 4)
+- [ ] 22-07-PLAN.md — Home: the frame tile, the verdict-free detail, one-line times and display_airline_name (wave 4)
+- [ ] 22-08-PLAN.md — D-06: translated flash banners, titles and plurals, and a scanner that sees app.py, attributes and JS (wave 5)
+- [ ] 22-09-PLAN.md — Flights X5: day separators, an icon-only disclosure, a labelled picture control, and B11 (wave 5)
+- [ ] 22-10-PLAN.md — Display and Device geometry: X6, B9, B14, B15, B7/C3, B6, B8, B17, T10, T12, C1's legend (wave 6)
+- [ ] 22-11-PLAN.md — Airlines: B5's formatted dialog, X7's editing affordance and two-per-row grid, and B11 (wave 7)
+- [ ] 22-12-PLAN.md — Health: one tile anatomy, a neutral corroboration state, the compact empty state, B12 and B11 (wave 8)
+- [ ] 22-13-PLAN.md — X3: the login card's geometry, an announced error, show-password and a live lockout countdown (wave 9)
+- [ ] 22-14-PLAN.md — X9: the bottom tab bar (D-10), the reduced dropdown, B10, T5, T11 and the save-bar stacking (wave 10)
+- [ ] 22-15-PLAN.md — The verified CSS/JS defects: T2, T3, T4, T6, T13, T14, T15 (wave 11)
+- [ ] 22-16-PLAN.md — sketch-findings-skypane updated in step (UI-SPEC §4's 20 rows) and the phase-closing sweep (wave 12)
+
+### Phase 23: Companion dynamism: live updates, real switches, motion budget and modern controls
+
+**Goal:** Make the companion feel alive, using the dynamism suggestions the developer validated in 22-AUDIT.md (D1–D24) — a `/events` SSE stream from the stdlib server feeding a self-refreshing Home and Frame strip with a live countdown (D9, D1, D14, D22), real `role="switch"` controls over `fetch` with optimistic state and toasts, no-JS forms intact (D2), native multi-page View Transitions and a motion budget under `prefers-reduced-motion` (D10, D3), a Home hero built around the frame picture with a day timeline (D4, D13), and the modern controls that replace bare fields: runway map, 24 h quiet-hours dial, wake-interval slider with a battery-life readout, theme carousel, battery ring and wake-punctuality grid (D16, D17, D18, D5, D21, D20), plus the app finishes — prefetch and gzip, offline shell and manifest, share, drag-and-drop artwork, command palette, guided first run (D11, D12, D6, D15, D19, D23, D24). Framework-free, build-free, no external dependency, no-JS fallback intact.
+**Requirements**: TBD (assign at planning; audit handles D1–D24)
+**Depends on:** Phase 22
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 23 to break down)

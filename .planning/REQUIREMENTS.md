@@ -48,6 +48,13 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-22**: The Flights table fits a 1280 px desktop with no horizontal scroll in either language, with the hex, ISO timestamp, runway and copy button moved to an expandable detail row
 - [x] **CFG-23**: The simple/full mode switch, its route and cookie, every gate it drove, and the Health "Pause updates" button are removed
 - [x] **CFG-24**: Naming an unrecognised airline on Airlines offers the picture upload again without the "Change pictures" toggle, which keeps only replace/delete of existing artwork
+- [x] **CFG-25**: Every setting on Display can be saved from a browser with JavaScript on — the save bar appears whenever any field changes, the fallback Save stays reachable until it does, and a browser-level test harness exercises the interactions the string-comparison harnesses cannot see
+- [ ] **CFG-26**: The frame's state reads the same everywhere — one quiet-hours- and screen-off-aware "next wake" estimate feeds the strip, the status tiles and the settings captions, with a grace window before any warning, so a frame that is deliberately asleep is never reported as late
+- [ ] **CFG-27**: Each frame setting has one control and one stated delay — the Frame strip owns Screen on/off and Quiet hours on/off, the settings form keeps only the quiet-hours schedule, and one computed sentence says when a change reaches the frame
+- [ ] **CFG-28**: Every visible time is Paris local time, including the battery readout and its chart, every tooltip, and the airline resolve dialog; raw ISO appears only behind a copy control
+- [ ] **CFG-29**: No English leaks into the French interface — flash banners, page titles, plurals and attribute text are translated, and the completeness harness covers the places it currently cannot see
+- [ ] **CFG-30**: The everyday pages are visually correct and honest — the login card, the Frame strip cells, orphaned controls, the runway grid on a phone, the nav state reminder, the filter Clear, the French table overflow, the Device fields, the theme preview crop, and the Health cards that render empty or contradict themselves
+- [ ] **CFG-31**: The stylesheet and scripts hold the design contract — the serif boundary, the accent reservation, hover and focus states on every interactive element, and the verified defects (permanently suppressed leave-guard, Disconnect styled as the primary action, missing disclosure markers, non-sticky table headers, save bar overlapping page content)
 
 ## v2 Requirements
 
@@ -137,6 +144,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-22 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
 | CFG-23 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
 | CFG-24 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
+| CFG-25 | Phase 22 | Planned (22-01..22-16) |
+| CFG-26 | Phase 22 | Planned (22-01..22-16) |
+| CFG-27 | Phase 22 | Planned (22-01..22-16) |
+| CFG-28 | Phase 22 | Planned (22-01..22-16) |
+| CFG-29 | Phase 22 | Planned (22-01..22-16) |
+| CFG-30 | Phase 22 | Planned (22-01..22-16) |
+| CFG-31 | Phase 22 | Planned (22-01..22-16) |
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.
 

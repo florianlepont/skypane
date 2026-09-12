@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 16 context gathered
-last_updated: "2026-09-12T08:03:28.361Z"
+status: verifying
+stopped_at: Completed 22-03-PLAN.md
+last_updated: "2026-09-12T21:49:32.985Z"
 last_activity: 2026-09-12
 progress:
-  total_phases: 33
-  completed_phases: 30
-  total_plans: 187
-  completed_plans: 178
-  percent: 91
+  total_phases: 35
+  completed_phases: 31
+  total_plans: 203
+  completed_plans: 189
+  percent: 93
 ---
 
 ---
@@ -26,7 +26,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [██████████] 95%
+  [█████████░] 93%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -353,11 +353,16 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 14 P05 | 23min | 2 tasks | 3 files |
 | Phase 14 P07 | 20min | 1 tasks | 2 files |
 | Phase 14 P06 | 30min | 2 tasks | 4 files |
+| Phase 22 P01 | ~50min | 3 tasks | 8 files |
+| Phase 22 P02 | ~20min | 2 tasks | 5 files |
+| Phase 22 P03 | 40min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
+- Phase 22 planned (2026-09-12): 16 plans across 12 dependency waves, covering CFG-25..CFG-31. Full artefact set on branch `claude/companion-comprehensive-audit-zhpt1m`: `22-AUDIT.md` (the ledger), `22-CONTEXT.md` (twelve locked decisions), `22-RESEARCH.md`, `22-UI-SPEC.md` (approved on the UI checker's second pass), `22-VALIDATION.md`, and `22-01`..`22-16-PLAN.md`. Two developer decisions shaped it: sequencing is by dependency wave and never by calendar (D-11 forbids dates, week numbers and day estimates in any plan — the audit's original week-based plan carried fabricated durations), and the mobile navigation is a bottom tab bar, the overlay drawer withdrawn because `references/mobile-navigation.md` already carried a locked "rejected" verdict from real-device testing that the audit had missed (D-10). Waves 6-11 are serialised because every remaining group needs `style.css` and the phase allows one writer per file per wave. **Lesson worth keeping: the plan-check loop ran twice and its whole yield was one class of defect — acceptance greps that evaluate for the wrong reason.** Nine were found across the two passes: one security gate using a negative lookahead `grep -E` cannot parse (it returned 0 even for a line containing an external URL, leaving its threat unmitigated), one gate demanding zero `border-color: transparent` file-wide when twelve unrelated rules legitimately declare it and the plan owned one (the destructive remedy would have reached forward seven waves and removed the declarations a later plan rewrites), and seven more that passed or failed on comment prose, on a pipe that could never match, or on a `grep -rc` printing per-file counts. A gate that passes for the wrong reason gives false confidence; one that fails for the wrong reason pushes someone to act. Both classes are invisible unless every criterion is executed against the live tree, which is now the standing expectation for this project's plans.
+- Phase 22 added (2026-09-12): Companion audit round 4 — a comprehensive UI/UX/design-contract/dynamism audit of the companion on `main` at 541d19c (every page and interactive state screenshotted with Playwright at 1280/390 px, light/dark, FR/EN, on a seeded state directory; DOM geometry measured; two read-only code reviews), validated in full by the developer the same day. Ledger in `22-AUDIT.md` (1 P0, 9 P1, 24 P2, 15 P3 plus 24 validated dynamism suggestions D1–D24), evidence report at https://claude.ai/code/artifact/af979b96-c02d-41bc-ad04-9623ff0d143a. Headline: the Display page cannot be saved with JS on (B1 — `form=`-attached fields outside `<form>` never reach `dirty-state.js`; the fallback Save is hidden), a defect the string-based harnesses cannot see because none parses the DOM. Added via `gsd-sdk query phase.add` (Goal written by hand, same CLI gap as Phases 12-16 and 19).
 - Phase 19 added: Companion audit follow-through — fix the open findings from 18-AUDIT.md (2026-09-11)
 
 - Phase 16 added (2026-09-07) — "Calendar-linked flight highlighting — a connected calendar sources colour rules automatically", promoted from `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calendar-highlighting.md`. This is the seed's third sub-idea, the one Phase 15's D-01 deferred; it is unblocked because both of its prerequisites are now met — the export format is known from a real supplied export, and the developer relayed the calendar owner's consent. **Generalised at the developer's request from the seed's person-specific framing to "connect your calendar"**, so no person is named in the design. Scoped against real data before promotion, producing three findings that overturn the seed's own assumptions: (1) the CrewWebPlus iCal export is fully structured — `SUMMARY:TO7061 MPL-ORY(+0200)` parses 15/15 — so the parser is small and the seed's "might be an internal duty code" worry does not apply; (2) the flight number is useless as a match key (26% of 300 real cached flights carry a commercial-looking IATA number, and only 11% of Transavia France ones, the dominant Orly carrier and the owner's employer), while origin/destination is populated on 100% of enriched detections and a same-route collision resolves by time — the NCE-ORY rotations sit ~8h apart, and rotating callsigns turn out to be stable per rotation across days, previously undocumented; (3) **the cap** — on the owner's only Orly duty day inside recorded history, none of her three flights were among the frame's 201 detections, one of them missed while the frame tracked other aircraft in the same minute, because the frame shows one aircraft at a time and does not see most movements. The developer chose this design anyway, over a calendar-driven view that would not depend on detection, knowing it marks a flight only when that flight happens to be on screen. Copy must not overstate it. Added via `gsd-tools query phase.add`, which again left ROADMAP.md's top-level `## Phases` bullet untouched (the documented CLI gap recorded for Phases 12-15) — bullet and Goal written by hand.
@@ -607,6 +612,15 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-07: distinguish a supplied-but-unusable manual airline name from an empty field by re-reading the same raw form value already passed to add_entry(), rather than duplicating manual_resolutions.py's own regex/validation logic
 - [Phase 14]: A superseded row's card-attachment key is the built-in airline's own name (enrich.static_airline_name_for_prefix()), never the operator's own orphaned stored name, so a superseded card's chip/note always land on the curated card the frame actually renders under (D-10)
 - [Phase 14]: Deleted a ninth constant (SUPERSEDED_CAPTION) beyond the plan's own enumerated eight, since it became genuinely unreferenced once the management table's own rendering functions were deleted
+- [Phase 22]: 22-01: dirty-state.js delegates change/input at document level (gated on e.target.form === form) instead of the form element itself, fixing B1 — every form=-attached field outside the physical settings form now reveals the save bar
+- [Phase 22]: 22-01: the fallback Save button hides only once BOTH .dirty-ready and a new .dirty-shown (proven-liveness) marker are present, closing the no-way-to-save-at-all failure mode
+- [Phase 22]: 22-01: theme-preview.js exposes window.SkyPaneLivePreview.refresh(), the sanctioned cross-file call dirty-state.js's Cancel handler uses for T8 (form.reset() fires no change event)
+- [Phase 22]: 22-01: dirtySectionLabels() retargeted from form.querySelectorAll to document.querySelectorAll - a same-root-cause bug found live while proving Task 3's Display check
+- [Phase 22]: 22-02: server.wake.next_wake_status() checks quiet_hours_status() at BOTH the check-in epoch and the check-in-plus-base-interval epoch, not the check-in epoch alone as 22-RESEARCH.md's Pattern 4 sketch shows — a single check-in-instant check does not satisfy the plan's own worked example (22:58 check-in, 900s interval, 23:00-07:00 window) nor the nightly-regression acceptance criterion, both verified numerically before implementing
+- [Phase 22]: 22-02: companion/i18n_fr/frame_state.py deliberately omits 3 of its 6 planned English->French entries (HEADLINE_DUE/HEADLINE_LATE/DELAY_UNKNOWN) because they collide with pre-existing keys in i18n_fr/home.py/display.py (duplicate key raises ValueError in the auto-merge package) — one collision (EXPECTED_SINCE_TEMPLATE's "Attendue depuis %s" vs. this phase's locked "Attendu depuis %s") is a real, unresolved copy discrepancy left for 22-04/22-05 to reconcile when they delete the retired wordings
+- [Phase 22]: 22-02: companion/test_i18n.py's D-08 Check 2 fails with 3 orphaned keys (companion/frame_state.py's genuinely-new constants have no consumer/call-site yet) — a known, explained, self-resolving-by-22-04/22-05 acceptance-criterion mismatch, not routed around by editing test_i18n.py (owned solely by plan 22-08 in this phase)
+- [Phase 22]: 22-03: never-ran pipeline reuses the existing dot--off vocabulary (never a new status token or CSS class) for the neutral state, and collect_anomalies()/overall_severity() treat pipeline_state='off' exactly like 'ok'
+- [Phase 22]: 22-03: resolution_stats()'s 'Other' bucket for unknown route_source stays a row appended to results, not folded into _SOURCE_ROWS's fixed known-mechanism enumeration; the stats section omission is scoped to total==0 only, not the _DB_UNAVAILABLE sentinel
 
 ### Pending Todos
 
@@ -697,12 +711,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-07T08:00:10.599Z
-Stopped at: Phase 16 context gathered
+Last session: 2026-09-12T21:49:17.979Z
+Stopped at: Completed 22-03-PLAN.md
 
 Resume file: 
 
-.planning/phases/16-calendar-linked-flight-highlighting-a-connected-calendar-sou/16-CONTEXT.md
+None
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).

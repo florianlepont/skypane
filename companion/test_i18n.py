@@ -170,6 +170,25 @@ _FLASH_AWAITING_TRANSLATION_WIRING = frozenset({
 # this codebase, by design (D-05: "route names ... are not translated"
 # extends naturally to a brand name, which is not a common noun either).
 _PROPER_NOUNS_NEVER_TRANSLATED = frozenset({"SkyPane"})
+# Check 2's documented exception list, part 4: companion/frame_state.py's
+# three genuinely-new copy strings, translated by plan 22-02 ahead of the
+# plans that consume them. frame_state.py is a deliberately view-free
+# vocabulary module — it defines the due/held/late wording but renders
+# nothing, so no `i18n.t()` call site exists for these three until the
+# Frame strip (22-04), the settings delay sentence (22-05) and Home's
+# tile (22-07) are wired to it. Same shape as part 2 above: defined,
+# correct, and waiting on a consumer rather than dead.
+#
+# REMOVE THIS FROZENSET when 22-07 lands. At that point all three keys
+# are produced by the D-05 module scan and leaving the exception here
+# would hide a genuinely dead translation instead of documenting a
+# pending one. Plan 22-08 owns this file and should delete it as part of
+# widening the scanner.
+_FRAME_STATE_AWAITING_CONSUMERS = frozenset({
+    "Next wake around %s · quiet hours",
+    "Applies at the next wake, around %s.",
+    "Applies when quiet hours end, around %s.",
+})
 
 
 def _is_route_or_path(value):
@@ -765,6 +784,7 @@ def main():
             _APP_PY_OWNED_STRINGS
             | _FLASH_AWAITING_TRANSLATION_WIRING
             | _PROPER_NOUNS_NEVER_TRANSLATED
+            | _FRAME_STATE_AWAITING_CONSUMERS
             | frozenset(i18n_fr_registry.CATALOG))
         orphaned = sorted(
             key for key in i18n_fr.CATALOG
