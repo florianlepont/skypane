@@ -998,7 +998,7 @@ def main():
     def _battery_trend_shows_all_readings_and_one_sparkline():
         tmp = _mkstate("h-battery-trend")
         try:
-            base = _now()
+            base = _now().replace(hour=12, minute=0, second=0, microsecond=0)  # fixed noon: readings minutes apart must never straddle a UTC day boundary
             readings = [
                 (_iso(base - timedelta(minutes=2)), 4200),
                 (_iso(base - timedelta(minutes=1)), 4190),
@@ -1191,7 +1191,7 @@ def main():
         # gates the readout and script tag together.
         tmp = _mkstate("h-day-one-fallback")
         try:
-            base = _now()
+            base = _now().replace(hour=12, minute=0, second=0, microsecond=0)  # fixed noon: readings minutes apart must never straddle a UTC day boundary
             readings = [
                 (_iso(base - timedelta(minutes=2)), 4200),
                 (_iso(base - timedelta(minutes=1)), 4190),
@@ -5001,7 +5001,7 @@ def main():
         # this check exists to catch.
         tmp = _mkstate("h-humanised-readout-e2e")
         try:
-            base = _now()
+            base = _now().replace(hour=12, minute=0, second=0, microsecond=0)  # fixed noon: readings minutes apart must never straddle a UTC day boundary
             readings = [
                 (_iso(base - timedelta(minutes=6)), 4210),
                 (_iso(base - timedelta(minutes=3)), 4200),
