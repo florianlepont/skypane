@@ -3473,9 +3473,19 @@ def main():
         _home_page_render_with_seeded_state)
 
     def _recent_flight_thumb_resolved_vs_placeholder():
+        # Polish fix 1 (Home thumbnails only when artwork exists, D-17):
+        # _recent_flight_thumb_html() now takes a state_dir and checks
+        # illustrations.resolved_illustration_path() before ever
+        # emitting an <img> — retargeted from the pre-fix signature
+        # (which rendered any truthy key unconditionally, 404ing on an
+        # airline with no artwork file on disk). No state_dir exists on
+        # disk for any of these three cases; "air-france" resolves from
+        # the vendored illustration directory regardless (state_dir only
+        # matters for a per-installation override file).
         from companion.pages import home_page
+        no_state_dir = "/tmp/skypane-no-such-state-dir"
         resolved_row = {"callsign": "AFR1380", "airline": "Air France"}
-        thumb_resolved = home_page._recent_flight_thumb_html(resolved_row)
+        thumb_resolved = home_page._recent_flight_thumb_html(resolved_row, no_state_dir)
         if thumb_resolved.count("<img") != 1:
             return False, "expected exactly one <img> for a resolved airline"
         if 'loading="lazy"' not in thumb_resolved:
@@ -3483,16 +3493,29 @@ def main():
         if "/illustration/air-france.png" not in thumb_resolved:
             return False, "expected the resolved illustration route in the <img> src"
         unresolved_row = {"callsign": "XYZ", "airline": None}
-        thumb_placeholder = home_page._recent_flight_thumb_html(unresolved_row)
+        thumb_placeholder = home_page._recent_flight_thumb_html(unresolved_row, no_state_dir)
         if "<img" in thumb_placeholder:
             return False, "expected no <img> at all for a null/unrecognised airline"
         if "recent-flight__thumb--placeholder" not in thumb_placeholder:
             return False, "expected the dashed placeholder span for a null/unrecognised airline"
+        # A key that normalises truthily but resolves to no file on disk
+        # anywhere (override or vendored) — the exact "easyJet Europe"
+        # regression this fix closes — must ALSO fall back to the
+        # placeholder, never a broken-image <img src="...404...">.
+        no_artwork_row = {"callsign": "EZS123", "airline": "easyJet Europe"}
+        thumb_no_artwork = home_page._recent_flight_thumb_html(no_artwork_row, no_state_dir)
+        if "<img" in thumb_no_artwork:
+            return False, (
+                "expected no <img> for an airline whose normalised key resolves to no file "
+                "on disk (D-17 fix: a truthy key alone must never be enough)")
+        if "recent-flight__thumb--placeholder" not in thumb_no_artwork:
+            return False, "expected the dashed placeholder span for an airline with no artwork file"
         return True, ""
     check(
-        "a recent-flight row whose airline resolves renders exactly one lazily-loaded "
-        "/illustration/ thumbnail <img>, and one with a null/unrecognised airline renders the "
-        "dashed placeholder span with no <img> at all (D-17.2)",
+        "a recent-flight row whose airline resolves to a real illustration file renders exactly "
+        "one lazily-loaded /illustration/ thumbnail <img>; a null/unrecognised airline AND an "
+        "airline whose normalised key resolves to no file on disk anywhere (override or "
+        "vendored) both render the dashed placeholder span with no <img> at all (D-17 fix)",
         _recent_flight_thumb_resolved_vs_placeholder)
 
     def _hero_figure_precedes_status_card_with_flight_one_liner_when_known():
@@ -3542,7 +3565,7 @@ def main():
         try:
             _prefs.set_request_prefs(lang="fr")
             rendered = home_page.render(ctx)
-            thumb = home_page._recent_flight_thumb_html(row)
+            thumb = home_page._recent_flight_thumb_html(row, ctx["state_dir"])
         finally:
             _prefs.set_request_prefs(lang="en")
         for needle in ("Vols récents", "Voir tous les vols"):

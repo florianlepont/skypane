@@ -10,7 +10,10 @@ instant switches now live on Display (companion/pages/config_page.py's
 lives on Device's own Manual refresh section. Home is now exactly two
 rows: a hero row (the current picture beside one status card headlined
 by the next update) and the recent flights, full width, with an artwork
-thumbnail per row (D-17.2).
+thumbnail per row when — and only when — a real illustration file
+resolves for that row's airline (D-17.2; a truthy normalised key alone
+is not enough, since an airline the app recognises by name but with no
+artwork file on disk would otherwise 404 as a broken-image icon).
 
 Like every page module this one imports nothing from a sibling page
 module (companion/pages/__init__.py's boundary). The status verdicts it
@@ -322,19 +325,29 @@ def _hero_figure_html(ctx, current_flight_row):
         caption, flight_html)
 
 
-def _recent_flight_thumb_html(row):
+def _recent_flight_thumb_html(row, state_dir):
     """D-17.2: the leading thumbnail cell. `illustrations.normalise_
     airline_key()` is the exact pure-string resolver airlines_page.py
-    already calls (D-20 — no new query) — a truthy key renders the
-    `<img>` unconditionally, letting `/illustration/{key}.png`'s own
-    not-found behaviour apply exactly as the Airlines gallery already
-    accepts (checking a file exists first would cost a filesystem stat
-    per row); a falsy key renders the dashed placeholder with no
-    `<img>` at all, so a missing file can never surface as a broken-
-    image icon for a genuinely-unresolvable airline.
+    already calls (D-20 — no new query for the key itself); the `<img>`
+    renders only when `illustrations.resolved_illustration_path(key,
+    state_dir)` (the same override-then-vendored, `os.path.isfile`-
+    backed seam airlines_page.py's own gallery/gap cards already call)
+    finds a real file on disk for that key — never unconditionally.
+
+    An airline the app recognises by NAME but that carries no artwork
+    file at all (a seeded "easyJet Europe" is exactly this case) used
+    to still emit `<img src="/illustration/{key}.png">`, which 404s and
+    renders as a broken-image icon; that is a real rendering defect
+    (a missing resource surfacing as visibly broken chrome), not a
+    cosmetic one. A falsy key OR a key with no resolved file both now
+    render the identical dashed placeholder with no `<img>` at all, so
+    a missing file can never surface as a broken-image icon. This costs
+    one extra filesystem stat per row (`resolved_illustration_path()`'s
+    own `os.path.isfile()` calls) — at most RECENT_FLIGHTS_LIMIT (5) per
+    page load, not a meaningful cost.
     """
     key = illustrations.normalise_airline_key(row.get("airline"))
-    if key:
+    if key and illustrations.resolved_illustration_path(key, state_dir) is not None:
         alt_text = i18n.t(THUMBNAIL_ALT_TEMPLATE) % row.get("airline")
         return (
             '<img class="recent-flight__thumb" loading="lazy" decoding="async" '
@@ -343,7 +356,7 @@ def _recent_flight_thumb_html(row):
     return '<span class="recent-flight__thumb recent-flight__thumb--placeholder"></span>'
 
 
-def _recent_flights_html(rows, now):
+def _recent_flights_html(rows, now, state_dir):
     if not rows:
         body = layout.empty_state(i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY))
     else:
@@ -357,7 +370,7 @@ def _recent_flights_html(rows, now):
                 '<span class="recent-flight__detail text-label">%s</span>'
                 '<span class="recent-flight__time text-label">%s</span>'
                 "</li>"
-                % (_recent_flight_thumb_html(row), escape_html(callsign),
+                % (_recent_flight_thumb_html(row, state_dir), escape_html(callsign),
                    escape_html(secondary), layout.concise_timestamp_html(row.get("ts"), now)))
         body = '<ul class="recent-flights">%s</ul>' % "".join(items)
     return (
@@ -384,5 +397,5 @@ def render(ctx):
         + _hero_figure_html(ctx, current_flight_row)
         + _status_card_html(ctx)
         + "</div>"
-        + _recent_flights_html(rows, now)
+        + _recent_flights_html(rows, now, ctx.get("state_dir"))
     )
