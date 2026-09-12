@@ -72,6 +72,16 @@ EXPECTED_CHECK_COUNT = 64
 # call for the new field, preserving the module's own print-free-by-design
 # contract - re-derived by running the harness, not by arithmetic)
 EXPECTED_CHECK_COUNT = 69
+# 22-06-PLAN.md Task 1: 69 -> 72, +3 (daily_battery_averages() bucketing moves
+# from SQLite's UTC-only date() to Python ZoneInfo("Europe/Paris") day
+# buckets: the existing groups/excludes/bounds check is re-pinned to
+# Europe/Paris rather than UTC calendar days using non-boundary-crossing
+# hours; a new check pins the plan's own 01:30+02:00 example and that two
+# same-Paris-day/different-UTC-day readings form one bucket; and two new
+# checks prove both DST transitions - the skipped hour at the March
+# CET-to-CEST jump and the repeated hour at the October CEST-to-CET
+# fallback - re-derived by running the harness, not by arithmetic)
+EXPECTED_CHECK_COUNT = 72
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -1776,11 +1786,16 @@ def main():
                 if history_db.daily_battery_averages(conn) != []:
                     return False, "an empty database must return an empty list"
 
-                # Three consecutive days, three readings each, unambiguous means.
+                # Three consecutive days, three readings each, all at hours
+                # that land on the SAME calendar day in both UTC and
+                # Europe/Paris (CEST, UTC+2, in September) so this check
+                # isolates grouping/mean/order/exclusion from the DST-
+                # spillover behaviour, which gets its own dedicated checks
+                # below (22-06-PLAN.md Task 1).
                 day_dates = ["2026-09-02", "2026-09-01", "2026-08-31"]
                 day_values = [[4000, 4100, 4200], [4001, 4101, 4201], [4002, 4102, 4202]]
                 for day_date, values in zip(day_dates, day_values):
-                    for hour, mv in zip((2, 14, 23), values):
+                    for hour, mv in zip((6, 12, 18), values):
                         ts = "%sT%02d:00:00+00:00" % (day_date, hour)
                         history_db.record_device_health(conn, ts, battery_mv=mv)
                 # Excluded: NULL battery, unparseable ts, and a real reading
@@ -1797,7 +1812,7 @@ def main():
                 return False, "expected exactly 3 day buckets inside the window, got %r" % (bounded,)
             days = [row["ts"] for row in bounded]
             if days != ["2026-09-02", "2026-09-01", "2026-08-31"]:
-                return False, "expected newest-first UTC calendar days, got %r" % (days,)
+                return False, "expected newest-first Europe/Paris calendar days, got %r" % (days,)
             for row, expected_mean in zip(bounded, (4100, 4101, 4102)):
                 if not isinstance(row["battery_mv"], int) or isinstance(row["battery_mv"], bool):
                     return False, "battery_mv must be a real int: %r" % (row,)
@@ -1819,9 +1834,119 @@ def main():
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check(
-        "daily_battery_averages() groups by UTC calendar day, rounds the mean, orders newest-first, "
-        "honours since=, and excludes NULL-battery and unparseable-timestamp rows (260902-l0b)",
+        "daily_battery_averages() groups by Europe/Paris calendar day, rounds the mean, orders "
+        "newest-first, honours since=, and excludes NULL-battery and unparseable-timestamp rows "
+        "(22-06-PLAN.md Task 1)",
         _daily_battery_averages_groups_excludes_and_bounds_correctly,
+    )
+
+    def _daily_battery_averages_buckets_by_paris_day_not_utc_day():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                # The plan's own example: 01:30 Paris local time (CEST,
+                # +02:00) is 23:30 UTC the PREVIOUS day. Under the old
+                # date(ts) (UTC) bucketing this landed on 2026-09-01; under
+                # Paris-day bucketing it must land on 2026-09-02.
+                history_db.record_device_health(conn, "2026-09-02T01:30:00+02:00", battery_mv=4000)
+                # A second reading on the SAME Paris day (2026-09-02) but a
+                # DIFFERENT UTC day (23:00 Paris local == 21:00 UTC, same
+                # UTC day as the first reading's Paris day but a distinct
+                # instant) must join the SAME bucket, not form a second one.
+                history_db.record_device_health(conn, "2026-09-02T23:00:00+02:00", battery_mv=4200)
+
+                rows = history_db.daily_battery_averages(conn)
+
+            if len(rows) != 1:
+                return False, "expected exactly one Paris-day bucket, got %r" % (rows,)
+            row = rows[0]
+            if row["ts"] != "2026-09-02":
+                return False, "01:30+02:00 must bucket to the Paris day 2026-09-02, got %r" % (row,)
+            if row["reading_count"] != 2:
+                return False, "two same-Paris-day readings must form ONE bucket, got %r" % (row,)
+            if row["battery_mv"] != 4100:
+                return False, "bucket mean wrong: %r" % (row,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "daily_battery_averages(): a 01:30+02:00 reading buckets to its Europe/Paris day, and two "
+        "same-Paris-day readings on different UTC days form ONE bucket (D-12.3, 22-06-PLAN.md Task 1)",
+        _daily_battery_averages_buckets_by_paris_day_not_utc_day,
+    )
+
+    def _daily_battery_averages_crosses_the_march_dst_forward_transition():
+        # The last Sunday of March 2026 is 2026-03-29: clocks jump from
+        # 02:00 CET straight to 03:00 CEST, skipping the 02:00-03:00 hour.
+        # One reading before the jump (CET, +01:00) and one after it
+        # (CEST, +02:00), both on Paris calendar day 2026-03-29 despite
+        # landing on different UTC days (2026-03-28 vs 2026-03-29), must
+        # bucket together.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_device_health(conn, "2026-03-29T00:30:00+01:00", battery_mv=3900)  # 2026-03-28T23:30Z
+                history_db.record_device_health(conn, "2026-03-29T04:00:00+02:00", battery_mv=4100)  # 2026-03-29T02:00Z
+
+                rows = history_db.daily_battery_averages(conn)
+
+            if len(rows) != 1:
+                return False, "expected the March-transition readings in ONE Paris-day bucket, got %r" % (rows,)
+            row = rows[0]
+            if row["ts"] != "2026-03-29":
+                return False, "expected Paris day 2026-03-29, got %r" % (row,)
+            if row["reading_count"] != 2:
+                return False, "both sides of the skipped hour must contribute, got %r" % (row,)
+            if row["battery_mv"] != 4000:
+                return False, "bucket mean wrong across the March transition: %r" % (row,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "daily_battery_averages() buckets correctly across the CET-to-CEST March transition "
+        "(the skipped hour), on the Paris day each reading actually fell on (D-12.3)",
+        _daily_battery_averages_crosses_the_march_dst_forward_transition,
+    )
+
+    def _daily_battery_averages_crosses_the_october_dst_back_transition():
+        # The last Sunday of October 2026 is 2026-10-25: clocks fall back
+        # from 03:00 CEST to 02:00 CET, so 02:00-03:00 local happens
+        # TWICE. One reading at 02:30 CEST (+02:00, fold=0) and one at
+        # 02:30 CET (+01:00, fold=1) share the same Paris wall-clock
+        # reading and calendar day, but are distinct UTC instants an hour
+        # apart - the repeated local hour must be counted once (as two
+        # readings on the correct day), not split across two days.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_device_health(conn, "2026-10-25T02:30:00+02:00", battery_mv=4200)  # 2026-10-25T00:30Z
+                history_db.record_device_health(conn, "2026-10-25T02:30:00+01:00", battery_mv=4000)  # 2026-10-25T01:30Z
+                # A control reading unambiguously later the same Paris day,
+                # after the fallback (CET), proves the day boundary itself
+                # did not shift.
+                history_db.record_device_health(conn, "2026-10-25T10:00:00+01:00", battery_mv=4100)  # 2026-10-25T09:00Z
+
+                rows = history_db.daily_battery_averages(conn)
+
+            if len(rows) != 1:
+                return False, "expected the October-transition readings in ONE Paris-day bucket, got %r" % (rows,)
+            row = rows[0]
+            if row["ts"] != "2026-10-25":
+                return False, "expected Paris day 2026-10-25, got %r" % (row,)
+            if row["reading_count"] != 3:
+                return False, "the repeated local hour's two instants plus the control must all contribute, got %r" % (row,)
+            if row["battery_mv"] != 4100:
+                return False, "bucket mean wrong across the October transition: %r" % (row,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "daily_battery_averages() buckets correctly across the CEST-to-CET October transition "
+        "(the repeated hour), counting each instant once on the correct Paris day (D-12.3)",
+        _daily_battery_averages_crosses_the_october_dst_back_transition,
     )
 
     def _all_sql_uses_placeholders_not_string_formatting():
