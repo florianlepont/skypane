@@ -5794,6 +5794,11 @@ a.airline-card__zoom {
      * already established for the identical reason. */
     align-items: flex-start;
   }
+  /* Phase 21 polish: the usage panels span both columns under the
+   * preview/rows pair. */
+  .frame-colours__panels {
+    grid-column: 1 / -1;
+  }
 }
 .frame-colours__preview {
   margin: 0;

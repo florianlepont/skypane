@@ -1440,8 +1440,12 @@ def _frame_colours_card_html(
         "%s"
         '<div class="frame-colours__assign">'
         '<ul class="frame-colours__list" role="radiogroup" aria-labelledby="%s">%s</ul>'
-        "%s"
         "</div>"
+        # Phase 21 polish: the usage panels (one chip grid per usage, the
+        # rules block) sit in a full-width third grid cell under the
+        # preview/rows pair, so the chips flow across the whole card
+        # instead of stacking two per row inside the right-hand column.
+        '<div class="frame-colours__panels">%s</div>'
         "</div>"
         "</div>"
     ) % (
