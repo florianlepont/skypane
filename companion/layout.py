@@ -43,8 +43,11 @@ SITE_TITLE = "SkyPane"
 # bare UTC clock ("21:50 UTC") with the date hidden in a tooltip. The
 # household this frame hangs in lives on Paris time, so visible
 # timestamps now render in LOCAL_TZ, and carry the day once the value
-# is no longer "today" ("3 Sep 21:50"). The full ISO string stays in the
-# `title` attribute for anyone who needs the exact instant.
+# is no longer "today" ("3 Sep 21:50"). 22-06-PLAN.md Task 3 (D-05, B4):
+# the `title` attribute used to carry the raw ISO string instead — the
+# one place this rule did not reach — and now carries a local FULL
+# timestamp (see `_FULL_TIMESTAMP_SENTINEL_NOW` below) instead; the raw
+# ISO no longer appears in any `title` this module renders.
 LOCAL_TZ = ZoneInfo("Europe/Paris")
 _MONTH_ABBR = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
@@ -805,14 +808,38 @@ def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
     return "%s (%s)" % (ts, relative_age_text(age, lang=lang))
 
 
+# 22-06-PLAN.md Task 3 (D-05, B4): a `now_parsed` guaranteed to fall on a
+# DIFFERENT Europe/Paris calendar day than any real timestamp this app
+# renders, so passing it to `local_clock_text()` forces that function's
+# own cross-day "D Mon HH:MM" branch — this is how `concise_timestamp_
+# html()`'s `title` below is built as a full local timestamp, reusing
+# `local_clock_text()` itself (the one visible-time formatter) rather
+# than a second, competing implementation.
+_FULL_TIMESTAMP_SENTINEL_NOW = datetime(1970, 1, 1, tzinfo=ZoneInfo("UTC"))
+
+
 def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
-    """"<span class="mono" title="<full ISO>"><HH:MM> UTC (<relative>)</span>"
+    """"<span class="mono" title="<D Mon HH:MM local>"><HH:MM local> (<relative>)</span>"
     — D-09's concise-timestamp-by-default format (06.6.3-UI-SPEC.md's New
-    Component Contracts). The full ISO string is demoted to the `title`
-    attribute; the visible text is a concise clock time plus the existing
-    relative_age_text() suffix, preserving absolute_and_relative()'s
-    established absolute-first ordering convention (do not reverse to
-    relative-first).
+    Component Contracts). The visible text is `local_clock_text()`'s own
+    Europe/Paris clock (bare "HH:MM" on the same local day as `now_ts`,
+    "D Mon HH:MM" otherwise) plus the existing `relative_age_text()`
+    suffix, preserving `absolute_and_relative()`'s established
+    absolute-first ordering convention (do not reverse to
+    relative-first). The `title` attribute is a full local timestamp —
+    always day-qualified, via `local_clock_text()`'s own cross-day
+    branch forced by `_FULL_TIMESTAMP_SENTINEL_NOW` above — never the
+    raw ISO string.
+
+    Corrected under D-05/22-06-PLAN.md Task 3 (B4): this docstring used
+    to promise `"<HH:MM> UTC (<relative>)"` — a stale "UTC" suffix the
+    code below never actually emitted even before this task (the visible
+    text was already `local_clock_text()`'s Paris-local output) — and
+    the `title` WAS the raw, unconverted ISO string until this task. That
+    stale docstring is exactly what `companion/pages/health_page.py`'s
+    battery code copied when it built its own "HH:MM UTC (relative)"
+    readout by hand instead of calling this function (B4) — corrected
+    here rather than merely worked around at that one call site.
 
     THIS IS A RAW-MARKUP-PRODUCING FUNCTION: callers interpolate the
     return value verbatim — never re-escape it — and place it only in
@@ -824,7 +851,9 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
     absolute_and_relative()'s own no-markup fallback contract) when `ts`
     is falsy. When `ts` fails to parse (or age_seconds() cannot compute,
     e.g. a mismatched now_ts), returns a span with the raw value in both
-    the title and visible-text slots rather than raising.
+    the title and visible-text slots rather than raising — there is
+    nothing to convert once parsing itself has failed, so this one
+    degrade path is unchanged by this task.
 
     absolute_and_relative() is not deleted by this function's addition —
     it remains the right choice for any plain-text-only call site (e.g.
@@ -846,8 +875,9 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
     if parsed is None or age is None:
         return '<span class="mono" title="%s">%s</span>' % (
             escape_html(ts), escape_html(ts))
+    full_local = local_clock_text(parsed, _FULL_TIMESTAMP_SENTINEL_NOW, lang=lang)
     return '<span class="mono" title="%s">%s (%s)</span>' % (
-        escape_html(ts),
+        escape_html(full_local),
         escape_html(local_clock_text(parsed, parse_iso(now_ts), lang=lang)),
         escape_html(relative_age_text(age, lang=lang)))
 

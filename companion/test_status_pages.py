@@ -616,6 +616,13 @@ EXPECTED_CHECK_COUNT = 246
 # — re-derived by RUNNING the harness, not by arithmetic.
 EXPECTED_CHECK_COUNT = 250
 
+# 22-06-PLAN.md Task 3 (D-05/B4): +2 (250 -> 252) — battery-trend.js
+# contains no client-side date math and its title/fallback no longer
+# carry a raw ISO, and concise_timestamp_html()'s title is a full
+# Europe/Paris local timestamp rather than the raw ISO — re-derived by
+# RUNNING the harness, not by arithmetic.
+EXPECTED_CHECK_COUNT = 252
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -988,8 +995,17 @@ def main():
             ts = _iso(now - timedelta(minutes=3))
             _seed_device_health(tmp, [(ts, 4200)])
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-            if ts not in rendered:
-                return False, "expected the seeded ISO string to appear on the rendered page"
+            # 22-06-PLAN.md Task 3 (D-05, B4): concise_timestamp_html()'s
+            # title is now a full local timestamp, never the raw ISO —
+            # so the seeded ISO string must NOT survive verbatim; the
+            # Device row must still show a real title attribute and a
+            # parenthesised relative age.
+            if ts in rendered:
+                return False, "expected the raw ISO string to be gone from the rendered page (D-05, B4)"
+            expected_title = layout.local_clock_text(
+                layout.parse_iso(ts), layout._FULL_TIMESTAMP_SENTINEL_NOW)
+            if ('title="%s"' % layout.escape_html(expected_title)) not in rendered:
+                return False, "expected the Device row's title to be a full local timestamp"
             if " ago)" not in rendered:
                 return False, "expected a parenthesised relative age suffix on the rendered page"
             return True, ""
@@ -1196,11 +1212,20 @@ def main():
             ]
             _seed_device_health(tmp, readings)
             rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            # 22-06-PLAN.md Task 3 (D-05, B4): the title is now a full
+            # local timestamp, never the raw ISO — re-derived from
+            # concise_timestamp_html() itself rather than hard-coded.
             for ts, _mv in readings:
-                if ('<span class="mono" title="%s">' % ts) not in rendered:
+                expected_span = layout.concise_timestamp_html(ts, _iso(base))
+                if rendered.count(expected_span) < 1:
                     return False, (
-                        "expected %r inside a concise_timestamp_html() title attribute "
+                        "expected concise_timestamp_html()'s own byte-identical span for %r "
                         "in the rendered Battery Trend table" % ts)
+                # Not asserting the raw ISO is absent page-wide here: the
+                # chart's own sparkline hit targets legitimately carry it
+                # in their machine-readable data-ts attribute (unrelated
+                # to this table, and not a `title`/tooltip) — D-05 is
+                # about visible/tooltip text, not every attribute.
             if " ago)" not in rendered:
                 return False, "expected at least one parenthesised relative age in the Battery Trend table"
             return True, ""
@@ -2580,6 +2605,51 @@ def main():
         "a seeded Health page renders zero occurrences of the literal ' UTC' in either English or "
         "French (D-05, B4)",
         _health_page_has_zero_utc_literal_in_either_language)
+
+    # ======================================================================
+    # 22-06-PLAN.md Task 3 (D-05, B4): the client-side hover swap reads
+    # only pre-formatted server text (no date parsing/formatting of its
+    # own, and no raw-ISO fallback), and concise_timestamp_html()'s
+    # title is a local full timestamp, never the raw ISO.
+    # ======================================================================
+
+    def _battery_trend_js_has_no_client_side_date_math():
+        js_path = os.path.join(HERE, "static", "battery-trend.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+        if re.search(r"new Date\(|toISOString|getHours|getMinutes", js_source):
+            return False, "expected zero client-side date-parsing/formatting calls in battery-trend.js"
+        if 'setAttribute("title", ts)' in js_source:
+            return False, "expected the raw-ts title write to be gone"
+        if 'setAttribute("title", when)' not in js_source:
+            return False, "expected the hover swap to set title to the pre-formatted 'when' text"
+        if 'mv + " mV — " + ts' in js_source:
+            return False, "expected the raw-ISO fallback line to be gone"
+        return True, ""
+    check(
+        "battery-trend.js contains no client-side date parsing or formatting (new Date(), "
+        "toISOString, getHours, getMinutes), sets title to the pre-formatted 'when' text rather "
+        "than the raw ts, and its fallback no longer shows a raw ISO string (D-05, B4)",
+        _battery_trend_js_has_no_client_side_date_math)
+
+    def _concise_timestamp_html_title_is_a_full_local_timestamp_not_raw_iso():
+        now_iso = "2026-09-12T12:00:00+00:00"
+        ts = "2026-09-11T22:30:00+00:00"  # 00:30 Paris the NEXT day (CEST)
+        rendered = layout.concise_timestamp_html(ts, now_iso)
+        if ts in rendered:
+            return False, "expected zero occurrences of the raw ISO string in concise_timestamp_html()'s output"
+        title_match = re.search(r'title="([^"]*)"', rendered)
+        if title_match is None:
+            return False, "expected a title attribute"
+        if not re.search(r"^\d{1,2} \w+ \d{2}:\d{2}$", title_match.group(1)):
+            return False, "expected a full 'D Mon HH:MM' local timestamp in the title, got %r" % title_match.group(1)
+        if "UTC" in rendered:
+            return False, "expected zero occurrences of 'UTC' in concise_timestamp_html()'s output"
+        return True, ""
+    check(
+        "concise_timestamp_html()'s title is a full Europe/Paris local timestamp ('D Mon HH:MM'), "
+        "never the raw ISO string and never a 'UTC' suffix (D-05, B4)",
+        _concise_timestamp_html_title_is_a_full_local_timestamp_not_raw_iso)
 
     def _seeded_render_shows_both_the_estimate_and_the_millivolt_figure():
         tmp = _mkstate("h-readout-percentage")

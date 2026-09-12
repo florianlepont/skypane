@@ -81,17 +81,29 @@
     // never HTML. The one new attribute write below is `title`, which
     // is not an HTML sink either — so this file still needs no escaping
     // function and 06.5-RESEARCH.md's ASVS V5 reasoning is unchanged.
+    //
+    // 22-06-PLAN.md Task 3 (D-05, B4): `title` used to be set to the raw
+    // `ts` ISO string — the one moment a user is looking for a readable
+    // time, this showed the least readable one. The server now builds
+    // `when` as a full Europe/Paris local timestamp
+    // (health_page.py's _full_local_timestamp_text(), the same value the
+    // element's own visible text and its SSR-rendered `title` already
+    // carry — health_page.py's _battery_readout_block()), so `title` is
+    // set to `when` here too: this file still reads pre-formatted server
+    // text and does no date parsing or formatting of its own.
     if (when !== null && readoutValue && readoutDetail) {
       readoutValue.textContent = mv + " mV";
       readoutDetail.textContent = " — " + when;
-      readoutDetail.setAttribute("title", ts);
+      readoutDetail.setAttribute("title", when);
     } else {
       // Fallback: this script is a single cached static asset served to
       // every page, and can ship one wave ahead of the markup that
       // references it (the same reason the early-return above exists).
-      // A missing data-when attribute, or a missing span, must degrade
-      // to this readable line, never to an empty readout.
-      readout.textContent = mv + " mV — " + ts;
+      // A missing data-when attribute, or a missing span, degrades to
+      // the bare value with no time at all — never to the raw ISO `ts`,
+      // which is exactly the defect this task fixes (22-06-PLAN.md
+      // Task 3, D-05).
+      readout.textContent = mv + " mV";
     }
 
     // Mark exactly one point as active: the one just revealed, toggled on;
