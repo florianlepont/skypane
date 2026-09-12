@@ -68,9 +68,21 @@ BATTERY_OK_BODY = "Battery back to normal"
 FRAME_SILENT_BODY = "The frame has not checked in for %s"
 FRAME_RECOVERED_BODY = "The frame is back"
 
+# WR-04 fix (20-REVIEW.md): the shared branding title for every REAL
+# battery-low/frame-silent push server/poll_loop.py's two transition
+# hooks send — deliberately its own, honestly-named constant, never
+# TEST_NOTIFICATION_TITLE below. Before this fix, poll_loop.py reused
+# TEST_NOTIFICATION_TITLE for these, which happened to be harmless only
+# because both features wanted the identical literal text; the naming
+# actively misled a future maintainer into believing changing one would
+# never affect the other.
+ALERT_TITLE = "SkyPane"
+
 # The "Send a test" button's own fixed title/body pair (20-11-PLAN.md) —
 # never templated, so a test push never needs a real battery/staleness
-# reading to send.
+# reading to send. Reserved for that one feature (companion/app.py's
+# `_handle_notifications_test_post()`) — server/poll_loop.py's real
+# battery/silence transitions use ALERT_TITLE above instead (WR-04 fix).
 TEST_NOTIFICATION_TITLE = "SkyPane"
 TEST_NOTIFICATION_BODY = "This is a test notification from SkyPane."
 

@@ -3624,7 +3624,10 @@ def main():
                 if len(sender.calls) != 1:
                     return False, "expected exactly one send, got %d" % len(sender.calls)
                 _, title, body = sender.calls[0]
-                if title != poll_loop.notify.TEST_NOTIFICATION_TITLE:
+                # WR-04 fix (20-REVIEW.md): real transition pushes carry
+                # notify.ALERT_TITLE, not TEST_NOTIFICATION_TITLE - the
+                # latter is reserved for the "Send a test" button alone.
+                if title != poll_loop.notify.ALERT_TITLE:
                     return False, "expected the project's short-name title, got %r" % (title,)
                 if "3400" not in body:
                     return False, "expected the millivolt figure 3400 in body %r" % (body,)

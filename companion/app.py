@@ -2341,10 +2341,13 @@ class Handler(BaseHTTPRequestHandler):
         title/body pair (`notify.TEST_NOTIFICATION_TITLE`/
         `TEST_NOTIFICATION_BODY`), translated into the stored group's own
         `lang` (D-28) via `notify.body_for_lang()` — never the
-        requesting browser's own per-request language, which the poll
-        loop (the other caller of these same constants) has no way to
-        read either. `send_notification()`'s own boolean result is
-        branched on explicitly, matching `_handle_calendar_connect_
+        requesting browser's own per-request language, which
+        `server/poll_loop.py`'s real battery/silence transition pushes
+        have no way to read either (WR-04 fix, 20-REVIEW.md: those use
+        their own `notify.ALERT_TITLE` constant instead, never this
+        button's `TEST_NOTIFICATION_TITLE`). `send_notification()`'s own
+        boolean result is branched on explicitly, matching
+        `_handle_calendar_connect_
         post()`'s own never-a-dict-lookup discipline: `True` redirects
         with the success flash, `False` (an unsafe URL, a timeout, a
         non-2xx response, or a transport exception — all folded into one

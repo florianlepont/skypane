@@ -542,7 +542,9 @@ def _notify_battery_transition(state_dir, poll_state, battery_low, battery_mv, d
         else:
             body = notify.body_for_lang(notify.BATTERY_OK_BODY, lang)
         send = sender or notify.send_notification
-        send(topic_url, notify.TEST_NOTIFICATION_TITLE, body)
+        # WR-04 fix (20-REVIEW.md): ALERT_TITLE, not TEST_NOTIFICATION_TITLE
+        # - this is a real transition push, not the test button.
+        send(topic_url, notify.ALERT_TITLE, body)
         state["last_battery_sent"] = battery_low
     except Exception as exc:
         print(
@@ -606,7 +608,9 @@ def _notify_silence_transition(state_dir, poll_state, conn, device_cfg, sender=N
         else:
             body = notify.body_for_lang(notify.FRAME_RECOVERED_BODY, lang)
         send = sender or notify.send_notification
-        send(topic_url, notify.TEST_NOTIFICATION_TITLE, body)
+        # WR-04 fix (20-REVIEW.md): ALERT_TITLE, not TEST_NOTIFICATION_TITLE
+        # - this is a real transition push, not the test button.
+        send(topic_url, notify.ALERT_TITLE, body)
         state["last_silent_sent"] = silent
     except Exception as exc:
         print(
