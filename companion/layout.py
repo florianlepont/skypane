@@ -1407,7 +1407,7 @@ def anomaly_banner(message, severity="error"):
         % (css_class, role, escape_html(message)))
 
 
-def status_dot(state, label, title=None):
+def status_dot(state, label, title=None, visually_hide_label=False):
     """A small coloured status indicator plus an escaped text label.
 
     `state` maps to exactly one of three fixed CSS class suffixes; an
@@ -1424,12 +1424,26 @@ def status_dot(state, label, title=None):
     discipline `concise_timestamp_html()` uses for its own `title`) and
     added as a `title="..."` attribute on the `dot-label` span, giving a
     shortened visible label room to carry a longer form as a tooltip.
+
+    `visually_hide_label` (21-03-PLAN.md Task 1, D-15) is a
+    keyword-with-default, byte-identical-when-falsy parameter, matching
+    `stat_tile()`'s own `caption_title` contract: every pre-existing call
+    site (which never passes this keyword) gets a return value that is
+    character-for-character what this function returned before this
+    parameter existed. Only Flights' desktop Corroboration cell
+    (`history_page._history_table_html()`) passes `True` — the dot stays
+    visible, the accessible name and `title` tooltip are unchanged, but
+    the label span's class becomes `"dot-label visually-hidden"` instead
+    of `"dot-label"`, removing the visible word so the column can shrink
+    to a dot-only width (21-UI-SPEC.md §F). Health's own call sites
+    (`health_page.py`) never pass this keyword and are unaffected.
     """
     css_class = _STATUS_DOT_CLASSES.get(state, _DEFAULT_STATUS_DOT_CLASS)
     title_attr = ' title="%s"' % escape_html(title) if title else ""
+    label_class = "dot-label visually-hidden" if visually_hide_label else "dot-label"
     return (
-        '<span class="dot %s"></span><span class="dot-label"%s>%s</span>'
-        % (css_class, title_attr, escape_html(label)))
+        '<span class="dot %s"></span><span class="%s"%s>%s</span>'
+        % (css_class, label_class, title_attr, escape_html(label)))
 
 
 def stat_tile(caption, content_html, status=None, icon=None, caption_title=None):

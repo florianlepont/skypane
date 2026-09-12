@@ -2476,6 +2476,18 @@ button:disabled {
   border-bottom: 1px solid var(--color-border);
 }
 
+/* 21-03-PLAN.md Task 1 (D-15, 21-UI-SPEC.md §F): scoped to Flights' own
+ * table only — no other .data-table consumer (Health, Airlines) gains
+ * this modifier. Six columns (5 data + the "More" toggle) at 8px
+ * horizontal padding each = 96px of padding, leaving a 784px content
+ * budget inside the real 880px column (1280 - 240 sidebar - 32 gap -
+ * 128 .dashboard-main padding) — tokens only, no literal px value, so
+ * this rule tracks --space-sm/--space-md if either token ever changes. */
+table.data-table--flights td,
+table.data-table--flights th {
+  padding: var(--space-sm) var(--space-sm);
+}
+
 /* quick task 260902-bl2 (bug 1): the Resolution-statistics table's
  * Description column measured full-strength --color-text with an empty
  * classList — not a rule written wrong, a missing hook: before this,
