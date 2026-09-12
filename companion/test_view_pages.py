@@ -450,6 +450,16 @@ EXPECTED_CHECK_COUNT = 114
 # call count at execution time (114/114 pass), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 114
+# 22-02-PLAN.md Task 2 (D-03/D-04): +2 - two new checks:
+# _frame_state_resolve_state_contract() (the due/held/late/unknown
+# resolution, the invisible grace window, the held-cannot-escalate
+# rule, and the nightly regression end to end through
+# wake.next_wake_status()) and _frame_state_view_free_and_i18n_contract()
+# (the view-free/no-dot-class source checks plus the six copy
+# constants' EN/FR round trip). 114 + 2 = 116, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (116/116 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 116
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -4515,6 +4525,157 @@ def main():
         "300s screen-off cadence, and the richer accessor carries the same effective interval "
         "and hold reason for every fixture above",
         _wake_next_wake_at_iso_contract)
+
+    # --- 22-02-PLAN.md Task 2 (D-03/D-04): the one frame-state
+    # resolution and the one delay sentence ---------------------------
+
+    def _frame_state_resolve_state_contract():
+        import companion.frame_state as frame_state
+        from datetime import datetime, timedelta, timezone
+
+        # No check-in recorded at all: unknown, no dot class claimed —
+        # this module never returns a dot class in the first place.
+        if frame_state.resolve_state(None, None, None, "2026-01-15T12:00:00+00:00") \
+                != frame_state.STATE_UNKNOWN:
+            return False, "expected STATE_UNKNOWN for a falsy next_wake_iso"
+        if frame_state.headline_template(
+                frame_state.resolve_state(None, None, None, "2026-01-15T12:00:00+00:00")) \
+                != frame_state.HEADLINE_DUE:
+            return False, "expected the unknown state to degrade to HEADLINE_DUE, never None"
+        if frame_state.delay_sentence_template(None, None, None) != frame_state.DELAY_UNKNOWN:
+            return False, "expected DELAY_UNKNOWN when no next_wake_iso is known"
+
+        next_wake = "2026-01-15T12:00:00+00:00"
+        interval_s = 900
+
+        # now before next_wake: due.
+        now_before = "2026-01-15T11:00:00+00:00"
+        if frame_state.resolve_state(next_wake, interval_s, None, now_before) != frame_state.STATE_DUE:
+            return False, "expected STATE_DUE when now is before next_wake"
+        if frame_state.headline_template(frame_state.STATE_DUE) != frame_state.HEADLINE_DUE:
+            return False, "expected HEADLINE_DUE for STATE_DUE"
+
+        # now between next_wake and next_wake + 2 * interval: still due,
+        # same copy — the grace window is invisible (rule 3), no third
+        # state, no colour shift.
+        now_in_grace = (
+            datetime.fromisoformat(next_wake) + timedelta(seconds=interval_s)).isoformat()
+        if frame_state.resolve_state(next_wake, interval_s, None, now_in_grace) != frame_state.STATE_DUE:
+            return False, "expected STATE_DUE inside the grace window (next_wake + 1 * interval)"
+
+        # now >= next_wake + 2 * interval, no hold: late.
+        now_late = (
+            datetime.fromisoformat(next_wake) + timedelta(seconds=2 * interval_s)).isoformat()
+        if frame_state.resolve_state(next_wake, interval_s, None, now_late) != frame_state.STATE_LATE:
+            return False, "expected STATE_LATE at exactly next_wake + 2 * interval"
+        if frame_state.headline_template(frame_state.STATE_LATE) != frame_state.HEADLINE_LATE:
+            return False, "expected HEADLINE_LATE for STATE_LATE"
+
+        # hold reason quiet hours: held, regardless of how far now sits
+        # past next_wake + 2 * interval (rule 4: a held frame cannot
+        # escalate to late by elapsed time alone).
+        import companion.wake as wake
+        far_past = (
+            datetime.fromisoformat(next_wake) + timedelta(days=3)).isoformat()
+        if frame_state.resolve_state(next_wake, interval_s, wake.HOLD_QUIET_HOURS, now_late) \
+                != frame_state.STATE_HELD:
+            return False, "expected STATE_HELD when hold_reason is HOLD_QUIET_HOURS"
+        if frame_state.resolve_state(next_wake, interval_s, wake.HOLD_QUIET_HOURS, far_past) \
+                != frame_state.STATE_HELD:
+            return False, (
+                "expected STATE_HELD to survive 3 days past next_wake + 2 * interval — "
+                "elapsed time alone must never escalate a held frame to late")
+        if frame_state.headline_template(frame_state.STATE_HELD) != frame_state.HEADLINE_HELD:
+            return False, "expected HEADLINE_HELD for STATE_HELD"
+
+        # The delay sentence has exactly three branches — due, held,
+        # unknown, never a fourth "late" branch.
+        if frame_state.delay_sentence_template(next_wake, interval_s, None) != frame_state.DELAY_DUE:
+            return False, "expected DELAY_DUE for a due (or late) triple"
+        if frame_state.delay_sentence_template(next_wake, interval_s, wake.HOLD_QUIET_HOURS) \
+                != frame_state.DELAY_HELD:
+            return False, "expected DELAY_HELD when hold_reason is HOLD_QUIET_HOURS"
+
+        # --- The nightly regression (22-UI-SPEC.md §3.3 binding rule 6):
+        # quiet hours 23:00-07:00, last check-in 22:58, clock 02:00,
+        # Europe/Paris (a non-DST date) — the resolved state must be
+        # STATE_HELD, never STATE_LATE, end to end through
+        # wake.next_wake_status() into frame_state.resolve_state().
+        paris = timezone(timedelta(hours=1))
+        qh_config = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        checkin = datetime(2026, 1, 15, 22, 58, 0, tzinfo=paris)
+        next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
+            checkin.isoformat(), qh_config)
+        clock = datetime(2026, 1, 16, 2, 0, 0, tzinfo=paris)
+        nightly_state = frame_state.resolve_state(
+            next_wake_iso, effective_interval_s, hold_reason, clock.isoformat())
+        if nightly_state != frame_state.STATE_HELD:
+            return False, (
+                "the nightly regression: expected STATE_HELD at 02:00 for a 22:58 check-in "
+                "inside a 23:00-07:00 quiet-hours window, got %r (next_wake=%r, "
+                "effective_interval_s=%r, hold_reason=%r) — this is exactly X2's nightly "
+                "false alarm" % (nightly_state, next_wake_iso, effective_interval_s, hold_reason))
+
+        return True, ""
+    check(
+        "companion.frame_state.resolve_state() resolves due/held/late/unknown from a "
+        "(next_wake_iso, effective_interval_s, hold_reason, now) tuple with an invisible grace "
+        "window and a held frame that cannot escalate by elapsed time alone, "
+        "headline_template()/delay_sentence_template() return the matching three-branch copy "
+        "constants, and the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock "
+        "02:00 Europe/Paris) resolves to STATE_HELD end to end through wake.next_wake_status() "
+        "(D-03/D-04, 22-02-PLAN.md Task 2, 22-UI-SPEC.md §3.3 binding rule 6)",
+        _frame_state_resolve_state_contract)
+
+    def _frame_state_view_free_and_i18n_contract():
+        frame_state_path = os.path.join(REPO_ROOT, "companion", "frame_state.py")
+        with open(frame_state_path, "r", encoding="utf-8") as fh:
+            source = fh.read()
+        if "dot--warn" in source:
+            return False, "expected frame_state.py to never name a CSS dot class"
+        for needle in ("import layout", "from companion.layout", "from .layout"):
+            if needle in source:
+                return False, "expected frame_state.py to stay view-free (no layout import)"
+
+        import companion.frame_state as frame_state
+        import companion.i18n as i18n
+        # Each of the three headline and three delay-sentence constants
+        # round-trips through the French catalogue (either frame_state's
+        # own new entries, or — for the two deliberately-not-redefined
+        # collisions — the pre-existing entries this module's docstring
+        # names) and renders unchanged in English.
+        headline_pairs = (
+            (frame_state.HEADLINE_DUE, "Prochaine mise à jour ≈ %s"),
+            (frame_state.HEADLINE_HELD, "Prochain réveil vers %s · heures calmes"),
+            (frame_state.HEADLINE_LATE, "Attendue depuis %s"),
+        )
+        for english, french in headline_pairs:
+            if i18n.t_lang(english, "en") != english:
+                return False, "expected %r unchanged under lang='en'" % (english,)
+            if i18n.t_lang(english, "fr") != french:
+                return False, "expected %r to translate to %r under lang='fr', got %r" % (
+                    english, french, i18n.t_lang(english, "fr"))
+        delay_pairs = (
+            (frame_state.DELAY_DUE, "S’applique au prochain réveil, vers %s."),
+            (frame_state.DELAY_HELD, "S’applique à la fin des heures calmes, vers %s."),
+            (frame_state.DELAY_UNKNOWN, "S’applique la prochaine fois que le cadre se réveille."),
+        )
+        for english, french in delay_pairs:
+            if i18n.t_lang(english, "en") != english:
+                return False, "expected %r unchanged under lang='en'" % (english,)
+            if i18n.t_lang(english, "fr") != french:
+                return False, "expected %r to translate to %r under lang='fr', got %r" % (
+                    english, french, i18n.t_lang(english, "fr"))
+        return True, ""
+    check(
+        "companion/frame_state.py names no dot--warn class and imports no layout module "
+        "(view-free, D-03), and each of its six copy constants round-trips through "
+        "companion.i18n's French catalogue unchanged in English (22-02-PLAN.md Task 2)",
+        _frame_state_view_free_and_i18n_contract)
 
     def _battery_module_never_imports_pages_or_server():
         battery_path = os.path.join(REPO_ROOT, "companion", "battery.py")
