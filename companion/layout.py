@@ -1594,9 +1594,15 @@ def status_dot(state, label, title=None, visually_hide_label=False):
     css_class = _STATUS_DOT_CLASSES.get(state, _DEFAULT_STATUS_DOT_CLASS)
     title_attr = ' title="%s"' % escape_html(title) if title else ""
     label_class = "dot-label visually-hidden" if visually_hide_label else "dot-label"
+    # 21-REVIEW.md WR-03: with the label clipped away, a title on that
+    # span is unreachable by hover — it moves onto the dot itself, the
+    # only visible element left, so the tooltip still exists. The
+    # default (label visible) output is byte-identical to before.
+    dot_title = title_attr if visually_hide_label else ""
+    label_title = "" if visually_hide_label else title_attr
     return (
-        '<span class="dot %s"></span><span class="%s"%s>%s</span>'
-        % (css_class, label_class, title_attr, escape_html(label)))
+        '<span class="dot %s"%s></span><span class="%s"%s>%s</span>'
+        % (css_class, dot_title, label_class, label_title, escape_html(label)))
 
 
 def stat_tile(caption, content_html, status=None, icon=None, caption_title=None):

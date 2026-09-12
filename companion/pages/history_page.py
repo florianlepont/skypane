@@ -662,8 +662,8 @@ def _copy_button_html(value, label):
     D-06 (20-11-PLAN.md Task 3): the button carries a new attribute
     naming the translated success text `companion/static/copy-button.js`
     reads at click time instead of a hardcoded English literal — the
-    same shape `freshness.js`'s `data-pause-text`/`data-resume-text`
-    already use.
+    data-* label shape `freshness.js` uses (its former `data-pause-text`
+    pair was retired in 21-02).
     """
     return (
         '<button type="button" class="copy-btn" data-copy-value="%s" '

@@ -61,8 +61,8 @@
  * D-06 (20-11-PLAN.md Task 3): updateBar()'s own connector words are now
  * read once from the dirty-bar element itself, via five data-* attributes
  * server-rendered and translated by config_page.py's dirty_bar_html — the
- * same shape freshness.js already uses for data-pause-text/
- * data-resume-text:
+ * same data-* label shape freshness.js uses (its former
+ * data-pause-text pair was retired in 21-02):
  *   data-dirty-changed-suffix   — the word appended after a section-label
  *                                 list names what happened to it
  *   data-dirty-and              — the two-item list joiner

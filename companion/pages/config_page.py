@@ -1232,8 +1232,11 @@ def _frame_colours_row_html(usage, checked, label, meta_text, departing_hex, arr
     radiogroup — the visually-hidden native radio supplies the group's
     real selection semantics (the whole row IS its label, the
     `.runway-card`/`.theme-chip` idiom's fourth/fifth consumer);
-    `data-usage-panel` is the attribute contract theme-preview.js
-    (Task 3) reads to know which usage panel this row shows. This
+    `data-usage-panel` names the usage panel this row shows — the same
+    id as the radio's own `value`, which is what theme-preview.js
+    actually reads (`input.value`); the attribute is the server-side
+    statement of that pairing for tests and readers (21-REVIEW.md
+    WR-02), not a second script contract. This
     radio carries no `form=` attribute and is NEVER submitted to
     `handle_post()` — it is a pure display-selection control, always
     defaulting to `departures` checked, matching 21-UI-SPEC.md §D's own
@@ -2705,7 +2708,8 @@ def _rule_add_form_html(errors=None, submitted=None):
     always-valid default kind (callsign/"Flight"). Validation errors
     render under the field (phase 19 D-07 idiom), keeping the typed
     value — `errors`/`submitted` are both fully defaulted so the one
-    live call site (`_rules_section_html()` below) keeps calling this
+    live call site (the rules usage panel built by
+    `frame_colours_section_html()`, since 21-05) keeps calling this
     with neither, unaffected by this addition.
     """
     selected_kind = _submitted_or_current(
@@ -2868,7 +2872,8 @@ def _rule_list_html(rows):
     `>=960px`/`<960px` split to maintain. `colour_rules.rule_rows()`
     already orders `rows` most-specific first (callsign, then hex, then
     prefix) and alphabetically within each kind — no re-sort needed
-    here. Returns "" for an empty list; `_rules_section_html()` renders
+    here. Returns "" for an empty list; the rules usage panel
+    (`frame_colours_section_html()`, 21-05) renders
     the empty state instead in that case (never called on the empty
     branch in practice, kept total for the same reason its two retired
     predecessors were).

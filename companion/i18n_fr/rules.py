@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """companion/i18n_fr/rules.py — French strings for the rebuilt Flight
 colours section (companion/pages/config_page.py's _rule_add_form_html()/
-_rule_row_html()/_rules_section_html(), D-15a..e), 20-09-PLAN.md Task 3.
+_rule_row_html() and, since 21-05, the rules usage panel of
+frame_colours_section_html() — formerly _rules_section_html(), D-15a..e),
+20-09-PLAN.md Task 3.
 
 One sibling module of the companion/i18n_fr package (see that
 package's __init__.py for the auto-merge/duplicate-key contract this

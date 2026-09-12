@@ -5835,7 +5835,11 @@ input:checked + .frame-colours__row {
   border: 2px solid var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
-input:focus-visible + .frame-colours__row {
+/* 21-REVIEW.md CR-01: the radio sits INSIDE the label, so a sibling
+ * selector could never match — :focus-within on the row itself is the
+ * selector that fires for keyboard focus on the hidden radio, in every
+ * browser, no :has() needed. */
+.frame-colours__row:focus-within {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
