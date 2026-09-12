@@ -439,6 +439,25 @@ EXPECTED_CHECK_COUNT = 267  # 20-12-PLAN.md Task 2 (D-30/D-31): +16
 # reachable by URL, Flights/Airlines keeping their full content, the
 # mode surviving three sequential requests, and the full-mode mirror
 # of each toggled behaviour). 251 + 16 = 267.
+# 21-01-PLAN.md Task 1 (D-17): -19. Section 5's entire 16-check block is
+# deleted outright (the simple/full display-mode mechanism it
+# exercised no longer exists; the full-mode-only behaviour it also
+# proved is picked up by this plan's own new checks in test_view_
+# pages.py/test_config_page.py). The two POST-to-the-deleted-route
+# checks are replaced by one new check pinning that a valid-session
+# POST there now takes the unknown-route 404 path (T-21-01).
+# 267 - 16 - 2 + 1 = 250, recomputed directly against the real on-disk
+# check(...) call count at execution time (248/250 pass — the two
+# documented WR-11 root-sandbox failures, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 250
+# 21-01-PLAN.md Task 3 (D-17): +1 (the package-wide guard check pinning
+# the display-mode switch's removal). 250 + 1 = 251, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (249/251 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 251
 
 
 def _ago_iso(seconds):
@@ -2352,14 +2371,13 @@ def main():
             def _resolved_ui_theme(self):
                 return "auto"
 
-            # 20-01-PLAN.md Task 2: page_context() now also resolves
-            # lang/simple_mode via these two methods — a minimal stand-in
-            # matching the real Handler's own cookie-then-default shape.
+            # 20-01-PLAN.md Task 2: page_context() also resolves lang via
+            # this method — a minimal stand-in matching the real
+            # Handler's own cookie-then-default shape. D-17 (21-01-PLAN.md
+            # Task 1): the sibling _mode_from_request() stand-in is
+            # deleted along with the real method it mirrored.
             def _lang_from_request(self):
                 return "en"
-
-            def _mode_from_request(self):
-                return "full"
 
         def _page_context_threads_wake_interval_env_default():
             tmp = tempfile.mkdtemp(prefix="skypane-page-context-")
@@ -2836,8 +2854,16 @@ def main():
                 "poll_cooldown_remaining", "gallery_entries", "runway_images",
                 "health_severity", "now",
                 "resolve_prefix", "manual_resolutions",
-                # 20-01-PLAN.md Task 2 (D-04/D-29):
-                "lang", "simple_mode",
+                # 20-01-PLAN.md Task 2 (D-04):
+                "lang",
+                # D-17 (21-01-PLAN.md Task 1): the sibling ctx key that
+                # used to back the now-deleted display-mode switch is
+                # removed from page_context()'s return dict along with
+                # the rest of that mechanism, so it is removed from this
+                # tuple too — companion/pages/__init__.py's own
+                # docstring bullet for it is outside this plan's
+                # files_modified list and is flagged as a deviation in
+                # 21-01-SUMMARY.md rather than edited here.
             )
             docstring = pages_package.__doc__
             for key in documented_keys:
@@ -4166,10 +4192,11 @@ def main():
             "logout costs a signed-out caller nothing)",
             _logout_post_without_session_redirects_to_login)
 
-        # --- 20-01-PLAN.md Task 2 (D-02/D-29, T-20-01/T-20-02): the two ---
-        # --- new nav-footer switch routes, POST /ui-lang and             ---
-        # --- POST /ui-mode — byte-for-byte siblings of the /ui-theme     ---
-        # --- family above.                                               ---
+        # --- 20-01-PLAN.md Task 2 (D-02, T-20-01/T-20-02): the new       ---
+        # --- nav-footer switch route, POST /ui-lang — a byte-for-byte    ---
+        # --- sibling of the /ui-theme family above. D-17 (21-01-PLAN.md  ---
+        # --- Task 1): the sibling display-mode switch route is deleted;  ---
+        # --- see the replacement unknown-route check below.               ---
 
         def _ui_lang_post_round_trip():
             for submitted, expect_cookie in (("fr", True), ("en", True), ("de", False)):
@@ -4220,54 +4247,32 @@ def main():
             "sp_ui_lang cookie (T-20-01)",
             _ui_lang_post_without_session_redirects_to_login)
 
-        def _ui_mode_post_round_trip():
-            for submitted, expect_cookie in (("simple", True), ("full", True), ("garbage", False)):
-                status, headers, _ = http_request(
-                    base + "/ui-mode", method="POST", cookie=session_cookie,
-                    data=urllib.parse.urlencode({"ui_mode": submitted}).encode())
-                if status != 303:
-                    return False, "expected 303 for ui_mode=%s, got %d" % (submitted, status)
-                if headers.get("Location") != "/":
-                    return False, (
-                        "expected a redirect to the referring tab (default /), got %r"
-                        % headers.get("Location"))
-                set_cookie = headers.get("Set-Cookie", "")
-                if expect_cookie:
-                    if "%s=%s" % (auth.UI_MODE_COOKIE_NAME, submitted) not in set_cookie:
-                        return False, "expected %s=%s in %r" % (
-                            auth.UI_MODE_COOKIE_NAME, submitted, set_cookie)
-                    for needle in ("HttpOnly", "SameSite=Strict"):
-                        if needle not in set_cookie:
-                            return False, "expected %r in the sp_ui_mode cookie header: %r" % (
-                                needle, set_cookie)
-                else:
-                    if auth.UI_MODE_COOKIE_NAME in set_cookie:
-                        return False, (
-                            "expected no sp_ui_mode Set-Cookie header for an unrecognised "
-                            "ui_mode=%s, got %r" % (submitted, set_cookie))
-            return True, ""
-        check(
-            "POST /ui-mode with ui_mode=simple/full sets the sp_ui_mode cookie (HttpOnly, "
-            "SameSite=Strict) and redirects to the referring tab; ui_mode=garbage sets no cookie",
-            _ui_mode_post_round_trip)
+        # D-17 (21-01-PLAN.md Task 1): the two round-trip checks that
+        # used to live here (its cookie round trip, its no-session
+        # redirect) are deleted — the sibling display-mode switch route
+        # itself is gone. The replacement check below (the threat
+        # model's own T-21-01 pin) proves a valid-session POST to the
+        # now-unrecognised path takes the ordinary unknown-route 404,
+        # not that any cookie round-trips (there is no cookie any more).
 
-        def _ui_mode_post_without_session_redirects_to_login():
+        def _post_to_the_deleted_display_mode_route_with_session_now_404s():
             status, headers, _ = http_request(
-                base + "/ui-mode", method="POST", data=b"ui_mode=simple")
-            if status != 303 or headers.get("Location") != "/login":
+                base + "/ui-mode", method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"value": "simple"}).encode())
+            if status != 404:
                 return False, (
-                    "expected an unauthenticated POST /ui-mode to redirect to /login, "
-                    "got %d/%r" % (status, headers.get("Location")))
+                    "expected a valid-session POST /ui-mode to take the unknown-route "
+                    "404 path now that the route is deleted (D-17/T-21-01), got %d" % status)
             set_cookie = headers.get("Set-Cookie", "")
-            if auth.UI_MODE_COOKIE_NAME in set_cookie:
+            if "sp_ui_mode" in set_cookie:
                 return False, (
-                    "expected no sp_ui_mode Set-Cookie header on an unauthenticated "
-                    "POST /ui-mode, got %r" % set_cookie)
+                    "expected no sp_ui_mode Set-Cookie header — the cookie name is never "
+                    "written by any code path any more, got %r" % set_cookie)
             return True, ""
         check(
-            "POST /ui-mode with no session cookie redirects to /login and does not set a "
-            "sp_ui_mode cookie (T-20-01)",
-            _ui_mode_post_without_session_redirects_to_login)
+            "POST /ui-mode with a valid session now takes the unknown-route 404 path "
+            "(D-17, the route/handler/dispatch line are deleted together)",
+            _post_to_the_deleted_display_mode_route_with_session_now_404s)
 
         # --- D-03: language resolution from cookie / Accept-Language ---
 
@@ -7111,226 +7116,87 @@ def main():
             _calendar_save_does_not_touch_the_manual_poll_cooldown)
 
         # ==============================================================
-        # Section 5 (20-12-PLAN.md Task 2, D-30/D-31): simple mode, end
-        # to end over real HTTP, with the sp_ui_mode=simple cookie set
-        # on a real signed-in session — never the layout.sidebar_nav()/
-        # config_page.render() unit-level calls 20-01/20-09's own
-        # checks already cover in companion/test_status_pages.py/
-        # companion/test_config_page.py. Every check below reuses this
-        # section's own fresh session (never a prior check's mutated
-        # settings state).
+        # 21-01-PLAN.md Task 3 (D-17): a package-wide guard pinning the
+        # removal — a mechanical source scan, following the same shape
+        # as test_status_pages.py's own
+        # _no_module_in_companion_redefines_the_alpha_threshold.
         # ==============================================================
 
-        simple_session = _login(harness)
-        simple_cookie = "%s; %s=simple" % (simple_session, auth.UI_MODE_COOKIE_NAME)
-        full_cookie = "%s; %s=full" % (simple_session, auth.UI_MODE_COOKIE_NAME)
+        # The exact deleted identifiers/route literals this scan pins —
+        # necessarily spelled out verbatim here, since the whole point
+        # of the scan below is to detect these exact strings reappearing
+        # anywhere else under companion/.
+        _DISPLAY_MODE_SWITCH_TOKENS = (
+            "simple_mode", "MODE_CHOICES", "DEFAULT_MODE", "_MODE_CTX",
+            "UI_MODE_COOKIE_NAME", "MODE_ROUTE", '"/ui-mode"', "sp_ui_mode")
+        # companion/pages/__init__.py's own ctx-contract docstring still
+        # documents a ctx key this removal deletes (added by 20-01-
+        # PLAN.md Task 2, deleted by 21-01-PLAN.md Task 1) — a real,
+        # tracked doc-staleness gap, left in place because companion/
+        # pages/__init__.py is outside this plan's own files_modified
+        # boundary (21-01-SUMMARY.md's Deviations section flags it for a
+        # follow-up plan). This is the ONLY exemption this scan grants,
+        # and only for this one file/token pair — a genuine
+        # reintroduction of any token in any OTHER file, or any OTHER
+        # token in this same file, still fails the check below.
+        _EXEMPT_PATH_TOKEN_PAIRS = frozenset({
+            (os.path.join("companion", "pages", "__init__.py"), _DISPLAY_MODE_SWITCH_TOKENS[0]),
+        })
 
-        _NAV_FOOTER_SWITCH_ACTIONS = ('action="/ui-lang"', 'action="/ui-theme"', 'action="/ui-mode"')
-
-        def _make_simple_mode_nav_hidden_check(route):
-            def _fn():
-                status, _headers, body = http_request(base + route, cookie=simple_cookie)
-                text = body.decode("utf-8", "replace")
-                if status != 200:
-                    return False, "GET %s under sp_ui_mode=simple returned %d" % (route, status)
-                if "Advanced" in text:
-                    return False, "GET %s under sp_ui_mode=simple still shows the Advanced nav group" % route
-                if 'href="/health"' in text:
-                    return False, "GET %s under sp_ui_mode=simple still links to /health" % route
-                if 'href="/device"' in text:
-                    return False, "GET %s under sp_ui_mode=simple still links to /device" % route
-                if layout.NAV_NOTIFICATION_CLASS in text:
-                    return False, "GET %s under sp_ui_mode=simple still shows the nav status dot" % route
-                for action in _NAV_FOOTER_SWITCH_ACTIONS:
-                    if action not in text:
-                        return False, "GET %s under sp_ui_mode=simple is missing the %s nav-footer switch" % (route, action)
-                return True, ""
-            return _fn
-
-        for _simple_route in ("/", "/display", "/flights", "/airlines"):
-            check(
-                "GET %s under sp_ui_mode=simple hides the Advanced nav group, the /health and "
-                "/device links, the nav status dot, and still carries the three nav-footer switches (D-30)"
-                % _simple_route,
-                _make_simple_mode_nav_hidden_check(_simple_route))
-
-        def _home_hides_health_link_in_simple_mode():
-            status, _headers, body = http_request(base + "/", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET / under sp_ui_mode=simple returned %d" % status
-            if "See details on Health" in text:
-                return False, "GET / under sp_ui_mode=simple still shows the Health link"
+        def _no_module_or_static_script_in_companion_reintroduces_the_display_mode_switch():
+            """D-17 pins the removal of the simple/full display-mode
+            switch across six modules (prefs.py, auth.py, app.py,
+            layout.py, three page modules) — a partial reintroduction
+            of any one of the tokens above in any of them would
+            otherwise be invisible until a much later, unrelated bug
+            report. Scans every *.py file under companion/ (excluding
+            this package's own test_*.py harness files and __pycache__
+            — this check's own literal token list would otherwise match
+            itself and every other harness that documents the removal
+            in a comment) plus every companion/static/*.js file.
+            """
+            companion_dir = HERE
+            offenders = []
+            for root, dirs, files in os.walk(companion_dir):
+                dirs[:] = [d for d in dirs if d != "__pycache__"]
+                for name in files:
+                    if name.startswith("test_") and name.endswith(".py"):
+                        continue
+                    if not (name.endswith(".py") or name.endswith(".js")):
+                        continue
+                    path = os.path.join(root, name)
+                    rel_path = os.path.relpath(path, REPO_ROOT)
+                    with open(path, "r", encoding="utf-8") as fh:
+                        source = fh.read()
+                    for token in _DISPLAY_MODE_SWITCH_TOKENS:
+                        if token in source and (rel_path, token) not in _EXEMPT_PATH_TOKEN_PAIRS:
+                            offenders.append("%s: %r" % (rel_path, token))
+            if offenders:
+                return False, (
+                    "expected zero display-mode-switch tokens anywhere under companion/ "
+                    "(excluding test_*.py harnesses and the one documented pre-existing "
+                    "companion/pages/__init__.py docstring exemption), found: %r" % (offenders,))
             return True, ""
-
         check(
-            "Home hides the \"See details on Health\" link under sp_ui_mode=simple (D-30)",
-            _home_hides_health_link_in_simple_mode)
+            "no *.py module or *.js static script anywhere under companion/ (test_*.py harnesses "
+            "excluded) reintroduces any part of the deleted simple/full display-mode switch "
+            "(D-17) — six modules' worth of removal, pinned by one mechanical scan",
+            _no_module_or_static_script_in_companion_reintroduces_the_display_mode_switch)
 
-        def _airlines_hides_change_pictures_button_in_simple_mode():
-            status, _headers, body = http_request(base + "/airlines", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET /airlines under sp_ui_mode=simple returned %d" % status
-            if "Change pictures" in text:
-                return False, "GET /airlines under sp_ui_mode=simple still shows the \"Change pictures\" button"
-            return True, ""
-
-        check(
-            "Airlines hides the \"Change pictures\" button under sp_ui_mode=simple (D-30/D-36)",
-            _airlines_hides_change_pictures_button_in_simple_mode)
-
-        def _display_disclosures_collapse_to_one_sentence_in_simple_mode():
-            status, _headers, body = http_request(base + "/display", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET /display under sp_ui_mode=simple returned %d" % status
-            if "<summary>How it works</summary>" in text:
-                return False, "the Calendar card's disclosure is still a <details> in simple mode"
-            if "<summary>How rules combine</summary>" in text:
-                return False, "the Flight-colours disclosure is still a <details> in simple mode"
-            if "It only colours a flight already on screen." not in text:
-                return False, "the Calendar card's own one-sentence simple-mode copy is missing"
-            if "The most specific match wins." not in text:
-                return False, "the Flight-colours section's own one-sentence simple-mode copy is missing"
-            return True, ""
-
-        check(
-            "Display collapses both \"How it works\"/\"How rules combine\" disclosures to one "
-            "plain sentence under sp_ui_mode=simple (D-30)",
-            _display_disclosures_collapse_to_one_sentence_in_simple_mode)
-
-        def _display_still_carries_all_six_everyday_groups_in_simple_mode():
-            status, _headers, body = http_request(base + "/display", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET /display under sp_ui_mode=simple returned %d" % status
-            needles = (
-                'data-dirty-section="Theme"', 'data-dirty-section="Calendar"',
-                'data-dirty-section="Runway"', 'data-dirty-section="Screen on / off"',
-                'data-dirty-section="Quiet hours"', "Flight colours")
-            missing = [n for n in needles if n not in text]
-            if missing:
-                return False, "GET /display under sp_ui_mode=simple is missing group(s): %r" % (missing,)
-            return True, ""
-
-        check(
-            "Display still renders all six everyday groups under sp_ui_mode=simple (D-31)",
-            _display_still_carries_all_six_everyday_groups_in_simple_mode)
-
-        def _health_and_device_still_reachable_by_url_in_simple_mode():
-            for route in ("/health", "/device"):
-                status, _headers, _body = http_request(base + route, cookie=simple_cookie)
-                if status != 200:
-                    return False, (
-                        "GET %s under sp_ui_mode=simple returned %d, expected 200 - simple "
-                        "mode is presentation only, never access control (D-30)" % (route, status))
-            return True, ""
-
-        check(
-            "GET /health and GET /device still return 200 for a signed-in session under "
-            "sp_ui_mode=simple (D-30: presentation, not access control)",
-            _health_and_device_still_reachable_by_url_in_simple_mode)
-
-        def _flights_and_airlines_keep_their_full_content_in_simple_mode():
-            status, _headers, body = http_request(base + "/flights", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200 or "Recent flights table, scrollable" not in text:
-                return False, "GET /flights under sp_ui_mode=simple lost its own table (D-31)"
-            status, _headers, body = http_request(base + "/airlines", cookie=simple_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200 or "Illustration reference for every airline" not in text:
-                return False, "GET /airlines under sp_ui_mode=simple lost its own gallery (D-31)"
-            return True, ""
-
-        check(
-            "Flights and Airlines keep their full content under sp_ui_mode=simple (D-31)",
-            _flights_and_airlines_keep_their_full_content_in_simple_mode)
-
-        def _simple_mode_survives_three_sequential_requests():
-            for route in ("/", "/display", "/flights"):
-                status, _headers, body = http_request(base + route, cookie=simple_cookie)
-                text = body.decode("utf-8", "replace")
-                if status != 200:
-                    return False, "GET %s under sp_ui_mode=simple returned %d" % (route, status)
-                if "Advanced" in text:
-                    return False, (
-                        "GET %s under sp_ui_mode=simple showed the Advanced nav group after a "
-                        "prior request in the same cookie session - the mode did not survive "
-                        "navigation" % route)
-            return True, ""
-
-        check(
-            "sp_ui_mode=simple survives navigation across three sequential requests",
-            _simple_mode_survives_three_sequential_requests)
-
-        # --- The full-mode mirror: everything D-30 hides comes back ---------
-
-        def _make_full_mode_nav_shown_check(route):
-            def _fn():
-                status, _headers, body = http_request(base + route, cookie=full_cookie)
-                text = body.decode("utf-8", "replace")
-                if status != 200:
-                    return False, "GET %s under sp_ui_mode=full returned %d" % (route, status)
-                if "Advanced" not in text:
-                    return False, "GET %s under sp_ui_mode=full is missing the Advanced nav group" % route
-                if 'href="/health"' not in text:
-                    return False, "GET %s under sp_ui_mode=full is missing the /health nav link" % route
-                if 'href="/device"' not in text:
-                    return False, "GET %s under sp_ui_mode=full is missing the /device nav link" % route
-                for action in _NAV_FOOTER_SWITCH_ACTIONS:
-                    if action not in text:
-                        return False, "GET %s under sp_ui_mode=full is missing the %s nav-footer switch" % (route, action)
-                return True, ""
-            return _fn
-
-        for _full_route in ("/", "/display"):
-            check(
-                "GET %s under sp_ui_mode=full shows the Advanced nav group, the /health and "
-                "/device links, and still carries the three nav-footer switches"
-                % _full_route,
-                _make_full_mode_nav_shown_check(_full_route))
-
-        def _home_shows_health_link_in_full_mode():
-            status, _headers, body = http_request(base + "/", cookie=full_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET / under sp_ui_mode=full returned %d" % status
-            if "See details on Health" not in text:
-                return False, "GET / under sp_ui_mode=full is missing the Health link"
-            return True, ""
-
-        check(
-            "Home shows the \"See details on Health\" link under sp_ui_mode=full",
-            _home_shows_health_link_in_full_mode)
-
-        def _airlines_shows_change_pictures_button_in_full_mode():
-            status, _headers, body = http_request(base + "/airlines", cookie=full_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET /airlines under sp_ui_mode=full returned %d" % status
-            if "Change pictures" not in text:
-                return False, "GET /airlines under sp_ui_mode=full is missing the \"Change pictures\" button"
-            return True, ""
-
-        check(
-            "Airlines shows the \"Change pictures\" button under sp_ui_mode=full",
-            _airlines_shows_change_pictures_button_in_full_mode)
-
-        def _display_disclosures_are_full_details_in_full_mode():
-            status, _headers, body = http_request(base + "/display", cookie=full_cookie)
-            text = body.decode("utf-8", "replace")
-            if status != 200:
-                return False, "GET /display under sp_ui_mode=full returned %d" % status
-            if "<summary>How it works</summary>" not in text:
-                return False, "the Calendar card's disclosure is not a <details> under sp_ui_mode=full"
-            if "<summary>How rules combine</summary>" not in text:
-                return False, "the Flight-colours disclosure is not a <details> under sp_ui_mode=full"
-            return True, ""
-
-        check(
-            "Display shows both disclosures as full <details> under sp_ui_mode=full",
-            _display_disclosures_are_full_details_in_full_mode)
+        # D-17 (21-01-PLAN.md Task 1): the former Section 5 block
+        # (20-12-PLAN.md Task 2, D-30/D-31) exercised the display-mode
+        # switch's on/off states over real HTTP end to end, keyed off a
+        # per-browser cookie for that now-deleted preference. The
+        # mechanism it tested no longer exists — every check in that
+        # block (both nav-visibility factories and their loop-generated
+        # calls, the per-page hide/show pairs for Home's Health link,
+        # Airlines' "Change pictures" toggle and Display's two
+        # disclosures, and the cross-request persistence check) is
+        # deleted in full. The behaviour the "on" side of each pair
+        # proved is now the ONLY behaviour, and is covered by this
+        # plan's own new checks in test_view_pages.py (Home's health
+        # link, Airlines' "Change pictures" toggle) and test_config_
+        # page.py (Display's two full <details> disclosures).
 
     finally:
         harness.stop()

@@ -563,8 +563,9 @@ CALENDAR_DISCONNECT_ROUTE = "/settings/calendar/disconnect"
 # 20-09-PLAN.md Task 3 (D-15a..e): renamed from "Per-flight colour
 # rules" — heading and caption both through t() at the render site. The
 # old precedence/replace-on-add sentence moves into a <details>
-# disclosure (RULES_HOW_RULES_COMBINE_*, below), collapsing to one
-# plain sentence in simple mode (D-30).
+# disclosure (RULES_HOW_RULES_COMBINE_*, below). D-17 (21-01-PLAN.md
+# Task 2): that disclosure no longer has a collapsed one-sentence
+# variant — it always renders in full.
 RULES_SECTION_HEADING = "Flight colours"
 RULES_SECTION_CAPTION = "Give one flight, one aircraft or one airline its own theme."
 RULES_HOW_RULES_COMBINE_SUMMARY = "How rules combine"
@@ -572,7 +573,9 @@ RULES_HOW_RULES_COMBINE_BODY = (
     "The most specific match wins — a flight rule beats an aircraft "
     "rule, which beats an airline rule — and adding a key that's "
     "already in use replaces the existing rule for it.")
-RULES_HOW_RULES_COMBINE_SIMPLE = "The most specific match wins."
+# D-17 (21-01-PLAN.md Task 2): the one-sentence collapsed disclosure
+# variant is deleted along with the display mode that selected it —
+# the "How rules combine" <details> below always renders in full now.
 # D-15b: the segmented "Match by" control's own visually-hidden group
 # label — kept distinct from each segment's own visible text
 # (RULE_KIND_LABELS) and technical title (RULE_KIND_TITLES) below.
@@ -666,8 +669,9 @@ CALENDAR_HOW_IT_WORKS_BODY = (
     "It can only colour a flight that happens to be on screen — it "
     "does not track or announce anything on its own. Applies on the "
     "frame's next scheduled poll, not immediately.")
-# D-30: simple mode collapses the disclosure above to this one sentence.
-CALENDAR_HOW_IT_WORKS_SIMPLE = "It only colours a flight already on screen."
+# D-17 (21-01-PLAN.md Task 2): the one-sentence collapsed disclosure
+# variant is deleted along with the display mode that selected it —
+# the "How it works" <details> below always renders in full now.
 # D-14b: the status-row verdict/detail pair replaces the old, one-piece
 # CALENDAR_STATUS_* sentences this plan retires. "Not connected" covers
 # both the never-configured and the permission-drifted states — a
@@ -2143,7 +2147,7 @@ def display_group(current_display_enabled, errors=None, submitted=None):
 def calendar_group(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
         current_calendar_theme_id, current_theme_id,
-        errors=None, submitted=None, simple_mode=False):
+        errors=None, submitted=None):
     """The Calendar card (20-09-PLAN.md Task 1, 20-UI-SPEC.md Section
     Anatomy E; D-14a..d): in the "Look" supersection, after Theme and
     Flight colours (D-12 fix, 20-REVIEW.md verification gap — see
@@ -2202,10 +2206,10 @@ def calendar_group(
     through the physical form even though this card itself now renders
     as a sibling of that form, not a literal descendant.
 
-    **D-14a — the "How it works" disclosure.** Collapses to
-    `CALENDAR_HOW_IT_WORKS_SIMPLE`'s one plain sentence when `simple_mode`
-    is true (D-30) — server-side omission of the longer wording, not a
-    CSS hide, since the text itself differs between the two renders.
+    **D-14a — the "How it works" disclosure.** D-17 (21-01-PLAN.md
+    Task 2): the collapsed one-sentence variant this used to render
+    under the now-deleted display mode is gone — the full `<details>`
+    always renders.
 
     19-07-PLAN.md Task 2 (D-07/T-19-12) precedent, carried forward:
     `errors`/`submitted` (both fully defaulted) let a rejected save
@@ -2260,17 +2264,12 @@ def calendar_group(
         # this saved setting posting through the physical form.
         radio_form_id=SETTINGS_FORM_ID)
 
-    if simple_mode:
-        how_it_works_html = (
-            '<p class="text-label section-caption">%s</p>'
-        ) % escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SIMPLE))
-    else:
-        how_it_works_html = (
-            '<details><summary>%s</summary><p class="text-body">%s</p></details>'
-        ) % (
-            escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SUMMARY)),
-            escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_BODY)),
-        )
+    how_it_works_html = (
+        '<details><summary>%s</summary><p class="text-body">%s</p></details>'
+    ) % (
+        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_SUMMARY)),
+        escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_BODY)),
+    )
 
     return (
         '<div class="page-section" %s="%s">'
@@ -2823,11 +2822,12 @@ def _rules_section_html(ctx):
     Reads the rules registry from `ctx["colour_rules"]` (read fresh per
     request from `colour_rules.load_colour_rules(state_dir)` — never the
     poll-cycle process cache), falling back to the empty registry shape
-    when the key is absent so `render({})` still works. D-30: the "How
-    rules combine" disclosure collapses to one plain sentence when
-    `ctx.get("simple_mode")` is true — server-side omission, since the
-    text itself differs between the two renders (matching `calendar_
-    group()`'s own identical D-30 treatment).
+    when the key is absent so `render({})` still works. D-17 (21-01-
+    PLAN.md Task 2): the "How rules combine" disclosure no longer has a
+    collapsed one-sentence variant (the display mode that used to
+    select it is deleted, matching `calendar_group()`'s identical
+    treatment of its own "How it works" disclosure) — the full
+    `<details>` always renders.
     """
     registry = ctx.get("colour_rules")
     if not isinstance(registry, dict):
@@ -2841,17 +2841,12 @@ def _rules_section_html(ctx):
     add_form = _rule_add_form_html()
     suggestions_html = _rule_suggestion_chips_html(ctx.get("state_dir"))
 
-    if ctx.get("simple_mode"):
-        how_rules_combine_html = (
-            '<p class="text-label section-caption">%s</p>'
-        ) % escape_html(i18n.t(RULES_HOW_RULES_COMBINE_SIMPLE))
-    else:
-        how_rules_combine_html = (
-            '<details><summary>%s</summary><p class="text-body">%s</p></details>'
-        ) % (
-            escape_html(i18n.t(RULES_HOW_RULES_COMBINE_SUMMARY)),
-            escape_html(i18n.t(RULES_HOW_RULES_COMBINE_BODY)),
-        )
+    how_rules_combine_html = (
+        '<details><summary>%s</summary><p class="text-body">%s</p></details>'
+    ) % (
+        escape_html(i18n.t(RULES_HOW_RULES_COMBINE_SUMMARY)),
+        escape_html(i18n.t(RULES_HOW_RULES_COMBINE_BODY)),
+    )
 
     if not rows:
         # D-15d: the muted sans voice, never a serif heading — a plain
@@ -3197,7 +3192,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
             calendar_configured, calendar_drift, calendar_last_synced_at,
             calendar_last_attempt_at, ctx.get("now"), calendar_entry_count,
             current_calendar_theme_id, current_theme_id,
-            errors=errors, submitted=submitted, simple_mode=ctx.get("simple_mode")),
+            errors=errors, submitted=submitted),
         screens.GROUP_NOTIFICATIONS: lambda: notifications_group(
             notifications_configured, current_notifications_battery,
             current_notifications_silent, errors=errors, submitted=submitted),

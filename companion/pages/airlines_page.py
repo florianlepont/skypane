@@ -1837,17 +1837,16 @@ def _edit_toggle_html(ctx, edit_mode):
     two literal hrefs — never a script, a GET form or a runtime
     query-string builder.
 
-    Gated on `not ctx.get("simple_mode")` (D-30): the anchor and its
-    explanatory sentence are BOTH omitted in simple mode. The
+    D-17/D-20 (21-01-PLAN.md Task 2): this toggle used to be gated on a
+    now-deleted display-mode preference, hiding the anchor and its
+    explanatory sentence entirely when that mode was active. That gate
+    is deleted — the toggle is unconditional now, one deletion serving
+    both decisions (Pitfall 6: plan 21-06/D-19-D-20's upload-restore
+    work depends on this and must not touch this function again). The
     `?edit=1` lightbox forms this toggle links to keep their OWN,
     separate `ctx["edit_mode"]` gate exactly as phase 19 shipped it
-    (D-22) — simple mode hides only this entry point, never the forms
-    themselves, so typing `/airlines?edit=1` by hand still works in
-    simple mode: simple mode is a presentation choice, not access
-    control (D-30). Do not "fix" this into an access-control check.
+    (D-22) — unaffected by this change.
     """
-    if ctx.get("simple_mode"):
-        return ""
     if edit_mode:
         toggle_html = (
             '<a href="/airlines" class="airlines-edit-toggle">%s</a>'

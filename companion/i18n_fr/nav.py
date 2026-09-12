@@ -29,11 +29,13 @@ CATALOG = {
     "Device": "Appareil",
 
     # --- Nav-footer switches (20-UI-SPEC.md §F) -------------------------
+    # D-17 (21-01-PLAN.md Task 1): "Simple mode"/"Simple"/"Full" are
+    # deleted in this same commit as layout._mode_form_html() itself —
+    # the simple/full mode switch these three strings backed is gone,
+    # so keeping their French entries would orphan them and fail
+    # test_i18n.py's dead-translation check (Pitfall 5/R-13).
     "Language": "Langue",
     "Theme": "Thème",
-    "Simple mode": "Mode simple",
-    "Simple": "Simple",
-    "Full": "Complet",
 
     # --- The hamburger toggle's fixed accessible name, and the nav
     #     Health dot's visually-hidden suffix (20-12-PLAN.md Task 1: a

@@ -296,13 +296,11 @@ def _status_card_html(ctx):
     data_row = layout.status_row(
         i18n.t(DATA_ROW_LABEL), data_verdict, data_detail, pipeline_state)
 
-    health_link_html = ""
-    if not ctx.get("simple_mode"):
-        # D-30: the "See details on Health" link is presentation-only —
-        # /health itself stays reachable by URL in simple mode.
-        health_link_html = (
-            '<p class="text-label"><a href="/health">%s</a></p>'
-        ) % escape_html(i18n.t(HEALTH_LINK_TEXT))
+    # D-17 (21-01-PLAN.md Task 2): the display-mode gate that used to
+    # hide this link is deleted — it always renders now.
+    health_link_html = (
+        '<p class="text-label"><a href="/health">%s</a></p>'
+    ) % escape_html(i18n.t(HEALTH_LINK_TEXT))
 
     return (
         '<div class="page-section status-card" aria-labelledby="home-status-heading">'

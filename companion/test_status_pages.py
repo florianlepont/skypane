@@ -506,6 +506,17 @@ EXPECTED_CHECK_COUNT = 213  # WR-03 fix (20-REVIEW.md): +1
 # at execution time (212/213 pass — the one documented pre-existing
 # root-sandbox anomaly_active() failure, unrelated to this fix), not
 # trusted from arithmetic alone.
+# 21-01-PLAN.md Task 1 (D-17): net 0. The nav-footer form-count check
+# is rewritten in place (2 forms per footer copy now, the deleted
+# switch's own form action gone) rather than deleted-plus-added, and
+# the display-mode-gated Advanced-group-omission check is deleted and
+# replaced one-for-one by a check that the Advanced group always
+# renders in both nav copies. 213 + 0 = 213,
+# recomputed directly against the real on-disk check(...) call count
+# at execution time (212/213 pass — the one documented pre-existing
+# root-sandbox anomaly_active() failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 213
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -6435,7 +6446,7 @@ def main():
         "and <html lang=\"en\" otherwise (D-03)",
         _login_shell_html_lang_follows_prefs)
 
-    def _shell_has_three_ordered_theme_forms_each_with_aria_label():
+    def _shell_has_two_ordered_theme_forms_each_with_aria_label():
         rendered = layout.page_shell(
             title="Health", active="health", body="", ui_theme="auto")
         actions_in_order = re.findall(
@@ -6450,20 +6461,22 @@ def main():
         if actions_in_order.count("/ui-theme") != 2:
             return False, "expected exactly 2 /ui-theme forms (sidebar + mobile), got %r" % (
                 actions_in_order.count("/ui-theme"),)
-        if actions_in_order.count("/ui-mode") != 2:
-            return False, "expected exactly 2 /ui-mode forms (sidebar + mobile), got %r" % (
+        # D-17 (21-01-PLAN.md Task 1): the simple-mode switch is deleted —
+        # zero /ui-mode forms anywhere in a rendered shell.
+        if actions_in_order.count("/ui-mode") != 0:
+            return False, "expected zero /ui-mode forms now that the route is deleted, got %r" % (
                 actions_in_order.count("/ui-mode"),)
-        # Document order within EACH footer copy must be lang, theme, mode.
-        first_three = actions_in_order[:3]
-        if first_three != ["/ui-lang", "/ui-theme", "/ui-mode"]:
-            return False, "expected the first footer's forms in order lang/theme/mode, got %r" % (
-                first_three,)
+        # Document order within EACH footer copy must be lang, theme.
+        first_two = actions_in_order[:2]
+        if first_two != ["/ui-lang", "/ui-theme"]:
+            return False, "expected the first footer's forms in order lang/theme, got %r" % (
+                first_two,)
         return True, ""
     check(
-        "a rendered shell contains exactly three aria-labelled theme-form forms per footer "
-        "copy, actions /ui-lang, /ui-theme, /ui-mode in that document order (D-02/D-29, "
-        "20-UI-SPEC.md §I)",
-        _shell_has_three_ordered_theme_forms_each_with_aria_label)
+        "a rendered shell contains exactly two aria-labelled theme-form forms per footer "
+        "copy, actions /ui-lang, /ui-theme in that document order, and zero /ui-mode forms "
+        "(D-02/D-17, 21-UI-SPEC.md §G)",
+        _shell_has_two_ordered_theme_forms_each_with_aria_label)
 
     def _french_shell_nav_reads_the_locked_french_labels():
         try:
@@ -6482,39 +6495,31 @@ def main():
         "Appareil (D-09)",
         _french_shell_nav_reads_the_locked_french_labels)
 
-    def _simple_mode_omits_advanced_group_and_health_dot():
-        try:
-            prefs.set_request_prefs(mode="simple")
-            simple_rendered = layout.page_shell(
-                title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
-            prefs.set_request_prefs(mode="full")
-            full_rendered = layout.page_shell(
-                title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
-        finally:
-            prefs.set_request_prefs(mode="full")
-        if layout.ADVANCED_GROUP_LABEL in simple_rendered:
-            return False, "expected no ADVANCED_GROUP_LABEL text in simple mode"
-        if layout.HEALTH_ROUTE in simple_rendered:
-            return False, "expected no /health href in simple mode's nav"
-        if layout.DEVICE_ROUTE in simple_rendered:
-            return False, "expected no /device href in simple mode's nav"
-        if layout.NAV_NOTIFICATION_CLASS in simple_rendered:
-            return False, "expected no nav status dot in simple mode"
-        # Full mode (the default) must still carry all of the above —
-        # proving the omission is mode-gated, not accidentally missing.
-        if layout.ADVANCED_GROUP_LABEL not in full_rendered:
-            return False, "expected ADVANCED_GROUP_LABEL text in full mode"
-        if layout.HEALTH_ROUTE not in full_rendered:
-            return False, "expected a /health href in full mode's nav"
-        if layout.DEVICE_ROUTE not in full_rendered:
-            return False, "expected a /device href in full mode's nav"
-        if layout.NAV_NOTIFICATION_CLASS not in full_rendered:
-            return False, "expected the nav status dot in full mode (health_alert='warn')"
+    def _advanced_group_always_renders_in_both_nav_copies():
+        """D-17 (21-01-PLAN.md Task 1): the display-mode gate that used
+        to omit the Advanced group (Health, Device) is deleted — the
+        group now renders on every page for every request, in both the
+        sidebar and the mobile-nav dropdown copy. Replaces a deleted
+        check that tested the now-removed omission mechanism.
+        """
+        rendered = layout.page_shell(
+            title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
+        if rendered.count(layout.ADVANCED_GROUP_LABEL) < 2:
+            return False, (
+                "expected the Advanced group label in both the sidebar and the "
+                "mobile-nav dropdown, got %d occurrence(s)"
+                % rendered.count(layout.ADVANCED_GROUP_LABEL))
+        if rendered.count(layout.HEALTH_ROUTE) < 2:
+            return False, "expected a /health href in both nav copies"
+        if rendered.count(layout.DEVICE_ROUTE) < 2:
+            return False, "expected a /device href in both nav copies"
+        if layout.NAV_NOTIFICATION_CLASS not in rendered:
+            return False, "expected the nav status dot (health_alert='warn')"
         return True, ""
     check(
-        "in simple mode the shell contains neither the Advanced group label, /health, /device "
-        "nor the nav status dot; full mode carries all four (D-30)",
-        _simple_mode_omits_advanced_group_and_health_dot)
+        "the Advanced group (Health, Device) and the nav status dot always render, in both "
+        "the sidebar and the mobile dropdown, on a plain request (D-17)",
+        _advanced_group_always_renders_in_both_nav_copies)
 
     # ======================================================================
     # Section 1.7: companion/layout.py's new status_row()/

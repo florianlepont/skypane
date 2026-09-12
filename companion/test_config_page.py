@@ -470,6 +470,14 @@ EXPECTED_CHECK_COUNT = 212  # D-12 fix (20-REVIEW.md verification gap):
 # 211 + 1 = 212, recomputed directly against the real on-disk check(...)
 # call count at execution time (212/212 pass), not trusted from
 # arithmetic alone.
+# 21-01-PLAN.md Task 2 (D-17): net 0. The rules-disclosure collapse
+# check is deleted and replaced one-for-one by
+# _plain_render_carries_both_disclosures_in_full_never_collapsed (the
+# display mode that selected the collapsed variant no longer exists).
+# 212 + 0 = 212, recomputed directly against the real on-disk
+# check(...) call count at execution time (212/212 pass), not trusted
+# from arithmetic alone.
+EXPECTED_CHECK_COUNT = 212
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -4319,28 +4327,43 @@ def main():
         "none render when there are no events (D-15e)",
         _rules_suggestion_chips_present_with_data_and_absent_with_no_events)
 
-    def _rules_simple_mode_collapses_disclosure_to_one_sentence():
+    def _plain_render_carries_both_disclosures_in_full_never_collapsed():
+        """D-17 (21-01-PLAN.md Task 2): the display mode that used to
+        collapse both disclosures to one plain sentence is deleted —
+        replaces a deleted check that tested that now-removed
+        mechanism.
+        """
         ctx = {
             "device_config": {"theme": "white", "tracked_runway": "3"},
             "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
             "poll_cooldown_remaining": 0,
-            "simple_mode": True,
         }
         rendered = config_page.render(ctx)
         rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
         poll_start = rendered.index('<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING)
         rules_segment = rendered[rules_start:poll_start]
-        if escape_html(config_page.RULES_HOW_RULES_COMBINE_SIMPLE) not in rules_segment:
-            return False, "expected the simple-mode one-sentence disclosure"
-        if "<details>" in rules_segment:
-            return False, "expected no <details> disclosure in simple mode (D-30)"
-        if escape_html(config_page.RULES_HOW_RULES_COMBINE_BODY) in rules_segment:
-            return False, "expected the long disclosure body to be absent in simple mode"
+        if escape_html(config_page.RULES_HOW_RULES_COMBINE_SUMMARY) not in rules_segment:
+            return False, "expected the full 'How rules combine' <details> disclosure"
+        if "<details>" not in rules_segment:
+            return False, "expected a <details> disclosure for rules"
+        calendar_start = rendered.index(
+            '<h2 class="text-heading" id="%s">' % config_page.CALENDAR_HEADING_ID)
+        if escape_html(config_page.CALENDAR_HOW_IT_WORKS_SUMMARY) not in rendered[calendar_start:]:
+            return False, "expected the full Calendar 'How it works' <details> disclosure"
+        # D-17: neither collapsed one-sentence variant may appear anywhere in
+        # the rendered body — their exact punctuation ("wins." / "screen.")
+        # never occurs as a substring of the full <details> body text above
+        # ("wins — a flight..." / "colour a flight that happens..."), so this
+        # is an unambiguous check, not a coincidental prefix match.
+        if "It only colours a flight already on screen." in rendered:
+            return False, "expected no collapsed one-sentence Calendar disclosure anywhere"
+        if "The most specific match wins." in rendered:
+            return False, "expected no collapsed one-sentence rules disclosure anywhere"
         return True, ""
     check(
-        "in simple mode, the 'How rules combine' disclosure collapses to its one plain sentence, "
-        "server-side (D-30)",
-        _rules_simple_mode_collapses_disclosure_to_one_sentence)
+        "a plain Display render always carries the full 'How rules combine' and Calendar "
+        "'How it works' <details> disclosures, never a collapsed one-sentence variant (D-17)",
+        _plain_render_carries_both_disclosures_in_full_never_collapsed)
 
     def _rules_section_carries_no_dirty_section_attr():
         rendered = config_page.render({
