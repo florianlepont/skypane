@@ -607,6 +607,15 @@ EXPECTED_CHECK_COUNT = 241
 # re-derived by RUNNING the harness, not by arithmetic.
 EXPECTED_CHECK_COUNT = 246
 
+# 22-06-PLAN.md Task 2 (D-05/B4): +4 (246 -> 250) — _axis_clock_label()
+# renders Europe/Paris local time (not the unconverted UTC clock),
+# _axis_day_label() names the Paris day an instant falls on, a sparkline
+# point's title/aria-label/data-when carry the same string (never a
+# "value — when" composite mismatched against data-when alone), and a
+# seeded Health page renders zero " UTC" occurrences in either language
+# — re-derived by RUNNING the harness, not by arithmetic.
+EXPECTED_CHECK_COUNT = 250
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -1270,8 +1279,14 @@ def main():
             base = datetime(2026, 9, 2, 12, 0, 0, tzinfo=timezone.utc)
             readings = []
             day_values = [[4000, 4100, 4200], [4001, 4101, 4201], [4002, 4102, 4202]]
+            # 22-06-PLAN.md Task 1: buckets are now Europe/Paris calendar
+            # days, not UTC ones — these hours (Paris = UTC+2 in
+            # September/CEST) all land on the SAME Paris day as their UTC
+            # day, unlike the retired (2, 14, 23) fixture, whose 23:00 UTC
+            # reading was 01:00 the NEXT Paris day and would silently
+            # split a day's three readings across two buckets.
             for day, values in enumerate(day_values):
-                for hour, mv in zip((2, 14, 23), values):
+                for hour, mv in zip((2, 10, 18), values):
                     ts = _iso((base - timedelta(days=day)).replace(hour=hour))
                     readings.append((ts, mv))
             _seed_device_health(tmp, readings)
@@ -1324,7 +1339,10 @@ def main():
                     % rendered.count(health_page.SPARKLINE_LINE_CLASS))
             if health_page.BATTERY_READOUT_ID not in rendered:
                 return False, "the readout must not disappear on a device younger than two calendar days"
-            if ("Latest %d readings" % health_page.BATTERY_TREND_LIMIT) not in rendered:
+            # 22-06-PLAN.md Task 2 (B4): the caption now names the REAL
+            # reading count (3, seeded above), never BATTERY_TREND_LIMIT
+            # (20) regardless of how many readings actually exist.
+            if ("Latest %d readings" % len(readings)) not in rendered:
                 return False, "the fallback chart must be captioned as readings, not as the 3-month window"
             if "Last 3 months" in rendered:
                 return False, "the caption must never describe a window the chart is not actually showing"
@@ -1363,7 +1381,9 @@ def main():
             ]
             _seed_device_health(tmp_sameday, sameday_readings)
             sameday_rendered = health_page.render(_ctx(tmp_sameday, now=_iso(base)))
-            if ("Latest %d readings" % health_page.BATTERY_TREND_LIMIT) not in sameday_rendered:
+            # 22-06-PLAN.md Task 2 (B4): the real count (2, seeded above),
+            # never the BATTERY_TREND_LIMIT constant.
+            if ("Latest %d readings" % len(sameday_readings)) not in sameday_rendered:
                 return False, "expected the readings-count framing on the same-day fallback"
             if "Last 3 months" in sameday_rendered:
                 return False, "the same-day fallback must not claim the 3-month framing"
@@ -2406,12 +2426,16 @@ def main():
                 history_db.utc_now_iso = original_utc_now_iso
             value_text, when_text = health_page._battery_reading_parts(
                 4190, _iso(base), _iso(base))
+            # 22-06-PLAN.md Task 2 (D-05, B4): the detail span's title is
+            # now when_text itself (a full Europe/Paris local timestamp),
+            # never the raw ISO — and the span carries the .time-value
+            # role (22-04-PLAN.md, C5).
             expected_inner = (
                 '<span class="battery-readout__value mono">%s</span>'
-                '<span class="battery-readout__detail" title="%s"> — %s</span>'
+                '<span class="battery-readout__detail time-value" title="%s"> — %s</span>'
             ) % (
                 health_page.escape_html(value_text),
-                health_page.escape_html(_iso(base)),
+                health_page.escape_html(when_text),
                 health_page.escape_html(when_text),
             )
             readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
@@ -2467,6 +2491,95 @@ def main():
         "_battery_reading_parts()'s value text stays a bare millivolt figure, with no ≈ marker, when "
         "battery.battery_percent() cannot estimate the reading (D-01/A-19)",
         _battery_reading_parts_value_has_no_estimate_when_percent_is_none)
+
+    # ======================================================================
+    # 22-06-PLAN.md Task 2 (D-05, B4): layout.local_clock_text() is the
+    # only formatter for a visible battery time — the readout, every
+    # sparkline point's tooltip/aria-label/data-when, and the axis clock
+    # labels all read Paris local text, and the literal " UTC" appears
+    # nowhere in the rendered page.
+    # ======================================================================
+
+    def _axis_clock_label_is_paris_local_not_utc():
+        # 22:30 UTC in September (CEST, Europe/Paris = UTC+2) is 00:30
+        # the NEXT Paris day. The old strftime()-on-the-unconverted-value
+        # implementation would print "22:30"; the fix must print "00:30".
+        clock = health_page._axis_clock_label("2026-09-02T22:30:00+00:00")
+        if clock != "00:30":
+            return False, "expected the Paris-local clock '00:30', got %r" % clock
+        return True, ""
+    check(
+        "_axis_clock_label() renders Europe/Paris local time, not the unconverted UTC clock "
+        "(D-05, B4): 22:30 UTC in September prints '00:30', not '22:30'",
+        _axis_clock_label_is_paris_local_not_utc)
+
+    def _axis_day_label_names_the_paris_day():
+        # Same instant as above: 22:30 UTC on 2026-09-02 is 00:30 Paris
+        # on 2026-09-03 — the axis day label (used in daily mode, where
+        # ts is already a Paris-day bucket key from history_db, but must
+        # also be correct for a raw instant) must name the LATER day.
+        day = health_page._axis_day_label("2026-09-02T22:30:00+00:00")
+        if day != "3 Sep":
+            return False, "expected the Paris day label '3 Sep', got %r" % day
+        return True, ""
+    check(
+        "_axis_day_label() names the Europe/Paris calendar day an instant falls on, not its UTC day "
+        "(D-05, D-12.3)",
+        _axis_day_label_names_the_paris_day)
+
+    def _sparkline_point_title_aria_data_when_are_one_string():
+        rows = [
+            {"ts": "2026-09-11T22:30:00+00:00", "battery_mv": 4100},
+            {"ts": "2026-09-12T10:00:00+00:00", "battery_mv": 4050},
+        ]
+        svg = health_page.battery_sparkline_svg(rows, now="2026-09-12T12:00:00+00:00")
+        hit_start = svg.rindex('class="%s"' % health_page.SPARKLINE_HIT_CLASS)
+        tag_end = svg.index(">", hit_start)
+        tag = svg[hit_start:tag_end + 1]
+        title_match = re.search(r"<title>([^<]*)</title>", svg[tag_end:])
+        aria_match = re.search(r'aria-label="([^"]*)"', tag)
+        when_match = re.search(r'data-when="([^"]*)"', tag)
+        if not (title_match and aria_match and when_match):
+            return False, "expected a title, aria-label and data-when on the latest hit target"
+        if not (title_match.group(1) == aria_match.group(1) == when_match.group(1)):
+            return False, (
+                "expected the tooltip, aria-label and data-when to carry the same string, got "
+                "title=%r aria-label=%r data-when=%r"
+                % (title_match.group(1), aria_match.group(1), when_match.group(1)))
+        if "UTC" in when_match.group(1):
+            return False, "expected zero occurrences of 'UTC' in a sparkline point's data-when"
+        return True, ""
+    check(
+        "a sparkline point's <title>, aria-label and data-when carry the SAME string — one formatted "
+        "value, never three independently-derived ones (D-05, B4)",
+        _sparkline_point_title_aria_data_when_are_one_string)
+
+    def _health_page_has_zero_utc_literal_in_either_language():
+        tmp = _mkstate("h-zero-utc-literal")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [
+                (_iso(now - timedelta(days=2)), 4200),
+                (_iso(now - timedelta(days=1)), 4150),
+                (_iso(now), 4100),
+            ])
+            try:
+                prefs.set_request_prefs(lang="en")
+                en_rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                prefs.set_request_prefs(lang="fr")
+                fr_rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            for lang_name, rendered in (("EN", en_rendered), ("FR", fr_rendered)):
+                if " UTC" in rendered:
+                    return False, "expected zero ' UTC' occurrences in the %s-rendered Health page" % lang_name
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a seeded Health page renders zero occurrences of the literal ' UTC' in either English or "
+        "French (D-05, B4)",
+        _health_page_has_zero_utc_literal_in_either_language)
 
     def _seeded_render_shows_both_the_estimate_and_the_millivolt_figure():
         tmp = _mkstate("h-readout-percentage")
@@ -5471,13 +5584,19 @@ def main():
 
     def _humanised_readout_end_to_end():
         # quick task 260901-uzi Task 4 (Check 4): finding 3's markup half
-        # (the readout's id/role/spans, the humanised visible detail, the
-        # machine-precise tooltip) plus the cross-file half (every chart
-        # hit target carries data-when, and battery-trend.js's shipped
-        # source reads that attribute name, both span class names, and
-        # still looks the readout up by its id literal) — a server-side
-        # format change the script does not read is the exact regression
-        # this check exists to catch.
+        # (the readout's id/role/spans, the humanised visible detail) plus
+        # the cross-file half (every chart hit target carries data-when,
+        # and battery-trend.js's shipped source reads that attribute name,
+        # both span class names, and still looks the readout up by its id
+        # literal) — a server-side format change the script does not read
+        # is the exact regression this check exists to catch.
+        #
+        # 22-06-PLAN.md Task 2 (D-05, B4): the detail span's title used to
+        # carry the raw ISO — it now carries the SAME full Europe/Paris
+        # local timestamp as the visible text (never a raw ISO anywhere
+        # on this page), so this check's assertion inverts: zero raw ISO
+        # occurrences, and a day-qualified "D Mon HH:MM" full timestamp
+        # present in both the visible text and the title.
         tmp = _mkstate("h-humanised-readout-e2e")
         try:
             base = _now().replace(hour=12, minute=0, second=0, microsecond=0)  # fixed noon: readings minutes apart must never straddle a UTC day boundary
@@ -5502,11 +5621,19 @@ def main():
                 return False, "expected the readout's value span"
             if "battery-readout__detail" not in readout_html:
                 return False, "expected the readout's detail span"
+            if re.search(r"\d{4}-\d{2}-\d{2}T", readout_html):
+                return False, "expected zero raw ISO occurrences anywhere in the readout, got %r" % readout_html
+            title_match = re.search(r'title="([^"]*)"', readout_html)
+            if title_match is None:
+                return False, "expected the detail span to carry a title attribute"
+            if not re.search(r"^\d{1,2} \w+ \d{2}:\d{2} \(", title_match.group(1)):
+                return False, (
+                    "expected the title to be a full 'D Mon HH:MM (Nx ago)' local timestamp, got %r"
+                    % title_match.group(1))
             visible = re.sub(r"<[^>]*>", "", readout_html)
-            if re.search(r"\d{4}-\d{2}-\d{2}T", visible):
-                return False, "expected no raw ISO string in the readout's visible text, got %r" % visible
-            if not re.search(r"\d{4}-\d{2}-\d{2}T", readout_html):
-                return False, "expected the machine-precise ISO to survive in the detail span's title tooltip"
+            if title_match.group(1) not in visible:
+                return False, "expected the title to equal the readout's own visible text, got %r vs %r" % (
+                    title_match.group(1), visible)
 
             if section_html.count("data-when=") != 3:
                 return False, (

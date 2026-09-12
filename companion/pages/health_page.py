@@ -51,6 +51,7 @@ states.
 """
 import sqlite3
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from companion.layout import escape_html
 import companion.battery as battery
@@ -710,8 +711,9 @@ def battery_trend_rows(conn):
 
 
 def battery_daily_rows(conn, now):
-    """(260902-l0b) The chart's primary series: one point per UTC calendar
-    day over the last `BATTERY_TREND_WINDOW_DAYS` (3 months), via
+    """(260902-l0b; Paris days as of 22-06-PLAN.md Task 1) The chart's
+    primary series: one point per Europe/Paris calendar day over the last
+    `BATTERY_TREND_WINDOW_DAYS` (3 months), via
     `history_db.daily_battery_averages()`. Structurally interchangeable
     with `battery_trend_rows()`'s own rows for plotting purposes — see
     `daily_battery_averages()`'s own docstring for why its `ts` key names
@@ -728,8 +730,9 @@ def battery_daily_rows(conn, now):
 
 
 def _battery_daily_series_usable(daily_rows):
-    """(260902-l0b) True when there are at least two UTC-day buckets to
-    plot as a trend — `battery_sparkline_svg()`'s own two-point minimum
+    """(260902-l0b; Paris days as of 22-06-PLAN.md Task 1) True when there
+    are at least two Europe/Paris-day buckets to plot as a trend —
+    `battery_sparkline_svg()`'s own two-point minimum
     for a line, kept in exactly one place (not duplicated in
     `_battery_section()` and `_battery_trend_caption()` separately) so the
     chart's series choice and the heading caption can never disagree
@@ -739,6 +742,22 @@ def _battery_daily_series_usable(daily_rows):
     return isinstance(daily_rows, list) and len(daily_rows) >= 2
 
 
+def _real_trend_reading_count(trend_rows):
+    """(22-06-PLAN.md Task 2, B4) The number of `trend_rows`
+    `battery_sparkline_svg()` will actually plot — a row with a missing
+    or non-numeric `battery_mv` is silently dropped there (the same
+    numeric-only filter, repeated here rather than shared, since this
+    module already applies it independently in two other places:
+    `battery_status()` and the plotting loop itself). `BATTERY_TREND_LIMIT`
+    is a query LIMIT, not a guarantee that many rows exist — a fresh
+    deployment with only 3 readings must not have its caption claim
+    `BATTERY_TREND_LIMIT` (e.g. 20) readings when only 3 are on screen.
+    """
+    return sum(
+        1 for row in trend_rows
+        if isinstance(row.get("battery_mv"), int) and not isinstance(row.get("battery_mv"), bool))
+
+
 def _battery_trend_caption(trend_rows, daily_rows):
     """(260902-l0b) The heading caption text (without its leading em
     dash), honest about which series is actually on screen — computed
@@ -746,21 +765,22 @@ def _battery_trend_caption(trend_rows, daily_rows):
     `_battery_section()` uses to choose what to plot, so the two can
     never disagree.
 
-    Three cases, not two: the 90-day daily series is plotted (>= 2 day
-    buckets) — the 3-month/daily-average framing; no readings exist at
+    Three cases, not two: the 90-day daily series is plotted (>= 2 Paris-
+    day buckets) — the 3-month/daily-average framing; no readings exist at
     all (or the read failed) — the SAME 3-month framing, because that is
     what this page will show once data exists and there is no chart of
     any kind on screen to be honest ABOUT; otherwise a real fallback
     chart is on screen, built from fewer than two calendar days of raw
-    readings — today's byte-identical "Latest %d readings" string, which
-    is what this page always showed before this task and remains exactly
-    true of what is actually plotted.
+    readings — "Latest %d readings", where %d is the REAL count
+    `_real_trend_reading_count()` computes (22-06-PLAN.md Task 2, B4),
+    never the `BATTERY_TREND_LIMIT` constant this used to name regardless
+    of how many readings actually exist.
     """
     if _battery_daily_series_usable(daily_rows):
         return i18n.t("Last 3 months, daily average")
     if not trend_rows or trend_rows is _DB_UNAVAILABLE:
         return i18n.t("Last 3 months, daily average")
-    return i18n.t("Latest %d readings") % BATTERY_TREND_LIMIT
+    return i18n.t("Latest %d readings") % _real_trend_reading_count(trend_rows)
 
 
 # quick task 260902-ep7 (BUG 4): _AXIS_LEFT_GUTTER and _AXIS_BOTTOM_STRIP
@@ -930,23 +950,65 @@ BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = "%s — daily average"
 # language), replacing this module's former private English-only table
 # (260902-l0b) that 20-03-PLAN.md Task 2 had left out of D-07's scope.
 
+# 22-06-PLAN.md Task 2 (D-05, B4): a `now_parsed` guaranteed to fall on a
+# DIFFERENT Europe/Paris calendar day than any real device reading (no
+# SkyPane device predates this constant), so passing it to
+# `layout.local_clock_text()` forces that function's own cross-day
+# "D Mon HH:MM" branch. This is what `_full_local_timestamp_text()` below
+# uses to build a full local timestamp — reusing `local_clock_text()`
+# itself (D-05's "one formatter" rule) rather than re-deriving a second,
+# competing day-plus-clock format.
+_FULL_TIMESTAMP_SENTINEL_NOW = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
-def _axis_clock_label(ts):
-    """"HH:MM" clock text for a battery-chart X-axis label, matching
-    `layout.concise_timestamp_html()`'s own clock-format convention
-    (`parsed.strftime("%H:%M")`). Falls back to the raw `ts` string
-    (never raising) when it fails to parse — the same graceful-
-    degradation precedent `concise_timestamp_html()`'s own unparseable-
-    `ts` branch already sets.
+
+def _full_local_timestamp_text(ts):
+    """"D Mon HH:MM" in Europe/Paris — the full local timestamp every
+    `title`/`aria-label`/`data-when` this page emits for a battery
+    reading now carries (D-05, B4), via `layout.local_clock_text()`'s own
+    cross-day branch (forced by `_FULL_TIMESTAMP_SENTINEL_NOW` above),
+    never a bare clock and never the raw UTC ISO this finding replaces.
+    Falls back to the raw `ts` string (never raising) when it fails to
+    parse — the same graceful-degradation precedent `_axis_clock_label()`
+    already sets.
     """
     parsed = layout.parse_iso(ts)
-    return parsed.strftime("%H:%M") if parsed is not None else (ts or "")
+    if parsed is None:
+        return ts or ""
+    return layout.local_clock_text(parsed, now_parsed=_FULL_TIMESTAMP_SENTINEL_NOW)
+
+
+def _as_paris(parsed):
+    """A naive datetime is taken as UTC (matching `history_db.utc_now_iso()`'s
+    own output and `layout.local_clock_text()`'s own naive-input
+    convention), then converted to Europe/Paris. Shared by every helper
+    below that renders a battery timestamp, so there is exactly one place
+    a stored `ts` crosses into local wall-clock time (D-05, 22-06-PLAN.md
+    Task 2 — B4: this used to be `strftime()` on the UNCONVERTED value).
+    """
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=ZoneInfo("UTC"))
+    return parsed.astimezone(layout.LOCAL_TZ)
+
+
+def _axis_clock_label(ts):
+    """"HH:MM" Europe/Paris clock text for a battery-chart X-axis label
+    (D-05, 22-06-PLAN.md Task 2 — B4: this used to print the UNCONVERTED
+    UTC clock). Built through `layout.local_clock_text()` — the one
+    formatter for a visible time — with no `now_parsed`, which is what
+    keeps this a bare clock rather than the day-qualified form. Falls
+    back to the raw `ts` string (never raising) when it fails to parse —
+    the same graceful-degradation precedent `concise_timestamp_html()`'s
+    own unparseable-`ts` branch already sets.
+    """
+    parsed = layout.parse_iso(ts)
+    return layout.local_clock_text(parsed) if parsed is not None else (ts or "")
 
 
 def _axis_day_label(ts):
-    """(260902-l0b) "D Mon" day-of-month-plus-abbreviated-month X-axis
-    label for the chart's daily mode — `_axis_clock_label()`'s sibling,
-    for a series whose `ts` names a whole UTC calendar day
+    """(260902-l0b; Paris days as of 22-06-PLAN.md Task 1) "D Mon"
+    day-of-month-plus-abbreviated-month X-axis label for the chart's
+    daily mode — `_axis_clock_label()`'s sibling, for a series whose `ts`
+    names a whole Europe/Paris calendar day
     (`daily_battery_averages()`'s `"YYYY-MM-DD"` shape) rather than a
     moment. A day string parses fine via `layout.parse_iso()`
     (`datetime.fromisoformat()` accepts a date-only ISO string, at
@@ -954,20 +1016,27 @@ def _axis_day_label(ts):
     print a lie — every day's label would read "00:00". This sibling
     exists specifically to avoid that.
 
-    The day is composed from the parsed `datetime`'s own `.day` integer,
-    never from `strftime`'s no-pad day-of-month directive (the
-    dash-prefixed variant) — that flag is a glibc/BSD extension, not
-    portable, and not guaranteed by the C standard Windows's C runtime
-    implements. The month uses this module's own `_MONTH_ABBR` table,
-    not `strftime`'s locale-dependent month-abbreviation directive — see
-    `_MONTH_ABBR`'s own comment for why. Falls back to the raw `ts`
-    string (never raising) when it fails to parse — the same
+    `_as_paris()` converts the parsed value the same way every other
+    helper here does; for a bare `"YYYY-MM-DD"` bucket key this is a
+    no-op on the calendar day itself (naive midnight UTC, converted
+    forward to a positive Europe/Paris offset, never crosses back a day
+    boundary) — kept anyway so this function is also correct if it is
+    ever handed a real instant rather than a day-bucket key. The day is
+    composed from the converted `datetime`'s own `.day` integer, never
+    from `strftime`'s no-pad day-of-month directive (the dash-prefixed
+    variant) — that flag is a glibc/BSD extension, not portable, and not
+    guaranteed by the C standard Windows's C runtime implements. The
+    month uses `layout.month_abbr()` (the same fixed, locale-independent
+    table `local_clock_text()` itself selects between), not `strftime`'s
+    locale-dependent month-abbreviation directive. Falls back to the raw
+    `ts` string (never raising) when it fails to parse — the same
     graceful-degradation precedent `_axis_clock_label()` above sets.
     """
     parsed = layout.parse_iso(ts)
     if parsed is None:
         return ts or ""
-    return "%d %s" % (parsed.day, layout.month_abbr(parsed.month))
+    local = _as_paris(parsed)
+    return "%d %s" % (local.day, layout.month_abbr(local.month))
 
 
 def _battery_reading_parts(mv, ts, now):
@@ -993,12 +1062,23 @@ def _battery_reading_parts(mv, ts, now):
     BY CONSTRUCTION, with no change needed to `companion/static/
     battery-trend.js`.
 
-    `when` copies `layout.concise_timestamp_html()`'s own visible-text
-    shape ("HH:MM UTC (Nx ago)") without its `<span>` markup wrapper — a
-    short clock time plus `layout.relative_age_text()`'s existing suffix —
-    so this page's battery timestamps read in the same humanised format
-    as its Device/Pipeline timestamps, instead of the raw ISO string this
-    finding replaces.
+    `when` is "D Mon HH:MM (Nx ago)" (D-05, 22-06-PLAN.md Task 2, B4): a
+    full Europe/Paris local timestamp — `_full_local_timestamp_text()`,
+    which is `layout.local_clock_text()` itself, D-05's one formatter,
+    forced onto its own day-qualified branch — plus
+    `layout.relative_age_text()`'s existing suffix. This used to read
+    "HH:MM UTC (Nx ago)": a bare clock built by `strftime()` on the
+    UNCONVERTED datetime, plus a literal " UTC" that was simply wrong —
+    the value was never UTC-labelled correctly to begin with, since
+    every other timestamp on this page (via `local_clock_text()`) was
+    already Paris local. The full day-qualified form (not a bare clock)
+    is deliberate here: this exact string is what `_battery_readout_
+    block()` puts in its own `title` attribute AND what each chart
+    point's `<title>`/`aria-label`/`data-when` all share verbatim (one
+    wrong value copied into three places is this bug's own root cause,
+    so one right value is now shared the same way) — the tooltip is
+    where a user disambiguates, so it must be the most complete form,
+    never a bare clock.
 
     Returns PLAIN, UNESCAPED text — inheriting `layout.absolute_and_relative()`'s
     stated contract: every caller escapes at the point of interpolation.
@@ -1021,12 +1101,10 @@ def _battery_reading_parts(mv, ts, now):
     """
     pct = battery.battery_percent(mv)
     value = ("≈ %d%% · %s mV" % (pct, mv)) if pct is not None else ("%s mV" % mv)
-    parsed = layout.parse_iso(ts)
     age = layout.age_seconds(ts, now)
-    if parsed is None or age is None:
+    if age is None:
         return value, (ts or "")
-    clock = parsed.strftime("%H:%M")
-    when = "%s UTC (%s)" % (clock, layout.relative_age_text(age))
+    when = "%s (%s)" % (_full_local_timestamp_text(ts), layout.relative_age_text(age))
     return value, when
 
 
@@ -1128,7 +1206,8 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     call site and every direct-call harness fixture keeps today's
     behaviour byte-for-byte when it is left `False`. `True` says the rows
     being plotted are daily aggregates (`daily_battery_averages()`'s own
-    shape — `ts` names a whole UTC calendar day) rather than individual
+    shape — `ts` names a whole Europe/Paris calendar day, 22-06-PLAN.md
+    Task 1) rather than individual
     readings, and switches three things together, driven by one flag so
     they can never disagree: the X-axis endpoint labels use
     `_axis_day_label()` instead of `_axis_clock_label()` (a day string
@@ -1258,11 +1337,20 @@ def battery_sparkline_svg(rows, now=None, daily=False):
         # value is a daily average, so the readout can never silently
         # mix an average with a raw reading.
         if daily:
-            value_text, when_text = _daily_reading_parts(value, ts, reading_count)
+            _value_text, when_text = _daily_reading_parts(value, ts, reading_count)
         else:
-            value_text, when_text = _battery_reading_parts(value, ts, now)
+            _value_text, when_text = _battery_reading_parts(value, ts, now)
+        # D-05 (22-06-PLAN.md Task 2, B4): the tooltip, aria-label and
+        # data-when now carry the SAME string — `escaped_when` alone,
+        # never a "value — when" composite. `data-mv` (above) already
+        # carries the exact value machine-readably; battery-trend.js's
+        # reveal() writes it into the readout independently of data-when
+        # (`readoutValue.textContent = mv + " mV"`) and prepends its own
+        # " — " before `when` — so a title/aria-label that duplicated the
+        # value inside the SAME string `data-when` carries would print it
+        # twice once JS took over, and would fail this task's own
+        # one-string invariant besides.
         escaped_when = escape_html(when_text)
-        label = escape_html("%s — %s" % (value_text, when_text))
         # D-13/UXA-11: roving tabindex — only the chronologically-latest
         # (rightmost) point is a normal Tab stop; every other point is
         # removed from the natural Tab order (tabindex="-1") and instead
@@ -1278,7 +1366,7 @@ def battery_sparkline_svg(rows, now=None, daily=False):
             'role="button" data-mv="%d" data-ts="%s" data-when="%s" aria-label="%s">'
             "<title>%s</title></circle>"
             % (SPARKLINE_HIT_CLASS, x, y, hit_radius, tabindex, value, escape_html(ts),
-               escaped_when, label, label))
+               escaped_when, escaped_when, escaped_when))
 
     # Y-axis pair: max label first, min label second — .sparkline__y
     # (style.css) is a flex column with justify-content: space-between,
@@ -2074,9 +2162,8 @@ def _latest_numeric_battery_reading(trend_rows):
     quick task 260901-uzi: this used to return a pre-formatted
     "{value} mV — {ts}" label directly
     (`_latest_numeric_battery_label()`, retired); it now stops one step
-    earlier, at the raw `(mv, ts)` pair, so the caller can build both the
-    humanised value and detail parts via `_battery_reading_parts()` and
-    still hold the raw `ts` for the readout's `title` tooltip.
+    earlier, at the raw `(mv, ts)` pair, so the caller can build the
+    humanised value and detail parts via `_battery_reading_parts()`.
     """
     for row in trend_rows:
         value = row.get("battery_mv")
@@ -2102,26 +2189,38 @@ def _battery_readout_block(latest_reading, now):
     words) as too bold, too big, not sober. It now reads as a scannable
     figure plus a muted trailing detail, which is this page's own
     validated sketch's `.battery-readout` treatment (the voltage
-    emphasised, the trailing detail muted), and the machine-precise ISO
-    moves to the detail span's `title` tooltip, exactly as
-    `concise_timestamp_html()` does everywhere else on this page. The
-    humanised string is strictly SHORTER than the raw-ISO one it
-    replaces, so the reserved-height no-layout-jump guarantee (style.css's
-    `.battery-readout` comment) is not weakened but strengthened — the
-    old format was long enough to wrap at narrow widths and the new one
-    is not.
+    emphasised, the trailing detail muted).
+
+    D-05 (22-06-PLAN.md Task 2, B4): the detail span's `title` used to
+    carry the raw UTC ISO string — the one place on this page the "one
+    formatter" rule (`layout.local_clock_text()`) did not reach. It now
+    carries `when_text` itself: `_battery_reading_parts()` already builds
+    `when` as a full Europe/Paris local timestamp
+    (`_full_local_timestamp_text()`) plus the relative age, so the title
+    and the visible text are the SAME string, by construction, exactly
+    like each chart point's `<title>`/`aria-label`/`data-when` — one
+    right value, shared everywhere, rather than a second, independently
+    wrong one. The detail span also carries the `.time-value` role
+    (22-04-PLAN.md, C5): `battery-trend.js`'s `reveal()` overwrites this
+    span's `textContent` (never its `class` attribute) on every hover/
+    tap/keyboard move, so a class on the span itself survives every
+    interaction, but a NESTED child span would not — `.time-value` is
+    therefore applied to this stable wrapper rather than split into a
+    separate `.time-value__age` sibling for the relative-age clause;
+    `.battery-readout__detail`'s own pre-existing muted-colour rule
+    (identical 70% color-mix strength to `.time-value__age`) already
+    covers the whole string, relative age included.
 
     Two spans, not one string, because `companion/static/
-    battery-trend.js`'s `reveal()` now writes the value and detail parts
+    battery-trend.js`'s `reveal()` writes the value and detail parts
     separately (quick task 260901-uzi reverses that file's own
     260901-tsa non-goal — see battery-trend.js's own header comment for
     why this task edits it after all): `battery-readout__value` (also
     `mono`, matching the sparkline's own monospace digits) holds the
-    value part, `battery-readout__detail` (carrying the raw ISO in its
-    `title` attribute) holds a separator plus the "when" part. `mono` is
-    gone from the outer `<p>`'s own class list — style.css's `.mono`
-    reach-through rule now targets `.battery-readout .mono` directly, so
-    the value span alone carries it.
+    value part, `battery-readout__detail time-value` holds a separator
+    plus the "when" part. `mono` is gone from the outer `<p>`'s own class
+    list — style.css's `.mono` reach-through rule now targets
+    `.battery-readout .mono` directly, so the value span alone carries it.
 
     Two things deliberately did NOT change with this move, and both
     matter: `role="status"` is the live region `battery-trend.js`
@@ -2130,19 +2229,18 @@ def _battery_readout_block(latest_reading, now):
     document was never something that file depended on.
     """
     if latest_reading is None:
-        value_text, when_text, raw_ts = "", "", ""
+        value_text, when_text = "", ""
     else:
         mv, ts = latest_reading
         value_text, when_text = _battery_reading_parts(mv, ts, now)
-        raw_ts = ts or ""
     return (
         '<p id="%s" class="battery-readout" role="status">'
         '<span class="battery-readout__value mono">%s</span>'
-        '<span class="battery-readout__detail" title="%s"> — %s</span>'
+        '<span class="battery-readout__detail time-value" title="%s"> — %s</span>'
         "</p>"
     ) % (
         BATTERY_READOUT_ID, escape_html(value_text),
-        escape_html(raw_ts), escape_html(when_text))
+        escape_html(when_text), escape_html(when_text))
 
 
 def _battery_trend_section_html(battery_html, state, caption=None):
@@ -2251,8 +2349,8 @@ def _battery_section(trend_rows, daily_rows=None):
     `test_status_pages.py`'s `_battery_trend_timestamps_show_concise_format()`
     protects (06.5-02's own automated gate, retargeted onto the property
     it actually meant — see that check's own comment). When
-    `_battery_daily_series_usable(daily_rows)` holds (at least two UTC-day
-    buckets), the chart plots the daily series; otherwise it falls back
+    `_battery_daily_series_usable(daily_rows)` holds (at least two
+    Europe/Paris-day buckets), the chart plots the daily series; otherwise it falls back
     to the same raw `trend_rows` series this function has always plotted.
 
     This fallback is NOT a reduced first version of the feature — the
@@ -2311,8 +2409,9 @@ def _battery_section(trend_rows, daily_rows=None):
     # for its own `now`.
     now = history_db.utc_now_iso()
     # D-09: the Timestamp column is now already-safe raw HTML (the
-    # concise "HH:MM UTC (relative)" span, full ISO demoted to its
-    # `title` attribute) — raw_columns=(0,) tells data_table() not to
+    # concise Europe/Paris "HH:MM (relative)" span, D-05, with a full
+    # local timestamp demoted to its `title` attribute, 22-06-PLAN.md
+    # Task 3) — raw_columns=(0,) tells data_table() not to
     # re-escape it (that would double-encode and print the tags as
     # visible text). mono_columns keeps only the numeric mV column
     # monospaced; concise_timestamp_html()'s own <span class="mono">
