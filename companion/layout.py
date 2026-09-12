@@ -159,6 +159,11 @@ POLL_COOLDOWN_SCRIPT_SRC = "/static/poll-cooldown.js"
 # contract as the constants above — the ninth static script.
 CONFIRM_SUBMIT_SCRIPT_SRC = "/static/confirm-submit.js"
 
+# 20-08-PLAN.md Task 3 (D-22..D-24/D-32): must equal companion/app.py's
+# THEME_PREVIEW_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above — the tenth static script.
+THEME_PREVIEW_SCRIPT_SRC = "/static/theme-preview.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 # D-16/D-19 (20-01-PLAN.md Task 2): the quick-action form protocol,
@@ -1311,6 +1316,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -1355,6 +1361,11 @@ def page_shell(
         # page, since only the Device page renders a
         # form[data-confirm] (the calendar disconnect form).
         CONFIRM_SUBMIT_SCRIPT_SRC,
+        # 20-08-PLAN.md Task 3 (D-22..D-24): tenth script, same
+        # unconditional/no-op-via-guard-clause convention — served every
+        # page, since only Display (from 20-11) renders
+        # .theme-live-preview img plus a .theme-chip-grid.
+        THEME_PREVIEW_SCRIPT_SRC,
     )
 
 

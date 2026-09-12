@@ -353,6 +353,41 @@ EXPECTED_CHECK_COUNT = 227  # 20-01-PLAN.md Task 2 (D-02/D-29/D-03):
 # against the real on-disk check(...) call count at execution time
 # (225/227 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 233  # 20-08-PLAN.md Task 1 (D-23): +6 (the
+# no-event cache path is stable and distinct from a live-event path;
+# two different event ids give two different paths and the same event
+# id twice gives the same path; a hostile/non-integer event id degrades
+# to the sample path; preview_png_bytes() renders a full and a partial
+# live-event row without raising; cached_preview_bytes() with no event
+# is unchanged; cached_preview_bytes() keys its cache on the event row
+# id, serving a same-event repeat from disk and missing on a newer
+# event). 227 + 6 = 233, recomputed directly against the real on-disk
+# check(...) call count at execution time (231/233 pass — the two
+# documented WR-11 root-sandbox failures, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 238  # 20-08-PLAN.md Task 2 (D-23): +5 (?live=1
+# with no runway_events row falls back to the sample scene; a seeded
+# event renders and a same-event repeat request is served from the
+# cache without growing it; a newer event both changes the served
+# bytes and adds a new cache file; an unknown theme id with ?live=1
+# still 404s before any query is parsed; ?live=0 and a missing query
+# both serve the sample variant). The "GET /static/theme-preview.js"
+# check named in this task's own action text is deferred to Task 3's
+# commit, where that file first exists (Task 2's own <files> list
+# excludes companion/static/theme-preview.js) — see this plan's own
+# SUMMARY.md Deviations section. 233 + 5 = 238, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (236/238 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 242  # 20-08-PLAN.md Task 3 (D-22..D-24/D-32): +4
+# (the tenth static script, theme-preview.js: its own public-serving
+# check, its ES5-safe/no-HTML-writing-sink guard, its route/src
+# agreement check, and the exactly-one-script-tag/no-bare-inline-script
+# shell check). The nine-deferred-scripts check was retargeted in place
+# to ten, a net-zero rename. 238 + 4 = 242, recomputed directly against
+# the real on-disk check(...) call count at execution time (240/242
+# pass — the two documented WR-11 root-sandbox failures, unrelated to
+# this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -2428,6 +2463,135 @@ def main():
         _theme_preview_signature_changes_with_cache_version)
 
     # ==================================================================
+    # Section 2.5b: companion/theme_preview.py's D-23 live-event render
+    # path and event-aware cache key (20-08-PLAN.md Task 1).
+    # ==================================================================
+
+    def _theme_preview_cache_path_no_event_is_stable_and_distinct_from_live():
+        with tempfile.TemporaryDirectory() as state_dir:
+            no_event_first = theme_preview.cache_path(state_dir, "white")
+            no_event_second = theme_preview.cache_path(state_dir, "white")
+            if no_event_first != no_event_second:
+                return False, "expected the no-event path to be deterministic across two calls"
+            live_path = theme_preview.cache_path(state_dir, "white", live_event_id=41)
+            if no_event_first == live_path:
+                return False, "expected the no-event path to differ from a live-event path"
+            if "41" not in live_path:
+                return False, "expected the live-event path to contain the event id"
+        return True, ""
+    check(
+        "cache_path() with no event returns a stable, deterministic filename that differs "
+        "from the same theme's live-event filename (which contains the event id) — the "
+        "existing 2-argument call site (the chip grid) keeps working unmodified, D-23",
+        _theme_preview_cache_path_no_event_is_stable_and_distinct_from_live)
+
+    def _theme_preview_cache_path_distinct_event_ids_distinct_paths():
+        with tempfile.TemporaryDirectory() as state_dir:
+            path_41 = theme_preview.cache_path(state_dir, "white", live_event_id=41)
+            path_42 = theme_preview.cache_path(state_dir, "white", live_event_id=42)
+            path_41_again = theme_preview.cache_path(state_dir, "white", live_event_id=41)
+            if path_41 == path_42:
+                return False, "expected two different event ids to give two different paths"
+            if path_41 != path_41_again:
+                return False, "expected the same event id twice to give the same path"
+        return True, ""
+    check(
+        "cache_path() gives two different event ids two different paths, and the same event "
+        "id twice the same path (D-23/Pitfall 7)",
+        _theme_preview_cache_path_distinct_event_ids_distinct_paths)
+
+    def _theme_preview_cache_path_hostile_event_id_degrades_to_sample():
+        with tempfile.TemporaryDirectory() as state_dir:
+            sample_path = theme_preview.cache_path(state_dir, "white")
+            for hostile in ("../../etc/passwd", "not-a-number", object()):
+                degraded = theme_preview.cache_path(state_dir, "white", live_event_id=hostile)
+                if degraded != sample_path:
+                    return False, (
+                        "expected a non-integer event id (%r) to degrade to the sample path, "
+                        "got %r" % (hostile, degraded))
+                if isinstance(hostile, str) and hostile in os.path.basename(degraded):
+                    return False, "hostile event id string leaked into the filename"
+        return True, ""
+    check(
+        "cache_path() degrades a non-integer or hostile event id to the same sample path as "
+        "no event at all, never reaching the filename (T-20-14)",
+        _theme_preview_cache_path_hostile_event_id_degrades_to_sample)
+
+    def _theme_preview_png_bytes_live_event_full_and_partial_row():
+        full_row = {
+            "id": 5, "hex": "3946a1", "callsign": "AFR1380", "airline": "Air France",
+            "origin": "ORY", "destination": "TLS", "confirmed_state": "departing",
+        }
+        partial_row = {"id": 6}
+        for row in (full_row, partial_row):
+            payload = theme_preview.preview_png_bytes("white", live_event=row)
+            img = Image.open(io.BytesIO(payload))
+            if img.format != "PNG":
+                return False, "expected a PNG for live_event=%r, got %r" % (row, img.format)
+            if img.size != theme_preview.THEME_PREVIEW_SIZE:
+                return False, "expected size %r for live_event=%r, got %r" % (
+                    theme_preview.THEME_PREVIEW_SIZE, row, img.size)
+        return True, ""
+    check(
+        "preview_png_bytes(theme_id, live_event=row) returns a well-formed PNG for a full "
+        "runway_events row and for a row missing half its fields (partial rows never raise, "
+        "D-23)",
+        _theme_preview_png_bytes_live_event_full_and_partial_row)
+
+    def _theme_preview_cached_bytes_no_event_unchanged():
+        with tempfile.TemporaryDirectory() as state_dir:
+            direct = theme_preview.preview_png_bytes("blue")
+            cached = theme_preview.cached_preview_bytes(state_dir, "blue")
+            path = theme_preview.cache_path(state_dir, "blue")
+            if not os.path.isfile(path):
+                return False, "expected cached_preview_bytes() to create %r" % (path,)
+            if cached != direct:
+                return False, "expected the no-event cached render to still match preview_png_bytes()"
+        return True, ""
+    check(
+        "cached_preview_bytes() with no live_event still creates the cache file and returns "
+        "exactly what preview_png_bytes(theme_id) returns, unchanged by this task (D-23)",
+        _theme_preview_cached_bytes_no_event_unchanged)
+
+    def _theme_preview_cached_bytes_live_event_keyed_by_id():
+        with tempfile.TemporaryDirectory() as state_dir:
+            event_5 = {
+                "id": 5, "hex": "3946a1", "callsign": "AFR1380", "airline": "Air France",
+                "origin": "ORY", "destination": "TLS", "confirmed_state": "departing",
+            }
+            event_6 = dict(event_5, id=6, callsign="AFR9999")
+            theme_preview.cached_preview_bytes(state_dir, "white", live_event=event_5)
+            path_5 = theme_preview.cache_path(state_dir, "white", live_event_id=5)
+            if not os.path.isfile(path_5):
+                return False, "expected cached_preview_bytes() to create %r" % (path_5,)
+            # A cache HIT for the same event id must not re-render — mutate the
+            # on-disk bytes and confirm the second call serves them unchanged,
+            # the same proof _theme_preview_cached_bytes_second_call_serves_
+            # from_disk() already applies to the no-event path.
+            marker = b"mutated-cache-fixture-not-a-real-render"
+            with open(path_5, "wb") as fh:
+                fh.write(marker)
+            second_same_event = theme_preview.cached_preview_bytes(
+                state_dir, "white", live_event=event_5)
+            if second_same_event != marker:
+                return False, "expected a same-event second call to be served from disk, not re-rendered"
+            # A NEWER event (a different id) must be a cache MISS, not the
+            # stale mutated bytes above — this is D-23/Pitfall 7's entire point.
+            third_newer_event = theme_preview.cached_preview_bytes(
+                state_dir, "white", live_event=event_6)
+            if third_newer_event == marker:
+                return False, "expected a newer event id to be a cache miss, not the stale marker bytes"
+            path_6 = theme_preview.cache_path(state_dir, "white", live_event_id=6)
+            if path_5 == path_6:
+                return False, "expected two different event ids to produce two different cache files"
+            return True, ""
+    check(
+        "cached_preview_bytes() keys its cache on the live event's row id: a repeat request "
+        "for the SAME event serves the on-disk file unchanged (no re-render), and a NEWER "
+        "event is a cache miss rather than the stale first render (D-23/Pitfall 7)",
+        _theme_preview_cached_bytes_live_event_keyed_by_id)
+
+    # ==================================================================
     # Section 2.6: companion/app.py's _illustration_filenames() (phase 13
     # plan 13-06 Task 1, D-09) — pure in-process module checks against the
     # widened per-request union helper, no subprocess needed.
@@ -3155,27 +3319,89 @@ def main():
             "layout.CONFIRM_SUBMIT_SCRIPT_SRC equals companion.app.CONFIRM_SUBMIT_SCRIPT_ROUTE",
             _confirm_submit_script_route_src_agree)
 
-        def _nine_deferred_scripts_before_closing_body():
-            # Retargeted in place from _eight_deferred_scripts_before_
-            # closing_body() (19-11-PLAN.md Task 2, D-08/A-26):
-            # confirm-submit.js is the ninth unconditional script.
+        # --- 20-08-PLAN.md Task 3 (D-22..D-24/D-32): theme-preview.js ---
+
+        check(
+            "GET /static/theme-preview.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/theme-preview.js"))
+
+        def _theme_preview_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "theme-preview.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest", "setTimeout(", "setInterval(")
+            for token in banned:
+                if token in src:
+                    return False, "theme-preview.js must not contain %r" % token
+            required = ("addEventListener", "querySelector", "getAttribute", "data-preview-src")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in theme-preview.js" % token
+            return True, ""
+        check(
+            "theme-preview.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/timers), and "
+            "carries the chip-selection src swap (addEventListener/querySelector/getAttribute/"
+            "data-preview-src all present) (D-22..D-24)",
+            _theme_preview_script_es5_safe_and_no_html_write)
+
+        def _theme_preview_script_route_src_agree():
+            import companion.app as app_module
+            if layout.THEME_PREVIEW_SCRIPT_SRC != app_module.THEME_PREVIEW_SCRIPT_ROUTE:
+                return False, "theme-preview script route drift: %r vs %r" % (
+                    layout.THEME_PREVIEW_SCRIPT_SRC, app_module.THEME_PREVIEW_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.THEME_PREVIEW_SCRIPT_SRC equals companion.app.THEME_PREVIEW_SCRIPT_ROUTE",
+            _theme_preview_script_route_src_agree)
+
+        def _theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.THEME_PREVIEW_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            # No inline <script> without a src anywhere in a rendered page —
+            # the CSP's own "no inline script" rule (D-32), pinned here so a
+            # future change cannot silently reintroduce one.
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one theme-preview.js <script> tag "
+            "and no inline <script> without a src (D-32)",
+            _theme_preview_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _ten_deferred_scripts_before_closing_body():
+            # Retargeted in place from _nine_deferred_scripts_before_
+            # closing_body() (20-08-PLAN.md Task 3, D-22..D-24/D-32):
+            # theme-preview.js is the tenth unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 9:
-                return False, "expected exactly 9 deferred <script src= tags before </body>, got %d" % count
+            if count != 10:
+                return False, "expected exactly 10 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
-                    layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC):
+                    layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
+                    layout.THEME_PREVIEW_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly nine deferred <script src= tags "
+            "a rendered authenticated page contains exactly ten deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
-            "poll-cooldown.js and confirm-submit.js",
-            _nine_deferred_scripts_before_closing_body)
+            "poll-cooldown.js, confirm-submit.js and theme-preview.js",
+            _ten_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
@@ -4576,6 +4802,122 @@ def main():
             "an unauthenticated GET /theme-preview/white.png redirects to /login, never "
             "returns image bytes",
             _theme_preview_unauthenticated_redirects_to_login)
+
+        # --- 20-08-PLAN.md Task 2 (D-23): the ?live=1 route branch ---
+
+        def _theme_cache_dir(theme_id_glob="*"):
+            import glob
+            return glob.glob(os.path.join(
+                harness.tmpdir, theme_preview.THEME_PREVIEW_CACHE_DIRNAME,
+                "%s*.png" % theme_id_glob))
+
+        def _theme_preview_live_no_events_serves_sample():
+            # No runway_events row exists yet at this point in the suite's
+            # own shared harness.tmpdir — the exact "fresh install" case
+            # D-23 must fall back to the sample scene for.
+            status, headers, body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 with no runway_events row, got %d" % status
+            if headers.get("Content-Type") != "image/png":
+                return False, "expected image/png, got %r" % headers.get("Content-Type")
+            if not body.startswith(PNG_SIGNATURE):
+                return False, "expected a real PNG body"
+            return True, ""
+        check(
+            "GET /theme-preview/white.png?live=1 with no runway_events row at all still "
+            "returns 200/image/png (the sample-scene fallback, D-23)",
+            _theme_preview_live_no_events_serves_sample)
+
+        def _theme_preview_live_seeded_event_and_cache_reuse():
+            with history_db.open_db(harness.tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, hex="3946a1", callsign="AFR1380", confirmed_state="departing",
+                    airline="Air France", origin="ORY", destination="TLS")
+            status, headers, body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 with a seeded runway_events row, got %d" % status
+            if headers.get("Content-Type") != "image/png":
+                return False, "expected image/png, got %r" % headers.get("Content-Type")
+            if not body.startswith(PNG_SIGNATURE):
+                return False, "expected a real PNG body"
+            before = _theme_cache_dir("white-")
+            # A second request for the SAME latest event must be a cache
+            # hit, not grow the cache directory (D-23/Pitfall 7's own
+            # "never renders 16 panels [again for the same flight]" half).
+            status2, _headers2, body2 = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            after = _theme_cache_dir("white-")
+            if status2 != 200 or body2 != body:
+                return False, "expected the second request to serve the identical cached bytes"
+            if len(after) != len(before):
+                return False, (
+                    "expected the cache file count to stay at %d for a repeat request of the "
+                    "same latest event, got %d" % (len(before), len(after)))
+            return True, ""
+        check(
+            "GET /theme-preview/white.png?live=1 with a seeded runway_events row returns "
+            "200/image/png, and a second request for the same latest event is served from "
+            "the cache without growing the cache directory (D-23/Pitfall 7)",
+            _theme_preview_live_seeded_event_and_cache_reuse)
+
+        def _theme_preview_live_newer_event_changes_cache_file():
+            before = set(_theme_cache_dir("white-"))
+            status, _headers, first_body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 before seeding a newer event, got %d" % status
+            with history_db.open_db(harness.tmpdir) as conn:
+                history_db.record_runway_event(
+                    conn, hex="3466ab", callsign="VLG9999", confirmed_state="arriving",
+                    airline="Vueling Airlines", origin="BCN", destination="ORY")
+            status2, _headers2, second_body = http_request(
+                base + "/theme-preview/white.png?live=1", cookie=session_cookie)
+            if status2 != 200:
+                return False, "expected 200 after seeding a newer event, got %d" % status2
+            after = set(_theme_cache_dir("white-"))
+            if len(after) <= len(before):
+                return False, "expected a newer runway_events row to add a new cache file, not reuse one"
+            if second_body == first_body:
+                return False, "expected a newer runway_events row to change the served bytes"
+            return True, ""
+        check(
+            "inserting a NEWER runway_events row changes both the served live-preview bytes "
+            "and the cache file it comes from — a newer flight is a cache miss, never a stale "
+            "hit served forever (D-23/Pitfall 7)",
+            _theme_preview_live_newer_event_changes_cache_file)
+
+        def _theme_preview_live_unknown_theme_404():
+            status, _headers, body = http_request(
+                base + "/theme-preview/nope.png?live=1", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for an unknown theme id with ?live=1, got %d" % status
+            if b"Page not found." not in body:
+                return False, "expected the exact 404 copy in the response body"
+            return True, ""
+        check(
+            "GET /theme-preview/nope.png?live=1 returns the same 404 an unknown theme id "
+            "always returns — the membership test still runs before any query is even parsed",
+            _theme_preview_live_unknown_theme_404)
+
+        def _theme_preview_live_zero_and_missing_query_serve_sample_variant():
+            status_zero, _headers_zero, body_zero = http_request(
+                base + "/theme-preview/blue.png?live=0", cookie=session_cookie)
+            status_missing, _headers_missing, body_missing = http_request(
+                base + "/theme-preview/blue.png", cookie=session_cookie)
+            if status_zero != 200 or status_missing != 200:
+                return False, "expected 200 for both ?live=0 and a missing query"
+            sample_only = theme_preview.cached_preview_bytes(harness.tmpdir, "blue")
+            if body_zero != sample_only or body_missing != sample_only:
+                return False, (
+                    "expected ?live=0 and a missing query to both serve the sample variant, "
+                    "not the live one")
+            return True, ""
+        check(
+            "?live=0 and a missing ?live query both serve the sample variant, never the live "
+            "one, even with a runway_events row present (D-23)",
+            _theme_preview_live_zero_and_missing_query_serve_sample_variant)
 
         # --- 260902-v26 Task 3: the live upload round trip, against this ---
         # --- real running companion/app.py subprocess (D-01/D-02/D-03).  ---
