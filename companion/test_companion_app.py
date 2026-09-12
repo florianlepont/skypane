@@ -6580,7 +6580,15 @@ def main():
             # distinct needles (token, host, path segment,
             # query-parameter name, whole URL) anywhere the operator can
             # see: the redirect's Location header, or the served body of
-            # either response.
+            # either response. 21-07-PLAN.md Task 2 (D-14/R-10): the
+            # SERVED SETTINGS PAGE is now the one legitimate exception —
+            # the URL was saved successfully (the sync failure is a
+            # separate, later fetch problem), so the page now renders
+            # correctly connected, and D-14's own masked-URL line
+            # legitimately shows the bare host + "…" there. The plain
+            # hostname therefore stays forbidden everywhere else (the
+            # Location header, the redirect response body) but is
+            # narrowed to "masked form only" for the final served page.
             calendar_harness = _InProcessHarness()
             try:
                 session = _login(calendar_harness)
@@ -6610,7 +6618,11 @@ def main():
                         return False, "leak in the redirect response body: %r" % (needle,)
                 status2, _h2, page_body = http_request(
                     calendar_harness.base_url() + location, cookie=session)
-                for needle in needles:
+                if layout.escape_html("%s…" % hostname).encode() not in page_body:
+                    return False, (
+                        "expected the masked host + ellipsis fragment to be served once "
+                        "connected (D-14/R-10)")
+                for needle in (token, path_segment, query_param, url):
                     if needle.encode() in page_body:
                         return False, (
                             "leak in the served response body: %r found on the "
@@ -6619,7 +6631,10 @@ def main():
             finally:
                 calendar_harness.stop()
         check(
-            "T-17-FLASH: a raised error whose message embeds the full URL never surfaces the token, host, path segment, query-parameter name, or whole URL in the Location header or any served response body",
+            "T-17-FLASH: a raised error whose message embeds the full URL never surfaces the token, "
+            "path segment, query-parameter name, or whole URL in the Location header or any served "
+            "response body — the served Settings page legitimately shows the masked host + ellipsis "
+            "once connected (D-14/R-10, extended by 21-07-PLAN.md Task 2)",
             _calendar_sync_failure_never_leaks_the_url)
 
         def _calendar_disconnect_reports_deletion_and_erases_entries():

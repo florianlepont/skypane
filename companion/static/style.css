@@ -2200,23 +2200,15 @@ button:disabled {
  * (both scoped to the now-deleted checkbox markup) are removed
  * outright — the Frame colours card's own usage panels are collapsed
  * by theme-preview.js at load instead (D-08's no-JS floor: the server
- * never emits `hidden` on any panel). This @supports block survives
- * for its second, unrelated rule below (the Calendar-card fusion,
- * retired separately by a later plan). */
-@supports selector(:has(*)) {
-  /* 20-04-PLAN.md Task 2 (D-14c, 20-UI-SPEC.md §E): the fused Calendar
-   * card — squares the card's bottom corners and zeroes its bottom
-   * margin only when a .calendar-disconnect-form immediately follows it,
-   * so the two <form>s read as one card with a trailing action strip.
-   * Joins this block (rather than opening a third) per
-   * companion/test_config_page.py's own exact-count pin — see this
-   * selector's own declaration further down this file. */
-  .page-section:has(+ .calendar-disconnect-form) {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    margin-bottom: 0;
-  }
-}
+ * never emits `hidden` on any panel). This @supports block used to
+ * survive for one more, unrelated rule below (the Calendar-card
+ * fusion) — 21-07-PLAN.md Task 3 (D-13/R-08/Pitfall 2) retires that
+ * rule too, and with it the whole block: the Calendar card and its
+ * disconnect form are real nested/sibling DOM now, not two visually-
+ * fused siblings, so no feature-query fallback is needed for either
+ * any more. The whole-file pinned block count (companion/test_config_
+ * page.py) moves from 2 to 1 as a direct result — see that check's
+ * own history comment for the exact before/after. */
 
 /* Shared Settings-page checkbox normalization (quick task 260901-qif,
  * generalised 10-05-PLAN.md Task 2): now used by both the Diagnostic LED
@@ -5518,31 +5510,77 @@ a.airline-card__zoom {
  * deleted with it; .status-card__headline/--warn above survive — the
  * strip now reuses both verbatim for its own next-update line. */
 
-/* --- 20-UI-SPEC.md §E: the fused Calendar card (D-14c) -----------------
- * A genuinely new pattern — a two-<form> card visually fused into one.
- * Scoped with :has() inside this file's existing progressive-enhancement
- * convention — companion/test_config_page.py pins the whole file to
- * exactly two feature-query blocks of that shape (the live-selection-
- * state one and Phase 15 D-05's arrivals-reveal one), so this rule joins
- * the second of those two rather than opening a third such block; see
- * that block's own declaration further up this file. A browser without
- * :has() support simply keeps all four of the Calendar card's corners
- * rounded and lets .calendar-disconnect-form render as its own
- * small separate card immediately below, at the normal --space-lg gap —
- * an accepted, non-broken degradation, never unstyled. */
-
-.calendar-disconnect-form {
-  margin: 0 0 var(--space-lg);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-top: none;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  border-bottom-left-radius: var(--radius-control);
-  border-bottom-right-radius: var(--radius-control);
+/* --- 21-UI-SPEC.md §E: the merged Calendar card (D-13/D-14, R-08/R-09)
+ * ------------------------------------------------------------------------
+ * 21-07-PLAN.md Task 3: retires the two-<form> visual-fusion trick
+ * (20-04-PLAN.md's own :has()-keyed corner-squaring rule, deleted
+ * above, and its own trailing-card shape rule for the disconnect
+ * form's outer wrapper, deleted from here) now that Calendar is
+ * genuinely one nested card (companion/pages/config_page.py's merged
+ * calendar_group(), 21-07-PLAN.md Task 1) plus a real, data-only
+ * sibling <form> that carries no visible surface of its own — nothing
+ * left to fuse.
+ *
+ * .calendar-actions lays out the Replace disclosure and the Disconnect
+ * button on one line, right-aligned relative to each other via
+ * space-between (baseline-aligned, matching a <details><summary> next
+ * to a <button> — neither is a taller block the other must vertically
+ * centre against). .calendar-actions--solo (Claude's Discretion,
+ * additive) is the drift-only state's own single-button variant, where
+ * space-between would otherwise place a lone flex child at the START
+ * of the row instead of the right-aligned position D-14 asks for. */
+.calendar-actions {
   display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin: var(--space-sm) 0 0;
+}
+.calendar-actions--solo {
   justify-content: flex-end;
+}
+
+/* R-09: the small grey Disconnect button — this app's bare <button>
+ * idiom carries the quiet, near-invisible-at-rest wash already; this is
+ * the one additive rule block that also shrinks it (30px/12px, R-09's
+ * own instruction) and keeps it off the accent-filled primary
+ * treatment `button[type="submit"]` would otherwise give it. No
+ * `.btn`/`.btn--secondary`/`.btn--small` family exists anywhere in this
+ * file — R-09 explicitly names this the new class pair to introduce,
+ * not an existing family to reuse. */
+.calendar-disconnect-btn {
+  min-height: 30px;
+  padding: 4px var(--space-sm);
+  font-size: 12px;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: var(--radius-control);
+}
+.calendar-disconnect-btn:hover,
+.calendar-disconnect-btn:focus-visible {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+/* D-13: the masked feed URL (host + "…", companion/pages/config_page.
+ * py's _masked_calendar_url()) renders in the same monospace token
+ * this file already reserves for machine-derived strings (matching
+ * --font-mono's existing consumers), never the base body font — a
+ * visual cue that this line is a derived fragment, not prose. */
+.calendar-masked-url {
+  font-family: var(--font-mono);
+  margin: var(--space-sm) 0 0;
+}
+
+/* R-08/Pitfall 2: the disclosure summary reads as a link now that it
+ * sits beside a real button on the same line, rather than the default
+ * bold <summary> treatment — this file's plain prose links have never
+ * needed a dedicated class before (every existing <a> inherits the
+ * base accent-coloured rule directly), so .text-link is new, but
+ * trivial: one declaration, reusing --color-accent verbatim. */
+.text-link {
+  color: var(--color-accent);
+  text-decoration: underline;
 }
 
 /* --- 20-UI-SPEC.md §F: "Match by" segmented radios, and the rule rows
