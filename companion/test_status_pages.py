@@ -517,6 +517,26 @@ EXPECTED_CHECK_COUNT = 213  # WR-03 fix (20-REVIEW.md): +1
 # root-sandbox anomaly_active() failure, unrelated to this plan), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 213
+# 21-02-PLAN.md Task 1 (D-18): net 0. Two checks rewritten in place —
+# the zero-<form>/one-<button> literal-count check (was two, the
+# Pause/Resume button is deleted) and the persistent-freshness-note
+# check (its toggle assertions become zero-occurrence assertions) —
+# no check added or removed. 213 + 0 = 213, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (212/213 pass — the one documented pre-existing root-sandbox
+# anomaly_active() failure, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 213
+# 21-02-PLAN.md Task 2 (D-18): net 0. _both_tabs_ok_end_to_end() is
+# rewritten in place — the [data-refresh-toggle] served-bytes needle
+# is dropped and replaced with an opposite-direction regression pin
+# (zero occurrences of data-pause-text/wireToggle in the served
+# freshness.js bytes) — same check, no check added or removed. 213 + 0
+# = 213, recomputed directly against the real on-disk check(...) call
+# count at execution time (212/213 pass — the one documented
+# pre-existing root-sandbox anomaly_active() failure, unrelated to
+# this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 213
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -3472,14 +3492,11 @@ def main():
         # control. Reads the module source directly, filters out
         # nothing.
         #
-        # 19-09-PLAN.md (D-02): retargeted in place — button_count grew
-        # from 1 to 2 when the Pause/Resume control (a real
-        # <button type="button" data-refresh-toggle>) joined the
-        # pre-existing D-16 docstring mention. The zero-<form> half of
-        # this check is exactly why that new button is still compatible
-        # with T-13-13's own promise: it is a bare, formless, GET-free
-        # client-side toggle — it submits nothing anywhere, so it is not
-        # a "state-changing control" in the sense this check polices.
+        # 21-02-PLAN.md (D-18): retargeted in place again — button_count
+        # drops back from 2 to 1 now that the Pause/Resume control (the
+        # <button type="button" data-refresh-toggle> 19-09-PLAN.md added)
+        # is deleted outright, with no replacement. Only the pre-existing
+        # D-16 docstring mention remains.
         source_path = os.path.join(HERE, "pages", "health_page.py")
         with open(source_path, encoding="utf-8") as fh:
             source = fh.read()
@@ -3487,16 +3504,16 @@ def main():
         button_count = source.count("<button")
         if form_count != 0:
             return False, "expected zero '<form' occurrences in health_page.py, got %d" % form_count
-        if button_count != 2:
+        if button_count != 1:
             return False, (
-                "expected exactly two '<button' occurrences (the pre-existing D-16 docstring "
-                "mention plus the 19-09-PLAN.md Pause/Resume control), got %d" % button_count)
+                "expected exactly one '<button' occurrence (the pre-existing D-16 docstring "
+                "mention only, now that the Pause/Resume control is deleted), got %d" % button_count)
         return True, ""
     check(
-        "companion/pages/health_page.py still contains zero HTML form elements and exactly two "
-        "'<button' literals (the pre-existing D-16 docstring mention and the formless Pause/Resume "
-        "toggle) — Health still gains no state-changing (form-submitting) control (phase 13 D-10, "
-        "T-13-13; retargeted in place by 19-09-PLAN.md Task 1, D-02)",
+        "companion/pages/health_page.py still contains zero HTML form elements and exactly one "
+        "'<button' literal (the pre-existing D-16 docstring mention only) — Health still gains no "
+        "state-changing (form-submitting) control (phase 13 D-10, T-13-13; retargeted in place by "
+        "21-02-PLAN.md Task 1, D-18)",
         _health_still_has_no_form_and_exactly_one_button_literal)
 
     def _quick_260902_gjj_muted_captions_compose_section_caption():
@@ -5674,12 +5691,16 @@ def main():
         # survives — a persistent, server-rendered note joins the hidden
         # refresh pill inside ONE block-level wrapper (260902-ep7's
         # anonymous-block-box guard) that is .page-header's next child
-        # right after the <h1> — and gains three more assertions this
-        # task adds: the note carries no relative-age suffix at all, a
-        # single data-refresh-clock span holds the full ISO in its
-        # title, and a single data-refresh-toggle button renders inside
-        # the same wrapper with both label attributes and a starting
-        # aria-pressed="false".
+        # right after the <h1> — and gains two more assertions that task
+        # added: the note carries no relative-age suffix at all, and a
+        # single data-refresh-clock span holds the full ISO in its title.
+        #
+        # 21-02-PLAN.md (D-18): retargeted again — the Pause/Resume
+        # button 19-09-PLAN.md's version of this check asserted is
+        # deleted outright, with no replacement control. The wrapper now
+        # holds only the readout span and the pill, and this check
+        # additionally pins that zero occurrences of data-refresh-toggle,
+        # data-pause-text or data-resume-text survive anywhere in it.
         tmp = _mkstate("h-persistent-freshness")
         try:
             now_iso = _iso(_now())
@@ -5713,31 +5734,20 @@ def main():
             if ('title="%s"' % now_iso) not in clock_tag:
                 return False, "expected the clock span's title to carry the full ISO instant"
 
-            if wrapper_slice.count("data-refresh-toggle") != 1:
-                return False, (
-                    "expected exactly one data-refresh-toggle button, got %d"
-                    % wrapper_slice.count("data-refresh-toggle"))
-            toggle_at = wrapper_slice.index("data-refresh-toggle")
-            toggle_end = wrapper_slice.index("</button>", toggle_at) + len("</button>")
-            toggle_tag_end = wrapper_slice.index(">", toggle_at) + 1
-            toggle_open_tag = wrapper_slice[
-                wrapper_slice.rindex("<", 0, toggle_at):toggle_tag_end]
-            if 'aria-pressed="false"' not in toggle_open_tag:
-                return False, "expected the toggle to start aria-pressed=\"false\""
-            if "data-pause-text=" not in toggle_open_tag:
-                return False, "expected the toggle to carry data-pause-text"
-            if "data-resume-text=" not in toggle_open_tag:
-                return False, "expected the toggle to carry data-resume-text"
-            toggle_label = wrapper_slice[toggle_tag_end:toggle_end - len("</button>")]
-            if not toggle_label.strip():
-                return False, "expected the toggle to have a non-empty accessible label (its own text)"
+            for needle in ("data-refresh-toggle", "data-pause-text", "data-resume-text"):
+                if needle in wrapper_slice:
+                    return False, (
+                        "expected zero occurrences of %r inside .page-header__freshness — "
+                        "the Pause/Resume control is deleted, not replaced (D-18)" % needle)
+            if "<button" in wrapper_slice:
+                return False, "expected no <button> inside .page-header__freshness (D-18)"
 
             # Substring ordering, the same way this guard has always
             # pinned the anonymous-block-box fix: prefix, then clock,
-            # then pill, then toggle, all inside the one wrapper.
+            # then pill, both inside the one wrapper.
             prefix_at = wrapper_slice.index(prefix)
-            if not (prefix_at < clock_at < wrapper_slice.index("data-refresh-pill") < toggle_at):
-                return False, "expected prefix, clock, pill and toggle in that source order"
+            if not (prefix_at < clock_at < wrapper_slice.index("data-refresh-pill")):
+                return False, "expected prefix, then clock, then pill in that source order"
 
             header_start = rendered.index('<div class="page-header">')
             header_end = rendered.index("</div>", header_start) + len("</div>")
@@ -5770,11 +5780,12 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, full ISO "
-        "in the clock span's title) beside the unchanged hidden refresh pill and a new Pause/Resume "
-        "toggle (aria-pressed=\"false\", both label attributes, a non-empty accessible label), all "
+        "in the clock span's title) beside the unchanged hidden refresh pill and NO Pause/Resume "
+        "toggle (zero data-refresh-toggle/data-pause-text/data-resume-text, zero <button>), all "
         "inside one block-level .page-header__freshness wrapper that is the .page-header's next "
-        "child right after the <h1>, in prefix/clock/pill/toggle source order (19-09-PLAN.md Task 1, "
-        "D-02/A-20; supersedes quick task 260903-peo/UIR-18's 'Live — refreshed (Ns ago)' contract)",
+        "child right after the <h1>, in prefix/clock/pill source order (21-02-PLAN.md Task 1, D-18; "
+        "supersedes 19-09-PLAN.md Task 1's Pause/Resume-toggle contract, itself superseding quick "
+        "task 260903-peo/UIR-18's 'Live — refreshed (Ns ago)' contract)",
         _quick_260903_peo_persistent_freshness_note)
 
     def _quick_260902_v2v_uir_03_07_12_13_fixes():
@@ -9302,16 +9313,23 @@ def main():
             # that the on-disk file says so.
             #
             # 19-09-PLAN.md (D-02): retargeted in place (same check name/
-            # function, same "real served bytes" pattern) — three more
-            # required needles for the fetch-and-swap DOM contract
-            # (the [data-loaded-at]/[data-refresh-pill]/
-            # [data-refresh-toggle] attribute hooks), plus a fourth pass
-            # asserting every one of health_page.REFRESH_SWAP_SELECTORS'
-            # own selector strings appears verbatim in the real served
-            # bytes — the duplicated-not-imported agreement between the
-            # page module's declared swap targets and the script's own,
-            # pinned against the process actually serving them, not only
-            # the two on-disk files agreeing with each other.
+            # function, same "real served bytes" pattern) — required
+            # needles for the fetch-and-swap DOM contract (the
+            # [data-loaded-at]/[data-refresh-pill] attribute hooks), plus
+            # a pass asserting every one of health_page.
+            # REFRESH_SWAP_SELECTORS' own selector strings appears
+            # verbatim in the real served bytes — the duplicated-not-
+            # imported agreement between the page module's declared swap
+            # targets and the script's own, pinned against the process
+            # actually serving them, not only the two on-disk files
+            # agreeing with each other.
+            #
+            # 21-02-PLAN.md (D-18): the [data-refresh-toggle] needle
+            # 19-09-PLAN.md required is removed (the hook no longer
+            # exists) and replaced with the opposite-direction regression
+            # pin below — the served bytes must NOT carry the deleted
+            # pause mechanism's own hooks, so the branch cannot come back
+            # through the served file undetected.
             js_status, _js_headers, js_body = http_request(
                 base + app.FRESHNESS_SCRIPT_ROUTE, cookie=session_cookie)
             if js_status != 200:
@@ -9321,12 +9339,17 @@ def main():
                     ("AUTO_REFRESH_INTERVAL_MS", "the named interval constant"),
                     ("visibilitychange", "the visibility-change listener registration"),
                     ("[data-loaded-at]", "the loaded-at attribute hook"),
-                    ("[data-refresh-pill]", "the refresh-pill attribute hook"),
-                    ("[data-refresh-toggle]", "the refresh-toggle attribute hook")):
+                    ("[data-refresh-pill]", "the refresh-pill attribute hook")):
                 if needle not in js_text:
                     return False, (
                         "expected %s (%r) in the real %s response body"
                         % (label, needle, app.FRESHNESS_SCRIPT_ROUTE))
+            for forbidden in ("data-pause-text", "wireToggle"):
+                if forbidden in js_text:
+                    return False, (
+                        "expected zero occurrences of %r in the real %s response body — "
+                        "the pause branch must not come back through the served file (D-18)"
+                        % (forbidden, app.FRESHNESS_SCRIPT_ROUTE))
             for selector in health_page.REFRESH_SWAP_SELECTORS:
                 if selector not in js_text:
                     return False, (
@@ -9347,10 +9370,11 @@ def main():
             "(STYLE_ROUTE) carries the description-column rule, the demotion rule's new bottom margin and the "
             "prose rhythm rule's selector, and the real served freshness script (FRESHNESS_SCRIPT_ROUTE) "
             "carries the interval constant, the visibility-change listener, the [data-loaded-at]/"
-            "[data-refresh-pill]/[data-refresh-toggle] attribute hooks, and every "
+            "[data-refresh-pill] attribute hooks, carries zero occurrences of the deleted "
+            "data-pause-text/wireToggle pause-branch hooks (D-18), and every "
             "health_page.REFRESH_SWAP_SELECTORS entry verbatim (quick task 260901-tsa; extended in place by "
             "quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick task 260902-chc, "
-            "quick task 260903-btu Task 5a, and 19-09-PLAN.md Task 3)",
+            "quick task 260903-btu Task 5a, 19-09-PLAN.md Task 3, and 21-02-PLAN.md Task 2)",
             _both_tabs_ok_end_to_end)
 
         def _illustration_route_serves_normalized_bytes_end_to_end():
