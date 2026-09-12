@@ -72,7 +72,7 @@ from companion.pages import (  # noqa: E402
 # (airlines_page.render()) and the write path
 # (Handler._handle_manual_resolve_post() below) can never diverge.
 from companion.pages.airlines_page import unresolved_row_for_prefix  # noqa: E402
-from server import device_config, history_db  # noqa: E402
+from server import device_config, history_db, notify  # noqa: E402
 from server.plane import (  # noqa: E402
     calendar_rules, colour_rules, illustrations, manual_resolutions)
 import server.poll_loop as poll_loop  # noqa: E402
@@ -256,6 +256,10 @@ CALENDAR_DISCONNECT_ROUTE = config_page.CALENDAR_DISCONNECT_ROUTE
 # pages/config_page.py, rebound here exactly like CALENDAR_DISCONNECT_
 # ROUTE immediately above.
 CALENDAR_CONNECT_ROUTE = config_page.CALENDAR_CONNECT_ROUTE
+# 20-11-PLAN.md Task 1 (D-26): single definition site is companion/
+# pages/config_page.py, rebound here exactly like CALENDAR_CONNECT_ROUTE
+# immediately above.
+NOTIFICATIONS_TEST_ROUTE = config_page.NOTIFICATIONS_TEST_ROUTE
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -316,6 +320,11 @@ FLASH_KEY_CALENDAR_SYNC_DEFERRED = config_page.FLASH_CALENDAR_SYNC_DEFERRED
 # FLASH_KEY_CALENDAR_* keys immediately above are.
 FLASH_KEY_CALENDAR_CONNECT_OK = config_page.FLASH_CALENDAR_CONNECT_OK
 FLASH_KEY_CALENDAR_CONNECT_INVALID = config_page.FLASH_CALENDAR_CONNECT_INVALID
+# 20-11-PLAN.md Task 1 (D-26): the two outcomes POST /settings/
+# notifications/test can produce, rebound here for the identical reason
+# the two FLASH_KEY_CALENDAR_CONNECT_* keys immediately above are.
+FLASH_KEY_NOTIFICATIONS_TEST_OK = config_page.FLASH_NOTIFICATIONS_TEST_OK
+FLASH_KEY_NOTIFICATIONS_TEST_FAILED = config_page.FLASH_NOTIFICATIONS_TEST_FAILED
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query
@@ -485,6 +494,12 @@ FLASH_MESSAGES = {
     # matching FLASH_KEY_CALENDAR_SYNC_FAILED's own established posture.
     FLASH_KEY_CALENDAR_CONNECT_INVALID: (
         "Paste a valid calendar feed URL to connect one."),
+    # 20-11-PLAN.md Task 1 (D-26, 20-UI-SPEC.md copy table G): "Send a
+    # test"'s own two outcomes — never echoes the stored URL or any part
+    # of server.notify's own transport-exception text (T-20-06's logging
+    # discipline extends to this flash too).
+    FLASH_KEY_NOTIFICATIONS_TEST_OK: "Test notification sent.",
+    FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "Couldn't reach that topic — check the URL.",
 }
 
 # 06.6.2-06 (UXA-07): every FLASH_KEY_* -> the ARIA role its rendered
@@ -546,6 +561,11 @@ FLASH_ROLES = {
     # success/rejection split above.
     FLASH_KEY_CALENDAR_CONNECT_OK: "status",
     FLASH_KEY_CALENDAR_CONNECT_INVALID: "alert",
+    # 20-11-PLAN.md Task 1: success takes "status", the generic failure
+    # (unset URL or a genuine send failure, both mapped to the same flash
+    # key above) takes "alert", matching this dict's usual split.
+    FLASH_KEY_NOTIFICATIONS_TEST_OK: "status",
+    FLASH_KEY_NOTIFICATIONS_TEST_FAILED: "alert",
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
@@ -2283,6 +2303,58 @@ class Handler(BaseHTTPRequestHandler):
         return self.redirect(
             "%s?flash=%s" % (DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
 
+    def _handle_notifications_test_post(self):
+        """POST /settings/notifications/test (20-11-PLAN.md Task 1,
+        D-26): the Notifications group's own dedicated, session-gated
+        immediate-action route — a sibling of `_handle_calendar_connect_
+        post()` above, following that method's identical gate-then-
+        dispatch shape in `do_POST()` (`require_session()` is checked
+        there, before this method is ever called).
+
+        T-20-13 (Elevation of Privilege / SSRF-by-proxy): the topic URL
+        is read from `device_config.load_device_config(state_dir)
+        ["notifications"]` — the STORED value — and NEVER from the
+        submitted form body. A submitted `topic_url` field, if any, is
+        never even looked at: accepting one here would turn this button
+        into an open request-forwarder, sending an attacker-supplied URL
+        through this server's own outbound network path on every click.
+
+        With no topic URL stored, this redirects with the generic
+        `FLASH_KEY_NOTIFICATIONS_TEST_FAILED` flash and never calls
+        `notify.send_notification()` at all — there is nothing to test.
+        Otherwise it calls that function with the fixed "Send a test"
+        title/body pair (`notify.TEST_NOTIFICATION_TITLE`/
+        `TEST_NOTIFICATION_BODY`), translated into the stored group's own
+        `lang` (D-28) via `notify.body_for_lang()` — never the
+        requesting browser's own per-request language, which the poll
+        loop (the other caller of these same constants) has no way to
+        read either. `send_notification()`'s own boolean result is
+        branched on explicitly, matching `_handle_calendar_connect_
+        post()`'s own never-a-dict-lookup discipline: `True` redirects
+        with the success flash, `False` (an unsafe URL, a timeout, a
+        non-2xx response, or a transport exception — all folded into one
+        bool by that function's own never-raising contract) redirects
+        with the identical generic failure flash the unset-URL branch
+        above already uses, matching 20-UI-SPEC.md copy table G's own
+        two-row (not per-cause) shape.
+        """
+        state_dir = self.args.state_dir
+        stored_notifications = device_config.load_device_config(state_dir)["notifications"]
+        topic_url = stored_notifications.get("topic_url")
+        if not topic_url:
+            return self.redirect(
+                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_FAILED)))
+        lang = stored_notifications.get("lang") or "en"
+        sent = notify.send_notification(
+            topic_url,
+            notify.body_for_lang(notify.TEST_NOTIFICATION_TITLE, lang),
+            notify.body_for_lang(notify.TEST_NOTIFICATION_BODY, lang))
+        if sent:
+            return self.redirect(
+                "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_OK)))
+        return self.redirect(
+            "%s?flash=%s" % (DEVICE_ROUTE, quote(FLASH_KEY_NOTIFICATIONS_TEST_FAILED)))
+
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
         try:
@@ -2897,6 +2969,13 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._handle_calendar_connect_post()
+
+        # 20-11-PLAN.md Task 1 (D-26): POST /settings/notifications/test,
+        # gated like every route above.
+        if path == NOTIFICATIONS_TEST_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_notifications_test_post()
 
         # Mirrors the manual-resolution delete branch's own startswith/
         # endswith shape above, with the one extra step this route's

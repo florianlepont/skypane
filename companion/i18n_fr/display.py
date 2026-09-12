@@ -65,6 +65,13 @@ CATALOG = {
         "Exemple de panneau avec le thème %s",
     "Selected": "Sélectionné",
 
+    # --- The live theme preview above the chip grid (D-22..D-24,
+    #     20-11-PLAN.md Task 2, 20-UI-SPEC.md copy table E) -------------
+    "Live preview of the %s theme": "Aperçu en direct du thème %s",
+    "Preview with your last flight: %s":
+        "Aperçu avec votre dernier vol : %s",
+    "Preview with a sample flight": "Aperçu avec un vol d’exemple",
+
     # --- Runway card (config_page.py's runway_fieldset()) --------------
     "Runway": "Piste",
     "Which Orly runway the device watches. Applies on the next "

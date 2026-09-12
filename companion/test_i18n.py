@@ -189,7 +189,14 @@ def main():
     # "Description" (the resolution-statistics table's own headers,
     # identical in both languages) — the same "real cognate, not a
     # missed translation" exception this frozenset already exists for.
-    _UNCHANGED_IN_FRENCH = frozenset({"Simple", "Corroboration", "Source", "Description"})
+    # 20-11-PLAN.md Task 1 (D-26, 20-UI-SPEC.md copy table G): a fifth
+    # genuine cognate — "Notifications" is spelled and pronounced
+    # identically in French and English (a shared Latin-root loanword,
+    # exactly the "Corroboration" precedent above), so the Notifications
+    # group's own heading is intentionally byte-identical in both
+    # languages, not a missed translation.
+    _UNCHANGED_IN_FRENCH = frozenset(
+        {"Simple", "Corroboration", "Source", "Description", "Notifications"})
 
     def _check_every_catalog_value_is_str_and_differs_from_key():
         bad_type = [k for k, v in i18n_fr.CATALOG.items() if not isinstance(v, str)]

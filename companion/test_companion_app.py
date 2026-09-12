@@ -409,6 +409,17 @@ EXPECTED_CHECK_COUNT = 244  # 20-09-PLAN.md Task 2 (D-14c): +3 (a valid
 # call count at execution time (242/244 pass — the two documented WR-11
 # root-sandbox failures, unrelated to this plan), not trusted from
 # arithmetic alone.
+EXPECTED_CHECK_COUNT = 249  # 20-11-PLAN.md Task 1 (D-26/T-20-13): +5 (an
+# unauthenticated POST /settings/notifications/test redirects to /login;
+# with no stored topic URL it redirects with the notifications_test_
+# failed flash key and never calls notify.send_notification(); with a
+# stored URL it calls that function exactly once with the STORED url and
+# redirects with notifications_test_ok; a sender returning False
+# redirects with notifications_test_failed; a POST carrying its own
+# topic_url field is ignored in favour of the stored one). 244 + 5 = 249,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (247/249 pass — the two documented WR-11 root-sandbox
+# failures, unrelated to this plan), not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -6599,6 +6610,182 @@ def main():
             "an unauthenticated POST /settings/calendar/connect redirects to /login and writes nothing "
             "(D-14c, T-20-10)",
             _calendar_connect_route_unauthenticated_redirects_to_login)
+
+        # ==============================================================
+        # 20-11-PLAN.md Task 1 (D-26/T-20-13): "Send a test"'s own
+        # dedicated POST /settings/notifications/test route — session-
+        # gated, reads the topic URL from the stored config only, and
+        # never trusts a submitted topic_url field.
+        # ==============================================================
+
+        def _notifications_test_route_unauthenticated_redirects_to_login():
+            from companion.pages import config_page
+            harness = _InProcessHarness()
+            try:
+                status, headers, _b = http_request(
+                    harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                    method="POST", data=b"")
+                if status != 303:
+                    return False, "expected a 303 redirect for an unauthenticated POST, got %d" % status
+                if headers.get("Location") != "/login":
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "an unauthenticated POST /settings/notifications/test redirects to /login (D-26, T-20-10)",
+            _notifications_test_route_unauthenticated_redirects_to_login)
+
+        def _notifications_test_route_unconfigured_flashes_failure_and_never_calls_sender():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                session = _login(harness)
+                calls = []
+                original = notify_module.send_notification
+
+                def _fake_send(topic_url, title, body, timeout=5, transport=None):
+                    calls.append(topic_url)
+                    return True
+
+                notify_module.send_notification = _fake_send
+                try:
+                    status, headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST", data=b"", cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_FAILED) not in location:
+                    return False, "expected the notifications_test_failed flash key, got %r" % location
+                if calls:
+                    return False, "expected send_notification() to never be called with no stored URL"
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "with no stored topic URL, POST /settings/notifications/test redirects with the "
+            "notifications_test_failed flash key and never calls notify.send_notification() (D-26)",
+            _notifications_test_route_unconfigured_flashes_failure_and_never_calls_sender)
+
+        def _notifications_test_route_configured_calls_sender_once_and_flashes_success():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                stored_url = "https://ntfy.sh/skypane-test-topic-abc"
+                device_config.save_device_config(
+                    harness.tmpdir, notifications={
+                        "topic_url": stored_url, "battery_low": True,
+                        "frame_silent": True, "lang": "en"})
+                session = _login(harness)
+                calls = []
+                original = notify_module.send_notification
+
+                def _fake_send(topic_url, title, body, timeout=5, transport=None):
+                    calls.append(topic_url)
+                    return True
+
+                notify_module.send_notification = _fake_send
+                try:
+                    status, headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST", data=b"", cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_OK) not in location:
+                    return False, "expected the notifications_test_ok flash key, got %r" % location
+                if calls != [stored_url]:
+                    return False, (
+                        "expected send_notification() to be called exactly once with the stored "
+                        "url, got %r" % (calls,))
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "with a stored topic URL, POST /settings/notifications/test calls "
+            "notify.send_notification() exactly once with the stored URL and redirects with the "
+            "notifications_test_ok flash key (D-26)",
+            _notifications_test_route_configured_calls_sender_once_and_flashes_success)
+
+        def _notifications_test_route_sender_returning_false_flashes_failure():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                stored_url = "https://ntfy.sh/skypane-test-topic-def"
+                device_config.save_device_config(
+                    harness.tmpdir, notifications={
+                        "topic_url": stored_url, "battery_low": True,
+                        "frame_silent": True, "lang": "en"})
+                session = _login(harness)
+                original = notify_module.send_notification
+                notify_module.send_notification = lambda *a, **k: False
+                try:
+                    status, headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST", data=b"", cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if ("flash=%s" % config_page.FLASH_NOTIFICATIONS_TEST_FAILED) not in location:
+                    return False, "expected the notifications_test_failed flash key, got %r" % location
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "a sender returning False redirects with the notifications_test_failed flash key (D-26)",
+            _notifications_test_route_sender_returning_false_flashes_failure)
+
+        def _notifications_test_route_ignores_a_submitted_topic_url_field():
+            from companion.pages import config_page
+            from server import notify as notify_module
+            harness = _InProcessHarness()
+            try:
+                stored_url = "https://ntfy.sh/skypane-test-topic-ghi"
+                device_config.save_device_config(
+                    harness.tmpdir, notifications={
+                        "topic_url": stored_url, "battery_low": True,
+                        "frame_silent": True, "lang": "en"})
+                session = _login(harness)
+                calls = []
+                original = notify_module.send_notification
+
+                def _fake_send(topic_url, title, body, timeout=5, transport=None):
+                    calls.append(topic_url)
+                    return True
+
+                notify_module.send_notification = _fake_send
+                try:
+                    status, _headers, _b = http_request(
+                        harness.base_url() + config_page.NOTIFICATIONS_TEST_ROUTE,
+                        method="POST",
+                        data=urllib.parse.urlencode(
+                            {"topic_url": "https://attacker.example/forward-me"}).encode(),
+                        cookie=session)
+                finally:
+                    notify_module.send_notification = original
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                if calls != [stored_url]:
+                    return False, (
+                        "expected send_notification() to receive the STORED url only, got %r"
+                        % (calls,))
+                return True, ""
+            finally:
+                harness.stop()
+        check(
+            "a POST /settings/notifications/test carrying its own topic_url field is ignored in "
+            "favour of the stored one — the field is never read from the request body (T-20-13)",
+            _notifications_test_route_ignores_a_submitted_topic_url_field)
 
         def _calendar_sync_bypasses_the_throttle_via_min_interval_zero():
             """D-06's bypass, proven two ways.
