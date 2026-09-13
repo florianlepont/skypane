@@ -126,8 +126,26 @@ CATALOG = {
         "des teintes internes de rendu, pas une reproduction fidèle du "
         "vrai verre Spectra 6.",
 
-    # --- The unresolved-airline link to Health (D-21) --------------------
-    "View unresolved prefixes": "Voir les préfixes non résolus",
+    # --- The unresolved-airline link (D-21, retargeted by 22-09) ---------
+    # 22-09-PLAN.md Task 2 (X5): "View unresolved prefixes" is RETIRED
+    # with the two-hop route it named (Flights -> Health's read-only
+    # list -> Airlines). The link goes straight to the Airlines resolve
+    # view for this flight's own prefix now, so it names the action it
+    # performs instead of the list it used to land on.
+    "Name this airline": "Nommer cette compagnie",
     "Airline unknown": "Compagnie inconnue",
     "Route unavailable": "Trajet indisponible",
+
+    # --- 22-09-PLAN.md Task 2 (X5): the day separators ------------------
+    # The absolute form ("26 août") is not a catalogue entry: it is
+    # composed at render time from layout.month_abbr(), which is
+    # local_clock_text()'s own already-translated month table.
+    "Today": "Aujourd’hui",
+    "Yesterday": "Hier",
+
+    # --- 22-09-PLAN.md Task 2 (X5): the panel-picture control -----------
+    # Its VISIBLE label, now that it is a labelled text control inside
+    # the detail row rather than a 16px icon-only eye in the summary
+    # row. "View panel near this time" survives above as its title.
+    "View picture": "Voir l’image",
 }

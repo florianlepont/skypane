@@ -68,6 +68,7 @@ import companion.layout as layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 from server import device_config  # noqa: E402
 from server import history_db  # noqa: E402
+from server.plane import illustrations  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
 # 19-08-PLAN.md Task 1 (D-21): the same crossing point airlines_page.py
 # itself already sanctions (companion/pages/__init__.py only forbids a
@@ -485,6 +486,22 @@ EXPECTED_CHECK_COUNT = 126
 # than a visible label, guards interactive click targets and uses no markup-writing sink, while
 # the server still renders every detail row visible. Re-derived by running the harness (130/130).
 EXPECTED_CHECK_COUNT = 130
+# 22-09-PLAN.md Task 2 (X5): +5 (130 -> 135) — one day-separator row per EUROPE/PARIS calendar
+# day, translated in both languages, with a row whose UTC day differs from its Paris day grouped
+# by the Paris one; the separator's absolute label proven equal to the day portion of
+# layout.local_clock_text()'s own cross-day output, history_page.py proven free of any direct
+# date-formatting call, paris_day() proven to degrade rather than raise, and the separator's CSS
+# rule proven to declare no positioning (T4); the phone card's route/state pair joined by the
+# module's existing middle dot; the raw ISO proven to appear ONLY inside a data-copy-value
+# attribute, with the visible timestamp in the .time-value role; and the phone card's airline
+# name plus its artwork thumbnail on the shared white-backing rule, with no <img> at all when no
+# artwork file exists. EIGHT further checks were RETARGETED in place with no count change: the
+# three-events row count (+1 separator), the summary row's now-absent picture control, that
+# control's title/visible-label/no-aria-label contract, its small-grey-secondary treatment
+# replacing the icon, the per-row trigger attributes now read from the detail row, and the four
+# unresolved-link checks now pinning the one-hop resolve route. Re-derived by running the
+# harness (135/135).
+EXPECTED_CHECK_COUNT = 135
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -658,6 +675,20 @@ def _history_ctx(state_dir, now=None, gallery_entries=None):
         "now": now or history_db.utc_now_iso(),
         "gallery_entries": gallery_entries or [],
     }
+
+
+def _detail_row_block(rendered, index):
+    """The inner markup of the sibling detail `<tr>` for row `index`, or
+    None (22-09-PLAN.md Task 2). `_row_block()` can only find the
+    SUMMARY row (it keys on `data-filter-group`, which the detail row
+    does not carry), and this plan moves the panel-picture control into
+    the detail row — so several trigger checks need this locator rather
+    than that one.
+    """
+    match = re.search(
+        r'<tr class="flight-detail-row" id="flight-detail-%d"[^>]*>(.*?)</tr>' % index,
+        rendered, re.S)
+    return match.group(1) if match else None
 
 
 def _table_markup(rendered):
@@ -838,10 +869,17 @@ def main():
             # 21-03-PLAN.md Task 2 (D-15): each summary row now carries a
             # sibling .flight-detail-row <tr> - 1 header + 3 summary + 3
             # detail = 7, not 1 header + 3 summary = 4.
-            if rendered.count("<tr") != 7:
+            # 22-09-PLAN.md Task 2 (X5): +1 day-separator row — all three
+            # fixture events fall on the SAME Europe/Paris day, so
+            # exactly one separator opens the single group: 7 + 1 = 8.
+            if rendered.count("<tr") != 8:
                 return False, (
-                    "expected exactly 3 summary rows + 3 detail rows + 1 "
+                    "expected exactly 1 day separator + 3 summary rows + 3 detail rows + 1 "
                     "header row, got %d <tr" % rendered.count("<tr"))
+            if rendered.count('<tr class="flight-day-row">') != 1:
+                return False, (
+                    "expected exactly one day-separator row for three same-day events, got %d"
+                    % rendered.count('<tr class="flight-day-row">'))
             idx3 = rendered.find("FLT3")
             idx2 = rendered.find("FLT2")
             idx1 = rendered.find("FLT1")
@@ -2424,14 +2462,26 @@ def main():
                 return False, (
                     "expected zero copy buttons in the desktop summary row, got %d"
                     % tr_block.count("data-copy-value"))
-            if "data-view-panel-src" not in tr_block:
-                return False, "expected the row's View-panel/eye trigger to still render"
-            view_panel_start = tr_block.index("data-view-panel-src")
-            view_panel_tag = tr_block[
-                tr_block.rindex("<", 0, view_panel_start):tr_block.index(">", view_panel_start) + 1]
+            # 22-09-PLAN.md Task 2 (X5): the picture control is no longer
+            # in the summary row at all — it is a labelled control inside
+            # the detail row now, which is what leaves the summary row's
+            # scan path a single chevron. It still must never carry
+            # data-copy-value, the discriminator the desktop reveal rule
+            # keys on (it is NOT a copy button and must stay visible).
+            if "data-view-panel-src" in tr_block:
+                return False, (
+                    "did not expect the picture control in the summary row — it moved into "
+                    "the detail row (22-09-PLAN.md Task 2, X5)")
+            detail_block = _detail_row_block(rendered, 0)
+            if detail_block is None or "data-view-panel-src" not in detail_block:
+                return False, "expected the row's picture control to render in the detail row"
+            view_panel_start = detail_block.index("data-view-panel-src")
+            view_panel_tag = detail_block[
+                detail_block.rindex("<", 0, view_panel_start):
+                detail_block.index(">", view_panel_start) + 1]
             if "data-copy-value" in view_panel_tag:
                 return False, (
-                    "the View-panel/eye button must never carry data-copy-value "
+                    "the picture control must never carry data-copy-value "
                     "— that is the sole discriminator separating it from any "
                     "copy button the desktop reveal rule targets")
             return True, ""
@@ -2439,7 +2489,8 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "a real rendered desktop History summary row carries zero copy buttons (21-03-PLAN.md "
-        "Task 1, D-15) and its View-panel/eye trigger never carries data-copy-value — the "
+        "Task 1, D-15) and no picture control at all (22-09-PLAN.md Task 2, X5 — it moved into "
+        "the detail row), and that control still never carries data-copy-value — the "
         "discriminator the desktop reveal rule depends on "
         "(quick task 260903-peo, UIR-17)",
         _quick_260903_peo_desktop_row_copy_buttons_and_eye_button_discriminator)
@@ -2764,7 +2815,15 @@ def main():
         "emptied) and, as before, zero View-panel triggers and zero lightbox dialogs render",
         _history_render_gallery_section_absent_when_empty)
 
-    def _view_panel_trigger_title_matches_aria_label():
+    def _view_panel_trigger_is_a_labelled_control_with_the_long_form_as_title():
+        # 22-09-PLAN.md Task 2 (X5): retargeted from "title byte-equal to
+        # its own aria-label". The control is no longer a 16px icon-only
+        # eye whose only name was an aria-label: it carries a VISIBLE
+        # translated label ("View picture"), which is therefore its
+        # accessible name, and the longer VIEW_PANEL_LABEL survives as
+        # the `title` a pointer user gets on hover. A duplicate
+        # aria-label would now CONTRADICT the visible text (WCAG 2.5.3
+        # label-in-name), so its absence is the contract.
         tmp = _mkstate("h-view-panel-title")
         try:
             names = ["2026-08-27T10-00-00+00-00.png"]
@@ -2777,22 +2836,33 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
         escaped_label = layout.escape_html(history_page.VIEW_PANEL_LABEL)
         expected_title = 'title="%s"' % escaped_label
-        expected_aria = 'aria-label="%s"' % escaped_label
-        tr_block = _row_block(rendered, "tr", 0)
+        expected_text = '>%s</button>' % layout.escape_html(
+            history_page.VIEW_PICTURE_LABEL)
+        detail_block = _detail_row_block(rendered, 0)
         li_block = _row_block(rendered, "li", 0)
-        if tr_block is None or li_block is None:
-            return False, "could not locate row block for data-filter-group=0"
-        for label, block in (("desktop <tr>", tr_block), ("mobile <li>", li_block)):
+        if detail_block is None or li_block is None:
+            return False, "could not locate the detail row / mobile card for row 0"
+        for label, block in (("detail <tr>", detail_block), ("mobile <li>", li_block)):
             if expected_title not in block:
                 return False, "expected %s to carry title=%r" % (label, escaped_label)
-            if expected_aria not in block:
-                return False, "expected %s to carry aria-label=%r" % (label, escaped_label)
+            if expected_text not in block:
+                return False, (
+                    "expected %s's picture control to carry the visible label %r"
+                    % (label, history_page.VIEW_PICTURE_LABEL))
+            trigger_start = block.index("data-view-panel-src")
+            trigger_tag = block[
+                block.rindex("<", 0, trigger_start):block.index(">", trigger_start) + 1]
+            if "aria-label" in trigger_tag:
+                return False, (
+                    "did not expect an aria-label on %s's picture control — the visible label "
+                    "is its accessible name (WCAG 2.5.3 label-in-name)" % label)
         return True, ""
     check(
-        "a rendered View-panel trigger carries title=\"View panel near this time\" byte-equal to "
-        "its own aria-label value, on both the desktop <tr> and the mobile <li> representation "
-        "of the same row",
-        _view_panel_trigger_title_matches_aria_label)
+        "the rendered picture control is a LABELLED text control carrying the translated "
+        "\"View picture\" text and no aria-label, with \"View panel near this time\" surviving "
+        "as its title, on both the desktop detail row and the mobile card (22-09-PLAN.md "
+        "Task 2, X5)",
+        _view_panel_trigger_is_a_labelled_control_with_the_long_form_as_title)
 
     def _colour_caveat_rehomed_into_lightbox_note():
         tmp = _mkstate("h-caveat-rehomed")
@@ -2893,7 +2963,7 @@ def main():
         "malformed time+offset portion",
         _gallery_name_to_iso_fixtures)
 
-    def _view_panel_trigger_carries_nonempty_icon():
+    def _view_panel_trigger_reuses_the_small_grey_secondary_treatment():
         # 06.6.4.1-08 (D-22) Task 2 acceptance criterion, placed here
         # (test_view_pages.py) rather than test_companion_app.py since
         # this needs a full History render with a matched gallery entry
@@ -2916,13 +2986,34 @@ def main():
         button_start = rendered.rfind("<button", 0, trigger_start)
         button_end = rendered.find("</button>", trigger_start)
         button_markup = rendered[button_start:button_end]
-        if "<svg" not in button_markup:
-            return False, "expected the View-panel trigger button to carry non-empty <svg icon markup"
+        # 22-09-PLAN.md Task 2 (X5): retargeted from "carries a non-empty
+        # <svg> icon". The 16px icon-only eye is exactly the defect — the
+        # control is a labelled text button now, reusing
+        # .calendar-disconnect-btn's small-grey-secondary treatment (its
+        # SECOND consumer, the pattern references/control-density.md
+        # names for a small de-emphasised secondary action), with no
+        # glyph of its own and no new .btn family.
+        if "<svg" in button_markup:
+            return False, (
+                "did not expect an icon glyph on the picture control — it is a labelled text "
+                "control now, not a 16px icon-only eye")
+        if 'class="calendar-disconnect-btn"' not in button_markup:
+            return False, (
+                "expected the picture control to reuse .calendar-disconnect-btn's "
+                "small-grey-secondary treatment, got %r" % button_markup[:120])
+        if "btn--" in rendered:
+            return False, "did not expect a .btn-- family class to be started"
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        if ".calendar-disconnect-btn {" not in css:
+            return False, "expected the reused .calendar-disconnect-btn rule to exist in style.css"
         return True, ""
     check(
-        "a rendered History page's View-panel trigger carries a non-empty icon (<svg markup) "
-        "for a fixture with a matched gallery entry — the eye glyph survives the nav shrink",
-        _view_panel_trigger_carries_nonempty_icon)
+        "a rendered History page's picture control carries no icon glyph at all and reuses "
+        ".calendar-disconnect-btn's small-grey-secondary treatment — that component's second "
+        "consumer, with no .btn family started (22-09-PLAN.md Task 2, X5)",
+        _view_panel_trigger_reuses_the_small_grey_secondary_treatment)
 
     # ======================================================================
     # Section 1c: 06.6.4.1-05 Task 2 - server-side nearest-render lookup,
@@ -2999,12 +3090,14 @@ def main():
                 expected_src = "/gallery/%s" % expected_name
                 expected_caption = history_page.lightbox_caption_text(expected_iso)
 
-                tr_block = _row_block(rendered, "tr", index)
+                # 22-09-PLAN.md Task 2 (X5): the desktop trigger moved
+                # from the summary row into its sibling detail row.
+                tr_block = _detail_row_block(rendered, index)
                 li_block = _row_block(rendered, "li", index)
                 if tr_block is None or li_block is None:
-                    return False, "could not locate row block for data-filter-group=%d" % index
+                    return False, "could not locate row block for row %d" % index
 
-                for label, block in (("desktop <tr>", tr_block), ("mobile <li>", li_block)):
+                for label, block in (("detail <tr>", tr_block), ("mobile <li>", li_block)):
                     if ('data-view-panel-src="%s"' % expected_src) not in block:
                         return False, (
                             "expected %s for row %d to carry data-view-panel-src=%r"
@@ -3014,7 +3107,12 @@ def main():
                             "expected %s for row %d to carry data-view-panel-caption=%r"
                             % (label, index, expected_caption))
                     if history_page.VIEW_PANEL_LABEL not in block:
-                        return False, "expected %s for row %d to carry the View-panel aria-label" % (label, index)
+                        return False, (
+                            "expected %s for row %d to carry the View-panel title" % (label, index))
+                    if history_page.VIEW_PICTURE_LABEL not in block:
+                        return False, (
+                            "expected %s for row %d to carry the visible picture label"
+                            % (label, index))
 
                 tr_src = re.search(r'data-view-panel-src="([^"]*)"', tr_block).group(1)
                 li_src = re.search(r'data-view-panel-src="([^"]*)"', li_block).group(1)
@@ -3863,8 +3961,11 @@ def main():
         _airlines_catalog_keys_all_present_in_merged_catalog)
 
     # ======================================================================
-    # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's
-    # Server & data anchor (D-21).
+    # Section 1d: the unresolved-airline link. 06.6.4.1-05 Task 3 (D-21)
+    # pointed it at Health's read-only Server & data anchor — two hops
+    # from a flight to naming its airline. 22-09-PLAN.md Task 2 (X5)
+    # retargets every check below onto the ONE-HOP link straight to the
+    # Airlines resolve view for that row's own prefix.
     # ======================================================================
 
     def _unresolved_link_absent_for_resolved_airline():
@@ -3881,16 +3982,20 @@ def main():
             li_block = _row_block(rendered, "li", 0)
             if tr_block is None or li_block is None:
                 return False, "could not locate row block for a resolved-airline row"
-            if history_page.UNRESOLVED_LINK_HREF in tr_block:
-                return False, "did not expect the unresolved-airline link in the desktop cell for a resolved airline"
-            if history_page.UNRESOLVED_LINK_HREF in li_block:
-                return False, "did not expect the unresolved-airline link in the mobile details for a resolved airline"
+            for label, block in (("desktop cell", tr_block), ("mobile card", li_block)):
+                if "?resolve=" in block:
+                    return False, (
+                        "did not expect a resolve link in the %s for a resolved airline" % label)
+                if "/health" in block:
+                    return False, (
+                        "did not expect the retired two-hop Health link in the %s" % label)
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a formatted row with a resolved airline produces a Type-and-Airline cell (desktop) and "
-        "Aircraft detail row (mobile) with no anchor pointing at the Health server-data route",
+        "a formatted row with a resolved airline produces a Flight cell (desktop) and a phone "
+        "card (mobile) carrying neither a one-hop resolve link nor the retired two-hop Health "
+        "route (22-09-PLAN.md Task 2, X5)",
         _unresolved_link_absent_for_resolved_airline)
 
     def _unresolved_link_present_once_each_for_unresolved_airline():
@@ -3904,25 +4009,33 @@ def main():
             li_block = _row_block(rendered, "li", 0)
             if tr_block is None or li_block is None:
                 return False, "could not locate row block for an unresolved-airline row"
-            href_attr = 'href="%s"' % history_page.UNRESOLVED_LINK_HREF
-            if tr_block.count(href_attr) != 1:
-                return False, (
-                    "expected exactly one unresolved-airline link in the desktop cell, found %d"
-                    % tr_block.count(href_attr))
-            if li_block.count(href_attr) != 1:
-                return False, (
-                    "expected exactly one unresolved-airline link in the mobile details list, found %d"
-                    % li_block.count(href_attr))
-            if history_page.UNRESOLVED_LINK_TEXT not in tr_block:
-                return False, "expected the link text in the desktop cell"
-            if history_page.UNRESOLVED_LINK_TEXT not in li_block:
-                return False, "expected the link text in the mobile details list"
+            # ONE HOP: the link resolves straight to the Airlines
+            # resolve view for THIS row's own prefix ("LINKUNR" -> LIN),
+            # never to Health's read-only list.
+            href_attr = 'href="%s"' % (history_page.RESOLVE_LINK_HREF_TEMPLATE % "LIN")
+            for label, block in (("desktop cell", tr_block), ("mobile card", li_block)):
+                if block.count(href_attr) != 1:
+                    return False, (
+                        "expected exactly one one-hop resolve link (%s) in the %s, found %d"
+                        % (href_attr, label, block.count(href_attr)))
+                if history_page.RESOLVE_LINK_TEXT not in block:
+                    return False, "expected the resolve link's text in the %s" % label
+                if "/health" in block:
+                    return False, (
+                        "expected the retired two-hop Health route to be gone from the %s"
+                        % label)
+            # The prefix the link names is the one the resolve view's own
+            # boundary normaliser would accept for this callsign — not a
+            # re-typed literal.
+            if history_page.resolve_prefix_for_callsign("LINKUNR") != "LIN":
+                return False, "expected the prefix to be derived from the callsign itself"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a formatted row whose airline label equals the route-fallback constant produces exactly "
-        "one unresolved-airline anchor in the desktop cell and exactly one in the mobile details list",
+        "a formatted row whose airline is unresolved produces exactly one ONE-HOP resolve anchor "
+        "in the desktop Flight cell and exactly one on the phone card, both naming the prefix "
+        "derived from that row's own callsign (22-09-PLAN.md Task 2, X5)",
         _unresolved_link_present_once_each_for_unresolved_airline)
 
     def _unresolved_link_keyed_on_airline_not_route():
@@ -3943,10 +4056,10 @@ def main():
                 return False, "could not locate row block for a route-only-unresolved row"
             if panel_render.ROUTE_FALLBACK_TEXT not in tr_block:
                 return False, "expected the Route cell to still render the fallback text"
-            if history_page.UNRESOLVED_LINK_HREF in tr_block:
-                return False, "did not expect the unresolved-airline link when only the route is unresolved"
-            if history_page.UNRESOLVED_LINK_HREF in li_block:
-                return False, "did not expect the unresolved-airline link in mobile details either"
+            if "?resolve=" in tr_block:
+                return False, "did not expect a resolve link when only the route is unresolved"
+            if "?resolve=" in li_block:
+                return False, "did not expect a resolve link on the phone card either"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -4075,16 +4188,306 @@ def main():
         "(quick task 260902-w4t, UIR-06)",
         _hex_only_row_promotes_hex_to_primary)
 
-    def _unresolved_link_href_matches_health_anchor():
-        expected_suffix = "#" + health_page.SERVER_DATA_SECTION_ID
-        if not history_page.UNRESOLVED_LINK_HREF.endswith(expected_suffix):
+    def _resolve_link_template_matches_the_airlines_resolve_view():
+        # 22-09-PLAN.md Task 2 (X5): the same cross-module discipline the
+        # retired Health-anchor guard applied, retargeted — the one-hop
+        # template must be built from the REAL airlines_page route and
+        # query-parameter constants, never a re-typed literal, and the
+        # prefix it interpolates must be one that view's own boundary
+        # normaliser accepts.
+        expected = "%s?%s=%%s" % (
+            airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+        if history_page.RESOLVE_LINK_HREF_TEMPLATE != expected:
             return False, (
-                "expected history_page.UNRESOLVED_LINK_HREF to end with %r, got %r"
-                % (expected_suffix, history_page.UNRESOLVED_LINK_HREF))
+                "expected history_page.RESOLVE_LINK_HREF_TEMPLATE to equal %r, got %r"
+                % (expected, history_page.RESOLVE_LINK_HREF_TEMPLATE))
+        if hasattr(history_page, "UNRESOLVED_LINK_HREF"):
+            return False, "expected the retired two-hop Health link constant to be gone"
+        for callsign, expected_prefix in (
+                ("AFR1234", "AFR"), ("tvf16vb ", "TVF"), ("ZZP9", "ZZP"),
+                ("ZZP", None), ("", None), (None, None), ("12A345", None)):
+            got = history_page.resolve_prefix_for_callsign(callsign)
+            if got != expected_prefix:
+                return False, (
+                    "expected resolve_prefix_for_callsign(%r) -> %r, got %r"
+                    % (callsign, expected_prefix, got))
+        # The derived prefix is exactly what the resolve view's own
+        # membership test normalises to — the two can never disagree.
+        if manual_resolutions.normalise_prefix("AFR") != "AFR":
+            return False, "expected the shared prefix normaliser to accept a derived prefix"
         return True, ""
     check(
-        "history_page.UNRESOLVED_LINK_HREF ends with \"#\" + health_page.SERVER_DATA_SECTION_ID",
-        _unresolved_link_href_matches_health_anchor)
+        "history_page.RESOLVE_LINK_HREF_TEMPLATE is built from airlines_page.AIRLINES_ROUTE and "
+        "RESOLVE_QUERY_PARAM (never a re-typed literal), the retired two-hop Health constant is "
+        "gone, and resolve_prefix_for_callsign() derives a prefix only for a callsign the "
+        "registry writer's own shape gate would accept (22-09-PLAN.md Task 2, X5/T-22-30)",
+        _resolve_link_template_matches_the_airlines_resolve_view)
+
+    # ======================================================================
+    # Section 1e: 22-09-PLAN.md Task 2 — day separators, the picture
+    # control's new home, the phone card's airline + artwork, and the raw
+    # ISO behind the copy control (X5).
+    # ======================================================================
+
+    def _day_separators_group_rows_by_europe_paris_calendar_day():
+        # Three events across three EUROPE/PARIS days, one of which
+        # (22:30 UTC on the 27th = 00:30 Paris on the 28th) falls on a
+        # DIFFERENT day in UTC than in Paris — so a UTC grouping would
+        # emit two separators here and merge the first two rows, while
+        # the Paris grouping this plan requires emits three.
+        import companion.prefs as _prefs
+        tmp = _mkstate("h-day-separators")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-26T10:00:00+00:00", "hex": "ds01", "callsign": "DAYONE"},
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "ds02", "callsign": "DAYTWO"},
+                {"ts": "2026-08-27T22:30:00+00:00", "hex": "ds03", "callsign": "DAYTHREE"},
+            ])
+            now = "2026-08-28T09:00:00+00:00"
+            rendered_en = history_page.render(_history_ctx(tmp, now=now))
+            _prefs.set_request_prefs(lang="fr")
+            try:
+                rendered_fr = history_page.render(_history_ctx(tmp, now=now))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+
+            expected = {
+                "en": ["Today", "Yesterday", "26 Aug"],
+                "fr": ["Aujourd’hui", "Hier", "26 août"],
+            }
+            for lang, rendered in (("en", rendered_en), ("fr", rendered_fr)):
+                rows = re.findall(
+                    r'<tr class="flight-day-row"><th scope="colgroup" colspan="6"'
+                    r' class="text-label">(.*?)</th></tr>', rendered)
+                if rows != expected[lang]:
+                    return False, (
+                        "expected the %s separators to read %r (one per Europe/Paris day, "
+                        "newest first), got %r" % (lang, expected[lang], rows))
+                # Each separator opens its own group: the 22:30 UTC row
+                # must sit under the FIRST separator, not with the 10:00
+                # row, which is the whole UTC-vs-Paris distinction. Scoped
+                # to the TABLE — the phone cards render before it and
+                # carry the same callsigns.
+                table = _table_markup(rendered)
+                if table is None:
+                    return False, "could not locate the rendered table (%s)" % lang
+                first_sep = table.index('class="flight-day-row"')
+                second_sep = table.index('class="flight-day-row"', first_sep + 1)
+                if not (first_sep < table.index("DAYTHREE") < second_sep):
+                    return False, (
+                        "expected the 22:30 UTC row (00:30 Paris the next day) to sit under "
+                        "its own separator (%s)" % lang)
+                if table.index("DAYTWO") < second_sep:
+                    return False, (
+                        "expected the 10:00 UTC row to sit under the SECOND separator (%s)"
+                        % lang)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered Flights table carries exactly one day-separator row per EUROPE/PARIS "
+        "calendar day present in the rows — Today / Yesterday / an absolute date, translated in "
+        "both languages — and a row whose UTC day differs from its Paris day is grouped by the "
+        "Paris one (22-09-PLAN.md Task 2, X5/D-05)",
+        _day_separators_group_rows_by_europe_paris_calendar_day)
+
+    def _day_label_is_the_paris_day_formatters_own_output_and_never_sticky():
+        # The separator's absolute form must be the SAME day and the SAME
+        # words layout.local_clock_text()'s own cross-day branch produces
+        # for that timestamp — not a second date path, and never a
+        # strftime call in this module.
+        import companion.prefs as _prefs
+        page_source = open(os.path.join(HERE, "pages", "history_page.py")).read()
+        if "strftime" in page_source:
+            return False, (
+                "expected zero strftime calls in history_page.py — the day label is the Paris-day "
+                "formatter's own output, not a licence to format a date here")
+        raw_ts = "2026-08-26T10:00:00+00:00"
+        parsed = layout.parse_iso(raw_ts)
+        day = history_page.paris_day(raw_ts)
+        if day is None:
+            return False, "expected paris_day() to date a well-formed timestamp"
+        for lang in ("en", "fr"):
+            _prefs.set_request_prefs(lang=lang)
+            try:
+                label = history_page.day_label(day, None)
+                formatter = layout.local_clock_text(
+                    parsed, layout._FULL_TIMESTAMP_SENTINEL_NOW)
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            # local_clock_text()'s cross-day output is "D Mon HH:MM";
+            # the separator is its day portion, exactly.
+            if formatter.rsplit(" ", 1)[0] != label:
+                return False, (
+                    "expected the %s absolute day label (%r) to equal the day portion of "
+                    "local_clock_text()'s own cross-day output (%r)" % (lang, label, formatter))
+        # Degrade-not-raise (T-22-31).
+        for bad in (None, "", "not-a-timestamp", 17):
+            if history_page.paris_day(bad) is not None:
+                return False, "expected paris_day(%r) to degrade to None" % (bad,)
+        import companion.i18n as _i18n
+        if history_page.day_label(day, day) != _i18n.t_lang("Today", "en"):
+            return False, "expected a same-day group to read Today"
+
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        rule = re.search(r"^\.flight-day-row th\s*\{([^}]*)\}", css, re.S | re.M)
+        if rule is None:
+            return False, "expected a .flight-day-row th rule block in style.css"
+        if "position" in rule.group(1) or "sticky" in rule.group(1):
+            return False, (
+                "expected the day separator to declare no positioning at all — sticky day "
+                "headers are D7/Phase 23, and T4 removes the app's one broken sticky claim "
+                "rather than adding a second")
+        return True, ""
+    check(
+        "the day separator's absolute label is the day portion of layout.local_clock_text()'s own "
+        "cross-day output in both languages, history_page.py contains zero strftime calls, "
+        "paris_day() degrades to None rather than raising, and the separator's CSS rule declares "
+        "no positioning (22-09-PLAN.md Task 2, X5/D-05/T4)",
+        _day_label_is_the_paris_day_formatters_own_output_and_never_sticky)
+
+    def _phone_card_route_and_state_carry_the_existing_middle_dot():
+        tmp = _mkstate("h-card-separator")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "sep01", "callsign": "SEPCARD",
+                 "origin": "LFPO", "destination": "KJFK", "confirmed_state": "departing"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            match = re.search(
+                r'<div class="history-card__secondary">(.*?)</div>', rendered, re.S)
+            if match is None:
+                return False, "could not locate the phone card's secondary line"
+            expected = (
+                "<span>LFPO → KJFK</span>"
+                '<span class="%s">%s</span>'
+                "<span>Departing</span>"
+            ) % (history_page.CELL_SEPARATOR_CLASS,
+                 layout.escape_html(history_page.CELL_SEPARATOR_TEXT))
+            if match.group(1) != expected:
+                return False, (
+                    "expected the route and state to be joined by the module's existing "
+                    "middle-dot separator, got %r" % match.group(1))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the phone card's \"ORY → JFK Departing\" line carries the module's EXISTING "
+        "cell-inline-sep middle dot between the route and the state, reused rather than "
+        "reinvented (22-09-PLAN.md Task 2, X5)",
+        _phone_card_route_and_state_carry_the_existing_middle_dot)
+
+    def _raw_iso_survives_only_behind_the_copy_control():
+        tmp = _mkstate("h-raw-iso-behind-copy")
+        try:
+            raw_ts = "2026-08-27T10:00:00+00:00"
+            _seed_runway_events(tmp, [
+                {"ts": raw_ts, "hex": "iso01", "callsign": "ISOROW"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            if ('data-copy-value="%s"' % raw_ts) not in rendered:
+                return False, "expected the raw ISO to survive as the copy control's value"
+            # Strip every data-copy-value attribute; the raw ISO must not
+            # appear anywhere in what is left (D-05: raw ISO survives
+            # only behind a copy control).
+            stripped = re.sub(r'data-copy-value="[^"]*"', "", rendered)
+            if raw_ts in stripped:
+                return False, (
+                    "expected the raw ISO timestamp to appear ONLY inside a data-copy-value "
+                    "attribute, found it elsewhere in the rendered page")
+            # What IS visible is the Paris local clock in the time-value
+            # role — never monospace, which stays reserved for identifiers.
+            visible = history_page.full_local_time_text(raw_ts)
+            if visible == raw_ts:
+                return False, "expected a formatted local clock, not the raw ISO"
+            for needle in ('<dd class="time-value">%s</dd>' % visible,):
+                if needle not in rendered:
+                    return False, "expected the visible full timestamp to read %r" % (visible,)
+            if '<dd class="mono">%s' % raw_ts in rendered:
+                return False, "did not expect the raw ISO in a monospace dd"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the raw ISO timestamp appears only inside a data-copy-value attribute, while the visible "
+        "full timestamp is the Europe/Paris local clock in the .time-value role on both the "
+        "desktop detail row and the phone card (22-09-PLAN.md Task 2, X5/D-05/C5)",
+        _raw_iso_survives_only_behind_the_copy_control)
+
+    def _phone_cards_carry_the_airline_name_and_artwork_thumbnail():
+        tmp = _mkstate("h-card-airline-thumb")
+        try:
+            key = illustrations.normalise_airline_key("Air France")
+            override_path = illustrations.override_path_for_key(key, tmp)
+            os.makedirs(os.path.dirname(override_path), exist_ok=True)
+            _write_gallery_png(override_path)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "th01", "callsign": "THUMBED",
+                 "airline": "Air France"},
+                {"ts": "2026-08-27T09:00:00+00:00", "hex": "th02", "callsign": "NOART",
+                 "airline": "Totally Unknown Air"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            li_thumbed = _row_block(rendered, "li", 0)
+            li_noart = _row_block(rendered, "li", 1)
+            if li_thumbed is None or li_noart is None:
+                return False, "could not locate both phone cards"
+            if 'class="history-card__airline-name">Air France<' not in li_thumbed:
+                return False, "expected the phone card to carry the airline name on its own face"
+            expected_img = (
+                '<img class="history-card__thumb" loading="lazy" decoding="async" '
+                'src="%s%s.png"' % (history_page.ILLUSTRATION_ROUTE_PREFIX, key))
+            if expected_img not in li_thumbed:
+                return False, (
+                    "expected the phone card to carry the artwork thumbnail, got %r"
+                    % li_thumbed[:200])
+            if "history-card__thumb" in li_noart:
+                return False, (
+                    "did not expect a thumbnail for an airline with no artwork file — an "
+                    "unconditional <img> would 404 and render as a broken-image icon")
+            if "history-card__airline-name" not in li_noart:
+                return False, "expected every card to name its airline, artwork or not"
+            # The thumbnail joins the SHARED white-backing/hairline/radius
+            # rule as an additional selector — one rule, no new colour
+            # literal — with its own contain-fitted 56px box declared after.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            shared = re.search(
+                r"((?:^\.?[a-z.\-_]+[^{]*,\s*\n)*[^{\n]*img\.history-card__thumb)\s*\{([^}]*)\}",
+                css, re.S | re.M)
+            if shared is None:
+                return False, (
+                    "expected img.history-card__thumb to join a shared rule's selector list")
+            if ".now-showing__image" not in shared.group(1) or \
+                    ".preview-frame__image" not in shared.group(1):
+                return False, (
+                    "expected img.history-card__thumb to join the SHARED white-backing/hairline/"
+                    "radius rule .now-showing__image and .preview-frame__image already share, "
+                    "got selector list %r" % shared.group(1))
+            # Its OWN sizing rule is the later, same-specificity block —
+            # the shared rule above also ends its selector list with this
+            # exact selector at line start, so match every candidate and
+            # require one of them to carry the 56px contain-fitted box.
+            own_bodies = [
+                body for body in re.findall(
+                    r"^img\.history-card__thumb\s*\{([^}]*)\}", css, re.S | re.M)]
+            if not any("height: 56px" in body and "object-fit: contain" in body
+                       for body in own_bodies):
+                return False, (
+                    "expected img.history-card__thumb's own rule to declare a fixed 56px-tall "
+                    "box with contain fitting, got %r" % (own_bodies,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a phone card carries the airline name and, when real artwork exists for it, the Airlines "
+        "gallery's own served frame as a thumbnail joining the shared white-backing/hairline/"
+        "radius rule in a contain-fitted 56px box — and no <img> at all when no artwork file "
+        "exists (22-09-PLAN.md Task 2, X5)",
+        _phone_cards_carry_the_airline_name_and_artwork_thumbnail)
 
     def _no_prefix_registry_duplicated_on_history():
         tmp = _mkstate("h-no-registry")

@@ -37,7 +37,8 @@ rows fast.
 """
 import re
 import sqlite3
-from datetime import datetime
+import urllib.parse
+from datetime import datetime, timezone
 
 import companion.i18n as i18n
 from companion.layout import escape_html
@@ -45,6 +46,8 @@ import companion.layout as layout
 import companion.prefs as prefs
 from server import device_config
 from server import history_db
+from server.plane import illustrations
+from server.plane import manual_resolutions
 from server.plane import render as panel_render
 
 # D-13 keeps runway_events forever; this is a *display* limit for
@@ -330,21 +333,52 @@ _VIEW_PANEL_SRC_ATTR = "data-view-panel-src"
 _VIEW_PANEL_CAPTION_ATTR = "data-view-panel-caption"
 _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
 
-# D-21: the unresolved-airline link. The fragment must equal
-# companion/pages/health_page.py's SERVER_DATA_SECTION_ID constant -
-# duplicated, not imported, since companion/pages/__init__.py's only
-# documented boundary forbids one page module importing another. This is
-# the one cross-page string coupling this phase introduces; held by
-# discipline and pinned by companion/test_view_pages.py's cross-module
-# guard (asserts UNRESOLVED_LINK_HREF ends with "#" + the real
-# health_page.SERVER_DATA_SECTION_ID value, never a re-typed literal).
-UNRESOLVED_LINK_HREF = "/health#server-data"
-UNRESOLVED_LINK_TEXT = "View unresolved prefixes"
+# 22-09-PLAN.md Task 2 (X5): ONE HOP TO ACT. D-21's original link sent
+# an unresolved row to `/health#server-data` — a list Health's own copy
+# calls read-only, so naming the airline took two hops (Flights ->
+# Health -> Airlines). The link now goes straight to the Airlines
+# resolve view for THIS row's prefix.
+#
+# The route and query-parameter names are duplicated, not imported —
+# companion/pages/__init__.py's only documented boundary forbids one
+# page module importing another — exactly as the retired
+# UNRESOLVED_LINK_HREF duplicated Health's own anchor id, and pinned the
+# same way: companion/test_view_pages.py's cross-module guard asserts
+# this template is built from the real airlines_page.AIRLINES_ROUTE and
+# airlines_page.RESOLVE_QUERY_PARAM values, never a re-typed literal.
+RESOLVE_LINK_HREF_TEMPLATE = "/airlines?resolve=%s"
+RESOLVE_LINK_TEXT = "Name this airline"
 # quick task 260902-w4t (UIR-05): the anchor's own class, so it renders
 # visibly separated from the airline text it follows instead of reading
 # as one glued run - `text-label` for the existing quiet-link treatment,
-# plus a dedicated spacing hook styled in style.css.
+# plus a dedicated spacing hook styled in style.css. (22-09-PLAN.md
+# Task 2 keeps the class and its rule verbatim; only the anchor's
+# destination and text change, so the spacing fix is not re-derived.)
 UNRESOLVED_LINK_CLASS = "text-label cell-unresolved-link"
+
+# 22-09-PLAN.md Task 2 (X5, 22-UI-SPEC.md §1): the day-separator row's
+# two relative labels. The absolute form is NOT a constant and NOT a
+# direct date-formatting call — see day_label() below.
+_DAY_TODAY_LABEL = "Today"
+_DAY_YESTERDAY_LABEL = "Yesterday"
+
+# 22-09-PLAN.md Task 2 (X5): the panel-picture control's VISIBLE label.
+# The control used to be a 16px icon-only eye in the summary row — the
+# smallest control on the page, with no name beside it, and the only
+# route to the picture. It is now a labelled text control living inside
+# the expanded detail row, beside the hex/timestamp/copy siblings the
+# picture belongs with. VIEW_PANEL_LABEL survives as its `title`.
+VIEW_PICTURE_LABEL = "View picture"
+
+# 22-09-PLAN.md Task 2 (X5): the phone card's artwork thumbnail. Both
+# constants are the same values companion/pages/home_page.py's own
+# recent-flight thumbnail already holds (D-17.2) — duplicated, not
+# imported, under companion/pages/__init__.py's no-page-imports-a-page
+# rule, the same way that module itself duplicates the route prefix from
+# airlines_page/app.py. The alt template's French entry lives in
+# companion/i18n_fr/home.py, which already owns this exact key.
+ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
+_THUMBNAIL_ALT_TEMPLATE = "%s illustration"
 
 # quick task 260902-w4t (UIR-05): a missing AIRLINE used to fall back to
 # `panel_render.ROUTE_FALLBACK_TEXT` ("Route unavailable") - a string
@@ -493,10 +527,28 @@ def lightbox_caption_text(iso):
 
 def _view_panel_button_html(name, iso):
     """A D-20 "View panel near this time" trigger button - one per
-    History row that has a nearest render. Reuses `.copy-btn`'s exact
-    28x28-visual/44x44-hit-area shape (its pseudo-element already
-    synthesises a compliant pointer/touch hit area, so this control
-    inherits it with no new CSS and no accessibility trade-off).
+    History row that has a nearest render.
+
+    22-09-PLAN.md Task 2 (X5): this used to be a 16px icon-only eye in
+    the summary row — the smallest control on the page, with no name
+    beside it, and the ONLY route to the panel picture. It is now a
+    LABELLED text control ("View picture" / "Voir l'image") living
+    inside the expanded detail row, where the hex, the timestamp and the
+    copy buttons the picture belongs with already are; moving it there
+    is what leaves the summary row's scan path a single chevron. It
+    reuses `.calendar-disconnect-btn`'s small-grey-secondary treatment
+    (30px, 12px text, the existing 6%/12% wash and 20% hairline) — that
+    component's SECOND consumer, which `references/control-density.md`
+    names explicitly as the pattern to reuse for a small, deliberately
+    de-emphasised secondary action. No `.btn` family is started, and its
+    30px height is the base button register's existing accepted trade,
+    not a new one.
+
+    The visible label IS the accessible name now, so the `aria-label`
+    that used to duplicate `VIEW_PANEL_LABEL` is dropped rather than
+    left to contradict the visible text (WCAG 2.5.3 label-in-name);
+    `VIEW_PANEL_LABEL` survives as the `title`, the longer explanation a
+    pointer user gets on hover.
 
     `name` (the matched gallery filename) becomes the trigger source
     attribute, joined onto the existing gallery route prefix. `iso` (the
@@ -514,16 +566,14 @@ def _view_panel_button_html(name, iso):
     """
     src = "%s%s" % (_GALLERY_ROUTE_PREFIX, escape_html(name))
     caption = lightbox_caption_text(iso)
-    escaped_label = escape_html(i18n.t(VIEW_PANEL_LABEL))
     return (
-        '<button type="button" class="copy-btn" %s="%s" %s="%s" '
-        'title="%s" aria-label="%s">%s</button>'
+        '<button type="button" class="calendar-disconnect-btn" %s="%s" %s="%s" '
+        'title="%s">%s</button>'
     ) % (
         _VIEW_PANEL_SRC_ATTR, src,
         _VIEW_PANEL_CAPTION_ATTR, escape_html(caption),
-        escaped_label,
-        escaped_label,
-        layout.icon_html("icon-nav-preview"),
+        escape_html(i18n.t(VIEW_PANEL_LABEL)),
+        escape_html(i18n.t(VIEW_PICTURE_LABEL)),
     )
 
 
@@ -616,6 +666,15 @@ def format_event_row(row, now=None):
         "hex": row.get("hex") or "",
         "aircraft_type_label": aircraft_type_label,
         "airline_label": airline_label,
+        # 22-09-PLAN.md Task 2 (X5): the RAW stored airline string, kept
+        # beside the display label because the phone card's artwork
+        # thumbnail keys on it — `illustrations.normalise_airline_key()`
+        # resolves on the raw value, never on the aliased display name
+        # (server/plane/render.py's own _flight_line2_text() docstring is
+        # explicit that display_airline_name() "never reaches
+        # illustration selection"), exactly as home_page.py's own
+        # recent-flight thumbnail does.
+        "airline_raw": row.get("airline") or "",
         "route_label": route_label,
         "confirmed_state": i18n.t(_confirmed_state_label(row.get("confirmed_state"))),
         "corroboration_status": corroboration_status,
@@ -707,17 +766,117 @@ def _copy_button_html(value, label):
         layout.icon_html("icon-copy"))
 
 
-def _unresolved_link_html():
-    """The D-21 inline link to Health's Server & data section, used by
-    both the desktop Type+Airline cell and the mobile Aircraft detail
-    row when a row's airline could not be resolved. Carries
-    UNRESOLVED_LINK_CLASS (quick task 260902-w4t, UIR-05) so it renders
-    visibly separated from the airline text it follows instead of
-    reading as one glued run.
+def resolve_prefix_for_callsign(callsign):
+    """The 3-letter ICAO prefix `callsign` would be filed under in the
+    unresolved-prefix registry, or None (never raising) for anything
+    that cannot yield one.
+
+    The normalisation itself is `manual_resolutions.normalise_prefix()` —
+    the SAME function `airlines_page.unresolved_row_for_prefix()` applies
+    at the resolve view's own boundary, so a prefix this function
+    produces is exactly a prefix that view accepts. Only one gate is
+    re-stated rather than imported: `server/plane/enrich.py`'s registry
+    writer requires a callsign of shape `[A-Z]{3}[A-Z0-9]+` — three
+    letters plus at least one more character — before it ever records a
+    prefix, and its `_AIRLINE_PREFIX_SHAPE_RE` is private to that module.
+    A bare three-character callsign therefore yields None here too, so
+    this function can never offer a one-hop link to a prefix the
+    registry could not contain in the first place.
     """
+    if not isinstance(callsign, str):
+        return None
+    normalised = callsign.strip().upper()
+    if len(normalised) < 4:
+        return None
+    return manual_resolutions.normalise_prefix(normalised[:3])
+
+
+def _resolve_link_html(prefix):
+    """The 22-09 one-hop link: from a flight whose airline could not be
+    named straight to the Airlines resolve view for that flight's own
+    prefix. Used by both the desktop Flight cell and the phone card,
+    exactly where the retired two-hop `_unresolved_link_html()` was
+    used, and carrying its identical UNRESOLVED_LINK_CLASS treatment
+    (quick task 260902-w4t, UIR-05) so it still renders visibly
+    separated from the airline text it follows.
+
+    T-22-30: `prefix` reaches an href, so it is URL-quoted for the query
+    string and then escaped for the attribute — both, at this single
+    point of interpolation. The value is already
+    `manual_resolutions.normalise_prefix()`-normalised (three upper-case
+    letters, nothing else can reach here), so neither step can change
+    it today; they are the standing guarantee, not a repair. The resolve
+    view re-validates the prefix on arrival, unchanged.
+    """
+    href = RESOLVE_LINK_HREF_TEMPLATE % urllib.parse.quote(prefix, safe="")
     return '<a class="%s" href="%s">%s</a>' % (
         escape_html(UNRESOLVED_LINK_CLASS),
-        escape_html(UNRESOLVED_LINK_HREF), escape_html(i18n.t(UNRESOLVED_LINK_TEXT)))
+        escape_html(href), escape_html(i18n.t(RESOLVE_LINK_TEXT)))
+
+
+def _row_resolve_link_html(row):
+    """`_resolve_link_html()` for a formatted row whose airline could not
+    be resolved, or "" — for a resolved airline, and for an unresolved
+    one whose callsign yields no usable prefix (a row with no callsign
+    at all cannot be named BY prefix, and offering a link that could
+    only land on a validation failure would be worse than offering
+    none). Both the desktop cell and the phone card call this, so the
+    two representations can never disagree about whether the affordance
+    is present.
+    """
+    if row["airline_label"] != AIRLINE_FALLBACK_TEXT:
+        return ""
+    prefix = resolve_prefix_for_callsign(row["callsign"])
+    return _resolve_link_html(prefix) if prefix else ""
+
+
+def paris_day(raw_ts):
+    """The Europe/Paris calendar DATE a stored timestamp falls on, or
+    None (never raising) for a falsy or unparseable value.
+
+    `layout.LOCAL_TZ` is the same zone `layout.local_clock_text()` — the
+    app's one visible-time formatter (D-05) — converts to, and a naive
+    datetime is taken as UTC here for the identical reason that function
+    does it: `history_db.utc_now_iso()`'s own output is what these
+    timestamps are. No second timezone rule, and no direct
+    date-formatting call anywhere in this module — this plan's own
+    acceptance criterion greps this file for exactly that, so the token
+    is deliberately not spelled out even in prose.
+    """
+    parsed = layout.parse_iso(raw_ts)
+    if parsed is None:
+        return None
+    try:
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(layout.LOCAL_TZ).date()
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
+def day_label(day, today):
+    """The day-separator's own label (22-UI-SPEC.md §1): "Today",
+    "Yesterday", or an absolute date — translated, and in the label
+    voice at its render site.
+
+    The absolute form is composed from `layout.month_abbr()`, which is
+    `local_clock_text()`'s OWN month table exposed for callers that
+    build a "D Mon" label (its docstring says exactly that) — it is the
+    same day and the same words that formatter's cross-day branch
+    produces for this timestamp, never a second date path and never a
+    direct date-formatting call. A second date path in this file is how
+    the UTC leak this phase is fixing got in.
+
+    `today` (the Europe/Paris date of the page's own reference instant)
+    may be None, in which case every group falls to its absolute label
+    rather than raising.
+    """
+    if today is not None:
+        if day == today:
+            return i18n.t(_DAY_TODAY_LABEL)
+        if (today - day).days == 1:
+            return i18n.t(_DAY_YESTERDAY_LABEL)
+    return "%d %s" % (day.day, layout.month_abbr(day.month))
 
 
 def _flight_cell_html(row):
@@ -740,8 +899,9 @@ def _flight_cell_html(row):
     airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
     secondary = "%s · %s" % (airline_display, row["aircraft_type_label"])
     html = _merged_cell(row["callsign"], secondary)
-    if is_unresolved:
-        html = html[:-len("</td>")] + _unresolved_link_html() + "</td>"
+    resolve_link = _row_resolve_link_html(row)
+    if resolve_link:
+        html = html[:-len("</td>")] + resolve_link + "</td>"
     return html
 
 
@@ -800,7 +960,7 @@ def _filter_bar_html(total):
 _CLOCK_CELL_FALLBACK = "no reading yet"
 
 
-def _when_cell_html(raw_ts, now, view_panel_html=""):
+def _when_cell_html(raw_ts, now):
     """The desktop table's When column cell builder (21-03-PLAN.md
     Task 1, D-15) — replaces the retired `_clock_cell_html()`'s one call
     site. Two STACKED lines via `_merged_cell()` (never an inline
@@ -822,12 +982,11 @@ def _when_cell_html(raw_ts, now, view_panel_html=""):
     primary line, still with no secondary (a relative age is undefined
     for a value that never parsed). Never raises.
 
-    `view_panel_html` (D-20's per-row "View panel near this time"
-    trigger, already-safe markup or "") is spliced in immediately before
-    the closing `</td>`, mirroring `_flight_cell_html()`'s own
-    unresolved-link splice — the same "build the cell, then append
-    already-safe markup before the closing tag" shape used throughout
-    this module.
+    22-09-PLAN.md Task 2 (X5): the `view_panel_html` parameter is gone
+    with the icon-only eye it carried. The panel-picture control is a
+    labelled control inside the detail row now (see
+    `_flight_detail_row_html()`), so this cell is back to the two
+    stacked lines D-15 specified and nothing else.
     """
     if not raw_ts:
         html = _merged_cell(i18n.t(_CLOCK_CELL_FALLBACK), "")
@@ -841,9 +1000,35 @@ def _when_cell_html(raw_ts, now, view_panel_html=""):
             age = layout.age_seconds(raw_ts, now)
             secondary = layout.relative_age_text(age) if age is not None else ""
             html = _merged_cell(clock_text, secondary)
-    if view_panel_html:
-        html = html[:-len("</td>")] + view_panel_html + "</td>"
     return html
+
+
+def full_local_time_text(raw_ts):
+    """The VISIBLE form of a stored timestamp inside a detail row or a
+    card disclosure (22-09-PLAN.md Task 2, D-05/C5): a day-qualified
+    Europe/Paris local clock ("27 Aug 10:00"), never the raw ISO string
+    and never monospace — mono stays reserved for identifiers
+    (callsign, ICAO24 hex, the masked calendar URL), and the raw ISO now
+    survives only behind the copy control that carries it as its
+    `data-copy-value`.
+
+    Built from `layout.local_clock_text()` itself, forced onto its own
+    cross-day "D Mon HH:MM" branch by the same
+    `layout._FULL_TIMESTAMP_SENTINEL_NOW` reference instant
+    `layout.concise_timestamp_html()`'s own `title` uses — the one
+    visible-time formatter, reached the one sanctioned way, not a second
+    implementation. (Reaching for that private module attribute follows
+    this file's own precedent in `lightbox_caption_text()` above, which
+    already selects `layout._MONTH_ABBR`/`_MONTH_ABBR_FR` directly for
+    exactly the same "never derive a second date rule" reason.)
+
+    Degrades to the raw value, unchanged, when it cannot be parsed —
+    never raises, never an empty cell.
+    """
+    parsed = layout.parse_iso(raw_ts)
+    if parsed is None:
+        return raw_ts
+    return layout.local_clock_text(parsed, layout._FULL_TIMESTAMP_SENTINEL_NOW)
 
 
 def _flight_detail_row_html(row, index):
@@ -878,9 +1063,10 @@ def _flight_detail_row_html(row, index):
                 _copy_button_html(row["hex"], i18n.t(_COPY_HEX_LABEL) % row_name)))
     if row["raw_ts"]:
         parts.append(
-            '<div><dt class="text-label">%s</dt><dd class="mono">%s</dd>%s</div>'
+            '<div><dt class="text-label">%s</dt><dd class="time-value">%s</dd>%s</div>'
             % (
-                escape_html(i18n.t("Full timestamp")), escape_html(row["raw_ts"]),
+                escape_html(i18n.t("Full timestamp")),
+                escape_html(full_local_time_text(row["raw_ts"])),
                 _copy_button_html(row["raw_ts"], i18n.t(_COPY_TIMESTAMP_LABEL) % row_name)))
     if row["tracked_runway"]:
         parts.append(
@@ -891,9 +1077,27 @@ def _flight_detail_row_html(row, index):
         if row["callsign"] else "")
     return (
         '<tr class="flight-detail-row" id="flight-detail-%d" data-row-detail>'
-        '<td colspan="6"><dl class="flight-detail-row__grid">%s</dl>%s</td>'
+        '<td colspan="6"><dl class="flight-detail-row__grid">%s</dl>%s%s</td>'
         "</tr>"
-    ) % (index, "".join(parts), copy_name_button)
+    ) % (index, "".join(parts), copy_name_button, row.get("view_panel_html", ""))
+
+
+def _day_separator_row_html(day, today):
+    """One day-separator row (22-09-PLAN.md Task 2, X5): a real table
+    row spanning the table as a `<th scope="colgroup">`, carrying the
+    day's label in the label voice.
+
+    Deliberately NOT sticky. Sticky day headers are D7/Phase 23, and
+    T4 in this same phase removes the app's one broken `position:
+    sticky` claim rather than adding a second one — so this function
+    introduces no positioning of any kind, and its stylesheet rule
+    declares none.
+    """
+    return (
+        '<tr class="flight-day-row">'
+        '<th scope="colgroup" colspan="6" class="text-label">%s</th>'
+        "</tr>"
+    ) % escape_html(day_label(day, today))
 
 
 def _history_table_html(formatted_rows, now=None):
@@ -910,8 +1114,27 @@ def _history_table_html(formatted_rows, now=None):
     header_cells += '<th><span class="visually-hidden">%s</span></th>' % escape_html(
         i18n.t(_DETAILS_HEADER_TEXT))
 
+    # 22-09-PLAN.md Task 2 (X5): thirty-six to fifty rows used to run
+    # together with nothing marking where one day ended and the next
+    # began. `today` is the page's own reference instant as a
+    # Europe/Paris calendar date, so "Today"/"Yesterday" mean what a
+    # reader standing in Paris means by them; a `now` that does not
+    # parse leaves it None and every group falls to its absolute label.
+    today = paris_day(now)
+    current_day = None
+
     body_rows = []
     for index, row in enumerate(formatted_rows):
+        # A separator before each new Paris day. A row whose timestamp
+        # cannot be dated (paris_day() -> None) takes the existing
+        # ungrouped path: no separator is emitted for it and the current
+        # group is left open, so it never splits a real day in two
+        # (T-22-31 — the grouping degrades, it does not raise).
+        day = paris_day(row["raw_ts"])
+        if day is not None and day != current_day:
+            current_day = day
+            body_rows.append(_day_separator_row_html(day, today))
+
         row_class = "row-alt" if index % 2 else "row"
         # D-15: five data cells plus the row-toggle cell. When/Flight
         # already return already-safe, fully-built <td>...</td> markup
@@ -921,7 +1144,7 @@ def _history_table_html(formatted_rows, now=None):
         # View-panel trigger is threaded into _when_cell_html() itself
         # now (it used to be appended inline here).
         cells = (
-            _when_cell_html(row["raw_ts"], now, row.get("view_panel_html", "")),
+            _when_cell_html(row["raw_ts"], now),
             _flight_cell_html(row),
             "<td>%s</td>" % escape_html(row["route_label"]),
             "<td>%s</td>" % escape_html(row["confirmed_state"]),
@@ -1001,6 +1224,36 @@ def _history_table_html(formatted_rows, now=None):
     ) % (escape_html(i18n.t(SCROLLER_ARIA_LABEL)), header_cells, "".join(body_rows))
 
 
+def _card_thumb_html(airline_raw, state_dir):
+    """The phone card's artwork thumbnail (22-09-PLAN.md Task 2, X5), or
+    "" when this row's airline resolves to no artwork file on disk.
+
+    The same two-call seam `home_page._recent_flight_thumb_html()` and
+    the Airlines gallery/gap cards already use:
+    `illustrations.normalise_airline_key()` for the key (a pure string
+    resolve on the RAW stored airline — the display alias never reaches
+    illustration selection) and `illustrations.resolved_illustration_
+    path()` for the "is there really a file" test. Never an
+    unconditional `<img>`: a key with no file behind it would 404 and
+    render as a broken-image icon, which is a worse defect than no
+    thumbnail at all (home_page.py's own docstring records that finding).
+
+    The served image is the Airlines gallery's own 450x132 frame; the
+    fixed 56px-tall box and `object-fit: contain` are style.css's,
+    where `img.history-card__thumb` joins the shared white-backing /
+    hairline / radius rule as a fourth selector rather than restating a
+    colour literal.
+    """
+    key = illustrations.normalise_airline_key(airline_raw)
+    if not key or illustrations.resolved_illustration_path(key, state_dir) is None:
+        return ""
+    alt_text = i18n.t(_THUMBNAIL_ALT_TEMPLATE) % panel_render.display_airline_name(airline_raw)
+    return (
+        '<img class="history-card__thumb" loading="lazy" decoding="async" '
+        'src="%s%s.png" alt="%s">'
+    ) % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key), escape_html(alt_text))
+
+
 def _history_cards_html(formatted_rows, now=None):
     """Mobile compact-card representation (D-07) - one `<li>` per row,
     built from the exact same `formatted_rows` list _history_table_html()
@@ -1054,19 +1307,29 @@ def _history_cards_html(formatted_rows, now=None):
         primary = (
             '<div class="history-card__primary">'
             "%s"
-            '<span class="history-card__time">%s</span>%s'
+            '<span class="history-card__time">%s</span>'
             "</div>"
         ) % (
             primary_value_html,
             layout.concise_timestamp_html(row["raw_ts"], now),
-            row.get("view_panel_html", ""),
         )
+        # 22-09-PLAN.md Task 2 (X5): "ORY → JFK Departing" used to run
+        # together as two bare spans. The separator is the module's
+        # EXISTING middle dot (CELL_SEPARATOR_TEXT in its own
+        # CELL_SEPARATOR_CLASS span, the same pair _merged_cell() emits
+        # on the desktop side) — reused, never a second separator
+        # invented for this one line.
         secondary = (
             '<div class="history-card__secondary">'
             "<span>%s</span>"
+            '<span class="%s">%s</span>'
             "<span>%s</span>"
             "</div>"
-        ) % (escape_html(row["route_label"]), escape_html(row["confirmed_state"]))
+        ) % (
+            escape_html(row["route_label"]),
+            CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
+            escape_html(row["confirmed_state"]),
+        )
         # D-23: all three mobile copy buttons (callsign, hex, full
         # timestamp) live inside this <details> disclosure — including
         # the callsign one, which is already visible on the primary
@@ -1081,7 +1344,21 @@ def _history_cards_html(formatted_rows, now=None):
         # the mobile representation never silently loses the affordance.
         is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
         airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
-        unresolved_link = _unresolved_link_html() if is_unresolved else ""
+        # 22-09-PLAN.md Task 2 (X5): the airline and the artwork moved
+        # OUT of the disclosure and onto the card's own face — a phone
+        # card that dropped both was showing less about the flight than
+        # the desktop row for the same data. The one-hop resolve link
+        # rides with the airline name, so the card and the desktop cell
+        # carry the identical affordance exactly once each.
+        airline_line = (
+            '<div class="history-card__airline">%s'
+            '<span class="history-card__airline-name">%s</span>%s'
+            "</div>"
+        ) % (
+            row.get("thumb_html", ""),
+            escape_html(airline_display),
+            _row_resolve_link_html(row),
+        )
         # A-37/D-20: the mobile disclosure's three copy buttons name
         # their own row too, via the same _row_copy_name() fallback
         # order the desktop cell uses.
@@ -1091,23 +1368,22 @@ def _history_cards_html(formatted_rows, now=None):
             "<summary>%s</summary>"
             "<dl>"
             '<dt>%s</dt><dd class="mono">%s%s</dd>'
-            "<dt>%s</dt><dd>%s %s %s%s</dd>"
+            "<dt>%s</dt><dd>%s</dd>"
             "<dt>%s</dt><dd>%s</dd>"
             "<dt>%s</dt><dd>%s</dd>"
             '<dt>%s</dt><dd class="mono">%s%s</dd>'
-            '<dt>%s</dt><dd class="mono">%s%s</dd>'
-            "</dl>"
+            '<dt>%s</dt><dd class="time-value">%s%s</dd>'
+            "</dl>%s"
             "</details>"
         ) % (
             escape_html(i18n.t("More details")),
             escape_html(i18n.t("Callsign")),
             escape_html(row["callsign"]),
             _copy_button_html(row["callsign"], i18n.t(_COPY_CALLSIGN_LABEL) % row_name),
+            # The airline left this pair with the artwork (see
+            # airline_line above); the aircraft type keeps it alone.
             escape_html(i18n.t("Aircraft")),
             escape_html(row["aircraft_type_label"]),
-            escape_html(CELL_SEPARATOR_TEXT),
-            escape_html(airline_display),
-            unresolved_link,
             escape_html(i18n.t("Corroboration")),
             layout.status_dot(
                 row["corroboration_status"], row["corroboration_label"],
@@ -1117,14 +1393,21 @@ def _history_cards_html(formatted_rows, now=None):
             escape_html(i18n.t("Hex")),
             escape_html(row["hex"]),
             _copy_button_html(row["hex"], i18n.t(_COPY_HEX_LABEL) % row_name),
+            # D-05/C5, 22-09-PLAN.md Task 2: the VISIBLE timestamp is the
+            # Paris local clock in the time-value role; the raw ISO
+            # survives only as the copy control's own data-copy-value.
             escape_html(i18n.t("Full timestamp")),
-            escape_html(row["raw_ts"]),
+            escape_html(full_local_time_text(row["raw_ts"])),
             _copy_button_html(row["raw_ts"], i18n.t(_COPY_TIMESTAMP_LABEL) % row_name),
+            # The picture control lives inside the disclosure here for
+            # the same reason it lives inside the desktop detail row:
+            # beside the hex, the timestamp and their copy buttons.
+            row.get("view_panel_html", ""),
         )
         items.append(
             '<li class="history-card" data-filter-text="%s" '
-            'data-filter-group="%d">%s%s%s</li>'
-            % (_filter_text_attr(row), index, primary, secondary, details))
+            'data-filter-group="%d">%s%s%s%s</li>'
+            % (_filter_text_attr(row), index, primary, secondary, airline_line, details))
     return '<ul class="history-cards">%s</ul>' % "".join(items)
 
 
@@ -1171,6 +1454,15 @@ def render(ctx):
             match = nearest_gallery_entry(gallery_entries_list, row["raw_ts"])
             row["view_panel_html"] = (
                 _view_panel_button_html(match[0], match[1]) if match else "")
+            # 22-09-PLAN.md Task 2 (X5): the phone card's artwork
+            # thumbnail, resolved here for the same reason the
+            # View-panel match is — once per row, onto the one
+            # formatted_rows list both representations share, never a
+            # second lookup that could disagree with the first. The
+            # desktop table does not render it (data-density.md's
+            # measured width budget has no room), so this is the phone
+            # card's own key alone.
+            row["thumb_html"] = _card_thumb_html(row["airline_raw"], state_dir)
         # The shared lightbox is emitted exactly once per page, and only
         # when at least one row actually carries a trigger button - with
         # an empty gallery entry list every row's match is None, so

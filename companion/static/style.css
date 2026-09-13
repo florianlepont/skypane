@@ -2672,6 +2672,33 @@ table.data-table--flights .cell-inline-sep {
   transform: rotate(180deg);
 }
 
+/* 22-09-PLAN.md Task 2 (X5, 22-UI-SPEC.md §2): the day separator row.
+ * Thirty-six to fifty rows used to run together with nothing marking
+ * where one Paris day ended and the next began.
+ *
+ * NOT sticky, deliberately and by instruction: sticky day headers are
+ * D7/Phase 23, and T4 in this same phase removes the app's one broken
+ * sticky-positioning claim rather than adding a second one. This rule
+ * therefore declares no positioning of any kind — the phrase is spelled
+ * out here rather than quoted as a declaration on purpose, so this
+ * plan's own acceptance grep for the file's sticky-declaration count
+ * keeps measuring declarations and not prose about them.
+ *
+ * `--color-canvas` is the page ground the table sits on (the same token
+ * the retired sticky-header note named), so the separator reads as a
+ * gap in the list rather than as another data row; the label voice
+ * comes from the `.text-label` class the <th> already carries plus the
+ * uppercase/tracking/70%-muted register `.data-table th` itself uses —
+ * no new muted strength, no new size. */
+.flight-day-row th {
+  background: var(--color-canvas);
+  text-align: left;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* The pointer cursor for the whole-row click, keyed ONLY on the class
  * companion/static/flight-rows.js adds to each summary row at load —
  * the same component-scoped class-at-load idiom
@@ -2837,11 +2864,31 @@ table.data-table--flights .cell-inline-sep {
  * above it — so a second muting strength here meant the identical
  * content read at two different weights purely as a function of
  * viewport width. One secondary-data role, one opacity. */
+/* 22-09-PLAN.md Task 2 (X5): the flex `gap` is retired here in favour
+ * of the real `.cell-inline-sep` middle dot the markup now carries
+ * between the route and the state ("ORY → JFK · Departing", which used
+ * to run together). That separator brings its own `--space-xs` margins,
+ * so keeping the gap as well would space this one line differently from
+ * every other separated pair in the app. */
 .history-card__secondary {
   display: flex;
-  gap: var(--space-sm);
   opacity: 0.7;
   margin-top: var(--space-xs);
+}
+
+/* 22-09-PLAN.md Task 2 (X5): the card's airline line — the name and the
+ * artwork the phone card used to drop entirely (both were reachable
+ * only by opening the disclosure, so the card showed strictly less
+ * about a flight than the desktop row for the same data). */
+.history-card__airline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.history-card__airline-name {
+  font-size: var(--font-label-size);
 }
 
 .history-card__time {
@@ -5379,7 +5426,8 @@ a.airline-card {
  * sizing; only the border/background/display are new here. */
 .now-showing__image,
 .preview-frame__image,
-img.recent-flight__thumb {
+img.recent-flight__thumb,
+img.history-card__thumb {
   display: block;
   width: 100%;
   height: auto;
@@ -5391,6 +5439,22 @@ img.recent-flight__thumb {
 .now-showing__image {
   max-width: 360px;
   margin: 0 auto var(--space-sm);
+}
+
+/* 22-09-PLAN.md Task 2 (X5): the Flights phone card's own thumbnail
+ * sizing — the Airlines gallery's 450x132 served frame in a fixed
+ * 56px-tall box with `contain` fitting, so a wide livery panel is
+ * letterboxed rather than cropped. Declared AFTER the shared rule
+ * above and with the same `img.` qualifier, exactly like
+ * `img.recent-flight__thumb`'s own sizing rule, so it wins for width/
+ * height while the white backing, the hairline and the radius still
+ * come from that one shared rule — one rule, an additional selector,
+ * no new colour literal. */
+img.history-card__thumb {
+  height: 56px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 .now-showing__caption {
