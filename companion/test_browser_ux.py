@@ -83,7 +83,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth  # noqa: E402
+from companion import auth, layout  # noqa: E402
 from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
@@ -385,6 +385,41 @@ EXPECTED_CHECK_COUNT = 26
 # check(...) call count at execution time (28/28 pass), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 28
+# 23-05-PLAN.md Task 3 (D14/CFG-34): +4. The ticker's four behavioural
+# claims, none of which any string-comparison harness can see. (1) The
+# age ADVANCES in a real visible tab — asserted on element TEXT read
+# twice with a real wait between the reads, never on a timer internal, a
+# check that would otherwise pass on a script ticking a detached node.
+# (2) A page reporting itself hidden does no work at all, against a
+# CONTROL proving the same age does move while visible — without that
+# control the assertion passes on an element that never changes for any
+# reason, the vacuity shape 23-03 caught in its own work — and it is
+# repainted IMMEDIATELY on return rather than after an interval.
+# (3) With scripts blocked at 360px in both languages the element is
+# present AND static; presence alone would pass on a page where the
+# enhancement had silently taken over. (4) An expired countdown reads
+# the server's own translated waiting wording, gains the breathing class
+# and never a warn/error/alert one, with the class proven to resolve to
+# the stylesheet's single animation.
+# Mutation-tested, each isolated so the Python harnesses stay green and
+# these four are proven to do the work unaided. Stopping the script's
+# interval took (1) red at 31/32 naming the two equal texts; deleting
+# the visibility gate took (2) red at 31/32 naming the two DIFFERENT
+# texts a hidden tab should not have produced; both left
+# companion-app 279/281 and status-pages 275/276 untouched.
+# THE HIDDEN-TAB MECHANISM IS WEAKER THAN A REAL BACKGROUND TAB, and
+# says so in its own comment: neither a second page taking focus nor
+# CDP's Emulation.setPageVisibilityOverride can hide a page in this
+# harness (the first leaves visibilityState "visible" in headless
+# Chromium, the second is not implemented in this Chromium at all), so
+# the page's own visibility state is overridden in-page and a real
+# visibilitychange Event dispatched. What is simulated is the BROWSER'S
+# REPORT; what is exercised is the shipped script's own listener and its
+# own document.hidden reads.
+# 28 + 4 = 32, recomputed directly against the real on-disk check(...)
+# call count at execution time (32/32 pass), not trusted from arithmetic
+# alone.
+EXPECTED_CHECK_COUNT = 32
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -3266,6 +3301,307 @@ def main():
                     "at all rather than having one set up and run fast (D3+D10/CFG-33, "
                     "23-04-PLAN.md Task 2)",
                     _the_view_transition_is_off_under_reduced_motion)
+
+                # --- 23-05-PLAN.md Task 3 (D14/CFG-34): the ticker,
+                # proven in a browser. The claim is "the user sees it
+                # change, and a background tab costs nothing" — so every
+                # assertion below reads element TEXT twice with a real
+                # wait between the reads, never a timer internal. A check
+                # that asserted "an interval exists" would pass on a
+                # script that ticks a detached node.
+
+                TICK_SETTLE_MS = 2200
+                FRESHNESS_AGE = ".page-header__freshness time[data-relative]"
+
+                def _the_relative_age_ticks_in_a_real_tab():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/health")
+                        page.locator(FRESHNESS_AGE).first.wait_for(state="attached")
+                        first = page.eval_on_selector(FRESHNESS_AGE, "el => el.textContent")
+                        # The server-rendered floor: the element already
+                        # reads something correct before any script runs.
+                        if not first or not first.strip():
+                            return False, (
+                                "expected the freshness age to be rendered by the SERVER before "
+                                "anything ticks — the no-JS floor is this element's own text, "
+                                "got %r" % (first,))
+                        if "#" in first:
+                            return False, (
+                                "expected the rendered age to carry no quantity placeholder — "
+                                "the wordings are filled server-side and by the script, never "
+                                "shown raw, got %r" % (first,))
+                        page.wait_for_timeout(TICK_SETTLE_MS)
+                        second = page.eval_on_selector(FRESHNESS_AGE, "el => el.textContent")
+                        if first == second:
+                            return False, (
+                                "expected the freshness age to ADVANCE within %dms in a visible "
+                                "tab, read %r then %r — a page that says 'Updated 14:32' is "
+                                "telling the truth about a moment and saying nothing about now "
+                                "(D14/D22)" % (TICK_SETTLE_MS, first, second))
+                        if "#" in second:
+                            return False, (
+                                "the ticked text carries a raw quantity placeholder: %r" % (second,))
+                        # It rewrote ONE element's text and nothing else:
+                        # the prefix and the pill beside it are untouched.
+                        wrapper = page.eval_on_selector(
+                            ".page-header__freshness", "el => el.textContent")
+                        if "Updated" not in wrapper:
+                            return False, (
+                                "expected the freshness line's own prefix to survive the tick — "
+                                "the ticker writes textContent on the <time> element and must "
+                                "never rewrite a sibling, got %r" % (wrapper,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the Health freshness line's <time data-relative> text ADVANCES within ~2s in "
+                    "a real visible tab, starting from text the server already rendered, carrying "
+                    "no raw quantity placeholder, and leaving the prefix and pill beside it "
+                    "untouched (D14/CFG-34, 23-05-PLAN.md Task 3)",
+                    _the_relative_age_ticks_in_a_real_tab)
+
+                def _a_hidden_tab_does_no_work_and_catches_up_on_return():
+                    # WHICH MECHANISM, AND WHY THIS ONE. Two real ways to
+                    # hide a page were tried in this harness first and
+                    # neither works here, which is recorded rather than
+                    # worked around silently:
+                    #   - a second page in the same context taking focus
+                    #     (page2.bring_to_front()) leaves the first page's
+                    #     document.visibilityState at "visible" in
+                    #     headless Chromium;
+                    #   - CDP's Emulation.setPageVisibilityOverride is not
+                    #     present in this Chromium at all ("wasn't
+                    #     found").
+                    # So the page's own visibility state is overridden
+                    # in-page and a real `visibilitychange` Event is
+                    # dispatched on document — which is what the browser
+                    # itself dispatches. What that simulates is the
+                    # BROWSER'S REPORT; what it exercises is the shipped
+                    # script's own listener and its own document.hidden
+                    # reads, unmodified, which is the contract under
+                    # test. It is weaker than a genuinely backgrounded
+                    # tab and stronger than asserting a listener exists:
+                    # a script with no listener, a script that ignores
+                    # document.hidden, and a script that never re-arms on
+                    # return all fail it.
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/health")
+                        page.locator(FRESHNESS_AGE).first.wait_for(state="attached")
+                        read = "() => document.querySelector(%r).textContent" % FRESHNESS_AGE
+                        # CONTROL FIRST. Without this the check passes on
+                        # a page whose element never changes for any
+                        # reason at all — the vacuity shape 23-03 caught
+                        # in its own work.
+                        control_before = page.evaluate(read)
+                        page.wait_for_timeout(TICK_SETTLE_MS)
+                        control_after = page.evaluate(read)
+                        if control_before == control_after:
+                            return False, (
+                                "control: the age did not move in a VISIBLE tab (%r twice), so "
+                                "the hidden-tab assertion below would measure nothing"
+                                % (control_before,))
+                        page.evaluate(
+                            "() => {"
+                            "  Object.defineProperty(document, 'hidden',"
+                            "    {configurable: true, get: () => true});"
+                            "  Object.defineProperty(document, 'visibilityState',"
+                            "    {configurable: true, get: () => 'hidden'});"
+                            "  document.dispatchEvent(new Event('visibilitychange'));"
+                            "}")
+                        hidden_before = page.evaluate(read)
+                        page.wait_for_timeout(TICK_SETTLE_MS)
+                        hidden_after = page.evaluate(read)
+                        if hidden_before != hidden_after:
+                            return False, (
+                                "expected the age NOT to change while the page reports itself "
+                                "hidden, read %r then %r over %dms — a once-a-second timer in "
+                                "every background tab forever is the one real cost this file "
+                                "carries (T-23-14)"
+                                % (hidden_before, hidden_after, TICK_SETTLE_MS))
+                        # Back in view: the repaint happens IMMEDIATELY,
+                        # well inside one tick. A tab returning after a
+                        # long hidden stretch showing a stale age is the
+                        # same defect this file exists to remove, just
+                        # later on.
+                        page.evaluate(
+                            "() => {"
+                            "  Object.defineProperty(document, 'hidden',"
+                            "    {configurable: true, get: () => false});"
+                            "  Object.defineProperty(document, 'visibilityState',"
+                            "    {configurable: true, get: () => 'visible'});"
+                            "  document.dispatchEvent(new Event('visibilitychange'));"
+                            "}")
+                        returned = page.evaluate(read)
+                        if returned == hidden_after:
+                            return False, (
+                                "expected the age to be repainted IMMEDIATELY on becoming "
+                                "visible again rather than after waiting out an interval, still "
+                                "read %r" % (returned,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a page reporting itself hidden runs no ticker work at all — its age is "
+                    "byte-identical across ~2s, against a control proving the same age DOES move "
+                    "while visible — and on becoming visible again it is repainted immediately "
+                    "rather than after waiting out an interval (T-23-14, 23-05-PLAN.md Task 3; "
+                    "the visibility mechanism and its limits are stated in this check's own "
+                    "comment)",
+                    _a_hidden_tab_does_no_work_and_catches_up_on_return)
+
+                def _the_relative_age_is_server_rendered_and_static_without_scripts():
+                    base_url = harness.base_url()
+                    for lang in ("en", "fr"):
+                        context = browser.new_context(
+                            java_script_enabled=False, viewport=VIEWPORT_MIN_SUPPORTED)
+                        try:
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page = context.new_page()
+                            page.goto(base_url + "/login")
+                            page.fill("#password", TEST_PASSWORD)
+                            page.click('button[type="submit"]')
+                            page.wait_for_load_state("load")
+                            page.goto(base_url + "/health")
+                            found = page.locator(FRESHNESS_AGE).count()
+                            if found != 1:
+                                return False, (
+                                    "lang=%s: expected exactly one server-rendered <time "
+                                    "data-relative> in the freshness line with scripts blocked, "
+                                    "found %d" % (lang, found))
+                            first = page.eval_on_selector(FRESHNESS_AGE, "el => el.textContent")
+                            expected = layout.relative_age_text(0, lang=lang)
+                            if first != expected:
+                                return False, (
+                                    "lang=%s: expected the scripts-blocked page to read the "
+                                    "server's own ladder output %r, got %r"
+                                    % (lang, expected, first))
+                            if "#" in first:
+                                return False, (
+                                    "lang=%s: a raw quantity placeholder reached the page: %r"
+                                    % (lang, first))
+                            # PRESENCE ALONE IS NOT THE CHECK. An element
+                            # that is present AND changing would mean the
+                            # enhancement had silently taken over in a
+                            # context that is supposed to have none, and
+                            # a presence-only assertion would pass on it.
+                            page.wait_for_timeout(TICK_SETTLE_MS)
+                            second = page.eval_on_selector(FRESHNESS_AGE, "el => el.textContent")
+                            if first != second:
+                                return False, (
+                                    "lang=%s: the age CHANGED on a scripts-blocked page (%r -> "
+                                    "%r) — no script can be running there, so something else is "
+                                    "rewriting it" % (lang, first, second))
+                            if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
+                                return False, "expected the measurement at the 360px contract floor"
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "with scripts blocked at 360px, in BOTH languages, the freshness line still "
+                    "renders exactly one <time data-relative> carrying the server's own ladder "
+                    "output — and it does NOT change over ~2s, which is what separates an intact "
+                    "no-JS floor from an enhancement that quietly took over (CFG-38, "
+                    "23-05-PLAN.md Task 3)",
+                    _the_relative_age_is_server_rendered_and_static_without_scripts)
+
+                def _an_expired_countdown_reads_waiting_and_never_a_warning():
+                    # No page renders a countdown yet — 23-06's next-wake
+                    # line is relative_time_html(countdown=True)'s first
+                    # consumer — so the element is seeded into a real
+                    # rendered page here rather than waited for. That is
+                    # deliberate and it is not a weaker test of THIS
+                    # plan's subject: the script re-queries the document
+                    # on every tick, so a seeded element goes through the
+                    # shipped code path exactly as a server-rendered one
+                    # will. The SERVER half (an expired countdown renders
+                    # the waiting wording with no JS at all) is pinned in
+                    # companion/test_companion_app.py instead, where the
+                    # renderer can be called directly.
+                    base_url = harness.base_url()
+                    for lang in ("en", "fr"):
+                        context = browser.new_context()
+                        try:
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page = context.new_page()
+                            _login(page, base_url)
+                            page.goto(base_url + "/health")
+                            page.locator(FRESHNESS_AGE).first.wait_for(state="attached")
+                            page.evaluate(
+                                "() => {"
+                                "  var el = document.createElement('time');"
+                                "  el.setAttribute('id', 'seeded-countdown');"
+                                "  el.setAttribute('data-relative', '');"
+                                "  el.setAttribute('data-relative-countdown', '');"
+                                "  el.setAttribute('datetime',"
+                                "    new Date(Date.now() - 120000).toISOString());"
+                                "  el.textContent = 'seeded';"
+                                "  document.querySelector('main').appendChild(el);"
+                                "}")
+                            page.wait_for_timeout(TICK_SETTLE_MS)
+                            seen = page.eval_on_selector(
+                                "#seeded-countdown",
+                                "el => [el.textContent, el.getAttribute('class') || '']")
+                            text, klass = seen[0], seen[1]
+                            expected = page.eval_on_selector(
+                                "body",
+                                "el => el.getAttribute('data-relative-waiting')")
+                            if not expected:
+                                return False, (
+                                    "lang=%s: the page renders no waiting wording on <body> for "
+                                    "the script to read" % lang)
+                            if text != expected:
+                                return False, (
+                                    "lang=%s: expected a countdown whose instant has passed to "
+                                    "read the server's own waiting wording %r, got %r — it must "
+                                    "not turn itself into an age"
+                                    % (lang, expected, text))
+                            if " ago" in text or "il y a" in text:
+                                return False, (
+                                    "lang=%s: an expired countdown became an age: %r"
+                                    % (lang, text))
+                            if "is-breathing" not in klass.split():
+                                return False, (
+                                    "lang=%s: expected an expired countdown to breathe, got "
+                                    "class=%r" % (lang, klass))
+                            for verdict in ("warn", "error", "alert", "danger", "late"):
+                                if verdict in klass:
+                                    return False, (
+                                        "lang=%s: an expired countdown carries NO warn class — "
+                                        "a wake that has not happened yet is not a fault (the "
+                                        "false alarm X2 removed), got class=%r" % (lang, klass))
+                            # And the breathing is motion this app's own
+                            # reduced-motion floor already covers: the
+                            # class resolves to the one animation the
+                            # stylesheet defines.
+                            animation = page.eval_on_selector(
+                                "#seeded-countdown",
+                                "el => getComputedStyle(el).animationName")
+                            if animation != "skypane-pulse":
+                                return False, (
+                                    "lang=%s: expected the breathing class to resolve to the "
+                                    "stylesheet's one animation, got %r" % (lang, animation))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "a countdown whose instant has already passed reads the server's own "
+                    "translated waiting wording in BOTH languages, never an age, gains the "
+                    "breathing class and no warn/error/alert class at all, and that class "
+                    "resolves to the one animation the stylesheet defines (D14/CFG-34, "
+                    "23-05-PLAN.md Task 3)",
+                    _an_expired_countdown_reads_waiting_and_never_a_warning)
             finally:
                 browser.close()
     finally:
