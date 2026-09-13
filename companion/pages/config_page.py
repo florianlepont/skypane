@@ -1217,8 +1217,17 @@ def _theme_chip_grid_html(
         chips.append(
             '<label class="%s" data-preview-src="%s%s.png?live=1"%s>'
             '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
+            # 23-10-PLAN.md Task 3 (D3/CFG-32): background-COLOR, not
+            # the `background` shorthand it used to be. Same rendered
+            # placeholder, same value, and the change is load-bearing:
+            # the shorthand resets background-image to none, and an
+            # inline style beats every author rule, so style.css's
+            # skeleton sheen for this band was unreachable while this
+            # said `background`. The band's own box is already reserved
+            # (width: 100%, height: 56px, both definite), so this is the
+            # decoration half only.
             '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
-            'width="320" height="120" loading="lazy" style="background:%s">'
+            'width="320" height="120" loading="lazy" style="background-color:%s">'
             '<span class="theme-chip__body">'
             '<span class="theme-chip__name">%s</span>'
             '<span class="theme-chip__swatches" aria-hidden="true">'

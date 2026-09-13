@@ -7728,13 +7728,103 @@ a.airline-card__zoom {
   margin: 0;
 }
 
+/* 23-10-PLAN.md Task 3 (D3/CFG-32): THE PICTURE HOLDS ITS PLACE BEFORE
+ * IT ARRIVES, and this rule is the reservation rather than the
+ * decoration.
+ *
+ * MEASURED, not assumed. At 360px this box was already reserved: the
+ * rule above gives the image `width: 100%`, which is a definite size, so
+ * the ratio the markup's own width="600" height="800" attributes supply
+ * resolves a height before the bytes land (312 x 415.3 before, 312 x
+ * 415.3 after). At 1280px it was NOT. The desktop rule below used to say
+ * `width: auto`, and an image with no content yet and no definite size
+ * in either axis has an intrinsic size of ZERO however well-known its
+ * ratio is — so the picture measured 2 x 2 before the render arrived and
+ * 380 x 506 after it. Home's whole right-hand column jumped ~500px on
+ * every desktop load. That is the defect this plan's own skeleton would
+ * otherwise have decorated instead of fixed.
+ *
+ * `aspect-ratio: 3 / 4` is declared EXPLICITLY rather than left to the
+ * attributes, for two reasons. It makes the reservation a guarantee
+ * instead of a coincidence — the box no longer depends on the ratio of
+ * whatever bytes eventually arrive, so a render that ever ships at a
+ * different size cannot move the page. And because this file's universal
+ * reset makes every box `border-box`, a declared ratio applies to the
+ * BORDER box, which is what makes the desktop width below resolve to
+ * exactly the 60vh cap rather than to 60vh minus the hairline.
+ * `object-fit: contain` is its safety net: with the ratio pinned, an
+ * image of some other shape letterboxes onto the white backing this
+ * class already carries instead of stretching.
+ *
+ * The desktop `width` is the same 60vh cap the max-height below states,
+ * written as a definite width the ratio can be resolved from:
+ * height 60vh at 3:4 is width 45vh, and `min()` keeps the container's
+ * own 100% as the other bound exactly as `max-width` did. Both caps are
+ * kept below rather than deleted — they are now belt-and-braces for a
+ * bitmap of some other shape, and stating the cap once in each axis is
+ * what makes the calc() above readable as "the 60vh cap, in the other
+ * axis". */
+.preview-frame__image {
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+}
+
+/* 23-10-PLAN.md Task 3 (D3/CFG-32): the skeleton itself — ONE rule, the
+ * two surfaces in this app whose box is reserved for an image that has
+ * not arrived. Second only to the reservation above, which is the part
+ * that actually prevents the shift; this is what stops the reserved box
+ * being a blank hole.
+ *
+ * IT IS THE IMAGE'S OWN BACKGROUND, and that placement is the entire
+ * mechanism rather than a styling choice. `background-image` paints
+ * above the element's `background-color` (the white backing
+ * `.preview-frame__image` already shares, and the chip band's own
+ * server-rendered per-theme colour) and BELOW the decoded bitmap, so the
+ * skeleton is hidden by the image's own arrival — the image's real load
+ * state, with no script, no timer and no class to toggle. A timer either
+ * flashes on a fast connection or lies on a slow one, and a class needs
+ * a script this app deliberately does not add for a decoration. With
+ * scripts blocked this behaves identically, because both halves are CSS
+ * and markup.
+ *
+ * IT DOES NOT SHIMMER, AND THAT IS A DECISION RATHER THAN AN OMISSION.
+ * 23-10-PLAN.md asks for a pulse on 23-01's keyframes at the slow token,
+ * and the placement that makes the skeleton auto-hide is exactly the
+ * placement that makes a pulse impossible: `skypane-pulse` cycles
+ * OPACITY, and opacity belongs to the element, so an animation on this
+ * <img> would go on breathing the DECODED PICTURE, forever, on a page
+ * somebody leaves open all day — the precise complaint 23-01's own
+ * keyframes comment says a motion budget exists to prevent. The
+ * alternatives were considered and are worse: a pulsing overlay on the
+ * container is covered by this image's own opaque background from the
+ * first frame and never visible; an overlay ABOVE the image can never
+ * learn that the image arrived, because CSS has no loaded state to
+ * select on; and an infinite animation that keeps running behind a
+ * loaded picture is compositor work with nothing to show for it. So the
+ * sheen is a static gradient: it reads as a placeholder, it costs
+ * nothing, it disappears the instant the picture paints, and it spends
+ * no keyframes at all — the file's four stay four.
+ *
+ * No new colour: the two stops are this file's own muted-text
+ * color-mix idiom at two strengths, so the sheen sits on whatever
+ * backing each surface already has. */
+.preview-frame__image,
+.theme-chip__preview {
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
+    color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 60% 100%
+  );
+}
+
 /* .preview-frame__image's shared declarations (the white backing,
  * hairline, radius) are declared once, above, as a second selector on
  * .now-showing__image's own rule — see that rule's own comment. Only
  * the desktop-only cap below is unique to this class. */
 @media (min-width: 960px) {
   .preview-frame__image {
-    width: auto;
+    width: min(100%, calc(60vh * 3 / 4));
     max-width: 100%;
     max-height: 60vh; /* D-17's explicit desktop-only cap */
     margin: 0 auto;

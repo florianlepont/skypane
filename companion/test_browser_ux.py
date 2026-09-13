@@ -2258,8 +2258,15 @@ def main():
                     # measured 2x2 before and 380x506 after).
                     surfaces = (
                         ("/", ".preview-frame", ".preview-frame__image", "**/gallery/**", 100),
+                        # 30, because the first .theme-chip__preview on
+                        # /display is the Frame colours card's COMPACT
+                        # variant, whose band is 36px rather than the
+                        # base 56px - measured, not assumed. Still well
+                        # clear of the ~2px a collapsed replaced element
+                        # reports, which is the number this floor exists
+                        # to exclude.
                         ("/display", ".theme-chip", ".theme-chip__preview",
-                         "**/theme-preview/**", 40),
+                         "**/theme-preview/**", 30),
                     )
                     for width in (VIEWPORT_MIN_SUPPORTED["width"],
                                   VIEWPORT_DESKTOP["width"]):
