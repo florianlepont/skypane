@@ -113,3 +113,47 @@ renders a `<time data-relative>` element, not a conversion. `health_page.py:1150
 — the `when` text `battery-trend.js` copies into a `title` attribute — is
 untouched and still cannot become an element without changing that script's
 transport first, exactly as 23-03 recorded.
+
+## 23-06: Display's page header now carries a freshness line above the screen caption
+
+**Discovered during:** 23-06 Task 2, while wiring the Display scope's call site.
+
+**Symptom (not a defect — a visual change to check on a device):** the Display
+scope's `page_header()` call now passes `freshness_html`, which `page_header()`
+concatenates BEFORE `action_html`. So the header reads title → "Updated 14:32"
+(+ hidden pill) → screen caption/selector → purpose sentence. The hidden
+"Updating…" pill is absolutely positioned to `.page-header`'s top-right corner,
+which on that page is unoccupied today because `_screen_selector_html()` renders
+`""` with a single-member screen registry.
+
+**Why not resolved here:** nothing is wrong to fix. It is a layout question no
+string-comparison harness can answer, at a 360px width the wave-9 sweep already
+visits, and the collision it could become does not exist yet.
+
+**For 23-11 (human sweep):** look at `/display` at 360px and confirm the
+freshness line reads as a caption under the title rather than as a competing
+header row. **And for any plan that adds a control to Display's header**: the
+top-right corner is now the refresh pill's, and two things stacked on the same
+coordinates is not a state a user can read (the same argument 22-15 made when it
+put the state badge in flow rather than in that slot).
+
+## 23-06: `.is-fading-in` exists before 23-10's "preview crossfade" is planned
+
+**Discovered during:** 23-06 Task 2, spending 23-01's `--motion-fast` token.
+
+**State on disk:** `companion/static/style.css` now declares a SECOND
+`@keyframes` block (`skypane-fade-in`) and one consumer, `.is-fading-in`, which
+`companion/static/freshness.js` adds to `.preview-frame__image` when a refresh
+brings a genuinely different `src`. The ROADMAP's Phase 23 entry assigns "preview
+crossfade" to 23-10.
+
+**Why not resolved here:** 23-10 is not this plan's to write, and the rule that
+exists is the one D1 needed (a one-shot fade on a new render), not necessarily
+the crossfade D3 asks for.
+
+**For 23-10:** spend `.is-fading-in` and `skypane-fade-in` rather than declaring
+a third block — 23-01's guard fails a second definition of the same name, and two
+near-identical fade blocks is exactly the failure that guard's own message names.
+If a true crossfade (old and new visible at once) is wanted, it is a different
+mechanism from this one and needs its own argument in the stylesheet beside the
+existing paragraph.
