@@ -491,6 +491,40 @@ html[data-ui-theme="dark"] {
   }
 }
 
+/* 23-06-PLAN.md Task 2 (D1/CFG-35, spending 23-01's D3/CFG-32 budget):
+ * the app's SECOND keyframes block, and the argument for it rather than
+ * a bare assertion that it was needed.
+ *
+ * 23-01 declared one block and said a plan that believes it needs
+ * another has to say so. This one does: `skypane-pulse` cycles opacity
+ * between 1 and 0.35 forever, and what a refreshed picture needs is a
+ * ONE-SHOT ramp from 0 to 1. Reusing the pulse would mean running an
+ * infinite animation for one iteration and accepting its 0.35 floor as
+ * the starting opacity, which is a different visual (the picture would
+ * appear at a third of its weight rather than from nothing) and a
+ * misuse of a block whose own comment says it is the AMBIENT loop. Two
+ * blocks, two motions, each named for what it does.
+ *
+ * It is a fade and nothing else: no transform, no scale. The picture is
+ * a 600x800 image and animating its geometry would repaint a large box
+ * on a phone for an effect nobody asked for.
+ *
+ * Its duration comes from `var(--motion-fast)` at the call site below —
+ * 23-01's REACTION token, which names "the fades on a region that
+ * refreshed itself (23-06)" among its own intended surfaces. Somebody
+ * IS waiting to read the new value, which is what puts it there rather
+ * than on the ambient token. companion/test_companion_app.py's motion
+ * guard rejects a bare literal there and requires every animation name
+ * to resolve to a block defined in this file; both hold. */
+@keyframes skypane-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1426,6 +1460,32 @@ select.visually-hidden {
  * companion/test_companion_app.py fails if it moves. */
 .is-breathing {
   animation: skypane-pulse var(--motion-slow) ease-in-out infinite;
+}
+
+/* 23-06-PLAN.md Task 2 (D1/CFG-35): the class companion/static/
+ * freshness.js puts on a refreshed picture, and ONLY when the picture
+ * genuinely changed — that file compares the image's own `src` before
+ * adding it. A fade on every swap would flash the page every 45 seconds
+ * to say nothing, which is worse than no fade at all: motion that
+ * carries no information is the thing a motion budget exists to stop.
+ *
+ * It names the MOTION, not the component, for the same reason
+ * `.is-breathing` above does: the next region that refreshes itself
+ * spends this same rule rather than writing a second one.
+ *
+ * `ease-out` at the call site because easing is not a token (23-01
+ * spent exactly two custom properties and easing was deliberately not
+ * one of them). One iteration, no fill mode: the element's own opacity
+ * is 1 before and after, so there is nothing to hold.
+ *
+ * UNDER REDUCED MOTION THIS DOES NOT FADE, and there is no block here
+ * saying so — the global override earlier in this file already zeroes
+ * animation-duration for every element, and a per-rule block would be
+ * the dead-code-not-a-safety-net pattern accessibility-contrast.md
+ * records a verdict on. The stylesheet's live reduce-block count stays
+ * at two. */
+.is-fading-in {
+  animation: skypane-fade-in var(--motion-fast) ease-out;
 }
 
 .dot-label {

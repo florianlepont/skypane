@@ -387,14 +387,14 @@ CORROBORATION_STATE_TEXT = {
 # ellipsis ("…"), matching this file's own sibling precedent for a
 # short in-flight verb (companion/pages/config_page.py's
 # POLL_SUBMIT_PENDING_TEXT = "Polling…"), not three periods.
-REFRESH_PILL_TEXT = "Updating…"
+REFRESH_PILL_TEXT = layout.REFRESH_PILL_TEXT
 
 # 23-05-PLAN.md Task 2 (D22's remainder): the hook
 # companion/static/freshness.js toggles its breathing class on.
 # Duplicated rather than imported — freshness.js is a static asset, not
 # a Python module — matching the BATTERY_READOUT_ID/SPARKLINE_HIT_CLASS
 # cross-file contract below and REFRESH_SWAP_SELECTORS' own.
-REFRESH_LIVE_DOT_ATTR = "data-refresh-live-dot"
+REFRESH_LIVE_DOT_ATTR = layout.REFRESH_LIVE_DOT_ATTR
 
 # 19-09-PLAN.md (D-02, A-20): SUPERSEDED — PERSISTENT_FRESHNESS_PREFIX_TEXT
 # used to read "Live — refreshed ", prefixing a
@@ -409,7 +409,7 @@ REFRESH_LIVE_DOT_ATTR = "data-refresh-live-dot"
 # assembly in render()), and the line only ever advances again because
 # companion/static/freshness.js re-renders the whole freshness wrapper
 # from a fresh fetch — never a client-side clock tick.
-FRESHNESS_PREFIX_TEXT = "Updated "
+FRESHNESS_PREFIX_TEXT = layout.FRESHNESS_PREFIX_TEXT
 
 # 21-02-PLAN.md (D-18): the Pause/Resume control that used to live here
 # is deleted — the freshness loop in companion/static/freshness.js now
@@ -983,31 +983,23 @@ BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = "%s — daily average"
 # language), replacing this module's former private English-only table
 # (260902-l0b) that 20-03-PLAN.md Task 2 had left out of D-07's scope.
 
-# 22-06-PLAN.md Task 2 (D-05, B4): a `now_parsed` guaranteed to fall on a
-# DIFFERENT Europe/Paris calendar day than any real device reading (no
-# SkyPane device predates this constant), so passing it to
-# `layout.local_clock_text()` forces that function's own cross-day
-# "D Mon HH:MM" branch. This is what `_full_local_timestamp_text()` below
-# uses to build a full local timestamp — reusing `local_clock_text()`
-# itself (D-05's "one formatter" rule) rather than re-deriving a second,
-# competing day-plus-clock format.
-_FULL_TIMESTAMP_SENTINEL_NOW = datetime(1970, 1, 1, tzinfo=timezone.utc)
+# 22-06-PLAN.md Task 2 (D-05, B4), PROMOTED to companion/layout.py by
+# 23-06-PLAN.md Task 2: the sentinel and the helper both live there now,
+# because the freshness line this page shared with Home and the Display
+# scope needs the same full local timestamp and a page module is not a
+# place two other page modules can reach. This name survives because
+# every battery `title`/`aria-label`/`data-when` on this page calls it
+# and one shipped harness check names it; it is a delegate and nothing
+# else, and the behaviour — including the raw-string fallback for an
+# unparseable value — is unchanged.
+_FULL_TIMESTAMP_SENTINEL_NOW = layout.FULL_TIMESTAMP_SENTINEL_NOW
 
 
 def _full_local_timestamp_text(ts):
-    """"D Mon HH:MM" in Europe/Paris — the full local timestamp every
-    `title`/`aria-label`/`data-when` this page emits for a battery
-    reading now carries (D-05, B4), via `layout.local_clock_text()`'s own
-    cross-day branch (forced by `_FULL_TIMESTAMP_SENTINEL_NOW` above),
-    never a bare clock and never the raw UTC ISO this finding replaces.
-    Falls back to the raw `ts` string (never raising) when it fails to
-    parse — the same graceful-degradation precedent `_axis_clock_label()`
-    already sets.
+    """"D Mon HH:MM" in Europe/Paris — see
+    `layout.full_local_timestamp_text()`, of which this is the delegate.
     """
-    parsed = layout.parse_iso(ts)
-    if parsed is None:
-        return ts or ""
-    return layout.local_clock_text(parsed, now_parsed=_FULL_TIMESTAMP_SENTINEL_NOW)
+    return layout.full_local_timestamp_text(ts)
 
 
 def _as_paris(parsed):
@@ -3558,181 +3550,19 @@ def render(ctx):
             caption_title=i18n.t(RESOLUTION_RATE_TITLE))
     )
 
-    # 260902-chc: SUPERSEDED — this used to be a manual Refresh link
-    # (D-12/UXA-13, see the reversal record above this function). It is
-    # now the hidden-by-default "Updating…" pill companion/static/
-    # freshness.js reveals just before each visibility-gated reload.
-    # `data-loaded-at` survives the reversal unchanged — `now` is
-    # already computed once per request by companion/app.py's
-    # page_context() — and gains a second job there (a tab returning
-    # from a long hidden stretch uses it to decide whether it owes an
-    # immediate catch-up refresh; see freshness.js's own header).
-    # escape_html() is required on `now` only: it used to be the sole
-    # requester, back when REFRESH_PILL_TEXT was a static module
-    # constant needing none. 20-03-PLAN.md Task 3 (D-05/T-20-03): a
-    # translated string is not pre-escaped, so i18n.t(REFRESH_PILL_TEXT)
-    # now goes through escape_html() too, like every other t() result.
-    #
-    # No ARIA role on the pill: a live region announces on content
-    # mutation, not on a visibility change, so a role="status" pill whose
-    # text never changes would announce nothing anyway — and the page
-    # load this pill precedes is itself announced as a navigation by
-    # every screen reader, making a second announcement redundant. The
-    # real accessibility cost this mechanism carries and does not solve:
-    # a reload that fires while a screen-reader user is reading with
-    # focus on the document body returns their virtual cursor to the
-    # top, and freshness.js's interaction-skip guard cannot detect that
-    # state. Accepted in writing, not left as an omission: the lever if
-    # this bites is the refresh interval, not the announcement, and a
-    # live screen-reader pass is named in this task's SUMMARY.
-    pill_html = (
-        '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
-        % (escape_html(now), layout.icon_html("icon-refresh"), escape_html(i18n.t(REFRESH_PILL_TEXT))))
-    # 23-05-PLAN.md Task 2 (D22's remainder): the neutral dot that
-    # breathes while companion/static/freshness.js's loop is live and
-    # stops the instant it pauses or starts reconnecting. Server-rendered
-    # STATIC and neutral — the motion is one class that script adds and
-    # removes, so a page with scripts blocked shows a still dot beside an
-    # age that does not move, which is exactly what is true there.
-    #
-    # `.dot--off` with no modifier of its own: a refresh loop that is
-    # listening is not a device verdict and must not borrow one's colour.
-    # aria-hidden because it is decorative — the loop's real state is
-    # already announced by the Paused/Reconnecting badge freshness.js
-    # builds beside it, and a second, wordless signal would only repeat
-    # it.
-    dot_html = (
-        '<span class="dot dot--off" %s aria-hidden="true"></span>'
-        % REFRESH_LIVE_DOT_ATTR)
-    # 19-09-PLAN.md (D-02, A-20): SUPERSEDED, and for the reason that
-    # task itself named. It replaced concise_timestamp_html(now, now)'s
-    # "(0s ago)" with a clock-only "Updated HH:MM", because the relative
-    # half was STRUCTURALLY ALWAYS ZERO: `now` was computed once per
-    # request and immediately fed back into a timestamp claiming to be
-    # "(Ns ago)" of itself, so the line asserted a liveness the
-    # render-time mechanism never measured. That defect was the frozen
-    # zero, not the age.
-    #
-    # 23-05-PLAN.md Task 2 (D14/D22/CFG-34) removes the freeze rather
-    # than the age. This is layout.relative_time_html() over the same
-    # instant `data-loaded-at` already carries, and
-    # companion/static/relative-time.js rewrites it once a second —
-    # "Updated 3m ago" on a page that has been open three minutes, which
-    # is a claim about NOW rather than about a moment. A page saying
-    # "Updated 14:32" tells the truth about an instant and says nothing
-    # at all about whether it is still current; announcing its own
-    # staleness is the whole point of D22.
-    #
-    # 23-06-PLAN.md: WHAT THE SERVER WRITES INTO THAT ELEMENT IS THE
-    # CLOCK, not the ladder's zero bucket. 23-05 rendered "0s ago" here
-    # and recorded the cost in its own SUMMARY (finding 2): with scripts
-    # blocked nothing ever advances it, so that reader got a permanently
-    # frozen "Updated 0s ago" — 19-09/A-20's own defect ("(0s ago)" was
-    # structurally always zero) handed back to the one reader who cannot
-    # see the ticker. The fix is the ordinary progressive-enhancement
-    # shape the rest of this app already uses: the SERVER renders the
-    # honest static thing and the SCRIPT upgrades it. The element, its
-    # machine-readable `datetime` and its `data-relative` hook are
-    # unchanged — only the text the server puts inside it — so with
-    # scripts on the first repaint (one second after load, and after
-    # every swap) turns "Updated 14:32" into "Updated 3m ago", and with
-    # scripts blocked the line reads a clock that stays true forever.
-    # Both readers get a true statement, which is the whole of the
-    # no-JS floor's claim.
-    #
-    # The clock is `local_clock_text()` with `now_parsed` set to the same
-    # instant — its same-day branch, i.e. a bare "HH:MM", identical in
-    # both languages and identical to what this line rendered from
-    # 19-09 until 23-05.
-    #
-    # Nothing is lost: the full Europe/Paris local timestamp stays on the
-    # span's `title` (22-16's own D-05/CFG-28 conversion, unchanged).
-    # `data-refresh-clock` is kept as this span's own hook for
-    # companion/static/freshness.js — that file reads nothing from the
-    # span itself (the whole wrapper is swapped instead), but the
-    # attribute keeps the element easy to find from a future edit or a
-    # live DOM inspection.
-    #
-    # Consequence worth stating: the freshness wrapper now differs from
-    # its freshly-fetched counterpart on every cycle, because the live
-    # age has advanced while the fetched one reads zero — so
-    # freshness.js's "the region did not change" skip no longer applies
-    # to this one region. That is correct rather than a regression: the
-    # age really did change, and the swap is what resets it to the truth.
-    # 22-12-PLAN.md Task 3 (C5): `mono` -> `time-value`. This page's own
-    # "Updated HH:MM" was the last of the four treatments C5 replaces
-    # here, and it was the one that most plainly broke the rule:
-    # monospace is reserved for IDENTIFIERS — the callsign, the ICAO24
-    # hex, the masked calendar URL — and a wall-clock time is not one.
-    # `.time-value` is the single time-value role (sans, tabular
-    # numerals, so the digits still hold their column as the clock
-    # ticks), which is exactly what the monospace family was being used
-    # for here. The base shape, not `--primary`: this is a caption under
-    # the page title, not a headline.
-    #
-    # 22-16-PLAN.md's closing sweep (D-05/CFG-28). The `title` used to
-    # carry the raw UTC ISO instant verbatim, and 22-12-PLAN.md left it
-    # standing with a note saying why: 19-09-PLAN.md (D-02/A-20) put it
-    # there deliberately and companion/test_status_pages.py pinned it by
-    # name, so converting it meant deliberately re-targeting another
-    # plan's pin. That is exactly what this plan owns.
-    #
-    # It fails two of D-05/CFG-28's own clauses at once: "every `title`
-    # tooltip carries a local full timestamp", and "raw ISO survives
-    # only behind a copy control" — a `title` is a tooltip, and this one
-    # sits behind no `.copy-btn` at all, so the requirement could not be
-    # honestly ticked while it stood.
-    #
-    # The conversion is the pattern 22-06-PLAN.md Task 3 already proved
-    # on `layout.concise_timestamp_html()`: the full Europe/Paris local
-    # timestamp from `local_clock_text()`'s own cross-day branch, forced
-    # by `_FULL_TIMESTAMP_SENTINEL_NOW`. This module already exposes it
-    # as `_full_local_timestamp_text()`, which every battery `title`/
-    # `aria-label`/`data-when` on this page has used since that plan —
-    # so this is a fourth caller of an existing helper, not a second
-    # date path, and it degrades identically (an unparseable value falls
-    # back to the raw string rather than raising).
-    #
-    # What is NOT lost with the ISO: `data-loaded-at` on the refresh
-    # pill still carries the real machine-readable instant, which is
-    # what companion/static/freshness.js actually reads. The `title` was
-    # only ever a human-facing tooltip.
-    _now_parsed = layout.parse_iso(now)
-    _clock_text = (
-        layout.local_clock_text(_now_parsed, now_parsed=_now_parsed)
-        if _now_parsed is not None else now)
-    clock_html = (
-        '<span class="time-value" data-refresh-clock title="%s">%s</span>'
-        % (escape_html(_full_local_timestamp_text(now)),
-           layout.relative_time_html(now, now, static_text=_clock_text)))
-    # 21-02-PLAN.md (D-18): the Pause/Resume button that used to sit here
-    # is deleted outright — no replacement control, no placeholder. The
-    # freshness line is now just the prefix, the clock and the pill.
-    #
-    # Quick task 260903-peo (UIR-18): the pill and the clock still join
-    # inside ONE block-level wrapper — load-bearing, not decorative.
-    # `.page-header` is a plain block box; 260902-ep7 (BUG 1) fixed a
-    # measured 28px title-to-purpose gap caused by a stranded inline-level
-    # child (the bare pill span) forcing an anonymous block box between
-    # the block <h1> and the block <p class="page-header__purpose">. The
-    # pill escapes that only because `.page-header .refresh-pill` is
-    # absolutely positioned; a second bare inline node next to it would
-    # recreate the exact same condition. Wrapping both in one block-level
-    # <p> keeps `.page-header`'s children all block-level, and
-    # `.page-header .refresh-pill` — a descendant selector — still
-    # matches straight through the wrapper, so the pill's `top: 8px;
-    # right: 0` offsets (anchored to `.page-header`, the nearest
-    # positioned ancestor, never the wrapper) are unchanged.
-    #
-    # This whole `<p class="page-header__freshness">` element is one of
-    # REFRESH_SWAP_SELECTORS' own entries — freshness.js replaces it
-    # wholesale from its own fetch, so a render-time value here is
-    # honest for exactly as long as it takes the next successful swap to
-    # replace it, never longer.
-    freshness_html = (
-        '<p class="page-header__freshness text-label">%s%s%s%s</p>'
-        % (dot_html, escape_html(i18n.t(FRESHNESS_PREFIX_TEXT)),
-           clock_html, pill_html))
+    # 23-06-PLAN.md Task 2 (D1/CFG-35): the whole freshness line — the
+    # neutral dot, the "Updated " prefix, the clock element and the
+    # hidden pill carrying data-loaded-at — is now built by
+    # companion/layout.py's freshness_line_html(). ONE definition site,
+    # three call sites (Health, Home, the Display scope), which is the
+    # same contract frame_strip_html() and sidebar_nav() already state in
+    # their own docstrings. Every word of this block's reasoning moved
+    # with it, unabridged: why the pill carries no ARIA role, why the dot
+    # is neutral and rendered still, why the clock and not an age is what
+    # the server writes, and why all of it sits in ONE block-level
+    # wrapper. This page's rendered output is byte-identical to what it
+    # was before the move.
+    freshness_html = layout.freshness_line_html(now)
 
     # §5.2 (D-10): two id-anchored sections. Screen holds the
     # Device-freshness tile wrapped in its own single-tile dashboard-grid

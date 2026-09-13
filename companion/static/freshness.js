@@ -249,6 +249,14 @@
   // once it has found its form, its bar and its count node; the second
   // is the bar itself). Both are needed to answer "does this page have
   // unsaved edits", and neither alone is — see unsavedEdits() below.
+  // 23-06-PLAN.md Task 2 (D1/CFG-35): the picture that fades when a NEW
+  // render arrives. The class is companion/static/style.css's; the
+  // image class is companion/pages/home_page.py's own, duplicated here
+  // rather than imported for the reason every literal in this file is.
+  var FADE_IMAGE_CLASS = "preview-frame__image";
+  var FADE_IMAGE_SELECTOR = "." + FADE_IMAGE_CLASS;
+  var FADE_CLASS = "is-fading-in";
+
   var DIRTY_READY_CLASS = "dirty-ready";
   var DIRTY_BAR_ATTR = "data-dirty-bar";
   var DIRTY_BAR_SELECTOR = "[" + DIRTY_BAR_ATTR + "]";
@@ -534,6 +542,17 @@
   // what each page deliberately EXCLUDES and why — that reasoning has
   // one home and this is not it.
   var SWAP_SELECTORS_BY_PAGE = {
+    "home": [
+      ".page-header__freshness",
+      ".frame-strip",
+      ".home-status-grid",
+      "figure.preview-frame",
+      'section[aria-labelledby="home-flights"]'
+    ],
+    "display": [
+      ".page-header__freshness",
+      ".frame-strip"
+    ],
     "health": [
       ".dashboard-grid",
       "div.banner--anomaly, div.banner--warn",
@@ -633,9 +652,51 @@
           continue;
         }
         var replacement = document.importNode(fetchedNodes[i], true);
+        markPictureFade(existing, replacement);
         existing.parentNode.replaceChild(replacement, existing);
       }
     }
+  }
+
+  // 23-06-PLAN.md Task 2 (D1/CFG-35): the frame picture fades in when a
+  // NEW render arrives, and does NOT animate when the same picture is
+  // swapped back in.
+  //
+  // The condition is the whole point. The picture's region is replaced
+  // on most cycles for reasons that have nothing to do with the picture
+  // — its caption carries a timestamp, so the fetched figure differs
+  // from the live one whenever the clock has moved. A fade fired on
+  // every swap would flash the page every 45 seconds to say nothing,
+  // which is worse than no fade: it teaches the user that the movement
+  // means nothing, and then a real new render means nothing either.
+  //
+  // The src attribute is the honest signal and needs no marker
+  // invented for it: the gallery names every render after its own
+  // instant, so a new render IS a new src. Read through
+  // getAttribute() rather than the .src property on purpose — the
+  // property resolves to an absolute URL
+  // against each document's own base, and these two nodes come from two
+  // different documents, so the property form can report a difference
+  // where the markup has none.
+  //
+  // The class goes on the node that is about to be inserted, before it
+  // is inserted, so the animation starts with the element's first
+  // frame. Nothing removes it afterwards and nothing needs to: the
+  // animation runs once, the element's own opacity is 1 before and
+  // after, and the next swap replaces the node entirely.
+  function markPictureFade(existing, replacement) {
+    var fetchedImage = replacement.querySelector
+      ? replacement.querySelector(FADE_IMAGE_SELECTOR) : null;
+    if (!fetchedImage || !fetchedImage.classList) {
+      return;
+    }
+    var liveImage = existing.querySelector
+      ? existing.querySelector(FADE_IMAGE_SELECTOR) : null;
+    if (liveImage
+        && liveImage.getAttribute("src") === fetchedImage.getAttribute("src")) {
+      return;
+    }
+    fetchedImage.classList.add(FADE_CLASS);
   }
 
   // 19-09-PLAN.md (D-02): battery-trend.js's own two readout spans are

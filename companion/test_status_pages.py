@@ -8082,7 +8082,9 @@ def main():
     def _23_06_the_picture_fades_only_when_the_picture_changed():
         # A fade that fires on every swap would flash the page every 45
         # seconds for no information, which is worse than no fade at all.
-        css_source = _css_source()
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
         stripped = re.sub(r"/\*.*?\*/", " ", css_source, flags=re.S)
         names = re.findall(r"@keyframes\s+([A-Za-z_-][\w-]*)", stripped)
         if len(names) != len(set(names)):
@@ -11579,6 +11581,22 @@ def main():
         # 22-UI-SPEC.md §3.3 rule 3: the grace window is invisible — the
         # SAME "Next update ≈ HH:MM" copy and classes render whether now
         # is before next_wake or up to 2x the effective interval past it.
+        #
+        # 23-06-PLAN.md Task 2: RETARGETED IN PLACE, and the reason is
+        # worth stating because it looks like a weakening and is not.
+        # This check compared the WHOLE update cell byte for byte between
+        # two values of `now`, which was the same thing as "the grace
+        # window is invisible" only while the cell held nothing but a
+        # clock. D1's countdown is a DURATION, so it differs between any
+        # two instants by construction — "in 5m" at 11:10 and "in 1m" at
+        # 11:14 are the same state reported twice, not two states. What
+        # rule 3 actually forbids is a STATE SIGNAL that differs, so that
+        # is what is compared now: the cell with the countdown element
+        # removed must be byte-identical, the countdown's own instant
+        # must be the same instant in both (the wake does not move inside
+        # its grace window), and neither rendering may carry a warn, late
+        # or overdue token anywhere. That last clause is NEW and is
+        # stricter than what it replaces.
         device_cfg = {"wake_interval_s": 900, "display_enabled": True}
         checkin_iso = "2026-08-27T11:00:00+00:00"
         before_ctx = _frame_strip_ctx(checkin_iso, device_cfg, "2026-08-27T11:10:00+00:00")
@@ -11589,17 +11607,48 @@ def main():
             layout.frame_strip_html(inside_grace_ctx, return_to=layout.HOME_ROUTE))
         if rendered_before is None or rendered_inside_grace is None:
             return False, "expected an update cell to render in both the before and grace fixtures"
-        if rendered_before != rendered_inside_grace:
+        countdown_re = re.compile(r"<time [^>]*>.*?</time>", re.S)
+        without_before = countdown_re.sub("", rendered_before)
+        without_grace = countdown_re.sub("", rendered_inside_grace)
+        if without_before != without_grace:
             return False, (
                 "expected identical copy and classes before and inside the grace window, got %r "
-                "vs %r" % (rendered_before, rendered_inside_grace))
-        if "dot--ok" not in rendered_before or "status-card__headline--warn" in rendered_before:
-            return False, "expected the due headline to carry dot--ok and no warn modifier"
+                "vs %r" % (without_before, without_grace))
+        instants = []
+        for rendered in (rendered_before, rendered_inside_grace):
+            element = re.search(r'<time datetime="([^"]*)"([^>]*)>(.*?)</time>',
+                                rendered, flags=re.S)
+            if element is None:
+                return False, (
+                    "expected the countdown element in BOTH renderings — an element that "
+                    "disappears once its instant passes is itself a visible grace window, got %r"
+                    % (rendered,))
+            instants.append(element.group(1))
+            if layout.RELATIVE_COUNTDOWN_ATTR not in element.group(2):
+                return False, "expected the countdown to stay marked as one in both renderings"
+        if instants[0] != instants[1]:
+            return False, (
+                "expected the countdown to tick toward the SAME instant in both renderings — the "
+                "wake does not move inside its own grace window, got %r vs %r"
+                % (instants[0], instants[1]))
+        for rendered, label in ((rendered_before, "before"),
+                                (rendered_inside_grace, "inside grace")):
+            for token in ("warn", "late", "overdue", "Expected since"):
+                if token in rendered:
+                    return False, (
+                        "the %s rendering carries %r — a frame inside its grace window is not a "
+                        "fault, and X2's nightly false alarm is what happens when it is painted "
+                        "as one, got %r" % (label, token, rendered))
+        if "dot--ok" not in rendered_before:
+            return False, "expected the due headline to carry dot--ok"
         return True, ""
     check(
         "a due result renders byte-identical copy and classes whether 'now' is before next_wake "
         "or up to 2x the effective interval past it — the grace window is invisible (22-UI-SPEC.md "
-        "§3.3 rule 3)",
+        "§3.3 rule 3) — with the countdown present in both renderings, marked, pointed at the same "
+        "instant, and neither rendering carrying a warn/late/overdue token anywhere (retargeted in "
+        "place by 23-06-PLAN.md Task 2, which added the one element in that cell that is a "
+        "function of `now` by construction)",
         _frame_strip_due_is_identical_inside_and_outside_the_grace_window)
 
     def _frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class():

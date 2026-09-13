@@ -3444,8 +3444,22 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # today's single-member registry it renders as "", so both headers
     # stay byte-identical to their pre-D-23 output.
     if scope == SCOPE_DISPLAY:
+        # 23-06-PLAN.md Task 2 (D1/CFG-35): the Display scope refreshes
+        # itself, because it renders the Frame strip and a stale claim
+        # about the frame's state costs most there. The freshness line is
+        # the shared builder's — the same one Health and Home call — and
+        # it carries `data-loaded-at`, which companion/static/
+        # freshness.js requires before it does anything.
+        #
+        # What this page declares as swappable is the strip and this line
+        # and nothing else (layout.REFRESH_SWAP_SELECTORS_BY_PAGE's own
+        # comment says why): everything below is a <form>, and a swap
+        # that lands on a half-edited form is B1 with a new cause. The
+        # loop additionally stands the whole cycle down while the save
+        # bar reports unsaved edits.
         header = layout.page_header(
             i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
+            freshness_html=layout.freshness_line_html(ctx.get("now")),
             action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
         # 21-04-PLAN.md Task 1 (D-02/R-01): the shared Frame strip, once,
         # directly after the page header and before the "Look"

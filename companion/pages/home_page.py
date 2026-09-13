@@ -585,7 +585,17 @@ def render(ctx):
     # never two independent queries for what is the same data.
     rows = _safe_query(ctx.get("state_dir"), _recent_flights)
     current_flight_row = rows[0] if rows else None
-    header = layout.page_header(i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE))
+    # 23-06-PLAN.md Task 2 (D1/CFG-35): Home refreshes itself. The
+    # freshness line is the shared builder's — one definition site,
+    # three call sites — and it is what carries `data-loaded-at`, the
+    # marker companion/static/freshness.js requires before it does
+    # anything at all. Which regions this page then swaps is declared
+    # once, in layout.REFRESH_SWAP_SELECTORS_BY_PAGE, and read by the
+    # script through the page key page_shell() renders on <body>; this
+    # module names no selector and knows nothing about the loop.
+    header = layout.page_header(
+        i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE),
+        freshness_html=layout.freshness_line_html(now))
     # 22-07-PLAN.md Task 1 (D-03/CFG-26): migrated to the richer
     # wake.next_wake_status() accessor plan 22-02 added — frame_strip_
     # html()'s own `next_wake_iso` parameter still only needs the ISO
