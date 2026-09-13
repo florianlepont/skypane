@@ -8,7 +8,7 @@ updated: 2026-09-13T08:19:00+00:00
 
 ## Current Test
 
-[awaiting human testing — one automated failure found first, see Issues]
+[awaiting human testing — the one automated failure found first (I1) is fixed]
 
 ## Automated visual sweep (done by Claude, not pending)
 
@@ -35,19 +35,42 @@ full-page screenshot; that is a capture artefact of fixed positioning, not a bug
 sideways. In « Vols récents », all five rows show their relative age
 (`(il y a 42 j)`) cut off at the right edge.
 
-**Cause, measured not guessed:** `.recent-flight__time` is `white-space: nowrap`
-inside a 308 px `.recent-flight` grid. Its own box is 93 px wide and ends at
-x=349 — inside the card — but its inline content cannot wrap, so the
-`.time-value__age` child paints out to x=411, past the card and past the
-viewport. Present in French (411 px) and English (408 px) alike, so it is the
-`nowrap` and the column width, not a translation length.
+**Cause — my first diagnosis was right in spirit and wrong in mechanism; the
+corrected one:** `.recent-flight__time` carried `max-width: 60%`. It sits in
+`.recent-flight`'s third, content-sized `auto` track, so that track resolves to
+the item's own max-content width — and a percentage cap then resolves against
+that same content-derived width, clamping the box to 60 % of exactly the content
+it was meant to bound (clientWidth 88 px against scrollWidth 147 px in English,
+93 px against 155 px in French — the ratio is 0.6 at every width from 320 px to
+1440 px). Under `white-space: nowrap` nothing can reflow into the smaller box,
+so the other 40 % paints outside it. I had blamed the `nowrap` and the column
+width; in fact the column sized correctly and the cap forbade the item from
+occupying the column it had already sized.
+
+**It was never phone-only.** At 1280 px the age still paints outside its row
+(right edge 1253 against a row ending at 1191) — it just stays inside the wider
+viewport, so no scrollbar appears. That is why nine plans missed it: the desktop
+half is invisible to a `scrollWidth` check.
 
 **Scope:** this is Accueil's share of B11, the defect 22-09 / 22-11 / 22-12 each
 measured and closed on their own pages. Accueil's `nowrap` came from 22-07
 ("one line for the recent-flight time"); no plan measured Accueil's
 `scrollWidth` at 390 px afterwards.
 
-**Status:** routed to a fix; not left for the developer to find on a real phone.
+**Status: FIXED** — quick task `260913-bjy`, commits `6a6fda2` / `2de7f0c`.
+The fix is one deleted declaration (`max-width: 60%`); `white-space: nowrap`,
+`justify-self`, `text-align` and the markup are untouched, so 22-07's one-line
+intent is preserved rather than reverted. A wrapping treatment was measured
+first and produced byte-identical numbers at every width — the `auto` track
+always grows to max-content before `minmax(0, 1fr)` yields, so it would have
+shipped inert; it was not added.
+
+`companion/test_browser_ux.py` gains a check (22 → 23) that measures every
+element against the viewport AND every `.recent-flights` descendant against its
+own row box, in both languages, at 390 px and 1280 px — the row-box half is the
+only assertion that can see the desktop escape. Mutation-tested twice, once by
+the executor and once independently by me: restoring the declaration gives 22/23
+with this check the sole failure; removing it gives 23/23.
 
 ## Tests
 
@@ -88,8 +111,21 @@ suite), full suite at 93 % coverage against a floor of 83, ruff clean, and no
 temporary test allowance left standing.
 
 One automated failure (I1, Accueil's horizontal overflow at 390 px) was found
-during this pass and is being fixed rather than handed over.
+during this pass and is now **fixed and pinned** — and it turned out to be wider
+than the phone: the same cap was painting outside the card on the desktop too,
+where no scrollbar could reveal it.
 
 Seven tests remain for the developer: the real-device and real-hardware checks
 that no harness can stand in for, plus the visual re-read of the audit's own
 measurement table.
+
+## Found during verification, deliberately NOT fixed
+
+At 320 px `.recent-flight__callsign` clips (a 19 px EN / 11 px FR box against a
+58 px `scrollWidth`). The numbers are identical before and after the I1 fix, so
+it was neither introduced nor worsened by it. Fixing it needs the column to
+shrink under pressure, which a viewport media query cannot express: the row is
+292 px wide at 1280 px and 308 px at 390 px, so viewport width does not predict
+row width. The honest predictor is container width — a container query, which is
+a layout mechanism this codebase does not yet use, and so its own plan rather
+than a quick task's drive-by.
