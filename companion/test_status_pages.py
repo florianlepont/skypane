@@ -1170,14 +1170,22 @@ def main():
                 layout.parse_iso(ts), layout._FULL_TIMESTAMP_SENTINEL_NOW)
             if ('title="%s"' % layout.escape_html(expected_title)) not in rendered:
                 return False, "expected the Device row's title to be a full local timestamp"
-            if " ago)" not in rendered:
+            # 23-03-PLAN.md Task 1 (D14/CFG-34): retargeted in place, not
+            # weakened — the parenthesised relative age is now a <time
+            # data-relative> element, so the bare " ago)" substring this
+            # pinned before no longer exists (the "</time>" closes
+            # between them). The replacement asserts MORE than the old
+            # one did: the parentheses are still this format's own
+            # punctuation OUTSIDE the element, and the age between them
+            # is the element's own text.
+            if not re.search(r'\(<time datetime="[^"]*" data-relative>[^<]* ago</time>\)', rendered):
                 return False, "expected a parenthesised relative age suffix on the rendered page"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "health_page's private timestamp helpers are gone (a move, not a copy) and the Device row still "
-        "renders the absolute-plus-relative format",
+        "renders the absolute-plus-relative format, now as a parenthesised <time data-relative> element",
         _timestamp_helpers_promoted_not_duplicated)
 
     def _independent_thresholds_one_warn_one_ok():

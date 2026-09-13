@@ -26,6 +26,18 @@ CATALOG = {
     "just now": "à l’instant",
     "%s ago": "il y a %s",
 
+    # 23-03-PLAN.md Task 1 (D14/CFG-34): the same ladder read FORWARDS,
+    # for layout.relative_future_text(). The connector and the
+    # under-a-minute collapse sit here, beside the past form's own, and
+    # NOT as a literal in the script that will tick these elements
+    # (plan 23-05) — which is what lets that script carry no French at
+    # all. "dans un instant" mirrors "à l’instant"'s own collapse of the
+    # whole sub-minute bucket into one phrase rather than a literal
+    # second count; the quantity strings carry the same real U+00A0
+    # between the number and the unit (D-09, e.g. "dans 4 min").
+    "in a moment": "dans un instant",
+    "in %s": "dans %s",
+
     # --- Page header / purpose / freshness (health_page.py) -----------
     "Screen status and server data quality, in one place.":
         "L’état de l’écran et la qualité des données du serveur, au même endroit.",

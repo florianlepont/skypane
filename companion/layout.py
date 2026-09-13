@@ -784,11 +784,42 @@ _AGE_UNIT_SUFFIX_FR = {
 }
 
 
+def _age_bucket(age_seconds):
+    """The s/m/h/d bucket a whole number of seconds falls in, as a
+    `(value, unit_letter)` pair — and the ONLY place in this module the
+    three threshold boundaries are written down.
+
+    23-03-PLAN.md Task 1 extracted this out of `relative_age_text()`
+    below, unchanged, so the future form beside it can read the SAME
+    boundaries instead of restating them. "3m ago" and "in 3m" are one
+    ladder read in two directions: they must never be able to disagree
+    about where a bucket ends, and naming the boundaries once is what
+    makes that structural rather than a convention somebody has to
+    remember. The unit letters are the English suffixes themselves, so
+    the English branch formats straight from this pair and the French
+    branch maps them through `_AGE_UNIT_SUFFIX_FR` above.
+
+    A negative input (clock skew, or an instant that has already
+    elapsed) is clamped to 0 rather than read as a negative bucket —
+    both directions inherit that clamp from here.
+    """
+    age_seconds = max(0, int(age_seconds))
+    if age_seconds < 60:
+        return age_seconds, "s"
+    if age_seconds < 3600:
+        return age_seconds // 60, "m"
+    if age_seconds < 86400:
+        return age_seconds // 3600, "h"
+    return age_seconds // 86400, "d"
+
+
 def relative_age_text(age_seconds, lang=None):
     """"Ns ago"/"Nm ago"/"Nh ago"/"Nd ago" using the s/m/h/d threshold
-    ladder this app already ships on the Device/Pipeline rows. A
-    negative age (clock skew) is clamped to 0 rather than read as
-    "in the future".
+    ladder this app already ships on the Device/Pipeline rows — the
+    ladder itself is `_age_bucket()` above, called here rather than
+    restated, so this function and `relative_future_text()` below share
+    one set of boundaries. A negative age (clock skew) is clamped to 0
+    rather than read as "in the future".
 
     `lang` (D-07, 20-03-PLAN.md Task 2) is a trailing keyword whose
     `None` resolves to `prefs.current_lang()` — every pre-existing call
@@ -812,24 +843,139 @@ def relative_age_text(age_seconds, lang=None):
     age_seconds = max(0, int(age_seconds))
     if lang is None:
         lang = prefs.current_lang()
+    value, unit = _age_bucket(age_seconds)
     if lang == "fr":
-        if age_seconds < 60:
+        if unit == "s":
             return i18n.t_lang("just now", "fr")
-        if age_seconds < 3600:
-            value, unit = age_seconds // 60, "m"
-        elif age_seconds < 86400:
-            value, unit = age_seconds // 3600, "h"
-        else:
-            value, unit = age_seconds // 86400, "d"
         quantity = "%d %s" % (value, _AGE_UNIT_SUFFIX_FR[unit])
         return i18n.t_lang("%s ago", "fr") % quantity
-    if age_seconds < 60:
-        return "%ds ago" % age_seconds
-    if age_seconds < 3600:
-        return "%dm ago" % (age_seconds // 60)
-    if age_seconds < 86400:
-        return "%dh ago" % (age_seconds // 3600)
-    return "%dd ago" % (age_seconds // 86400)
+    return "%d%s ago" % (value, unit)
+
+
+def relative_future_text(seconds_ahead, lang=None):
+    """"in Ns"/"in Nm"/"in Nh"/"in Nd" — the FORWARD reading of the same
+    ladder `relative_age_text()` above reads backwards, over the same
+    `_age_bucket()` boundaries (23-03-PLAN.md Task 1, for the countdown
+    plan 23-06 puts beside a server-computed next-wake instant).
+
+    This function is FORMATTING, never a verdict. It says how long
+    remains until an instant somebody else computed; it never says
+    "late", "held", "due", or anything at all about the device's state.
+    Those words are `frame_state`'s and stay server-rendered.
+
+    A `seconds_ahead` that has already elapsed (a negative) resolves to
+    the zero bucket via `_age_bucket()`'s own clamp — never a negative
+    number, and never a past-tense string. A caller wanting the past
+    tense asks `relative_age_text()` for it explicitly;
+    `relative_time_html()` below is the one place that chooses between
+    them.
+
+    `lang` is the same trailing keyword every sibling here carries: its
+    `None` resolves to `prefs.current_lang()`. French collapses the
+    whole under-a-minute bucket the way the past form does, into one
+    "in a moment" phrase rather than a literal second count, and reads
+    the connector from the `"in %s"` catalogue entry with a real U+00A0
+    between the number and the unit (D-09). Both strings live in
+    `companion/i18n_fr/health.py` beside the past form's own, read here
+    through `i18n.t_lang()` and never duplicated as a module literal —
+    which is what lets plan 23-05's ticker script carry no French at
+    all.
+    """
+    value, unit = _age_bucket(seconds_ahead)
+    if lang is None:
+        lang = prefs.current_lang()
+    if lang == "fr":
+        if unit == "s":
+            return i18n.t_lang("in a moment", "fr")
+        quantity = "%d %s" % (value, _AGE_UNIT_SUFFIX_FR[unit])
+        return i18n.t_lang("in %s", "fr") % quantity
+    return "in %d%s" % (value, unit)
+
+
+def _machine_instant(parsed):
+    """`parsed` as a machine-readable Europe/Paris ISO-8601 instant at
+    seconds precision, or "" when it cannot be produced.
+
+    This is the value `relative_time_html()` puts in a `datetime`
+    attribute. It is deliberately NOT the raw stored string: D-05/B4's
+    rule is that no raw, unconverted timestamp reaches the page, and two
+    shipped checks assert exactly that over `concise_timestamp_html()`'s
+    output — so the attribute carries the same instant, converted onto
+    the one timezone this app speaks, offset included. An offset is what
+    makes it unambiguous to the script that will read it.
+
+    A naive datetime is taken as UTC, matching `local_clock_text()`'s
+    own convention and `history_db.utc_now_iso()`'s own output. Never
+    raises: an input that cannot be converted returns "", and the caller
+    renders plain text rather than an element with an empty attribute.
+    """
+    try:
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=ZoneInfo("UTC"))
+        return parsed.astimezone(LOCAL_TZ).isoformat(timespec="seconds")
+    except (ValueError, OverflowError, AttributeError):
+        return ""
+
+
+def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None):
+    """"<time datetime="<instant>" data-relative><relative age></time>" —
+    the app's ONE relative-time element (23-03-PLAN.md Task 1, D14/
+    CFG-34). Before this function the codebase rendered no `<time>`
+    element anywhere: every relative age was plain text baked into a
+    span at render time and frozen until something replaced the whole
+    region.
+
+    The visible text is `relative_age_text()`'s own return value for a
+    past instant and `relative_future_text()`'s for a future one — one
+    function, both directions, so plan 23-06's countdown has nothing to
+    add here. Neither string is re-derived: this is a wrapping, and if
+    the rendered text changes for any input the conversion is wrong.
+
+    `datetime` carries the machine-readable instant (`_machine_instant()`
+    above); `data-relative` is the hook plan 23-05's ticker queries.
+    Nothing else goes in the element — no class that carries meaning, no
+    state word. It is semantic, not presentational: a caller that wants
+    the `.time-value` role puts that class on its OWN wrapper, because
+    monospace stays reserved for identifiers (C5, Phase 22).
+
+    THE NO-JS FLOOR IS THIS FUNCTION'S OUTPUT, not an enhancement over
+    it. With scripts blocked the element reads exactly what the bare
+    text read before — the text is server-rendered and complete — and
+    the ticker is the layer added over it, never a prerequisite for it.
+
+    THIS IS A RAW-MARKUP-PRODUCING FUNCTION: callers interpolate the
+    return value verbatim — never re-escape it — and place it only in
+    data_table()'s raw_columns parameter, or directly in already-safe
+    markup (never in a data_table() column outside raw_columns). Both
+    the instant and the text are escaped here, at the interpolation
+    site, the same discipline `concise_timestamp_html()` below carries.
+
+    Returns the escaped `fallback` (a bare string, no markup — matching
+    `absolute_and_relative()`'s own no-markup fallback contract) when
+    `ts` is falsy, and the escaped `ts` when it, `now_ts` or the
+    conversion fails — never raising, and never an element carrying an
+    empty or invented instant, which reads as a correct time to a script
+    and is worse than no element at all.
+
+    `lang` is the same trailing keyword every sibling here carries: its
+    `None` resolves through `relative_age_text()`'s own
+    `prefs.current_lang()` default.
+    """
+    if not ts:
+        return escape_html(fallback)
+    parsed = parse_iso(ts)
+    age = age_seconds(ts, now_ts)
+    if parsed is None or age is None:
+        return escape_html(ts)
+    instant = _machine_instant(parsed)
+    if not instant:
+        return escape_html(ts)
+    if age < 0:
+        text = relative_future_text(-age, lang=lang)
+    else:
+        text = relative_age_text(age, lang=lang)
+    return '<time datetime="%s" data-relative>%s</time>' % (
+        escape_html(instant), escape_html(text))
 
 
 def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
@@ -942,10 +1088,20 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
         return '<span class="mono" title="%s">%s</span>' % (
             escape_html(ts), escape_html(ts))
     full_local = local_clock_text(parsed, _FULL_TIMESTAMP_SENTINEL_NOW, lang=lang)
+    # 23-03-PLAN.md Task 1 (D14/CFG-34): the parenthesised relative half
+    # is now relative_time_html()'s element rather than a bare escaped
+    # string, so every surface reading THROUGH this function inherits
+    # the convention without its own page module changing at all. The
+    # parentheses stay OUTSIDE the element: they are this format's
+    # punctuation, not part of the age, and the ticker that rewrites the
+    # element's text in plan 23-05 must not have to reproduce them. The
+    # outer span, its class, its title and the absolute-first ordering
+    # are untouched — reversing that ordering is not this plan's
+    # business (06.6-RESEARCH.md Open Question 1).
     return '<span class="mono" title="%s">%s (%s)</span>' % (
         escape_html(full_local),
         escape_html(local_clock_text(parsed, parse_iso(now_ts), lang=lang)),
-        escape_html(relative_age_text(age, lang=lang)))
+        relative_time_html(ts, now_ts, lang=lang))
 
 
 def month_abbr(month, lang=None):

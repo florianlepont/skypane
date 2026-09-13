@@ -1465,7 +1465,16 @@ def main():
             # and still shows a relative suffix (falls back to
             # history_db.utc_now_iso()).
             rendered_no_now = history_page.render({"state_dir": tmp})
-            if " ago)" not in rendered_no_now:
+            # 23-03-PLAN.md Task 1 (D14/CFG-34): retargeted in place, not
+            # weakened — the parenthesised relative age is now a <time
+            # data-relative> element, so the bare " ago)" substring this
+            # pinned before no longer exists (the "</time>" closes
+            # between them). The replacement asserts MORE: the
+            # parentheses stay outside the element and the age between
+            # them is the element's own text.
+            if not re.search(
+                    r'\(<time datetime="[^"]*" data-relative>[^<]* ago</time>\)',
+                    rendered_no_now):
                 return False, (
                     "expected a relative-age suffix even when ctx carries "
                     "no 'now' key (render() must fall back to "
@@ -4229,7 +4238,24 @@ def main():
                 % (attrs["first"],))
         # And nothing anywhere in either render carries the ISO shape —
         # the dialog's own static markup included.
+        #
+        # 23-03-PLAN.md Task 1 (D14/CFG-34): with ONE exemption, stated
+        # rather than silently widened. layout.relative_time_html()'s
+        # <time datetime="..." data-relative> element carries a
+        # machine-readable instant in the attribute HTML defines for
+        # exactly that purpose — never painted, never copied into the
+        # dialog, and already converted onto Europe/Paris (so it is not
+        # the raw registry string B5 found either way). This is the same
+        # line test_status_pages.py already draws for the battery
+        # chart's data-ts hit targets: "D-05 is about visible/tooltip
+        # text, not every attribute". The exemption is written as an
+        # EXACT-SHAPE substitution so that a change to the element
+        # convention stops exempting anything and this check fails
+        # loudly, and so the sweep still catches an ISO leak anywhere
+        # else on the page, the attribute's own siblings included.
         for label, page in (("gallery", rendered), ("resolve fallback", fallback)):
+            page = re.sub(
+                r'<time datetime="[^"]*" data-relative>', "<time data-relative>", page)
             leaks = _ISO_INSTANT_RE.findall(page)
             if leaks:
                 return False, (
