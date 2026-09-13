@@ -16,6 +16,16 @@ same exclusion.
 Copy follows D-09: sentence case, the typographic apostrophe (U+2019,
 never a straight quote), and a non-breaking space (U+00A0) before
 ":" ";" "?" "!".
+
+22-08-PLAN.md Task 2 (D-06/B16): also carries the one nav-landmark
+accessible name shared by companion/layout.py's sidebar_nav()/
+_mobile_nav_html() (`aria-label="Primary navigation"` was a hard-coded
+literal, one of B16's own named leaks), and the theme-picker's three
+segment labels — "Auto"/"Light"/"Dark" are the theme-form's own
+segmented-control text, not a THEMES registry entry (those live in
+companion/i18n_fr/registry.py and are a different, longer list of
+colour names); grouped here because the theme picker sits in this same
+sidebar/mobile-nav footer region _theme_form_html() builds.
 """
 
 CATALOG = {
@@ -60,4 +70,14 @@ CATALOG = {
     "Quiet hours off": "Heures calmes désactivées",
     "Screen and quiet hours status — go to Home":
         "État de l’écran et des heures calmes — aller à l’accueil",
+
+    # --- The nav landmark's accessible name (22-08-PLAN.md Task 2,
+    #     D-06/B16) --------------------------------------------------
+    "Primary navigation": "Navigation principale",
+
+    # --- The theme picker's three segment labels (22-08-PLAN.md Task 2,
+    #     D-06/B16) — companion/layout.py's _theme_form_html() ---------
+    "Auto": "Automatique",
+    "Light": "Clair",
+    "Dark": "Sombre",
 }

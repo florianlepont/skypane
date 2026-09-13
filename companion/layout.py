@@ -1166,11 +1166,32 @@ def sidebar_nav(active, health_alert=None, device_config=None):
             parts.append("".join(links))
     return (
         "%s"
-        '<nav class="sidebar-nav" aria-label="Primary navigation">%s</nav>'
-    ) % (nav_status_html(device_config), "".join(parts))
+        '<nav class="sidebar-nav" aria-label="%s">%s</nav>'
+    ) % (
+        nav_status_html(device_config),
+        # 22-08-PLAN.md Task 2 (D-06/B16): was the hard-coded literal
+        # "Primary navigation" — an untranslated accessible name for the
+        # one nav landmark exposed to the accessibility tree at any given
+        # viewport width (see this module's own comment on that exposure
+        # above _mobile_nav_html()).
+        escape_html(i18n.t("Primary navigation")),
+        "".join(parts))
 
 
 def _theme_form_html(resolved_theme):
+    # 22-08-PLAN.md Task 2 (D-06/B16): a function-scoped lookup table,
+    # not `choice.capitalize()` — companion/test_i18n.py's ast-based
+    # scanner cannot fold a `.capitalize()` method call back to a
+    # literal, so a call shaped `i18n.t(choice.capitalize())` would be
+    # scanner-invisible (Check 1 would never demand "Auto"/"Light"/
+    # "Dark" have a catalogue entry, and Check 2 would then have to
+    # carry them as an undocumented-looking dead-translation exception).
+    # This table mirrors the scanner's own documented "a builder
+    # constructs its own small lookup table function-locally, then
+    # indexes it with a runtime loop variable inside i18n.t()" pattern
+    # (test_i18n.py's Pass 1b comment) — `choice` (the loop variable
+    # below) indexes it inside the very i18n.t() call the scanner traces.
+    _THEME_LABEL_TEXT = {"auto": "Auto", "light": "Light", "dark": "Dark"}
     options = []
     for choice in UI_THEME_CHOICES:
         is_active = choice == resolved_theme
@@ -1180,7 +1201,12 @@ def _theme_form_html(resolved_theme):
         options.append(
             '<button type="submit" name="ui_theme" value="%s" class="%s" aria-pressed="%s">%s</button>'
             % (escape_html(choice), css_class, "true" if is_active else "false",
-               escape_html(choice.capitalize())))
+               # `choice` itself ("auto"/"light"/"dark") is the form's own
+               # submitted value and stays an untranslated identifier
+               # (D-05); only the rendered label text is translated —
+               # "Auto"/"Light"/"Dark" were all still English under a
+               # French sidebar.
+               escape_html(i18n.t(_THEME_LABEL_TEXT[choice]))))
     # D-02/D-29 (20-01-PLAN.md Task 3, 20-UI-SPEC.md §I): an aria-label
     # disambiguates this now-identical-looking segmented group from the
     # two new siblings below — the theme ids ("Auto"/"Light"/"Dark")
@@ -1315,10 +1341,18 @@ def _mobile_nav_html(
     panel_html = (
         '<div id="%s" class="mobile-nav">'
         "%s"
-        '<nav class="mobile-nav__nav" aria-label="Primary navigation">%s</nav>'
+        '<nav class="mobile-nav__nav" aria-label="%s">%s</nav>'
         "%s"
         "</div>"
-    ) % (MOBILE_NAV_ID, nav_status_html(device_config), "".join(links), footer_html)
+    ) % (
+        MOBILE_NAV_ID, nav_status_html(device_config),
+        # 22-08-PLAN.md Task 2 (D-06/B16): same translated accessible
+        # name as sidebar_nav()'s own copy above — the two nav landmarks
+        # share the label by design (this module's own comment on
+        # _mobile_nav_html() states exactly one is ever exposed to the
+        # accessibility tree at a time).
+        escape_html(i18n.t("Primary navigation")),
+        "".join(links), footer_html)
     return toggle_html + panel_html
 
 

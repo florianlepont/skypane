@@ -487,6 +487,13 @@ EXPECTED_CHECK_COUNT = 258
 # two documented WR-11 root-sandbox failures, unrelated to this plan),
 # not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 259
+# 22-08-PLAN.md Task 2 (D-06/B16): +1 (the nav landmark's aria-label
+# and the theme picker's three segment labels round-trip to French and
+# back via i18n.t_lang(), same section). 259 + 1 = 260, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (258/260 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 260
 
 
 def _ago_iso(seconds):
@@ -7471,6 +7478,29 @@ def main():
             "i18n.t_lang(..., 'fr') and to their original English text "
             "under i18n.t_lang(..., 'en')",
             _flash_and_title_strings_round_trip_to_french_and_back)
+
+        def _nav_and_theme_labels_round_trip_to_french_and_back():
+            import companion.i18n as i18n_module
+            for text in ("Primary navigation", "Auto", "Light", "Dark"):
+                en_result = i18n_module.t_lang(text, "en")
+                if en_result != text:
+                    return False, (
+                        "expected t_lang(%r, 'en') to be byte-identical to "
+                        "the English source, got %r" % (text, en_result))
+                fr_result = i18n_module.t_lang(text, "fr")
+                if fr_result == text:
+                    return False, (
+                        "expected t_lang(%r, 'fr') to be a real French "
+                        "translation, got the English source back "
+                        "unchanged" % (text,))
+            return True, ""
+        check(
+            "the nav landmark's aria-label (\"Primary navigation\") and "
+            "the theme picker's three segment labels (\"Auto\"/\"Light\"/"
+            "\"Dark\") round-trip to French under i18n.t_lang(..., 'fr') "
+            "and to their original English text under "
+            "i18n.t_lang(..., 'en') (D-06/B16)",
+            _nav_and_theme_labels_round_trip_to_french_and_back)
 
     finally:
         harness.stop()
