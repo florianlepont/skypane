@@ -136,7 +136,15 @@ MOBILE_NAV_OPEN_CLASS = "mobile-nav--open"
 # that varies it BY STATE — it is still translated through i18n.t() at
 # its one render site (D-05, 20-12-PLAN.md Task 1: a real completeness
 # gap this constant's own render site had left un-wrapped).
-NAV_TOGGLE_LABEL = "Open menu"
+# 22-14-PLAN.md Task 2 (X9/D-10, 22-UI-SPEC.md §3.1): renamed from
+# "Open menu". The panel this toggle controls no longer holds a menu of
+# pages at all — the bottom tab bar owns destinations now, and what is
+# left behind the hamburger is the state reminder plus the language,
+# theme and Sign out controls. An accessible name that describes
+# something the control no longer opens is the same class of defect as
+# B10's own "go to Home" label on the Home page, so it is corrected in
+# the same plan that causes it rather than left to drift.
+NAV_TOGGLE_LABEL = "Account and preferences"
 
 # Must equal companion/app.py's NAV_SCRIPT_ROUTE exactly. Duplicated
 # rather than imported because companion/pages/__init__.py's boundary —
@@ -1092,9 +1100,16 @@ NAV_SCREEN_OFF_TEXT = "Screen off"
 NAV_QUIET_ON_TEXT = "Quiet hours on"
 NAV_QUIET_OFF_TEXT = "Quiet hours off"
 NAV_STATUS_ARIA_LABEL_TEXT = "Screen and quiet hours status — go to Home"
+# 22-14-PLAN.md Task 2 (B10, 22-UI-SPEC.md §5 contract 6): the middle dot
+# that separates the two state segments. Promoted out of the format
+# string to a named constant because the two segments are now
+# `white-space: nowrap` spans inside a wrapping flex row (the line may
+# break BETWEEN them, never inside one), so the separator is a sibling
+# of both rather than punctuation embedded in one of them.
+NAV_STATUS_SEPARATOR_TEXT = " · "
 
 
-def nav_status_html(device_config):
+def nav_status_html(device_config, active=None):
     """The nav's state-only reminder — D-03 (21-CONTEXT.md, R-03): one
     shared body, called by BOTH `sidebar_nav()` and `_mobile_nav_html()`
     below, so the two nav copies can never disagree about the frame's
@@ -1121,6 +1136,33 @@ def nav_status_html(device_config):
     text alone does not read as a link destination to a screen-reader
     user. Every value crosses `escape_html()`; every string crosses
     `i18n.t()` at its interpolation site.
+
+    `active` (22-14-PLAN.md Task 2, B10/D-04, 22-UI-SPEC.md §5 contract
+    6, keyword-with-default so no existing positional call site changes
+    meaning): the caller's own active-route slug. When it is Home's own
+    slug this renders a `<span>` with NO `href` at all, whose
+    `aria-label` names only the state — because on Home the link's
+    "— go to Home" label promised navigation the element could not
+    perform, which is the defect B10 names, and the wording is not what
+    is wrong with it. D-04's "the reminder stays only if it links
+    somewhere useful" is then satisfied by construction rather than by
+    copy: on Home it is not a link, so it cannot claim a destination the
+    user already occupies. Everywhere else it stays the existing
+    `<a href="/">` with its destination-naming label, byte-identical to
+    this function's own pre-22-14 output.
+
+    The Home variant's `aria-label` is composed from the SAME two
+    translated state strings the visible segments interpolate, never a
+    second wording — so the announced name and the rendered text cannot
+    drift, and no new catalogue entry is introduced for a string that is
+    already on screen.
+
+    B10 also changes the two segments' SHAPE (not their text): each is
+    wrapped in its own `.nav-status__segment` span so
+    companion/static/style.css can give it `white-space: nowrap`. The
+    audit measured the old inline run wrapping mid-phrase ("Screen on ·
+    Quiet hours" / "on"; FR "Heures / calmes activées"); the line may
+    now break between the two segments, never inside one.
     """
     if not device_config:
         return ""
@@ -1132,16 +1174,31 @@ def nav_status_html(device_config):
     screen_text = i18n.t(NAV_SCREEN_ON_TEXT if is_display_on else NAV_SCREEN_OFF_TEXT)
     quiet_dot_class = "dot--ok" if is_quiet_on else "dot--off"
     quiet_text = i18n.t(NAV_QUIET_ON_TEXT if is_quiet_on else NAV_QUIET_OFF_TEXT)
-    return (
-        '<a class="nav-status text-label" href="%s" aria-label="%s">'
+    segments = (
+        '<span class="nav-status__segment">'
         '<span class="dot %s"></span><span class="dot-label">%s</span>'
-        '<span class="nav-status__sep"> · </span>'
+        "</span>"
+        '<span class="nav-status__sep">%s</span>'
+        '<span class="nav-status__segment">'
         '<span class="dot %s"></span><span class="dot-label">%s</span>'
-        "</a>"
+        "</span>"
     ) % (
-        HOME_ROUTE, escape_html(i18n.t(NAV_STATUS_ARIA_LABEL_TEXT)),
         screen_dot_class, escape_html(screen_text),
+        escape_html(NAV_STATUS_SEPARATOR_TEXT),
         quiet_dot_class, escape_html(quiet_text),
+    )
+    if active == nav_slug(HOME_ROUTE):
+        return (
+            '<span class="nav-status text-label" aria-label="%s">%s</span>'
+        ) % (
+            escape_html(
+                screen_text + NAV_STATUS_SEPARATOR_TEXT + quiet_text),
+            segments,
+        )
+    return (
+        '<a class="nav-status text-label" href="%s" aria-label="%s">%s</a>'
+    ) % (
+        HOME_ROUTE, escape_html(i18n.t(NAV_STATUS_ARIA_LABEL_TEXT)), segments,
     )
 
 
@@ -1217,7 +1274,11 @@ def sidebar_nav(active, health_alert=None, device_config=None):
         "%s"
         '<nav class="sidebar-nav" aria-label="%s">%s</nav>'
     ) % (
-        nav_status_html(device_config),
+        # 22-14-PLAN.md Task 2 (B10): `active` is threaded through so the
+        # reminder can drop its href on Home — one shared body, two call
+        # sites, one active-route argument, so the sidebar and the
+        # dropdown can still never disagree about its shape either.
+        nav_status_html(device_config, active=active),
         # 22-08-PLAN.md Task 2 (D-06/B16): was the hard-coded literal
         # "Primary navigation" — an untranslated accessible name for the
         # one nav landmark exposed to the accessibility tree at any given
@@ -1489,11 +1550,31 @@ def _mobile_nav_html(
         active, theme_form_html, health_alert=None, lang_form_html="",
         device_config=None):
     """The hamburger toggle button plus the dropdown panel it controls —
-    the <960px nav renderer (D-06, 06.6.1-UI-SPEC.md's Layout Contract).
+    the <960px preferences panel (D-06, 06.6.1-UI-SPEC.md's Layout
+    Contract; reduced to preferences by 22-14-PLAN.md Task 2).
 
-    Consumes _nav_links(), the module's single iteration-and-escaping
-    site for NAV_TABS, exactly like sidebar_nav() does — this is that
-    helper's second consumer, not a third independent implementation.
+    22-14-PLAN.md Task 2 (X9/D-10, 22-UI-SPEC.md §3.1): this panel no
+    longer holds the destination links, and therefore no longer carries
+    a navigation landmark of its own. Its `<nav class="mobile-nav__nav">`
+    block WAS the ~420px page shove the audit measured on a 390x844
+    viewport — a near-full-screen push to reach any page — and
+    `_tab_bar_html()` above now owns destinations at zero page shift.
+    What is left is the state reminder, then the language and theme
+    switches, then Sign out: preferences, which is what the renamed
+    NAV_TOGGLE_LABEL now says out loud.
+
+    The in-flow `flex-basis: 100%` push-down MECHANISM is untouched and
+    must stay untouched — it is the recorded fix for the rejected
+    absolute-positioned overlay (06.6.1-06) and this plan does not
+    reopen it; only the panel's CONTENTS shrank.
+
+    `health_alert` is consequently no longer drawn here: with the Health
+    link gone from this panel there is no link to hang the dot on. The
+    "one notification dot per nav renderer" contract is unchanged — the
+    two renderers are now `sidebar_nav()` and `_tab_bar_html()`. The
+    parameter is KEPT rather than removed so `page_shell()`'s own call
+    site and every positional caller stay as they are; see the
+    no-op note at its use site below.
 
     `theme_form_html` is taken as a parameter rather than built here via
     _theme_form_html(), so page_shell() keeps building it exactly once
@@ -1513,39 +1594,25 @@ def _mobile_nav_html(
     the toggle's own aria-expanded attribute (the single source of truth
     for the open state, never a second variable to keep in sync).
 
-    `health_alert` (06.6.2-06/UXA-14): `None`/`"ok"` draws no dot;
-    `"warn"`/`"error"` draws `_health_alert_markup()` with that exact
-    severity after the Health link's label, mirroring sidebar_nav()'s
-    own contract exactly so the two nav renderers can never disagree.
+    `health_alert` (06.6.2-06/UXA-14) is now a deliberate NO-OP here —
+    22-14-PLAN.md Task 2 moved the destination links, and with them the
+    Health link the dot attached to, onto `_tab_bar_html()`. It is read
+    below only to keep the parameter honest for linters and readers; the
+    dot itself is drawn by `sidebar_nav()` and `_tab_bar_html()`, which
+    is still exactly one per nav renderer.
 
     `device_config` (D-03, 21-04-PLAN.md Task 2): threaded straight to
-    `nav_status_html()`, whose own reminder markup becomes the first
-    child of `#mobile-nav`, before its `<nav>` — mirroring `sidebar_
-    nav()`'s own "under the brand, above the list" placement exactly.
-    `None` renders no reminder at all, byte-identical to this
-    function's own pre-21-04 output.
+    `nav_status_html()`, whose own reminder markup is the first child of
+    `#mobile-nav` — mirroring `sidebar_nav()`'s own "under the brand,
+    above the list" placement exactly, and now its ONLY non-footer
+    child. `None` renders no reminder at all.
     """
-    parts = []
-    for group_label, group_links in _nav_groups(active):
-        links = []
-        for is_active, route, label, slug in group_links:
-            css_class = (
-                "mobile-nav__link mobile-nav__link--active"
-                if is_active else "mobile-nav__link")
-            alert_html = (
-                _health_alert_markup(health_alert)
-                if health_alert in ("warn", "error") and slug == HEALTH_NAV_SLUG else "")
-            links.append(
-                '<a class="%s" href="%s">%s%s</a>'
-                % (css_class, route, label, alert_html))
-        if group_label:
-            parts.append(
-                '<div class="nav-group nav-group--advanced">'
-                '<span class="nav-group__label text-label">%s</span>%s</div>'
-                % (group_label, "".join(links)))
-        else:
-            parts.append("".join(links))
-    links = parts
+    # 22-14-PLAN.md Task 2: `health_alert` is accepted and deliberately
+    # unused (see the docstring above). Named here rather than dropped
+    # from the signature so every existing keyword call site is
+    # unchanged, and referenced so it cannot be mistaken for an
+    # oversight.
+    del health_alert
     toggle_html = (
         '<button type="button" id="%s" class="site-nav-toggle" '
         'aria-label="%s" aria-expanded="false" aria-controls="%s">%s</button>'
@@ -1559,21 +1626,22 @@ def _mobile_nav_html(
     footer_html = (
         '<div class="mobile-nav__footer">%s%s%s</div>'
         % (lang_form_html, theme_form_html, _logout_form_html()))
+    # 22-14-PLAN.md Task 2 (X9/D-10): the `<nav class="mobile-nav__nav">`
+    # that used to sit between the reminder and the footer is REMOVED,
+    # not merely emptied — an empty navigation landmark would still be
+    # announced, and the panel's own 22-08 "Primary navigation"
+    # aria-label goes with it, so the sub-960px landmark is now
+    # `_tab_bar_html()`'s. The document still carries exactly two
+    # landmarks with that name (sidebar + tab bar) and still exposes
+    # exactly one at any viewport width.
     panel_html = (
         '<div id="%s" class="mobile-nav">'
         "%s"
-        '<nav class="mobile-nav__nav" aria-label="%s">%s</nav>'
         "%s"
         "</div>"
     ) % (
-        MOBILE_NAV_ID, nav_status_html(device_config),
-        # 22-08-PLAN.md Task 2 (D-06/B16): same translated accessible
-        # name as sidebar_nav()'s own copy above — the two nav landmarks
-        # share the label by design (this module's own comment on
-        # _mobile_nav_html() states exactly one is ever exposed to the
-        # accessibility tree at a time).
-        escape_html(i18n.t("Primary navigation")),
-        "".join(links), footer_html)
+        MOBILE_NAV_ID, nav_status_html(device_config, active=active),
+        footer_html)
     return toggle_html + panel_html
 
 

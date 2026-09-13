@@ -670,6 +670,30 @@ EXPECTED_CHECK_COUNT = 258
 # root-sandbox failure, unrelated to this plan), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 261
+# 22-14-PLAN.md Task 2 (X9/D-10, B10, T11): +4 — the reminder rendering
+# as a <span> with no href on Home (announcing only the state, composed
+# from the same two translated strings the visible segments use) and as
+# a destination-naming link everywhere else, in both nav copies and with
+# two nowrap segments in each; exactly ONE open-state max-height for the
+# dropdown at a value measured against the reduced French content (165px
+# at 390px, capped at 320px) with both contradicting declarations gone
+# and the dead dropdown-nav selectors deleted while .mobile-nav__link
+# survives for the tab bar's sheet; a structural guard pinning the
+# stylesheet at zero stray comment terminators, added after this plan
+# found that 22-10's own appended note had silently dropped T10's
+# saved-chip badge rule outright (Rule 1, fixed in the same commit); and
+# the renamed hamburger toggle with its French entry, the retired
+# "Open menu" translation deleted rather than orphaned. Five earlier
+# checks were RETARGETED IN PLACE, strictly narrower, not counted as new
+# (the Advanced-group-in-both-copies check, the reminder's placement
+# inside the dropdown, and — in companion/test_companion_app.py — the
+# active-link, six-and-six, landmark-count, notification-dot,
+# dropdown-contents, no-JS and three-file DOM-contract checks).
+# 261 + 4 = 265, recomputed directly against the real on-disk check(...)
+# call count at execution time (264/265 pass — the one documented
+# anomaly_active() root-sandbox failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 265
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -7700,27 +7724,40 @@ def main():
     def _advanced_group_always_renders_in_both_nav_copies():
         """D-17 (21-01-PLAN.md Task 1): the display-mode gate that used
         to omit the Advanced group (Health, Device) is deleted — the
-        group now renders on every page for every request, in both the
-        sidebar and the mobile-nav dropdown copy. Replaces a deleted
-        check that tested the now-removed omission mechanism.
+        group now renders on every page for every request, in both nav
+        copies. Replaces a deleted check that tested the now-removed
+        omission mechanism.
+
+        RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task 2,
+        X9/D-10): the sub-960px copy is the BOTTOM TAB BAR now, not the
+        hamburger dropdown — the Advanced group lives behind its "More"
+        <details> rather than under a group label. The D-17 guarantee
+        being defended is unchanged (the group is never omitted), and the
+        assertion is tightened: both destinations must appear in the tab
+        bar's own slice, not merely twice somewhere in the document.
         """
         rendered = layout.page_shell(
-            title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
-        if rendered.count(layout.ADVANCED_GROUP_LABEL) < 2:
+            title="Home", active="home", body="", ui_theme="auto", health_alert="warn",
+            device_config={"display_enabled": True, "quiet_hours_enabled": False})
+        if layout.ADVANCED_GROUP_LABEL not in rendered:
             return False, (
-                "expected the Advanced group label in both the sidebar and the "
-                "mobile-nav dropdown, got %d occurrence(s)"
+                "expected the Advanced group label in the sidebar copy, got %d occurrence(s)"
                 % rendered.count(layout.ADVANCED_GROUP_LABEL))
-        if rendered.count(layout.HEALTH_ROUTE) < 2:
-            return False, "expected a /health href in both nav copies"
-        if rendered.count(layout.DEVICE_ROUTE) < 2:
-            return False, "expected a /device href in both nav copies"
+        sidebar = rendered[rendered.index('<nav class="sidebar-nav"'):rendered.index("</aside>")]
+        bar_start = rendered.index('<nav class="tab-bar"')
+        bar = rendered[bar_start:rendered.index("</nav>", bar_start)]
+        for route in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE):
+            if ('href="%s"' % route) not in sidebar:
+                return False, "expected a %s href in the sidebar copy" % route
+            if ('href="%s"' % route) not in bar:
+                return False, "expected a %s href in the tab bar copy" % route
         if layout.NAV_NOTIFICATION_CLASS not in rendered:
             return False, "expected the nav status dot (health_alert='warn')"
         return True, ""
     check(
         "the Advanced group (Health, Device) and the nav status dot always render, in both "
-        "the sidebar and the mobile dropdown, on a plain request (D-17)",
+        "the sidebar and the bottom tab bar, on a plain request (D-17; retargeted from the "
+        "dropdown by 22-14-PLAN.md Task 2)",
         _advanced_group_always_renders_in_both_nav_copies)
 
     # ======================================================================
@@ -7737,8 +7774,13 @@ def main():
             device_config=_NAV_STATUS_DEVICE_CFG)
         if rendered.count('class="nav-status text-label"') != 2:
             return False, (
-                "expected exactly one .nav-status link in the sidebar and one in the mobile "
+                "expected exactly one .nav-status reminder in the sidebar and one in the mobile "
                 "dropdown, got %d" % rendered.count('class="nav-status text-label"'))
+        if rendered.count('<nav class="tab-bar"') != 1:
+            return False, "expected the tab bar beside them, carrying no reminder of its own"
+        bar_start = rendered.index('<nav class="tab-bar"')
+        if "nav-status" in rendered[bar_start:rendered.index("</nav>", bar_start)]:
+            return False, "expected no third copy of the reminder inside the tab bar"
         for match in re.finditer(r'<a class="nav-status text-label"[^>]*>(.*?)</a>', rendered):
             segment = match.group(0)
             if "<form" in segment or "<button" in segment:
@@ -7750,9 +7792,15 @@ def main():
             return False, "expected the sidebar's nav-status link between the brand and the primary nav list"
         mobile_panel_pos = rendered.index('<div id="%s" class="mobile-nav">' % layout.MOBILE_NAV_ID)
         mobile_nav_status_pos = rendered.index('class="nav-status text-label"', mobile_panel_pos)
-        mobile_nav_list_pos = rendered.index('<nav class="mobile-nav__nav"', mobile_panel_pos)
-        if not (mobile_panel_pos < mobile_nav_status_pos < mobile_nav_list_pos):
-            return False, "expected the mobile dropdown's nav-status link to be its first child, before its own <nav>"
+        # RETARGETED IN PLACE (22-14-PLAN.md Task 2): the dropdown's own
+        # <nav> is deleted, so "first child, before its own nav list"
+        # becomes "first child, before the footer" — the panel's only
+        # other region now.
+        mobile_footer_pos = rendered.index('class="mobile-nav__footer"', mobile_panel_pos)
+        if not (mobile_panel_pos < mobile_nav_status_pos < mobile_footer_pos):
+            return False, (
+                "expected the mobile dropdown's nav-status to be its first child, before "
+                "its footer")
         return True, ""
     check(
         "the sidebar and the mobile dropdown each contain exactly one .nav-status link, with no "
@@ -10956,6 +11004,211 @@ def main():
         "Plus, with \u00c9tat and Appareil inside the More sheet — and the landmark name is "
         "'Navigation principale' (B16/CFG-29, 22-14-PLAN.md Task 1)",
         _french_tab_bar_labels_and_landmark)
+
+    # ======================================================================
+    # 22-14-PLAN.md Task 2 (X9/D-10, B10, T11): the dropdown reduced to
+    # preferences, the reminder that stops lying, and the ONE open-state
+    # max-height.
+    # ======================================================================
+
+    def _nav_status_is_a_span_on_home_and_a_link_everywhere_else():
+        # B10 / 22-UI-SPEC.md §5 contract 6 / D-04. The audit's finding
+        # is not the WORDING of the aria-label — it is that an element
+        # promises navigation it does not perform. On Home the reminder
+        # therefore stops being a link at all, which is also how D-04's
+        # "stays only if it links somewhere useful" is satisfied by
+        # construction rather than by copy.
+        home = layout.page_shell(
+            title="Home", active="home", body="", ui_theme="auto",
+            device_config=_NAV_STATUS_DEVICE_CFG)
+        if home.count('<span class="nav-status text-label"') != 2:
+            return False, (
+                "expected the reminder to render as a <span> in BOTH nav copies on Home, got %d"
+                % home.count('<span class="nav-status text-label"'))
+        if '<a class="nav-status text-label"' in home:
+            return False, "expected no <a> reminder anywhere on Home"
+        home_label = layout.i18n.t(layout.NAV_STATUS_ARIA_LABEL_TEXT)
+        if home_label in home:
+            return False, (
+                "the destination-naming label must not survive on Home — it is the claim, "
+                "not the wording, that is the defect")
+        for match in re.finditer(
+                r'<span class="nav-status text-label" aria-label="([^"]*)"', home):
+            announced = match.group(1)
+            expected = "%s%s%s" % (
+                layout.i18n.t(layout.NAV_SCREEN_ON_TEXT),
+                layout.NAV_STATUS_SEPARATOR_TEXT,
+                layout.i18n.t(layout.NAV_QUIET_OFF_TEXT))
+            if announced != expected:
+                return False, (
+                    "expected the Home reminder to announce only the state (%r), got %r"
+                    % (expected, announced))
+
+        elsewhere = layout.page_shell(
+            title="Display", active="display", body="", ui_theme="auto",
+            device_config=_NAV_STATUS_DEVICE_CFG)
+        if elsewhere.count('<a class="nav-status text-label" href="%s"' % layout.HOME_ROUTE) != 2:
+            return False, (
+                "expected the reminder to stay a link to Home in both nav copies elsewhere")
+        if '<span class="nav-status text-label"' in elsewhere:
+            return False, "expected no <span> reminder off Home"
+        if layout.escape_html(
+                layout.i18n.t(layout.NAV_STATUS_ARIA_LABEL_TEXT)) not in elsewhere:
+            return False, "expected the destination-naming label off Home"
+
+        # The two segments are separate nowrap spans in both shapes, so
+        # the line can only ever break BETWEEN them (B10).
+        for rendered, shape in ((home, "span"), (elsewhere, "link")):
+            if rendered.count('<span class="nav-status__segment">') != 4:
+                return False, (
+                    "expected two segments per nav copy in the %s shape, got %d"
+                    % (shape, rendered.count('<span class="nav-status__segment">')))
+        return True, ""
+    check(
+        "the nav state reminder renders as a <span> with no href on Home, announcing ONLY the state, "
+        "and stays an <a href=\"/\" > with its destination-naming label everywhere else — in both nav "
+        "copies, each with its two nowrap segments (B10/D-04, 22-14-PLAN.md Task 2)",
+        _nav_status_is_a_span_on_home_and_a_link_everywhere_else)
+
+    def _one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule():
+        css_source = _css_source()
+        open_state = ".js .mobile-nav--open"
+        if css_source.count(open_state) != 1:
+            return False, (
+                "T11: expected exactly ONE open-state dropdown rule in the whole file, got %d"
+                % css_source.count(open_state))
+        open_block = _block(css_source, open_state + " {")
+        if open_block.count("max-height") != 1:
+            return False, "expected exactly one max-height declaration for the open state"
+        if "max-height: 320px" not in open_block:
+            return False, (
+                "expected the measured single value (the reduced French content at 390px "
+                "measures 165px), got %r" % (open_block,))
+        if "max-height: 640px" in css_source or "max-height: 420px" in css_source:
+            return False, "expected both of the contradicting values to be gone, not re-tuned"
+
+        # The dropdown's own nav region is deleted, not left as a dead
+        # selector — its rule and its .nav-group override both go.
+        for dead in (".mobile-nav__nav {", ".mobile-nav__nav .nav-group {"):
+            if dead in css_source:
+                return False, "expected the dead selector %r to be deleted" % (dead,)
+        # ...but .mobile-nav__link survives, because the tab bar's More
+        # sheet reuses it verbatim.
+        if ".mobile-nav__link {" not in css_source:
+            return False, (
+                ".mobile-nav__link must survive — the tab bar's More sheet reuses its "
+                "44px/16px geometry")
+
+        # B10's own mechanism, read from the rule rather than assumed.
+        status_block = _block(css_source, ".nav-status {")
+        for needle in ("display: flex", "flex-wrap: wrap", "gap: 0 var(--space-xs)"):
+            if needle not in status_block:
+                return False, "expected %r in .nav-status" % (needle,)
+        segment_block = _block(css_source, ".nav-status__segment {")
+        if "white-space: nowrap" not in segment_block:
+            return False, "expected each segment to be nowrap"
+        # The hover underline is scoped to the ANCHOR: a <span> that
+        # underlines under the pointer claims an interactivity it does
+        # not have.
+        # Boundary-anchored: "a.nav-status:hover {" CONTAINS
+        # ".nav-status:hover {", so a bare substring test would report
+        # the scoped rule as the unscoped one it is replacing.
+        if re.search(r"(?:^|[\s,])\.nav-status:hover\s*\{", css_source, re.M):
+            return False, (
+                "expected the hover underline scoped to a.nav-status, not every reminder")
+        if not re.search(r"(?:^|[\s,])a\.nav-status:hover\s*\{", css_source, re.M):
+            return False, "expected the anchor-scoped hover underline"
+        return True, ""
+    check(
+        "exactly ONE open-state max-height governs the dropdown (320px, pinned against a measured "
+        "165px of reduced French content at 390px — both the 420px and 640px values are gone, not "
+        "re-tuned), the dropdown's dead nav selectors are deleted while .mobile-nav__link survives for "
+        "the tab bar's sheet, and .nav-status is a wrapping flex row of nowrap segments whose hover "
+        "underline is anchor-scoped (T11/B10, 22-14-PLAN.md Task 2)",
+        _one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule)
+
+    def _style_css_carries_no_stray_comment_terminator():
+        """A structural guard, added by 22-14-PLAN.md Task 2 after a real
+        defect this plan found and fixed.
+
+        22-10-PLAN.md Task 1 appended a note to an existing block comment
+        AFTER that comment's own closing marker, leaving a terminator
+        with no opener. Everything from it to the next brace then parsed
+        as part of the following selector, so the whole
+        `.theme-chip--selected:not(:has(input:checked))::after` rule —
+        T10's saved-chip badge — was silently dropped by every browser.
+        This plan's own first draft of the B10 comment made the identical
+        mistake and took `.nav-status` with it.
+
+        No string-comparison harness could see either one: the file still
+        contains every declaration such a harness asks about. The
+        cheapest durable guard is structural, so it is pinned here rather
+        than left to the next person who happens to open a real browser.
+        """
+        css_source = _css_source()
+        pos = 0
+        line = 1
+        in_comment = False
+        strays = []
+        while pos < len(css_source):
+            ch = css_source[pos]
+            if ch == "\n":
+                line += 1
+                pos += 1
+                continue
+            if not in_comment and css_source.startswith("/*", pos):
+                in_comment = True
+                pos += 2
+                continue
+            if in_comment and css_source.startswith("*/", pos):
+                in_comment = False
+                pos += 2
+                continue
+            if not in_comment and css_source.startswith("*/", pos):
+                strays.append(line)
+                pos += 2
+                continue
+            pos += 1
+        if strays:
+            return False, (
+                "companion/static/style.css carries %d comment terminator(s) with no opener, at "
+                "line(s) %r — everything from each one to the next brace parses as a selector and "
+                "silently drops the rule that follows" % (len(strays), strays))
+        if in_comment:
+            return False, "companion/static/style.css ends inside an unterminated block comment"
+        return True, ""
+    check(
+        "companion/static/style.css carries zero stray comment terminators and ends outside a comment "
+        "— the structural guard for a real parse-error class that drops whole rules while leaving the "
+        "source text a string-comparison harness reads as correct (22-14-PLAN.md Task 2, Rule 1)",
+        _style_css_carries_no_stray_comment_terminator)
+
+    def _nav_toggle_label_now_describes_the_preferences_panel():
+        if layout.NAV_TOGGLE_LABEL != "Account and preferences":
+            return False, (
+                "expected the toggle to name what the panel now holds, got %r"
+                % (layout.NAV_TOGGLE_LABEL,))
+        if layout.i18n.t_lang(layout.NAV_TOGGLE_LABEL, "fr") == layout.NAV_TOGGLE_LABEL:
+            return False, "expected a French entry for the renamed toggle label"
+        if layout.i18n.t_lang("Open menu", "fr") != "Open menu":
+            return False, (
+                "expected the retired 'Open menu' translation to be deleted, not superseded "
+                "in place — it names a menu of pages the panel no longer holds")
+        try:
+            prefs.set_request_prefs(lang="fr")
+            rendered = layout.page_shell(
+                title="T", active="display", body="", ui_theme="auto",
+                device_config=_NAV_STATUS_DEVICE_CFG)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if 'aria-label="Compte et préférences"' not in rendered:
+            return False, "expected the French toggle name on a French request"
+        return True, ""
+    check(
+        "the hamburger toggle's accessible name describes the preferences panel it now opens "
+        "(\"Account and preferences\" / \"Compte et préférences\"), and the retired \"Open menu\" "
+        "translation is deleted rather than orphaned (X9/D-10/B16, 22-14-PLAN.md Task 2)",
+        _nav_toggle_label_now_describes_the_preferences_panel)
 
     # ======================================================================
     # 22-04-PLAN.md Task 3 (D-03/CFG-26, X2): Health's Frame tile and the

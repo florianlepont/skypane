@@ -62,7 +62,15 @@ CATALOG = {
     #     real D-05 gap found by the completeness harness — both render
     #     sites had been left un-wrapped since their own introducing
     #     plan) --------------------------------------------------------
-    "Open menu": "Ouvrir le menu",
+    # 22-14-PLAN.md Task 2 (X9/D-10, 22-UI-SPEC.md §3.1): "Open menu"/
+    # "Ouvrir le menu" is DELETED in the same commit as the English
+    # constant it translated, not superseded in place — the panel this
+    # toggle opens no longer holds a menu of pages (the bottom tab bar
+    # owns destinations now), so keeping the old pair would orphan it
+    # and fail companion/test_i18n.py's dead-translation check. The new
+    # name describes what the panel actually holds: the state reminder,
+    # the language and theme switches, and Sign out.
+    "Account and preferences": "Compte et préférences",
     " — attention needed": " — attention requise",
 
     # --- The nav state reminder (D-03/R-04, 21-04-PLAN.md Task 2) -------

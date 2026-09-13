@@ -720,8 +720,17 @@ a:hover {
   transition: max-height .22s ease;
 }
 
+/* T11 (22-14-PLAN.md Task 2): the ONE max-height for the open dropdown.
+ * A second declaration used to sit ~4900 lines further down and win
+ * silently at 640px; it is deleted, not re-tuned. This value is
+ * MEASURED, not guessed: with the destination links gone the panel holds
+ * the state reminder, the language and theme switches and Sign out, and
+ * its content measures 165px in French at 390px —
+ * the language where the segments and the Sign out label are longest.
+ * The cap is rounded up from that to leave room for a longer future
+ * footer string without clipping it. */
 .js .mobile-nav--open {
-  max-height: 420px;
+  max-height: 320px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -761,11 +770,13 @@ a:hover {
   display: none;
 }
 
-.mobile-nav__nav {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-sm);
-}
+/* 22-14-PLAN.md Task 2 (X9/D-10): `.mobile-nav__nav`'s own rule is
+ * DELETED, not left as a dead selector — the element it styled no
+ * longer exists in any rendering (companion/layout.py's
+ * _mobile_nav_html() emits the state reminder and the footer only).
+ * `.mobile-nav__link` below survives and is REUSED by the tab bar's
+ * "More" sheet at the foot of this file, which is why that rule's 44px
+ * floor is still load-bearing. */
 
 /* The 44px floor was D-22's original guarantee for this rule. D-05
  * (06.6.4-04) was a desktop compactness pass whose trade belonged only on
@@ -1191,21 +1202,57 @@ select.visually-hidden {
  * two call sites). Full-strength --color-text on the sidebar surface
  * — the same pairing .sidebar-link's own unmodified colour rule
  * already relies on site-wide (contrast measured and pinned in
- * companion/test_contrast_check.py). */
+ * companion/test_contrast_check.py).
+ *
+ * B10 (22-14-PLAN.md Task 2): was `display: block` — an inline run with
+ * no white-space control, which the audit measured wrapping MID-PHRASE
+ * at 207x48px ("Screen on · Quiet hours" / "on"; in French "Heures /
+ * calmes activées"). Each state is now its own `.nav-status__segment`
+ * with `white-space: nowrap`, inside a wrapping flex row: the line may
+ * break BETWEEN the two states, never inside one. French's longest
+ * segment ("Heures calmes désactivées") fits the 240px sidebar's own
+ * content width, which is what makes the wrapping row a real fallback
+ * rather than a second way to produce the same defect. */
 .nav-status {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Column gap only. A row gap would be paid ON TOP of the two wrapped
+   * lines in the 240px sidebar, where the French pair cannot fit on one
+   * line (98px + 165px + the separator against a 207px content column)
+   * — measured at 52px with a symmetric gap, against B10's own 48px
+   * ceiling, and 48px with this one. */
+  gap: 0 var(--space-xs);
   padding: 0 var(--space-sm) var(--space-sm);
   color: var(--color-text);
   text-decoration: none;
 }
 
-.nav-status:hover {
+.nav-status__segment {
+  white-space: nowrap;
+  /* inline-flex, not a bare inline run: the 12px `.dot` inside carries
+   * `vertical-align: middle`, which grows each line box past the 14px
+   * text's own 1.4 leading. In the 240px sidebar, where the French pair
+   * needs two lines, that surplus put the reminder at 48.19px against
+   * B10's own 48px ceiling — measured, then removed by aligning the dot
+   * as a flex item instead of as an inline baseline participant. */
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Scoped to the ANCHOR (B10): on Home the reminder renders as a <span>
+ * with no href at all — companion/layout.py's nav_status_html() — and a
+ * non-link that underlines under the pointer would claim an
+ * interactivity it does not have, which is the same defect as the
+ * "go to Home" label this plan removes, one layer down. */
+a.nav-status:hover {
   text-decoration: underline;
 }
 
+/* No horizontal margin any more: the flex `gap` above owns the spacing
+ * between the separator and both segments, in one place. */
 .nav-status__sep {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  margin: 0 2px;
 }
 
 /* Banners: a near-neutral card surface, a hairline border and a 3px
@@ -2235,7 +2282,7 @@ button:disabled {
    * Bottom-right, not top-right: top-right on this component sits over
    * .theme-chip__preview, the rendered panel image — the identical
    * constraint that already scopes this chip's selected-wash to
-   * .theme-chip__body rather than the whole chip. */
+   * .theme-chip__body rather than the whole chip.
    *
    * 22-10-PLAN.md Task 1 (T10, 22-AUDIT.md): the text is no longer the
    * hard-coded English literal it was — `attr(data-current-label)` reads
@@ -2244,7 +2291,20 @@ button:disabled {
    * English moved; the four points above are unchanged and the
    * pseudo-element stays a pseudo-element. A chip with no such attribute
    * renders an empty string, which is the correct degradation: the
-   * attribute is emitted only on the one chip this selector can match. */
+   * attribute is emitted only on the one chip this selector can match.
+   *
+   * 22-14-PLAN.md Task 2, Rule 1 auto-fix: the paragraph above used to
+   * open with a stray comment TERMINATOR — the 22-10 note was appended
+   * after the original block's own closing marker instead of inside it.
+   * Everything from that marker to the next brace parsed as part of the
+   * selector below, so THIS ENTIRE RULE WAS SILENTLY DROPPED by every
+   * browser and the saved-chip "Current" badge never rendered at all.
+   * Found while measuring B10 in a real browser, which is the only
+   * place a CSS parse error of this shape is visible: no
+   * string-comparison harness can see it, because the file still
+   * CONTAINS every declaration it is asked about. A structural guard
+   * pinning the file at zero stray terminators ships in
+   * companion/test_status_pages.py alongside this fix. */
   .theme-chip--selected:not(:has(input:checked))::after {
     content: attr(data-current-label);
     position: absolute;
@@ -5603,15 +5663,16 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.mobile-nav__nav .nav-group {
-  margin-top: var(--space-sm);
-}
-
-/* The dropdown grew two entries and a group label; the old 420px cap
- * would clip the footer. */
-.js .mobile-nav--open {
-  max-height: 640px;
-}
+/* 22-14-PLAN.md Task 2 (T11, X9/D-10): the `.mobile-nav__nav .nav-group`
+ * override and the SECOND open-state max-height (640px) that used to sit
+ * here are both DELETED. The dropdown no longer holds nav links or a
+ * group label, so the first selector matched nothing; and the second
+ * silently overrode the 420px declaration beside `.js .mobile-nav`
+ * above it, which is T11's whole finding — two values for one state,
+ * only one of them ever in effect. There is now exactly one open-state
+ * declaration in this file, pinned by measurement against the reduced
+ * French content at 390px. `.nav-group`/`.nav-group__label` above stay: the desktop
+ * sidebar still renders the Advanced group. */
 
 /* 2. Page-header screen caption --------------------------------------- */
 .page-header__screen {

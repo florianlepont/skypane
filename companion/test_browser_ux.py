@@ -203,6 +203,25 @@ EXPECTED_CHECK_COUNT = 14
 # recomputed directly against the real on-disk check(...) call count at
 # execution time (17/17 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 17
+# 22-14-PLAN.md Task 2 (B10/X9/T5): +2 — the two French nav-status
+# segments each reporting exactly ONE client rect at both the 240px
+# sidebar and 390px (a count only a real layout engine produces; the
+# audit measured the old inline run at 207x48 breaking "Screen on ·
+# Quiet hours" / "on"), the reminder inside B10's 48px ceiling, the
+# reduced dropdown's remaining push inside X9's 220px target, and the
+# Home reminder rendering as a <span> with no href whose announced name
+# IS the visible state; and D-02's own minimum-set item 3, the mobile
+# nav's close path, on both halves of T5 — a descendant's transitionend
+# never hiding an OPEN panel, and a close with no transition applying
+# the hidden property synchronously instead of waiting for an event that
+# never arrives. The first of the two found a real defect no
+# string-comparison harness could see, twice over: a stray comment
+# terminator (22-10's, and this plan's own first draft) silently dropped
+# the rule that followed it, which is what the new structural guard in
+# companion/test_status_pages.py now pins. 17 + 2 = 19, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (19/19 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 19
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -1542,6 +1561,242 @@ def main():
                     "reload — the message cleared and its aria-describedby dropped with it "
                     "(X3, 22-13-PLAN.md Task 3)",
                     _lockout_countdown_ticks_and_re_enables_the_form)
+
+                def _nav_status_segments_never_break_mid_phrase_in_french():
+                    # B10 (22-AUDIT.md's own measurement: .nav-status was
+                    # 207x48 and broke "Screen on · Quiet hours" / "on";
+                    # in French "Heures / calmes activées"). The target is
+                    # getClientRects().length === 1 PER SEGMENT at both
+                    # the 240px sidebar and a 390px phone — a count only a
+                    # real layout engine can produce, which is why this
+                    # one is here rather than in a source harness.
+                    context = browser.new_context(
+                        viewport={"width": 1280, "height": 900})
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        context.add_cookies([{
+                            "name": auth.UI_LANG_COOKIE_NAME, "value": "fr",
+                            "url": harness.base_url()}])
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+                        desktop = page.evaluate(
+                            "() => {"
+                            " var aside = document.querySelector('.dashboard-sidebar');"
+                            " var st = aside.querySelector('.nav-status');"
+                            " return {"
+                            "  asideWidth: aside.getBoundingClientRect().width,"
+                            "  height: st.getBoundingClientRect().height,"
+                            "  segments: Array.prototype.map.call("
+                            "    st.querySelectorAll('.nav-status__segment'),"
+                            "    function (sg) { return [sg.getClientRects().length,"
+                            "      sg.textContent, sg.getBoundingClientRect().width]; })"
+                            " };}")
+                        if round(desktop["asideWidth"]) != 240:
+                            return False, (
+                                "expected the 240px sidebar this contract is measured against, "
+                                "got %r" % (desktop["asideWidth"],))
+                        if len(desktop["segments"]) != 2:
+                            return False, (
+                                "expected two state segments, got %r" % (desktop["segments"],))
+                        for rects, text, width in desktop["segments"]:
+                            if rects != 1:
+                                return False, (
+                                    "segment %r broke into %d client rects in the 240px sidebar "
+                                    "— the line may break BETWEEN segments, never inside one"
+                                    % (text, rects))
+                            if not any(ch > "\x7f" for ch in text):
+                                return False, (
+                                    "expected the French reminder text, got %r — the English "
+                                    "segments are shorter and would not exercise the contract"
+                                    % (text,))
+                            if width > 207:
+                                return False, (
+                                    "French's longest segment (%r, %rpx) must fit the sidebar's "
+                                    "207px content column" % (text, width))
+                        if desktop["height"] > 48:
+                            return False, (
+                                "expected the reminder to stay within B10's 48px ceiling, got %r"
+                                % (desktop["height"],))
+                        context.close()
+
+                        # The same contract at 390px, inside the dropdown.
+                        context = browser.new_context(
+                            viewport={"width": 390, "height": 844})
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        context.add_cookies([{
+                            "name": auth.UI_LANG_COOKIE_NAME, "value": "fr",
+                            "url": harness.base_url()}])
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+                        page.click("#site-nav-toggle")
+                        page.wait_for_timeout(400)
+                        phone = page.evaluate(
+                            "() => {"
+                            " var panel = document.getElementById('mobile-nav');"
+                            " var st = panel.querySelector('.nav-status');"
+                            " return {"
+                            "  tag: st.tagName, href: st.getAttribute('href'),"
+                            "  height: st.getBoundingClientRect().height,"
+                            "  panelHeight: panel.getBoundingClientRect().height,"
+                            "  segments: Array.prototype.map.call("
+                            "    st.querySelectorAll('.nav-status__segment'),"
+                            "    function (sg) { return [sg.getClientRects().length,"
+                            "      sg.textContent]; })"
+                            " };}")
+                        for rects, text in phone["segments"]:
+                            if rects != 1:
+                                return False, (
+                                    "segment %r broke into %d client rects at 390px"
+                                    % (text, rects))
+                        if phone["height"] > 48:
+                            return False, (
+                                "expected the reminder within 48px at 390px, got %r"
+                                % (phone["height"],))
+                        if phone["tag"] != "A" or phone["href"] != "/":
+                            return False, (
+                                "off Home the reminder must stay a link to Home, got %r/%r"
+                                % (phone["tag"], phone["href"]))
+                        # X9's actual fix: the remaining push, measured.
+                        if phone["panelHeight"] > 220:
+                            return False, (
+                                "X9's target is a remaining push of at most 220px, measured "
+                                "%rpx" % (phone["panelHeight"],))
+
+                        # And on Home it is not a link at all, so it
+                        # cannot claim a destination the user occupies.
+                        page.goto(harness.base_url() + "/")
+                        page.wait_for_load_state("networkidle")
+                        page.click("#site-nav-toggle")
+                        page.wait_for_timeout(400)
+                        home = page.evaluate(
+                            "() => {"
+                            " var st = document.getElementById('mobile-nav')"
+                            "   .querySelector('.nav-status');"
+                            " return {tag: st.tagName, href: st.getAttribute('href'),"
+                            "         label: st.getAttribute('aria-label'),"
+                            "         text: st.textContent};}")
+                        if home["tag"] != "SPAN" or home["href"] is not None:
+                            return False, (
+                                "on Home the reminder must be a <span> with no href, got %r/%r"
+                                % (home["tag"], home["href"]))
+                        if "accueil" in (home["label"] or "").lower():
+                            return False, (
+                                "the Home reminder must not name a destination, got %r"
+                                % (home["label"],))
+                        if (home["label"] or "").strip() != (home["text"] or "").strip():
+                            return False, (
+                                "the announced name and the visible state must be the same "
+                                "words, got %r vs %r" % (home["label"], home["text"]))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "in French the two nav-status segments each report exactly ONE client rect at both "
+                    "the 240px sidebar and 390px — the line breaks between them, never mid-phrase — the "
+                    "reminder stays within 48px, the reduced dropdown opens by at most 220px, and on "
+                    "Home the reminder is a <span> with no href whose announced name is the visible "
+                    "state and names no destination (B10/X9/D-04, 22-14-PLAN.md Task 2)",
+                    _nav_status_segments_never_break_mid_phrase_in_french)
+
+                def _mobile_nav_close_leaves_hidden_and_aria_expanded_consistent():
+                    # T5, and D-02's own minimum-set item 3. Two paths,
+                    # because the defect had two halves: a transitionend
+                    # listener with no target/property filter (any child's
+                    # colour transition could hide an OPEN panel), and a
+                    # close with no transition at all that never re-applied
+                    # the hidden property.
+                    context = browser.new_context(
+                        viewport={"width": 390, "height": 844})
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+
+                        def state():
+                            return page.evaluate(
+                                "() => {"
+                                " var p = document.getElementById('mobile-nav');"
+                                " var t = document.getElementById('site-nav-toggle');"
+                                " return {hidden: p.hidden,"
+                                "         expanded: t.getAttribute('aria-expanded'),"
+                                "         open: p.classList.contains('mobile-nav--open'),"
+                                "         height: p.getBoundingClientRect().height};}")
+
+                        start = state()
+                        if not start["hidden"] or start["expanded"] != "false":
+                            return False, (
+                                "expected the panel to start hidden and closed, got %r" % (start,))
+                        page.click("#site-nav-toggle")
+                        page.wait_for_timeout(400)
+                        opened = state()
+                        if opened["hidden"] or opened["expanded"] != "true" or not opened["open"]:
+                            return False, "expected an open panel after the first click, got %r" % (opened,)
+                        if opened["height"] <= 0:
+                            return False, "expected the open panel to have a box"
+
+                        # A descendant transition must NOT hide the open
+                        # panel: fire a transitionend from a child with the
+                        # very property the listener cares about, which is
+                        # the strictest form of the target filter.
+                        page.evaluate(
+                            "() => {"
+                            " var p = document.getElementById('mobile-nav');"
+                            " var child = p.querySelector('button, a, form');"
+                            " child.dispatchEvent(new TransitionEvent('transitionend',"
+                            "   {bubbles: true, propertyName: 'max-height'}));}")
+                        page.wait_for_timeout(50)
+                        after_child = state()
+                        if after_child["hidden"] or after_child["expanded"] != "true":
+                            return False, (
+                                "a descendant's transitionend must never hide an OPEN panel, got %r"
+                                % (after_child,))
+
+                        page.click("#site-nav-toggle")
+                        page.wait_for_timeout(600)
+                        closed = state()
+                        if not closed["hidden"] or closed["expanded"] != "false" or closed["open"]:
+                            return False, (
+                                "expected hidden and aria-expanded to agree after a transitioned "
+                                "close, got %r" % (closed,))
+                        context.close()
+
+                        # The no-transition path: reduced motion, where the
+                        # stylesheet switches the transition off entirely
+                        # and no transitionend will ever arrive.
+                        context = browser.new_context(
+                            viewport={"width": 390, "height": 844},
+                            reduced_motion="reduce")
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+                        page.click("#site-nav-toggle")
+                        page.click("#site-nav-toggle")
+                        reduced = page.evaluate(
+                            "() => {"
+                            " var p = document.getElementById('mobile-nav');"
+                            " var t = document.getElementById('site-nav-toggle');"
+                            " return {hidden: p.hidden,"
+                            "         expanded: t.getAttribute('aria-expanded'),"
+                            "         transition: getComputedStyle(p).transitionDuration};}")
+                        if reduced["expanded"] != "false":
+                            return False, "expected aria-expanded=false after the close"
+                        if not reduced["hidden"]:
+                            return False, (
+                                "with no transition to wait for, hidden must be applied "
+                                "SYNCHRONOUSLY — got %r" % (reduced,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the mobile nav opens and closes leaving the hidden property and aria-expanded "
+                    "consistent on both paths — a descendant's transitionend never hides an open panel, "
+                    "and a close with no transition applies hidden synchronously rather than waiting for "
+                    "an event that never arrives (T5/D-02, 22-14-PLAN.md Task 2)",
+                    _mobile_nav_close_leaves_hidden_and_aria_expanded_consistent)
             finally:
                 browser.close()
     finally:

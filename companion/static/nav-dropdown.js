@@ -52,6 +52,83 @@
     reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
+  // The one property the collapse actually animates, and the one this
+  // file's transitionend handler below is allowed to act on. Mirrors
+  // the transition shorthand on companion/static/style.css's own
+  // .js-scoped .mobile-nav clipping rule.
+  var COLLAPSE_PROPERTY = "max-height";
+
+  // T5 (22-14-PLAN.md Task 2), half one of two. Whether a collapse will
+  // really produce a transitionend event at all.
+  //
+  // The close path below used to register a once-only transitionend
+  // listener unconditionally and rely on it to re-apply the hidden
+  // property. When no transition runs — the stylesheet's own
+  // prefers-reduced-motion override, a UA or extension that disables
+  // transitions, a panel whose computed max-height did not actually
+  // change — that event never fires and the panel stays in the
+  // accessibility tree and the tab order with aria-expanded="false",
+  // which is precisely the divergence aria-expanded-as-single-source-of-
+  // truth exists to prevent.
+  //
+  // Answered by READING the computed style rather than by starting a
+  // fallback timer: this file's header states, as a standing constraint
+  // and not merely a description, that it introduces no timer. A
+  // computed-style read is synchronous and exact.
+  function collapseWillTransition() {
+    if (!window.getComputedStyle) {
+      return false;
+    }
+    var style = window.getComputedStyle(panel);
+    var properties = String(style.transitionProperty || "").split(",");
+    var durations = String(style.transitionDuration || "").split(",");
+    var i;
+    var name;
+    for (i = 0; i < properties.length; i++) {
+      name = properties[i].replace(/^\s+|\s+$/g, "");
+      if (name !== COLLAPSE_PROPERTY && name !== "all") {
+        continue;
+      }
+      // The duration list is shorter than the property list when the
+      // author wrote one duration for several properties; CSS repeats
+      // it, so index modulo its length is the real pairing. A missing
+      // entry parses to NaN, and NaN is not greater than zero, so no
+      // default string is needed (and none is written here: a bare
+      // string default would read to companion/test_i18n.py's JS
+      // fallback-literal scanner as an untranslated user-facing word).
+      if (parseFloat(durations[i % durations.length]) > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // T5, half two of two: the listener filters on its OWN target and on
+  // the property it cares about. Without both filters, a transition on
+  // any descendant — every .mobile-nav__link and every .theme-option in
+  // the footer declares one on background-color/border-color/color —
+  // bubbles a transitionend to this element and sets panel.hidden while
+  // aria-expanded is still "true", hiding an open panel.
+  //
+  // Registered as a NAMED function rather than a fresh once-only
+  // closure: the once option would be spent by the first event that the
+  // filter rejects, and a named reference makes addEventListener's own
+  // duplicate-registration rule (same type, same listener, same
+  // capture) idempotent, so a double close cannot stack listeners.
+  function onCollapsed(evt) {
+    if (evt.target !== panel || evt.propertyName !== COLLAPSE_PROPERTY) {
+      return;
+    }
+    panel.removeEventListener("transitionend", onCollapsed);
+    // Re-read the single source of truth: a close-then-reopen inside the
+    // transition window must not be undone by this callback, the same
+    // stale-callback guard the open path's requestAnimationFrame
+    // callback already applies (WR-01).
+    if (!isOpen()) {
+      panel.hidden = true;
+    }
+  }
+
   // Explicit initial closed state, matching the server-rendered
   // aria-expanded="false" baseline. Without this, the panel would be
   // visually clipped by the new .js .mobile-nav CSS rule but still
@@ -103,19 +180,17 @@
       }
     } else {
       panel.classList.remove(OPEN_CLASS);
-      if (reduceMotion) {
+      if (reduceMotion || !collapseWillTransition()) {
+        // T5: the no-transition path sets hidden SYNCHRONOUSLY. There
+        // is no animation to cut short, and waiting for an event that
+        // will never arrive is what left hidden and aria-expanded
+        // contradicting each other.
         panel.hidden = true;
       } else {
         // Apply hidden only after the collapse transition completes —
         // a hidden element renders nothing at all mid-transition, which
         // would otherwise cut the close animation off instantly.
-        panel.addEventListener(
-          "transitionend",
-          function _onCollapsed() {
-            panel.hidden = true;
-          },
-          { once: true }
-        );
+        panel.addEventListener("transitionend", onCollapsed);
       }
     }
   }
