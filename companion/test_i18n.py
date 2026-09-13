@@ -189,16 +189,22 @@ _PROPER_NOUNS_NEVER_TRANSLATED = frozenset({"SkyPane"})
 # produced by the D-05 module scan now, and leaving them here would hide
 # that rather than document a still-pending gap.
 #
-# HEADLINE_HELD ("Next wake around %s · quiet hours") stays — Home's own
-# tile (22-07) is its named consumer per this comment's original text,
-# not this plan; it happens to already be produced today via
-# layout.py's own 22-04-PLAN.md alias, but this plan is not the one that
-# earns removing it, so it is left for 22-07/22-08 to reconcile
-# (REMOVE ENTIRELY when 22-07 lands; plan 22-08 owns this file and
-# should delete the frozenset as part of widening the scanner).
-_FRAME_STATE_AWAITING_CONSUMERS = frozenset({
-    "Next wake around %s · quiet hours",
-})
+# HEADLINE_HELD ("Next wake around %s · quiet hours") is now produced by
+# the D-05 module scan through layout.py's own `_FRAME_HEADLINE_HELD_TEXT`
+# alias (22-04), so this frozenset is empty and the exception is retired.
+#
+# It is kept, empty, rather than deleted outright because plan 22-08 owns
+# this file and widens the scanner; deleting the name here would make that
+# plan's own diff harder to read. 22-08 should remove the name and its
+# union entry together. Verified empirically before emptying: removing the
+# key leaves all 22 checks green, so nothing is being hidden.
+#
+# Note for the record: this comment previously named 22-07 as HEADLINE_HELD's
+# expected consumer. 22-07 landed and deliberately did NOT consume it —
+# Home's tile mirrors health_page._device_section()'s bare-clock shape
+# rather than rendering the full sentence. The key graduated anyway, via
+# 22-04's alias, which is why the exception can go.
+_FRAME_STATE_AWAITING_CONSUMERS = frozenset()
 
 
 def _is_route_or_path(value):
