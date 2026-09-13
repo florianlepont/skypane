@@ -189,6 +189,12 @@ THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
 # FLIGHT_ROWS_SCRIPT_SRC must equal this exactly, mirroring the
 # SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the eleventh static script.
 FLIGHT_ROWS_SCRIPT_ROUTE = "/static/flight-rows.js"
+# 22-13-PLAN.md Task 2 (X3): companion/layout.py's LOGIN_CARD_SCRIPT_SRC
+# must equal this exactly, mirroring the SCRIPT_ROUTE/NAV_SCRIPT_ROUTE
+# pairs above — the twelfth static script. Pre-auth like every one of
+# them, which here is not merely acceptable but required: the only page
+# that loads it is the login page, which by definition has no session.
+LOGIN_CARD_SCRIPT_ROUTE = "/static/login-card.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -601,6 +607,7 @@ _POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
 _CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
 _THEME_PREVIEW_JS_PATH = os.path.join(_HERE, "static", "theme-preview.js")
 _FLIGHT_ROWS_JS_PATH = os.path.join(_HERE, "static", "flight-rows.js")
+_LOGIN_CARD_JS_PATH = os.path.join(_HERE, "static", "login-card.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -651,6 +658,23 @@ LOGIN_LOCKOUT_TEXT = "Too many attempts — try again in %ds."
 # only when, that message is rendered. One constant, so the attribute and
 # its target can never drift apart.
 LOGIN_MESSAGE_ID = "login-error"
+
+# 22-13-PLAN.md Task 2 (X3): the show-password toggle's two accessible
+# names. Both are rendered on every login page as server-escaped data-*
+# attributes and swapped by companion/static/login-card.js, so that file
+# hard-codes no English of its own — the same shape flight-rows.js's own
+# data-show-label/data-hide-label pair already uses for its row toggle.
+LOGIN_REVEAL_SHOW_LABEL = "Show password"
+LOGIN_REVEAL_HIDE_LABEL = "Hide password"
+
+# The toggle's two glyphs: a filled circle while the value is masked, a
+# hollow one while it is revealed. Not translated and never translatable
+# — they are marks, not words, which is why they sit outside the
+# LOGIN_REVEAL_*_LABEL pair above and inside an aria-hidden span. They
+# exist so the control's own state is legible without relying on colour
+# (the pressed wash) alone.
+LOGIN_REVEAL_MASKED_GLYPH = "●"
+LOGIN_REVEAL_SHOWN_GLYPH = "○"
 
 # Quick task 260903-peo (UIR-16): the 404 page's title and one-sentence
 # purpose, promoted to module constants matching LOGIN_EXPLANATION_TEXT's
@@ -1675,19 +1699,76 @@ class Handler(BaseHTTPRequestHandler):
             '<form method="post" action="%s" class="login-form">'
             "%s"
             '<label for="password">%s</label>'
+            '<span class="login-form__field">'
             '<input type="password" id="password" name="password" '
             'class="login-form__input" '
             'autocomplete="current-password" autofocus required%s>'
+            "%s"
+            "</span>"
             "%s"
             '<button type="submit">%s</button>'
             "</form>" % (
                 LOGIN_ROUTE, next_field_html,
                 layout.escape_html(i18n.t("Password")),
                 field_attrs,
+                self._login_reveal_toggle_html(),
                 message_html,
                 layout.escape_html(i18n.t("Sign in")))
         )
         return "".join(parts)
+
+    @staticmethod
+    def _login_reveal_toggle_html():
+        """The show-password toggle — 22-13-PLAN.md Task 2 (X3,
+        22-UI-SPEC.md §3.2).
+
+        Server-rendered with the `hidden` attribute, ALWAYS, on every
+        branch. companion/static/login-card.js is the only thing that
+        ever removes it, at load. That is the no-JS floor held by
+        construction rather than by a fallback: a browser with scripts
+        blocked never runs that file, so it never sees this control at
+        all — which is this app's own recorded precedent (see
+        .claude/skills/sketch-findings-skypane/references/
+        settings-page-patterns.md: a control that silently does nothing
+        is worse than no control). The same browser loses nothing else:
+        the form still submits and the password still reaches the
+        server exactly as before.
+
+        Reuses `.copy-btn` VERBATIM — the 22x22 visual box, the
+        transparent no-border fill, the `::before` inset synthesizing a
+        real 44x44 hit area, and the scoped 14px glyph box — so no new
+        icon-button size is invented. What it does NOT reuse is
+        `.copy-btn`'s SVG: `login_shell()` emits no ICON_DEFS_HTML
+        sprite, and emitting one would be a third edit to that function
+        beyond the two 22-13-PLAN.md scopes into this plan, so the
+        glyph is a text character in the same 14px box instead. The
+        glyph is swapped with the state (filled = the value is masked,
+        hollow = it is revealed) so the control's own appearance is not
+        carried by colour alone; `aria-pressed` and the two translated
+        accessible names carry it for everyone else.
+
+        Both labels and both glyphs are rendered here, as server-escaped
+        data-* attributes, and read back by the script — the same shape
+        flight-rows.js's own data-show-label/data-hide-label pair uses,
+        so no English string is ever hard-coded on the JS side.
+        """
+        show_label = i18n.t(LOGIN_REVEAL_SHOW_LABEL)
+        return (
+            '<button type="button" class="copy-btn login-reveal" hidden '
+            'aria-pressed="false" aria-label="%s" title="%s" '
+            'data-login-reveal data-show-label="%s" data-hide-label="%s" '
+            'data-show-glyph="%s" data-hide-glyph="%s">'
+            '<span class="icon login-reveal__glyph" aria-hidden="true" '
+            'data-login-reveal-glyph>%s</span>'
+            "</button>" % (
+                layout.escape_html(show_label),
+                layout.escape_html(show_label),
+                layout.escape_html(show_label),
+                layout.escape_html(i18n.t(LOGIN_REVEAL_HIDE_LABEL)),
+                layout.escape_html(LOGIN_REVEAL_MASKED_GLYPH),
+                layout.escape_html(LOGIN_REVEAL_SHOWN_GLYPH),
+                layout.escape_html(LOGIN_REVEAL_MASKED_GLYPH))
+        )
 
     def _render_login_page(self, error=None, lockout_seconds=None, next_route=None):
         # D-03 (20-01-PLAN.md Task 2): pre-session, exactly like
@@ -1828,6 +1909,15 @@ class Handler(BaseHTTPRequestHandler):
         Task 2, D-15/R-12) — the eleventh static script.
         """
         return self._serve_script_file(_FLIGHT_ROWS_JS_PATH)
+
+    def _serve_login_card_script(self):
+        """Serve companion/static/login-card.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_flight_rows_script()'s shape exactly (22-13-PLAN.md
+        Task 2, X3) — the twelfth static script, and the only one whose
+        single consumer is a page that cannot have a session.
+        """
+        return self._serve_script_file(_LOGIN_CARD_JS_PATH)
 
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
@@ -2649,6 +2739,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == FLIGHT_ROWS_SCRIPT_ROUTE:
             return self._serve_flight_rows_script()
+
+        if path == LOGIN_CARD_SCRIPT_ROUTE:
+            return self._serve_login_card_script()
 
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:

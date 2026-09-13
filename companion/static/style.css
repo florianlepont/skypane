@@ -4919,6 +4919,16 @@ a.airline-card {
  * Stacked, not one row: label -> field -> message (when there is one)
  * -> primary. Both controls take the full content column, so at 390px
  * neither is narrower than the other. */
+/* 22-13-PLAN.md Task 2 (X3): the field's own box, which exists only so
+ * the show-password toggle can sit inside its right edge. Rendered on
+ * every branch, with or without a toggle — the modifier class below is
+ * what reserves room, and companion/static/login-card.js is the only
+ * thing that ever adds it. */
+.login-form__field {
+  position: relative;
+  display: block;
+}
+
 .login-form__input {
   display: block;
   width: 100%;
@@ -4948,6 +4958,74 @@ a.airline-card {
  * the field names the problem and the next action. */
 .login-form__input[aria-invalid="true"] {
   border-color: var(--color-status-error);
+}
+
+/* 22-13-PLAN.md Task 2 (X3): room for the toggle, reserved ONLY once
+ * the toggle is actually there. companion/static/login-card.js appends
+ * this modifier at load — the same per-script class-at-load idiom
+ * theme-preview.js and flight-rows.js established — so a page with
+ * scripts blocked has no unexplained empty gutter down the right of its
+ * password field.
+ *
+ * --space-xl (32px), not 22-UI-SPEC.md §3.2's own suggested 40px: that
+ * figure is not a token, and §1 of the same document forbids any new
+ * off-scale literal beyond the three it enumerates (none of which is
+ * this). 32px clears the toggle's real reach — a 22px box inset
+ * --space-sm (8px) from the edge occupies the last 30px — and the
+ * visible glyph is centred in that box, so the typed value clears the
+ * mark by roughly 9px. */
+.login-form__field--with-toggle .login-form__input {
+  padding-right: var(--space-xl);
+}
+
+/* The toggle itself. Every dimension it has comes from `.copy-btn`,
+ * which it carries as its first class: the 22x22 visual box, the
+ * transparent no-border fill, the `::before { inset: -11px }` that
+ * synthesizes a real 44x44 hit area, the hover wash, and the 14px glyph
+ * box via `.copy-btn .icon`. This rule adds POSITION and nothing else —
+ * no width, no height, no radius, no font size, so there is no second
+ * icon-button size in the file to keep in step.
+ *
+ * `top: 0; bottom: 0; margin-block: auto` rather than a
+ * `transform: translateY(-50%)`, deliberately: the base `button:active`
+ * rule presses every button in this app 1px with its own `transform`,
+ * and a centring transform here would be overwritten by it, making the
+ * toggle jump to the top of the field on every press. Absolute
+ * centring by auto margins leaves that 1px press working exactly as it
+ * does everywhere else.
+ *
+ * These rules sit AFTER `.copy-btn` in source order, which is what lets
+ * this equal-specificity `position: absolute` win over its
+ * `position: relative`. Do not move either block. */
+.login-reveal {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: var(--space-sm);
+  margin-block: auto;
+}
+
+/* The pressed state, in the file's own quiet color-mix wash idiom at
+ * `.copy-btn:hover`'s own 7% strength — no new colour, no accent (this
+ * is not a main action). Attribute-selected so the visual state and the
+ * announced state are physically the same attribute, as with
+ * `.site-nav-toggle[aria-expanded]` and the error border above.
+ * Colour is not alone: the glyph itself swaps filled/hollow with the
+ * state, and the field's own value visibly changes. */
+.login-reveal[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+/* The glyph is a text character, not an SVG: login_shell() emits no
+ * ICON_DEFS_HTML sprite and this plan may not add one. `.copy-btn .icon`
+ * already sizes this span to 14x14; these three declarations only
+ * centre the character inside that box, which an SVG would not have
+ * needed. */
+.login-reveal__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 /* The primary. A named, scoped exception to the base `button` rule's

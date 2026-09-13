@@ -521,6 +521,24 @@ EXPECTED_CHECK_COUNT = 261
 # root-sandbox failures, unrelated to this plan), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 264
+# 22-13-PLAN.md Task 2 (X3): +5 (login-card.js is served pre-auth with a
+# shared-cacheable JS content type; it stays ES5-safe/sink-free, carries
+# the reveal contract and duplicates no server-side throttling constant;
+# layout.LOGIN_CARD_SCRIPT_SRC equals app.LOGIN_CARD_SCRIPT_ROUTE; the
+# rendered login page carries exactly ONE <script occurrence, with no
+# inline script and no nonce, where login_shell() emitted ZERO before
+# this plan; and the toggle server-renders hidden, typed button,
+# aria-pressed="false", both translated names and .copy-btn's own
+# geometry, with the field's padding modifier deliberately absent
+# server-side). The pre-existing eleven-deferred-scripts check was
+# STRENGTHENED in place rather than counted as new: it keeps its count
+# of eleven and now also asserts login-card.js is absent from an
+# authenticated page, which is the "script count unchanged" half of this
+# task's own acceptance. 264 + 5 = 269, recomputed directly against the
+# real on-disk check(...) call count at execution time (267/269 pass —
+# the two documented WR-11 root-sandbox failures, unrelated to this
+# plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 269
 
 
 def _ago_iso(seconds):
@@ -3790,12 +3808,163 @@ def main():
                     layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
+            # 22-13-PLAN.md Task 2 (X3): the app has TWELVE static
+            # scripts as of this plan, but an authenticated page still
+            # loads exactly the eleven above — login-card.js is emitted
+            # by login_shell() alone. Asserted here, in the check that
+            # already owns this count, so "the authenticated page's
+            # script count is unchanged" is pinned by the same machine
+            # that pins the count itself rather than by inspection.
+            if layout.LOGIN_CARD_SCRIPT_SRC in doc:
+                return False, (
+                    "login-card.js must not be emitted on an authenticated page — "
+                    "nothing there carries a .login-form")
             return True, ""
         check(
             "a rendered authenticated page contains exactly eleven deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
-            "poll-cooldown.js, confirm-submit.js, theme-preview.js and flight-rows.js",
+            "poll-cooldown.js, confirm-submit.js, theme-preview.js and flight-rows.js — and "
+            "NOT login-card.js, which login_shell() alone emits",
             _eleven_deferred_scripts_before_closing_body)
+
+        # --- 22-13-PLAN.md Task 2 (X3): login-card.js, the twelfth
+        # static script and the first one this app loads pre-auth ---
+
+        check(
+            "GET /static/login-card.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/login-card.js"))
+
+        def _login_card_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "login-card.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "login-card.js must not contain %r" % token
+            required = (
+                "addEventListener", "querySelector", "getAttribute",
+                "data-login-reveal", "aria-pressed",
+                "login-form__field--with-toggle")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in login-card.js" % token
+            # No throttling constant may be duplicated client-side: the
+            # server stays the only authority on whether a login is
+            # accepted (T-22-46).
+            for leaked in ("LOGIN_FAILURE_LIMIT", "LOGIN_LOCKOUT_S"):
+                if leaked in src:
+                    return False, (
+                        "login-card.js must not duplicate %r — the countdown is "
+                        "presentational over server state, never a second "
+                        "throttle" % leaked)
+            return True, ""
+        check(
+            "login-card.js stays ES5-safe and sink-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), carries "
+            "the reveal contract (addEventListener/querySelector/getAttribute/"
+            "data-login-reveal/aria-pressed/the class-at-load modifier) and duplicates no "
+            "server-side throttling constant (X3, T-22-46/T-22-49)",
+            _login_card_script_es5_safe_and_no_html_write)
+
+        def _login_card_script_route_src_agree():
+            import companion.app as app_module
+            if layout.LOGIN_CARD_SCRIPT_SRC != app_module.LOGIN_CARD_SCRIPT_ROUTE:
+                return False, "login-card script route drift: %r vs %r" % (
+                    layout.LOGIN_CARD_SCRIPT_SRC, app_module.LOGIN_CARD_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.LOGIN_CARD_SCRIPT_SRC equals companion.app.LOGIN_CARD_SCRIPT_ROUTE",
+            _login_card_script_route_src_agree)
+
+        def _login_page_emits_exactly_one_script_tag():
+            status, _headers, body = http_request(base + "/login")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            if text.count("<script") != 1:
+                return False, (
+                    "expected exactly one <script occurrence on the login page, got %d "
+                    "— login_shell() emitted ZERO before this plan and must now emit "
+                    "exactly one" % text.count("<script"))
+            expected_tag = '<script src="%s" defer></script>' % layout.LOGIN_CARD_SCRIPT_SRC
+            if expected_tag not in text:
+                return False, "expected %r on the login page" % expected_tag
+            # The CSP's own no-inline-script rule (D-32/D-09), asserted
+            # on the ONE page in the app that is reachable without a
+            # session.
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", text):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            if "unsafe-inline" in text or "nonce-" in text:
+                return False, "no nonce or unsafe-inline may appear on the login page"
+            return True, ""
+        check(
+            "a rendered login page contains exactly ONE <script occurrence, the deferred "
+            "LOGIN_CARD_SCRIPT_SRC tag, with no inline script and no nonce — login_shell() "
+            "emitted zero script tags before this plan (X3, 22-13-PLAN.md Task 2)",
+            _login_page_emits_exactly_one_script_tag)
+
+        def _login_reveal_toggle_is_server_hidden_and_named():
+            status, _headers, body = http_request(base + "/login")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            toggle_at = text.find("data-login-reveal")
+            if toggle_at == -1:
+                return False, "expected the show-password toggle in the login card"
+            tag_open = text.rindex("<button", 0, toggle_at)
+            tag = text[tag_open:text.index(">", toggle_at) + 1]
+            # The no-JS floor, held by construction: the toggle is
+            # ALWAYS server-rendered hidden, and login-card.js is the
+            # only thing that ever reveals it.
+            if " hidden " not in tag:
+                return False, (
+                    "the show-password toggle must server-render with the hidden "
+                    "attribute, got %r" % tag)
+            if 'type="button"' not in tag:
+                return False, "the toggle must be type=\"button\", never a submit"
+            if 'aria-pressed="false"' not in tag:
+                return False, "the toggle must server-render aria-pressed=\"false\""
+            # Both accessible names ship, both translated, on every
+            # render — the script only swaps between them.
+            for needed in (
+                    'data-show-label="Show password"',
+                    'data-hide-label="Hide password"'):
+                if needed not in tag:
+                    return False, "expected %r on the toggle" % needed
+            from companion import i18n as i18n_module
+            for english in ("Show password", "Hide password"):
+                if i18n_module.t_lang(english, "fr") == english:
+                    return False, "%r has no French catalogue entry" % english
+            # It reuses .copy-btn verbatim rather than inventing a
+            # second icon-button size.
+            if 'class="copy-btn login-reveal"' not in tag:
+                return False, (
+                    "the toggle must carry .copy-btn as its first class so the 22x22 "
+                    "box, the 44x44 ::before hit area and the 14px glyph box are "
+                    "reused verbatim, got %r" % tag)
+            # The padding hook is NOT server-rendered: a scripts-blocked
+            # page must have no empty gutter.
+            if "login-form__field--with-toggle" in text:
+                return False, (
+                    "the field's padding modifier must be added at load by "
+                    "login-card.js, never server-rendered — a scripts-blocked page "
+                    "shows no toggle and so must reserve no room for one")
+            return True, ""
+        check(
+            "the server-rendered show-password toggle carries the hidden attribute, "
+            "type=\"button\", aria-pressed=\"false\", both translated accessible names and "
+            ".copy-btn's own icon-only geometry — and the field's padding modifier is NOT "
+            "server-rendered (X3, the no-JS floor by construction)",
+            _login_reveal_toggle_is_server_hidden_and_named)
 
         # --- login: wrong password, right password, cookie flags ---
 

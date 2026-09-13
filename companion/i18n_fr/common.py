@@ -42,6 +42,12 @@ CATALOG = {
     "Sign in": "Se connecter",
     "Incorrect password. Try again.":
         "Mot de passe incorrect. Réessayez.",
+    # 22-13-PLAN.md Task 2 (X3): the show-password toggle's two
+    # accessible names. The toggle is icon-only, so these are the ONLY
+    # names it ever has — an untranslated pair here would leave the
+    # control anonymous in French, not merely awkward.
+    "Show password": "Afficher le mot de passe",
+    "Hide password": "Masquer le mot de passe",
 
     # --- The login shell's own <title> (companion/layout.py's
     #     login_shell(), 22-08-PLAN.md Task 1: the literal lives THERE,

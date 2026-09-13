@@ -184,6 +184,15 @@ THEME_PREVIEW_SCRIPT_SRC = "/static/theme-preview.js"
 # contract as the constants above — the eleventh static script.
 FLIGHT_ROWS_SCRIPT_SRC = "/static/flight-rows.js"
 
+# 22-13-PLAN.md Task 2 (X3): must equal companion/app.py's
+# LOGIN_CARD_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above — the twelfth static script, and the
+# first one this app has ever loaded on its PRE-AUTH page. Every
+# sibling above is emitted by page_shell(); this one is emitted by
+# login_shell() alone, and page_shell() never emits it (nothing on an
+# authenticated page carries a .login-form).
+LOGIN_CARD_SCRIPT_SRC = "/static/login-card.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 # D-16/D-19 (20-01-PLAN.md Task 2): the quick-action form protocol,
@@ -1398,6 +1407,27 @@ def login_shell(body, ui_theme="auto", lang=None):
     icon), no skip link (there is no nav to skip past), no sidebar, no
     mobile-nav dropdown, no NAV_DROPDOWN_SCRIPT_SRC script tag.
 
+    22-13-PLAN.md Task 2 (X3) corrects the last clause of that
+    sentence, which had been true until this plan and is no longer:
+    this shell emits EXACTLY ONE deferred script tag — the login
+    card's own script, sourced from the module constant defined beside
+    its eleven siblings near the top of this file — and no others. It
+    is still not the NAV_DROPDOWN_SCRIPT_SRC tag (there is no nav here
+    to drop down), and none of page_shell()'s eleven other script tags
+    appear either. That one script is what the login card's
+    show-password toggle and its live lockout countdown load from;
+    without it both would be dead markup, since companion/app.py's
+    login route is a bare `return layout.login_shell(body,
+    ui_theme=...)` with no script emission of its own to extend.
+    Leaving the old "emits no script tag" wording in place would have
+    been the same stale-doc failure D-05 had to fix in
+    concise_timestamp_html().
+
+    (This paragraph names the constant by description rather than by
+    token on purpose: 22-13-PLAN.md Task 2's own acceptance criterion
+    counts occurrences of that token in this file and expects exactly
+    the definition and its one use.)
+
     `body` is the caller's own already-built, already-escaped markup —
     the same "caller has escaped its own dynamic parts" contract every
     other body-accepting builder in this module follows (page_shell(),
@@ -1430,6 +1460,7 @@ def login_shell(body, ui_theme="auto", lang=None):
         "%s\n"
         "</div>\n"
         "</div>\n"
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -1445,6 +1476,7 @@ def login_shell(body, ui_theme="auto", lang=None):
         escape_html(SITE_TITLE),
         FAVICON_LINK_HTML,
         body,
+        LOGIN_CARD_SCRIPT_SRC,
     )
 
 
