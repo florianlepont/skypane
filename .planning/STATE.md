@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: verifying
 stopped_at: Completed 22-08-PLAN.md
-last_updated: "2026-09-13T01:29:22.634Z"
+last_updated: "2026-09-13T02:03:19.439Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 194
+  completed_plans: 195
   percent: 89
 ---
 
@@ -361,6 +361,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P06 | 30min | 3 tasks | 6 files |
 | Phase 22 P07 | 75min | 2 tasks | 4 files |
 | Phase 22 P08 | 45min | 3 tasks | 6 files |
+| Phase 22 P09 | ~120min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -638,6 +639,10 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-07: img.recent-flight__thumb (tag-qualified) joins the shared white-backing rule instead of a bare class, so the dashed placeholder span (which shares the bare class for its own sizing) can never match it; the placeholder's dashed values are reused BY VALUE from .airline-card__placeholder, not by sharing that selector, since test_status_pages.py pins it standalone
 - [Phase 22]: 22-08: translate the flash-message template via i18n.t(FLASH_MESSAGES[flash_key]) as one expression before any percent/format fill, so the ast scanner traces the dict as a real i18n.t() consumer
 - [Phase 22]: 22-08: companion/app.py is now a real D-05 scan target in test_i18n.py, replacing the _APP_PY_OWNED_STRINGS exception list
+- [Phase 22]: 22-09: .row-toggle moves from the touch-target register's traded-away category to its relocated category (22px visual box + .copy-btn's ::before -11px inset synthesizing 44x44); control-density.md's recorded rejection of the icon-only pattern for this control is superseded because X5 removed the visible text that rejection rested on — 22-16 marks it in place
+- [Phase 22]: 22-09: a day label is composed from layout.month_abbr() (local_clock_text()'s own month table), so history_page.py contains no date-formatting call of its own; the absolute form is therefore "26 Aug"/"26 aout", not 22-UI-SPEC §1's full-month "%-d %B"
+- [Phase 22]: 22-09: .filter-bar__meta is the page-agnostic count+Clear group; two nowrap siblings in a wrapping flex container never wrapped as a unit, which is how A-18 regressed. 22-11 (Airlines) and 22-12 (Health) must add the same wrapper element, with no per-page variant
+- [Phase 22]: 22-09: the converged .filter-bar [data-filter-clear] rule gained line-height: inherit — its own contract promised the <button> and <a> variants land on pixel-identical output, and the UA's line-height was the one button property it had never undone (14px vs 18px)
 - [Phase 22]: 22-08: the three singular/plural fixes (manual resolutions, upcoming flights, days/events caption) are deferred to 22-11/22-10/22-12 respectively, since each lives in a file this plan does not own; CFG-29 is left unchecked pending their completion
 
 ### Pending Todos
@@ -731,7 +736,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T01:29:22.582Z
+Last session: 2026-09-13T02:03:19.387Z
 Stopped at: Completed 22-08-PLAN.md
 
 Resume file: 

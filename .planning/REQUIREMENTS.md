@@ -149,7 +149,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-27 | Phase 22 | Complete (22-05) |
 | CFG-28 | Phase 22 | In progress — 22-06 landed the battery/tooltip half; 22-11 lands the resolve-dialog half |
 | CFG-29 | Phase 22 | Planned (22-01..22-16) |
-| CFG-30 | Phase 22 | In progress — served by nine plans (D-07's B2-B18/X3-X9); 22-07 landed the Home half of B2, B18 and X4 |
+| CFG-30 | Phase 22 | In progress — served by nine plans (D-07's B2-B18/X3-X9); 22-07 landed the Home half of B2, B18 and X4; 22-09 landed X5 in full and B11's Flights third (Airlines/Health adopt the same group in 22-11/22-12) |
 | CFG-31 | Phase 22 | Planned (22-01..22-16) |
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.

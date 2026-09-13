@@ -1041,7 +1041,7 @@ Plans:
 **Goal:** Fix everything the fourth companion audit found (22-AUDIT.md, developer-validated 2026-09-12; evidence report at https://claude.ai/code/artifact/af979b96-c02d-41bc-ad04-9623ff0d143a) — the one blocker first (B1: the Display page cannot be saved with JS on, because its `form=`-attached fields never reach `dirty-state.js`'s form-scoped listeners while the fallback Save is hidden), then the contradictory frame-state signals (X2: one quiet-hours- and screen-off-aware next-wake shared by strip, tiles and captions, with a grace window, so a sleeping frame is never called late), the duplicate screen/quiet-hours controls and their three delay wordings (X1), the UTC/ISO leaks (B4, B5) and the untranslated flash banners, titles and plurals (B16), the pixel-level layout defects (login row, Frame strip cells, orphan buttons, runway grid, nav reminder, filter Clear, FR table overflow, Device fields, preview crop, empty and self-contradicting Health cards), the design-contract drift (serif legends, accent overload in the strip, hover fill on the segmented control, four treatments for one timestamp) and the verified CSS/JS defects (permanently suppressed leave-guard, Disconnect styled as primary, lost disclosure markers, non-sticky headers, save-bar overlap). Ships with a minimal Playwright harness in `scripts/run-all-tests.sh` covering the interactions no string-comparison harness can see — the class of defect B1 belongs to. The audit's dynamism half (D1–D24) is deliberately NOT in this phase; it is Phase 23.
 **Requirements**: CFG-25, CFG-26, CFG-27, CFG-28, CFG-29, CFG-30, CFG-31
 **Depends on:** Phase 21
-**Plans:** 8/16 plans executed
+**Plans:** 9/16 plans executed
 
 Plans:
 - [x] 22-01-PLAN.md — B1 blocker: document-level dirty-state delegation, the fallback-Save contract, T1/T8, and the Playwright harness (wave 1)
@@ -1052,7 +1052,7 @@ Plans:
 - [x] 22-06-PLAN.md — D-05: Paris local time everywhere, with Europe/Paris day buckets in Python and a DST fixture (wave 4)
 - [x] 22-07-PLAN.md — Home: the frame tile, the verdict-free detail, one-line times and display_airline_name (wave 4)
 - [x] 22-08-PLAN.md — D-06: translated flash banners, titles and plurals, and a scanner that sees app.py, attributes and JS (wave 5)
-- [ ] 22-09-PLAN.md — Flights X5: day separators, an icon-only disclosure, a labelled picture control, and B11 (wave 5)
+- [x] 22-09-PLAN.md — Flights X5: day separators, an icon-only disclosure, a labelled picture control, and B11 (wave 5)
 - [ ] 22-10-PLAN.md — Display and Device geometry: X6, B9, B14, B15, B7/C3, B6, B8, B17, T10, T12, C1's legend (wave 6)
 - [ ] 22-11-PLAN.md — Airlines: B5's formatted dialog, X7's editing affordance and two-per-row grid, and B11 (wave 7)
 - [ ] 22-12-PLAN.md — Health: one tile anatomy, a neutral corroboration state, the compact empty state, B12 and B11 (wave 8)
