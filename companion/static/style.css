@@ -3122,6 +3122,19 @@ table.data-table--flights .cell-inline-sep {
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: var(--weight-regular);
+  /* 22-09-PLAN.md Task 3 (B11), Rule 1 auto-fix: `line-height` is one
+   * more UA button property this rule's own stated contract ("every
+   * declaration below undoes a specific base-button property ... so the
+   * button variant and the link variant land on pixel-identical
+   * output") had not actually undone. A <button> takes the UA's
+   * `line-height: normal` (14px at this font size) while Airlines' <a>
+   * variant inherits the body's 1.5 (18px) — measured in a real browser
+   * at 390px, the two converged controls were 4px apart in height and
+   * History's Clear sat 2px lower than the count beside it. Inheriting
+   * makes both variants the same height, which is what the rule
+   * promised, and is what lets the count and Clear share one top inside
+   * the centre-aligned .filter-bar__meta group. */
+  line-height: inherit;
   letter-spacing: normal;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-decoration: underline;
@@ -5580,14 +5593,50 @@ img.recent-flight__thumb,
   text-overflow: ellipsis;
 }
 
-/* The filter bar's count and Clear control stay together on one line
- * instead of Clear wrapping alone underneath. */
+/* Phase 18's A-18 fix: the filter bar's count and Clear control stay
+ * together on one line instead of Clear wrapping alone underneath.
+ *
+ * SUPERSEDED in mechanism by 22-09-PLAN.md Task 3 (B11) — this is A-18
+ * REGRESSING A SECOND TIME, named as such so a future reader sees it has
+ * now broken twice. Two `nowrap` siblings in one `flex-wrap: wrap`
+ * container do not wrap as a unit: `nowrap` stops a break INSIDE each
+ * one, and nothing stopped the flex container breaking BETWEEN them, so
+ * at 390px Clear still dropped alone onto its own line. The pair is
+ * wrapped in one `.filter-bar__meta` group below instead, which is a
+ * single flex item and therefore moves whole or not at all.
+ *
+ * `.filter-bar__count`'s own `margin-left: auto` is kept, not moved:
+ * Airlines and Health still render a bare count with no wrapper (plans
+ * 22-11 and 22-12 adopt the same group element on their own filter
+ * bars), and removing it here would un-right-align both of them. Inside
+ * `.filter-bar__meta` it is inert — that group is sized to its content,
+ * so there is no free space for an auto margin to absorb. */
 .filter-bar__count {
   margin-left: auto;
 }
 
 .filter-bar [data-filter-clear] {
   white-space: nowrap;
+}
+
+/* B11 (22-09-PLAN.md Task 3, 22-UI-SPEC.md §2): the count + Clear group.
+ * ONE flex item holding both controls, so they wrap as a unit and Clear
+ * can never drop alone onto its own line again. The auto left margin
+ * moves here with them (it is what pushes the pair to the end of the
+ * bar, the role it played on the count alone before).
+ *
+ * Written page-agnostic on purpose: Airlines (22-11) and Health (22-12)
+ * adopt it by adding this same wrapper element around their own count
+ * and Clear, with NO per-page variant. Both pages' Clear controls stay
+ * converged on the existing `.filter-bar [data-filter-clear]` rule
+ * (06.6.4 D-08) — that selector is not forked here, and no second clear
+ * class is introduced. */
+.filter-bar__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  white-space: nowrap;
+  margin-left: auto;
 }
 
 /* A manually-resolved airline with no artwork yet renders the same

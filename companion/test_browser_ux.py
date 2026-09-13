@@ -115,6 +115,14 @@ EXPECTED_CHECK_COUNT = 6  # 22-01-PLAN.md Task 1: one check (the Flights
 # 6, recomputed directly against the real on-disk check(...) call count
 # at execution time (6/6 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 6
+# 22-09-PLAN.md Task 3 (B11): +1 — at a 390px viewport the Flights filter
+# count and Clear control report the same bounding-box top. This is
+# Phase 18's A-18 regressing a SECOND time, so it is closed this time
+# with a measurement that fails if it reopens rather than with an
+# inspection. 6 + 1 = 7, recomputed directly against the real on-disk
+# check(...) call count at execution time (7/7 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 7
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -393,6 +401,45 @@ def main():
                     "click on a non-interactive cell of the same row expands it, while a click on the "
                     "toggle itself toggles exactly once (22-09-PLAN.md Task 1, X5/T-22-32)",
                     _flights_detail_row_expands_and_collapses)
+
+                def _filter_count_and_clear_share_one_line_at_390px():
+                    # B11 (22-09-PLAN.md Task 3): Phase 18's A-18
+                    # REGRESSING A SECOND TIME — at 390px "Clear" dropped
+                    # alone onto its own line under the filter bar. Two
+                    # `nowrap` siblings in a wrapping flex container do
+                    # not wrap as a unit; one `.filter-bar__meta` group
+                    # does. Measured, not inspected: equal
+                    # getBoundingClientRect().top is the contract, and
+                    # this assertion fails if it ever reopens a third
+                    # time.
+                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/flights")
+                        count = page.locator("[data-filter-count]").first
+                        clear = page.locator("[data-filter-clear]").first
+                        count.wait_for(state="visible")
+                        clear.wait_for(state="visible")
+                        count_box = count.bounding_box()
+                        clear_box = clear.bounding_box()
+                        if count_box is None or clear_box is None:
+                            return False, "expected both the count and Clear to have a box at 390px"
+                        if round(count_box["y"]) != round(clear_box["y"]):
+                            return False, (
+                                "expected the filter count and Clear to report the same top at "
+                                "390px (A-18 regressing a second time), got %r and %r"
+                                % (count_box["y"], clear_box["y"]))
+                        if page.viewport_size["width"] != 390:
+                            return False, "expected the measurement to be taken at 390px"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "at 390px on Flights the filter count and the Clear control report the same "
+                    "bounding-box top — Clear never drops alone onto its own line (B11, "
+                    "22-09-PLAN.md Task 3, a regression of Phase 18's A-18)",
+                    _filter_count_and_clear_share_one_line_at_390px)
 
                 # ----------------------------------------------------------------
                 # 22-01-PLAN.md Task 3 (D-01/D-02, B1/T1/T8): the four checks

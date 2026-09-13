@@ -65,7 +65,7 @@
   "use strict";
 
   // The class this file itself adds to every summary row at load — the
-  // ONLY thing style.css's own `cursor: pointer` rule is keyed on.
+  // ONLY thing style.css's own pointer-cursor rule is keyed on.
   var ROW_CLICKABLE_CLASS = "flight-row--clickable";
 
   // Tag names that are interactive in their own right. A click that
@@ -119,8 +119,8 @@
     })(toggles[i]);
   }
 
-  // Returns true when `node`, or any ancestor of it up to (but not
-  // including) `row`, is itself an interactive element.
+  // Returns true when the clicked node, or any ancestor of it up to
+  // (but not including) the row, is itself an interactive element.
   function isInteractiveTarget(node, row) {
     while (node && node !== row) {
       if (node.tagName && INTERACTIVE_TAGS[node.tagName]) {

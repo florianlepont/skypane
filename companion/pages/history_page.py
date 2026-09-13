@@ -914,6 +914,14 @@ def _filter_bar_html(total):
     full unfiltered table/card list underneath stays completely usable
     if the script never loads.
 
+    22-09-PLAN.md Task 3 (B11): the count and the Clear control are
+    wrapped in ONE `.filter-bar__meta` group, so the pair is a single
+    flex item that wraps whole or not at all — at 390px Clear used to
+    drop alone onto its own line, which is Phase 18's A-18 regressing a
+    second time. The Clear control itself is untouched: same element,
+    same `data-filter-clear` attribute, same converged rule (06.6.4
+    D-08) shared with Airlines and Health.
+
     D-06 (20-11-PLAN.md Task 3): `data-filter-count` also carries a
     `data-filter-count-template` attribute — the SAME translated
     template this function's own initial `count_text` is built from,
@@ -932,9 +940,11 @@ def _filter_bar_html(total):
         "%s"
         '<input type="search" id="%s" data-filter-input>'
         "</div>"
+        '<div class="filter-bar__meta">'
         '<span class="filter-bar__count" data-filter-count '
         'data-filter-count-template="%s">%s</span>'
         '<button type="button" data-filter-clear>%s</button>'
+        "</div>"
         "</div>"
         '<div class="empty-state" data-filter-empty hidden>'
         '<p class="empty-state__heading text-heading">%s</p>'

@@ -502,6 +502,12 @@ EXPECTED_CHECK_COUNT = 130
 # unresolved-link checks now pinning the one-hop resolve route. Re-derived by running the
 # harness (135/135).
 EXPECTED_CHECK_COUNT = 135
+# 22-09-PLAN.md Task 3 (B11): +1 (135 -> 136) — the markup half of the fix the browser harness
+# measures: History's count and Clear render as siblings inside one .filter-bar__meta group,
+# whose page-agnostic rule declares flex/centre/nowrap/auto-left-margin so plans 22-11 and 22-12
+# can adopt it verbatim, with no page-scoped fork of the converged [data-filter-clear] rule and
+# no per-page variant of the group itself. Re-derived by running the harness (136/136).
+EXPECTED_CHECK_COUNT = 136
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1775,6 +1781,67 @@ def main():
         "History's filter bar carries data-filter-count-template=\"%d of %d shown\" under the "
         "default language and the French \"%d sur %d affichés\" under lang='fr' (D-06)",
         _filter_count_template_attribute_english_and_french)
+
+    def _filter_bar_count_and_clear_wrap_as_one_group():
+        # B11 (22-09-PLAN.md Task 3): the markup half of the fix the
+        # browser harness measures — the count and the Clear control are
+        # siblings inside ONE .filter-bar__meta group, so they are a
+        # single flex item that wraps whole or not at all. This is Phase
+        # 18's A-18 regressing a SECOND time; two `nowrap` siblings in a
+        # wrapping flex container never wrapped as a unit.
+        tmp = _mkstate("h-filter-meta")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "fm01", "callsign": "FILTMETA"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            group = re.search(
+                r'<div class="filter-bar__meta">(.*?)</div>', rendered, re.S)
+            if group is None:
+                return False, "expected a .filter-bar__meta group in the rendered filter bar"
+            if "data-filter-count" not in group.group(1):
+                return False, "expected the live count inside the group"
+            if "data-filter-clear" not in group.group(1):
+                return False, "expected the Clear control inside the group"
+            if rendered.count("data-filter-clear") != 1:
+                return False, "expected exactly one Clear control on the page"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        rule = re.search(r"^\.filter-bar__meta\s*\{([^}]*)\}", css, re.S | re.M)
+        if rule is None:
+            return False, "expected a .filter-bar__meta rule block in style.css"
+        for declaration in ("display: flex", "align-items: center",
+                            "white-space: nowrap", "margin-left: auto"):
+            if declaration not in rule.group(1):
+                return False, (
+                    "expected the group rule to declare %r so the pair moves together and stays "
+                    "at the end of the bar" % declaration)
+        if "flight" in rule.group(1) or "history" in rule.group(1):
+            return False, "expected the group rule to carry no page-scoped anything"
+        # The rule must be adoptable verbatim by Airlines (22-11) and
+        # Health (22-12): no page-scoped selector anywhere, and no
+        # page-scoped fork of the converged Clear control.
+        declarations = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        declarations = re.sub(r",\s*\n\s*", ", ", declarations)
+        forks = re.findall(
+            r"(flight|airline|health|registry)[^{\n]*\[data-filter-clear\]", declarations)
+        if forks:
+            return False, (
+                "expected no page-scoped fork of the converged [data-filter-clear] rule, found "
+                "%r" % (forks,))
+        if declarations.count(".filter-bar__meta {") != 1:
+            return False, "expected exactly one .filter-bar__meta rule, never a per-page variant"
+        return True, ""
+    check(
+        "History's filter count and Clear control render as siblings inside one "
+        ".filter-bar__meta group whose page-agnostic rule declares flex/centre/nowrap/auto-left-"
+        "margin, with no page-scoped fork of the converged [data-filter-clear] rule anywhere "
+        "(B11, 22-09-PLAN.md Task 3 — a regression of Phase 18's A-18)",
+        _filter_bar_count_and_clear_wrap_as_one_group)
 
     def _clear_control_shared_attribute_contract():
         # 06.6.4-05 (D-08): History's Clear <button> and Airlines' Clear
