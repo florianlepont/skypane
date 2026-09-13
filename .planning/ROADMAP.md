@@ -1197,9 +1197,54 @@ Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 ### Phase 26: Companion dynamism IV — "App": the finishes
 
 **Goal:** D23 (keyboard shortcuts and a ⌘K command palette), D24 (guided first run and drawn empty states) and D15 (share the picture of the day). **D6 is already shipped** — its bottom tab bar landed in 22-14 — so only its manifest/theme-color half remains, if wanted. **D11 is partly excluded**: hashed filenames imply a build step, which this milestone's framework-free/build-free constraint forbids; prefetch-on-hover and gzip are still open. **D12 is excluded entirely** (see Phase 23).
-**Requirements**: TBD (assign at planning)
-**Depends on:** Phase 23
-**Plans:** 0 plans
+**Requirements**: CFG-53, CFG-54, CFG-55, CFG-56, CFG-57, CFG-58, CFG-59, CFG-60, CFG-61
+**Depends on:** Phase 23 **and Phase 24** — corrected at planning. 26-06's drawn empty states are emitted through `companion/draw.py`, which 24-01 creates; the plan enforces it as an executable precondition rather than forking a second drawing path. The entry previously said Phase 23 alone.
+**Plans:** 9 plans across 7 waves
+
+**Planned 2026-09-13, and planning ONLY.** This phase inherits facts from Phases 24 and 25, both of which are planned but NOT executed.
+
+Planned with **no CONTEXT.md and no UI-SPEC** (the precedent Phases 23, 24 and 25 all set), so **eight decisions were taken PROVISIONALLY** and every one is collected in `26-RESEARCH.md`'s "Open decisions" section for the developer:
+
+- **The phase spends exactly ONE new static script** — the palette — and the shell's deferred-script pin moves once, 15 → 16, re-derived by running. 23-RESEARCH.md predicted six to eight new files across the remaining D-items; the reason it was wrong is the same reason Phase 25 delivered five controls for one script: the shipped platform primitives do more than the audit's framing assumed. **D24 costs zero scripts** (the checklist is server-rendered from live-derived signals; the illustrations are server-rendered SVG) and **D15 costs zero** (a plain `download` anchor is the floor, and the share enhancement grows `panel-lookup.js`, which already owns the lightbox).
+- **The palette NAVIGATES; it does not act.** The audit's "switch screen off" becomes a destination, not a POST. Grounds: the CSRF posture is `SameSite=Strict` with no token anywhere, Phase 25 has just built the real controls, and a second way to mutate config would have to be kept in agreement with the first. The alternatives (hidden mirror forms in the shell; page-scoped action commands) are priced in the research and not taken.
+- **D15's privacy question is answered by creating no public URL at all.** Every page is session-gated and every HTML response is `no-store` by a deliberate Phase 18 decision, and since Phase 16 a calendar match repaints the panel — so the picture's colour can encode "a flight from my private calendar is departing now". Sharing hands over the image BYTES the viewer is already authorised to see: nothing becomes publicly reachable, nothing expires, nothing needs revoking. The executable proof is that **the set of routes reachable without a session is asserted unchanged**.
+- **D6's manifest half is NOT worth building; its theme-color half is.** Five grounds, recorded in the code: the install prompt depends on the service worker D12 excluded; there are no 192/512 icons and 22-13 deliberately declined a brand mark; `theme_color` per theme cannot come from a static file with eighteen runtime themes; a manifest behind auth needs `crossorigin="use-credentials"`; and an installed icon on a 12-hour session would frequently open on `/login`.
+- **D11's prefetch half is structurally dead and is not built.** A `no-store` response is not stored and cannot be reused, so prefetch-on-hover buys a duplicate request to a single-threaded stdlib server and zero speedup; hover is also unreachable by touch. **gzip is built, at Caddy**, scoped to public static asset types — `style.css` is 417 KB and is served before `require_session()` — which keeps BREACH structurally out of scope. Its check is a file-content assertion, weaker than this project's norm, because the harness never runs Caddy; that is reported rather than implied away.
+- **The audit's "password set ✓" checklist item is vacuous and is replaced.** `auth.py:153` fails CLOSED, so anyone who can see the checklist has a password by construction and the tick can never be absent — a right implementation and a wrong one are indistinguishable. It becomes "the shared password is not `deploy/skypane.env.example`'s placeholder", compared in constant time, with neither the value nor any prefix of it ever rendered.
+- **"Frame paired" describes a concept this companion does not have** — provisioning is BLE, in the firmware. The signal is `frame_state.resolve_state()` not being `STATE_UNKNOWN`, whose own docstring already names that state "no check-in recorded yet". No second definition of "has the device ever been seen" is invented, and no new persistence, no state file and **no client storage** are added — 23-RESEARCH.md predicted this checklist would be the first feature in this codebase tempted to reach for `localStorage`.
+- **Three accessibility traps are closed by NOT writing code.** `<dialog>.showModal()` already supplies the focus trap, the top layer, Escape and focus restoration, and `panel-lookup.js:316-318` already records why this codebase chose `<dialog>` over a hand-rolled overlay. The fourth trap — announcing on every keystroke — is Phase 23's own lesson from its three switches, and is answered with a live region carrying only the result COUNT.
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 26 to break down)
+
+**Wave 1** *(parallel — two plans, disjoint files)*
+- [ ] 26-01-PLAN.md — wave 1: the phase's one new script with its three taxes paid once, the nav-derived command index, the `<dialog>` and the `.js`-gated trigger, and the two executable structural contracts. Builds no search and no shortcut.
+- [ ] 26-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — focus-restoration reading, announcement read-back that can tell a repeat from a change, the unauthenticated-route enumerator, and the exhaustive destination sweep; zero net checks
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 26-03-PLAN.md — wave 2: D23's palette — filtering over the server's own index, the combobox relationship, the count-only announcement, and the three traps the platform closes
+
+**Wave 3** *(parallel — two plans, disjoint files; blocked on Wave 2)*
+- [ ] 26-04-PLAN.md — wave 3: D23's shortcuts, the typing guard, the bounded chord, and the check the whole feature's legitimacy rests on — every destination reachable with scripts blocked, per destination, every run
+- [ ] 26-05-PLAN.md — wave 3: D24's guided first run — three signals that can actually fail, derived live, disappearing by construction, with no script and no storage
+
+**Wave 4** *(blocked on Wave 3)*
+- [ ] 26-06-PLAN.md — wave 4: D24's drawn empty states — the `empty_state()` extension whose default is byte-identical for all six callers, and illustrations emitted through Phase 24's one drawing module
+
+**Wave 5** *(blocked on Wave 4)*
+- [ ] 26-07-PLAN.md — wave 5: adoption across all six empty states, with every next action a real destination or an href-less span
+
+**Wave 6** *(blocked on Wave 5)*
+- [ ] 26-08-PLAN.md — wave 6: D15 — the download anchor that needs no script, the capability-gated share built without a network call, and the privacy proof that no route became public
+
+**Wave 7** *(blocked on all prior waves)*
+- [ ] 26-09-PLAN.md — wave 7: D6's theme-color half and D11's gzip half built, their other halves refused in writing; the design system updated in step, the coverage ledger, the eight-decision list, and the phase gate including the human sweep
+
+*The waves are serial after wave 1 because `companion/static/style.css` is written by five plans and `companion/static/command-palette.js` by three, and this project's rule is one writer per file per wave — the same reason Phase 23 needed 9 waves for 11 plans, Phase 24 7 for 9, and Phase 25 7 for 8.*
+
+Cross-cutting constraints (appearing in two or more plans' `must_haves`):
+- **The no-JS floor (D-09) is absolute, and this is the phase most structurally at odds with it.** A palette and a keystroke are script-only by nature; that is acceptable ONLY because everything they reach is reachable without them, and that is made true by construction (the index is the fourth consumer of the ONE `_nav_links()` iteration) and proven **exhaustively, per destination, every run** — never as a sample, because a single hand-added command is the entire failure mode.
+- CSP is `script-src 'self'`; there is no catch-all `/static/` handler, so the one new script needs its own route constant pair and its own dispatch line. The deferred-script pin moves ONCE, in 26-01, re-derived by RUNNING.
+- Minimum viewport 360 px, no horizontal body scrollbar; hit areas ≥ 44 px in both axes **measured in a real browser**. Keyboard shortcuts reach nobody on a phone and **no touch equivalent is invented** — the bottom tab bar (22-14) already is one.
+- Motion tokens only (`--motion-fast` 180 ms / `--motion-slow` 2 s); `interpolate-size` and `calc-size(` banned; no new `@keyframes`; no per-rule `prefers-reduced-motion` block; the palette reuses the existing `<dialog>` `@starting-style` entrance rather than inventing a third. `style.css` stays at zero stray comment terminators and exactly one `@supports selector(:has(*))` block.
+- **Two standing refusals stay refused and unreversed:** the **overlay drawer** (three recorded rejections plus locked decision D-10) and **sticky day headers** (struck twice; every flight row already carries its date).
+- Every check is mutation-tested and must survive the vacuity question; `EXPECTED_CHECK_COUNT` is re-derived by RUNNING, never by arithmetic; the sandbox baseline is exactly 5 failing checks verified by NAME (4 × WR-11 read-only, 1 × `anomaly_active()`). A `SKIP` from `test_browser_ux.py` is a **failed phase gate**, not a caveat — this phase's central claim is a claim about a browser with scripts blocked.
