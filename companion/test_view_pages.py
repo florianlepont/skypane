@@ -567,6 +567,15 @@ EXPECTED_CHECK_COUNT = 146
 # region naming the filter input list-filter.js captured at load.
 # 146 + 2 = 148, recomputed by RUNNING.
 EXPECTED_CHECK_COUNT = 148
+# 23-08-PLAN.md Task 2 (D3/CFG-32's two Flights clauses + D7's card
+# clause): +4. The detail row's grid reveal wrapper and the deliberate
+# one-directional animation whose collapsed end state is still
+# display: none; the chevron's transform transition and the stylesheet's
+# unmoved live prefers-reduced-motion count; the phone card's face as
+# its own <summary> with the resolve link kept out of it; and the filter
+# count animating its element rather than its number.
+# 148 + 4 = 152, recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 152
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -5267,6 +5276,288 @@ def main():
         "every one of its REFRESH_SWAP_SELECTORS_BY_PAGE regions, and no region names the filter "
         "input list-filter.js captured at load (D7/CFG-37, 23-08-PLAN.md Task 1)",
         _flights_declares_its_refresh_regions_and_never_the_filter_input)
+
+    # --- 23-08-PLAN.md Task 2 (D3/CFG-32's Flights clauses): the detail
+    # row opens with height, the chevron turns, the card answers a tap
+    # anywhere, and the count moves ---------------------------------------
+
+    def _css_rule_body(css, selector):
+        match = re.search(
+            r"(?:^|\n)[ ]*%s\s*\{([^}]*)\}" % re.escape(selector), css)
+        return match.group(1) if match else None
+
+    def _detail_row_height_animates_and_a_closed_row_is_unreachable():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        js_path = os.path.join(HERE, "static", "flight-rows.js")
+        with open(js_path) as fh:
+            js = fh.read()
+
+        # The mechanism, by name. `interpolate-size`/`calc-size()` are
+        # Chromium-only — they would animate for some visitors and
+        # silently do nothing for the rest — and 23-01's own guard bans
+        # both; this is the Flights-side restatement, so a reader of THIS
+        # rule sees why it is shaped the way it is.
+        if "grid-template-rows: 0fr" not in css:
+            return False, (
+                "expected the detail row's height to animate from grid-template-rows: 0fr — "
+                "the one mechanism 23-RESEARCH.md's Baseline table picks for this job")
+        for banned in ("interpolate-size", "calc-size("):
+            if banned in re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL):
+                return False, (
+                    "companion/static/style.css declares %r — Chromium-only, banned by 23-01's "
+                    "own guard" % (banned,))
+
+        # A <tr> is not a grid container, so the animation cannot live on
+        # the row box: it belongs to a wrapper inside the <td>, and the
+        # page must actually render that wrapper.
+        tmp = _mkstate("h-detail-reveal")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "rv01", "callsign": "REVEAL"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            detail = _detail_row_block(rendered, 0)
+            if detail is None:
+                return False, "expected a server-rendered detail row"
+            if "flight-detail-row__reveal" not in detail:
+                return False, (
+                    "expected the detail cell's content to sit inside the grid reveal wrapper — "
+                    "a <tr> is not a grid container and `display` is discrete, so the animation "
+                    "cannot live on the row box, got %r" % (detail[:200],))
+            if detail.index("flight-detail-row__reveal") > detail.index(
+                    "flight-detail-row__grid"):
+                return False, (
+                    "expected the reveal wrapper to WRAP the detail grid, not to follow it")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        # Scoped to the class flight-rows.js adds to <html> itself, and
+        # that scoping is the no-JS floor rather than tidiness: with
+        # scripts blocked every detail row is already open, and an
+        # entry animation firing over all of them on first paint is
+        # motion nobody asked for on a page nobody has touched.
+        if "flight-rows-live" not in js:
+            return False, (
+                "expected flight-rows.js to add its own live-script class — the animation is "
+                "keyed on it so a scripts-blocked page animates nothing at all")
+        reveal = _css_rule_body(css, ".flight-rows-live .flight-detail-row__reveal")
+        if reveal is None:
+            return False, (
+                "expected the reveal wrapper's animated rule to be scoped to the live-script "
+                "class")
+        if "display: grid" not in reveal or "grid-template-rows" not in reveal:
+            return False, (
+                "expected the reveal wrapper to be a grid whose row track is what animates, "
+                "got %r" % (reveal,))
+        if "var(--motion-fast)" not in reveal:
+            return False, (
+                "expected the reveal transition to spend var(--motion-fast) — somebody pressed "
+                "a control and is watching for it to answer — got %r" % (reveal,))
+        if "@starting-style" not in css:
+            return False, (
+                "expected an @starting-style block: a row going from display:none to displayed "
+                "has no previous computed value to transition FROM, so without one the rule is "
+                "a transition that never runs")
+
+        # THE DELIBERATE CHOICE, and the property the harness asserts.
+        # The collapsed end state stays `display: none` and only the
+        # OPENING direction animates. That is what keeps a closed row's
+        # links, buttons and copy controls out of the tab order and out
+        # of the accessibility tree — a row held present at zero height
+        # is still focusable, still announced, and still a row the
+        # keyboard walks into and finds nothing.
+        collapsed = _css_rule_body(css, ".flight-detail-row--collapsed")
+        if collapsed is None or "display: none" not in collapsed:
+            return False, (
+                "expected the collapsed detail row to resolve to display: none — the animation "
+                "is one-directional on purpose, because that is the only end state that removes "
+                "the row from the tab order AND the accessibility tree, got %r" % (collapsed,))
+        return True, ""
+    check(
+        "the Flights detail row animates open through a grid reveal wrapper inside its own <td> "
+        "(grid-template-rows 0fr, var(--motion-fast), an @starting-style entry, scoped to the "
+        "class flight-rows.js adds to <html>), neither interpolate-size nor calc-size() appears, "
+        "and the collapsed end state is still display: none — the one state that takes a closed "
+        "row out of both the tab order and the accessibility tree (D3/CFG-32, 23-08-PLAN.md "
+        "Task 2)",
+        _detail_row_height_animates_and_a_closed_row_is_unreachable)
+
+    def _the_chevron_turns_and_carries_no_reduced_motion_block_of_its_own():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        glyph = _css_rule_body(css, ".row-toggle__glyph")
+        if glyph is None:
+            return False, "expected a .row-toggle__glyph rule"
+        if "transition" not in glyph:
+            return False, (
+                "expected the chevron to take a transition of its own — D3's clause, and the "
+                "one references/control-density.md:78 pre-approved, got %r" % (glyph,))
+        if "var(--motion-fast)" not in glyph:
+            return False, (
+                "expected the chevron transition to spend var(--motion-fast) rather than a bare "
+                "literal, got %r" % (glyph,))
+        if "transform" not in glyph:
+            return False, (
+                "expected the chevron to transition TRANSFORM specifically — the rotation is the "
+                "only thing that changes and a blanket `all` would animate properties nobody "
+                "chose, got %r" % (glyph,))
+        # NO per-rule reduced-motion block, stated in advance by
+        # references/control-density.md:78: the global override already
+        # covers a plain transform for free, and a block here would be
+        # dead code rather than a safety net. Measured as the file's
+        # whole live count, so a block added anywhere fails this.
+        live = "\n".join(
+            line for line in css.splitlines() if not re.match(r"^ *[*/]", line))
+        if live.count("prefers-reduced-motion") != 3:
+            return False, (
+                "expected companion/static/style.css to carry exactly 3 live "
+                "prefers-reduced-motion occurrences (the global reduce override, .js "
+                ".mobile-nav's narrow one, and 23-04's no-preference view-transition wrapper) — "
+                "this plan's chevron and its row animation add none, got %d"
+                % live.count("prefers-reduced-motion"))
+        return True, ""
+    check(
+        "the row-toggle chevron transitions TRANSFORM on var(--motion-fast) and adds no per-rule "
+        "reduced-motion block — the global override already covers a plain transform for free, "
+        "and the stylesheet's live prefers-reduced-motion count is unmoved at 3 (D3/CFG-32, "
+        "references/control-density.md:78, 23-08-PLAN.md Task 2)",
+        _the_chevron_turns_and_carries_no_reduced_motion_block_of_its_own)
+
+    def _the_phone_cards_own_face_is_its_disclosure_summary():
+        tmp = _mkstate("h-card-face-summary")
+        try:
+            key = illustrations.normalise_airline_key("Air France")
+            override_path = illustrations.override_path_for_key(key, tmp)
+            os.makedirs(os.path.dirname(override_path), exist_ok=True)
+            _write_gallery_png(override_path)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FACEONE",
+                 "airline": "Air France"},
+                {"ts": "2026-08-27T09:00:00+00:00", "hex": "fc02", "callsign": "FACETWO",
+                 "airline": "Totally Unknown Air"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            li = _row_block(rendered, "li", 0)
+            if li is None:
+                return False, "could not locate the phone card"
+            summary = re.search(
+                r'<summary class="history-card__summary">(.*?)</summary>', li, re.S)
+            if summary is None:
+                return False, (
+                    "expected the card's own face to BE the disclosure's <summary> — a tap "
+                    "anywhere on the card is the native disclosure answering, not a new "
+                    "mechanism, got %r" % (li[:300],))
+            face = summary.group(1)
+            for part in ("history-card__primary", "history-card__secondary",
+                         "history-card__airline", "history-card__thumb",
+                         "history-card__airline-name", "history-card__time"):
+                if part not in face:
+                    return False, (
+                        "expected %r to be part of the card's tappable face — the thumbnail and "
+                        "the airline name shipped in 22-09 and are NOT rebuilt here, they are "
+                        "where they already were" % (part,))
+            # The one thing that must NOT be inside the summary. It is a
+            # control in its own right, and a disclosure whose accessible
+            # name ends in another control's call to action is naming an
+            # action it does not perform.
+            li_unresolved = _row_block(rendered, "li", 1)
+            if li_unresolved is None:
+                return False, "could not locate the unresolved-airline card"
+            if history_page.RESOLVE_LINK_TEXT not in li_unresolved:
+                return False, (
+                    "expected the unresolved card to still carry its one-hop resolve link "
+                    "somewhere on the card — the phone card must not lose an affordance the "
+                    "desktop row has")
+            unresolved_summary = re.search(
+                r'<summary class="history-card__summary">(.*?)</summary>', li_unresolved, re.S)
+            if unresolved_summary is None:
+                return False, "expected the unresolved card to have a face summary too"
+            if history_page.RESOLVE_LINK_TEXT in unresolved_summary.group(1):
+                return False, (
+                    "did not expect the resolve LINK inside the summary: it is a control in its "
+                    "own right, and inside a <summary> it both joins the disclosure's accessible "
+                    "name and competes with the disclosure for the same activation")
+            if "<a " in unresolved_summary.group(1) or "<button" in unresolved_summary.group(1):
+                return False, (
+                    "did not expect any nested control inside the card's summary, got %r"
+                    % (unresolved_summary.group(1),))
+            # And the disclosure BODY is unchanged: still one <details>
+            # per card, still exactly the three copy buttons.
+            if li.count("<details") != 1 or li.count("</details>") != 1:
+                return False, (
+                    "expected exactly one <details> per card, got %d open / %d close"
+                    % (li.count("<details"), li.count("</details>")))
+            body = li[li.index("</summary>"):]
+            if body.count("data-copy-value") != 3:
+                return False, (
+                    "expected the disclosure body to still hold exactly the three copy buttons, "
+                    "got %d" % body.count("data-copy-value"))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the phone card's own face IS the native disclosure's <summary> — the primary line, the "
+        "secondary line, the time and 22-09's thumbnail and airline name all inside it, so a tap "
+        "anywhere opens the card with no script at all — while the one-hop resolve link stays on "
+        "the card and OUT of the summary, and the disclosure body still holds exactly the three "
+        "copy buttons (D7/CFG-37, 23-08-PLAN.md Task 2)",
+        _the_phone_cards_own_face_is_its_disclosure_summary)
+
+    def _the_count_animates_without_its_text_production_moving():
+        js_path = os.path.join(HERE, "static", "list-filter.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        # The text production, untouched: the template comes from the
+        # server-rendered attribute and the two %d are filled from the
+        # two counts. That attribute is the only thing that knows the
+        # translated plural, and a script that composed the sentence
+        # itself would be back to hardcoded English.
+        for token in ('getAttribute("data-filter-count-template")',
+                      '.replace("%d", String(visibleCount))',
+                      '.replace("%d", String(totalCount))'):
+            if token not in js:
+                return False, (
+                    "expected the count's text production to be unchanged (%r) — only its "
+                    "presentation animates" % (token,))
+        # The ELEMENT animates, never the number: the text is written
+        # first and the class second, so the displayed value is correct
+        # at every instant including the first frame of the animation.
+        if "is-fading-in" not in js:
+            return False, (
+                "expected the count to spend the stylesheet's existing changed-value animation "
+                "rather than declare a fourth keyframes block")
+        count_at = js.index("var countEl = document.querySelector(COUNT_SELECTOR);")
+        block = js[count_at:count_at + 1400]
+        text_at = block.index("countEl.textContent =")
+        class_at = block.index("classList.add(")
+        if text_at > class_at:
+            return False, (
+                "expected the count's text to be written BEFORE the animation class is added — "
+                "the number is never what moves, so it is never wrong mid-animation")
+        if "classList.remove(" not in block:
+            return False, (
+                "expected the animation class to be removed and re-added so a second change "
+                "restarts it — a class already present runs nothing")
+        if "offsetWidth" not in block:
+            return False, (
+                "expected a forced reflow between the removal and the re-add — without it the "
+                "browser coalesces both into no change at all and the animation never restarts")
+        # And only on a real change. A count re-rendered with the same
+        # value has not changed, and animating it would be motion that
+        # carries no information.
+        if "!==" not in block:
+            return False, (
+                "expected the animation to fire only when the rendered text actually differs")
+        return True, ""
+    check(
+        "the filter count animates its ELEMENT and never its number: the template-driven text "
+        "production is untouched, the text is written before the class is added, the class is "
+        "removed and re-added across a forced reflow so a second change restarts it, and it "
+        "fires only when the rendered value actually differs (D7/CFG-37, 23-08-PLAN.md Task 2)",
+        _the_count_animates_without_its_text_production_moving)
 
     def _phone_card_route_and_state_carry_the_existing_middle_dot():
         tmp = _mkstate("h-card-separator")
