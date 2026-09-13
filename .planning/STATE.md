@@ -14,7 +14,20 @@ progress:
   percent: 91
 ---
 
----
+
+> **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
+> blocks: the current one above, and a second, stale one that sat between it
+> and this title. The stale block was last written 2026-09-04 and still
+> declared `current_phase: 06.6.4.1`, `completed_phases: 22`, `total_plans:
+> 119` — figures nine phases and 84 plans out of date. Two frontmatter blocks
+> is not a format any reader or tool expects, and the stale one shadowed the
+> real numbers for anyone reading top-down.
+>
+> It is demoted here rather than deleted, because its `stopped_at` prose is a
+> genuine record of phase 06.6.4.1's closing that exists nowhere else. Kept
+> verbatim, as data, no longer parsed as state:
+
+```yaml
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
@@ -31,6 +44,7 @@ progress:
   total_plans: 119
   completed_plans: 118
   percent: 99
+```
 
 # Project State
 
@@ -43,8 +57,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 21 — EXECUTING
-Plan: 1 of ?
+Phase: 22 (companion-audit-round-4) — COMPLETE (16/16 plans), verified
+Plan: 16 of 16
 
 **14-06 executed (2026-09-06), wave 3, the last plan in this wave to touch `companion/pages/airlines_page.py` before Wave 4's closing verification — absorbs Phase 13's standalone "Manually resolved prefixes" table into the gallery cards themselves.** Task 1 widened `_airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None)`: `manual_info=None` is byte-identical to the pre-existing plain curated card; present as `(prefix, superseded, needs_artwork)` — the exact trailing three fields of one `_manual_resolution_rows()` row, sliced by `render()` and consumed here, never re-derived (RESEARCH.md Pitfall 6) — it derives `mode`/`manual`/`heading`/`upload-action`/`delete-action`/`manual-note`/sighting-context attributes and generalises the trigger-tag rule so any card carrying a resolve prefix is a real `<a href="/airlines?resolve={prefix}">` (a plain curated card keeps its `<button>`). A superseded card's image/mode reflect the BUILT-IN airline's own current state (D-10) via one `enrich.static_airline_name_for_prefix()` call. `render()` gained an additive grid-injection step: `manual_info_by_name` keys a superseded row by the built-in name (the card the frame actually renders under) and an active row by its own stored name, and `injected_pairs` adds exactly one card for a genuinely novel active manual name not already curated. Task 2 deleted the standalone management table and its six now-orphaned rendering functions plus nine copy/class constants (the plan's own eight, plus `SUPERSEDED_CAPTION`, a ninth genuinely-orphaned one its enumeration missed), replacing it with `_manual_summary_html(manual_rows)` — a one-line, clickable `data-filter-set="manual"` summary reusing `list-filter.js`'s plan-14-03 hook — and deleted the now-dead `.manual-resolution__status--superseded` CSS rule. Four `test_status_pages.py` checks were retargeted in place (zero net count change) plus one pre-existing 14-03 check flipped from asserting the CSS rule's survival to its absence; 5 new Task-1 checks brought `EXPECTED_CHECK_COUNT` 158 → 163. Two Rule-1 bugs were auto-fixed along the way: a missing pair of format-string placeholders that crashed every card render (caught immediately by `test_view_pages.py`'s `render({})` regression check), and a superseded card's manual-note interpolating the built-in name into its own "the name you gave it" slot instead of the operator's actual stored name (fixed with one `manual_resolutions.load_manual_resolutions()` lookup scoped to that branch, caught by a pre-existing check's assertion going red). External gap-closure per 14-05-SUMMARY.md's own documented finding: `_resolve_name_form_html()` now emits `<p class="lightbox__resolve-scope"></p>`, and `panel-lookup.js`'s previously-discarded `data-view-panel-scope` read now writes into it. `scripts/run-all-tests.sh`: `Result: PASS`, 93% coverage. `git diff --name-only` against this plan's start: `companion/pages/airlines_page.py`, `companion/static/panel-lookup.js`, `companion/static/style.css`, `companion/test_status_pages.py` — zero files under `server/`, no new dependency. Wave 3 (14-04 through 14-06) is now complete; 14-08 (Wave 4's closing verification) is next.
 
@@ -66,7 +80,7 @@ Plan: 1 of ?
 
 **10-01 executed (2026-09-03), wave 1 (no dependencies), the Wave 1 foundation every other Phase 10 plan reads — added the three quiet-hours config-registry fields (D-03 one daily recurring window, D-04 separate enabled flag) and DST-safe Europe/Paris window arithmetic to `server/device_config.py`.** Task 1 added `DEFAULT_QUIET_HOURS_ENABLED`/`_START`/`_END`, the `_HHMM_RE` shape gate (anchored `\Z` not `$` per T-06-01-01, so a trailing-newline value can't smuggle a dirty string past the gate), `normalise_quiet_hours_enabled()`/`normalise_quiet_hours_time()` (one shared function for both start/end fields so validation strictness can't drift apart between them), extended `load_device_config()` to return six keys and `save_device_config()` with three new validated keyword args (reject-before-write, carry-forward-when-None, matching the existing theme/tracked_runway/led_enabled contract exactly); repaired 6 full-document equality assertions in `server/test_config_history.py` and 1 in `companion/test_config_page.py` broken by the new keys, and added 5 new checks. Task 2 added `QUIET_HOURS_TZ = ZoneInfo("Europe/Paris")` (stdlib since 3.9, no new dependency) and `seconds_until_quiet_hours_end(now_utc, start_hm, end_hm)`, adapted from 10-PATTERNS.md's reference body with one mandatory correctness fix (subtract in UTC after converting both operands, not in local wall-clock time — the reference body's naive same-tzinfo subtraction is off by exactly one hour across a DST transition) and one accepted, documented caveat (the 02:00-03:00 transition-hour boundary case, PEP 495 `fold=0`, per D-01's "never shorter than base sleep" bound); also added `quiet_hours_status(config, now_epoch)`, the never-raising epoch-seconds convenience wrapper plan 10-04's `poll_loop.py` will call. All numerically-verified DST anchors (28000s mid-window at a wrap-midnight window, 23400s across spring-forward, 30600s across fall-back) matched exactly on first implementation; 4 new checks added. `EXPECTED_CHECK_COUNT` for `server/test_config_history.py`: 30 → 35 (Task 1) → 39 (Task 2); `companion/test_config_page.py` unchanged at 64. No deviations — both tasks' acceptance-criteria commands ran verbatim and passed; `git diff --name-only` after each commit matched the plan's declared `files_modified` exactly. `scripts/run-all-tests.sh` run at plan close: 22/22 harnesses pass (sole note: the pre-existing, already-accepted macOS Pillow/FreeType `panel.bin` digest mismatch, confirmed present before this plan started and unrelated to these changes). `server/requirements.txt` unchanged.
 
-## Current Position
+## Position History (superseded entries, kept for the record)
 
 Phase: 06.6.4.1.1 (settings-theme-picker-and-typography-spacing-direction-pass) — COMPLETE (6/6 plans)
 
@@ -714,7 +728,7 @@ None yet.
 - OPEN, flagged by 22-13 for 22-16, NOT a blocker for any plan: three design-system rows from 22-UI-SPEC.md 4 are now owed by landed code — `.login-card button[type="submit"]` joining references/control-density.md's touch-target register in the KEPT category with its three-point justification, `.field-error` gaining its SECOND consumer in references/settings-page-patterns.md with the under-the-control placement rule stated, and C4's composition rule itself, whose worked example (the login card's field + Sign in, both 44px, both 8px radius) now exists in code
 - NOTED by 22-13, for whoever records the collision: a component whose base rule sets `display` needs its own higher-specificity `[hidden]` selector or the server-rendered hidden attribute is silently defeated by the author stylesheet. style.css now has THREE such rules — `.dirty-bar[hidden]`, `.refresh-pill[hidden]` and `.login-reveal[hidden]`. The third was found by companion/test_browser_ux.py's scripts-blocked pass, not by inspection: `.copy-btn`'s `display: inline-flex` was rendering a dead show-password button on a page with JavaScript off
 - NOTED by 22-13, a plan-frontmatter inaccuracy 22-16 may want to correct rather than inherit: 22-13-PLAN.md's own must_haves claim style.css had no `.login-card` rule, and derive an acceptance grep from it. `.login-shell`/`.login-card` have existed since 06.6.2-07, so that grep was already non-zero before the plan ran and cannot discriminate. What genuinely did not exist is any rule for the two CONTROLS inside the card, which is what the audit row actually said (`.login-form`)
-- STATE.md is structurally degraded: two YAML frontmatter blocks and two '## Current Position' sections, both stale, so 'gsd-sdk query state.advance-plan' cannot parse it and errors. Pre-existing and long-documented in the file's own history; 22-16 updated the position/session fields by hand per that precedent. Worth a dedicated repair.
+- STATE.md was structurally degraded: two YAML frontmatter blocks and two '## Current Position' sections, both stale, so 'gsd-sdk query state.advance-plan' could not parse it and errored. **REPAIRED 2026-09-13.** The real parse failure was one line — 'Plan: 1 of ?', whose '?' the parser's /of\s+(\d+)/ cannot read — not the duplication itself; the duplication was a separate, genuine defect fixed alongside. The stale frontmatter is demoted to a quoted yaml block under the title rather than deleted, since its stopped_at prose records phase 06.6.4.1's closing and exists nowhere else. Verified: state.advance-plan now returns current_plan 16, total_plans 16, ready_for_verification.
 
 ### Quick Tasks Completed
 
