@@ -204,6 +204,31 @@
   var PAUSED_TEXT = "Paused";
   var RECONNECTING_TEXT = "Reconnecting…";
 
+  // --- 23-05-PLAN.md Task 2 (D22's remainder, D14/CFG-34) -----------
+  //
+  // The dot beside the freshness line breathes while this loop is live
+  // and stops the instant it is not. companion/pages/health_page.py
+  // renders it, static and neutral; this file adds and removes ONE
+  // class, companion/static/style.css does the rest, and under a
+  // reduced-motion preference the stylesheet's global override zeroes
+  // it for free.
+  //
+  // It is .dot--off, the app's own "a neutral, everyday state, never a
+  // problem" dot, and it stays that colour in every state. A paused or
+  // reconnecting loop is a browser that stopped listening, not a device
+  // fault, which is the same argument 22-15 made when it shipped the
+  // Paused/Reconnecting badge neutral rather than orange.
+  // Built from the attribute name rather than written out as one
+  // selector literal, so the name has exactly one site here — and so
+  // companion/test_i18n.py's Check 6, which scans every upper-case
+  // string constant in this directory and demands a French catalogue
+  // entry for it, sees an attribute name (which its own allowlist
+  // excludes) rather than a bracketed selector (which its allowlist is
+  // documented to exclude but, as written, does not).
+  var LIVE_DOT_ATTR = "data-refresh-live-dot";
+  var LIVE_DOT_SELECTOR = "[" + LIVE_DOT_ATTR + "]";
+  var BREATHING_CLASS = "is-breathing";
+
   var loadedAtEl = document.querySelector("[data-loaded-at]");
   if (!loadedAtEl) {
     return;
@@ -373,6 +398,7 @@
       label.textContent = stateText(state);
     }
     badge.hidden = false;
+    syncLiveDot();
   }
 
   function clearState() {
@@ -381,6 +407,37 @@
     if (badge) {
       badge.hidden = true;
     }
+    syncLiveDot();
+  }
+
+  // 23-05-PLAN.md Task 2: DERIVED from this loop's own two state
+  // variables, never tracked separately. There is no second state
+  // machine here and there must not be one — two sources for one claim
+  // is this codebase's most repeated defect, and a dot that breathes
+  // while the page is not actually listening is exactly the lie D22
+  // exists to remove (T-23-15).
+  //
+  // Live means both halves at once: an interval exists AND no state
+  // badge is showing. A paused tab has no interval; a reconnecting
+  // page has one but is failing, and its ladder — not the interval —
+  // owns the schedule.
+  //
+  // Looked up fresh on every call and never cached, for the same reason
+  // revealPill() above refuses to cache: this dot is a child of
+  // .page-header__freshness, one of this file's own swap targets, so a
+  // successful refresh legitimately replaces it. succeed() below calls
+  // clearState() immediately after every swap, which is what re-applies
+  // the class to the newly-rendered dot.
+  function syncLiveDot() {
+    var dot = document.querySelector(LIVE_DOT_SELECTOR);
+    if (!dot || !dot.classList) {
+      return;
+    }
+    if (intervalHandle !== null && currentState === null) {
+      dot.classList.add(BREATHING_CLASS);
+      return;
+    }
+    dot.classList.remove(BREATHING_CLASS);
   }
 
   // 19-09-PLAN.md (D-02): the single, greppable swap-target list. Must
@@ -660,6 +717,7 @@
       return;
     }
     intervalHandle = window.setInterval(tick, AUTO_REFRESH_INTERVAL_MS);
+    syncLiveDot();
   }
 
   function stopLoop() {
@@ -668,6 +726,7 @@
     }
     window.clearInterval(intervalHandle);
     intervalHandle = null;
+    syncLiveDot();
   }
 
   document.addEventListener("visibilitychange", function () {

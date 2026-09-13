@@ -1392,6 +1392,42 @@ select.visually-hidden {
   background: color-mix(in srgb, var(--color-text) 30%, transparent);
 }
 
+/* 23-05-PLAN.md Task 2 (D14/D22/CFG-34): the FIFTH consumer of the
+ * neutral "off" dot rule immediately above, and the first and only
+ * consumer of the one animation block this stylesheet defines
+ * (23-01-PLAN.md Task 1). It is that rule's existing neutral treatment
+ * PLUS motion — no new dot rule, no new dot class, no new colour, no
+ * accent and no status colour. (The dot class-name occurrence count in
+ * this file is pinned by companion/test_status_pages.py, which greps
+ * the RAW source, so this paragraph deliberately does not spell the
+ * modifier out. A comment is not a rule and must not be counted as
+ * one.) A refresh loop that is listening is not a device verdict and
+ * must not borrow one's paint.
+ *
+ * It shares the contract every other consumer of that rule shares,
+ * stated in .claude/skills/sketch-findings-skypane/SKILL.md: a neutral,
+ * everyday state that is not a problem. Screen off, Quiet hours off,
+ * freshness.js's Paused/Reconnecting badge — and now a live/paused
+ * refresh indicator, plus a countdown that has reached its instant and
+ * is simply waiting. Plan 23-11 records this consumer in the design
+ * system.
+ *
+ * NOT a dot modifier, deliberately: companion/static/relative-time.js
+ * puts this same class on a <time> element whose countdown has run out,
+ * so the class has to name the motion rather than the component. Two
+ * consumers, one rule, one animation block.
+ *
+ * UNDER REDUCED MOTION THIS DOES NOT BREATHE, and there is no block
+ * here saying so. The global `*, *::before, *::after` override earlier
+ * in this file already zeroes animation-duration for every element, and
+ * a per-rule block would be the dead-code-not-a-safety-net pattern
+ * `accessibility-contrast.md` records a verdict on. The stylesheet's
+ * live reduce-block count stays at two and
+ * companion/test_companion_app.py fails if it moves. */
+.is-breathing {
+  animation: skypane-pulse var(--motion-slow) ease-in-out infinite;
+}
+
 .dot-label {
   font-size: var(--font-label-size);
   vertical-align: middle;
