@@ -1041,7 +1041,7 @@ Plans:
 **Goal:** Fix everything the fourth companion audit found (22-AUDIT.md, developer-validated 2026-09-12; evidence report at https://claude.ai/code/artifact/af979b96-c02d-41bc-ad04-9623ff0d143a) — the one blocker first (B1: the Display page cannot be saved with JS on, because its `form=`-attached fields never reach `dirty-state.js`'s form-scoped listeners while the fallback Save is hidden), then the contradictory frame-state signals (X2: one quiet-hours- and screen-off-aware next-wake shared by strip, tiles and captions, with a grace window, so a sleeping frame is never called late), the duplicate screen/quiet-hours controls and their three delay wordings (X1), the UTC/ISO leaks (B4, B5) and the untranslated flash banners, titles and plurals (B16), the pixel-level layout defects (login row, Frame strip cells, orphan buttons, runway grid, nav reminder, filter Clear, FR table overflow, Device fields, preview crop, empty and self-contradicting Health cards), the design-contract drift (serif legends, accent overload in the strip, hover fill on the segmented control, four treatments for one timestamp) and the verified CSS/JS defects (permanently suppressed leave-guard, Disconnect styled as primary, lost disclosure markers, non-sticky headers, save-bar overlap). Ships with a minimal Playwright harness in `scripts/run-all-tests.sh` covering the interactions no string-comparison harness can see — the class of defect B1 belongs to. The audit's dynamism half (D1–D24) is deliberately NOT in this phase; it is Phase 23.
 **Requirements**: CFG-25, CFG-26, CFG-27, CFG-28, CFG-29, CFG-30, CFG-31
 **Depends on:** Phase 21
-**Plans:** 13/16 plans executed
+**Plans:** 14/16 plans executed
 
 Plans:
 - [x] 22-01-PLAN.md — B1 blocker: document-level dirty-state delegation, the fallback-Save contract, T1/T8, and the Playwright harness (wave 1)
@@ -1057,7 +1057,7 @@ Plans:
 - [x] 22-11-PLAN.md — Airlines: B5's formatted dialog, X7's editing affordance and two-per-row grid, and B11 (wave 7)
 - [x] 22-12-PLAN.md — Health: one tile anatomy, a neutral corroboration state, the compact empty state, B12 and B11 (wave 8)
 - [x] 22-13-PLAN.md — X3: the login card's geometry, an announced error, show-password and a live lockout countdown (wave 9)
-- [ ] 22-14-PLAN.md — X9: the bottom tab bar (D-10), the reduced dropdown, B10, T5, T11 and the save-bar stacking (wave 10)
+- [x] 22-14-PLAN.md — X9: the bottom tab bar (D-10), the reduced dropdown, B10, T5, T11 and the save-bar stacking (wave 10)
 - [ ] 22-15-PLAN.md — The verified CSS/JS defects: T2, T3, T4, T6, T13, T14, T15 (wave 11)
 - [ ] 22-16-PLAN.md — sketch-findings-skypane updated in step (UI-SPEC §4's 20 rows) and the phase-closing sweep (wave 12)
 
