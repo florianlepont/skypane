@@ -57,12 +57,30 @@
  * after it in source order, the same mechanism `.logout-form button`/
  * `.dirty-bar__cancel` already use) now repaints them with the ordinary
  * quiet-button wash instead, so "primary buttons" no longer includes
- * them. The arithmetic is: 06.6.4.1-04 already removed the Disconnect
- * button's accent fill as a specificity BUG fix, not a reservation
- * change (it was never a deliberate entry on this list to begin with);
- * this task's own removal is the first of the two genuine losses this
- * phase makes, and 22-05-PLAN.md's own settings-form work makes no
- * change to this list at all. After this task, `.stat-tile--accent`'s
+ * them.
+ *
+ * The arithmetic, CORRECTED IN PLACE by 22-16-PLAN.md's closing sweep
+ * because the premise it rested on was wrong. This paragraph used to
+ * read "06.6.4.1-04 already removed the Disconnect button's accent fill
+ * as a specificity BUG fix ... this task's own removal is the first of
+ * the two genuine losses this phase makes". THE FIRST HALF WAS FALSE
+ * WHEN IT WAS WRITTEN and stayed false for another eleven plans: the
+ * Disconnect fill was still live, because `.calendar-disconnect-btn`
+ * was (0,1,0) against `button[type="submit"]`'s (0,1,1), so the primary
+ * accent fill won outright and this app's one DESTRUCTIVE control
+ * rendered as the page's primary CTA. 22-15-PLAN.md Task 1 (T2) is what
+ * actually removed it, by element-qualifying the selector to
+ * `button.calendar-disconnect-btn` — equal (0,1,1) specificity, decided
+ * by source order (see that rule's own comment, far below).
+ *
+ * What the correction does and does not move: the COUNT above is
+ * unchanged, because the Disconnect fill was never a deliberate entry
+ * on this list to begin with — it was a specificity accident, not a
+ * reservation. What moves is WHERE the two losses land. Both are this
+ * phase's: 22-04-PLAN.md Task 2 repainting the Frame strip's two switch
+ * buttons (the sentence above), and 22-15-PLAN.md Task 1 clearing the
+ * Disconnect fill. 22-05-PLAN.md's own settings-form work makes no
+ * change to this list at all. After this phase, `.stat-tile--accent`'s
  * own top rail is the Frame strip's ONLY remaining accent, and the
  * page's accent has returned to Save/the page's one primary action —
  * this sentence states the result; it does not itself remove anything

@@ -6990,8 +6990,27 @@ def main():
             clock_at = wrapper_slice.index("data-refresh-clock")
             clock_tag = wrapper_slice[
                 wrapper_slice.rindex("<", 0, clock_at):wrapper_slice.index(">", clock_at) + 1]
-            if ('title="%s"' % now_iso) not in clock_tag:
-                return False, "expected the clock span's title to carry the full ISO instant"
+            # 22-16-PLAN.md's closing sweep (D-05/CFG-28): RETARGETED in
+            # place, deliberately, from 19-09-PLAN.md's own "the title
+            # carries the full ISO instant" assertion. A `title` is a
+            # tooltip and this one sits behind no copy control, so the
+            # raw ISO failed two of CFG-28's clauses. It is now the full
+            # Europe/Paris local timestamp, the same conversion
+            # 22-06-PLAN.md Task 3 applied to concise_timestamp_html(),
+            # and asserted the same way: the raw ISO must not survive
+            # verbatim, and the title must match this module's own
+            # _full_local_timestamp_text() output exactly.
+            expected_title = layout.escape_html(
+                health_page._full_local_timestamp_text(now_iso))
+            if ('title="%s"' % expected_title) not in clock_tag:
+                return False, (
+                    "expected the clock span's title to carry the full Europe/Paris local "
+                    "timestamp %r, got %r" % (expected_title, clock_tag))
+            if now_iso in clock_tag:
+                return False, (
+                    "expected the raw ISO instant NOT to survive verbatim in the clock "
+                    "span's title — a title is a tooltip, and raw ISO belongs only behind "
+                    "a copy control (D-05/CFG-28)")
 
             for needle in ("data-refresh-toggle", "data-pause-text", "data-resume-text"):
                 if needle in wrapper_slice:
@@ -7038,8 +7057,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, full ISO "
-        "in the clock span's title) beside the unchanged hidden refresh pill and NO Pause/Resume "
+        "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, the full "
+        "Europe/Paris local timestamp — never the raw ISO — in the clock span's title, retargeted "
+        "by 22-16 for D-05/CFG-28) beside the unchanged hidden refresh pill and NO Pause/Resume "
         "toggle (zero data-refresh-toggle/data-pause-text/data-resume-text, zero <button>), all "
         "inside one block-level .page-header__freshness wrapper that is the .page-header's next "
         "child right after the <h1>, in prefix/clock/pill source order (21-02-PLAN.md Task 1, D-18; "

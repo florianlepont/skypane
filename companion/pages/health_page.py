@@ -3620,13 +3620,36 @@ def render(ctx):
     # for here. The base shape, not `--primary`: this is a caption under
     # the page title, not a headline.
     #
-    # The `title` deliberately keeps the full ISO instant, unchanged:
-    # 19-09-PLAN.md (D-02/A-20) put it there on purpose and
-    # companion/test_status_pages.py pins it by name. See this plan's
-    # SUMMARY for why that is left standing rather than converted.
+    # 22-16-PLAN.md's closing sweep (D-05/CFG-28). The `title` used to
+    # carry the raw UTC ISO instant verbatim, and 22-12-PLAN.md left it
+    # standing with a note saying why: 19-09-PLAN.md (D-02/A-20) put it
+    # there deliberately and companion/test_status_pages.py pinned it by
+    # name, so converting it meant deliberately re-targeting another
+    # plan's pin. That is exactly what this plan owns.
+    #
+    # It fails two of D-05/CFG-28's own clauses at once: "every `title`
+    # tooltip carries a local full timestamp", and "raw ISO survives
+    # only behind a copy control" — a `title` is a tooltip, and this one
+    # sits behind no `.copy-btn` at all, so the requirement could not be
+    # honestly ticked while it stood.
+    #
+    # The conversion is the pattern 22-06-PLAN.md Task 3 already proved
+    # on `layout.concise_timestamp_html()`: the full Europe/Paris local
+    # timestamp from `local_clock_text()`'s own cross-day branch, forced
+    # by `_FULL_TIMESTAMP_SENTINEL_NOW`. This module already exposes it
+    # as `_full_local_timestamp_text()`, which every battery `title`/
+    # `aria-label`/`data-when` on this page has used since that plan —
+    # so this is a fourth caller of an existing helper, not a second
+    # date path, and it degrades identically (an unparseable value falls
+    # back to the raw string rather than raising).
+    #
+    # What is NOT lost with the ISO: `data-loaded-at` on the refresh
+    # pill still carries the real machine-readable instant, which is
+    # what companion/static/freshness.js actually reads. The `title` was
+    # only ever a human-facing tooltip.
     clock_html = (
         '<span class="time-value" data-refresh-clock title="%s">%s</span>'
-        % (escape_html(now), escape_html(_clock_text)))
+        % (escape_html(_full_local_timestamp_text(now)), escape_html(_clock_text)))
     # 21-02-PLAN.md (D-18): the Pause/Resume button that used to sit here
     # is deleted outright — no replacement control, no placeholder. The
     # freshness line is now just the prefix, the clock and the pill.
