@@ -5871,7 +5871,7 @@ def main():
                     data=urllib.parse.urlencode(
                         {"state": "on" if state == "off" else "off", "return_to": "/"}).encode(),
                     extra_headers={
-                        app_module.QUICK_FETCH_HEADER: app_module.QUICK_FETCH_HEADER_VALUE})
+                        "X-Requested-With": app_module.QUICK_FETCH_HEADER_VALUE})
                 if status != 204:
                     return False, (
                         "%s: a POST identifying itself as a fetch must answer 204, got %d"
@@ -5893,7 +5893,7 @@ def main():
                     base + route, method="POST", cookie=session_cookie,
                     data=urllib.parse.urlencode({"state": "toggle", "return_to": "/"}).encode(),
                     extra_headers={
-                        app_module.QUICK_FETCH_HEADER: app_module.QUICK_FETCH_HEADER_VALUE})
+                        "X-Requested-With": app_module.QUICK_FETCH_HEADER_VALUE})
                 if status == 204:
                     return False, (
                         "%s: a crafted state value must never answer 204 — the client reads 204 "

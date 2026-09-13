@@ -221,6 +221,16 @@ SUBMIT_GUARD_SCRIPT_SRC = "/static/submit-guard.js"
 # page modules reach through concise_timestamp_html() without naming, so
 # no page module actually knows whether it has one.
 RELATIVE_TIME_SCRIPT_SRC = "/static/relative-time.js"
+# 23-07-PLAN.md Task 1 (D2/CFG-36): the fourteenth script on the
+# authenticated shell, under the same duplicated-not-imported contract as
+# every SCRIPT_SRC above — companion/app.py's QUICK_SWITCH_SCRIPT_ROUTE
+# must equal this exactly, and a harness asserts it. Registered on the
+# shell rather than per page because its listener is DELEGATED at
+# document level over every [data-quick-switch] form in the app, and
+# those forms already live on three different pages (Home and Display
+# carry the Frame strip's two, Device carries the LED switch's own
+# sibling form).
+QUICK_SWITCH_SCRIPT_SRC = "/static/quick-switch.js"
 
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
@@ -253,8 +263,75 @@ QUICK_ACTION_SWITCH_OFF_BUTTON = "Switch off"
 QUICK_ACTION_QUIET_LABEL = "Quiet hours"
 QUICK_ACTION_QUIET_ON_TEMPLATE = "On — %s to %s"
 QUICK_ACTION_QUIET_OFF_TEXT = "Off"
+# 23-07-PLAN.md Task 1 (D2/CFG-36): SUPERSEDED as rendered markup. These
+# four action wordings used to be the switch BUTTON's own visible text
+# ("Switch off" / "Éteindre"), which is exactly what a role="switch"
+# control may not be named by: a switch states itself with aria-checked,
+# so a name that reads as an action makes two contradicting claims about
+# one control ("Éteindre … activé"). The button is now named by the
+# SETTING through aria-labelledby, and these constants survive only as
+# names companion/test_status_pages.py asserts are NO LONGER rendered —
+# a deliberately negative use, so a later plan that reintroduces one has
+# to delete the check that forbids it.
 QUICK_ACTION_QUIET_TURN_ON_BUTTON = "Turn on"
 QUICK_ACTION_QUIET_TURN_OFF_BUTTON = "Turn off"
+
+# --- 23-07-PLAN.md Task 1/2 (D2/CFG-36): the optimistic switch --------
+#
+# THE NO-JS FLOOR HERE IS STRUCTURAL, NOT ADDITIVE. Each switch IS the
+# <form> that already shipped: a real POST to its own /quick/* route
+# with a `state` field and a `return_to` hidden field the server
+# whitelists by membership. companion/static/quick-switch.js intercepts
+# the submit of a control that already works; remove the script and the
+# button posts the form, the server saves, and the 303 lands back on the
+# page it came from with its flash, exactly as before. `role="switch"`
+# and `aria-checked` are rendered HERE, from the saved value, so the
+# accessible state is correct on a scripts-blocked page too — the role
+# is not a promise the script keeps, it is a description of what the
+# button does either way.
+#
+# The attribute the script marks its own unconfirmed control with is
+# REFRESH_PENDING_ATTR below — plan 23-06 already taught
+# companion/static/freshness.js's swap to skip a region carrying it or
+# containing it, and 23-06-SUMMARY.md's own closing note is that setting
+# that one attribute is this plan's entire share of the contract.
+# NOT a "data-quick-switch-*" name: `data-quick-switch` is the form's own
+# handshake attribute and a shipped check counts its occurrences, so a
+# child attribute containing it as a substring would inflate that count
+# — caught by that check the first time this was written the obvious way.
+QUICK_SWITCH_CONTROL_ATTR = "data-quick-control"
+# The element the script marks pending: the whole cell/card holding the
+# switch, so the region freshness.js would otherwise repaint is the one
+# that stands still. Marking the BUTTON alone would also work (the skip
+# asks the region and its subtree), but marking the region documents
+# which region is being held.
+QUICK_SWITCH_REGION_ATTR = "data-quick-region"
+# The two state wordings, both server-rendered, exactly one hidden. This
+# is what keeps companion/static/quick-switch.js free of user-facing
+# copy entirely: an optimistic flip and its rollback are both a pure
+# attribute change over text the SERVER already translated, so there is
+# no second wording to keep in sync and nothing for a French reader to
+# fall out of.
+QUICK_STATE_ON_ATTR = "data-quick-state-on"
+QUICK_STATE_OFF_ATTR = "data-quick-state-off"
+# The accessible-name/description anchors. frame_strip_html() renders at
+# most once per document, so these are fixed ids rather than generated
+# ones; companion/pages/config_page.py's LED switch carries its own pair.
+QUICK_SWITCH_SCREEN_LABEL_ID = "quick-switch-screen-label"
+QUICK_SWITCH_SCREEN_STATE_ID = "quick-switch-screen-state"
+QUICK_SWITCH_QUIET_LABEL_ID = "quick-switch-quiet-label"
+QUICK_SWITCH_QUIET_STATE_ID = "quick-switch-quiet-state"
+# The failure announcement. Byte-identical to companion/app.py's own
+# FLASH_MESSAGES[FLASH_KEY_QUICK_FAILED] — the generic sentence this app
+# already shows when a quick action fails, reused rather than reworded,
+# so the two readers (scripts on, scripts off) are told the same thing
+# and neither is told a status code, a URL or anything else the server
+# knows (V7/T-23-27). layout.py may not import companion/app.py, so the
+# English literal is duplicated here exactly as the QUICK_ACTION_*
+# constants above are; the French catalogue is keyed by English string.
+QUICK_SWITCH_FAILED_TEXT = "Couldn't change that — please try again."
+QUICK_SWITCH_FAILED_ATTR = "data-quick-failed-text"
+QUICK_TOAST_ATTR = "data-quick-toast"
 # QUICK_ACTION_APPLIES_SENTENCE ("Applies the next time the frame wakes
 # up.") is no longer USED by frame_strip_html() as of 22-04-PLAN.md
 # Task 1 (D-04): it used to be a static per-control caption regardless
@@ -2558,6 +2635,17 @@ def page_shell(
     # nothing and the loop returns.
     body_class_attr += ' %s="%s"' % (
         REFRESH_PAGE_ATTR, escape_html(active))
+    # 23-07-PLAN.md Task 1 (D2/CFG-36): the optimistic switch's one
+    # user-facing sentence, translated here and read client-side — on
+    # <body> for exactly the reason the three attributes above are, and
+    # with the stronger version of that reason: the Frame strip IS one of
+    # freshness.js's swap targets on both Home and Display, so copy
+    # rendered beside the switch would be replaced out from under the
+    # script mid-cycle. <body> is the one element no swap ever touches.
+    # Emitted unconditionally, like every script below; a page with no
+    # switch carries one inert attribute.
+    body_class_attr += ' %s="%s"' % (
+        QUICK_SWITCH_FAILED_ATTR, escape_html(i18n.t(QUICK_SWITCH_FAILED_TEXT)))
     # 23-05-PLAN.md Task 1 (D14/CFG-34): relative-time.js's nine
     # wordings, on <body> for exactly the reason the two above are —
     # several <time data-relative> elements sit inside freshness.js's
@@ -2675,6 +2763,22 @@ def page_shell(
         # reason. `""` on a page that renders no bar, which leaves this
         # slot emitting a bare newline exactly like the flash slot does.
         "%s\n"
+        # 23-07-PLAN.md Task 1 (D2/CFG-36): the optimistic switch's
+        # failure announcement. Rendered EMPTY, once per document, and
+        # never hidden: a live region added to the accessibility tree at
+        # announce time is one screen readers routinely miss, so the
+        # region exists from load and only its text changes. role="alert"
+        # already implies aria-live="assertive" and aria-atomic, which is
+        # what a failure the user is waiting on needs — a polite region
+        # would queue behind whatever else is speaking.
+        #
+        # This is the ONE script-only surface in this plan, and it is
+        # additive: with no script there is no fetch, so there is no
+        # failure a toast could report that the server's own flash does
+        # not already report on the page the 303 lands on. An empty div
+        # is exactly what a scripts-blocked reader should get from it.
+        '<div class="quick-toast" %s role="alert"></div>\n'
+        '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
@@ -2706,6 +2810,7 @@ def page_shell(
         SKIP_LINK_TARGET_ID,
         flash_html, banner_html, body,
         tab_bar_html,
+        QUICK_TOAST_ATTR,
         NAV_DROPDOWN_SCRIPT_SRC,
         # 06.6.3: emitted unconditionally on every authenticated page,
         # matching nav-dropdown.js/battery-trend.js's own "served
@@ -2761,6 +2866,16 @@ def page_shell(
         # pages do not own. Its own guard clause returns before
         # registering anything on a page with no such element.
         RELATIVE_TIME_SCRIPT_SRC,
+        # 23-07-PLAN.md Task 1 (D2/CFG-36): fourteenth script on this
+        # shell, same unconditional convention, and here for the third
+        # distinct shape of that reason: the listener is DELEGATED at
+        # document level over every [data-quick-switch] form, and those
+        # forms already live on three pages (Home and Display carry the
+        # Frame strip's two, Device carries the LED switch's own sibling
+        # form). Its guard returns before touching anything on a page
+        # with no such form, and — the load-bearing part — with the file
+        # absent every one of those forms still posts and still saves.
+        QUICK_SWITCH_SCRIPT_SRC,
     )
 
 
@@ -2908,7 +3023,100 @@ def stat_tile(caption, content_html, status=None, icon=None, caption_title=None)
     ) % (css_class, title_attr, caption_html, content_html)
 
 
-def _frame_strip_cell_html(extra_class, label_row_html, state_row_html, caption_row_html):
+def quick_switch_html(action, return_to, is_on, label_id, state_id):
+    """One real `role="switch"` control over the `<form>` that already
+    shipped (D2/CFG-36, 23-07-PLAN.md Task 1/2). The ONE write site for
+    all three switches — the Frame strip's Screen and Quiet hours, and
+    the Device page's Diagnostic LED — so the three cannot drift apart in
+    markup, in ARIA or in what they post.
+
+    `action` is the switch's own `/quick/*` route, written verbatim
+    (escaped) into the form; `return_to` likewise into the hidden field
+    `companion/app.py`'s `_handle_quick_toggle()` validates by MEMBERSHIP
+    against that route's own whitelist before ever using it as a redirect
+    target (T-21-12 — never a prefix, never a URL parse). This function
+    has no opinion on validity, exactly as `frame_strip_html()`'s own
+    docstring already states for the same field.
+
+    `is_on` is the SAVED value, and it decides two things at once: the
+    `aria-checked` a screen reader announces, and the `state` the form
+    posts, which is always the OPPOSITE. That coupling is the point — a
+    switch whose posted state did not invert with its rendered state
+    would, with scripts blocked, re-assert the state it is already in.
+
+    THE ACCESSIBLE NAME IS THE SETTING, NEVER THE ACTION. `label_id`
+    points at the caller's own setting label ("Screen", "Quiet hours",
+    "Diagnostic LED"); `state_id` at the visible state text, as a
+    DESCRIPTION rather than a second name. The button used to be labelled
+    "Switch off"/"Éteindre", and a role="switch" named that way announces
+    "Éteindre, switch, on" — an action and a state contradicting each
+    other in one control. The state now has exactly one home,
+    `aria-checked`, and the visible wording beside it elaborates rather
+    than repeats (Quiet hours' own state text carries the window, which
+    is real information and must not be hidden from a screen reader).
+
+    The track and thumb are `aria-hidden` presentational spans: the
+    button IS the control, and they are how it looks.
+
+    Pure markup. No inline handler, no script, nothing that depends on
+    JavaScript existing — with the script blocked this posts and the
+    server saves, which is the whole of the no-JS floor here.
+    """
+    next_state = QUICK_STATE_OFF if is_on else QUICK_STATE_ON
+    return (
+        '<form method="post" action="%s" class="quick-action__form" data-quick-switch>'
+        '<input type="hidden" name="%s" value="%s">'
+        '<input type="hidden" name="return_to" value="%s">'
+        '<button type="submit" class="switch" role="switch" aria-checked="%s"'
+        ' aria-labelledby="%s" aria-describedby="%s" %s>'
+        '<span class="switch__track" aria-hidden="true">'
+        '<span class="switch__thumb"></span></span>'
+        "</button>"
+        "</form>"
+    ) % (
+        escape_html(action),
+        QUICK_STATE_FIELD, escape_html(next_state),
+        escape_html(return_to),
+        "true" if is_on else "false",
+        escape_html(label_id), escape_html(state_id),
+        QUICK_SWITCH_CONTROL_ATTR,
+    )
+
+
+def quick_switch_state_html(state_id, on_text, off_text, is_on, extra_class=""):
+    """The visible state beside a switch — BOTH wordings, server-rendered
+    and translated, with exactly one of them `hidden` (23-07-PLAN.md
+    Task 1, D2/CFG-36).
+
+    This is what keeps `companion/static/quick-switch.js` free of
+    user-facing copy altogether. An optimistic flip, and the rollback
+    that undoes it, are then a pure attribute change over text the server
+    already produced in the reader's own language: there is no second
+    wording living in a script to drift from this one, and no French
+    reader watching a control fall back to English the moment it is
+    pressed. It also makes the rollback exactly symmetric with the flip,
+    which is the property T-23-26 actually needs.
+
+    `hidden` is honoured by every browser with or without scripts, so a
+    scripts-blocked reader sees exactly one state word here, as before.
+    """
+    css_class = "text-body quick-action__state"
+    if extra_class:
+        css_class = css_class + " " + extra_class
+    return (
+        '<span class="%s" id="%s">'
+        '<span %s%s>%s</span>'
+        '<span %s%s>%s</span>'
+        "</span>"
+    ) % (
+        css_class, escape_html(state_id),
+        QUICK_STATE_ON_ATTR, "" if is_on else " hidden", escape_html(on_text),
+        QUICK_STATE_OFF_ATTR, " hidden" if is_on else "", escape_html(off_text),
+    )
+
+
+def _frame_strip_cell_html(extra_class, label_row_html, state_row_html, caption_row_html,
+                           extra_attrs=""):
     """One Frame-strip cell wrapper (22-04-PLAN.md Task 1, B13): every
     cell — both switches and the update cell alike — is the SAME
     wrapper element with the SAME three-row internal structure (label,
@@ -2932,13 +3140,20 @@ def _frame_strip_cell_html(extra_class, label_row_html, state_row_html, caption_
     cell_class = "frame-strip__cell"
     if extra_class:
         cell_class = cell_class + " " + extra_class
+    # 23-07-PLAN.md Task 1: `extra_attrs` carries QUICK_SWITCH_REGION_ATTR
+    # on the two switch cells and nothing at all on the update cell — the
+    # region companion/static/quick-switch.js marks pending while its
+    # fetch is in flight, and the one companion/static/freshness.js's
+    # swap already skips when it is. The update cell is not a control and
+    # never holds an unconfirmed state, so it gets no marker host.
     return (
-        '<div class="%s">'
+        '<div class="%s"%s>'
         '<div class="frame-strip__row frame-strip__row--label">%s</div>'
         '<div class="frame-strip__row frame-strip__row--state">%s</div>'
         '<div class="frame-strip__row frame-strip__row--caption">%s</div>'
         "</div>"
-    ) % (cell_class, label_row_html, state_row_html, caption_row_html)
+    ) % (cell_class, (" " + extra_attrs) if extra_attrs else "",
+         label_row_html, state_row_html, caption_row_html)
 
 
 def frame_strip_html(ctx, return_to, next_wake_iso=None):
@@ -3069,57 +3284,42 @@ def frame_strip_html(ctx, return_to, next_wake_iso=None):
 
     display_enabled = device_cfg.get("display_enabled", True)
     is_display_on = display_enabled is not False
-    next_display_state = QUICK_STATE_OFF if is_display_on else QUICK_STATE_ON
-    display_state_text = i18n.t(QUICK_ACTION_ON_TEXT if is_display_on else QUICK_ACTION_OFF_TEXT)
-    display_label_html = '<span class="text-label quick-action__label">%s%s</span>' % (
+    display_label_html = '<span class="text-label quick-action__label" id="%s">%s%s</span>' % (
+        QUICK_SWITCH_SCREEN_LABEL_ID,
         icon_html("icon-power", size=16, extra_class="quick-action__icon"),
         escape_html(i18n.t(QUICK_ACTION_SCREEN_LABEL)))
     display_state_row_html = (
-        '<span class="text-body quick-action__state">%s</span>'
-        '<form method="post" action="/quick/display" class="quick-action__form" data-quick-switch>'
-        '<input type="hidden" name="%s" value="%s">'
-        '<input type="hidden" name="return_to" value="%s">'
-        '<button type="submit">%s</button>'
-        "</form>"
-    ) % (
-        escape_html(display_state_text),
-        QUICK_STATE_FIELD, escape_html(next_display_state),
-        escape_html(return_to),
-        escape_html(i18n.t(
-            QUICK_ACTION_SWITCH_OFF_BUTTON if is_display_on else QUICK_ACTION_SWITCH_ON_BUTTON)),
-    )
+        quick_switch_state_html(
+            QUICK_SWITCH_SCREEN_STATE_ID,
+            i18n.t(QUICK_ACTION_ON_TEXT), i18n.t(QUICK_ACTION_OFF_TEXT), is_display_on)
+        + quick_switch_html(
+            "/quick/display", return_to, is_display_on,
+            QUICK_SWITCH_SCREEN_LABEL_ID, QUICK_SWITCH_SCREEN_STATE_ID))
     display_cell_html = _frame_strip_cell_html(
         "quick-action quick-action--%s" % ("on" if is_display_on else "off"),
-        display_label_html, display_state_row_html, delay_caption_html)
+        display_label_html, display_state_row_html, delay_caption_html,
+        extra_attrs=QUICK_SWITCH_REGION_ATTR)
 
     quiet_enabled = device_cfg.get("quiet_hours_enabled", False)
     is_quiet_on = quiet_enabled is True
-    next_quiet_state = QUICK_STATE_OFF if is_quiet_on else QUICK_STATE_ON
     quiet_start = device_cfg.get("quiet_hours_start") or "23:00"
     quiet_end = device_cfg.get("quiet_hours_end") or "07:00"
-    quiet_state_text = (
-        i18n.t(QUICK_ACTION_QUIET_ON_TEMPLATE) % (quiet_start, quiet_end)
-        if is_quiet_on else i18n.t(QUICK_ACTION_QUIET_OFF_TEXT))
-    quiet_label_html = '<span class="text-label quick-action__label">%s%s</span>' % (
+    quiet_label_html = '<span class="text-label quick-action__label" id="%s">%s%s</span>' % (
+        QUICK_SWITCH_QUIET_LABEL_ID,
         icon_html("icon-moon", size=16, extra_class="quick-action__icon"),
         escape_html(i18n.t(QUICK_ACTION_QUIET_LABEL)))
     quiet_state_row_html = (
-        '<span class="text-body quick-action__state">%s</span>'
-        '<form method="post" action="/quick/quiet-hours" class="quick-action__form" data-quick-switch>'
-        '<input type="hidden" name="%s" value="%s">'
-        '<input type="hidden" name="return_to" value="%s">'
-        '<button type="submit">%s</button>'
-        "</form>"
-    ) % (
-        escape_html(quiet_state_text),
-        QUICK_STATE_FIELD, escape_html(next_quiet_state),
-        escape_html(return_to),
-        escape_html(i18n.t(
-            QUICK_ACTION_QUIET_TURN_OFF_BUTTON if is_quiet_on else QUICK_ACTION_QUIET_TURN_ON_BUTTON)),
-    )
+        quick_switch_state_html(
+            QUICK_SWITCH_QUIET_STATE_ID,
+            i18n.t(QUICK_ACTION_QUIET_ON_TEMPLATE) % (quiet_start, quiet_end),
+            i18n.t(QUICK_ACTION_QUIET_OFF_TEXT), is_quiet_on)
+        + quick_switch_html(
+            "/quick/quiet-hours", return_to, is_quiet_on,
+            QUICK_SWITCH_QUIET_LABEL_ID, QUICK_SWITCH_QUIET_STATE_ID))
     quiet_cell_html = _frame_strip_cell_html(
         "quick-action quick-action--%s" % ("on" if is_quiet_on else "off"),
-        quiet_label_html, quiet_state_row_html, delay_caption_html)
+        quiet_label_html, quiet_state_row_html, delay_caption_html,
+        extra_attrs=QUICK_SWITCH_REGION_ATTR)
 
     update_cell_html = ""
     if next_wake_clock is not None:

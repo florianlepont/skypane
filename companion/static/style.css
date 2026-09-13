@@ -6411,8 +6411,156 @@ a.airline-card {
   margin: 0;
 }
 
-.quick-action__form button {
-  min-width: 96px;
+/* 23-07-PLAN.md Task 1 (D2/CFG-36): RETARGETED IN PLACE. This rule used
+ * to read `.quick-action__form button { min-width: 96px; }` — a floor
+ * that existed so the strip's two ACTION-labelled buttons ("Switch off",
+ * "Turn on", and their longer French wordings) held one width between
+ * them as the wording changed with the state. Those buttons are gone:
+ * the control is now a real role="switch" whose state lives in
+ * aria-checked and whose width is its own track, so a text-driven
+ * minimum has nothing left to stabilise and would only stretch the
+ * switch's hit box sideways past its own paint. The 44px floor below is
+ * what replaces it, and it is a touch-target contract rather than a
+ * typographic one. */
+.quick-action__form {
+  display: flex;
+  align-items: center;
+}
+
+/* --- The switch (D2/CFG-36, 23-07-PLAN.md Task 1/2) -------------------
+ *
+ * One component, three consumers: the Frame strip's Screen and Quiet
+ * hours cells and the Device page's Diagnostic LED card. The element is
+ * a <button type="submit"> inside a real <form>, so everything here is
+ * appearance only — with this stylesheet missing entirely the control is
+ * still a button that posts, which is the same floor the markup keeps.
+ *
+ * 44x44 is met DIRECTLY on the button rather than traded for a padded
+ * label: the track itself is 52x32, and the button's own padding takes
+ * the hit box past the WCAG 2.5.5 floor in both axes at every width
+ * including 360px. It is the button, not the track, that is focusable
+ * and pressable, which is why the floor lives here.
+ *
+ * The state is NEVER carried by colour alone: the thumb's position
+ * changes, aria-checked changes, and the translated state word beside it
+ * changes. The track colour is the fourth signal, not the first — rule 2
+ * of the contrast gate, and the reason this needs no per-theme override.
+ *
+ * Both transitions spend var(--motion-fast). A switch is the definition
+ * of motion somebody is waiting on: the flip has to land under the
+ * finger before the request that confirms it has even left. */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+  height: auto;
+  padding: var(--space-xs);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+}
+
+/* The global button:hover/button:active treatments are a wash and a
+ * press-scale written for a labelled button; on a switch they would
+ * paint a box around a control whose whole visual is the track inside
+ * it. The track's own colour change is the feedback. */
+.switch:hover,
+.switch:active {
+  background: none;
+  border: 0;
+  transform: none;
+  box-shadow: none;
+}
+
+.switch__track {
+  position: relative;
+  display: block;
+  width: 52px;
+  height: 32px;
+  border-radius: 16px;
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+
+.switch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--motion-fast) ease;
+}
+
+.switch[aria-checked="true"] .switch__track {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.switch[aria-checked="true"] .switch__thumb {
+  transform: translateX(20px);
+}
+
+/* The unconfirmed window. companion/static/quick-switch.js marks the
+ * REGION (not the control) while its fetch is in flight, which is the
+ * same marker companion/static/freshness.js's swap already skips — one
+ * attribute doing both jobs, so a control that looks settled can never
+ * be a control the refresh loop is still willing to repaint. Deliberately
+ * subtle: the flip has already happened and is almost always right; a
+ * spinner here would make a fast action feel slow, which is why D2's
+ * "300ms spinner" clause is implemented as this state and no fixed
+ * delay. */
+[data-pending] .switch__track {
+  opacity: 0.7;
+}
+
+/* --- The failure toast (D2/CFG-36, V7) -------------------------------
+ *
+ * Transient, never a banner: the state it reports on has already rolled
+ * back to the truth in the switch itself, so this is an announcement
+ * rather than a standing condition, and a permanent block would outlive
+ * the thing it describes.
+ *
+ * Anchored at the TOP of the viewport on purpose. The bottom edge is
+ * already claimed by two `position: fixed` components — `.tab-bar`
+ * (z-index 20) and `.dirty-bar` (z-index 30) — and stacking a third
+ * there would mean re-deriving their geometry. The top edge is free at
+ * every breakpoint. `z-index: 40` continues that same declared order
+ * upward rather than inventing a parallel one.
+ *
+ * The empty element is rendered on every page and is not `hidden`: a
+ * live region added to the accessibility tree at announce time is one
+ * screen readers routinely miss. `opacity: 0` plus `pointer-events:
+ * none` keeps it invisible and unclickable while leaving it in the tree,
+ * which `visibility: hidden` or `display: none` would not. */
+.quick-toast {
+  position: fixed;
+  top: var(--space-md);
+  left: 50%;
+  z-index: 40;
+  max-width: calc(100vw - 2 * var(--space-lg));
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-control);
+  background: var(--color-text);
+  color: var(--color-canvas);
+  box-shadow: var(--shadow-card-hover);
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+
+.quick-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 /* 22-04-PLAN.md Task 2 (B13): every Frame-strip cell — both switch cells

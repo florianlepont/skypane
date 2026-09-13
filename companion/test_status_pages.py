@@ -11712,7 +11712,15 @@ def main():
         # every cell wrapper (both switches and update alike) — matched
         # this way (not a bare substring search) so the plural container
         # `frame-strip__cells` is never mistaken for a fourth cell.
-        cell_open_re = re.compile(r'<div class="([^"]*)">')
+        # 23-07-PLAN.md Task 1: retargeted in place from
+        # r'<div class="([^"]*)">' — the two switch cells' wrappers now
+        # carry layout.QUICK_SWITCH_REGION_ATTR after their class
+        # attribute (the region companion/static/quick-switch.js marks
+        # pending), so a pattern requiring `>` immediately after the
+        # closing quote saw one cell instead of three. The class list
+        # this check is actually about is unchanged; only what may
+        # follow it is.
+        cell_open_re = re.compile(r'<div class="([^"]*)"[^>]*>')
         cells = [
             cls for cls in cell_open_re.findall(rendered)
             if cls.split(" ")[0] == "frame-strip__cell"]

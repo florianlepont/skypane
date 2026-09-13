@@ -1422,7 +1422,7 @@ def main():
                     "re-arms the leave-guard (T1)",
                     _cancel_restores_preview_and_rearms_guard)
 
-                def _strip_switch_navigates_without_the_leave_guard_while_other_navigation_still_warns():
+                def _strip_switch_applies_without_the_leave_guard_while_other_navigation_still_warns():
                     # 22-05-PLAN.md Task 3 (D-04): a real browser proof,
                     # not a read of dirty-state.js's private suppressGuard
                     # variable. Chromium (headless, under Playwright)
@@ -1446,15 +1446,40 @@ def main():
                         original_value = page.eval_on_selector(original_sel, "el => el.value")
                         other_theme = next(t for t in theme_ids if t != original_value)
 
-                        # An unsaved Display edit, then activating the
-                        # Frame strip's own Screen switch: navigates and
-                        # persists, with NO beforeunload dialog - the
-                        # strip is itself about to apply the very change
-                        # the dialog would otherwise warn about.
+                        # 23-07-PLAN.md Task 1 (D2/CFG-36): RETARGETED IN
+                        # PLACE, and made strictly stronger. This check
+                        # used to assert the switch NAVIGATES. D2 is the
+                        # decision that it no longer does: the flip lands
+                        # under the finger and the POST goes out over
+                        # fetch, so there is no unload at all and the
+                        # dialog this check is about cannot fire for a
+                        # mechanical reason.
+                        #
+                        # That would make the original assertion vacuous,
+                        # so it is replaced by the property that actually
+                        # matters now and that the original could not
+                        # reach: after the switch has applied, the
+                        # leave-guard must still be ARMED for the unsaved
+                        # edit that is still sitting in the form. That is
+                        # the real hazard the conversion introduced —
+                        # dirty-state.js disarms its guard for any
+                        # [data-quick-switch] submit, and on a page whose
+                        # form was already dirty nothing would ever
+                        # re-arm it. quick-switch.js listens in the
+                        # capture phase and stops propagation precisely
+                        # so that listener never runs for a submission
+                        # that is not happening.
                         _click_control(page, 'input[name="theme"][value="%s"]' % other_theme)
+                        if not _guard_armed(page):
+                            return False, (
+                                "control: the leave-guard was not armed before the switch was "
+                                "touched, so the assertion below would prove nothing")
                         before = device_config.load_device_config(harness.tmpdir)["display_enabled"]
-                        with page.expect_navigation():
-                            page.click('form[action="/quick/display"] button[type="submit"]')
+                        switch_sel = 'form[action="/quick/display"] button[type="submit"]'
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/quick/display"):
+                            page.click(switch_sel)
+                        page.wait_for_timeout(400)
                         if dialogs:
                             return False, (
                                 "expected NO beforeunload dialog when activating the strip's own "
@@ -1462,6 +1487,25 @@ def main():
                         after = device_config.load_device_config(harness.tmpdir)["display_enabled"]
                         if after == before:
                             return False, "expected the strip switch's own change to persist"
+                        if page.url.split("?")[0] != base_url + "/display":
+                            return False, (
+                                "expected the switch to apply WITHOUT navigating (D2), but the "
+                                "page moved to %r" % (page.url,))
+                        if not _guard_armed(page):
+                            return False, (
+                                "the leave-guard was left DISARMED after a switch applied on a "
+                                "page that still holds an unsaved edit — dirty-state.js disarms "
+                                "for any [data-quick-switch] submit and re-arms only on the next "
+                                "edit, so a form that was already dirty would lose its guard for "
+                                "the rest of the page's life (D2/CFG-36, 23-07-PLAN.md Task 1)")
+                        # The switch must also still be pressable: a
+                        # submit-guard that disabled it on the way out
+                        # would leave a dead control on a page that never
+                        # reloads.
+                        if page.eval_on_selector(switch_sel, "el => el.disabled"):
+                            return False, (
+                                "the switch was left disabled after applying — with no navigation "
+                                "to replace the page, a disabled switch stays disabled forever")
 
                         # Reset: reload, make the SAME kind of unsaved
                         # edit again, then navigate away by a plain nav
@@ -1482,10 +1526,13 @@ def main():
                     finally:
                         context.close()
                 check(
-                    "activating a Frame strip switch with unsaved Display edits present navigates and "
-                    "persists with NO beforeunload dialog, while a plain nav-link navigation with the "
-                    "same unsaved edit still raises one (22-05-PLAN.md Task 3, D-04)",
-                    _strip_switch_navigates_without_the_leave_guard_while_other_navigation_still_warns)
+                    "activating a Frame strip switch with unsaved Display edits present applies over "
+                    "fetch WITHOUT navigating, leaves the leave-guard ARMED for the edit still in "
+                    "the form and the switch still pressable, and raises no dialog, while a plain "
+                    "nav-link navigation with the same unsaved edit still raises one (22-05-PLAN.md "
+                    "Task 3, D-04; retargeted in place by 23-07-PLAN.md Task 1, which is what took "
+                    "the navigation away)",
+                    _strip_switch_applies_without_the_leave_guard_while_other_navigation_still_warns)
 
                 def _three_runway_cards_share_one_line_at_390px():
                     # B9 (22-AUDIT.md, 22-10-PLAN.md Task 2). The measured
@@ -2470,8 +2517,30 @@ def main():
                         switch = page.locator("[data-quick-switch] button[type=\"submit\"]").first
                         if switch.count() == 0:
                             return False, "expected a Frame strip switch to exercise"
-                        with page.expect_navigation():
+                        # 23-07-PLAN.md Task 1 (D2/CFG-36): retargeted in
+                        # place. This used to assert the switch still
+                        # NAVIGATES with the shared guard installed; D2
+                        # is the decision that it applies over fetch
+                        # instead. The property this clause is actually
+                        # about — that T14's guard does not fight the
+                        # switch — survives intact and is now asserted on
+                        # the response and the control's own state
+                        # rather than on a navigation that no longer
+                        # happens.
+                        before = device_config.load_device_config(harness.tmpdir)["display_enabled"]
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/quick/display"):
                             switch.click()
+                        page.wait_for_timeout(400)
+                        after = device_config.load_device_config(harness.tmpdir)["display_enabled"]
+                        if after == before:
+                            return False, (
+                                "expected the strip switch to still apply with the shared guard "
+                                "installed (T14 + D2)")
+                        if switch.evaluate("el => el.disabled"):
+                            return False, (
+                                "the shared guard left the switch disabled — with no navigation "
+                                "to replace the page it would stay dead (T14 + D2)")
                         return True, ""
                     finally:
                         context.close()
@@ -2480,7 +2549,9 @@ def main():
                     "disables the submitting control from a zero-delay timer, so the browser has already "
                     "built the form data set (which is what keeps the named theme/language submit buttons "
                     "working) - and it changes no label, while a real save still persists and a Frame "
-                    "strip switch still navigates with the guard installed (T14, 22-15-PLAN.md Task 3)",
+                    "strip switch still APPLIES with the guard installed, without navigating and "
+                    "without being left disabled (T14, 22-15-PLAN.md Task 3; retargeted in place by "
+                    "23-07-PLAN.md Task 1)",
                     _a_second_click_on_save_produces_no_second_post)
 
                 def _home_paints_nothing_outside_the_viewport_or_its_cards():
