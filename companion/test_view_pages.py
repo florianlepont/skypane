@@ -520,6 +520,21 @@ EXPECTED_CHECK_COUNT = 136
 # flex/centre/space-between, no shared height (C4) and no .btn-- family.
 # Re-derived by running the harness (139/139).
 EXPECTED_CHECK_COUNT = 139
+# 22-11-PLAN.md Task 2 (X7, D-06/B16): +4 (139 -> 143) — the Change pictures toggle and its
+# caption proven normal-case via text-transform: none on the toggle's OWN existing class plus a
+# caption selector scoped inside the wrapper, with .page-header__screen itself keeping the
+# uppercase the Device page's caption usage needs and no .btn-- family anywhere; an edit-mode
+# render proven to carry exactly one .banner__pill Editing badge and exactly one
+# .calendar-disconnect-btn Replace control per card, each carrying the SAME full data-view-panel
+# vocabulary the zoom trigger carries, with a verb-plus-noun label whose accessible name contains
+# it in both languages, against a normal render carrying neither and exactly one
+# .calendar-disconnect-btn base rule serving both consumers; the manual-resolution count proven to
+# render as a real filter control inside the filter bar wearing .airline-card__chip's voice with
+# the 12px bare link's copied property list retired, reading "1 manual resolution" (FR "1
+# resolution manuelle") at one entry and "2 manual resolutions" at two; and .illustration-grid
+# proven to take a FIXED repeat(2, minmax(0, 1fr)) template below 960px while the desktop
+# auto-fill idiom is left alone. Re-derived by running the harness (143/143).
+EXPECTED_CHECK_COUNT = 143
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -4265,6 +4280,239 @@ def main():
         "flex/centre/space-between with no shared height (C4) and no .btn-- family (B5, "
         "22-11-PLAN.md Task 1)",
         _resolve_dialog_save_and_close_share_one_action_row)
+
+    # ======================================================================
+    # 22-11-PLAN.md Task 2 (X7): edit mode becomes visible, the toggle
+    # stops shouting, and the manual count becomes a filter control.
+    # ======================================================================
+
+    def _airlines_edit_toggle_and_its_caption_render_in_normal_case():
+        # X7: both inherited `text-transform: uppercase` from
+        # `.page-header__screen` — a class whose own role on the Device
+        # page is a label-voice caption, where uppercase IS correct.
+        rendered = airlines_page.render({})
+        if airlines_page.CHANGE_PICTURES_TEXT not in rendered:
+            return False, "expected the toggle's sentence-case label in the markup"
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        toggle_rule = re.search(r"^\.airlines-edit-toggle\s*\{([^}]*)\}", css, re.S | re.M)
+        if toggle_rule is None:
+            return False, "expected the existing .airlines-edit-toggle rule block"
+        if "text-transform: none" not in toggle_rule.group(1):
+            return False, (
+                "expected text-transform: none on the toggle's OWN existing class, killing the "
+                "uppercase it inherits from .page-header__screen")
+        caption_rule = re.search(
+            r"^\.page-header__screen \.section-caption\s*\{([^}]*)\}", css, re.S | re.M)
+        if caption_rule is None or "text-transform: none" not in caption_rule.group(1):
+            return False, "expected the caption under the toggle to be reset to normal case too"
+        # The Device page's own `<p class="page-header__screen
+        # text-label">` keeps its label voice: the class is on the
+        # element there, not on an ancestor, so the descendant selector
+        # above cannot reach it.
+        screen_rule = re.search(r"^\.page-header__screen\s*\{([^}]*)\}", css, re.S | re.M)
+        if screen_rule is None or "text-transform: uppercase" not in screen_rule.group(1):
+            return False, (
+                "expected .page-header__screen itself to keep its uppercase label voice for the "
+                "Device page's own caption usage")
+        # No new button class rode in on this fix — the file's own header
+        # comment names the `.btn--` family it refuses to have.
+        if ".btn--" in re.sub(r"/\*.*?\*/", "", css, flags=re.S):
+            return False, "expected no .btn-- family anywhere in style.css"
+        return True, ""
+    check(
+        "the Change pictures toggle and its caption render in normal case via text-transform: none "
+        "on the toggle's own existing class and a caption selector scoped inside the wrapper — "
+        "with .page-header__screen itself keeping the uppercase the Device page's caption usage "
+        "needs, and no new .btn-- family anywhere (X7, 22-11-PLAN.md Task 2)",
+        _airlines_edit_toggle_and_its_caption_render_in_normal_case)
+
+    def _airlines_edit_mode_shows_a_badge_and_one_replace_control_per_card():
+        # X7: turning the mode on used to change nothing visible on the
+        # grid — every affordance lived inside the lightbox.
+        edit = airlines_page.render({"edit_mode": True})
+        plain = airlines_page.render({})
+
+        badge = '<span class="banner__pill">%s</span>' % airlines_page.EDITING_BADGE_TEXT
+        if edit.count(badge) != 1:
+            return False, (
+                "expected exactly one Editing badge reusing .banner__pill verbatim in an edit-mode "
+                "render, found %d" % (edit.count(badge),))
+        if badge in plain or "banner__pill" in plain:
+            return False, "expected no Editing badge at all out of edit mode"
+
+        cards = edit.count('<div class="airline-card" ')
+        controls = edit.count('class="calendar-disconnect-btn"')
+        if cards < 2:
+            return False, "expected the curated grid to render cards to count controls against"
+        if controls != cards:
+            return False, (
+                "expected exactly one Replace control per card in edit mode, got %d controls for "
+                "%d cards" % (controls, cards))
+        if "calendar-disconnect-btn" in plain:
+            return False, "expected zero per-card Replace controls out of edit mode"
+
+        # Verb AND noun, not a bare verb (this app's CTA voice), and the
+        # accessible name contains the visible label (WCAG 2.5.3).
+        if airlines_page.REPLACE_PICTURE_TEXT.strip() == "Replace":
+            return False, "expected a verb-plus-noun label, not a bare verb"
+        if airlines_page.REPLACE_PICTURE_TEXT not in airlines_page.REPLACE_PICTURE_ARIA_TEMPLATE:
+            return False, (
+                "expected the aria template to contain the visible label verbatim (WCAG 2.5.3)")
+        import companion.i18n_fr as i18n_fr
+        fr_label = i18n_fr.CATALOG[airlines_page.REPLACE_PICTURE_TEXT]
+        fr_aria = i18n_fr.CATALOG[airlines_page.REPLACE_PICTURE_ARIA_TEMPLATE]
+        if fr_label not in fr_aria:
+            return False, (
+                "expected the French aria template to contain the French visible label verbatim "
+                "too, got %r and %r" % (fr_label, fr_aria))
+
+        # It opens the SAME shared dialog the zoom trigger opens, so it
+        # must carry the SAME full vocabulary — a subset would blank the
+        # dialog's mode through panel-lookup.js's `attr || ""` idiom.
+        control = re.search(
+            r'<button type="button" class="calendar-disconnect-btn" (.*?)</button>', edit, re.S)
+        if control is None:
+            return False, "expected to locate a rendered Replace control"
+        vocabulary = tuple(
+            token for token in _LIGHTBOX_AIRLINES_ONLY_TOKENS if token.startswith("data-view-panel-"))
+        for attr in vocabulary + (airlines_page._VIEW_PANEL_SRC_ATTR,
+                                  airlines_page._VIEW_PANEL_CAPTION_ATTR):
+            if ('%s="' % attr) not in control.group(1):
+                return False, (
+                    "expected the Replace control to carry the full data-view-panel vocabulary, "
+                    "missing %s" % (attr,))
+        # And the treatment is reused, never re-declared: one base rule
+        # block for the component, serving both consumers.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        if len(re.findall(r"^\.calendar-disconnect-btn \{", css, re.M)) != 1:
+            return False, (
+                "expected exactly one .calendar-disconnect-btn base rule block serving every "
+                "consumer")
+        placement = re.search(
+            r"^\.airline-card \.calendar-disconnect-btn\s*\{([^}]*)\}", css, re.S | re.M)
+        if placement is None:
+            return False, "expected the card-scoped placement rule for the Replace control"
+        for redeclared in ("font-size", "min-height", "background", "border:", "border-radius"):
+            if redeclared in placement.group(1):
+                return False, (
+                    "expected the placement rule to declare placement only, found a redeclared %r "
+                    "— the treatment belongs to the one base rule" % (redeclared,))
+        return True, ""
+    check(
+        "an edit-mode Airlines render carries exactly one .banner__pill Editing badge and exactly "
+        "one .calendar-disconnect-btn Replace control per card, each carrying the SAME full "
+        "data-view-panel vocabulary the zoom trigger carries, with a verb-plus-noun label whose "
+        "accessible name contains it in both languages — while a normal render carries neither, "
+        "and style.css keeps exactly one .calendar-disconnect-btn base rule for both consumers "
+        "(X7, 22-11-PLAN.md Task 2)",
+        _airlines_edit_mode_shows_a_badge_and_one_replace_control_per_card)
+
+    def _airlines_manual_count_is_a_filter_control_in_the_filter_bar():
+        # X7: "1 manual resolutions" rendered as a 12px underlined bare
+        # link between the filter bar and the grid — a filter control
+        # drawn as body prose. D-06 rides here: the singular form.
+        import companion.prefs as _prefs
+        tmp = _mkstate("a-manual-chip")
+        try:
+            registry = {"QQQ": {"airline_name": "Air France",
+                                "created_at": "2026-09-01T10:00:00+00:00"}}
+            rendered = airlines_page.render({"state_dir": tmp, "manual_resolutions": registry})
+            two = airlines_page.render({"state_dir": tmp, "manual_resolutions": dict(
+                registry, RRR={"airline_name": "KLM",
+                               "created_at": "2026-09-02T10:00:00+00:00"})})
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered_fr = airlines_page.render(
+                    {"state_dir": tmp, "manual_resolutions": registry})
+            finally:
+                _prefs.set_request_prefs(lang="en")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        bar = re.search(r'<div class="filter-bar">(.*?)</div>\s*<div class="empty-state"',
+                        rendered, re.S)
+        if bar is None:
+            return False, "expected to locate the rendered filter bar"
+        if "data-filter-set=\"manual\"" not in bar.group(1):
+            return False, (
+                "expected the manual-resolution control INSIDE the filter bar, not as loose prose "
+                "below it")
+        if 'class="airline-card__chip manual-summary"' not in bar.group(1):
+            return False, (
+                "expected the control to reuse the card-chip label voice verbatim")
+        if rendered.count('data-filter-set="manual"') != 1:
+            return False, "expected exactly one manual-resolution filter control on the page"
+
+        # The 12px bare underlined link is retired: .manual-summary no
+        # longer restates [data-filter-clear]'s property list.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        if re.search(r"^\.manual-summary\s*\{", css, re.M):
+            return False, (
+                "expected the .manual-summary base rule block to be gone — the chip class now "
+                "carries the whole treatment, and a surviving copy is a fork")
+        if not re.search(r"^\.manual-summary:hover\s*\{", css, re.M):
+            return False, "expected .manual-summary to survive as the hover-only additive rule"
+
+        # D-06/B16: one entry reads "1 manual resolution", two read
+        # "2 manual resolutions", in both languages.
+        if "1 manual resolution<" not in rendered:
+            return False, (
+                "expected the singular form for exactly one manual resolution, got %r"
+                % (re.findall(r'data-filter-set="manual">([^<]*)<', rendered),))
+        if "2 manual resolutions<" not in two:
+            return False, (
+                "expected the plural form for two manual resolutions, got %r"
+                % (re.findall(r'data-filter-set="manual">([^<]*)<', two),))
+        if "1 résolution manuelle<" not in rendered_fr:
+            return False, (
+                "expected the French singular, got %r"
+                % (re.findall(r'data-filter-set="manual">([^<]*)<', rendered_fr),))
+        return True, ""
+    check(
+        "the manual-resolution count renders as a real filter control INSIDE the Airlines filter "
+        "bar wearing .airline-card__chip's label voice — the 12px bare link and its copied "
+        "[data-filter-clear] property list are retired, leaving only a hover-additive rule — and "
+        "one entry reads '1 manual resolution' (FR '1 resolution manuelle') while two read "
+        "'2 manual resolutions' (X7 + D-06/B16, 22-11-PLAN.md Task 2)",
+        _airlines_manual_count_is_a_filter_control_in_the_filter_bar)
+
+    def _airlines_grid_is_two_fixed_columns_below_960px():
+        # The markup-side half of the browser harness's own measurement:
+        # a FIXED two-column template below 960px, not a re-tuned
+        # auto-fill floor (which is what collapsed to one column).
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        block = re.search(
+            r"@media \(max-width: 959\.98px\) \{\s*\.illustration-grid \{([^}]*)\}", css, re.S)
+        if block is None:
+            return False, (
+                "expected a sub-960px .illustration-grid rule giving the grid a fixed template")
+        declaration = block.group(1)
+        if "repeat(2, minmax(0, 1fr))" not in declaration:
+            return False, (
+                "expected exactly two columns with a zero minimum so a 450x132 frame can shrink "
+                "into a 159px column, got %r" % (declaration,))
+        if "auto-fill" in declaration or "auto-fit" in declaration:
+            return False, (
+                "expected a fixed template below 960px — an auto-fill floor is what collapsed to "
+                "one column in a 342px content column")
+        base = re.search(r"^\.illustration-grid \{([^}]*)\}", css, re.S | re.M)
+        if base is None or "auto-fill" not in base.group(1):
+            return False, (
+                "expected the desktop auto-fill idiom to be left alone above 960px")
+        return True, ""
+    check(
+        "below 960px .illustration-grid takes a FIXED repeat(2, minmax(0, 1fr)) template — two "
+        "cards per row with a zero column minimum — while the desktop auto-fill idiom above 960px "
+        "is left untouched (X7, 22-11-PLAN.md Task 2)",
+        _airlines_grid_is_two_fixed_columns_below_960px)
 
     # ======================================================================
     # Section 1d: the unresolved-airline link. 06.6.4.1-05 Task 3 (D-21)

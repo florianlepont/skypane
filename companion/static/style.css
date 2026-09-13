@@ -3226,31 +3226,30 @@ table.data-table--flights .cell-inline-sep {
 }
 
 /* Phase 14 (14-03-PLAN.md Task 2, D-11): the clickable manual-resolution
- * summary line. A new, unscoped class rather than extending the
- * selector above — the summary line sits below .filter-bar, not
- * inside it (UI-SPEC Autonomous Decision 4), so it cannot inherit that
- * scoped selector. Declares the identical property list
- * .filter-bar [data-filter-clear] uses above, byte-for-byte. */
-.manual-summary {
-  height: auto;
-  min-height: 0;
-  min-width: 0;
-  padding: 0;
-  background: none;
-  border: none;
-  box-shadow: none;
-  border-radius: 0;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: var(--weight-regular);
-  letter-spacing: normal;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-
+ * summary. It used to declare "the identical property list
+ * .filter-bar [data-filter-clear] uses above, byte-for-byte" — a 12px
+ * underlined bare link sitting BELOW the filter bar, because
+ * 06.6.4.1-UI-SPEC.md's Autonomous Decision 4 put it outside the bar and
+ * a scoped selector therefore could not reach it.
+ *
+ * X7 (22-11-PLAN.md Task 2): SUPERSEDED, premise and all. The audit
+ * found it read as neither a control nor a caption ("1 manual
+ * resolutions" as a 12px link), and the reason is that it was drawn as
+ * body prose while behaving as a filter. It moved INSIDE the filter bar
+ * and now wears `.airline-card__chip` verbatim in the markup — the same
+ * label voice the cards' own chips wear, which is the vocabulary this
+ * page already uses for a small categorical token. The whole copied
+ * property list is deleted rather than forked: everything it used to
+ * restate now comes from the chip class, and this rule is reduced to the
+ * one thing a chip does not carry because a chip is not interactive —
+ * a hover state.
+ *
+ * `.manual-summary:hover` (0,2,0) outranks the base `button:hover`
+ * (0,1,1), so the chip wash deepens on hover instead of the base
+ * button's. The wash values are the chip's own 6% -> 12% pair, the same
+ * step `.calendar-disconnect-btn` takes; no new strength is invented. */
 .manual-summary:hover {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
   color: var(--color-text);
 }
 
@@ -4124,6 +4123,26 @@ summary::-webkit-details-marker {
   gap: var(--space-lg);
 }
 
+/* X7 (22-11-PLAN.md Task 2, 22-UI-SPEC.md §2): exactly two cards per row
+ * on a phone. The auto-fill idiom above is the right default on a wide
+ * screen but collapses to ONE column inside a 342px content column
+ * (342 < 2 x 200 + 24), which is what made this page 5800px tall at
+ * 390px — one airline per screenful. A FIXED two-column template below
+ * 960px is therefore not a tuning of the floor but a different rule:
+ * `minmax(0, 1fr)` (never `1fr` alone) is what lets a column shrink
+ * below its content's intrinsic width, which is what a 450x132
+ * illustration inside it needs.
+ *
+ * At 390px: (342 - 24) / 2 = 159px per card, and the served 450x132
+ * frame scales to about 159x47 — still legible as a livery swatch,
+ * which is the whole job of a card in this grid. The page height
+ * roughly halves. */
+@media (max-width: 959.98px) {
+  .illustration-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* The 06.6.4 D-03 hairline-at-rest/shadow-on-hover card contract,
  * verbatim — do not "restore" a resting shadow on this component. */
 .airline-card {
@@ -4299,6 +4318,27 @@ a.airline-card {
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* X7 (22-11-PLAN.md Task 2, 22-UI-SPEC.md §2): the per-card "Replace
+ * picture" control's PLACEMENT inside the card — and nothing else. Its
+ * entire visual treatment (30px, 12px text, the 6%/12% washes, the 20%
+ * hairline) comes from `.calendar-disconnect-btn`, reused verbatim in
+ * the markup as that component's SECOND consumer, exactly as
+ * references/control-density.md predicted when it named it "the pattern
+ * to reuse the next time this app needs a small, deliberately
+ * de-emphasized secondary action". No modifier class, no second base
+ * rule and emphatically no `.btn` family: this block declares margin
+ * and width only, so the single `.calendar-disconnect-btn` rule above
+ * stays the one place that component's geometry is defined.
+ *
+ * Full-width inside the ~159px phone card because a 2-column grid leaves
+ * no room for the control to sit beside anything, and a centred stub
+ * button under a left-aligned name reads as debris. */
+.airline-card .calendar-disconnect-btn {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-sm);
 }
 
 /* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
@@ -6492,6 +6532,35 @@ input:checked + .frame-colours__row {
   text-decoration: none;
   color: var(--color-text);
   font-weight: var(--weight-semibold);
+  /* X7 (22-11-PLAN.md Task 2): the audit's "CHANGE PICTURES". This
+   * anchor sits inside a `.page-header__screen` wrapper — a class whose
+   * own role on the Device page is a label-voice CAPTION, where
+   * uppercase is correct — and inherited that caption's
+   * `text-transform: uppercase`. A shouting button is not a label, and
+   * this app's CTA voice is sentence case everywhere else ("Save airline
+   * name", "Send a test"). Declared HERE, on the toggle's own existing
+   * class, rather than by inventing a button class the file's own header
+   * comment refuses to have. */
+  text-transform: none;
+}
+
+/* The caption under the toggle inherits the same uppercase from the same
+ * wrapper, and is a sentence — "Replace an airline's picture or add one
+ * for an airline that has none." — so it is even less a label than the
+ * button is. Scoped to a caption INSIDE the wrapper, which is why the
+ * Device page's own `<p class="page-header__screen text-label">` (the
+ * class on the element, not on an ancestor) is untouched and keeps its
+ * label voice. */
+.page-header__screen .section-caption {
+  text-transform: none;
+}
+
+/* X7: the "Editing" state badge beside the toggle. `.banner__pill` is
+ * reused verbatim for its label voice; this rule contributes only the
+ * gap between the two, since the markup emits no whitespace between
+ * them and both are inline-flex. */
+.page-header__screen .banner__pill {
+  margin-left: var(--space-sm);
 }
 
 .airlines-edit-toggle:hover {

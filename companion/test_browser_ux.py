@@ -139,6 +139,16 @@ EXPECTED_CHECK_COUNT = 8
 # directly against the real on-disk check(...) call count at execution
 # time (9/9 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 9
+# 22-11-PLAN.md Task 2 (X7): +1 — at a 390px viewport every Airlines
+# illustration grid renders exactly two cards per row, each row's two
+# columns equal within 1px, the main grid's cards near 159px, and the
+# whole page under 3200px against the audit's measured 5800px. Only a
+# real layout engine resolves `repeat(auto-fill, minmax(200px, 1fr))`,
+# which is what silently collapsed to ONE column inside a 342px content
+# column — a stylesheet assertion cannot see it. 9 + 1 = 10, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (10/10 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 10
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -456,6 +466,87 @@ def main():
                     "bounding-box top — Clear never drops alone onto its own line (B11, "
                     "22-09-PLAN.md Task 3, a regression of Phase 18's A-18)",
                     _filter_count_and_clear_share_one_line_at_390px)
+
+                def _airlines_grid_renders_two_cards_per_row_at_390px():
+                    # X7 (22-11-PLAN.md Task 2): the audit measured a
+                    # 5800px Airlines page at 390px because
+                    # `repeat(auto-fill, minmax(200px, 1fr))` collapses
+                    # to ONE column inside a 342px content column. Only a
+                    # real layout engine resolves auto-fill, so this is
+                    # measured rather than asserted off the stylesheet.
+                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/airlines")
+                        # The gap strip carries its own narrower
+                        # `.illustration-grid illustration-grid--gap`,
+                        # so each grid is measured on its own rather than
+                        # pooling two grids' rows into one histogram.
+                        curated = ".illustration-grid:not(.illustration-grid--gap)"
+                        page.locator(curated + " .airline-card").first.wait_for(state="visible")
+                        grids = page.eval_on_selector_all(
+                            ".illustration-grid",
+                            "els => els.map(el => Array.from("
+                            "  el.querySelectorAll('.airline-card')).map(card => {"
+                            "    const r = card.getBoundingClientRect();"
+                            "    return {top: Math.round(r.y), width: r.width};"
+                            "}))")
+                        if len(grids) < 1:
+                            return False, "expected at least one illustration grid on Airlines"
+                        widest_row = None
+                        for grid_index, cards in enumerate(grids):
+                            if not cards:
+                                return False, "expected grid %d to hold cards" % (grid_index,)
+                            rows = {}
+                            for card in cards:
+                                rows.setdefault(card["top"], []).append(card)
+                            ordered = [rows[top] for top in sorted(rows)]
+                            for index, row in enumerate(ordered):
+                                # Every row but a grid's last holds
+                                # exactly two; the last may hold one when
+                                # that grid's card count is odd.
+                                if len(row) > 2 or (index < len(ordered) - 1 and len(row) != 2):
+                                    return False, (
+                                        "expected exactly two cards per row at 390px, grid %d row "
+                                        "%d held %d" % (grid_index, index, len(row)))
+                                if len(row) == 2 and abs(row[0]["width"] - row[1]["width"]) > 1:
+                                    return False, (
+                                        "expected the two columns to be equal within 1px, got %r "
+                                        "and %r" % (row[0]["width"], row[1]["width"]))
+                                if len(row) == 2 and (
+                                        widest_row is None
+                                        or row[0]["width"] > widest_row[0]["width"]):
+                                    widest_row = row
+                        if widest_row is None:
+                            return False, (
+                                "expected at least one full two-card row to measure at 390px")
+                        # 22-UI-SPEC.md §2's own arithmetic for the
+                        # page's main content column: (342 - 24) / 2.
+                        if not (150 <= widest_row[0]["width"] <= 170):
+                            return False, (
+                                "expected each card near the 159px the contract predicts, got %r"
+                                % (widest_row[0]["width"],))
+                        # X7's second half: the 5800px page roughly
+                        # halves. Measured, with headroom, so this fails
+                        # on a regression rather than on a pixel.
+                        height = page.evaluate("document.documentElement.scrollHeight")
+                        if height > 3200:
+                            return False, (
+                                "expected the two-per-row grid to roughly halve the audit's 5800px "
+                                "page, measured %r" % (height,))
+                        if page.viewport_size["width"] != 390:
+                            return False, "expected the measurement to be taken at 390px"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "at 390px every Airlines illustration grid renders exactly two cards per row "
+                    "(never the one-per-row auto-fill collapse that made the page 5800px tall), "
+                    "with each row's two columns equal within 1px, the main grid's cards near the "
+                    "159px the contract predicts, and the whole page under 3200px (X7, "
+                    "22-11-PLAN.md Task 2)",
+                    _airlines_grid_renders_two_cards_per_row_at_390px)
 
                 # ----------------------------------------------------------------
                 # 22-01-PLAN.md Task 3 (D-01/D-02, B1/T1/T8): the four checks

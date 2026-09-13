@@ -415,6 +415,23 @@ MANUAL_DATALIST_ID = "known-airlines"
 SUPERSEDED_MARKER_TEXT = "Superseded"
 DELETE_BUTTON_TEXT = "Delete"
 
+# X7 (22-11-PLAN.md Task 2, 22-UI-SPEC.md §2): edit mode's two visible
+# affordances on the grid itself. Turning "Change pictures" on used to
+# change nothing a household member could see — every affordance lived
+# inside the lightbox, two clicks away, so the mode looked broken.
+#
+# EDITING_BADGE_TEXT rides `.banner__pill`'s label voice verbatim on the
+# page header. REPLACE_PICTURE_TEXT is a verb AND a noun on purpose: a
+# bare "Replace" reads as a sentence fragment against this app's
+# established CTA voice ("Save airline name", "Change pictures").
+# REPLACE_PICTURE_ARIA_TEMPLATE names the airline so twenty-seven
+# otherwise-identical buttons are distinguishable in a screen reader's
+# control list; it CONTAINS the visible label verbatim in both
+# languages, which is what WCAG 2.5.3 (Label in Name) requires.
+EDITING_BADGE_TEXT = "Editing"
+REPLACE_PICTURE_TEXT = "Replace picture"
+REPLACE_PICTURE_ARIA_TEMPLATE = "Replace picture for %s"
+
 # Phase 14 (14-02-PLAN.md Task 1, 14-UI-SPEC.md's Full Copy Deck): new
 # copy for the gap card, the dialog's manual-state chip/note, the
 # shared delete form's caption, the gap-overflow line and the
@@ -441,6 +458,18 @@ MANUAL_OVERFLOW_LINK_TEXT = "see the full list"
 # count, then superseded count (with-superseded form only).
 MANUAL_SUMMARY_TEMPLATE = "%d manual resolutions, %d superseded"
 MANUAL_SUMMARY_TEMPLATE_NONE = "%d manual resolutions"
+# D-06/B16 (22-11-PLAN.md Task 2): the singular halves of the pair above.
+# A household member with exactly one hand-named airline used to read
+# "1 manual resolutions". These are the Airlines half of CFG-29's plural
+# sweep, which 22-08 could not take because it does not own this module
+# and 22-10 already took for the Calendar card the same way (a
+# ..._SINGULAR sibling with its own French entry, never a runtime
+# pluralisation rule — French and English do not agree on where the
+# boundary falls, so each language's catalogue owns its own string).
+# CFG-29 stays UNCHECKED after this plan: health_page.py's own plurals
+# are plan 22-12's, and the requirement is not met until both land.
+MANUAL_SUMMARY_TEMPLATE_SINGULAR = "%d manual resolution, %d superseded"
+MANUAL_SUMMARY_TEMPLATE_NONE_SINGULAR = "%d manual resolution"
 
 # quick task 260902-v26 (D-04 is explicitly a negative requirement: no
 # revert-to-original control is in scope, anywhere, for this feature).
@@ -685,7 +714,7 @@ def _seen_attribute_text(value, now):
 
 
 def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None,
-                       now=None):
+                       now=None, edit_mode=False):
     """One `.airline-card` (06.6.4.1-UI-SPEC.md §7.1): an image pointing
     at the session-gated `/illustration/{key}.png` route, wrapped in a
     `.airline-card__zoom` click-to-enlarge trigger (quick task
@@ -714,6 +743,16 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     before this parameter existed. (Quick task 260903-btu: this
     parameter no longer also feeds a per-card replace form — the shared
     lightbox's single form is not built here at all.)
+
+    `edit_mode` (22-11-PLAN.md Task 2, X7): `render()`'s own presentation
+    -only `ctx["edit_mode"]` bool, defaulting to `False` so a call that
+    omits it renders byte-identically to before this parameter existed.
+    `True` appends one `.calendar-disconnect-btn` "Replace picture"
+    control to this card, carrying the same `data-view-panel-*`
+    vocabulary the zoom trigger carries. It decides only whether that
+    affordance is DRAWN — the replace/upload forms it opens keep their
+    own, separate `edit_mode` gate in `_lightbox_html()`, and the routes
+    those forms post to are unaffected by either.
 
     `manual_info` (Phase 14, 14-06-PLAN.md Task 1, D-08/D-10/D-12
     fallback reachability): either `None` (today's plain curated card —
@@ -871,13 +910,20 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
     else:
         opening_tag = '<button type="button" class="airline-card__zoom" '
         closing_tag = "</button>"
-    zoom_html = (
-        opening_tag +
+    # X7 (22-11-PLAN.md Task 2): built ONCE, into a variable, because the
+    # edit-mode Replace control below is a second trigger for the very
+    # same dialog and must carry the identical fifteen-attribute
+    # vocabulary. `panel-lookup.js`'s `attr || ""` idiom copies every
+    # attribute on every open, so a second trigger carrying a SUBSET
+    # would blank the dialog's mode and forms — the exact stale/empty
+    # leak 14-UI-SPEC.md's "Correctness rule" exists to prevent. Two
+    # triggers sharing one interpolation cannot drift; two hand-written
+    # attribute lists could.
+    panel_attrs = (
         '%s="%s" %s="%s" %s="%s" %s="%s" '
         '%s="%s" %s="%s" %s="%s" %s="%s" '
         '%s="%s" %s="%s" %s="%s" %s="%s" '
         '%s="%s" %s="%s" '
-        'aria-label="%s">%s%s'
     ) % (
         _VIEW_PANEL_SRC_ATTR, busted_image_url,
         _VIEW_PANEL_CAPTION_ATTR, escape_html(i18n.t(CARD_IMAGE_ALT_TEMPLATE) % airline_name),
@@ -893,10 +939,40 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         _VIEW_PANEL_UPLOAD_ACTION_ATTR, upload_action_value,
         _VIEW_PANEL_DELETE_ACTION_ATTR, delete_action_value,
         _VIEW_PANEL_MANUAL_NOTE_ATTR, manual_note_value,
+    )
+    zoom_html = (
+        opening_tag + panel_attrs + 'aria-label="%s">%s%s'
+    ) % (
         escape_html(i18n.t(ZOOM_LABEL_TEMPLATE) % airline_name),
         image_html,
         closing_tag,
     )
+    # X7: edit mode's per-card affordance. `.calendar-disconnect-btn`'s
+    # SECOND consumer — 30px, 12px text, the 6%/12% washes, the 20%
+    # hairline — exactly as references/control-density.md predicted when
+    # it named that class "the pattern to reuse the next time this app
+    # needs a small, deliberately de-emphasized secondary action". The
+    # class is reused verbatim, with no modifier and no `.btn` family;
+    # the control's placement inside the card comes from the card's own
+    # scoped rule in style.css, not from a second class here.
+    #
+    # It opens the SAME shared dialog the zoom trigger opens, at the same
+    # already-authorised replace/upload form, with the same `edit_mode`
+    # gate on that form untouched (T-22-39) — only the affordance's
+    # position changes. It is a plain <button> even on a card whose zoom
+    # trigger is an <a>: a nested interactive element would be invalid,
+    # and `panel-lookup.js` resolves a click by walking ancestors from
+    # the event target, so this sibling carrying the vocabulary itself is
+    # what makes it a trigger.
+    replace_control_html = ""
+    if edit_mode:
+        replace_control_html = (
+            '<button type="button" class="calendar-disconnect-btn" %saria-label="%s">%s</button>'
+        ) % (
+            panel_attrs,
+            escape_html(i18n.t(REPLACE_PICTURE_ARIA_TEMPLATE) % airline_name),
+            escape_html(i18n.t(REPLACE_PICTURE_TEXT)),
+        )
     chip_parts = []
     if shapes:
         chip_parts.extend(
@@ -917,12 +993,14 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=
         "%s"
         '<p class="airline-card__name">%s</p>'
         "%s"
+        "%s"
         "</div>"
-    ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html)
+    ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html,
+         replace_control_html)
 
 
 def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_name=None,
-                       now=None):
+                       now=None, edit_mode=False):
     """Wrap one `_airline_card_html()` card per `(airline_name, shapes)`
     pair in the `.illustration-grid` container (06.6.4.1-UI-SPEC.md
     §7.1, companion/static/style.css from plan 01). Skips (renders
@@ -954,6 +1032,11 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_
     `-last-seen` carry the same Paris-local text the no-JS path renders.
     Defaults to `None` like every other optional parameter here.
 
+    `edit_mode` (22-11-PLAN.md Task 2, X7): threaded to every card so
+    each one draws its own "Replace picture" control while the mode is
+    on. Defaults to `False`, so an existing two-argument call is
+    byte-identical to before.
+
     `manual_info_by_name` (14-06-PLAN.md Task 1, D-08/D-10): an optional
     dict mapping an airline's display name to its own
     `(prefix, superseded, needs_artwork)` triple — `render()`'s own
@@ -966,7 +1049,7 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_
     cards = "".join(
         _airline_card_html(
             index, airline_name, shapes, state_dir,
-            manual_info_by_name.get(airline_name), now=now)
+            manual_info_by_name.get(airline_name), now=now, edit_mode=edit_mode)
         for index, (airline_name, shapes) in enumerate(pairs))
     return '<div class="illustration-grid">%s%s</div>' % (gap_cards_html, cards)
 
@@ -1393,7 +1476,7 @@ _FILTER_EMPTY_BODY_TEMPLATE = (
     "Try a different search, or Clear filter to see all %d airlines.")
 
 
-def _filter_bar_html(total):
+def _filter_bar_html(total, summary_html=""):
     """D-16's filter bar over the gallery — History's `<button
     type="button" data-filter-clear>Clear</button>` variant
     (06.6.4.1-UI-SPEC.md §7.2), not the old read-only Airlines page's
@@ -1403,6 +1486,15 @@ def _filter_bar_html(total):
     JS — `companion/static/list-filter.js`'s own early-return guard
     means the full unfiltered card grid underneath stays completely
     usable if the script never loads.
+
+    `summary_html` (22-11-PLAN.md Task 2, X7): `_manual_summary_html()`'s
+    already-rendered control, or `""`. It belongs IN this bar because it
+    is a filter control — clicking it sets this bar's own input and
+    re-runs this bar's own `list-filter.js` `applyFilter()`; it was never
+    a caption, and rendering it as loose prose below the bar is what made
+    it unreadable as an action (X7). Placed after the field and before
+    the count/Clear group, so the bar reads left to right as "search,
+    then a shortcut, then how many matched and how to undo".
     """
     count_text = i18n.t("%d of %d shown") % (total, total)
     empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
@@ -1413,6 +1505,7 @@ def _filter_bar_html(total):
         "%s"
         '<input type="search" id="%s" data-filter-input>'
         "</div>"
+        "%s"
         '<span class="filter-bar__count" data-filter-count>%s</span>'
         '<button type="button" data-filter-clear>%s</button>'
         "</div>"
@@ -1424,6 +1517,7 @@ def _filter_bar_html(total):
         _FILTER_INPUT_ID, escape_html(i18n.t(_FILTER_LABEL_TEXT)),
         layout.icon_html("icon-search"),
         _FILTER_INPUT_ID,
+        summary_html,
         escape_html(count_text),
         escape_html(i18n.t("Clear")),
         escape_html(i18n.t(_FILTER_EMPTY_HEADING)),
@@ -1933,11 +2027,22 @@ def _manual_resolution_rows(state_dir, registry):
 
 
 def _manual_summary_html(manual_rows):
-    """The D-11 summary line that replaces the retired standalone
-    management table: `""` when `manual_rows` is empty (no chrome with
-    no data — not even a heading, UI-SPEC's Copywriting Contract),
-    otherwise a single clickable `<button>` naming the total count and,
-    when at least one entry is superseded, the superseded count too.
+    """The D-11 summary that replaces the retired standalone management
+    table: `""` when `manual_rows` is empty (no chrome with no data —
+    not even a heading, UI-SPEC's Copywriting Contract), otherwise a
+    single clickable `<button>` naming the total count and, when at
+    least one entry is superseded, the superseded count too.
+
+    X7 (22-11-PLAN.md Task 2): this used to render as a 12px bare
+    underlined link on its own line between the filter bar and the grid
+    — a real filter control drawn as body prose, which is why nobody
+    read it as clickable. It is now a real control INSIDE the filter
+    bar (`_filter_bar_html()`'s own slot), wearing `.airline-card__chip`
+    verbatim — the same label voice the cards' own chips wear, which is
+    the vocabulary this page already uses for "a small categorical
+    token". `.manual-summary` survives as a thin additive rule carrying
+    only the interactive hover; its old byte-for-byte copy of the
+    `[data-filter-clear]` property list is deleted, not forked.
 
     `manual_rows` is `_manual_resolution_rows()`'s own already-computed
     tuples — passed in by `render()`, never recomputed here (this
@@ -1959,10 +2064,23 @@ def _manual_summary_html(manual_rows):
         return ""
     total = len(manual_rows)
     superseded_count = sum(1 for row in manual_rows if row[3])
-    summary_text = (
-        i18n.t(MANUAL_SUMMARY_TEMPLATE) % (total, superseded_count) if superseded_count
-        else i18n.t(MANUAL_SUMMARY_TEMPLATE_NONE) % total)
-    return '<button type="button" class="manual-summary" data-filter-set="manual">%s</button>' % summary_text
+    # D-06/B16 (22-11-PLAN.md Task 2): "1 manual resolutions" is gone.
+    # The singular is chosen off `total`, the only count whose noun
+    # inflects here — "%d superseded" is an adjective and reads correctly
+    # at every value in both languages, which is why there is no third
+    # and fourth template for it.
+    singular = (total == 1)
+    if superseded_count:
+        template = (
+            MANUAL_SUMMARY_TEMPLATE_SINGULAR if singular else MANUAL_SUMMARY_TEMPLATE)
+        summary_text = i18n.t(template) % (total, superseded_count)
+    else:
+        template = (
+            MANUAL_SUMMARY_TEMPLATE_NONE_SINGULAR if singular else MANUAL_SUMMARY_TEMPLATE_NONE)
+        summary_text = i18n.t(template) % total
+    return (
+        '<button type="button" class="airline-card__chip manual-summary" '
+        'data-filter-set="manual">%s</button>') % summary_text
 
 
 def _edit_toggle_html(ctx, edit_mode):
@@ -1994,12 +2112,22 @@ def _edit_toggle_html(ctx, edit_mode):
         toggle_html = (
             '<a href="/airlines?edit=1" class="airlines-edit-toggle">%s</a>'
         ) % escape_html(i18n.t(CHANGE_PICTURES_TEXT))
+    # X7 (22-11-PLAN.md Task 2): the first half of "edit mode is
+    # visible" — a state badge on the page header, reusing
+    # `.banner__pill`'s label voice VERBATIM (no modifier, no second
+    # pill class). It renders only while the mode is on; out of edit
+    # mode there is no badge at all, because a badge naming a state the
+    # page is not in is worse than none.
+    badge_html = (
+        '<span class="banner__pill">%s</span>' % escape_html(i18n.t(EDITING_BADGE_TEXT))
+        if edit_mode else "")
     return (
         '<div class="page-header__screen">'
         "%s"
+        "%s"
         '<p class="text-label section-caption">%s</p>'
         "</div>"
-    ) % (toggle_html, escape_html(i18n.t(EDIT_TOGGLE_CAPTION)))
+    ) % (toggle_html, badge_html, escape_html(i18n.t(EDIT_TOGGLE_CAPTION)))
 
 
 def render(ctx):
@@ -2157,7 +2285,6 @@ def render(ctx):
     pairs = pairs + injected_pairs
 
     total = len(gap_shown) + len(pairs)
-    filter_html = _filter_bar_html(total) if (pairs or gap_shown) else ""
     lightbox_html = _lightbox_html(edit_mode=edit_mode) if (pairs or gap_shown) else ""
     # Phase 14 (14-06-PLAN.md Task 2, D-11): UI-SPEC's binding
     # top-to-bottom order is filter_bar, then manual-summary, then
@@ -2173,7 +2300,18 @@ def render(ctx):
     # expression. _gallery_grid_html() is called WITHOUT gap_cards_html
     # (its own "" default), so the curated grid renders byte-identically
     # to a no-gaps render today.
+    #
+    # 22-11-PLAN.md Task 2 (X7) supersedes it in a second respect: the
+    # summary no longer has a slot in this return expression either. It
+    # is a filter control, so it renders INSIDE the filter bar, passed to
+    # `_filter_bar_html()` below. Its own "no rows, no chrome" gate is
+    # unchanged (`_manual_summary_html()` still returns "" on an empty
+    # registry); it now additionally rides the filter bar's own
+    # cards-exist gate, which is not a real narrowing — `pairs` is
+    # `illustrations.target_variants_by_airline()`, never empty in this
+    # app, so a render with manual rows and no filter bar cannot occur.
     summary_html = _manual_summary_html(manual_rows)
+    filter_html = _filter_bar_html(total, summary_html) if (pairs or gap_shown) else ""
     # 20-10-PLAN.md Task 1 (D-36): the "Change pictures"/"Done" toggle is
     # the first element inside the gallery section, directly under the
     # page's own heading/purpose block — not in page_header()'s own
@@ -2184,9 +2322,9 @@ def render(ctx):
         + edit_toggle_html
         + gap_strip_html
         + filter_html
-        + summary_html
         + _gallery_grid_html(
-            pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now)
+            pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now,
+            edit_mode=edit_mode)
         + lightbox_html
         + resolve_html
     )

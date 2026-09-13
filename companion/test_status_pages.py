@@ -8127,26 +8127,48 @@ def main():
         marker = "@media (max-width: 959.98px) {"
         if marker not in css_source:
             return False, "expected style.css to declare %r" % (marker,)
-        media_at = css_source.index(marker)
+
+        # 22-11-PLAN.md Task 2, Rule 1 auto-fix: this check used to say
+        # "the file's @media (max-width: 959.98px) block" and read
+        # `css_source.index(marker)` — the FIRST such block. That premise
+        # was already false when it was written (the file carries several
+        # sub-960px blocks) and it survived only because the mobile
+        # button override happened to be the earliest one. Adding ANY
+        # sub-960px rule earlier in the file — this plan's own
+        # `.illustration-grid` two-column template, X7 — silently
+        # retargeted the assertion onto an unrelated block. Retargeted in
+        # place and NARROWED, never loosened: every sub-960px block is
+        # scanned, EXACTLY ONE must declare the bare button override
+        # (two would be a real ambiguity this check should catch), and
+        # that block — not merely the first — must come after the base
+        # rule in source order.
+        mobile_button_pattern = r"button\s*\{\s*height:\s*36px;\s*font-size:\s*14px;\s*\}"
+        declaring_blocks = []
+        search_at = 0
+        while True:
+            media_at = css_source.find(marker, search_at)
+            if media_at < 0:
+                break
+            search_at = media_at + len(marker)
+            media_close = css_source.index("\n}\n", media_at)
+            if re.search(mobile_button_pattern, css_source[media_at:media_close]):
+                declaring_blocks.append(media_at)
+        if len(declaring_blocks) != 1:
+            return False, (
+                "expected exactly one %r block to declare a bare `button { height: 36px; "
+                "font-size: 14px; }` rule, found %d" % (marker, len(declaring_blocks)))
+        media_at = declaring_blocks[0]
 
         base_button_at = css_source.index("button {")
         if base_button_at > media_at:
             return False, (
                 "expected the base `button {` rule to come BEFORE the "
-                "%r block, not after it" % (marker,))
+                "%r block that overrides it, not after it" % (marker,))
         base_body = css_source[base_button_at:css_source.index("}", base_button_at)]
         if "height: 30px" not in base_body:
             return False, "expected the base button rule to still declare height: 30px"
         if "font-size: 13px" not in base_body:
             return False, "expected the base button rule to still declare font-size: 13px"
-
-        media_close = css_source.index("\n}\n", media_at)
-        media_body = css_source[media_at:media_close]
-        mobile_button_pattern = r"button\s*\{\s*height:\s*36px;\s*font-size:\s*14px;\s*\}"
-        if not re.search(mobile_button_pattern, media_body):
-            return False, (
-                "expected the %r block to declare a bare `button { height: 36px; "
-                "font-size: 14px; }` rule" % (marker,))
         return True, ""
     check(
         "the mobile-only button override exists as the file's @media (max-width: 959.98px) block, "
@@ -8209,10 +8231,37 @@ def main():
             targets = set(illustrations.target_filenames())
             prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
             actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
-            expected = len(illustrations.target_airline_names())
+            # 22-11-PLAN.md Task 2 (X7), retargeted in place and
+            # NARROWED: an edit-mode card now carries TWO triggers for
+            # the same dialog — the zoom trigger it always had, plus the
+            # new per-card "Replace picture" control, which must carry
+            # the identical full vocabulary or panel-lookup.js's
+            # `attr || ""` idiom would blank the dialog. So the expected
+            # total doubles, AND each airline's own action must appear
+            # exactly twice: a pairing assertion the old bare total could
+            # not make, so a drift where one card gained a third trigger
+            # (or lost its second) now fails rather than passing on a
+            # coincidental sum.
+            per_airline = 2
+            expected = per_airline * len(illustrations.target_airline_names())
             if len(actions) != expected:
-                return False, "expected %d replace-action triggers (one per target airline), got %d" % (
-                    expected, len(actions))
+                return False, (
+                    "expected %d replace-action triggers (%d per target airline: the zoom trigger "
+                    "and the edit-mode Replace control), got %d"
+                    % (expected, per_airline, len(actions)))
+            for action in set(actions):
+                if actions.count(action) != per_airline:
+                    return False, (
+                        "expected each airline's replace action to appear exactly %d times, %r "
+                        "appeared %d" % (per_airline, action, actions.count(action)))
+            # And out of edit mode there is exactly one per airline: the
+            # Replace control is drawn only while the mode is on.
+            plain_actions = re.findall(
+                r'data-view-panel-replace-action="([^"]+)"', airlines_page.render(_ctx(tmp)))
+            if len(plain_actions) != len(illustrations.target_airline_names()):
+                return False, (
+                    "expected one replace-action trigger per airline out of edit mode, got %d"
+                    % (len(plain_actions),))
             for action in actions:
                 if not action.startswith(prefix) or not action.endswith(".png"):
                     return False, "expected every replace-action trigger to be %s{key}.png, got %r" % (
@@ -9382,7 +9431,19 @@ def main():
         tmp = _mkstate("a-manual-empty-populated")
         try:
             rendered = airlines_page.render(_ctx(tmp))
-            if '<button type="button" class="manual-summary"' in rendered:
+            # 22-11-PLAN.md Task 2 (X7), retargeted in place: the summary
+            # is no longer a 12px bare link below the filter bar. It is a
+            # real filter control INSIDE the bar, wearing
+            # `.airline-card__chip`'s label voice with `.manual-summary`
+            # kept as the interactive hover hook. The class is therefore
+            # composed, not solitary — matched here through its
+            # data-filter-set hook plus the composed class attribute, so
+            # this check pins the NEW shape rather than merely tolerating
+            # it, and would fail if the chip voice were dropped again.
+            summary_open = (
+                '<button type="button" class="airline-card__chip manual-summary" '
+                'data-filter-set="manual">')
+            if "manual-summary" in rendered:
                 return False, "expected no .manual-summary element when the registry is empty"
             for retired_copy in (
                     "Manually resolved prefixes",
@@ -9402,10 +9463,16 @@ def main():
             manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
             manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-02T00:00:00+00:00")
             rendered = airlines_page.render(_ctx(tmp))
-            summary_open = '<button type="button" class="manual-summary" data-filter-set="manual">'
             summary_count = rendered.count(summary_open)
             if summary_count != 1:
                 return False, "expected the .manual-summary button to render exactly once, got %d" % summary_count
+            # It sits inside the filter bar now, not between the bar and
+            # the grid — the half of X7's fix a class-name check misses.
+            bar = re.search(r'<div class="filter-bar">(.*?)</div>\s*<div class="empty-state"',
+                            rendered, re.S)
+            if bar is None or summary_open not in bar.group(1):
+                return False, (
+                    "expected the summary control to render INSIDE the filter bar (X7)")
             expected_text = airlines_page.MANUAL_SUMMARY_TEMPLATE % (2, 1)
             expected_button = "%s%s</button>" % (summary_open, expected_text)
             if expected_button not in rendered:
@@ -9685,10 +9752,6 @@ def main():
                 "display: block")),
             (".lightbox__heading:empty {", ("display: none",)),
             (".lightbox__manual-note:empty {", ("display: none",)),
-            (".manual-summary {", (
-                "color: color-mix(in srgb, var(--color-text) 70%, transparent)",
-                "text-decoration: underline",
-                "cursor: pointer")),
         )
         for selector_open, expected_declarations in expectations:
             if selector_open not in css_source:
@@ -9699,10 +9762,36 @@ def main():
                     return False, (
                         "expected %r's rule body to contain %r" % (selector_open, expected_declaration))
 
+        # 22-11-PLAN.md Task 2 (X7), retargeted in place. The
+        # `.manual-summary {` base rule used to be pinned here with its
+        # 70%-muted colour, underline and pointer — a byte-for-byte copy
+        # of `.filter-bar [data-filter-clear]`'s property list, which is
+        # exactly the 12px bare link the audit found unreadable as a
+        # control. X7 replaces that copy with REUSE: the markup composes
+        # `.airline-card__chip` (the page's own label-voice token) and
+        # `.manual-summary` shrinks to the one thing a chip cannot carry,
+        # a hover. The expectation is inverted rather than deleted — the
+        # base rule must be GONE, so a future plan cannot quietly
+        # reinstate the fork, and the reuse must be visible in the markup.
+        if re.search(r"^\.manual-summary\s*\{", css_source, re.M):
+            return False, (
+                "expected the .manual-summary base rule to be gone — its property list was a copy "
+                "of [data-filter-clear]'s, and the chip class now carries the treatment (X7)")
         if ".manual-summary:hover {" not in css_source:
             return False, "expected a .manual-summary:hover rule in style.css"
-        if "color: var(--color-text)" not in _rule_body(".manual-summary:hover {"):
+        hover_body = _rule_body(".manual-summary:hover {")
+        if "color: var(--color-text)" not in hover_body:
             return False, "expected .manual-summary:hover to declare color: var(--color-text)"
+        if "color-mix(in srgb, var(--color-text) 12%, transparent)" not in hover_body:
+            return False, (
+                "expected .manual-summary:hover to deepen to the chip's own 12% wash, not a newly "
+                "invented strength")
+        chip_body = _rule_body(".airline-card__chip {")
+        for inherited in ("font-size: 12px", "text-transform: uppercase", "border-radius: 999px"):
+            if inherited not in chip_body:
+                return False, (
+                    "expected .airline-card__chip to still carry %r — it is now the summary "
+                    "control's whole treatment" % (inherited,))
 
         # .airline-card__placeholder's aspect-ratio must string-equal
         # .airline-card__image's, so grid rows stay aligned whether a
@@ -9767,7 +9856,7 @@ def main():
         # rule bodies declares a `--` custom property.
         for selector_open in (
                 "a.airline-card {", ".airline-card__placeholder {", ".lightbox__heading:empty {",
-                ".lightbox__manual-note:empty {", ".manual-summary {", ".manual-summary:hover {",
+                ".lightbox__manual-note:empty {", ".manual-summary:hover {",
                 group_selector):
             body = _rule_body(selector_open)
             if re.search(r'(^|\s)--[a-z][a-z-]*:', body):
@@ -9783,9 +9872,12 @@ def main():
 
         return True, ""
     check(
-        "style.css declares exactly the five new/extended selectors UI-SPEC's Component Inventory "
-        "enumerates (a.airline-card, .airline-card__placeholder, .lightbox__heading:empty, "
-        ".lightbox__manual-note:empty, .manual-summary + :hover) with their exact declaration values, "
+        "style.css declares the new/extended selectors UI-SPEC's Component Inventory enumerates "
+        "(a.airline-card, .airline-card__placeholder, .lightbox__heading:empty, "
+        ".lightbox__manual-note:empty) with their exact declaration values, .manual-summary's own "
+        "base rule is GONE with only its hover surviving on the chip's own 12% wash (X7, "
+        "22-11-PLAN.md Task 2 — the copied [data-filter-clear] property list is replaced by reuse "
+        "of .airline-card__chip, whose label-voice declarations are pinned here instead), "
         ".airline-card__placeholder's aspect-ratio string-equals .airline-card__image's, "
         ".lightbox__replace's selector is extended to a three-way group with "
         ".lightbox__resolve-name/.lightbox__delete in exactly one declaration block (never duplicated), "
