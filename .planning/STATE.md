@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-10-PLAN.md
-last_updated: "2026-09-13T03:05:00.000Z"
+stopped_at: Completed 22-11-PLAN.md
+last_updated: "2026-09-13T03:23:26.590Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 196
+  completed_plans: 197
   percent: 89
 ---
 
@@ -26,7 +26,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [██████████] 96%
+  [██████████] 97%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -363,6 +363,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P08 | 45min | 3 tasks | 6 files |
 | Phase 22 P09 | ~120min | 3 tasks | 7 files |
 | Phase 22 P10 | ~135min | 3 tasks | 9 files |
+| Phase 22 P11 | ~96min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -653,6 +654,10 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-10: B9's "equal within 1px" is asserted on BORDER-EXCLUDED card widths; the outer widths differ by exactly the selected card's 2px border, which is T6 and belongs to 22-15. The browser check's border allowance is a stated exception naming 22-15 as the plan that deletes it
 - [Phase 22]: 22-10: half of B7/C3 already shipped — .theme-form .theme-option:not(--active):hover at 4.5% has existed since quick-260902-qkm; only the active-segment restore at the register's 12% accent wash was missing
 - [Phase 22]: 22-10: the wake-interval width rule is .config-form input[name="wake_interval_s"] placed immediately AFTER .config-form input[type="number"]'s phase-18 width: 100% at equal specificity — a specificity raise would beat rules it has no business beating, and this stylesheet carries no id selector at all
+- [Phase 22]: 22-11 (B5/D-05): the resolve dialog's data-first-seen/-last-seen carry layout.concise_timestamp_html()'s own output with its tags stripped — the no-JS path's literal call, so the JS and no-JS texts are byte-identical by construction
+- [Phase 22]: 22-11 (X7): the per-card Replace picture control is .calendar-disconnect-btn's SECOND consumer, reused verbatim with a placement-only card-scoped rule — one base rule block still serves every consumer, and no .btn family exists
+- [Phase 22]: 22-11 (B5): the dialog's Save is lifted out of its form into one .lightbox__actions row and re-attached by the native form= attribute; the no-JS fallback keeps its own in-form submit, so the scriptless floor is untouched
+- [Phase 22]: 22-11 (X7): .manual-summary's copied [data-filter-clear] property list is DELETED, not forked — the control moved into the filter bar wearing .airline-card__chip verbatim, leaving only a hover rule
 
 ### Pending Todos
 
@@ -676,7 +681,7 @@ None yet.
 - 06.3-05 Task 1 done (VALIDATION.md reconciled, commit 9bc163e). scripts/run-all-tests.sh exits 1: pre-existing, out-of-scope server/test_poll_loop.py digest-pin failure unrelated to this phase (needs unmerged upstream commit aeac512 merged). Per T-06.3-13, nyquist_compliant stays false while suite is red -- pending human/orchestrator decision. Task 2 (browser visual sign-off) is a human-check step, not yet performed; plan not complete.
 - Phase 06.6.4.1.1 plan 06 stopped at Task 2's blocking developer checkpoint after Task 1's full-suite/coverage/live-route gates passed; see 06.6.4.1.1-06-SUMMARY.md
 - state.advance-plan cannot parse Current Plan/Total Plans in Phase from STATE.md (known recurring limitation, documented repeatedly in this file's own history since Phase 10/11) - Current Position section is stale (references Phase 21) and was not hand-corrected here, out of scope for a single-plan executor
-- CFG-29 not yet complete: three plural fixes (manual resolutions/22-11, upcoming flights/22-10, days-events caption/22-12) deferred by 22-08-SUMMARY.md, each in a file 22-08 does not own
+- CFG-29 not yet complete: of the three plural fixes deferred by 22-08-SUMMARY.md, upcoming flights (22-10) and manual resolutions (22-11) have landed; only the days-events caption in health_page.py remains, and it is 22-12's. CFG-29 stays unchecked until then
 
 ### Quick Tasks Completed
 
@@ -745,7 +750,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T03:05:00.000Z
+Last session: 2026-09-13T03:22:56.947Z
 Stopped at: Completed 22-10-PLAN.md
 
 Resume file: 
