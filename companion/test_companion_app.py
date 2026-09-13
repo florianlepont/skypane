@@ -605,20 +605,20 @@ EXPECTED_CHECK_COUNT = 273
 # the third genuine case must argue it the way `.js .mobile-nav` was
 # argued, in its own SUMMARY, before touching this line.
 EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
-# EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS pins the opposite wrapper,
-# and it starts at ZERO because the gap it exists for is not yet closed.
-# `*, *::before, *::after` matches ELEMENTS, and the view-transition
-# pseudo-element tree is not an element tree, so the global reduce block
-# does not disable a cross-document view transition (23-RESEARCH.md's
-# Risk 3, confirmed in this project's own harness Chromium). 23-04 is the
-# ONE plan permitted to move this constant, and it moves it to exactly 1:
-# it wraps its own view-transition at-rule in a
-# `prefers-reduced-motion: no-preference` media query, which prevents the
-# transition being set up at all rather than setting one up and running it
-# fast. Written down here so that edit is an anticipated one-line change
-# rather than a surprise failure — and so that any OTHER plan raising this
-# number has to explain itself first.
-EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 0
+# EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS pins the opposite wrapper.
+# It stood at ZERO for exactly one plan, because the gap it exists for was
+# not yet closed: `*, *::before, *::after` matches ELEMENTS, and the
+# view-transition pseudo-element tree is not an element tree, so the
+# global reduce block does not disable a cross-document view transition
+# (23-RESEARCH.md's Risk 3, confirmed in this project's own harness
+# Chromium). 23-04-PLAN.md Task 1 is the ONE plan 23-01 permitted to move
+# this constant, and it moved it to exactly 1 — the media wrapper around
+# style.css's one navigation at-rule, which prevents the transition being
+# SET UP at all rather than setting one up and running it fast. That is
+# the whole of the licence: the number is back to being frozen, and any
+# plan raising it to 2 has to argue its own case first, in its own
+# SUMMARY, the way `.js .mobile-nav` argued the reduce side.
+EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 
 # 23-01-PLAN.md Task 2: every non-custom identifier the `animation`
 # shorthand may legally carry BESIDES the keyframes name. Anything in an
