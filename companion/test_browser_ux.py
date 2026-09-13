@@ -83,7 +83,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth, layout  # noqa: E402
+from companion import auth, i18n, layout  # noqa: E402
 from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
 from companion.pages import config_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
@@ -457,7 +457,15 @@ EXPECTED_CHECK_COUNT = 32
 # 32 + 6 = 38, recomputed directly against the real on-disk check(...)
 # call count at execution time (38/38 pass), not trusted from arithmetic
 # alone.
-EXPECTED_CHECK_COUNT = 38
+# 23-07-PLAN.md Task 3 (D2/CFG-36): +4 — the optimistic flip proven to
+# land BEFORE the answer (against a held request that has genuinely been
+# issued), the rollback proven on BOTH terminal branches in both
+# languages with a control phase proving the flip lands first, the
+# D1-races-D2 rule proven from the D2 side against the marker the
+# SHIPPED script sets, and the scripts-blocked floor for all three
+# switches at 360px in both languages. 38 + 4 = 42, re-derived by
+# RUNNING.
+EXPECTED_CHECK_COUNT = 42
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -4239,6 +4247,412 @@ def main():
                     "this plan added rendering beside it — the one assertion here that would catch "
                     "the Phase 22 P0 recurring (B1/CFG-38, 23-06-PLAN.md Task 3)",
                     _display_still_saves_with_scripts_blocked_at_360px)
+
+                # --- 23-07-PLAN.md Task 3 (D2/CFG-36): the optimistic
+                # switch, proven in a real browser. Three properties no
+                # string-comparison harness can see — that the flip
+                # lands BEFORE the answer, that it comes back when the
+                # answer is bad, and that a refresh arriving mid-flight
+                # does not repaint it — plus the scripts-blocked floor
+                # for all three switches at 360px in both languages.
+                #
+                # HOW "BEFORE THE ANSWER" IS MADE A REAL MOMENT. The
+                # page's own window.fetch is wrapped in a promise this
+                # harness releases by hand, so there is no sleep, no
+                # race and no timing assumption anywhere below: between
+                # the click and the release the request has genuinely
+                # been issued and genuinely has no answer. This is the
+                # same discipline the clock override above uses — what
+                # is simulated is the TRANSPORT; what is exercised is
+                # the shipped script's own ordering, its own attribute
+                # writes and its own terminal branches, unmodified.
+
+                SWITCH_SEL = 'form[action="/quick/display"] button[role="switch"]'
+
+                def _hold_fetch(page):
+                    """Wrap window.fetch so the next POST hangs until
+                    _release_fetch() is called. Returns nothing; the
+                    release hook lives on window.
+
+                    POSTs ONLY, and that is load-bearing rather than
+                    tidy: freshness.js's refresh loop is a GET through
+                    the same window.fetch, and holding it too would stop
+                    the very refresh the race check below has to land.
+                    Found by that check timing out, not reasoned about
+                    in advance."""
+                    page.evaluate(
+                        "() => {"
+                        "  var realFetch = window.fetch;"
+                        "  window.__skypaneHeld = null;"
+                        "  window.fetch = function (url, opts) {"
+                        "    if (!opts || opts.method !== 'POST') {"
+                        "      return realFetch(url, opts);"
+                        "    }"
+                        "    return new Promise(function (resolve, reject) {"
+                        "      window.__skypaneHeld = function () {"
+                        "        realFetch(url, opts).then(resolve, reject);"
+                        "      };"
+                        "    });"
+                        "  };"
+                        "}")
+
+                def _fetch_was_issued(page):
+                    return page.evaluate("() => !!window.__skypaneHeld")
+
+                def _release_fetch(page):
+                    page.evaluate("() => { window.__skypaneHeld(); }")
+
+                def _switch_state(page, selector=None):
+                    return page.eval_on_selector(
+                        selector or SWITCH_SEL, "el => el.getAttribute('aria-checked')")
+
+                def _a_switch_flips_before_the_server_answers():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/")
+                        page.wait_for_load_state("networkidle")
+                        before = _switch_state(page)
+                        if before not in ("true", "false"):
+                            return False, (
+                                "expected a server-rendered aria-checked on the Screen switch, "
+                                "got %r" % (before,))
+                        on_disk_before = device_config.load_device_config(
+                            harness.tmpdir)["display_enabled"]
+                        _hold_fetch(page)
+                        page.click(SWITCH_SEL)
+                        # THE CONTROL for this check: a request really was
+                        # issued. Without it, "the attribute already
+                        # changed" would also be satisfied by a script
+                        # that flipped the switch and never talked to the
+                        # server at all — which is a worse bug than the
+                        # one this check is about.
+                        if not _fetch_was_issued(page):
+                            return False, (
+                                "control: no fetch was issued at all, so the assertion below "
+                                "would prove nothing about ORDER")
+                        during = _switch_state(page)
+                        if during == before:
+                            return False, (
+                                "aria-checked was still %r while the request had no answer — the "
+                                "flip is not optimistic, it is waiting for the server, which is "
+                                "the whole of what D2 asks for (23-07-PLAN.md Task 3)" % (during,))
+                        # The server has NOT been told yet, which is what
+                        # makes the line above a statement about order.
+                        if device_config.load_device_config(
+                                harness.tmpdir)["display_enabled"] is not on_disk_before:
+                            return False, (
+                                "the stored value changed before the held request was released — "
+                                "the hold is not holding and this check is measuring nothing")
+                        # In flight: the region is marked, which is the
+                        # one thing plan 23-06's swap reads.
+                        pending = page.eval_on_selector_all(
+                            ".frame-strip [data-pending]", "els => els.length")
+                        if pending != 1:
+                            return False, (
+                                "expected exactly one pending-marked region while the request is "
+                                "in flight, found %d — this is the marker 23-06's swap skips and "
+                                "the only thing this plan owes that contract" % (pending,))
+                        _release_fetch(page)
+                        page.wait_for_timeout(600)
+                        if _switch_state(page) != during:
+                            return False, (
+                                "a CONFIRMED flip must stay where it was put, got %r"
+                                % _switch_state(page))
+                        if page.eval_on_selector_all(
+                                ".frame-strip [data-pending]", "els => els.length") != 0:
+                            return False, (
+                                "the pending marker survived a successful answer — a region whose "
+                                "control is settled must go back to being refreshable")
+                        if device_config.load_device_config(
+                                harness.tmpdir)["display_enabled"] is on_disk_before:
+                            return False, "expected the confirmed flip to have persisted to disk"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a switch flips its aria-checked BEFORE the server answers — proven against a "
+                    "held request that has genuinely been issued and genuinely has no answer, with "
+                    "the stored value still unchanged at that instant — marks exactly one region "
+                    "pending while in flight, and on a 204 keeps the flip and clears the marker "
+                    "(D2/CFG-36, 23-07-PLAN.md Task 3)",
+                    _a_switch_flips_before_the_server_answers)
+
+                def _a_switch_rolls_back_and_announces_on_both_failure_branches():
+                    base_url = harness.base_url()
+                    for lang, failure_copy in (
+                            ("en", layout.QUICK_SWITCH_FAILED_TEXT),
+                            ("fr", i18n.t_lang(layout.QUICK_SWITCH_FAILED_TEXT, "fr"))):
+                        context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                        try:
+                            page = context.new_page()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/")
+                            page.wait_for_load_state("networkidle")
+                            # THE CONTROL PHASE. An assertion that a flip
+                            # came BACK proves nothing unless the flip
+                            # goes out in the first place, and a switch
+                            # that never moves satisfies "it was restored"
+                            # perfectly. So: prove it lands, then break
+                            # the server and prove it returns.
+                            start = _switch_state(page)
+                            page.click(SWITCH_SEL)
+                            page.wait_for_timeout(600)
+                            landed = _switch_state(page)
+                            if landed == start:
+                                return False, (
+                                    "lang=%s control: the switch did not move on a WORKING "
+                                    "request, so the rollback assertions below would pass on a "
+                                    "control that simply never flips" % (lang,))
+                            toast_sel = "[%s]" % layout.QUICK_TOAST_ATTR
+                            if page.eval_on_selector(toast_sel, "el => el.textContent") != "":
+                                return False, (
+                                    "lang=%s control: the toast announced something on a "
+                                    "SUCCESSFUL flip — it is a failure announcement only"
+                                    % (lang,))
+                            # Branch 1: a non-OK status.
+                            for branch, handler in (
+                                    ("a 500 from the server",
+                                     lambda route: route.fulfill(status=500, body="")),
+                                    ("a network-level failure",
+                                     lambda route: route.abort())):
+                                page.goto(base_url + "/")
+                                page.wait_for_load_state("networkidle")
+                                page.route("**/quick/display", handler)
+                                try:
+                                    known = _switch_state(page)
+                                    stored = device_config.load_device_config(
+                                        harness.tmpdir)["display_enabled"]
+                                    page.click(SWITCH_SEL)
+                                    page.wait_for_timeout(800)
+                                    if _switch_state(page) != known:
+                                        return False, (
+                                            "lang=%s, %s: aria-checked stayed at %r instead of "
+                                            "rolling back to %r — an optimistic switch that keeps "
+                                            "a state the server never accepted is a switch that "
+                                            "lies (T-23-26)"
+                                            % (lang, branch, _switch_state(page), known))
+                                    if page.eval_on_selector_all(
+                                            ".frame-strip [data-pending]",
+                                            "els => els.length") != 0:
+                                        return False, (
+                                            "lang=%s, %s: the pending marker was left behind — a "
+                                            "region whose control never confirmed would hold "
+                                            "itself stale forever" % (lang, branch))
+                                    if device_config.load_device_config(
+                                            harness.tmpdir)["display_enabled"] is not stored:
+                                        return False, (
+                                            "lang=%s, %s: the stored value moved on a failed "
+                                            "request" % (lang, branch))
+                                    announced = page.eval_on_selector(
+                                        toast_sel, "el => el.textContent")
+                                    if announced != failure_copy:
+                                        return False, (
+                                            "lang=%s, %s: expected the translated failure copy "
+                                            "%r in the toast, got %r"
+                                            % (lang, branch, failure_copy, announced))
+                                    # V7/T-23-27: no server internal ever.
+                                    for internal in ("500", "http", "/quick/", "TypeError"):
+                                        if internal in announced:
+                                            return False, (
+                                                "lang=%s, %s: the toast carries %r — a user-facing "
+                                                "failure names no status code, no URL and no "
+                                                "server internal" % (lang, branch, internal))
+                                    visible = page.eval_on_selector(
+                                        toast_sel,
+                                        "el => getComputedStyle(el).opacity")
+                                    if visible == "0":
+                                        return False, (
+                                            "lang=%s, %s: the toast carries the right words but "
+                                            "is not visible — a live region nobody can see is "
+                                            "half an announcement" % (lang, branch))
+                                finally:
+                                    page.unroute("**/quick/display")
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "a switch rolls its aria-checked back, clears its pending marker, leaves the "
+                    "stored value alone and announces the TRANSLATED generic failure in a visible "
+                    "toast — on a 500 AND on a network-level failure, in English and in French, "
+                    "each against a control phase proving the same switch DOES flip and does NOT "
+                    "announce on a working request (D2/CFG-36, T-23-26/T-23-27, 23-07-PLAN.md "
+                    "Task 3)",
+                    _a_switch_rolls_back_and_announces_on_both_failure_branches)
+
+                def _a_refresh_landing_mid_flip_does_not_repaint_the_switch():
+                    # THE D1-RACES-D2 RULE, asserted from the D2 side.
+                    # 23-06 proved its swap skips a [data-pending] region
+                    # using a marker this harness injected by hand; this
+                    # is the same rule measured against the marker the
+                    # SHIPPED script sets, which is the half 23-06 could
+                    # not reach.
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/")
+                        page.wait_for_load_state("networkidle")
+                        before = _switch_state(page)
+                        _hold_fetch(page)
+                        page.click(SWITCH_SEL)
+                        if not _fetch_was_issued(page):
+                            return False, "control: no fetch was issued, so nothing is in flight"
+                        optimistic = _switch_state(page)
+                        if optimistic == before:
+                            return False, "control: the switch did not flip, so nothing is pending"
+                        # Focus must leave the strip first. freshness.js
+                        # ALSO skips the region holding the active
+                        # element, and with focus still on the switch this
+                        # check would pass on a loop with no pending rule
+                        # at all — vacuous in the quietest possible way.
+                        page.evaluate("() => document.activeElement.blur()")
+                        _mark(page, ".frame-strip", "strip")
+                        _mark(page, ".page-header__freshness", "elsewhere")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        # THE CONTROL: a cycle that swapped nothing would
+                        # satisfy everything below for free.
+                        if _marked(page, ".page-header__freshness", "elsewhere"):
+                            return False, (
+                                "control: no region was swapped at all, so the assertions below "
+                                "would prove nothing")
+                        if not _marked(page, ".frame-strip", "strip"):
+                            return False, (
+                                "the strip was REPLACED while a flip was unconfirmed — the "
+                                "fetched document still carries the server's older state, so the "
+                                "switch would bounce back under the user's finger (T-23-26, the "
+                                "D1-races-D2 rule)")
+                        if _switch_state(page) != optimistic:
+                            return False, (
+                                "the optimistic state was repainted by a refresh: expected %r, "
+                                "got %r" % (optimistic, _switch_state(page)))
+                        # THE SECOND CONTROL, and the one that makes this
+                        # a statement about the MARKER rather than about
+                        # the strip: release, let the marker clear, dirty
+                        # the region the same way, and it must now be
+                        # replaced.
+                        _release_fetch(page)
+                        page.wait_for_timeout(600)
+                        if page.eval_on_selector_all(
+                                ".frame-strip [data-pending]", "els => els.length") != 0:
+                            return False, "expected the marker to clear once the answer arrived"
+                        _mark(page, ".frame-strip", "settled-strip")
+                        _dirty_the_region(page, ".frame-strip")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, ".frame-strip", "settled-strip"):
+                            return False, (
+                                "control: the same changed strip survived with NO marker on it, "
+                                "so the assertion above was not measuring the pending rule at all")
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a Home refresh landing while a flip is unconfirmed leaves the Frame strip "
+                    "untouched — by NODE IDENTITY and by the optimistic aria-checked surviving — "
+                    "against one control proving another region really was swapped in the same "
+                    "cycle and a second proving the same changed strip IS replaced once the marker "
+                    "has cleared, with focus deliberately moved off the strip so the focus skip "
+                    "cannot be what satisfies it (D1+D2, T-23-26, 23-07-PLAN.md Task 3)",
+                    _a_refresh_landing_mid_flip_does_not_repaint_the_switch)
+
+                def _all_three_switches_still_post_with_scripts_blocked_at_360px():
+                    # THE FLOOR, and the reason this plan built the switch
+                    # AS the shipped form rather than beside it. A control
+                    # that renders and silently does nothing with scripts
+                    # blocked is the exact defect Phase 22 found on the
+                    # login page; the only assertion that catches it is
+                    # one that submits and then reads the DISK.
+                    base_url = harness.base_url()
+                    switches = (
+                        ("/", "display_enabled", 'form[action="/quick/display"] button[role="switch"]'),
+                        ("/", "quiet_hours_enabled",
+                         'form[action="/quick/quiet-hours"] button[role="switch"]'),
+                        ("/device", "led_enabled",
+                         'button[role="switch"][form="%s"]' % config_page.QUICK_LED_FORM_ID),
+                    )
+                    for lang in ("en", "fr"):
+                        for route, field, selector in switches:
+                            with _no_js_page(browser, base_url, route,
+                                             viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                                page.context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+                                page.goto(base_url + route)
+                                if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
+                                    return False, "expected the 360px contract floor"
+                                control = page.query_selector(selector)
+                                if control is None:
+                                    return False, (
+                                        "lang=%s, %s: the %s switch does not render at all with "
+                                        "scripts blocked" % (lang, route, field))
+                                # The accessible state is SERVER-rendered,
+                                # so it is correct on this page too.
+                                stored = device_config.load_device_config(harness.tmpdir)[field]
+                                rendered = control.get_attribute("aria-checked")
+                                if rendered != ("true" if stored is True else "false"):
+                                    return False, (
+                                        "lang=%s, %s: the scripts-blocked page claims "
+                                        "aria-checked=%r for a stored %r — role=switch is a "
+                                        "description of what the button does, not a promise the "
+                                        "script keeps" % (lang, field, rendered, stored))
+                                # Centred first. At 360px the fixed tab
+                                # bar owns the bottom 56px of the
+                                # viewport, and a switch that happens to
+                                # land under it fails the click with a
+                                # pointer-interception error that says
+                                # nothing about this plan. Centring is
+                                # what a real thumb would do too.
+                                page.eval_on_selector(
+                                    selector, "el => el.scrollIntoView({block: 'center'})")
+                                # 44px in BOTH axes, met directly.
+                                box = control.bounding_box()
+                                if box["width"] < 44 or box["height"] < 44:
+                                    return False, (
+                                        "lang=%s, %s: the switch measures %sx%s at 360px, under "
+                                        "the 44px touch floor"
+                                        % (lang, field, box["width"], box["height"]))
+                                with page.expect_navigation():
+                                    control.click()
+                                after = device_config.load_device_config(harness.tmpdir)[field]
+                                if after is stored:
+                                    return False, (
+                                        "lang=%s, %s: the switch did NOT persist with scripts "
+                                        "blocked — it rendered and did nothing, which is the "
+                                        "exact defect Phase 22 found on the login page (CFG-38)"
+                                        % (lang, field))
+                                # And the server's own flash is what tells
+                                # this reader it worked: there is no
+                                # toast without a script.
+                                if page.locator("[%s]" % layout.QUICK_TOAST_ATTR).count() != 1:
+                                    return False, (
+                                        "lang=%s, %s: expected the toast region to still render "
+                                        "(inert) with scripts blocked" % (lang, field))
+                                if page.eval_on_selector(
+                                        "[%s]" % layout.QUICK_TOAST_ATTR,
+                                        "el => el.textContent") != "":
+                                    return False, (
+                                        "lang=%s, %s: the toast announced something on a page "
+                                        "with no script at all" % (lang, field))
+                    return True, ""
+                check(
+                    "with scripts blocked at 360px, in BOTH languages, all THREE switches render "
+                    "with the server's own aria-checked, clear the 44px touch floor in both axes, "
+                    "submit their real form and PERSIST to disk — the assertion that would catch a "
+                    "control that renders and silently does nothing (D2/CFG-36, CFG-38, "
+                    "23-07-PLAN.md Task 3)",
+                    _all_three_switches_still_post_with_scripts_blocked_at_360px)
             finally:
                 browser.close()
     finally:
