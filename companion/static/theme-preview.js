@@ -50,6 +50,17 @@
  * this specific script blocked by a stricter CSP directive) simply
  * never runs this file at all, and every panel stays visible and
  * saveable exactly as D-08 requires.
+ *
+ * 22-01-PLAN.md Task 2 (D-01/T8): exposes window.SkyPaneLivePreview, a
+ * single small namespace object carrying one function, refresh() —
+ * this file's own first and only global. companion/static/dirty-state.js
+ * calls it after its Cancel handler's form.reset(), which restores every
+ * form=-attached theme radio's checked property natively but fires no
+ * change event, so this file's own delegated listener (below) never
+ * hears about the reverted selection on its own. refresh() re-derives
+ * the checked usage from the live DOM and re-applies its preview src -
+ * the identical work the "Collapse at load" call below already does,
+ * just callable again on demand.
  */
 (function () {
   "use strict";
@@ -146,6 +157,24 @@
     }
     return null;
   }
+
+  // 22-01-PLAN.md Task 2 (D-01/T8): re-derives the checked usage and
+  // re-applies its preview src from the CURRENT DOM state - the one
+  // entry point dirty-state.js's Cancel handler calls after
+  // form.reset(), since reset() restores every radio's checked property
+  // natively but fires no change event, so this file would otherwise
+  // never hear that the departures/arrivals/calendar selection just
+  // reverted. Exposed as the file's own one new global, a small
+  // namespace object rather than a bare function, matching this
+  // codebase's "no stray globals" discipline while still giving another
+  // script a named, stable entry point to call.
+  function refreshFromCurrentState() {
+    var usage = checkedUsage();
+    if (usage) {
+      showUsage(usage);
+    }
+  }
+  window.SkyPaneLivePreview = { refresh: refreshFromCurrentState };
 
   // Collapse at load — the ONLY place this file ever hides a panel; see
   // the file header's own no-JS floor paragraph.

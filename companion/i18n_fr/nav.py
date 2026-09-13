@@ -16,6 +16,16 @@ same exclusion.
 Copy follows D-09: sentence case, the typographic apostrophe (U+2019,
 never a straight quote), and a non-breaking space (U+00A0) before
 ":" ";" "?" "!".
+
+22-08-PLAN.md Task 2 (D-06/B16): also carries the one nav-landmark
+accessible name shared by companion/layout.py's sidebar_nav()/
+_mobile_nav_html() (`aria-label="Primary navigation"` was a hard-coded
+literal, one of B16's own named leaks), and the theme-picker's three
+segment labels — "Auto"/"Light"/"Dark" are the theme-form's own
+segmented-control text, not a THEMES registry entry (those live in
+companion/i18n_fr/registry.py and are a different, longer list of
+colour names); grouped here because the theme picker sits in this same
+sidebar/mobile-nav footer region _theme_form_html() builds.
 """
 
 CATALOG = {
@@ -27,6 +37,16 @@ CATALOG = {
     "Advanced": "Avancé",
     "Health": "État",
     "Device": "Appareil",
+
+    # --- The bottom tab bar's "More" cell (X9/D-10, 22-14-PLAN.md
+    #     Task 1) -----------------------------------------------------
+    # The fifth tab, whose native <details> sheet holds the Advanced
+    # group's two destinations. Sentence case like every nav label
+    # above it, and deliberately NOT the label voice — a destination is
+    # a destination. "Plus" is the ordinary French word a nav uses for
+    # this and matches the existing register of "Accueil"/"Vols"/
+    # "Compagnies": one plain word, no verb.
+    "More": "Plus",
 
     # --- Nav-footer switches (20-UI-SPEC.md §F) -------------------------
     # D-17 (21-01-PLAN.md Task 1): "Simple mode"/"Simple"/"Full" are
@@ -42,7 +62,15 @@ CATALOG = {
     #     real D-05 gap found by the completeness harness — both render
     #     sites had been left un-wrapped since their own introducing
     #     plan) --------------------------------------------------------
-    "Open menu": "Ouvrir le menu",
+    # 22-14-PLAN.md Task 2 (X9/D-10, 22-UI-SPEC.md §3.1): "Open menu"/
+    # "Ouvrir le menu" is DELETED in the same commit as the English
+    # constant it translated, not superseded in place — the panel this
+    # toggle opens no longer holds a menu of pages (the bottom tab bar
+    # owns destinations now), so keeping the old pair would orphan it
+    # and fail companion/test_i18n.py's dead-translation check. The new
+    # name describes what the panel actually holds: the state reminder,
+    # the language and theme switches, and Sign out.
+    "Account and preferences": "Compte et préférences",
     " — attention needed": " — attention requise",
 
     # --- The nav state reminder (D-03/R-04, 21-04-PLAN.md Task 2) -------
@@ -60,4 +88,14 @@ CATALOG = {
     "Quiet hours off": "Heures calmes désactivées",
     "Screen and quiet hours status — go to Home":
         "État de l’écran et des heures calmes — aller à l’accueil",
+
+    # --- The nav landmark's accessible name (22-08-PLAN.md Task 2,
+    #     D-06/B16) --------------------------------------------------
+    "Primary navigation": "Navigation principale",
+
+    # --- The theme picker's three segment labels (22-08-PLAN.md Task 2,
+    #     D-06/B16) — companion/layout.py's _theme_form_html() ---------
+    "Auto": "Automatique",
+    "Light": "Clair",
+    "Dark": "Sombre",
 }

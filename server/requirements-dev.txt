@@ -4,3 +4,8 @@
 # only when shipping to the VPS, so nothing here ever reaches production.
 ruff==0.16.4
 coverage==7.15.4
+# 22-01-PLAN.md Task 1 (D-02): the browser driver companion/test_browser_ux.py
+# uses to prove B1-class defects a string-comparison harness cannot see. Dev-only
+# for the identical reason the header comment above states: deploy/deploy.sh
+# installs server/requirements.txt only, so a browser driver never reaches the VPS.
+playwright==1.62.0

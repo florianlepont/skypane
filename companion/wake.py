@@ -11,6 +11,7 @@ config_page.py) and every existing pinned test importing
 """
 from server.wake import (  # noqa: F401
     env_sleep_s, effective_wake_interval_s, device_staleness_thresholds,
-    next_wake_at_iso, MISSED_WAKES_WARN, MISSED_WAKES_ERROR,
+    next_wake_at_iso, next_wake_status, HOLD_QUIET_HOURS,
+    MISSED_WAKES_WARN, MISSED_WAKES_ERROR,
     STALE_WARN_FLOOR_S, STALE_ERROR_FLOOR_S, SLEEP_ENV_VAR,
 )

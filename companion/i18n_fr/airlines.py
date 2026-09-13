@@ -42,6 +42,14 @@ CATALOG = {
     # --- The "Change pictures"/"Done" toggle (D-36, 20-10-PLAN.md Task 1) --
     "Change pictures": "Modifier les images",
     "Done": "Terminé",
+    # X7 (22-11-PLAN.md Task 2): edit mode's two visible affordances on
+    # the grid — the page-header state badge and the per-card control.
+    # The aria template CONTAINS the visible label verbatim in French
+    # too ("Remplacer l’image" inside "Remplacer l’image de %s"), which
+    # is what WCAG 2.5.3 (Label in Name) requires.
+    "Editing": "Modification",
+    "Replace picture": "Remplacer l’image",
+    "Replace picture for %s": "Remplacer l’image de %s",
     "Replace an airline’s picture or add one for an airline that has "
     "none.": "Remplacez l’image d’une compagnie, ou ajoutez-en une pour "
     "une compagnie qui n’en a pas encore.",
@@ -77,6 +85,13 @@ CATALOG = {
     "see the full list": "voir la liste complète",
     "%d manual resolutions, %d superseded": "%d résolutions manuelles, %d remplacées",
     "%d manual resolutions": "%d résolutions manuelles",
+    # D-06/B16 (22-11-PLAN.md Task 2): the singular halves. French and
+    # English agree on where this boundary falls (both inflect at one),
+    # but each language still owns its own string rather than sharing a
+    # runtime rule — the convention 22-10 set for the Calendar card.
+    # CFG-29 stays open until health_page.py's own plurals land (22-12).
+    "%d manual resolution, %d superseded": "%d résolution manuelle, %d remplacée",
+    "%d manual resolution": "%d résolution manuelle",
 
     # --- The gallery's filter bar (D-16) ---------------------------------
     "Filter by airline or callsign": "Filtrer par compagnie ou indicatif",

@@ -66,9 +66,16 @@ CATALOG = {
     "Checking in normally": "Se connecte normalement",
     "Has not checked in for a while": "N’a pas répondu depuis un moment",
     "Has not checked in for a long time": "N’a pas répondu depuis longtemps",
+    # --- 22-04-PLAN.md Task 3 (D-03/CFG-26): the frame's own held state,
+    #     the neutral "off" device_state — never a warning ---------------
+    "Asleep for quiet hours": "En veille pendant les heures calmes",
     "Running on schedule": "Fonctionne comme prévu",
     "A little behind": "Un peu en retard",
     "Has not run for a long time": "N’a pas fonctionné depuis longtemps",
+    # --- 22-03-PLAN.md Task 1 (B2): the pipeline's real never-ran state ---
+    "No detection yet": "Aucune détection pour l’instant.",
+    "The frame has not reported a flight since it started.":
+        "Le cadre n’a signalé aucun vol depuis son démarrage.",
     "Sources agree": "Les sources concordent",
     "Sources disagreed recently": "Les sources se sont contredites récemment",
     "Nothing to compare yet.": "Rien à comparer pour l’instant.",
@@ -96,6 +103,13 @@ CATALOG = {
     "Route resolution rate": "Taux de résolution des trajets",
     "%.1f%% resolved": "%.1f %% résolus",
     "over the last %d days, %d events": "au cours des %d derniers jours, %d événements",
+    # 22-12-PLAN.md Task 1 (D-06/B16, CFG-29): the singular sibling of
+    # the line above — health_page._RESOLUTION_DETAIL_SINGULAR_TEMPLATE.
+    # A window holding exactly one detection read "1 events" in English
+    # and "1 événements" here; both counts stay in the same order, and
+    # only the noun loses its "s" (the day count is a fixed 30, so it
+    # never needs a singular form of its own).
+    "over the last %d days, %d event": "au cours des %d derniers jours, %d événement",
 
     # --- Battery trend section -------------------------------------------
     "Battery trend": "Tendance de la batterie",
@@ -145,8 +159,26 @@ CATALOG = {
     "Clear": "Effacer",
     "Prefix": "Préfixe",
     "Count": "Nombre",
-    "First seen": "Vu pour la première fois",
-    "Last seen": "Vu pour la dernière fois",
+    # 22-12-PLAN.md Task 2 (B12): shortened from "Vu pour la première
+    # fois" / "Vu pour la dernière fois". The unresolved-prefix table
+    # measured 1026px in French inside an 830px wrap at a 1280px
+    # viewport; stacking the two timestamp cells (the Flights precedent)
+    # brought it to 900px and left these two HEADERS as the widest thing
+    # in their own columns, at 189px of ink each. At 102px each the
+    # table measures 790px and fits, with the Resolve column reachable
+    # without horizontal scrolling — both numbers taken from a headless
+    # Chromium probe, not by eye.
+    #
+    # The English sources are deliberately unchanged: English measured
+    # 830/830 after stacking alone, so there was nothing to fix there,
+    # and rewording a column that fits would be a copy change with no
+    # cause. These two keys are ALSO read by companion/pages/
+    # airlines_page.py's RESOLVE_CONTEXT_LABELS (the resolve dialog's
+    # <dt> labels) — one catalogue entry, several readers, which is this
+    # module's own stated contract; the shorter, parallel pair reads
+    # correctly in that definition list too.
+    "First seen": "Première fois",
+    "Last seen": "Dernière fois",
     "Example callsign": "Exemple d’indicatif",
     "Resolve": "Résoudre",
     "Resolve prefix %s": "Résoudre le préfixe %s",
@@ -154,12 +186,23 @@ CATALOG = {
 
     # --- Resolution-statistics table --------------------------------------
     "How well we name flights": "Notre capacité à identifier les vols",
-    "No resolution data yet.": "Aucune donnée de résolution pour l’instant.",
-    "No flight events recorded yet — resolution statistics appear "
-    "once the ADS-B pipeline has detected a flight.":
-        "Aucun événement de vol enregistré pour l’instant — les "
-        "statistiques de résolution apparaissent une fois que le "
-        "pipeline ADS-B a détecté un vol.",
+    # 22-03-PLAN.md Task 2 (B3): replaces the former "No resolution data
+    # yet." / "No flight events recorded yet — resolution statistics
+    # appear once the ADS-B pipeline has detected a flight." pair, which
+    # never named the window. Kept as an unformatted "%d" template,
+    # exactly like the English source constant.
+    "No flights in the last %d days": "Aucun vol depuis %d jours",
+    "The frame has not recorded a detection in this window. It will "
+    "appear here after the next wake.":
+        "Le cadre n’a enregistré aucune détection sur cette période. "
+        "Elle apparaîtra ici après le prochain réveil.",
+    "Other": "Autre",
+    "A route source this page does not recognise, or none was recorded "
+    "at all — still counted here so the total always matches every "
+    "event in the window.":
+        "Une source de trajet que cette page ne reconnaît pas, ou "
+        "aucune n’a été enregistrée — comptabilisée ici afin que le "
+        "total corresponde toujours à chaque événement de la période.",
     "Source": "Source",
     "Description": "Description",
     "Fresh lookup": "Recherche fraîche",

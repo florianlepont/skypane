@@ -551,6 +551,193 @@ EXPECTED_CHECK_COUNT = 213
 # pass — the one documented pre-existing root-sandbox anomaly_active()
 # failure, unrelated to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 218
+# 22-03-PLAN.md Task 1 (B2): +5 (a genuinely never-ran pipeline renders
+# the neutral verdict with the existing dot--off class, zero dot--warn,
+# zero battery-fallback text, no second detail line, and no anomaly
+# banner when the device is healthy; the same tile in French;
+# compute_health_state()'s pipeline_detail_html key is verdict-free for
+# both the never-ran and has-run cases, embedded once inside
+# pipeline_html; collect_anomalies()/overall_severity() treat
+# pipeline_state="off" exactly like "ok", while a genuinely stale
+# pipeline_state still counts). 218 + 5 = 223, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (222/223 pass — the one documented pre-existing root-sandbox
+# anomaly_active() failure, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 223
+# 22-03-PLAN.md Task 2 (B3): +5 (resolution_stats() folds a NULL and an
+# unrecognised route_source into one "Other" bucket and the total
+# counts every seeded row; known-source-only rows still render exactly
+# the five _SOURCE_ROWS rows with no "Other" row, byte-identical to
+# before this task; the empty "How well we name flights" section is
+# entirely absent in both English and French; a 36-row fixture (30
+# known + 6 NULL) shows the full count, never the empty-state copy;
+# _NO_STATS_HEADING is an unformatted %d template with no hard-coded
+# window literal). 223 + 5 = 228, recomputed directly against the real
+# on-disk check(...) call count at execution time (227/228 pass — the
+# one documented pre-existing root-sandbox anomaly_active() failure,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 228
+
+
+# 22-04-PLAN.md Task 1: +7 (228 -> 235) — the Frame strip's own new
+# frame_state.resolve_state()-consuming behaviour (the nightly-held
+# regression, the due/grace-window identity, the late warn-dot/plain-text
+# check, the no-check-in check, the three-cell one-row-structure check,
+# the data-quick-switch exactly-twice check, and the no-re-derived-
+# lateness source guard), re-derived by RUNNING the harness, not by
+# arithmetic.
+EXPECTED_CHECK_COUNT = 235
+
+
+# 22-04-PLAN.md Task 2: +6 (235 -> 241) — the strip's CSS block-scoped
+# checks (align-items: stretch/no center, the quiet strip-button rule's
+# specificity/source-order/wash, the three-edge hover with .frame-strip
+# excluded, the retired heading-size override, the one .time-value role,
+# and the header comment's accent-reservation delta), re-derived by
+# RUNNING the harness, not by arithmetic.
+EXPECTED_CHECK_COUNT = 241
+
+
+# 22-04-PLAN.md Task 3: +5 (241 -> 246) — DEVICE_STATE_TEXT's widened key
+# set (retargeted in place, not a net-new check), the nightly-regression
+# check (X2, pinned as one named check), the grace-window agreement
+# check, the past-grace-window both-late check, the held-then-elapsed
+# both-late check, and the unchanged dot--* occurrence-count guard,
+# re-derived by RUNNING the harness, not by arithmetic.
+EXPECTED_CHECK_COUNT = 246
+
+# 22-06-PLAN.md Task 2 (D-05/B4): +4 (246 -> 250) — _axis_clock_label()
+# renders Europe/Paris local time (not the unconverted UTC clock),
+# _axis_day_label() names the Paris day an instant falls on, a sparkline
+# point's title/aria-label/data-when carry the same string (never a
+# "value — when" composite mismatched against data-when alone), and a
+# seeded Health page renders zero " UTC" occurrences in either language
+# — re-derived by RUNNING the harness, not by arithmetic.
+EXPECTED_CHECK_COUNT = 250
+
+# 22-06-PLAN.md Task 3 (D-05/B4): +2 (250 -> 252) — battery-trend.js
+# contains no client-side date math and its title/fallback no longer
+# carry a raw ISO, and concise_timestamp_html()'s title is a full
+# Europe/Paris local timestamp rather than the raw ISO — re-derived by
+# RUNNING the harness, not by arithmetic.
+EXPECTED_CHECK_COUNT = 252
+
+# 22-12-PLAN.md Task 1 (X8/C1, D-06/CFG-29): +5 (252 -> 257) — every
+# .stat-tile on a rendered Health page carries the four slots in their
+# fixed order with exactly one Emphasis element (seeded and on a fresh
+# install alike); "Only one saw it" renders the neutral dot--off with a
+# still-distinct visible label in both languages; layout.empty_state()'s
+# two-argument output is byte-identical to its pre-compact form while
+# compact=True is its own block; the two IN-tile empty states are compact
+# while the two full-card ones are not; and the Resolution-rate detail
+# line has a singular form in both languages. Three further checks were
+# RETARGETED IN PLACE (the Device/Pipeline tile-anatomy check, the
+# nightly-regression clock extractor, and _tile_slice_by_caption()'s own
+# slicing) with no count change. Re-derived by RUNNING the harness
+# (256/257 pass, the one documented root-sandbox anomaly_active() FAIL
+# apart), never by arithmetic.
+EXPECTED_CHECK_COUNT = 257
+
+# 22-12-PLAN.md Task 2 (B12): +1 (257 -> 258) — the unresolved-prefix
+# table fits by the two levers headless measurement actually selected
+# (the Flights stacked-cell precedent scoped to its own
+# data-table--registry modifier with the base no-crop floor kept, plus
+# two shortened French headers with the retired long forms gone and the
+# English sources untouched), and never by a 1100px card fallback. The
+# registry card/table parity check was RETARGETED IN PLACE (byte-identity
+# -> the same-formatters property, asserted on both sides) with no count
+# change. Re-derived by RUNNING the harness (257/258 pass, the one
+# documented root-sandbox anomaly_active() FAIL apart), never by
+# arithmetic.
+EXPECTED_CHECK_COUNT = 258
+# 22-14-PLAN.md Task 1 (X9/D-10): +3 — the tab bar's own stylesheet
+# contract read block by block (display:none until the same fractional
+# 959.98px boundary the sibling rules use, then fixed to the viewport
+# bottom at 56px plus the safe-area inset on the nav surface, a top
+# hairline, the resting overlay shadow and NO border radius because the
+# bar is edge-anchored; `flex: 1 1 0` cells; the app's one 12%-accent
+# pill idiom reused byte-for-byte from .sidebar-link--active with a
+# :not()-scoped hover placed after it; an 11px regular label carrying
+# neither text-transform nor letter-spacing; and the .has-tab-bar page
+# clearance whose class name is compared against layout's own constant),
+# the More sheet opening upward while .mobile-nav's in-flow flex-basis
+# push-down stays untouched and the stylesheet itself records why that
+# absolute positioning is not a reversal of the 06.6.1-06 verdict, and
+# every tab label plus the landmark name in French. 258 + 3 = 261,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (260/261 pass — the one documented anomaly_active()
+# root-sandbox failure, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 261
+# 22-14-PLAN.md Task 2 (X9/D-10, B10, T11): +4 — the reminder rendering
+# as a <span> with no href on Home (announcing only the state, composed
+# from the same two translated strings the visible segments use) and as
+# a destination-naming link everywhere else, in both nav copies and with
+# two nowrap segments in each; exactly ONE open-state max-height for the
+# dropdown at a value measured against the reduced French content (165px
+# at 390px, capped at 320px) with both contradicting declarations gone
+# and the dead dropdown-nav selectors deleted while .mobile-nav__link
+# survives for the tab bar's sheet; a structural guard pinning the
+# stylesheet at zero stray comment terminators, added after this plan
+# found that 22-10's own appended note had silently dropped T10's
+# saved-chip badge rule outright (Rule 1, fixed in the same commit); and
+# the renamed hamburger toggle with its French entry, the retired
+# "Open menu" translation deleted rather than orphaned. Five earlier
+# checks were RETARGETED IN PLACE, strictly narrower, not counted as new
+# (the Advanced-group-in-both-copies check, the reminder's placement
+# inside the dropdown, and — in companion/test_companion_app.py — the
+# active-link, six-and-six, landmark-count, notification-dot,
+# dropdown-contents, no-JS and three-file DOM-contract checks).
+# 261 + 4 = 265, recomputed directly against the real on-disk check(...)
+# call count at execution time (264/265 pass — the one documented
+# anomaly_active() root-sandbox failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 265
+# 22-14-PLAN.md Task 3 (D-10, T7): +1 — the save bar's sub-960px bottom
+# offset gaining the tab bar's 56px plus the safe-area inset (geometric
+# separation FIRST, so in the normal case the two never overlap at all),
+# ONE stacking value across both breakpoints at 30 above the tab bar's
+# 20 (which is also T7's desktop fix, where the rule carried none at
+# all), the superseded "No z-index, and why" paragraph amended in place
+# with the stated reason its own escape clause asks for rather than
+# deleted, and the .dirty-ready-scoped content clearance at both
+# breakpoints at its MEASURED value (88px desktop, 144px phone) declared
+# after the tab bar's own clearance so source order cannot silently
+# override it. 265 + 1 = 266, recomputed directly against the real
+# on-disk check(...) call count at execution time (265/266 pass — the
+# one documented anomaly_active() root-sandbox failure, unrelated to
+# this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 266
+# 22-15-PLAN.md Task 1 (T3, T4): +1 — one structural scan proving every
+# <details> regained an open/closed indicator after `summary { display:
+# flex }` silently killed `::marker` (the chevron, its [open] rotation
+# through a CHILD combinator, and the tab bar's own out-of-flow,
+# inverted-rotation variant for a sheet that opens upward), that the
+# prefers-reduced-motion block count is UNCHANGED at two because a
+# transform needs no per-rule block, and that no `.data-table-wrap th`
+# rule survives to claim sticky positioning inside a wrapper with no
+# height — nor does that wrapper gain a height to make the claim true.
+# 266 + 1 = 267, recomputed directly against the real on-disk check(...)
+# call count at execution time (266/267 pass — the one documented
+# anomaly_active() root-sandbox failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 267
+# 22-15-PLAN.md Task 2 (T13): +1 — the server-side half of the refresh
+# loop's repair, pinning what a running browser cannot show: stopLoop()
+# reduced to its definition plus its two deliberate background-tab
+# teardowns (neither failure path may call it — that WAS the defect), a
+# bounded exponential ladder starting AT the normal cadence so a failing
+# server sees a strictly decreasing request rate, a success resetting the
+# backoff, the in-flight guard, the two targeted-swap skips, the badge
+# built from neutral classes only with the .dot--off dot, style.css's
+# .banner__pill[hidden] display guard (that class's FOURTH consumer), and
+# both strings rendering onto <body> in both languages byte-identical to
+# the script's own English fallbacks. 267 + 1 = 268, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (267/268 pass — the one documented anomaly_active() root-sandbox
+# failure, unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 268
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -638,6 +825,35 @@ def _seed_manual_resolutions(state_dir, entries):
 
 def _ctx(state_dir, now=None):
     return {"state_dir": state_dir, "now": now or _iso(_now())}
+
+
+# --- 22-12-PLAN.md Task 1 (X8): one tile anatomy ------------------------
+#
+# `.stat-tile` bodies hold nested <div> elements now (X8's detail slot is
+# one wrapper regardless of how many lines it carries), so the older
+# "slice from the tile's opening tag to the next </div>" idiom silently
+# stops at the FIRST nested close and reads a partial tile. This helper
+# does a real balanced scan over <div ...> / </div> instead, so a check
+# written against it cannot be fooled by a tile gaining or losing an
+# inner wrapper.
+_DIV_TOKEN_RE = re.compile(r"<div\b[^>]*>|</div>")
+
+
+def _stat_tile_slices(rendered):
+    """Every complete `<div class="stat-tile ...">...</div>` in
+    `rendered`, in document order, each sliced on BALANCED div depth."""
+    slices = []
+    for match in re.finditer(r'<div class="stat-tile[ "]', rendered):
+        start = match.start()
+        depth = 0
+        for token in _DIV_TOKEN_RE.finditer(rendered, start):
+            depth += 1 if token.group(0) != "</div>" else -1
+            if depth == 0:
+                slices.append(rendered[start:token.end()])
+                break
+        else:
+            raise AssertionError("unbalanced .stat-tile markup at offset %d" % (start,))
+    return slices
 
 
 # --- HTTP harness (Section 3 only) --------------------------------------
@@ -924,8 +1140,17 @@ def main():
             ts = _iso(now - timedelta(minutes=3))
             _seed_device_health(tmp, [(ts, 4200)])
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-            if ts not in rendered:
-                return False, "expected the seeded ISO string to appear on the rendered page"
+            # 22-06-PLAN.md Task 3 (D-05, B4): concise_timestamp_html()'s
+            # title is now a full local timestamp, never the raw ISO —
+            # so the seeded ISO string must NOT survive verbatim; the
+            # Device row must still show a real title attribute and a
+            # parenthesised relative age.
+            if ts in rendered:
+                return False, "expected the raw ISO string to be gone from the rendered page (D-05, B4)"
+            expected_title = layout.local_clock_text(
+                layout.parse_iso(ts), layout._FULL_TIMESTAMP_SENTINEL_NOW)
+            if ('title="%s"' % layout.escape_html(expected_title)) not in rendered:
+                return False, "expected the Device row's title to be a full local timestamp"
             if " ago)" not in rendered:
                 return False, "expected a parenthesised relative age suffix on the rendered page"
             return True, ""
@@ -992,31 +1217,65 @@ def main():
     def _health_page_device_pipeline_tiles_have_no_duplicated_label():
         # quick task 260901-tsa (finding C): pins the whole fix — the
         # tile caption still carries the freshness label exactly once,
-        # and the tile body is now a real stat-tile__value timestamp,
-        # not a second copy of the label via status_dot()'s dot-label
-        # span.
+        # and the tile body carries a real timestamp, not a second copy
+        # of the label via status_dot()'s dot-label span.
+        #
+        # RETARGETED IN PLACE, STRICTLY NARROWER (22-12-PLAN.md Task 1,
+        # X8). Two premises of the original changed and one was already
+        # weak:
+        #   1. "exactly one stat-tile__value paragraph" was this check's
+        #      proxy for "a real timestamp in the body". That class is
+        #      the EMPHASIS role, and the tile also renders its verdict
+        #      at the Emphasis role one line above — which is precisely
+        #      the "double bold verdict" X8 removes. The detail is the
+        #      muted `.widget-detail` slot now, so the proxy is replaced
+        #      by the thing it was standing in for, ASSERTED DIRECTLY:
+        #      exactly one Emphasis element in the tile, exactly one
+        #      detail slot, the timestamp inside THAT slot, and zero
+        #      `stat-tile__value` (so the old shape cannot come back).
+        #   2. the tile slice was taken as "up to the next </div>", which
+        #      was only ever correct because no tile held a nested div.
+        #      It now uses the balanced `_stat_tile_slices()` scan, so it
+        #      reads the whole tile rather than a prefix of it.
+        # Everything the original asserted is still asserted.
         tmp = _mkstate("h-no-dup-label")
         try:
             now = _now()
             _seed_device_health(tmp, [(_iso(now), 4200)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tiles = _stat_tile_slices(rendered)
             for label in (health_page.DEVICE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_LABEL):
                 label_count = rendered.count(label)
                 if label_count != 1:
                     return False, (
                         "%r must appear exactly once on the whole rendered page, got %d"
                         % (label, label_count))
-                at = rendered.index(label)
-                tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
-                tile_close = rendered.index("</div>", tile_open) + len("</div>")
-                tile_slice = rendered[tile_open:tile_close]
-                if tile_slice.count('class="stat-tile__value"') != 1:
+                matching = [tile for tile in tiles if label in tile]
+                if len(matching) != 1:
                     return False, (
-                        "%r's tile must carry exactly one stat-tile__value paragraph, got %d"
-                        % (label, tile_slice.count('class="stat-tile__value"')))
-                if 'class="mono"' not in tile_slice:
-                    return False, "%r's tile must carry a mono timestamp span" % (label,)
+                        "expected exactly one .stat-tile carrying %r, got %d"
+                        % (label, len(matching)))
+                tile_slice = matching[0]
+                verdicts = tile_slice.count('class="%s"' % health_page._TILE_VERDICT_CLASS)
+                if verdicts != 1:
+                    return False, (
+                        "%r's tile must carry exactly one Emphasis-role verdict element, got %d"
+                        % (label, verdicts))
+                if tile_slice.count('class="stat-tile__value"') != 0:
+                    return False, (
+                        "%r's tile must carry no stat-tile__value paragraph — its detail is the "
+                        "muted slot now, and a second Emphasis element is the double bold verdict "
+                        "X8 removed" % (label,))
+                details = tile_slice.count('class="%s"' % health_page._TILE_DETAIL_CLASS)
+                if details != 1:
+                    return False, (
+                        "%r's tile must carry exactly one detail slot, got %d" % (label, details))
+                detail_at = tile_slice.index('class="%s"' % health_page._TILE_DETAIL_CLASS)
+                if 'class="mono"' not in tile_slice[detail_at:]:
+                    return False, (
+                        "%r's tile must carry its mono timestamp span INSIDE the detail slot"
+                        % (label,))
                 if "dot-label" in tile_slice:
                     return False, (
                         "%r's tile must carry no dot-label — the redundant body dot was removed"
@@ -1025,8 +1284,10 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the Device and Pipeline tiles carry their freshness label exactly once (caption only) plus a real "
-        "stat-tile__value timestamp, with no leftover dot-label (quick task 260901-tsa, finding C)",
+        "the Device and Pipeline tiles carry their freshness label exactly once (caption only) plus "
+        "exactly one Emphasis-role verdict and exactly one muted detail slot holding the mono "
+        "timestamp, with zero stat-tile__value and no leftover dot-label (quick task 260901-tsa "
+        "finding C, retargeted by 22-12-PLAN.md Task 1's X8 anatomy)",
         _health_page_device_pipeline_tiles_have_no_duplicated_label)
 
     # 06.6.1-04: "no <svg" stopped being a valid proxy for "no sparkline"
@@ -1132,11 +1393,20 @@ def main():
             ]
             _seed_device_health(tmp, readings)
             rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            # 22-06-PLAN.md Task 3 (D-05, B4): the title is now a full
+            # local timestamp, never the raw ISO — re-derived from
+            # concise_timestamp_html() itself rather than hard-coded.
             for ts, _mv in readings:
-                if ('<span class="mono" title="%s">' % ts) not in rendered:
+                expected_span = layout.concise_timestamp_html(ts, _iso(base))
+                if rendered.count(expected_span) < 1:
                     return False, (
-                        "expected %r inside a concise_timestamp_html() title attribute "
+                        "expected concise_timestamp_html()'s own byte-identical span for %r "
                         "in the rendered Battery Trend table" % ts)
+                # Not asserting the raw ISO is absent page-wide here: the
+                # chart's own sparkline hit targets legitimately carry it
+                # in their machine-readable data-ts attribute (unrelated
+                # to this table, and not a `title`/tooltip) — D-05 is
+                # about visible/tooltip text, not every attribute.
             if " ago)" not in rendered:
                 return False, "expected at least one parenthesised relative age in the Battery Trend table"
             return True, ""
@@ -1215,8 +1485,14 @@ def main():
             base = datetime(2026, 9, 2, 12, 0, 0, tzinfo=timezone.utc)
             readings = []
             day_values = [[4000, 4100, 4200], [4001, 4101, 4201], [4002, 4102, 4202]]
+            # 22-06-PLAN.md Task 1: buckets are now Europe/Paris calendar
+            # days, not UTC ones — these hours (Paris = UTC+2 in
+            # September/CEST) all land on the SAME Paris day as their UTC
+            # day, unlike the retired (2, 14, 23) fixture, whose 23:00 UTC
+            # reading was 01:00 the NEXT Paris day and would silently
+            # split a day's three readings across two buckets.
             for day, values in enumerate(day_values):
-                for hour, mv in zip((2, 14, 23), values):
+                for hour, mv in zip((2, 10, 18), values):
                     ts = _iso((base - timedelta(days=day)).replace(hour=hour))
                     readings.append((ts, mv))
             _seed_device_health(tmp, readings)
@@ -1269,7 +1545,10 @@ def main():
                     % rendered.count(health_page.SPARKLINE_LINE_CLASS))
             if health_page.BATTERY_READOUT_ID not in rendered:
                 return False, "the readout must not disappear on a device younger than two calendar days"
-            if ("Latest %d readings" % health_page.BATTERY_TREND_LIMIT) not in rendered:
+            # 22-06-PLAN.md Task 2 (B4): the caption now names the REAL
+            # reading count (3, seeded above), never BATTERY_TREND_LIMIT
+            # (20) regardless of how many readings actually exist.
+            if ("Latest %d readings" % len(readings)) not in rendered:
                 return False, "the fallback chart must be captioned as readings, not as the 3-month window"
             if "Last 3 months" in rendered:
                 return False, "the caption must never describe a window the chart is not actually showing"
@@ -1308,7 +1587,9 @@ def main():
             ]
             _seed_device_health(tmp_sameday, sameday_readings)
             sameday_rendered = health_page.render(_ctx(tmp_sameday, now=_iso(base)))
-            if ("Latest %d readings" % health_page.BATTERY_TREND_LIMIT) not in sameday_rendered:
+            # 22-06-PLAN.md Task 2 (B4): the real count (2, seeded above),
+            # never the BATTERY_TREND_LIMIT constant.
+            if ("Latest %d readings" % len(sameday_readings)) not in sameday_rendered:
                 return False, "expected the readings-count framing on the same-day fallback"
             if "Last 3 months" in sameday_rendered:
                 return False, "the same-day fallback must not claim the 3-month framing"
@@ -2351,12 +2632,16 @@ def main():
                 history_db.utc_now_iso = original_utc_now_iso
             value_text, when_text = health_page._battery_reading_parts(
                 4190, _iso(base), _iso(base))
+            # 22-06-PLAN.md Task 2 (D-05, B4): the detail span's title is
+            # now when_text itself (a full Europe/Paris local timestamp),
+            # never the raw ISO — and the span carries the .time-value
+            # role (22-04-PLAN.md, C5).
             expected_inner = (
                 '<span class="battery-readout__value mono">%s</span>'
-                '<span class="battery-readout__detail" title="%s"> — %s</span>'
+                '<span class="battery-readout__detail time-value" title="%s"> — %s</span>'
             ) % (
                 health_page.escape_html(value_text),
-                health_page.escape_html(_iso(base)),
+                health_page.escape_html(when_text),
                 health_page.escape_html(when_text),
             )
             readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
@@ -2413,6 +2698,140 @@ def main():
         "battery.battery_percent() cannot estimate the reading (D-01/A-19)",
         _battery_reading_parts_value_has_no_estimate_when_percent_is_none)
 
+    # ======================================================================
+    # 22-06-PLAN.md Task 2 (D-05, B4): layout.local_clock_text() is the
+    # only formatter for a visible battery time — the readout, every
+    # sparkline point's tooltip/aria-label/data-when, and the axis clock
+    # labels all read Paris local text, and the literal " UTC" appears
+    # nowhere in the rendered page.
+    # ======================================================================
+
+    def _axis_clock_label_is_paris_local_not_utc():
+        # 22:30 UTC in September (CEST, Europe/Paris = UTC+2) is 00:30
+        # the NEXT Paris day. The old strftime()-on-the-unconverted-value
+        # implementation would print "22:30"; the fix must print "00:30".
+        clock = health_page._axis_clock_label("2026-09-02T22:30:00+00:00")
+        if clock != "00:30":
+            return False, "expected the Paris-local clock '00:30', got %r" % clock
+        return True, ""
+    check(
+        "_axis_clock_label() renders Europe/Paris local time, not the unconverted UTC clock "
+        "(D-05, B4): 22:30 UTC in September prints '00:30', not '22:30'",
+        _axis_clock_label_is_paris_local_not_utc)
+
+    def _axis_day_label_names_the_paris_day():
+        # Same instant as above: 22:30 UTC on 2026-09-02 is 00:30 Paris
+        # on 2026-09-03 — the axis day label (used in daily mode, where
+        # ts is already a Paris-day bucket key from history_db, but must
+        # also be correct for a raw instant) must name the LATER day.
+        day = health_page._axis_day_label("2026-09-02T22:30:00+00:00")
+        if day != "3 Sep":
+            return False, "expected the Paris day label '3 Sep', got %r" % day
+        return True, ""
+    check(
+        "_axis_day_label() names the Europe/Paris calendar day an instant falls on, not its UTC day "
+        "(D-05, D-12.3)",
+        _axis_day_label_names_the_paris_day)
+
+    def _sparkline_point_title_aria_data_when_are_one_string():
+        rows = [
+            {"ts": "2026-09-11T22:30:00+00:00", "battery_mv": 4100},
+            {"ts": "2026-09-12T10:00:00+00:00", "battery_mv": 4050},
+        ]
+        svg = health_page.battery_sparkline_svg(rows, now="2026-09-12T12:00:00+00:00")
+        hit_start = svg.rindex('class="%s"' % health_page.SPARKLINE_HIT_CLASS)
+        tag_end = svg.index(">", hit_start)
+        tag = svg[hit_start:tag_end + 1]
+        title_match = re.search(r"<title>([^<]*)</title>", svg[tag_end:])
+        aria_match = re.search(r'aria-label="([^"]*)"', tag)
+        when_match = re.search(r'data-when="([^"]*)"', tag)
+        if not (title_match and aria_match and when_match):
+            return False, "expected a title, aria-label and data-when on the latest hit target"
+        if not (title_match.group(1) == aria_match.group(1) == when_match.group(1)):
+            return False, (
+                "expected the tooltip, aria-label and data-when to carry the same string, got "
+                "title=%r aria-label=%r data-when=%r"
+                % (title_match.group(1), aria_match.group(1), when_match.group(1)))
+        if "UTC" in when_match.group(1):
+            return False, "expected zero occurrences of 'UTC' in a sparkline point's data-when"
+        return True, ""
+    check(
+        "a sparkline point's <title>, aria-label and data-when carry the SAME string — one formatted "
+        "value, never three independently-derived ones (D-05, B4)",
+        _sparkline_point_title_aria_data_when_are_one_string)
+
+    def _health_page_has_zero_utc_literal_in_either_language():
+        tmp = _mkstate("h-zero-utc-literal")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [
+                (_iso(now - timedelta(days=2)), 4200),
+                (_iso(now - timedelta(days=1)), 4150),
+                (_iso(now), 4100),
+            ])
+            try:
+                prefs.set_request_prefs(lang="en")
+                en_rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                prefs.set_request_prefs(lang="fr")
+                fr_rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            for lang_name, rendered in (("EN", en_rendered), ("FR", fr_rendered)):
+                if " UTC" in rendered:
+                    return False, "expected zero ' UTC' occurrences in the %s-rendered Health page" % lang_name
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a seeded Health page renders zero occurrences of the literal ' UTC' in either English or "
+        "French (D-05, B4)",
+        _health_page_has_zero_utc_literal_in_either_language)
+
+    # ======================================================================
+    # 22-06-PLAN.md Task 3 (D-05, B4): the client-side hover swap reads
+    # only pre-formatted server text (no date parsing/formatting of its
+    # own, and no raw-ISO fallback), and concise_timestamp_html()'s
+    # title is a local full timestamp, never the raw ISO.
+    # ======================================================================
+
+    def _battery_trend_js_has_no_client_side_date_math():
+        js_path = os.path.join(HERE, "static", "battery-trend.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+        if re.search(r"new Date\(|toISOString|getHours|getMinutes", js_source):
+            return False, "expected zero client-side date-parsing/formatting calls in battery-trend.js"
+        if 'setAttribute("title", ts)' in js_source:
+            return False, "expected the raw-ts title write to be gone"
+        if 'setAttribute("title", when)' not in js_source:
+            return False, "expected the hover swap to set title to the pre-formatted 'when' text"
+        if 'mv + " mV — " + ts' in js_source:
+            return False, "expected the raw-ISO fallback line to be gone"
+        return True, ""
+    check(
+        "battery-trend.js contains no client-side date parsing or formatting (new Date(), "
+        "toISOString, getHours, getMinutes), sets title to the pre-formatted 'when' text rather "
+        "than the raw ts, and its fallback no longer shows a raw ISO string (D-05, B4)",
+        _battery_trend_js_has_no_client_side_date_math)
+
+    def _concise_timestamp_html_title_is_a_full_local_timestamp_not_raw_iso():
+        now_iso = "2026-09-12T12:00:00+00:00"
+        ts = "2026-09-11T22:30:00+00:00"  # 00:30 Paris the NEXT day (CEST)
+        rendered = layout.concise_timestamp_html(ts, now_iso)
+        if ts in rendered:
+            return False, "expected zero occurrences of the raw ISO string in concise_timestamp_html()'s output"
+        title_match = re.search(r'title="([^"]*)"', rendered)
+        if title_match is None:
+            return False, "expected a title attribute"
+        if not re.search(r"^\d{1,2} \w+ \d{2}:\d{2}$", title_match.group(1)):
+            return False, "expected a full 'D Mon HH:MM' local timestamp in the title, got %r" % title_match.group(1)
+        if "UTC" in rendered:
+            return False, "expected zero occurrences of 'UTC' in concise_timestamp_html()'s output"
+        return True, ""
+    check(
+        "concise_timestamp_html()'s title is a full Europe/Paris local timestamp ('D Mon HH:MM'), "
+        "never the raw ISO string and never a 'UTC' suffix (D-05, B4)",
+        _concise_timestamp_html_title_is_a_full_local_timestamp_not_raw_iso)
+
     def _seeded_render_shows_both_the_estimate_and_the_millivolt_figure():
         tmp = _mkstate("h-readout-percentage")
         try:
@@ -2443,10 +2862,19 @@ def main():
     # Pipeline/Corroboration stat tiles (WCAG 1.4.1) --------------------------
 
     def _tile_slice_by_caption(rendered, caption):
-        at = rendered.index(caption)
-        tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
-        tile_close = rendered.index("</div>", tile_open) + len("</div>")
-        return rendered[tile_open:tile_close]
+        # 22-12-PLAN.md Task 1: this used to slice "from the tile's
+        # opening tag to the next </div>", which was only ever the whole
+        # tile because no tile held a nested <div>. X8's detail slot is
+        # one, so the old form would now return a PREFIX of the tile and
+        # every caller's negative assertion ("X is not in this tile")
+        # would silently weaken. Delegated to the balanced
+        # `_stat_tile_slices()` scan instead.
+        matching = [tile for tile in _stat_tile_slices(rendered) if caption in tile]
+        if len(matching) != 1:
+            raise AssertionError(
+                "expected exactly one .stat-tile carrying caption %r, got %d"
+                % (caption, len(matching)))
+        return matching[0]
 
     def _device_tile_verdict_matches_state_at_each_severity():
         cases = (
@@ -2557,21 +2985,479 @@ def main():
         "the Resolution-rate tile deliberately carries no widget-verdict paragraph (D-03/A-21)",
         _resolution_rate_tile_carries_no_verdict)
 
+    # --- 22-12-PLAN.md Task 1 (X8/C1): one tile anatomy ------------------
+    #
+    # The Emphasis slot is ONE element per tile, but two class names can
+    # legitimately carry it: a verdict word (three tiles) and a figure
+    # (the Resolution-rate tile, which D-03/A-21 forbids from making a
+    # judgement). The empty form is a third, and is the compact
+    # empty_state()'s own heading. The muted detail slot is the same
+    # two-way split. Enumerated here rather than at each call site so a
+    # future fourth shape has to be added deliberately.
+    _EMPHASIS_SLOT_CLASSES = (
+        'class="%s"' % health_page._TILE_VERDICT_CLASS,
+        'class="stat-tile__value"',
+        'class="empty-state__heading text-body"',
+    )
+    _DETAIL_SLOT_CLASSES = (
+        'class="%s"' % health_page._TILE_DETAIL_CLASS,
+        'class="empty-state__body text-label section-caption"',
+    )
+
+    def _one_tile_anatomy_across_every_health_tile():
+        # X8: "three server cards, three anatomies". Walks EVERY
+        # .stat-tile on a rendered page and asserts the four slots in
+        # their fixed order — label (stat_tile()'s own caption), then
+        # exactly ONE Emphasis-role element, then exactly ONE muted
+        # detail slot, then an optional link. Run against both a fully
+        # seeded page (every tile has data) and a fresh install (every
+        # tile is empty), because the empty path is where the anatomy
+        # used to break down into a 22px serif heading.
+        for name, seed in (("seeded", True), ("fresh", False)):
+            tmp = _mkstate("h-one-anatomy-%s" % name)
+            try:
+                now = _now()
+                if seed:
+                    _seed_device_health(tmp, [(_iso(now), 4200)])
+                    _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                    _seed_runway_events(tmp, [
+                        {"ts": _iso(now), "hex": "abc001", "route_source": "fresh_hit",
+                         "corroborated": True},
+                        {"ts": _iso(now), "hex": "abc002", "route_source": "manual",
+                         "corroborated": None},
+                    ])
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                tiles = _stat_tile_slices(rendered)
+                if len(tiles) != 4:
+                    return False, (
+                        "expected exactly 4 .stat-tile elements on Health (%s), got %d"
+                        % (name, len(tiles)))
+                for tile in tiles:
+                    captions = tile.count('class="text-label stat-tile__caption"')
+                    if captions != 1:
+                        return False, (
+                            "expected exactly one label slot per tile (%s), got %d in %r"
+                            % (name, captions, tile[:200]))
+                    emphasis = [
+                        tile.index(token) for token in _EMPHASIS_SLOT_CLASSES if token in tile]
+                    if len(emphasis) != 1 or sum(
+                            tile.count(token) for token in _EMPHASIS_SLOT_CLASSES) != 1:
+                        return False, (
+                            "expected exactly one Emphasis-role element per tile (%s) — the "
+                            "'double bold verdict' X8 removed is two — got %r"
+                            % (name, tile))
+                    detail = [
+                        tile.index(token) for token in _DETAIL_SLOT_CLASSES if token in tile]
+                    if len(detail) != 1 or sum(
+                            tile.count(token) for token in _DETAIL_SLOT_CLASSES) != 1:
+                        return False, (
+                            "expected exactly one muted detail slot per tile (%s), got %r"
+                            % (name, tile))
+                    caption_at = tile.index('class="text-label stat-tile__caption"')
+                    if not (caption_at < emphasis[0] < detail[0]):
+                        return False, (
+                            "expected the label/verdict/detail slots in that fixed order (%s), "
+                            "got offsets %d/%d/%d in %r"
+                            % (name, caption_at, emphasis[0], detail[0], tile))
+                    # C1/X8: never a 22px serif heading inside a tile
+                    # whose own caption is 12px.
+                    if "text-heading" in tile:
+                        return False, (
+                            "expected no serif .text-heading inside any .stat-tile (%s), got %r"
+                            % (name, tile))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "every .stat-tile on a rendered Health page — seeded and on a fresh install alike — "
+        "carries exactly one label, exactly one Emphasis-role element, exactly one muted detail "
+        "slot, in that fixed order, and no 22px serif heading anywhere inside it (X8/C1, "
+        "22-12-PLAN.md Task 1)",
+        _one_tile_anatomy_across_every_health_tile)
+
+    def _only_one_saw_it_is_neutral_and_still_distinct():
+        # X8 / 22-UI-SPEC.md §5 contract 4: "Only one saw it" used to
+        # take the same ok token — and therefore the identical green — as
+        # "Both agree". It is the neutral .dot--off now, AND its visible
+        # label text still differs, so the two states are distinguishable
+        # with colour vision entirely absent. Asserted in both languages,
+        # because the label half of the contract is copy.
+        for lang, agree_label, single_label in (
+                ("en", "Both agree", "Only one saw it"),
+                ("fr", "Les deux concordent", "Une seule l’a vu")):
+            tmp = _mkstate("h-corroboration-neutral-%s" % lang)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                _seed_runway_events(tmp, [
+                    {"ts": _iso(now), "hex": "abc001", "corroborated": True},
+                    {"ts": _iso(now), "hex": "abc002", "corroborated": None},
+                ])
+                try:
+                    prefs.set_request_prefs(lang=lang)
+                    rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                finally:
+                    prefs.set_request_prefs(lang="en")
+                tile = _tile_slice_by_caption(
+                    rendered,
+                    health_page.CORROBORATION_TILE_LABEL if lang == "en" else "Corroboration")
+                single_row = (
+                    '<span class="dot dot--off"></span><span class="dot-label">%s</span>'
+                    % single_label)
+                if single_row not in tile:
+                    return False, (
+                        "expected the single-source row to render the neutral dot with its own "
+                        "visible label (%s), got tile %r" % (lang, tile))
+                agree_row = (
+                    '<span class="dot dot--ok"></span><span class="dot-label">%s</span>'
+                    % agree_label)
+                if agree_row not in tile:
+                    return False, (
+                        "expected 'Both agree' to keep the ok dot (%s), got tile %r" % (lang, tile))
+                if agree_label == single_label:
+                    return False, "expected the two labels to differ (%s)" % (lang,)
+                if '<span class="dot dot--ok"></span><span class="dot-label">%s' % single_label in tile:
+                    return False, (
+                        "expected the single-source row NEVER to take the ok dot again (%s)" % (lang,))
+                if "dot--warn" in tile:
+                    return False, (
+                        "expected no warn dot in a tile with no disagreement (%s) — a neutral "
+                        "state must not be escalated instead of de-escalated" % (lang,))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "Health's 'Only one saw it' corroboration row renders the neutral dot--off with its own "
+        "distinct visible dot-label while 'Both agree' keeps dot--ok — in both languages, and "
+        "never a warn dot — so the two states are readable with colour vision entirely absent "
+        "(X8 / 22-UI-SPEC.md §5 contract 4, 22-12-PLAN.md Task 1)",
+        _only_one_saw_it_is_neutral_and_still_distinct)
+
+    def _empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
+        # T-22-44: the compact variant must not be able to change an
+        # existing caller. The default form's expected markup is written
+        # out as a LITERAL here, copied from the pre-change function, so
+        # this check fails even if layout.empty_state() and the
+        # expectation are edited together.
+        heading, body = "No data yet.", "Nothing to show here yet."
+        expected_default = (
+            '<div class="empty-state">'
+            '<p class="empty-state__heading text-heading">No data yet.</p>'
+            '<p class="empty-state__body text-body">Nothing to show here yet.</p>'
+            "</div>")
+        if layout.empty_state(heading, body) != expected_default:
+            return False, (
+                "expected the two-argument empty_state() output to be byte-identical to its "
+                "pre-compact form, got %r" % (layout.empty_state(heading, body),))
+        if layout.empty_state(heading, body, compact=False) != expected_default:
+            return False, "expected an explicit compact=False to be byte-identical too"
+        # The default form is what data_table()'s own no-rows fallback
+        # emits — an existing caller, proven rather than asserted.
+        if layout.data_table(["A"], []) != expected_default:
+            return False, (
+                "expected data_table()'s no-rows fallback (a real existing caller) to render the "
+                "unchanged default empty state, got %r" % (layout.data_table(["A"], []),))
+        compact = layout.empty_state(heading, body, compact=True)
+        if compact == expected_default:
+            return False, "expected compact=True to render a different block"
+        if "text-heading" in compact:
+            return False, (
+                "expected the compact form to carry no 22px serif .text-heading, got %r" % (compact,))
+        if 'class="empty-state empty-state--compact"' not in compact:
+            return False, "expected the compact form to carry its own modifier class"
+        if 'class="empty-state__heading text-body"' not in compact:
+            return False, "expected the compact heading on the Emphasis role's own size class"
+        if 'class="empty-state__body text-label section-caption"' not in compact:
+            return False, "expected the compact body at the label size and the 70% muted strength"
+        if "widget-verdict" in compact or "widget-detail" in compact:
+            return False, (
+                "expected the compact form to reach its treatment through its OWN class names — "
+                "borrowing .widget-verdict would break the Resolution-rate tile's D-03/A-21 "
+                "no-verdict pin on its own empty branch")
+        # Escaping is unchanged on both paths.
+        hostile = layout.empty_state("<b>h</b>", "<i>b</i>", compact=True)
+        if "<b>" in hostile or "<i>" in hostile:
+            return False, "expected the compact form to escape both arguments"
+        return True, ""
+    check(
+        "layout.empty_state()'s two-argument output is byte-identical to its pre-compact form "
+        "(proven against the literal markup AND against data_table()'s own real no-rows caller), "
+        "an explicit compact=False matches it, and compact=True renders its own modifier plus the "
+        "16px sans / 14px muted pair through the empty state's own class names, still escaped "
+        "(C1/T-22-44, 22-12-PLAN.md Task 1)",
+        _empty_state_default_form_is_byte_identical_and_compact_is_opt_in)
+
+    def _health_in_tile_empty_states_are_compact_and_card_ones_are_not():
+        # C1: the compact form belongs to the two empty states that land
+        # INSIDE a .stat-tile (Corroboration, Resolution rate). The two
+        # full-width card empty states on the same page (Battery trend,
+        # Unresolved prefixes) keep the default form — the variant is a
+        # tile fix, not a page-wide restyle.
+        tmp = _mkstate("h-empty-states-compact")
+        try:
+            now = _now()
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tiles = _stat_tile_slices(rendered)
+            in_tile = [tile for tile in tiles if "empty-state" in tile]
+            if len(in_tile) != 2:
+                return False, (
+                    "expected exactly two in-tile empty states on a fresh install (Corroboration "
+                    "and Resolution rate), got %d" % (len(in_tile),))
+            for tile in in_tile:
+                if "empty-state--compact" not in tile:
+                    return False, "expected every in-tile empty state to use the compact form"
+            # ...and the full-card ones are untouched.
+            outside = rendered
+            for tile in tiles:
+                outside = outside.replace(tile, "")
+            default_blocks = outside.count('<div class="empty-state">')
+            if default_blocks != 2:
+                return False, (
+                    "expected the two full-width card empty states (Battery trend, Unresolved "
+                    "prefixes) to keep the default form, got %d" % (default_blocks,))
+            if "empty-state--compact" in outside:
+                return False, (
+                    "expected no compact empty state outside a .stat-tile — the variant is a tile "
+                    "fix, not a page-wide restyle")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "on a fresh install Health's two IN-TILE empty states (Corroboration, Resolution rate) use "
+        "the compact form while its two full-width card empty states (Battery trend, Unresolved "
+        "prefixes) keep the default 22px serif one (C1/X8, 22-12-PLAN.md Task 1)",
+        _health_in_tile_empty_states_are_compact_and_card_ones_are_not)
+
+    def _resolution_detail_line_has_a_singular_form():
+        # D-06/B16, CFG-29: the LAST plural on this page with no singular
+        # form — a window holding exactly one detection read "over the
+        # last 30 days, 1 events". Same shape 22-10 and 22-11 used for
+        # the Calendar and Airlines plurals: a sibling template with its
+        # own French catalogue entry.
+        cases = (
+            (1, "en", "over the last %d days, 1 event" % health_page.RESOLUTION_WINDOW_DAYS,
+             "1 events"),
+            (1, "fr", "au cours des %d derniers jours, 1 événement" % health_page.RESOLUTION_WINDOW_DAYS,
+             "1 événements"),
+            (2, "en", "over the last %d days, 2 events" % health_page.RESOLUTION_WINDOW_DAYS, None),
+            (2, "fr", "au cours des %d derniers jours, 2 événements" % health_page.RESOLUTION_WINDOW_DAYS,
+             None),
+        )
+        for total, lang, expected, forbidden in cases:
+            tmp = _mkstate("h-resolution-plural-%d-%s" % (total, lang))
+            try:
+                now = _now()
+                _seed_runway_events(tmp, [
+                    {"ts": _iso(now), "hex": "abc%03d" % index, "route_source": "fresh_hit"}
+                    for index in range(total)])
+                try:
+                    prefs.set_request_prefs(lang=lang)
+                    rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                finally:
+                    prefs.set_request_prefs(lang="en")
+                if expected not in rendered:
+                    return False, (
+                        "expected %r for total=%d in %s" % (expected, total, lang))
+                if forbidden is not None and forbidden in rendered:
+                    return False, (
+                        "expected no %r anywhere for total=%d in %s" % (forbidden, total, lang))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        # Both templates exist as separate constants with their own
+        # catalogue entries — never a runtime "add an s".
+        for template in (health_page._RESOLUTION_DETAIL_TEMPLATE,
+                         health_page._RESOLUTION_DETAIL_SINGULAR_TEMPLATE):
+            if health_page.i18n.t_lang(template, "fr") == template:
+                return False, "expected %r to have its own French catalogue entry" % (template,)
+        return True, ""
+    check(
+        "the Resolution-rate tile's detail line has a singular form, so a window holding exactly "
+        "one detection never reads '1 events' / '1 événements', in both languages, and both "
+        "templates carry their own French catalogue entry (D-06/B16/CFG-29, 22-12-PLAN.md Task 1)",
+        _resolution_detail_line_has_a_singular_form)
+
     def _state_text_dicts_have_expected_key_sets():
-        if set(health_page.DEVICE_STATE_TEXT) != {"ok", "warn", "error"}:
-            return False, "expected DEVICE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
+        # 22-04-PLAN.md Task 3 (D-03/CFG-26): retargeted in place —
+        # DEVICE_STATE_TEXT now ALSO gains the fourth "off" key
+        # (frame_state.STATE_HELD's own neutral device_state), the same
+        # widening 22-03-PLAN.md Task 1 gave PIPELINE_STATE_TEXT alone
+        # for a different reason. CORROBORATION_STATE_TEXT is still
+        # deliberately unwidened.
+        if set(health_page.DEVICE_STATE_TEXT) != {"ok", "warn", "error", "off"}:
+            return False, "expected DEVICE_STATE_TEXT's keys to be exactly ok/warn/error/off, got %r" % (
                 set(health_page.DEVICE_STATE_TEXT),)
-        if set(health_page.PIPELINE_STATE_TEXT) != {"ok", "warn", "error"}:
-            return False, "expected PIPELINE_STATE_TEXT's keys to be exactly ok/warn/error, got %r" % (
+        if set(health_page.PIPELINE_STATE_TEXT) != {"ok", "warn", "error", "off"}:
+            return False, "expected PIPELINE_STATE_TEXT's keys to be exactly ok/warn/error/off, got %r" % (
                 set(health_page.PIPELINE_STATE_TEXT),)
         if set(health_page.CORROBORATION_STATE_TEXT) != {"ok", "warn"}:
             return False, "expected CORROBORATION_STATE_TEXT's keys to be exactly ok/warn, got %r" % (
                 set(health_page.CORROBORATION_STATE_TEXT),)
         return True, ""
     check(
-        "DEVICE_STATE_TEXT/PIPELINE_STATE_TEXT each have exactly the ok/warn/error key set and "
-        "CORROBORATION_STATE_TEXT has exactly ok/warn (it has no error state) (D-03/A-21)",
+        "DEVICE_STATE_TEXT has exactly ok/warn/error/off (widened by 22-04-PLAN.md Task 3 for the "
+        "frame's own held state), PIPELINE_STATE_TEXT has exactly ok/warn/error/off (B2, "
+        "22-03-PLAN.md Task 1) and CORROBORATION_STATE_TEXT has exactly ok/warn (it has no error "
+        "state) (D-03/A-21)",
         _state_text_dicts_have_expected_key_sets)
+
+    # ======================================================================
+    # 22-03-PLAN.md Task 1 (B2): a real neutral never-ran pipeline state,
+    # and a verdict-free pipeline_detail_html for Home.
+    # ======================================================================
+
+    def _pipeline_never_ran_renders_neutral_no_warn_no_banner():
+        # A pipeline that has genuinely never run (no
+        # META_LAST_PIPELINE_RUN, no META_LAST_DETECTION at all) renders
+        # the neutral "No detection yet" verdict with the existing
+        # dot--off class, zero occurrences of the warn dot class, and
+        # zero occurrences of the battery module's "no reading yet"
+        # fallback — proven against a real health_page.render() call,
+        # with the device seeded healthy so only the pipeline signal is
+        # under test.
+        tmp = _mkstate("h-pipeline-never-ran")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tile_slice = _tile_slice_by_caption(rendered, health_page.PIPELINE_FRESHNESS_LABEL)
+            expected_verdict_html = (
+                '<p class="text-body widget-verdict">'
+                '<span class="dot dot--off"></span>%s</p>'
+                % health_page.escape_html(health_page.PIPELINE_STATE_TEXT["off"]))
+            if expected_verdict_html not in tile_slice:
+                return False, (
+                    "expected the never-ran neutral verdict paragraph, got tile %r" % (tile_slice,))
+            if "dot--warn" in tile_slice:
+                return False, "expected zero dot--warn occurrences in a never-ran pipeline tile"
+            if layout.escape_html("no reading yet") in tile_slice:
+                return False, "expected zero battery-fallback occurrences in a never-ran pipeline tile"
+            if health_page.LAST_DETECTION_LABEL in tile_slice:
+                return False, (
+                    "expected no second 'Last aircraft detected' line in a never-ran pipeline tile — "
+                    "last_detection is falsy by definition here, so that line would always render "
+                    "the battery fallback")
+            if health_page.ANOMALY_BANNER_TEXT in rendered:
+                return False, "expected no anomaly banner for a never-ran pipeline with a healthy device"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a genuinely never-ran pipeline (no META_LAST_PIPELINE_RUN, no META_LAST_DETECTION) renders "
+        "the neutral verdict with the existing dot--off class, zero dot--warn, zero battery-fallback "
+        "text, no second detail line, and no anomaly banner when the device is healthy (B2, "
+        "22-03-PLAN.md Task 1)",
+        _pipeline_never_ran_renders_neutral_no_warn_no_banner)
+
+    def _pipeline_never_ran_renders_neutral_in_french():
+        tmp = _mkstate("h-pipeline-never-ran-fr")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            try:
+                prefs.set_request_prefs(lang="fr")
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            tile_slice = _tile_slice_by_caption(rendered, "Dernière mise à jour des données de vol")
+            if "Aucune détection pour l’instant." not in tile_slice:
+                return False, "expected the French never-ran verdict text in the pipeline tile"
+            if "dot--warn" in tile_slice:
+                return False, (
+                    "expected zero dot--warn occurrences in a never-ran pipeline tile under French")
+            if "aucune mesure pour l’instant" in tile_slice:
+                return False, (
+                    "expected zero French battery-fallback occurrences in a never-ran pipeline tile")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the same never-ran pipeline tile reads in French — 'Aucune détection pour l’instant.', "
+        "dot--off, zero dot--warn, zero French battery-fallback text (B2, 22-03-PLAN.md Task 1)",
+        _pipeline_never_ran_renders_neutral_in_french)
+
+    def _compute_health_state_carries_pipeline_detail_html_never_ran():
+        tmp = _mkstate("pipeline-detail-html-never-ran")
+        try:
+            now = _now()
+            state = health_page.compute_health_state(tmp, now=_iso(now))
+            if "pipeline_detail_html" not in state:
+                return False, "expected a pipeline_detail_html key on compute_health_state()'s dict"
+            detail_only = state["pipeline_detail_html"]
+            if "widget-verdict" in detail_only:
+                return False, "expected pipeline_detail_html to carry no widget-verdict class"
+            for verdict_text in health_page.PIPELINE_STATE_TEXT.values():
+                if verdict_text in detail_only:
+                    return False, (
+                        "expected pipeline_detail_html to carry no PIPELINE_STATE_TEXT verdict "
+                        "text, found %r" % (verdict_text,))
+            expected = health_page.escape_html(
+                health_page.i18n.t(health_page.PIPELINE_NEVER_RAN_DETAIL_TEXT))
+            if detail_only != expected:
+                return False, (
+                    "expected pipeline_detail_html to equal the never-ran detail sentence exactly, "
+                    "got %r" % (detail_only,))
+            if detail_only not in state["pipeline_html"]:
+                return False, (
+                    "expected pipeline_detail_html to be the exact verdict-free fragment "
+                    "embedded inside pipeline_html")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "compute_health_state()'s pipeline_detail_html key, for a never-ran pipeline, is the bare "
+        "PIPELINE_NEVER_RAN_DETAIL_TEXT sentence — no widget-verdict class, no PIPELINE_STATE_TEXT "
+        "verdict text — embedded once inside pipeline_html (B2, 22-03-PLAN.md Task 1)",
+        _compute_health_state_carries_pipeline_detail_html_never_ran)
+
+    def _compute_health_state_carries_pipeline_detail_html_has_run():
+        tmp = _mkstate("pipeline-detail-html-has-run")
+        try:
+            now = _now()
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _ago(120)})
+            state = health_page.compute_health_state(tmp, now=_iso(now))
+            detail_only = state["pipeline_detail_html"]
+            if "widget-verdict" in detail_only:
+                return False, "expected pipeline_detail_html to carry no widget-verdict class"
+            for verdict_text in health_page.PIPELINE_STATE_TEXT.values():
+                if verdict_text in detail_only:
+                    return False, (
+                        "expected pipeline_detail_html to carry no PIPELINE_STATE_TEXT verdict "
+                        "text, found %r" % (verdict_text,))
+            if detail_only not in state["pipeline_html"]:
+                return False, (
+                    "expected pipeline_detail_html to be the exact verdict-free fragment "
+                    "embedded inside pipeline_html")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "compute_health_state()'s pipeline_detail_html key, once the pipeline has run at least once, "
+        "is verdict-free and embedded once inside pipeline_html, mirroring device_detail_html (B2, "
+        "22-03-PLAN.md Task 1)",
+        _compute_health_state_carries_pipeline_detail_html_has_run)
+
+    def _collect_anomalies_and_overall_severity_treat_pipeline_off_as_healthy():
+        if health_page.collect_anomalies("ok", "off", "ok", False) != []:
+            return False, (
+                "expected collect_anomalies() to treat pipeline_state='off' as no anomaly (B2)")
+        if health_page.overall_severity("ok", "off", "ok", False) != "ok":
+            return False, (
+                "expected overall_severity() to treat pipeline_state='off' as healthy (B2)")
+        # A genuinely stale pipeline (any other non-'ok' value) still
+        # counts, proving 'off' is a real exemption, not an accidental
+        # membership-check bug that swallowed every non-'ok' value.
+        if health_page.collect_anomalies("ok", "warn", "ok", False) != [
+                health_page.i18n.t("Flight data is stale.")]:
+            return False, "expected collect_anomalies() to still flag a genuinely stale pipeline"
+        if health_page.overall_severity("ok", "warn", "ok", False) != "warn":
+            return False, "expected overall_severity() to still warn for a genuinely stale pipeline"
+        return True, ""
+    check(
+        "collect_anomalies()/overall_severity() treat pipeline_state='off' (never ran) exactly like "
+        "'ok' — never an anomaly, never a warn — while a genuinely stale pipeline_state still is (B2, "
+        "22-03-PLAN.md Task 1)",
+        _collect_anomalies_and_overall_severity_treat_pipeline_off_as_healthy)
 
     def _single_reading_still_no_chart_no_readout_no_script():
         if health_page.battery_sparkline_svg(
@@ -3319,7 +4205,11 @@ def main():
         tmp_empty = _mkstate("h-resolution-rate-tile-empty")
         try:
             rendered_empty = health_page.render(_ctx(tmp_empty))
-            if health_page._NO_STATS_HEADING not in rendered_empty:
+            # 22-03-PLAN.md Task 2 (B3): the no-stats copy is now the
+            # windowed heading, interpolated with RESOLUTION_WINDOW_DAYS
+            # — never the retired "No resolution data yet." literal.
+            expected_heading = health_page._NO_STATS_HEADING % health_page.RESOLUTION_WINDOW_DAYS
+            if expected_heading not in rendered_empty:
                 return False, "expected the no-stats empty-state heading with zero resolution history"
             return True, ""
         finally:
@@ -3442,6 +4332,151 @@ def main():
         "_SOURCE_ROWS has a fifth 'manual' entry, resolution_stats() folds a seeded 'manual' route_source "
         "count into the total and a labelled row, and render() shows a 'Manual' row (phase 13 D-02)",
         _source_rows_gains_fifth_manual_entry)
+
+    # ======================================================================
+    # 22-03-PLAN.md Task 2 (B3): count every row, bucket the unknown as
+    # "other", and stop rendering an empty "How well we name flights" card.
+    # ======================================================================
+
+    def _resolution_stats_counts_unknown_route_source_as_other():
+        # A NULL route_source (the field simply omitted, which
+        # record_runway_event() stores as NULL) and an explicit
+        # unrecognised string both land in the "Other" bucket, and the
+        # total counts every row in the window — never fewer than the
+        # database actually holds.
+        tmp = _mkstate("h-stats-other-bucket")
+        try:
+            now = _now()
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc001", "route_source": "fresh_hit"},
+                {"ts": _iso(now), "hex": "abc002"},  # NULL route_source
+                {"ts": _iso(now), "hex": "abc003", "route_source": "some_future_value"},
+            ])
+            with history_db.open_db(tmp) as conn:
+                stats = health_page.resolution_stats(conn, health_page.RESOLUTION_WINDOW_DAYS)
+            if stats["total"] != 3:
+                return False, "expected every seeded row to count toward the total, got %r" % (
+                    stats["total"],)
+            other_rows = [row for row in stats["rows"] if row[0] == health_page.i18n.t(
+                health_page._OTHER_SOURCE_LABEL)]
+            if len(other_rows) != 1 or other_rows[0][2] != 2:
+                return False, (
+                    "expected exactly one 'Other' row with count 2 (the NULL row plus the "
+                    "unrecognised-string row), got %r" % (other_rows,))
+
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if ">%s<" % health_page.i18n.t(health_page._OTHER_SOURCE_LABEL) not in rendered:
+                return False, "expected the rendered resolution-statistics table to contain an 'Other' row label"
+            if "No flight events recorded yet" in rendered:
+                return False, "expected no trace of the retired empty-state copy with real rows present"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "resolution_stats() counts a NULL and an unrecognised route_source into one 'Other' bucket, "
+        "the total equals every row in the window, and render() shows the 'Other' row (B3, "
+        "22-03-PLAN.md Task 2)",
+        _resolution_stats_counts_unknown_route_source_as_other)
+
+    def _resolution_stats_known_sources_alone_gain_no_other_row():
+        # With rows whose route_source is one of the five known values,
+        # the counts (and the absence of an 'Other' row) are unchanged
+        # from today — an ordinary render is byte-identical to before
+        # this task.
+        tmp = _mkstate("h-stats-known-only")
+        try:
+            now = _now()
+            events = []
+            for source in ("fresh_hit", "cache_hit", "airline_only", "miss", "manual"):
+                events.append({"ts": _iso(now), "hex": "abc123", "route_source": source})
+            _seed_runway_events(tmp, events)
+            with history_db.open_db(tmp) as conn:
+                stats = health_page.resolution_stats(conn, health_page.RESOLUTION_WINDOW_DAYS)
+            if len(stats["rows"]) != len(health_page._SOURCE_ROWS):
+                return False, (
+                    "expected exactly %d rows (no 'Other' row) when every seeded value is known, got %d"
+                    % (len(health_page._SOURCE_ROWS), len(stats["rows"])))
+            if stats["total"] != 5:
+                return False, "expected the total to still equal 5 for five known-source rows, got %r" % (
+                    stats["total"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "resolution_stats() with only known route_source values renders exactly the five _SOURCE_ROWS "
+        "rows and no 'Other' row — byte-identical to before this task (B3, 22-03-PLAN.md Task 2)",
+        _resolution_stats_known_sources_alone_gain_no_other_row)
+
+    def _stats_section_absent_when_empty_both_languages():
+        # With zero rows in the window, the whole "How well we name
+        # flights" section is absent from the rendered HTML — not a
+        # heading with an empty body — in both languages.
+        tmp = _mkstate("h-stats-section-absent")
+        try:
+            now = _now()
+            rendered_en = health_page.render(_ctx(tmp, now=_iso(now)))
+            if health_page.STATS_SECTION_HEADING in rendered_en:
+                return False, "expected zero occurrences of the stats heading with no rows in the window (en)"
+            try:
+                prefs.set_request_prefs(lang="fr")
+                rendered_fr = health_page.render(_ctx(tmp, now=_iso(now)))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            if health_page.i18n.t(health_page.STATS_SECTION_HEADING) in rendered_fr:
+                return False, "expected zero occurrences of the stats heading with no rows in the window (fr)"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the empty 'How well we name flights' section is entirely absent from the rendered page in "
+        "both English and French — never a heading over an empty body (B3, 22-03-PLAN.md Task 2)",
+        _stats_section_absent_when_empty_both_languages)
+
+    def _resolution_rate_tile_shows_36_rows_never_no_events():
+        # The audit's own seed (36 runway events over 17h) is exactly
+        # the kind of fixture the pre-fix bug would have silently
+        # undercounted if any of those rows carried an unrecognised
+        # route_source — reproduced here with a deliberate mix of known
+        # and unknown values summing to 36.
+        tmp = _mkstate("h-stats-36-rows")
+        try:
+            now = _now()
+            events = []
+            for i in range(30):
+                events.append({"ts": _iso(now), "hex": "abc%03d" % i, "route_source": "fresh_hit"})
+            for i in range(6):
+                events.append({"ts": _iso(now), "hex": "def%03d" % i})  # NULL route_source
+            _seed_runway_events(tmp, events)
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tile_slice = _tile_slice_by_caption(rendered, health_page.RESOLUTION_RATE_LABEL)
+            if "No flight events recorded yet" in tile_slice or "No flights in the last" in tile_slice:
+                return False, "expected a non-empty resolution-rate tile with 36 seeded rows in the window"
+            if ("over the last %d days, 36 events" % health_page.RESOLUTION_WINDOW_DAYS) not in tile_slice:
+                return False, "expected the window/event-count line to report all 36 seeded rows"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with 36 seeded rows (30 known, 6 with a NULL route_source) the resolution-rate tile shows a "
+        "non-zero count for all 36, never the empty-state copy (B3, 22-03-PLAN.md Task 2)",
+        _resolution_rate_tile_shows_36_rows_never_no_events)
+
+    def _no_stats_heading_derives_from_window_constant_not_hard_coded():
+        # The empty copy names the window and derives the number from
+        # RESOLUTION_WINDOW_DAYS, never a hard-coded "30" in the string
+        # itself.
+        if "%d" not in health_page._NO_STATS_HEADING:
+            return False, "expected _NO_STATS_HEADING to be an unformatted %d template"
+        if "30" in health_page._NO_STATS_HEADING:
+            return False, "expected _NO_STATS_HEADING to carry no hard-coded window literal"
+        formatted = health_page._NO_STATS_HEADING % health_page.RESOLUTION_WINDOW_DAYS
+        if str(health_page.RESOLUTION_WINDOW_DAYS) not in formatted:
+            return False, "expected the formatted heading to actually name the configured window"
+        return True, ""
+    check(
+        "_NO_STATS_HEADING is an unformatted %d template with no hard-coded window literal, and "
+        "interpolates RESOLUTION_WINDOW_DAYS at its one call site (B3, 22-03-PLAN.md Task 2)",
+        _no_stats_heading_derives_from_window_constant_not_hard_coded)
 
     def _registry_resolve_link_pairs_desktop_and_mobile_and_escapes_hostile_input():
         # phase 13 (D-10): each registry row's Resolve link is emitted
@@ -3822,6 +4857,12 @@ def main():
                 "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now),
                         "example_callsign": "ABC123"},
             })
+            # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics card
+            # is now omitted entirely when its window holds zero rows —
+            # this fixture seeds one so the card (and its "no status
+            # modifier" assertion below) still renders, unrelated to
+            # what this check is actually about.
+            _seed_runway_events(tmp, [{"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
 
             battery_state = health_page.battery_status([
@@ -4167,6 +5208,11 @@ def main():
             now = _now()
             _seed_device_health(tmp, [(_iso(now), 4200)])
             _seed_meta(tmp, **{history_db.META_SOURCE_FAULT: "True"})
+            # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics card
+            # is now omitted entirely when its window holds zero rows —
+            # seed one so both migrated cards still render, unrelated
+            # to what this check is actually about.
+            _seed_runway_events(tmp, [{"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
 
             if rendered.count("page-section--nested") != 2:
@@ -4419,10 +5465,24 @@ def main():
                             "seeded=%s: %r's own wrapper must carry no card class, got %r"
                             % (seeded, heading, wrapper_tag))
 
-                for heading in (
-                        health_page.BATTERY_SECTION_HEADING,
-                        health_page.UNRESOLVED_SECTION_HEADING,
-                        health_page.STATS_SECTION_HEADING):
+                # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics
+                # card is now omitted entirely (no heading at all) when
+                # its window holds zero rows — this unseeded=False
+                # fixture seeds no runway_events, so STATS_SECTION_
+                # HEADING is checked for ABSENCE instead of joining the
+                # loop below, which now covers only the two headings
+                # that still render unconditionally either way.
+                headings_to_check = [
+                    health_page.BATTERY_SECTION_HEADING,
+                    health_page.UNRESOLVED_SECTION_HEADING,
+                ]
+                if seeded:
+                    headings_to_check.append(health_page.STATS_SECTION_HEADING)
+                elif health_page.STATS_SECTION_HEADING in rendered:
+                    return False, (
+                        "seeded=False: expected the empty Resolution-statistics "
+                        "section to be entirely absent (B3, 22-03-PLAN.md Task 2)")
+                for heading in headings_to_check:
                     heading_marker_at = rendered.index(">%s" % heading)
                     section_open = rendered.rindex("<section class=\"", 0, heading_marker_at)
                     section_tag = rendered[section_open:rendered.index(">", section_open) + 1]
@@ -4566,10 +5626,24 @@ def main():
                                 "example_callsign": "JAF412"},
                     })
                 rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-                for heading in (
-                        health_page.BATTERY_SECTION_HEADING,
-                        health_page.UNRESOLVED_SECTION_HEADING,
-                        health_page.STATS_SECTION_HEADING):
+                # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics
+                # card is now omitted entirely (no heading at all) when
+                # its window holds zero rows — this loop's own
+                # unseeded pass seeds no runway_events, so
+                # STATS_SECTION_HEADING only joins the rhythm check
+                # when seeded (matching the fixture that actually
+                # renders it).
+                headings_to_check = [
+                    health_page.BATTERY_SECTION_HEADING,
+                    health_page.UNRESOLVED_SECTION_HEADING,
+                ]
+                if seeded:
+                    headings_to_check.append(health_page.STATS_SECTION_HEADING)
+                elif health_page.STATS_SECTION_HEADING in rendered:
+                    return False, (
+                        "seeded=False: expected the empty Resolution-statistics "
+                        "section to be entirely absent (B3, 22-03-PLAN.md Task 2)")
+                for heading in headings_to_check:
                     heading_at = rendered.index(">%s" % heading)
                     after = rendered[rendered.index("</h2>", heading_at) + len("</h2>"):]
                     if after.startswith("</section>"):
@@ -4957,17 +6031,60 @@ def main():
             cards_end = rendered.index("</ul>", cards_at) + len("</ul>")
             card_slice = rendered[cards_at:cards_end]
 
+            table_wrap_slice = rendered[table_wrap_at:]
             for prefix, count, first_seen, last_seen, example_callsign in rows:
                 first_html = layout.concise_timestamp_html(first_seen, now_iso, fallback="")
                 last_html = layout.concise_timestamp_html(last_seen, now_iso, fallback="")
-                if rendered.count(first_html) != 2:
+                # RETARGETED IN PLACE, STRICTLY NARROWER (22-12-PLAN.md
+                # Task 2, B12). This used to require each timestamp's
+                # markup to appear exactly TWICE — once in the <tr>, once
+                # in the paired .data-card — because both representations
+                # called concise_timestamp_html(). The desktop cell is
+                # two STACKED lines now (measured: the one-line form cost
+                # 251px of ink each and put the French table 196px over
+                # its 830px budget), so the two shapes deliberately
+                # differ.
+                #
+                # Byte-identity was only ever a proxy for "the two
+                # representations cannot disagree about what this value
+                # IS". That is now asserted DIRECTLY, and on both sides:
+                # the card slice carries concise_timestamp_html()'s exact
+                # output exactly once, and the table slice carries the
+                # exact `local_clock_text()` and `relative_age_text()`
+                # outputs that that same function composes — so a drift
+                # in either formatter, or a second `now`, still fails
+                # here. Stronger than the old count: the old form could
+                # not tell a row whose card and <tr> disagreed from one
+                # where the same wrong value appeared twice.
+                if rendered.count(first_html) != 1 or first_html not in card_slice:
                     return False, (
-                        "expected First seen markup %r byte-identical in both representations (found "
-                        "%d occurrences, want 2)" % (first_html, rendered.count(first_html)))
-                if rendered.count(last_html) != 2:
+                        "expected First seen markup %r exactly once, in the card slice (found %d "
+                        "occurrences)" % (first_html, rendered.count(first_html)))
+                if rendered.count(last_html) != 1 or last_html not in card_slice:
                     return False, (
-                        "expected Last seen markup %r byte-identical in both representations (found "
-                        "%d occurrences, want 2)" % (last_html, rendered.count(last_html)))
+                        "expected Last seen markup %r exactly once, in the card slice (found %d "
+                        "occurrences)" % (last_html, rendered.count(last_html)))
+                for name, raw_ts in (("First seen", first_seen), ("Last seen", last_seen)):
+                    clock = layout.escape_html(
+                        layout.local_clock_text(layout.parse_iso(raw_ts), layout.parse_iso(now_iso)))
+                    age = layout.escape_html(
+                        layout.relative_age_text(layout.age_seconds(raw_ts, now_iso)))
+                    expected_cell = (
+                        '<span class="cell-primary" title="%s">%s</span>'
+                        '<span class="cell-inline-sep">%s</span>'
+                        '<span class="cell-secondary">%s</span>'
+                    ) % (
+                        layout.escape_html(health_page._full_local_timestamp_text(raw_ts)),
+                        clock, health_page._REGISTRY_CELL_SEPARATOR_TEXT, age)
+                    if expected_cell not in table_wrap_slice:
+                        return False, (
+                            "expected the table's %s cell to be the two stacked lines built from "
+                            "the SAME formatters concise_timestamp_html() composes, got neither "
+                            "%r in the table slice" % (name, expected_cell))
+                    if clock not in first_html and clock not in last_html:
+                        return False, (
+                            "expected the stacked clock line %r to be the same text the card's own "
+                            "concise_timestamp_html() output carries" % (clock,))
                 if layout.escape_html(prefix) not in card_slice:
                     return False, "expected prefix %r inside the card-list slice" % (prefix,)
                 if str(count) not in card_slice:
@@ -4983,11 +6100,109 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the registry's mobile .data-cards representation is exactly paired with its table by "
-        "(data-filter-text, data-filter-group), byte-identical on First/Last seen timestamp markup, "
+        "(data-filter-text, data-filter-group), carries concise_timestamp_html()'s own First/Last "
+        "seen markup exactly once each while the desktop table carries the stacked cell built from "
+        "the same two formatters over the same now (retargeted by 22-12-PLAN.md Task 2's B12), "
         "positioned between the filter bar and the table wrap, and every column (prefix, count, both "
         "timestamps, example callsign) is reachable in the card slice (quick task 260903-ghy Task 2, "
         "Check C / UIR-11)",
         _registry_mobile_cards_paired_with_table)
+
+    def _registry_table_fits_by_stacked_cells_and_short_french_headers():
+        # B12 (22-12-PLAN.md Task 2): pins the two levers the headless
+        # measurement actually selected, so neither can be quietly undone
+        # and reopen the overflow. The measurement itself lives in
+        # companion/test_browser_ux.py (scrollWidth === clientWidth at
+        # 1280px in both languages); this check pins the MECHANISM.
+        #
+        # Lever order was the plan's: shorter French headers first, then
+        # the Flights stacked-cell precedent, then the card fallback
+        # below 1100px. Measured at a 1280px viewport, wrap clientWidth
+        # 830px: EN 886px / FR 1026px before. The two timestamp columns
+        # alone wanted 251px of INK each in French, i.e. 564px of the
+        # 830px budget for two of six columns, leaving 266px for four
+        # columns whose own cells need 166px of ink plus 124px of
+        # padding — so lever 1 alone could not fit, arithmetically, and
+        # lever 2 was required. After stacking: EN 830, FR 900. After
+        # also shortening the two French headers (which stacking had left
+        # as the widest thing in their own columns): FR 830. The card
+        # fallback (lever 3) was NOT needed and was not applied.
+        tmp = _mkstate("h-registry-fits")
+        try:
+            now = _now()
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {"count": 12, "first_seen": _iso(now - timedelta(days=6)),
+                        "last_seen": _iso(now - timedelta(hours=1)),
+                        "example_callsign": "ABC123"},
+            })
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            # Lever 2, the mechanism: the scoping modifier, the stacked
+            # spans, and the one-line form gone from the table.
+            if '<table class="data-table data-table--registry">' not in rendered:
+                return False, (
+                    "expected the registry table to carry the additive data-table--registry "
+                    "modifier that scopes the stacked-cell rule to it")
+            table_at = rendered.index('<div class="data-table-wrap">')
+            table_slice = rendered[table_at:]
+            if table_slice.count('<span class="cell-primary" title=') != 2:
+                return False, (
+                    "expected both timestamp cells to render a stacked primary line, got %d"
+                    % table_slice.count('<span class="cell-primary" title='))
+            if table_slice.count('<span class="cell-secondary">') != 2:
+                return False, "expected both timestamp cells to render a stacked secondary line"
+            if '<span class="mono" title=' in table_slice:
+                return False, (
+                    "expected the one-line concise_timestamp_html() cell to be gone from the "
+                    "table — it is the 251px-of-ink form the overflow came from")
+            with open(os.path.join(HERE, "static", "style.css"), encoding="utf-8") as fh:
+                css = fh.read()
+            for selector in ("table.data-table--registry .cell-primary,",
+                             "table.data-table--registry .cell-secondary {",
+                             "table.data-table--registry .cell-inline-sep {"):
+                if selector not in css:
+                    return False, "expected style.css to carry %r" % (selector,)
+            # The no-crop floor is KEPT for this table — the fix is the
+            # cells' own shape, never releasing min-width: max-content
+            # (which .data-table--prose does, for a different table).
+            if ".data-table--registry {" in css:
+                return False, (
+                    "expected no bare .data-table--registry rule — this table keeps the base "
+                    "min-width: max-content no-crop floor, unlike .data-table--prose")
+            # Lever 1: the two shortened French headers, and the retired
+            # long forms gone from the catalogue entirely.
+            if i18n_fr_health.CATALOG.get("First seen") != "Première fois":
+                return False, (
+                    "expected the shortened French 'First seen' header, got %r"
+                    % (i18n_fr_health.CATALOG.get("First seen"),))
+            if i18n_fr_health.CATALOG.get("Last seen") != "Dernière fois":
+                return False, (
+                    "expected the shortened French 'Last seen' header, got %r"
+                    % (i18n_fr_health.CATALOG.get("Last seen"),))
+            for retired in ("Vu pour la première fois", "Vu pour la dernière fois"):
+                if retired in i18n_fr_health.CATALOG.values():
+                    return False, "expected the retired long French header %r to be gone" % (retired,)
+            # The English sources are untouched: English measured 830/830
+            # after lever 2 alone, so there was nothing to reword.
+            if health_page._REGISTRY_HEADERS[2:4] != ("First seen", "Last seen"):
+                return False, (
+                    "expected the English header sources to be unchanged, got %r"
+                    % (health_page._REGISTRY_HEADERS,))
+            # Lever 3 was not needed: the card fallback keeps its own
+            # existing breakpoint and no 1100px rule was introduced.
+            if "1100px" in css:
+                return False, (
+                    "expected no 1100px card-fallback breakpoint — measurement showed levers 1 "
+                    "and 2 fit the table in both languages, so lever 3 was not applied")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the unresolved-prefix table fits by the two levers headless measurement selected — the "
+        "Flights stacked-cell precedent scoped to its own data-table--registry modifier (the base "
+        "no-crop floor kept), plus two shortened French headers with the retired long forms gone "
+        "and the English sources untouched — and never by a 1100px card fallback (B12, "
+        "22-12-PLAN.md Task 2)",
+        _registry_table_fits_by_stacked_cells_and_short_french_headers)
 
     def _no_chrome_with_no_data_and_no_cross_page_leak():
         # quick task 260903-ghy Task 2, Check D: the standing no-chrome-
@@ -5002,8 +6217,17 @@ def main():
             now = _now()
             rendered_empty = health_page.render(_ctx(tmp_empty, now=_iso(now)))
             unresolved_at = rendered_empty.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
-            stats_at = rendered_empty.index(">%s</h2>" % health_page.STATS_SECTION_HEADING)
-            section_slice = rendered_empty[unresolved_at:stats_at]
+            # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics
+            # section is now entirely absent for this genuinely-empty
+            # fixture (no runway_events seeded at all), so the slice
+            # boundary this check used to anchor on its heading is
+            # retargeted to the end of the document — nothing renders
+            # after the registry card in this fixture any more.
+            if health_page.STATS_SECTION_HEADING in rendered_empty:
+                return False, (
+                    "expected the empty Resolution-statistics section to be entirely "
+                    "absent (B3, 22-03-PLAN.md Task 2)")
+            section_slice = rendered_empty[unresolved_at:]
             if "data-card" in section_slice:
                 return False, "expected no .data-cards/.data-card markup in an empty registry's section"
             if "filter-bar" in section_slice:
@@ -5053,13 +6277,19 @@ def main():
 
     def _humanised_readout_end_to_end():
         # quick task 260901-uzi Task 4 (Check 4): finding 3's markup half
-        # (the readout's id/role/spans, the humanised visible detail, the
-        # machine-precise tooltip) plus the cross-file half (every chart
-        # hit target carries data-when, and battery-trend.js's shipped
-        # source reads that attribute name, both span class names, and
-        # still looks the readout up by its id literal) — a server-side
-        # format change the script does not read is the exact regression
-        # this check exists to catch.
+        # (the readout's id/role/spans, the humanised visible detail) plus
+        # the cross-file half (every chart hit target carries data-when,
+        # and battery-trend.js's shipped source reads that attribute name,
+        # both span class names, and still looks the readout up by its id
+        # literal) — a server-side format change the script does not read
+        # is the exact regression this check exists to catch.
+        #
+        # 22-06-PLAN.md Task 2 (D-05, B4): the detail span's title used to
+        # carry the raw ISO — it now carries the SAME full Europe/Paris
+        # local timestamp as the visible text (never a raw ISO anywhere
+        # on this page), so this check's assertion inverts: zero raw ISO
+        # occurrences, and a day-qualified "D Mon HH:MM" full timestamp
+        # present in both the visible text and the title.
         tmp = _mkstate("h-humanised-readout-e2e")
         try:
             base = _now().replace(hour=12, minute=0, second=0, microsecond=0)  # fixed noon: readings minutes apart must never straddle a UTC day boundary
@@ -5084,11 +6314,19 @@ def main():
                 return False, "expected the readout's value span"
             if "battery-readout__detail" not in readout_html:
                 return False, "expected the readout's detail span"
+            if re.search(r"\d{4}-\d{2}-\d{2}T", readout_html):
+                return False, "expected zero raw ISO occurrences anywhere in the readout, got %r" % readout_html
+            title_match = re.search(r'title="([^"]*)"', readout_html)
+            if title_match is None:
+                return False, "expected the detail span to carry a title attribute"
+            if not re.search(r"^\d{1,2} \w+ \d{2}:\d{2} \(", title_match.group(1)):
+                return False, (
+                    "expected the title to be a full 'D Mon HH:MM (Nx ago)' local timestamp, got %r"
+                    % title_match.group(1))
             visible = re.sub(r"<[^>]*>", "", readout_html)
-            if re.search(r"\d{4}-\d{2}-\d{2}T", visible):
-                return False, "expected no raw ISO string in the readout's visible text, got %r" % visible
-            if not re.search(r"\d{4}-\d{2}-\d{2}T", readout_html):
-                return False, "expected the machine-precise ISO to survive in the detail span's title tooltip"
+            if title_match.group(1) not in visible:
+                return False, "expected the title to equal the readout's own visible text, got %r vs %r" % (
+                    title_match.group(1), visible)
 
             if section_html.count("data-when=") != 3:
                 return False, (
@@ -5311,10 +6549,17 @@ def main():
                 "health_page.ICON_BATTERY must be gone from the module namespace — quick task "
                 "260902-j8w removed the heading glyph and its now-unused constant together")
 
-        def _headings_carry_no_glyph(rendered, context_label):
+        def _headings_carry_no_glyph(rendered, context_label, expected_heading_count):
+            # 22-03-PLAN.md Task 2 (B3): the Resolution-statistics
+            # heading is now omitted entirely when its window holds
+            # zero rows, so the fixed "always five" expectation this
+            # check used to pin is now an explicit per-fixture count —
+            # neither fixture below seeds a runway_event, so both are
+            # 4, not 5.
             heads = re.findall(r"<h2\b.*?</h2>", rendered, re.S)
-            if len(heads) != 5:
-                return "expected Health (%s) to still render five headings, got %d" % (context_label, len(heads))
+            if len(heads) != expected_heading_count:
+                return "expected Health (%s) to render %d headings, got %d" % (
+                    context_label, expected_heading_count, len(heads))
             for head in heads:
                 if "<svg" in head:
                     return "no Health heading may carry a glyph any more (%s), found one in: %r" % (
@@ -5341,7 +6586,7 @@ def main():
                     "expected exactly three glyphs to carry the tile tint class — every Health-signal "
                     "glyph on this page is now a tile glyph, with none left over — got %d" % (
                         empty_rendered.count(layout.STAT_TILE_ICON_CLASS)))
-            failure = _headings_carry_no_glyph(empty_rendered, "empty render")
+            failure = _headings_carry_no_glyph(empty_rendered, "empty render", 4)
             if failure:
                 return False, failure
 
@@ -5357,7 +6602,7 @@ def main():
                 return False, (
                     "expected exactly five <use occurrences on a seeded render (the same four plus "
                     "icon-search in the unresolved-prefixes filter bar), got %d" % seeded_rendered.count("<use"))
-            failure = _headings_carry_no_glyph(seeded_rendered, "seeded render")
+            failure = _headings_carry_no_glyph(seeded_rendered, "seeded render", 4)
             if failure:
                 return False, failure
             return True, ""
@@ -5745,8 +6990,27 @@ def main():
             clock_at = wrapper_slice.index("data-refresh-clock")
             clock_tag = wrapper_slice[
                 wrapper_slice.rindex("<", 0, clock_at):wrapper_slice.index(">", clock_at) + 1]
-            if ('title="%s"' % now_iso) not in clock_tag:
-                return False, "expected the clock span's title to carry the full ISO instant"
+            # 22-16-PLAN.md's closing sweep (D-05/CFG-28): RETARGETED in
+            # place, deliberately, from 19-09-PLAN.md's own "the title
+            # carries the full ISO instant" assertion. A `title` is a
+            # tooltip and this one sits behind no copy control, so the
+            # raw ISO failed two of CFG-28's clauses. It is now the full
+            # Europe/Paris local timestamp, the same conversion
+            # 22-06-PLAN.md Task 3 applied to concise_timestamp_html(),
+            # and asserted the same way: the raw ISO must not survive
+            # verbatim, and the title must match this module's own
+            # _full_local_timestamp_text() output exactly.
+            expected_title = layout.escape_html(
+                health_page._full_local_timestamp_text(now_iso))
+            if ('title="%s"' % expected_title) not in clock_tag:
+                return False, (
+                    "expected the clock span's title to carry the full Europe/Paris local "
+                    "timestamp %r, got %r" % (expected_title, clock_tag))
+            if now_iso in clock_tag:
+                return False, (
+                    "expected the raw ISO instant NOT to survive verbatim in the clock "
+                    "span's title — a title is a tooltip, and raw ISO belongs only behind "
+                    "a copy control (D-05/CFG-28)")
 
             for needle in ("data-refresh-toggle", "data-pause-text", "data-resume-text"):
                 if needle in wrapper_slice:
@@ -5793,8 +7057,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, full ISO "
-        "in the clock span's title) beside the unchanged hidden refresh pill and NO Pause/Resume "
+        "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, the full "
+        "Europe/Paris local timestamp — never the raw ISO — in the clock span's title, retargeted "
+        "by 22-16 for D-05/CFG-28) beside the unchanged hidden refresh pill and NO Pause/Resume "
         "toggle (zero data-refresh-toggle/data-pause-text/data-resume-text, zero <button>), all "
         "inside one block-level .page-header__freshness wrapper that is the .page-header's next "
         "child right after the <h1>, in prefix/clock/pill source order (21-02-PLAN.md Task 1, D-18; "
@@ -6523,27 +7788,40 @@ def main():
     def _advanced_group_always_renders_in_both_nav_copies():
         """D-17 (21-01-PLAN.md Task 1): the display-mode gate that used
         to omit the Advanced group (Health, Device) is deleted — the
-        group now renders on every page for every request, in both the
-        sidebar and the mobile-nav dropdown copy. Replaces a deleted
-        check that tested the now-removed omission mechanism.
+        group now renders on every page for every request, in both nav
+        copies. Replaces a deleted check that tested the now-removed
+        omission mechanism.
+
+        RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task 2,
+        X9/D-10): the sub-960px copy is the BOTTOM TAB BAR now, not the
+        hamburger dropdown — the Advanced group lives behind its "More"
+        <details> rather than under a group label. The D-17 guarantee
+        being defended is unchanged (the group is never omitted), and the
+        assertion is tightened: both destinations must appear in the tab
+        bar's own slice, not merely twice somewhere in the document.
         """
         rendered = layout.page_shell(
-            title="Home", active="home", body="", ui_theme="auto", health_alert="warn")
-        if rendered.count(layout.ADVANCED_GROUP_LABEL) < 2:
+            title="Home", active="home", body="", ui_theme="auto", health_alert="warn",
+            device_config={"display_enabled": True, "quiet_hours_enabled": False})
+        if layout.ADVANCED_GROUP_LABEL not in rendered:
             return False, (
-                "expected the Advanced group label in both the sidebar and the "
-                "mobile-nav dropdown, got %d occurrence(s)"
+                "expected the Advanced group label in the sidebar copy, got %d occurrence(s)"
                 % rendered.count(layout.ADVANCED_GROUP_LABEL))
-        if rendered.count(layout.HEALTH_ROUTE) < 2:
-            return False, "expected a /health href in both nav copies"
-        if rendered.count(layout.DEVICE_ROUTE) < 2:
-            return False, "expected a /device href in both nav copies"
+        sidebar = rendered[rendered.index('<nav class="sidebar-nav"'):rendered.index("</aside>")]
+        bar_start = rendered.index('<nav class="tab-bar"')
+        bar = rendered[bar_start:rendered.index("</nav>", bar_start)]
+        for route in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE):
+            if ('href="%s"' % route) not in sidebar:
+                return False, "expected a %s href in the sidebar copy" % route
+            if ('href="%s"' % route) not in bar:
+                return False, "expected a %s href in the tab bar copy" % route
         if layout.NAV_NOTIFICATION_CLASS not in rendered:
             return False, "expected the nav status dot (health_alert='warn')"
         return True, ""
     check(
         "the Advanced group (Health, Device) and the nav status dot always render, in both "
-        "the sidebar and the mobile dropdown, on a plain request (D-17)",
+        "the sidebar and the bottom tab bar, on a plain request (D-17; retargeted from the "
+        "dropdown by 22-14-PLAN.md Task 2)",
         _advanced_group_always_renders_in_both_nav_copies)
 
     # ======================================================================
@@ -6560,8 +7838,13 @@ def main():
             device_config=_NAV_STATUS_DEVICE_CFG)
         if rendered.count('class="nav-status text-label"') != 2:
             return False, (
-                "expected exactly one .nav-status link in the sidebar and one in the mobile "
+                "expected exactly one .nav-status reminder in the sidebar and one in the mobile "
                 "dropdown, got %d" % rendered.count('class="nav-status text-label"'))
+        if rendered.count('<nav class="tab-bar"') != 1:
+            return False, "expected the tab bar beside them, carrying no reminder of its own"
+        bar_start = rendered.index('<nav class="tab-bar"')
+        if "nav-status" in rendered[bar_start:rendered.index("</nav>", bar_start)]:
+            return False, "expected no third copy of the reminder inside the tab bar"
         for match in re.finditer(r'<a class="nav-status text-label"[^>]*>(.*?)</a>', rendered):
             segment = match.group(0)
             if "<form" in segment or "<button" in segment:
@@ -6573,9 +7856,15 @@ def main():
             return False, "expected the sidebar's nav-status link between the brand and the primary nav list"
         mobile_panel_pos = rendered.index('<div id="%s" class="mobile-nav">' % layout.MOBILE_NAV_ID)
         mobile_nav_status_pos = rendered.index('class="nav-status text-label"', mobile_panel_pos)
-        mobile_nav_list_pos = rendered.index('<nav class="mobile-nav__nav"', mobile_panel_pos)
-        if not (mobile_panel_pos < mobile_nav_status_pos < mobile_nav_list_pos):
-            return False, "expected the mobile dropdown's nav-status link to be its first child, before its own <nav>"
+        # RETARGETED IN PLACE (22-14-PLAN.md Task 2): the dropdown's own
+        # <nav> is deleted, so "first child, before its own nav list"
+        # becomes "first child, before the footer" — the panel's only
+        # other region now.
+        mobile_footer_pos = rendered.index('class="mobile-nav__footer"', mobile_panel_pos)
+        if not (mobile_panel_pos < mobile_nav_status_pos < mobile_footer_pos):
+            return False, (
+                "expected the mobile dropdown's nav-status to be its first child, before "
+                "its footer")
         return True, ""
     check(
         "the sidebar and the mobile dropdown each contain exactly one .nav-status link, with no "
@@ -7505,26 +8794,48 @@ def main():
         marker = "@media (max-width: 959.98px) {"
         if marker not in css_source:
             return False, "expected style.css to declare %r" % (marker,)
-        media_at = css_source.index(marker)
+
+        # 22-11-PLAN.md Task 2, Rule 1 auto-fix: this check used to say
+        # "the file's @media (max-width: 959.98px) block" and read
+        # `css_source.index(marker)` — the FIRST such block. That premise
+        # was already false when it was written (the file carries several
+        # sub-960px blocks) and it survived only because the mobile
+        # button override happened to be the earliest one. Adding ANY
+        # sub-960px rule earlier in the file — this plan's own
+        # `.illustration-grid` two-column template, X7 — silently
+        # retargeted the assertion onto an unrelated block. Retargeted in
+        # place and NARROWED, never loosened: every sub-960px block is
+        # scanned, EXACTLY ONE must declare the bare button override
+        # (two would be a real ambiguity this check should catch), and
+        # that block — not merely the first — must come after the base
+        # rule in source order.
+        mobile_button_pattern = r"button\s*\{\s*height:\s*36px;\s*font-size:\s*14px;\s*\}"
+        declaring_blocks = []
+        search_at = 0
+        while True:
+            media_at = css_source.find(marker, search_at)
+            if media_at < 0:
+                break
+            search_at = media_at + len(marker)
+            media_close = css_source.index("\n}\n", media_at)
+            if re.search(mobile_button_pattern, css_source[media_at:media_close]):
+                declaring_blocks.append(media_at)
+        if len(declaring_blocks) != 1:
+            return False, (
+                "expected exactly one %r block to declare a bare `button { height: 36px; "
+                "font-size: 14px; }` rule, found %d" % (marker, len(declaring_blocks)))
+        media_at = declaring_blocks[0]
 
         base_button_at = css_source.index("button {")
         if base_button_at > media_at:
             return False, (
                 "expected the base `button {` rule to come BEFORE the "
-                "%r block, not after it" % (marker,))
+                "%r block that overrides it, not after it" % (marker,))
         base_body = css_source[base_button_at:css_source.index("}", base_button_at)]
         if "height: 30px" not in base_body:
             return False, "expected the base button rule to still declare height: 30px"
         if "font-size: 13px" not in base_body:
             return False, "expected the base button rule to still declare font-size: 13px"
-
-        media_close = css_source.index("\n}\n", media_at)
-        media_body = css_source[media_at:media_close]
-        mobile_button_pattern = r"button\s*\{\s*height:\s*36px;\s*font-size:\s*14px;\s*\}"
-        if not re.search(mobile_button_pattern, media_body):
-            return False, (
-                "expected the %r block to declare a bare `button { height: 36px; "
-                "font-size: 14px; }` rule" % (marker,))
         return True, ""
     check(
         "the mobile-only button override exists as the file's @media (max-width: 959.98px) block, "
@@ -7587,10 +8898,37 @@ def main():
             targets = set(illustrations.target_filenames())
             prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
             actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
-            expected = len(illustrations.target_airline_names())
+            # 22-11-PLAN.md Task 2 (X7), retargeted in place and
+            # NARROWED: an edit-mode card now carries TWO triggers for
+            # the same dialog — the zoom trigger it always had, plus the
+            # new per-card "Replace picture" control, which must carry
+            # the identical full vocabulary or panel-lookup.js's
+            # `attr || ""` idiom would blank the dialog. So the expected
+            # total doubles, AND each airline's own action must appear
+            # exactly twice: a pairing assertion the old bare total could
+            # not make, so a drift where one card gained a third trigger
+            # (or lost its second) now fails rather than passing on a
+            # coincidental sum.
+            per_airline = 2
+            expected = per_airline * len(illustrations.target_airline_names())
             if len(actions) != expected:
-                return False, "expected %d replace-action triggers (one per target airline), got %d" % (
-                    expected, len(actions))
+                return False, (
+                    "expected %d replace-action triggers (%d per target airline: the zoom trigger "
+                    "and the edit-mode Replace control), got %d"
+                    % (expected, per_airline, len(actions)))
+            for action in set(actions):
+                if actions.count(action) != per_airline:
+                    return False, (
+                        "expected each airline's replace action to appear exactly %d times, %r "
+                        "appeared %d" % (per_airline, action, actions.count(action)))
+            # And out of edit mode there is exactly one per airline: the
+            # Replace control is drawn only while the mode is on.
+            plain_actions = re.findall(
+                r'data-view-panel-replace-action="([^"]+)"', airlines_page.render(_ctx(tmp)))
+            if len(plain_actions) != len(illustrations.target_airline_names()):
+                return False, (
+                    "expected one replace-action trigger per airline out of edit mode, got %d"
+                    % (len(plain_actions),))
             for action in actions:
                 if not action.startswith(prefix) or not action.endswith(".png"):
                     return False, "expected every replace-action trigger to be %s{key}.png, got %r" % (
@@ -8760,7 +10098,19 @@ def main():
         tmp = _mkstate("a-manual-empty-populated")
         try:
             rendered = airlines_page.render(_ctx(tmp))
-            if '<button type="button" class="manual-summary"' in rendered:
+            # 22-11-PLAN.md Task 2 (X7), retargeted in place: the summary
+            # is no longer a 12px bare link below the filter bar. It is a
+            # real filter control INSIDE the bar, wearing
+            # `.airline-card__chip`'s label voice with `.manual-summary`
+            # kept as the interactive hover hook. The class is therefore
+            # composed, not solitary — matched here through its
+            # data-filter-set hook plus the composed class attribute, so
+            # this check pins the NEW shape rather than merely tolerating
+            # it, and would fail if the chip voice were dropped again.
+            summary_open = (
+                '<button type="button" class="airline-card__chip manual-summary" '
+                'data-filter-set="manual">')
+            if "manual-summary" in rendered:
                 return False, "expected no .manual-summary element when the registry is empty"
             for retired_copy in (
                     "Manually resolved prefixes",
@@ -8780,10 +10130,16 @@ def main():
             manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
             manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-02T00:00:00+00:00")
             rendered = airlines_page.render(_ctx(tmp))
-            summary_open = '<button type="button" class="manual-summary" data-filter-set="manual">'
             summary_count = rendered.count(summary_open)
             if summary_count != 1:
                 return False, "expected the .manual-summary button to render exactly once, got %d" % summary_count
+            # It sits inside the filter bar now, not between the bar and
+            # the grid — the half of X7's fix a class-name check misses.
+            bar = re.search(r'<div class="filter-bar">(.*?)</div>\s*<div class="empty-state"',
+                            rendered, re.S)
+            if bar is None or summary_open not in bar.group(1):
+                return False, (
+                    "expected the summary control to render INSIDE the filter bar (X7)")
             expected_text = airlines_page.MANUAL_SUMMARY_TEMPLATE % (2, 1)
             expected_button = "%s%s</button>" % (summary_open, expected_text)
             if expected_button not in rendered:
@@ -9063,10 +10419,6 @@ def main():
                 "display: block")),
             (".lightbox__heading:empty {", ("display: none",)),
             (".lightbox__manual-note:empty {", ("display: none",)),
-            (".manual-summary {", (
-                "color: color-mix(in srgb, var(--color-text) 70%, transparent)",
-                "text-decoration: underline",
-                "cursor: pointer")),
         )
         for selector_open, expected_declarations in expectations:
             if selector_open not in css_source:
@@ -9077,10 +10429,36 @@ def main():
                     return False, (
                         "expected %r's rule body to contain %r" % (selector_open, expected_declaration))
 
+        # 22-11-PLAN.md Task 2 (X7), retargeted in place. The
+        # `.manual-summary {` base rule used to be pinned here with its
+        # 70%-muted colour, underline and pointer — a byte-for-byte copy
+        # of `.filter-bar [data-filter-clear]`'s property list, which is
+        # exactly the 12px bare link the audit found unreadable as a
+        # control. X7 replaces that copy with REUSE: the markup composes
+        # `.airline-card__chip` (the page's own label-voice token) and
+        # `.manual-summary` shrinks to the one thing a chip cannot carry,
+        # a hover. The expectation is inverted rather than deleted — the
+        # base rule must be GONE, so a future plan cannot quietly
+        # reinstate the fork, and the reuse must be visible in the markup.
+        if re.search(r"^\.manual-summary\s*\{", css_source, re.M):
+            return False, (
+                "expected the .manual-summary base rule to be gone — its property list was a copy "
+                "of [data-filter-clear]'s, and the chip class now carries the treatment (X7)")
         if ".manual-summary:hover {" not in css_source:
             return False, "expected a .manual-summary:hover rule in style.css"
-        if "color: var(--color-text)" not in _rule_body(".manual-summary:hover {"):
+        hover_body = _rule_body(".manual-summary:hover {")
+        if "color: var(--color-text)" not in hover_body:
             return False, "expected .manual-summary:hover to declare color: var(--color-text)"
+        if "color-mix(in srgb, var(--color-text) 12%, transparent)" not in hover_body:
+            return False, (
+                "expected .manual-summary:hover to deepen to the chip's own 12% wash, not a newly "
+                "invented strength")
+        chip_body = _rule_body(".airline-card__chip {")
+        for inherited in ("font-size: 12px", "text-transform: uppercase", "border-radius: 999px"):
+            if inherited not in chip_body:
+                return False, (
+                    "expected .airline-card__chip to still carry %r — it is now the summary "
+                    "control's whole treatment" % (inherited,))
 
         # .airline-card__placeholder's aspect-ratio must string-equal
         # .airline-card__image's, so grid rows stay aligned whether a
@@ -9145,7 +10523,7 @@ def main():
         # rule bodies declares a `--` custom property.
         for selector_open in (
                 "a.airline-card {", ".airline-card__placeholder {", ".lightbox__heading:empty {",
-                ".lightbox__manual-note:empty {", ".manual-summary {", ".manual-summary:hover {",
+                ".lightbox__manual-note:empty {", ".manual-summary:hover {",
                 group_selector):
             body = _rule_body(selector_open)
             if re.search(r'(^|\s)--[a-z][a-z-]*:', body):
@@ -9161,9 +10539,12 @@ def main():
 
         return True, ""
     check(
-        "style.css declares exactly the five new/extended selectors UI-SPEC's Component Inventory "
-        "enumerates (a.airline-card, .airline-card__placeholder, .lightbox__heading:empty, "
-        ".lightbox__manual-note:empty, .manual-summary + :hover) with their exact declaration values, "
+        "style.css declares the new/extended selectors UI-SPEC's Component Inventory enumerates "
+        "(a.airline-card, .airline-card__placeholder, .lightbox__heading:empty, "
+        ".lightbox__manual-note:empty) with their exact declaration values, .manual-summary's own "
+        "base rule is GONE with only its hover surviving on the chip's own 12% wash (X7, "
+        "22-11-PLAN.md Task 2 — the copied [data-filter-clear] property list is replaced by reuse "
+        "of .airline-card__chip, whose label-voice declarations are pinned here instead), "
         ".airline-card__placeholder's aspect-ratio string-equals .airline-card__image's, "
         ".lightbox__replace's selector is extended to a three-way group with "
         ".lightbox__resolve-name/.lightbox__delete in exactly one declaration block (never duplicated), "
@@ -9171,6 +10552,1233 @@ def main():
         "rule bodies declares a new custom property, and .manual-resolution__status--superseded is gone "
         "now that plan 14-06 has retired it (phase 14 plan 14-03 Task 2, retargeted in place by 14-06 Task 2)",
         _phase14_task2_new_css_selectors_exhaustive)
+
+    # ======================================================================
+    # 22-04-PLAN.md Task 1 (D-03/CFG-26, X2): the Frame strip reads the one
+    # frame_state.resolve_state() result instead of re-deriving lateness
+    # ======================================================================
+
+    def _frame_strip_ctx(last_checkin_ts, device_config, now):
+        return {
+            "last_checkin_ts": last_checkin_ts, "device_config": device_config, "now": now,
+        }
+
+    def _frame_strip_update_cell_slice(rendered):
+        # The update cell is always the LAST child of `.frame-strip__cells`
+        # (rendered after both switch cells, or omitted entirely) — so its
+        # own opening tag through the end of the string, minus the two
+        # closing `</div>` tags for `.frame-strip__cells` and `.frame-strip`
+        # itself, is exactly this cell's own markup (nested nested divs
+        # inside it make a naive "next </div>" search find the wrong,
+        # innermost closing tag instead).
+        marker = '<div class="frame-strip__cell frame-strip__cell--update">'
+        if marker not in rendered:
+            return None
+        start = rendered.index(marker)
+        closing = "</div></div>"
+        if not rendered.endswith(closing):
+            return None
+        return rendered[start:-len(closing)]
+
+    def _frame_strip_nightly_regression_held_is_neutral_never_warn():
+        # The exact X2 nightly false alarm (22-UI-SPEC.md §3.3 rule 6):
+        # quiet hours 23:00-07:00, last check-in 22:58, clock 02:00,
+        # Europe/Paris (a non-DST date) — the strip must render the held
+        # copy with the neutral dot, no warn anywhere in its markup.
+        paris = timezone(timedelta(hours=1))
+        qh_config = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        checkin = datetime(2026, 1, 15, 22, 58, 0, tzinfo=paris)
+        clock = datetime(2026, 1, 16, 2, 0, 0, tzinfo=paris)
+        ctx = _frame_strip_ctx(checkin.isoformat(), qh_config, clock.isoformat())
+        rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        cell = _frame_strip_update_cell_slice(rendered)
+        if cell is None:
+            return False, "expected an update cell to render for a held frame"
+        if "dot--off" not in cell:
+            return False, "expected the held headline to carry the neutral dot--off"
+        for warn_token in (
+                "dot--warn", "stat-tile--warn", "status-card__headline--warn",
+                "Expected since", "Attendu depuis"):
+            if warn_token in rendered:
+                return False, "expected zero %r in a held render, found it" % (warn_token,)
+        if "Next wake around" not in cell:
+            return False, "expected the held headline wording"
+        return True, ""
+    check(
+        "the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00 Europe/"
+        "Paris): the Frame strip renders the held copy with the neutral dot--off and zero warn/"
+        "error tokens anywhere, including no 'Expected since'/'Attendu depuis' (X2, D-03/CFG-26)",
+        _frame_strip_nightly_regression_held_is_neutral_never_warn)
+
+    def _frame_strip_due_is_identical_inside_and_outside_the_grace_window():
+        # 22-UI-SPEC.md §3.3 rule 3: the grace window is invisible — the
+        # SAME "Next update ≈ HH:MM" copy and classes render whether now
+        # is before next_wake or up to 2x the effective interval past it.
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        checkin_iso = "2026-08-27T11:00:00+00:00"
+        before_ctx = _frame_strip_ctx(checkin_iso, device_cfg, "2026-08-27T11:10:00+00:00")
+        inside_grace_ctx = _frame_strip_ctx(checkin_iso, device_cfg, "2026-08-27T11:40:00+00:00")
+        rendered_before = _frame_strip_update_cell_slice(
+            layout.frame_strip_html(before_ctx, return_to=layout.HOME_ROUTE))
+        rendered_inside_grace = _frame_strip_update_cell_slice(
+            layout.frame_strip_html(inside_grace_ctx, return_to=layout.HOME_ROUTE))
+        if rendered_before is None or rendered_inside_grace is None:
+            return False, "expected an update cell to render in both the before and grace fixtures"
+        if rendered_before != rendered_inside_grace:
+            return False, (
+                "expected identical copy and classes before and inside the grace window, got %r "
+                "vs %r" % (rendered_before, rendered_inside_grace))
+        if "dot--ok" not in rendered_before or "status-card__headline--warn" in rendered_before:
+            return False, "expected the due headline to carry dot--ok and no warn modifier"
+        return True, ""
+    check(
+        "a due result renders byte-identical copy and classes whether 'now' is before next_wake "
+        "or up to 2x the effective interval past it — the grace window is invisible (22-UI-SPEC.md "
+        "§3.3 rule 3)",
+        _frame_strip_due_is_identical_inside_and_outside_the_grace_window)
+
+    def _frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class():
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        # 11:00 + 900s = 11:15 due; 2x grace = 1800s -> late from 11:45.
+        ctx = _frame_strip_ctx(
+            "2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T12:00:00+00:00")
+        rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        cell = _frame_strip_update_cell_slice(rendered)
+        if cell is None:
+            return False, "expected an update cell to render for a late frame"
+        if "dot--warn" not in cell:
+            return False, "expected the late headline to carry the warn dot"
+        if "Expected since" not in cell:
+            return False, "expected the late headline wording"
+        if 'status-card__headline status-card__headline--warn' not in cell:
+            return False, "expected the headline's own --warn class hook"
+        return True, ""
+    check(
+        "a late result renders the warn dot and 'Expected since HH:MM', with the headline's own "
+        "text-colour class staying the plain status-card__headline--warn hook (never a status "
+        "colour as text, 22-UI-SPEC.md §3.3 rule 2)",
+        _frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class)
+
+    def _frame_strip_no_checkin_renders_no_update_cell_and_claims_no_state():
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        ctx = _frame_strip_ctx(None, device_cfg, "2026-08-27T12:00:00+00:00")
+        rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        if "frame-strip__cell--update" in rendered or "status-card__headline" in rendered:
+            return False, "expected no update cell and no headline when there is no check-in yet"
+        return True, ""
+    check(
+        "the Frame strip renders no update headline and claims no state when there is no check-in "
+        "recorded at all (frame_state.STATE_UNKNOWN)",
+        _frame_strip_no_checkin_renders_no_update_cell_and_claims_no_state)
+
+    def _frame_strip_three_cells_share_one_row_structure_switch_cells_keep_left_edge():
+        # B13: every cell — both switches and the update cell — shares
+        # the SAME three-row internal grid (label/state/caption row
+        # classes byte-identical across all three); only the two switch
+        # cells' OUTER wrapper carries the quick-action--on/off
+        # control-state left edge, never the update cell.
+        device_cfg = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        ctx = _frame_strip_ctx("2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T11:10:00+00:00")
+        rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        # `frame-strip__cell` is the FIRST space-separated class token on
+        # every cell wrapper (both switches and update alike) — matched
+        # this way (not a bare substring search) so the plural container
+        # `frame-strip__cells` is never mistaken for a fourth cell.
+        cell_open_re = re.compile(r'<div class="([^"]*)">')
+        cells = [
+            cls for cls in cell_open_re.findall(rendered)
+            if cls.split(" ")[0] == "frame-strip__cell"]
+        if len(cells) != 3:
+            return False, "expected exactly three frame-strip__cell wrappers, got %d (%r)" % (
+                len(cells), cells)
+        row_class_re = re.compile(r'<div class="(frame-strip__row[^"]*)">')
+        # Slice the rendered strip into per-cell fragments so each cell's
+        # own three row classes are compared, not a flattened file-wide list.
+        cell_starts = [
+            m.start() for m in cell_open_re.finditer(rendered)
+            if m.group(1).split(" ")[0] == "frame-strip__cell"]
+        cell_starts.append(len(rendered))
+        row_class_sets = []
+        for i in range(3):
+            fragment = rendered[cell_starts[i]:cell_starts[i + 1]]
+            row_classes = row_class_re.findall(fragment)
+            if len(row_classes) != 3:
+                return False, "expected exactly three row divs per cell, got %d in %r" % (
+                    len(row_classes), fragment)
+            row_class_sets.append(row_classes)
+        if row_class_sets[0] != row_class_sets[1] or row_class_sets[1] != row_class_sets[2]:
+            return False, "expected byte-identical row-class lists across all three cells, got %r" % (
+                row_class_sets,)
+        update_cell = cells[2]
+        if "quick-action--on" in update_cell or "quick-action--off" in update_cell:
+            return False, "expected the update cell to never carry the switch cells' left-edge class"
+        if not (cells[0].count("quick-action--on") + cells[0].count("quick-action--off") == 1
+                and cells[1].count("quick-action--on") + cells[1].count("quick-action--off") == 1):
+            return False, "expected each switch cell to keep its own control-state left edge"
+        return True, ""
+    check(
+        "all three Frame-strip cells share one wrapper and one three-row internal grid (identical "
+        "row-class lists), while only the two switch cells' outer wrapper keeps the quick-action--"
+        "on/off control-state left edge (B13)",
+        _frame_strip_three_cells_share_one_row_structure_switch_cells_keep_left_edge)
+
+    def _frame_strip_both_switch_forms_carry_data_quick_switch_exactly_twice():
+        # D-04 handshake (22-05-PLAN.md Task 3, same wave): the stable
+        # hook that plan's leave-guard suppression keys on.
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        ctx = _frame_strip_ctx("2026-08-27T11:00:00+00:00", device_cfg, "2026-08-27T11:10:00+00:00")
+        rendered = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        count = rendered.count("data-quick-switch")
+        if count != 2:
+            return False, "expected exactly 2 occurrences of data-quick-switch, got %d" % count
+        return True, ""
+    check(
+        "a rendered Frame strip contains exactly 2 occurrences of the literal attribute "
+        "data-quick-switch, one on each strip switch form (D-04 handshake with plan 22-05)",
+        _frame_strip_both_switch_forms_carry_data_quick_switch_exactly_twice)
+
+    def _frame_strip_no_re_derived_lateness_in_source():
+        source_path = os.path.join(HERE, "layout.py")
+        with open(source_path, "r", encoding="utf-8") as fh:
+            source = fh.read()
+        if "age_seconds(next_wake" in source:
+            return False, "expected layout.py to never re-derive lateness via age_seconds(next_wake...)"
+        return True, ""
+    check(
+        "companion/layout.py no longer computes an age_seconds(next_wake...) >= 0 warn trigger — "
+        "the strip consumes frame_state.resolve_state(), it never re-derives lateness (CFG-26)",
+        _frame_strip_no_re_derived_lateness_in_source)
+
+    # ======================================================================
+    # 22-04-PLAN.md Task 2 (B13, C2, C6, T9, C5): the strip's CSS — stretch
+    # cells, quiet strip buttons, the demoted headline, the repaired tile
+    # hover, and the one time-value role. Block-scoped source checks only —
+    # a line-wise grep pipe cannot see that a declaration belongs to a
+    # selector, so every check here slices the rule BLOCK first.
+    # ======================================================================
+
+    def _css_source():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path, "r", encoding="utf-8") as fh:
+            return fh.read()
+
+    def _block(css_source, selector_needle, opening="{"):
+        start = css_source.index(selector_needle)
+        brace_open = css_source.index(opening, start)
+        depth = 1
+        i = brace_open + 1
+        while depth > 0:
+            nxt_open = css_source.find("{", i)
+            nxt_close = css_source.find("}", i)
+            if nxt_close == -1:
+                raise ValueError("unterminated block for %r" % (selector_needle,))
+            if nxt_open != -1 and nxt_open < nxt_close:
+                depth += 1
+                i = nxt_open + 1
+            else:
+                depth -= 1
+                i = nxt_close + 1
+        return css_source[start:i]
+
+    def _frame_strip_cells_stretch_not_center():
+        css_source = _css_source()
+        block = _block(css_source, ".frame-strip__cells {")
+        if "align-items: stretch" not in block:
+            return False, "expected align-items: stretch inside .frame-strip__cells"
+        if "align-items: center" in block:
+            return False, "expected zero align-items: center inside .frame-strip__cells"
+        return True, ""
+    check(
+        "the .frame-strip__cells block declares align-items: stretch and zero align-items: center "
+        "(B13) — a block-scoped check, since a line-wise grep pipe would already read 0 on the "
+        "unmodified file (the selector and declaration sit on different lines) and pass vacuously",
+        _frame_strip_cells_stretch_not_center)
+
+    def _frame_strip_cell_button_quiet_rule_after_submit_no_important_no_id():
+        css_source = _css_source()
+        submit_pos = css_source.index('button[type="submit"] {')
+        rule_pos = css_source.index(".frame-strip__cell button {")
+        if rule_pos <= submit_pos:
+            return False, "expected .frame-strip__cell button to appear AFTER button[type=\"submit\"]"
+        block = _block(css_source, ".frame-strip__cell button {")
+        if "!important" in block:
+            return False, "expected no !important in the quiet strip-button rule"
+        if "#" in block.split("{", 1)[0]:
+            return False, "expected no id selector in the quiet strip-button rule's own selector"
+        for expected in (
+                "color-mix(in srgb, var(--color-text) 4.5%, transparent)",
+                "color-mix(in srgb, var(--color-text) 9%, transparent)",
+                "box-shadow: none"):
+            if expected not in block:
+                return False, "expected the base quiet wash value %r reused verbatim" % (expected,)
+        return True, ""
+    check(
+        "the .frame-strip__cell button quiet-button rule (C2) appears at a later line than "
+        "button[type=\"submit\"], carries no !important and no id selector, and reuses the base "
+        "quiet wash (4.5%/9%) verbatim — never a new wash value (T-22-13)",
+        _frame_strip_cell_button_quiet_rule_after_submit_no_important_no_id)
+
+    def _stat_tile_hover_three_edge_frame_strip_excluded():
+        css_source = _css_source()
+        block = _block(css_source, ".stat-tile:not(.frame-strip):hover")
+        if "border-color: transparent" in block:
+            return False, "expected zero border-color: transparent inside the .stat-tile hover block"
+        if "border-inline-color" not in block or "border-block-end-color" not in block:
+            return False, (
+                "expected both border-inline-color and border-block-end-color inside the "
+                ".stat-tile hover block")
+        if ":not(.frame-strip)" not in block.split("{", 1)[0]:
+            return False, "expected the hover reveal to be :not(.frame-strip)-scoped (T9)"
+        return True, ""
+    check(
+        "the .stat-tile hover/focus-within block declares zero border-color: transparent and both "
+        "border-inline-color and border-block-end-color (T9: the top status/accent rail survives "
+        "hover), and the whole reveal is :not(.frame-strip)-scoped so the strip never lifts",
+        _stat_tile_hover_three_edge_frame_strip_excluded)
+
+    def _frame_strip_update_headline_no_heading_size_override():
+        css_source = _css_source()
+        if ".frame-strip__cell--update .status-card__headline" in css_source:
+            return False, "expected the retired Phase 21 heading-size override to be gone (C6)"
+        return True, ""
+    check(
+        "the Phase 21 .frame-strip__cell--update .status-card__headline heading-size override is "
+        "gone — the line returns to its own 16px semibold Emphasis base (C6)",
+        _frame_strip_update_headline_no_heading_size_override)
+
+    def _time_value_role_defined_once():
+        css_source = _css_source()
+        block = _block(css_source, ".time-value {")
+        for expected in ("var(--font-ui)", "font-variant-numeric: tabular-nums"):
+            if expected not in block:
+                return False, "expected %r inside the .time-value block" % (expected,)
+        primary_block = _block(css_source, ".time-value--primary {")
+        if "var(--font-body-size)" not in primary_block or "var(--weight-semibold)" not in primary_block:
+            return False, "expected the primary modifier to use body-size + semibold (C5)"
+        return True, ""
+    check(
+        "the one .time-value role (C5) declares --font-ui and tabular-nums, with a --primary "
+        "modifier stepping up to body-size + semibold — no new token, no new family, no new size",
+        _time_value_role_defined_once)
+
+    def _accent_reservation_header_comment_no_longer_lists_strip_buttons():
+        css_source = _css_source()
+        header_end = css_source.index("*/")
+        header = css_source[:header_end]
+        if "Frame strip's two switch buttons" not in header:
+            return False, "expected the header comment to record the C2 accent-reservation delta"
+        if "this list LOSES two entries and gains none" not in header:
+            return False, "expected the header comment to state the arithmetic, not just assert it"
+        return True, ""
+    check(
+        "the style.css header comment's accent-reservation list is edited to record C2's delta "
+        "(the Frame strip's two switch buttons are no longer accent-filled) — the arithmetic is "
+        "written into the comment, not merely asserted (22-UI-SPEC.md §1)",
+        _accent_reservation_header_comment_no_longer_lists_strip_buttons)
+
+    # ======================================================================
+    # 22-14-PLAN.md Task 1 (X9, D-10, 22-UI-SPEC.md §3.1): the bottom tab
+    # bar's own geometry, surface, active idiom and page clearance, read
+    # from the real stylesheet block by block — plus its French labels.
+    # ======================================================================
+
+    _TAB_BAR_BANNER = "The bottom tab bar (X9, 22-14-PLAN.md Task 1"
+
+    def _tab_bar_css_geometry_surface_and_active_idiom():
+        css_source = _css_source()
+        region = css_source[css_source.index(_TAB_BAR_BANNER):]
+
+        # The bar is OFF by default and only switched on below 960px, so
+        # a desktop that never matches the query can never show it.
+        base = _block(region, ".tab-bar {\n  display: none;")
+        if "display: none" not in base:
+            return False, "expected the base .tab-bar rule to be display: none"
+        for banned in ("position:", "z-index", "bottom:"):
+            if banned in base:
+                return False, (
+                    "expected the base .tab-bar rule to carry layout only inside the "
+                    "media query, found %r" % (banned,))
+
+        if "@media (max-width: 959.98px) {" not in region:
+            return False, (
+                "expected the tab bar to be scoped to the same fractional 959.98px "
+                "boundary the sibling sub-960px rules already use")
+
+        fixed = _block(region, ".tab-bar {\n    display: flex;")
+        for needle in (
+                "position: fixed", "left: 0", "right: 0", "bottom: 0",
+                "z-index: 20",
+                "padding-bottom: env(safe-area-inset-bottom, 0px)",
+                "background: var(--color-secondary)",
+                "border-top: 1px solid var(--color-border)",
+                "box-shadow: var(--shadow-card-hover)"):
+            if needle not in fixed:
+                return False, "expected %r in the tab bar's own rule" % (needle,)
+        # NO radius: --radius-card is for floating elements that do not
+        # touch the viewport edge, and this bar is anchored to three.
+        if "border-radius" in fixed or "radius-card" in fixed:
+            return False, (
+                "an edge-anchored bar must declare no border radius, got %r" % (fixed,))
+
+        link = _block(region, ".tab-bar__link {")
+        for needle in ("flex: 1 1 0", "height: 56px", "color: var(--color-text)"):
+            if needle not in link:
+                return False, "expected %r in .tab-bar__link" % (needle,)
+
+        # The one active-signal idiom, byte-for-byte the same wash
+        # .sidebar-link--active already declares — reused, not reinvented.
+        wash = "color-mix(in srgb, var(--color-accent) 12%, transparent)"
+        sidebar_active = _block(css_source, ".sidebar-link--active {")
+        if wash not in sidebar_active:
+            return False, (
+                "expected .sidebar-link--active to still carry the 12%% accent wash this "
+                "check compares against, got %r" % (sidebar_active,))
+        active_pill = _block(region, ".tab-bar__link--active .tab-bar__pill {")
+        if wash not in active_pill:
+            return False, (
+                "expected the active tab to reuse the app's one active-pill wash verbatim, "
+                "got %r" % (active_pill,))
+        active_text = _block(region, ".tab-bar__link--active {")
+        for needle in ("color: var(--color-accent)",
+                       "font-weight: var(--weight-semibold)"):
+            if needle not in active_text:
+                return False, "expected %r in .tab-bar__link--active" % (needle,)
+
+        # The inactive hover must be :not()-scoped. An unscoped hover at
+        # equal specificity, later in source, would erase the active tint
+        # the instant the pointer crossed it — the exact failure
+        # references/control-density.md names.
+        hover_selector = ".tab-bar__link:not(.tab-bar__link--active):hover .tab-bar__pill {"
+        if hover_selector not in region:
+            return False, (
+                "expected the inactive hover to be :not(.tab-bar__link--active)-scoped")
+        if region.index(hover_selector) < region.index(
+                ".tab-bar__link--active .tab-bar__pill {"):
+            return False, (
+                "expected the :not()-scoped hover to sit after the active rule in source "
+                "order, so the cascade cannot be read backwards")
+        for bad in (".tab-bar__link:hover {", ".tab-bar__link:hover .tab-bar__pill {"):
+            if bad in region:
+                return False, "expected no unscoped tab hover rule (%r)" % (bad,)
+
+        # 11px regular, sentence case, explicitly NOT the label voice.
+        label = _block(region, ".tab-bar__label {")
+        if "font-size: 11px" not in label:
+            return False, "expected the 11px sub-scale label size"
+        if "font-weight: var(--weight-regular)" not in label:
+            return False, "expected a regular-weight label"
+        for voice in ("text-transform", "letter-spacing"):
+            if voice in label:
+                return False, (
+                    "a nav destination is a destination, not a label — %r must not appear "
+                    "on .tab-bar__label" % (voice,))
+
+        # The last card must never sit under the bar, and the clearance
+        # is reserved only on a page that really has one.
+        clearance = _block(region, ".has-tab-bar .page-content {")
+        for needle in ("padding-bottom", "56px", "env(safe-area-inset-bottom, 0px)"):
+            if needle not in clearance:
+                return False, "expected %r in the page-foot clearance rule" % (needle,)
+        if layout.TAB_BAR_BODY_CLASS != "has-tab-bar":
+            return False, (
+                "the clearance selector and layout.TAB_BAR_BODY_CLASS must name the same "
+                "class, got %r" % (layout.TAB_BAR_BODY_CLASS,))
+        return True, ""
+    check(
+        "the tab bar is display:none until the 959.98px boundary, then fixed to the viewport bottom at "
+        "56px plus the safe-area inset on the nav surface with a top hairline, the resting overlay shadow "
+        "and NO border radius (it is edge-anchored); its cells are `flex: 1 1 0`; its active state reuses "
+        "the app's one 12%-accent-wash pill idiom byte-for-byte with a :not()-scoped hover placed after it; "
+        "its label is 11px regular with no label voice; and .has-tab-bar clears the bar at the page foot "
+        "(X9/D-10, 22-14-PLAN.md Task 1)",
+        _tab_bar_css_geometry_surface_and_active_idiom)
+
+    def _tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row():
+        css_source = _css_source()
+        region = css_source[css_source.index(_TAB_BAR_BANNER):]
+        sheet = _block(region, ".tab-bar__more-panel {")
+        for needle in ("position: absolute", "bottom: 100%", "right: 0",
+                       "background: var(--color-secondary)",
+                       "box-shadow: var(--shadow-card-hover)"):
+            if needle not in sheet:
+                return False, "expected %r in the More sheet's rule" % (needle,)
+        # The absolute positioning here is NOT a reversal of the rejected
+        # absolute-overlay verdict on the PRIMARY nav — the distinction
+        # has to be written down where a future reader meets the rule,
+        # not only in a plan document.
+        region_head = region[:region.index(".tab-bar__more-panel {")]
+        if "flex-basis: 100%" not in _block(css_source, ".mobile-nav {"):
+            return False, (
+                "the dropdown's in-flow push-down mechanism must stay exactly as it is — "
+                "this plan does not reopen the 06.6.1-06 verdict")
+        if "not a reversal" not in region_head.lower():
+            return False, (
+                "expected the stylesheet itself to record why the sheet's absolute "
+                "positioning is not a reversal of the rejected-overlay verdict")
+        # The sheet's rows reuse .mobile-nav__link rather than restating
+        # its 44px/16px geometry, so quick task 260902-qkm's restored
+        # floor cannot drift out from under them.
+        if "min-height: 44px" in sheet or "font-size:" in sheet:
+            return False, (
+                "the sheet must REUSE .mobile-nav__link's geometry, never restate it")
+        return True, ""
+    check(
+        "the More sheet opens upward from the fixed bar (absolute, bottom: 100%, right: 0) on the nav "
+        "surface with the overlay shadow, reuses .mobile-nav__link's 44px/16px geometry rather than "
+        "restating it, leaves .mobile-nav's in-flow flex-basis push-down untouched, and the stylesheet "
+        "itself records why this absolute positioning is not a reversal of the rejected-overlay verdict "
+        "(X9/D-10, 22-14-PLAN.md Task 1)",
+        _tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row)
+
+    def _french_tab_bar_labels_and_landmark():
+        device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
+        try:
+            prefs.set_request_prefs(lang="fr")
+            rendered = layout.page_shell(
+                title="T", active="flights", body="", device_config=device_cfg)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        start = rendered.index('<nav class="tab-bar"')
+        bar = rendered[start:rendered.index("</nav>", start)]
+        if 'aria-label="Navigation principale"' not in bar:
+            return False, (
+                "expected the tab bar's landmark name in French (CFG-29 must not regress), "
+                "got %r" % (bar[:120],))
+        for english, french in (
+                ("Home", "Accueil"), ("Display", "Affichage"), ("Flights", "Vols"),
+                ("Airlines", "Compagnies"), ("More", "Plus"),
+                ("Health", "\u00c9tat"), ("Device", "Appareil")):
+            if ">%s<" % french not in bar:
+                return False, (
+                    "expected the %r cell to read %r in French, got %r"
+                    % (english, french, bar))
+            if ">%s<" % english in bar:
+                return False, (
+                    "expected no leftover English %r label under a French request" % (english,))
+        return True, ""
+    check(
+        "under lang='fr' every tab-bar label reads French — Accueil / Affichage / Vols / Compagnies / "
+        "Plus, with \u00c9tat and Appareil inside the More sheet — and the landmark name is "
+        "'Navigation principale' (B16/CFG-29, 22-14-PLAN.md Task 1)",
+        _french_tab_bar_labels_and_landmark)
+
+    # ======================================================================
+    # 22-14-PLAN.md Task 2 (X9/D-10, B10, T11): the dropdown reduced to
+    # preferences, the reminder that stops lying, and the ONE open-state
+    # max-height.
+    # ======================================================================
+
+    def _nav_status_is_a_span_on_home_and_a_link_everywhere_else():
+        # B10 / 22-UI-SPEC.md §5 contract 6 / D-04. The audit's finding
+        # is not the WORDING of the aria-label — it is that an element
+        # promises navigation it does not perform. On Home the reminder
+        # therefore stops being a link at all, which is also how D-04's
+        # "stays only if it links somewhere useful" is satisfied by
+        # construction rather than by copy.
+        home = layout.page_shell(
+            title="Home", active="home", body="", ui_theme="auto",
+            device_config=_NAV_STATUS_DEVICE_CFG)
+        if home.count('<span class="nav-status text-label"') != 2:
+            return False, (
+                "expected the reminder to render as a <span> in BOTH nav copies on Home, got %d"
+                % home.count('<span class="nav-status text-label"'))
+        if '<a class="nav-status text-label"' in home:
+            return False, "expected no <a> reminder anywhere on Home"
+        home_label = layout.i18n.t(layout.NAV_STATUS_ARIA_LABEL_TEXT)
+        if home_label in home:
+            return False, (
+                "the destination-naming label must not survive on Home — it is the claim, "
+                "not the wording, that is the defect")
+        for match in re.finditer(
+                r'<span class="nav-status text-label" aria-label="([^"]*)"', home):
+            announced = match.group(1)
+            expected = "%s%s%s" % (
+                layout.i18n.t(layout.NAV_SCREEN_ON_TEXT),
+                layout.NAV_STATUS_SEPARATOR_TEXT,
+                layout.i18n.t(layout.NAV_QUIET_OFF_TEXT))
+            if announced != expected:
+                return False, (
+                    "expected the Home reminder to announce only the state (%r), got %r"
+                    % (expected, announced))
+
+        elsewhere = layout.page_shell(
+            title="Display", active="display", body="", ui_theme="auto",
+            device_config=_NAV_STATUS_DEVICE_CFG)
+        if elsewhere.count('<a class="nav-status text-label" href="%s"' % layout.HOME_ROUTE) != 2:
+            return False, (
+                "expected the reminder to stay a link to Home in both nav copies elsewhere")
+        if '<span class="nav-status text-label"' in elsewhere:
+            return False, "expected no <span> reminder off Home"
+        if layout.escape_html(
+                layout.i18n.t(layout.NAV_STATUS_ARIA_LABEL_TEXT)) not in elsewhere:
+            return False, "expected the destination-naming label off Home"
+
+        # The two segments are separate nowrap spans in both shapes, so
+        # the line can only ever break BETWEEN them (B10).
+        for rendered, shape in ((home, "span"), (elsewhere, "link")):
+            if rendered.count('<span class="nav-status__segment">') != 4:
+                return False, (
+                    "expected two segments per nav copy in the %s shape, got %d"
+                    % (shape, rendered.count('<span class="nav-status__segment">')))
+        return True, ""
+    check(
+        "the nav state reminder renders as a <span> with no href on Home, announcing ONLY the state, "
+        "and stays an <a href=\"/\" > with its destination-naming label everywhere else — in both nav "
+        "copies, each with its two nowrap segments (B10/D-04, 22-14-PLAN.md Task 2)",
+        _nav_status_is_a_span_on_home_and_a_link_everywhere_else)
+
+    def _one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule():
+        css_source = _css_source()
+        open_state = ".js .mobile-nav--open"
+        if css_source.count(open_state) != 1:
+            return False, (
+                "T11: expected exactly ONE open-state dropdown rule in the whole file, got %d"
+                % css_source.count(open_state))
+        open_block = _block(css_source, open_state + " {")
+        if open_block.count("max-height") != 1:
+            return False, "expected exactly one max-height declaration for the open state"
+        if "max-height: 320px" not in open_block:
+            return False, (
+                "expected the measured single value (the reduced French content at 390px "
+                "measures 165px), got %r" % (open_block,))
+        if "max-height: 640px" in css_source or "max-height: 420px" in css_source:
+            return False, "expected both of the contradicting values to be gone, not re-tuned"
+
+        # The dropdown's own nav region is deleted, not left as a dead
+        # selector — its rule and its .nav-group override both go.
+        for dead in (".mobile-nav__nav {", ".mobile-nav__nav .nav-group {"):
+            if dead in css_source:
+                return False, "expected the dead selector %r to be deleted" % (dead,)
+        # ...but .mobile-nav__link survives, because the tab bar's More
+        # sheet reuses it verbatim.
+        if ".mobile-nav__link {" not in css_source:
+            return False, (
+                ".mobile-nav__link must survive — the tab bar's More sheet reuses its "
+                "44px/16px geometry")
+
+        # B10's own mechanism, read from the rule rather than assumed.
+        status_block = _block(css_source, ".nav-status {")
+        for needle in ("display: flex", "flex-wrap: wrap", "gap: 0 var(--space-xs)"):
+            if needle not in status_block:
+                return False, "expected %r in .nav-status" % (needle,)
+        segment_block = _block(css_source, ".nav-status__segment {")
+        if "white-space: nowrap" not in segment_block:
+            return False, "expected each segment to be nowrap"
+        # The hover underline is scoped to the ANCHOR: a <span> that
+        # underlines under the pointer claims an interactivity it does
+        # not have.
+        # Boundary-anchored: "a.nav-status:hover {" CONTAINS
+        # ".nav-status:hover {", so a bare substring test would report
+        # the scoped rule as the unscoped one it is replacing.
+        if re.search(r"(?:^|[\s,])\.nav-status:hover\s*\{", css_source, re.M):
+            return False, (
+                "expected the hover underline scoped to a.nav-status, not every reminder")
+        if not re.search(r"(?:^|[\s,])a\.nav-status:hover\s*\{", css_source, re.M):
+            return False, "expected the anchor-scoped hover underline"
+        return True, ""
+    check(
+        "exactly ONE open-state max-height governs the dropdown (320px, pinned against a measured "
+        "165px of reduced French content at 390px — both the 420px and 640px values are gone, not "
+        "re-tuned), the dropdown's dead nav selectors are deleted while .mobile-nav__link survives for "
+        "the tab bar's sheet, and .nav-status is a wrapping flex row of nowrap segments whose hover "
+        "underline is anchor-scoped (T11/B10, 22-14-PLAN.md Task 2)",
+        _one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule)
+
+    def _style_css_carries_no_stray_comment_terminator():
+        """A structural guard, added by 22-14-PLAN.md Task 2 after a real
+        defect this plan found and fixed.
+
+        22-10-PLAN.md Task 1 appended a note to an existing block comment
+        AFTER that comment's own closing marker, leaving a terminator
+        with no opener. Everything from it to the next brace then parsed
+        as part of the following selector, so the whole
+        `.theme-chip--selected:not(:has(input:checked))::after` rule —
+        T10's saved-chip badge — was silently dropped by every browser.
+        This plan's own first draft of the B10 comment made the identical
+        mistake and took `.nav-status` with it.
+
+        No string-comparison harness could see either one: the file still
+        contains every declaration such a harness asks about. The
+        cheapest durable guard is structural, so it is pinned here rather
+        than left to the next person who happens to open a real browser.
+        """
+        css_source = _css_source()
+        pos = 0
+        line = 1
+        in_comment = False
+        strays = []
+        while pos < len(css_source):
+            ch = css_source[pos]
+            if ch == "\n":
+                line += 1
+                pos += 1
+                continue
+            if not in_comment and css_source.startswith("/*", pos):
+                in_comment = True
+                pos += 2
+                continue
+            if in_comment and css_source.startswith("*/", pos):
+                in_comment = False
+                pos += 2
+                continue
+            if not in_comment and css_source.startswith("*/", pos):
+                strays.append(line)
+                pos += 2
+                continue
+            pos += 1
+        if strays:
+            return False, (
+                "companion/static/style.css carries %d comment terminator(s) with no opener, at "
+                "line(s) %r — everything from each one to the next brace parses as a selector and "
+                "silently drops the rule that follows" % (len(strays), strays))
+        if in_comment:
+            return False, "companion/static/style.css ends inside an unterminated block comment"
+        return True, ""
+    check(
+        "companion/static/style.css carries zero stray comment terminators and ends outside a comment "
+        "— the structural guard for a real parse-error class that drops whole rules while leaving the "
+        "source text a string-comparison harness reads as correct (22-14-PLAN.md Task 2, Rule 1)",
+        _style_css_carries_no_stray_comment_terminator)
+
+    def _every_disclosure_has_a_marker_and_no_header_claims_to_stick():
+        """22-15-PLAN.md Task 1 — T3 and T4.
+
+        T3: `summary { display: flex }` stopped generating a `::marker`
+        at all, so every <details> in the app lost its open/closed
+        indicator. Both marker rules below it have been dead ever since
+        and no harness noticed, because the file still contains them.
+        The replacement is an explicit `::before` chevron that rotates
+        on `[open]`.
+
+        T4: `.data-table-wrap th` claimed `position` + sticky inside a
+        wrapper with `overflow-x: auto` and no height — no vertical
+        scrollport, so the claim could never engage. It is removed
+        rather than made true; sticky day headers are Phase 23's D7.
+        """
+        css_source = _css_source()
+        stripped = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
+
+        # --- T3: the marker exists, and it rotates ------------------
+        marker = _block(stripped, "summary::before {")
+        if 'content: ""' not in marker:
+            return False, "expected an explicit summary::before disclosure marker (T3)"
+        if "flex: none" not in marker:
+            return False, (
+                "expected the marker to declare flex: none — it is a flex item of the summary "
+                "row and a long label would otherwise shrink it to a sliver (T3)")
+        if "transform: rotate(" not in marker:
+            return False, "expected the closed-state marker to be a rotated box (T3)"
+        open_marker = _block(stripped, "details[open] > summary::before {")
+        if "transform: rotate(" not in open_marker:
+            return False, "expected the open state to rotate the marker (T3)"
+        if "details[open] summary::before" in stripped:
+            return False, (
+                "expected a CHILD combinator on the open-state rule — a descendant one rotates a "
+                "parent disclosure's marker when a nested one opens (T3)")
+
+        # T3 reaches the tab bar's "More" summary too (22-UI-SPEC.md
+        # §3.1), where it is taken out of flow so a 6px marker cannot
+        # narrow a 78x56px cell's centred icon-and-label stack.
+        tab_marker = _block(stripped, ".tab-bar__more > .tab-bar__link::before {")
+        if "position: absolute" not in tab_marker:
+            return False, (
+                "expected the tab bar's More marker to be positioned out of flow — in flow it is "
+                "a flex item beside .tab-bar__pill and compresses the cell (T3)")
+        if ".tab-bar__more[open] > .tab-bar__link::before" not in stripped:
+            return False, (
+                "expected the tab bar's More marker to have its own open state — the sheet opens "
+                "UPWARD, so the global right-closed/down-open convention points away from it (T3)")
+
+        # The rotation is a transform and the fade is a transition, both
+        # already covered by the single global reduced-motion override.
+        # A per-rule block here would be dead code, not a safety net
+        # (references/accessibility-contrast.md, "What to Avoid").
+        if stripped.count("@media (prefers-reduced-motion: reduce)") != 2:
+            return False, (
+                "expected exactly the two pre-existing prefers-reduced-motion blocks (the global "
+                "override and .js .mobile-nav's transition opt-out), got %d — T3 adds none"
+                % stripped.count("@media (prefers-reduced-motion: reduce)"))
+
+        # --- T4: the false claim is gone ----------------------------
+        if ".data-table-wrap th" in stripped:
+            return False, (
+                "expected NO .data-table-wrap th rule at all — its sticky claim could never "
+                "engage inside a wrapper with no height, and its --color-canvas background "
+                "existed only to serve that claim (T4)")
+        wrap = _block(stripped, ".data-table-wrap {")
+        for forbidden in ("max-height", "height:"):
+            if forbidden in wrap:
+                return False, (
+                    "expected .data-table-wrap to gain no height — T4 removes the false sticky "
+                    "claim rather than adding a second nested vertical scrollbar to four tables")
+        return True, ""
+    check(
+        "every <details> carries an explicit summary::before chevron that rotates on [open] through a "
+        "child combinator — including the bottom tab bar's More summary, where it is taken out of flow "
+        "so a marker cannot narrow the cell, and with its own inverted rotation because that sheet opens "
+        "upward — with the prefers-reduced-motion block count unchanged at two; and no "
+        ".data-table-wrap th rule survives to claim sticky positioning a wrapper with no height could "
+        "never provide (T3/T4, 22-15-PLAN.md Task 1)",
+        _every_disclosure_has_a_marker_and_no_header_claims_to_stick)
+
+    def _refresh_loop_retries_with_backoff_and_says_so_neutrally():
+        """22-15-PLAN.md Task 2 — T13, from the server side.
+
+        The browser half (companion/test_browser_ux.py) proves the badge
+        really appears and really clears. This half pins the things a
+        running browser cannot show: that the copy exists in BOTH
+        languages on every shell, that the loop's source carries a real
+        bounded ladder rather than a single retry, that the in-flight
+        guard and the targeted swap exist, and above all that the
+        silent-stop calls are GONE from both failure paths.
+        """
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path, "r", encoding="utf-8") as fh:
+            js = fh.read()
+        # Strip comments so this check can be neither satisfied nor
+        # defeated by prose — the same discipline the CSS checks above
+        # apply.
+        code = re.sub(r"/\*.*?\*/", "", js, flags=re.DOTALL)
+        code = re.sub(r"^\s*//.*$", "", code, flags=re.M)
+
+        # --- the silent stop is gone from both failure paths ---------
+        if code.count("stopLoop") != 3:
+            return False, (
+                "expected exactly three stopLoop references in freshness.js code — its definition "
+                "and its two DELIBERATE background-tab teardowns. Neither failure path may call "
+                "it: that was T13's whole defect, a loop that stopped for the life of the page "
+                "with nothing visible to say so. Got %d" % code.count("stopLoop"))
+        for handler in ("failAndRetry", "succeed"):
+            if ("function %s(" % handler) not in code:
+                return False, "expected freshness.js to define %s() (T13)" % handler
+
+        # --- a real, bounded, DECREASING-rate ladder -----------------
+        if "RETRY_CEILING_MS" not in code or "Math.min(retryDelayMs * 2" not in code:
+            return False, (
+                "expected an exponential retry delay bounded by a stated ceiling — an unbounded "
+                "ladder, or a fixed delay, is not what T-22-56 asks for")
+        if "RETRY_BASE_MS = AUTO_REFRESH_INTERVAL_MS" not in code:
+            return False, (
+                "expected the ladder to START at the normal cadence, never below it — the whole "
+                "mitigation is that a failing server sees a strictly DECREASING request rate")
+        if "retryDelayMs = 0" not in code:
+            return False, "expected a success to reset the backoff to zero (T13)"
+
+        # --- the in-flight guard and the targeted swap ---------------
+        if "var inFlight = false;" not in code or "if (inFlight) {" not in code:
+            return False, (
+                "expected an in-flight guard — without it a slow response and a visibility "
+                "catch-up can race, and the LAST to resolve wins the swap (T13)")
+        if "isEqualNode" not in code:
+            return False, (
+                "expected the swap to skip regions that did not change, compared with "
+                "isEqualNode() — replacing an unchanged region destroys any focus inside it")
+        if "existing.contains(active)" not in code:
+            return False, (
+                "expected the swap to skip any region containing the focused element (T13)")
+        # The interaction-skip guard and the visibility gating are
+        # unchanged by this plan and must stay that way.
+        for untouched in ("userIsInteracting", "visibilitychange", "AUTO_REFRESH_INTERVAL_MS = 45000"):
+            if untouched not in code:
+                return False, "expected %r to survive T13 untouched" % (untouched,)
+
+        # --- neutral, never a warning --------------------------------
+        if 'dot.className = "dot dot--off";' not in code:
+            return False, (
+                "expected the loop-state badge's dot to be the neutral .dot--off — a browser that "
+                "lost its connection is not a device fault (22-UI-SPEC.md §5 contract 9)")
+        if 'badge.className = "banner__pill";' not in code:
+            return False, "expected the badge to compose .banner__pill (22-UI-SPEC.md's T13 row)"
+        # Scoped to the badge BUILDER's own body, not the whole file:
+        # SWAP_SELECTORS legitimately names div.banner--warn as a region
+        # to swap, which is a different thing entirely from the badge
+        # wearing a warn token.
+        builder_at = code.index("function stateBadge(")
+        builder = code[builder_at:code.index("\n  }", builder_at)]
+        for warn_token in ("warn", "error", "danger", "alert", "status-"):
+            if warn_token in builder:
+                return False, (
+                    "the loop-state badge must be built from neutral classes only, found %r in "
+                    "stateBadge() — T13's state is never a warning" % (warn_token,))
+
+        # --- the [hidden] guard the badge depends on -----------------
+        css_source = _css_source()
+        stripped_css = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
+        if ".banner__pill[hidden] {" not in stripped_css:
+            return False, (
+                "expected a .banner__pill[hidden] guard — .banner__pill declares display: "
+                "inline-flex, which always beats the user-agent [hidden] rule, so the badge would "
+                "render even when hidden. Fourth consumer of this file's [hidden]-vs-display "
+                "guard, after .dirty-bar, .refresh-pill and .login-reveal")
+        guard = _block(stripped_css, ".banner__pill[hidden] {")
+        if "display: none" not in guard:
+            return False, "expected .banner__pill[hidden] to hide by display, not visibility"
+
+        # --- the copy, server-rendered, in BOTH languages ------------
+        if layout.REFRESH_PAUSED_TEXT != "Paused" or layout.REFRESH_RECONNECTING_TEXT != "Reconnecting…":
+            return False, (
+                "expected 22-UI-SPEC.md §1's own copy verbatim, got %r / %r"
+                % (layout.REFRESH_PAUSED_TEXT, layout.REFRESH_RECONNECTING_TEXT))
+        for text in (layout.REFRESH_PAUSED_TEXT, layout.REFRESH_RECONNECTING_TEXT):
+            if layout.i18n.t_lang(text, "fr") == text:
+                return False, "expected a French entry for %r" % (text,)
+            if layout.i18n.t_lang(text, "en") != text:
+                return False, "expected %r to round-trip unchanged in English" % (text,)
+        # The English fallbacks inside the script must be byte-identical
+        # to the server-side constants, or a page with no attributes
+        # renders different copy from one with them.
+        for text in (layout.REFRESH_PAUSED_TEXT, layout.REFRESH_RECONNECTING_TEXT):
+            if ('"%s"' % text) not in code:
+                return False, (
+                    "expected freshness.js's own English fallback for %r to match the server "
+                    "constant byte for byte" % (text,))
+        try:
+            for lang, expected_paused in (("en", "Paused"), ("fr", "En pause")):
+                prefs.set_request_prefs(lang=lang)
+                rendered = layout.page_shell(
+                    title="T", active="health", body="<p>x</p>", lang=lang)
+                if ('%s="%s"' % (layout.REFRESH_PAUSED_ATTR, expected_paused)) not in rendered:
+                    return False, (
+                        "expected the paused copy on <body> in %s, got neither" % lang)
+                if ('%s="' % layout.REFRESH_RECONNECTING_ATTR) not in rendered:
+                    return False, "expected the reconnecting copy on <body> in %s" % lang
+        finally:
+            prefs.set_request_prefs(lang="en")
+        return True, ""
+    check(
+        "freshness.js no longer stops dead on a failure: stopLoop() survives only as its definition and "
+        "its two deliberate background-tab teardowns, a bounded exponential ladder starting AT the normal "
+        "cadence (so a failing server sees a strictly decreasing rate) replaces it, a success resets the "
+        "backoff, an in-flight guard stops two fetches racing, the swap skips unchanged regions and any "
+        "region holding focus, the state badge is .banner__pill with the NEUTRAL .dot--off and no warn "
+        "token anywhere in the file, style.css carries the .banner__pill[hidden] display guard the badge "
+        "depends on, and both strings render onto <body> in both languages matching the script's own "
+        "English fallbacks byte for byte (T13, 22-15-PLAN.md Task 2)",
+        _refresh_loop_retries_with_backoff_and_says_so_neutrally)
+
+    def _nav_toggle_label_now_describes_the_preferences_panel():
+        if layout.NAV_TOGGLE_LABEL != "Account and preferences":
+            return False, (
+                "expected the toggle to name what the panel now holds, got %r"
+                % (layout.NAV_TOGGLE_LABEL,))
+        if layout.i18n.t_lang(layout.NAV_TOGGLE_LABEL, "fr") == layout.NAV_TOGGLE_LABEL:
+            return False, "expected a French entry for the renamed toggle label"
+        if layout.i18n.t_lang("Open menu", "fr") != "Open menu":
+            return False, (
+                "expected the retired 'Open menu' translation to be deleted, not superseded "
+                "in place — it names a menu of pages the panel no longer holds")
+        try:
+            prefs.set_request_prefs(lang="fr")
+            rendered = layout.page_shell(
+                title="T", active="display", body="", ui_theme="auto",
+                device_config=_NAV_STATUS_DEVICE_CFG)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if 'aria-label="Compte et préférences"' not in rendered:
+            return False, "expected the French toggle name on a French request"
+        return True, ""
+    check(
+        "the hamburger toggle's accessible name describes the preferences panel it now opens "
+        "(\"Account and preferences\" / \"Compte et préférences\"), and the retired \"Open menu\" "
+        "translation is deleted rather than orphaned (X9/D-10/B16, 22-14-PLAN.md Task 2)",
+        _nav_toggle_label_now_describes_the_preferences_panel)
+
+    # ======================================================================
+    # 22-14-PLAN.md Task 3 (D-10, T7): the save bar and the tab bar,
+    # geometrically apart first and unambiguously ordered second.
+    # ======================================================================
+
+    def _save_bar_clears_the_tab_bar_and_declares_one_stacking_value():
+        css_source = _css_source()
+        phone = _block(
+            css_source,
+            ".dirty-bar {\n    position: fixed;\n    left: var(--space-md);")
+        # GEOMETRY FIRST: the offset gains the tab bar's own height, so
+        # in the normal case the two never overlap at all.
+        if "bottom: calc(var(--space-md) + 56px + env(safe-area-inset-bottom, 0px))" not in phone:
+            return False, (
+                "expected the sub-960px save bar's bottom offset to gain the tab bar's 56px "
+                "plus the safe-area inset, got %r" % (phone,))
+        if "z-index: 30" not in phone:
+            return False, "expected the phone save bar at the one stacking value (30)"
+        desktop = _block(
+            css_source,
+            ".dirty-bar {\n    position: fixed;\n    bottom: var(--space-lg);")
+        if "z-index: 30" not in desktop:
+            return False, (
+                "T7: the desktop save bar had no stacking value at all; expected the SAME one "
+                "the phone rule declares, got %r" % (desktop,))
+        # One value for the component, not one per width.
+        if len(re.findall(r"\n\s*z-index: \d+;", phone + desktop)) != 2:
+            return False, "expected exactly one z-index declaration in each save-bar rule"
+        tab_bar = _block(
+            css_source[css_source.index(_TAB_BAR_BANNER):],
+            ".tab-bar {\n    display: flex;")
+        tab_z = re.search(r"z-index: (\d+);", tab_bar)
+        if tab_z is None:
+            return False, "expected the tab bar to declare its own stacking value"
+        if int(tab_z.group(1)) >= 30:
+            return False, (
+                "the save bar is the active task and the tab bar is ambient chrome — a blocked "
+                "save is this phase's P0, so the tab bar must sit BELOW it, got %r"
+                % (tab_z.group(1),))
+
+        # The superseded paragraph is amended in place with the stated
+        # reason its own escape clause demands, never deleted.
+        if "if a future overlap appears, add one then with a" not in css_source:
+            return False, (
+                "expected the original 'No z-index, and why' paragraph to survive — its escape "
+                "clause is what this change is exercising")
+        if "STATED REASON" not in css_source:
+            return False, (
+                "expected the stated reason to be recorded where the z-index is declared, not "
+                "merely asserted elsewhere")
+
+        # T7's content clearance, at both breakpoints, scoped to the
+        # class dirty-state.js only adds once its own bar is live.
+        for selector, needle in (
+                (".dirty-ready .dashboard-main {", "var(--space-2xl) + 88px"),
+                (".dirty-ready .page-content {", "var(--space-2xl) + 56px + 144px")):
+            if selector not in css_source:
+                return False, "expected a .dirty-ready-scoped content clearance (%r)" % (selector,)
+            body = _block(css_source, selector)
+            if "padding-bottom" not in body:
+                return False, "expected %r to declare padding-bottom" % (selector,)
+            if needle not in body.replace("\n", " ").replace("      ", ""):
+                return False, (
+                    "expected the MEASURED clearance value in %r, got %r" % (selector, body))
+        # The phone clearance must be declared AFTER the tab bar's own,
+        # which targets the same element at the same specificity — source
+        # order is the only thing deciding between them.
+        if css_source.index(".dirty-ready .page-content {") < css_source.index(
+                ".has-tab-bar .page-content {"):
+            return False, (
+                "the save-bar clearance must follow the tab bar's own clearance in source "
+                "order, or the tab bar's shorter value silently wins")
+        return True, ""
+    check(
+        "below 960px the save bar's bottom offset clears the tab bar's 56px plus the safe-area inset "
+        "(geometry first), it declares ONE stacking value at both breakpoints — 30, above the tab bar's "
+        "20, which is also T7's desktop fix — with the reason stated where it is declared and the "
+        "superseded 'No z-index, and why' paragraph amended rather than deleted, and a "
+        ".dirty-ready-scoped content clearance exists at both breakpoints at its measured value, "
+        "declared after the tab bar's own so it cannot be silently overridden (D-10/T7, 22-14-PLAN.md "
+        "Task 3)",
+        _save_bar_clears_the_tab_bar_and_declares_one_stacking_value)
+
+    # ======================================================================
+    # 22-04-PLAN.md Task 3 (D-03/CFG-26, X2): Health's Frame tile and the
+    # nav notification dot read the SAME frame_state result the strip
+    # does — they cannot disagree, because neither re-derives anything.
+    # ======================================================================
+
+    _PARIS_TZ = timezone(timedelta(hours=1))
+
+    def _health_tile_clock_text(rendered_health):
+        # RETARGETED IN PLACE, STRICTLY NARROWER (22-12-PLAN.md Task 1,
+        # X8): the Frame tile's next-wake clock moved out of the Emphasis
+        # `.stat-tile__value` paragraph into the muted detail slot, and
+        # dropped the `time-value--primary` modifier with it — that
+        # modifier IS the Emphasis shape, and carrying it one line under
+        # a verdict already in that role was half of the double bold
+        # verdict. The extractor reads the new shape, and the caller
+        # below now ALSO asserts the modifier is absent, so the old shape
+        # cannot silently come back.
+        match = re.search(
+            r'class="text-label widget-detail"><span class="time-value">'
+            r'([^<]+)</span></div>',
+            rendered_health)
+        return match.group(1) if match else None
+
+    def _strip_clock_text(rendered_strip):
+        match = re.search(r'class="time-value time-value--primary">([^<]+)</span>', rendered_strip)
+        return match.group(1) if match else None
+
+    def _health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn():
+        # The nightly regression, in full (X2, 22-UI-SPEC.md §3.3 rule 6):
+        # quiet hours 23:00-07:00, last check-in 22:58, clock 02:00,
+        # Europe/Paris — the strip renders the held copy with the neutral
+        # dot; Health's Frame tile renders the SAME clock time and the
+        # SAME state; the Health nav notification dot is unlit; the
+        # rendered HTML contains zero occurrences of the warn dot, the
+        # error dot, the warn tile modifier, the warn headline modifier,
+        # and of "Expected since" / "Attendu depuis".
+        qh_config = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        checkin = datetime(2026, 1, 15, 22, 58, 0, tzinfo=_PARIS_TZ)
+        clock = datetime(2026, 1, 16, 2, 0, 0, tzinfo=_PARIS_TZ)
+        tmp = _mkstate("h-nightly-held")
+        try:
+            device_config.save_device_config(
+                tmp, wake_interval_s=900, quiet_hours_enabled=True,
+                quiet_hours_start="23:00", quiet_hours_end="07:00")
+            _seed_device_health(tmp, [(checkin.isoformat(), 4200)])
+            # The pipeline (flight-detection) signal is a genuinely
+            # DIFFERENT system from the frame's own check-in cadence —
+            # seeded fresh (at "now") so its own, unrelated staleness
+            # thresholds do not confound this check's real subject.
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: clock.isoformat()})
+            rendered_health = health_page.render(_ctx(tmp, now=clock.isoformat()))
+            for warn_token in (
+                    "dot--warn", "dot--error", "stat-tile--warn",
+                    "status-card__headline--warn", "Expected since", "Attendu depuis"):
+                if warn_token in rendered_health:
+                    return False, "expected zero %r in a held Health render" % (warn_token,)
+            severity = health_page.health_severity(tmp, now=clock.isoformat())
+            if severity != "ok":
+                return False, (
+                    "expected the nav notification dot unlit (severity 'ok'), got %r" % (severity,))
+
+            strip_ctx = _frame_strip_ctx(checkin.isoformat(), qh_config, clock.isoformat())
+            rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
+            strip_clock = _strip_clock_text(rendered_strip)
+            tile_clock = _health_tile_clock_text(rendered_health)
+            if not strip_clock or not tile_clock:
+                return False, "expected a time-value clock span in both the strip and the tile"
+            # 22-12-PLAN.md Task 1 (X8): the strip's headline keeps the
+            # Emphasis modifier; the tile's detail must not have it.
+            if "time-value--primary" not in rendered_strip:
+                return False, "expected the strip's own headline to keep time-value--primary"
+            if "time-value--primary" in rendered_health:
+                return False, (
+                    "expected zero time-value--primary on Health — the tile's clock is a muted "
+                    "detail, never a second Emphasis element under its own verdict (X8)")
+            if strip_clock != tile_clock:
+                return False, (
+                    "expected the strip's and the tile's clock text to be equal, got %r vs %r"
+                    % (strip_clock, tile_clock))
+            if "07:00" not in tile_clock and "07:0" not in tile_clock:
+                return False, "expected the held clock to read the quiet-hours window's own end"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00 Europe/"
+        "Paris), pinned as ONE named check: the strip renders the held copy with the neutral dot, "
+        "Health's Frame tile renders the SAME clock time, the nav notification dot is unlit, and "
+        "the rendered Health HTML carries zero warn/error dots, zero warn tile/headline modifiers "
+        "and neither 'Expected since' nor 'Attendu depuis' (X2, D-03/CFG-26)",
+        _health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn)
+
+    def _health_inside_grace_window_tile_and_strip_agree_normal():
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        # 11:00 + 900s = 11:15 due; 2x grace = 1800s -> still due until 11:45.
+        checkin_iso = "2026-08-27T11:00:00+00:00"
+        now_iso = "2026-08-27T11:30:00+00:00"
+        tmp = _mkstate("h-grace-window")
+        try:
+            device_config.save_device_config(tmp, wake_interval_s=900)
+            _seed_device_health(tmp, [(checkin_iso, 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: checkin_iso})
+            state = health_page.compute_health_state(tmp, now=now_iso)
+            if state["device_state"] != "ok":
+                return False, "expected the tile to report 'ok' inside the grace window, got %r" % (
+                    state["device_state"],)
+            strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
+            rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
+            if "Next update ≈" not in rendered_strip:
+                return False, "expected the strip to report the due copy inside the grace window"
+            if "status-card__headline--warn" in rendered_strip:
+                return False, "expected no warn modifier inside the grace window"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "inside the grace window with no hold, the tile reports the normal ('ok') state and the "
+        "strip reports the due copy — they agree (22-UI-SPEC.md §3.3 rule 3)",
+        _health_inside_grace_window_tile_and_strip_agree_normal)
+
+    def _health_past_grace_window_both_report_late_dot_lights():
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        checkin_iso = "2026-08-27T11:00:00+00:00"
+        now_iso = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("h-past-grace")
+        try:
+            device_config.save_device_config(tmp, wake_interval_s=900)
+            _seed_device_health(tmp, [(checkin_iso, 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: checkin_iso})
+            state = health_page.compute_health_state(tmp, now=now_iso)
+            if state["device_state"] != "warn":
+                return False, "expected the tile to report 'warn' past the grace window, got %r" % (
+                    state["device_state"],)
+            if state["severity"] == "ok":
+                return False, "expected the nav notification dot to light past the grace window"
+            strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
+            rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
+            if "Expected since" not in rendered_strip:
+                return False, "expected the strip to report the late copy past the grace window"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "past the grace window with no hold, both the tile ('warn') and the strip ('Expected "
+        "since') report late, and the nav notification dot lights",
+        _health_past_grace_window_both_report_late_dot_lights)
+
+    def _health_held_window_ended_and_grace_elapsed_both_report_late():
+        # A held frame's window has already ended AND its own grace has
+        # since elapsed — held cannot suppress lateness forever. The
+        # check-in itself is OUTSIDE the quiet-hours window (14:00, not
+        # 23:00-07:00), so next_wake_status() resolves hold_reason=None
+        # for it — a real device that stopped reporting after an ordinary
+        # daytime check-in, not one still inside a currently-active hold.
+        device_cfg = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        checkin_iso = "2026-08-27T14:00:00+00:00"
+        now_iso = "2026-08-28T02:00:00+00:00"
+        tmp = _mkstate("h-held-then-late")
+        try:
+            device_config.save_device_config(
+                tmp, wake_interval_s=900, quiet_hours_enabled=True,
+                quiet_hours_start="23:00", quiet_hours_end="07:00")
+            _seed_device_health(tmp, [(checkin_iso, 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: checkin_iso})
+            state = health_page.compute_health_state(tmp, now=now_iso)
+            if state["device_state"] != "warn":
+                return False, (
+                    "expected the tile to report 'warn' once a held-then-elapsed frame is "
+                    "genuinely late, got %r" % (state["device_state"],))
+            strip_ctx = _frame_strip_ctx(checkin_iso, device_cfg, now_iso)
+            rendered_strip = layout.frame_strip_html(strip_ctx, return_to=layout.HOME_ROUTE)
+            if "Expected since" not in rendered_strip:
+                return False, "expected the strip to also report late for the same fixture"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a frame whose (non-held) next wake has passed and whose own grace has since elapsed is "
+        "reported late by both the tile and the strip — held cannot suppress lateness forever",
+        _health_held_window_ended_and_grace_elapsed_both_report_late)
+
+    def _health_render_no_new_dot_class_count_unchanged():
+        # `grep -c "dot--" companion/static/style.css` reads 9 both
+        # before and after this plan (Task 1/2 already landed; Task 3
+        # touches no CSS at all) — recorded here as the SUMMARY's own
+        # pinned "both numbers" acceptance criterion.
+        css_source = _css_source()
+        dot_count = css_source.count("dot--")
+        if dot_count != 9:
+            return False, (
+                "expected grep -c 'dot--' companion/static/style.css to stay at 9 (this plan adds "
+                "no dot class), got %d" % (dot_count,))
+        return True, ""
+    check(
+        "companion/static/style.css's own dot--* class-name occurrence count is unchanged by this "
+        "plan (9 before, 9 after) — this plan adds no dot class",
+        _health_render_no_new_dot_class_count_unchanged)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,

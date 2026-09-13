@@ -91,6 +91,17 @@
   // in the identical style as everything else in this block.
   var resolveScope = dialog.querySelector(".lightbox__resolve-scope");
 
+  // 22-11-PLAN.md Task 1 (B5): the resolve form's Save button now lives
+  // in the dialog's single .lightbox__actions row beside Close (quiet
+  // left, primary right) instead of stacking below it, re-attached to
+  // its form by the native form="" attribute. It is therefore no longer
+  // hidden for free when the form it submits is hidden, so its
+  // visibility is mirrored from that form's own state below — NOT from
+  // a second copy of the mode test, which would be a second mode table
+  // in this file. Looked up in the same optional style as everything
+  // above: History's dialog has no such row.
+  var resolveSubmit = dialog.querySelector(".lightbox__actions [type=\"submit\"]");
+
   // These three are unconditionally present in the dialog's static
   // markup after 14-02 (companion/pages/airlines_page.py's
   // _lightbox_html() always emits them) — still looked up in this same
@@ -183,6 +194,11 @@
     // the dialog's final, already-toggled subtree.
     if (resolveNameForm) {
       resolveNameForm.hidden = (mode !== "gap");
+      // Mirrored, never re-derived (22-11-PLAN.md Task 1): the lifted
+      // Save button is visible exactly when the form it submits is.
+      if (resolveSubmit) {
+        resolveSubmit.hidden = resolveNameForm.hidden;
+      }
     }
     if (resolveUploadZone) {
       resolveUploadZone.hidden = (mode !== "needs-artwork");

@@ -108,6 +108,36 @@
  * (intervalHandle/startLoop()/stopLoop()/the visibilitychange listener),
  * which this plan leaves untouched.
  *
+ * --- T13 (22-15-PLAN.md Task 2): three defects, one loop -------------
+ *
+ * 22-AUDIT.md found three faults in the mechanism above, all read from
+ * this file's own source:
+ *
+ *   1. ANY non-OK response, and any network error, called stopLoop().
+ *      The loop then never ran again for the life of the page, and the
+ *      only visible sign was a pill that stopped appearing. A page
+ *      showing ten-minute-old data looked exactly like a page showing
+ *      fresh data. The fix is an exponential retry ladder — the normal
+ *      cadence, doubling to a ten-minute ceiling — with a visible,
+ *      NEUTRAL badge saying which state the loop is in. Neutral, not a
+ *      warning: a browser that lost its connection is not a device
+ *      fault (22-UI-SPEC.md §5 contract 9).
+ *   2. No in-flight guard. A slow response plus a visibilitychange
+ *      catch-up could put two fetches in the air, and the LAST to
+ *      resolve won the swap — so a stale response could overwrite a
+ *      fresher one.
+ *   3. Whole-region swaps. Every cycle destroyed and rebuilt all five
+ *      swap targets whether or not their content had changed, taking
+ *      any focus inside them with it. Swaps are now targeted: an
+ *      unchanged region, and a region containing the focused element,
+ *      are both left alone.
+ *
+ * stopLoop() SURVIVES and is still called twice, and both calls are
+ * deliberate teardowns of a background tab — never a failure path. The
+ * retry ladder deliberately does NOT stop the interval; it stands the
+ * interval's own tick down while a retry is pending instead, so there
+ * is no state in which a recovered page is left with no schedule.
+ *
  * --- The corrected page list -------------------------------------------
  *
  * This script is served to every page on the site (a single cached
@@ -138,6 +168,41 @@
   // number D-12 was written to protect (21-02-PLAN.md, D-18: the
   // interval is now the only gate — there is no user-facing pause).
   var AUTO_REFRESH_INTERVAL_MS = 45000;
+
+  // --- T13 (22-AUDIT.md, 22-UI-SPEC.md §2 and §5 contract 9,
+  // --- 22-15-PLAN.md Task 2): the loop no longer stops dead ----------
+  //
+  // The defect: ANY non-OK response, and any network-level failure,
+  // called stopLoop() and hid the pill. The page then sat frozen and
+  // silent for the rest of its life, showing data from the moment it
+  // loaded with nothing to say it had stopped listening. The commonest
+  // trigger is the most ordinary one there is: a laptop lid closed on a
+  // cafe network, or a session that expired (which redirect: "manual"
+  // below correctly turns into a non-OK response).
+  //
+  // The retry schedule starts AT the normal cadence rather than below
+  // it, and doubles to a stated ceiling. That is deliberate and is the
+  // mitigation for T-22-56: a failing server sees a strictly
+  // DECREASING request rate from this page, never a higher one, so the
+  // repair cannot itself become a load problem. 45s, 90s, 3m, 6m, then
+  // 10m for as long as the failure lasts.
+  var RETRY_BASE_MS = AUTO_REFRESH_INTERVAL_MS;
+  var RETRY_CEILING_MS = 600000;
+
+  // The visible state's copy. These are English FALLBACKS only: the
+  // real, translated strings are server-rendered onto <body> by
+  // companion/layout.py (page_shell) and read below, the same
+  // attribute-with-fallback idiom dirty-state.js and poll-cooldown.js
+  // already use. companion/test_i18n.py's Check 6 scans exactly this
+  // shape and requires a French catalogue entry for each.
+  //
+  // The state is NEUTRAL and is never a warning. A browser that lost
+  // its connection is not a device fault, and painting it as one is the
+  // same class of error as the nightly false alarm this phase removed
+  // from the frame strip. It uses .dot--off, the app's own "a neutral,
+  // everyday state, never a problem" dot.
+  var PAUSED_TEXT = "Paused";
+  var RECONNECTING_TEXT = "Reconnecting…";
 
   var loadedAtEl = document.querySelector("[data-loaded-at]");
   if (!loadedAtEl) {
@@ -211,6 +276,15 @@
   // moment the very first successful swap replaces that wrapper, and
   // every reveal/hide after that would silently do nothing.
   function revealPill() {
+    // T13 (22-15-PLAN.md Task 2): suppressed while a state badge is
+    // showing. A retry attempt is still a request in flight, but
+    // swapping "Reconnecting…" for "Updating…" on every attempt and
+    // back again would flicker between two claims about the same
+    // situation, and the honest one while a connection is failing is
+    // the one that says so.
+    if (currentState !== null) {
+      return;
+    }
     var pill = document.querySelector("[data-refresh-pill]");
     if (pill) {
       pill.hidden = false;
@@ -221,6 +295,91 @@
     var pill = document.querySelector("[data-refresh-pill]");
     if (pill) {
       pill.hidden = true;
+    }
+  }
+
+  // T13's visible state. Null while the loop is healthy; "reconnecting"
+  // while a retry is pending; "paused" while the loop is deliberately
+  // idle, which after 21-02-PLAN.md's D-18 means exactly one thing —
+  // the tab is hidden, the only gate this loop has left.
+  var currentState = null;
+
+  // Looked up fresh on every call and REBUILT if missing, for the same
+  // reason revealPill() above refuses to cache: this pill is a child of
+  // .page-header__freshness, one of this file's own swap targets, so a
+  // successful refresh can legitimately replace the element out from
+  // under a cached reference. Rebuilding is cheap and is the only
+  // mechanism that survives a swap.
+  //
+  // Built with createElement/appendChild/textContent only. The standing
+  // HTML-writing-sink ban this file carries is absolute, and a pill
+  // whose text comes from a server-rendered attribute is exactly the
+  // sort of thing that invites a markup-writing shortcut; there is
+  // none, and the guard in companion/test_companion_app.py would fail
+  // if there were.
+  //
+  // It renders in flow, inside the freshness line, rather than taking
+  // .page-header .refresh-pill's absolute top-right slot: that slot is
+  // already occupied by the "Updating…" pill, and two pills stacked on
+  // the same coordinates is not a state a user can read. It is
+  // .banner__pill, this file's label-voice badge primitive, per
+  // 22-UI-SPEC.md's own T13 row.
+  function stateBadge() {
+    var existing = document.querySelector("[data-refresh-state-pill]");
+    if (existing) {
+      return existing;
+    }
+    var anchor = document.querySelector("[data-refresh-pill]");
+    if (!anchor || !anchor.parentNode) {
+      return null;
+    }
+    var badge = document.createElement("span");
+    badge.className = "banner__pill";
+    badge.setAttribute("data-refresh-state-pill", "");
+    badge.hidden = true;
+    var dot = document.createElement("span");
+    dot.className = "dot dot--off";
+    badge.appendChild(dot);
+    var label = document.createElement("span");
+    label.setAttribute("data-refresh-state-text", "");
+    badge.appendChild(label);
+    anchor.parentNode.insertBefore(badge, anchor.nextSibling);
+    return badge;
+  }
+
+  // The translated string, server-rendered onto <body> by
+  // companion/layout.py's page_shell(). The English constants above are
+  // the no-attribute fallback and nothing else.
+  function stateText(state) {
+    var attr = state === "paused"
+      ? "data-refresh-paused-text" : "data-refresh-reconnecting-text";
+    var fallback = state === "paused" ? PAUSED_TEXT : RECONNECTING_TEXT;
+    var host = document.body;
+    var value = host ? host.getAttribute(attr) : null;
+    return value || fallback;
+  }
+
+  function setState(state) {
+    currentState = state;
+    // Exactly one pill is ever visible. The "Updating…" pill means a
+    // request is in flight and succeeding; this badge means it is not.
+    hidePill();
+    var badge = stateBadge();
+    if (!badge) {
+      return;
+    }
+    var label = badge.querySelector("[data-refresh-state-text]");
+    if (label) {
+      label.textContent = stateText(state);
+    }
+    badge.hidden = false;
+  }
+
+  function clearState() {
+    currentState = null;
+    var badge = document.querySelector("[data-refresh-state-pill]");
+    if (badge) {
+      badge.hidden = true;
     }
   }
 
@@ -248,13 +407,41 @@
   // never touched: the newly-appearing/disappearing region simply waits
   // for the next real navigation, exactly the same accepted cost this
   // file's own header already names for the sparkline/registry.
+  //
+  // T13 (22-15-PLAN.md Task 2): the swap is now TARGETED. Two skips,
+  // each of which leaves the live node exactly where it is:
+  //
+  //   1. The region did not change. isEqualNode() compares node type,
+  //      name, attributes and children recursively, across documents,
+  //      with no HTML string anywhere — which is why it, and not a
+  //      serialized-markup comparison, is the mechanism here: the
+  //      serializing properties are on this file's standing ban list,
+  //      and for good reason. On a
+  //      healthy Health page most cycles change one region out of five;
+  //      replacing the other four destroyed and rebuilt their whole
+  //      subtrees for no reason, taking any focus, selection or
+  //      :active state inside them with it.
+  //   2. The user's focus is inside the region. userIsInteracting()
+  //      above already skips the whole tick for a focused field,
+  //      summary or chart point, but it cannot see focus on an ordinary
+  //      link or button inside a swap target — and a refresh that
+  //      silently moves keyboard focus to the top of the document while
+  //      someone is tabbing through a card is the same A-20 harm the
+  //      whole-page reload was retired for, just smaller.
   function swapNodes(fromDoc) {
+    var active = document.activeElement;
     for (var s = 0; s < SWAP_SELECTORS.length; s++) {
       var existingNodes = document.querySelectorAll(SWAP_SELECTORS[s]);
       var fetchedNodes = fromDoc.querySelectorAll(SWAP_SELECTORS[s]);
       var count = Math.min(existingNodes.length, fetchedNodes.length);
       for (var i = 0; i < count; i++) {
         var existing = existingNodes[i];
+        if (existing.isEqualNode && existing.isEqualNode(fetchedNodes[i])) {
+          continue;
+        }
+        if (active && existing.contains && existing.contains(active)) {
+          continue;
+        }
         var replacement = document.importNode(fetchedNodes[i], true);
         existing.parentNode.replaceChild(replacement, existing);
       }
@@ -312,7 +499,19 @@
     updateLoadedAt(fromDoc);
   }
 
+  // T13 (22-15-PLAN.md Task 2): the in-flight guard. Without it a
+  // request slower than the interval, or a visibilitychange catch-up
+  // landing on top of a running tick, could put two fetches in the air
+  // at once — and whichever resolved LAST would win the swap, so a
+  // stale response could overwrite a fresher one. Set before the fetch
+  // and cleared in both terminal branches, never only the happy one.
+  var inFlight = false;
+
   function doRefresh() {
+    if (inFlight) {
+      return;
+    }
+    inFlight = true;
     revealPill();
     // 19-09-PLAN.md (D-02/T-19-33): window.location.href — the same-
     // document URL — and NEVER a URL read out of the DOM. This is a
@@ -339,12 +538,14 @@
     }).then(function (response) {
       if (!response.ok) {
         // A non-OK status (including the opaque redirect above) means
-        // do NOT swap anything and do NOT navigate — hide the pill,
-        // stop the loop, and leave the stale page visible. Silent
-        // failure is better than a partial swap, and a redirect must
-        // never be mistaken for fresh data.
-        hidePill();
-        stopLoop();
+        // do NOT swap anything and do NOT navigate — leave the stale
+        // page visible. A redirect must never be mistaken for fresh
+        // data, and a partial swap is worse than none.
+        //
+        // T13 (22-15-PLAN.md Task 2): what this branch must NOT do any
+        // more is stop. It schedules the next attempt at a growing
+        // delay and says so, in the pill.
+        failAndRetry();
         return null;
       }
       return response.text();
@@ -361,14 +562,20 @@
       // looking at.
       var fetchedDoc = new DOMParser().parseFromString(text, "text/html");
       applySwap(fetchedDoc);
+      inFlight = false;
       hidePill();
+      // T13: the first success resets the backoff to zero and clears
+      // the state badge, so a page that recovers stops saying it has
+      // not, and the next real failure starts its own ladder from the
+      // bottom rather than inheriting the last one's ceiling.
+      succeed();
     }).catch(function () {
       // A network-level failure (offline, DNS, aborted) gets the exact
       // same treatment as a non-OK status, for the same reason: no
-      // partial swap, no guess, just a visibly stale page and a stopped
-      // loop.
-      hidePill();
-      stopLoop();
+      // partial swap and no guess. Since T13 that treatment is a
+      // backed-off retry with a visible neutral state, not a silent
+      // stop.
+      failAndRetry();
     });
   }
 
@@ -379,12 +586,66 @@
   // error.
   var intervalHandle = null;
 
+  // T13 (22-15-PLAN.md Task 2): the retry ladder's own state. A pending
+  // retry is a one-shot timer, deliberately NOT a second interval —
+  // each failure schedules exactly one next attempt, so the ladder can
+  // never fan out.
+  var retryHandle = null;
+  var retryDelayMs = 0;
+
+  function cancelRetry() {
+    if (retryHandle !== null) {
+      window.clearTimeout(retryHandle);
+      retryHandle = null;
+    }
+  }
+
+  function failAndRetry() {
+    inFlight = false;
+    retryDelayMs = retryDelayMs === 0
+      ? RETRY_BASE_MS
+      : Math.min(retryDelayMs * 2, RETRY_CEILING_MS);
+    setState("reconnecting");
+    cancelRetry();
+    // While a retry is pending the ladder OWNS the schedule and tick()
+    // below stands down, so the two can never both fire. That is what
+    // makes the backoff a real reduction in request rate rather than an
+    // extra request laid on top of the normal cadence. The interval
+    // itself is deliberately left running as a plain heartbeat: it
+    // needs no teardown and no restart, and there is therefore no state
+    // in which a recovered page is left with no schedule at all — which
+    // is precisely the failure T13 exists to remove.
+    retryHandle = window.setTimeout(function () {
+      retryHandle = null;
+      if (document.hidden) {
+        // A tab that went away mid-ladder is not a failing server. The
+        // visibilitychange listener below re-arms everything on return;
+        // do not keep a background tab retrying.
+        setState("paused");
+        return;
+      }
+      doRefresh();
+    }, retryDelayMs);
+  }
+
+  function succeed() {
+    retryDelayMs = 0;
+    cancelRetry();
+    clearState();
+  }
+
   function tick() {
     // Belt and braces: the visibility listener below already stops this
     // interval on hide, but an interval that somehow survives must not
     // fire in a background tab.
     if (document.hidden) {
       stopLoop();
+      return;
+    }
+    if (retryHandle !== null) {
+      // A retry is already scheduled; the ladder owns the cadence until
+      // it succeeds. Leave the interval running — it is the heartbeat
+      // that takes over the moment the ladder clears.
       return;
     }
     if (userIsInteracting()) {
@@ -411,9 +672,22 @@
 
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) {
+      // Deliberate idling, and the only kind this loop has left after
+      // 21-02-PLAN.md's D-18 retired the user-facing Pause control. The
+      // retry ladder stands down with the interval: a hidden tab must
+      // cost the server nothing at all, which was already this file's
+      // contract and stays so.
       stopLoop();
+      cancelRetry();
+      setState("paused");
       return;
     }
+    // Back in view: drop the paused badge, re-arm the interval, and let
+    // the catch-up below decide whether to fetch immediately. A ladder
+    // that was mid-retry when the tab went away restarts from the
+    // normal cadence rather than from wherever it had climbed to.
+    clearState();
+    retryDelayMs = 0;
     startLoop();
     // Catch-up on return: a tab returning after a long hidden stretch
     // would otherwise sit showing minutes-old data for a full interval

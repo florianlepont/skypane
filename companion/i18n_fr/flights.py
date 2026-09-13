@@ -61,11 +61,20 @@ CATALOG = {
     # 21-03-PLAN.md Task 1 (D-15): the visually-hidden toggle-column
     # header naming the Task 2 row-toggle button's column.
     "Details": "Détails",
-    # 21-03-PLAN.md Task 2 (D-15): the row-toggle button's own two
-    # states, read by companion/static/flight-rows.js from the
-    # data-more-text/data-less-text attributes this module renders.
-    "More": "Plus",
-    "Less": "Moins",
+    # 22-09-PLAN.md Task 1 (X5): the row-toggle button's own two states.
+    # The visible "More"/"Plus" and "Less"/"Moins" labels are RETIRED
+    # with the text button itself — the toggle is icon-only now, and
+    # these two strings are its swapped ACCESSIBLE NAME (an aria-label
+    # companion/static/flight-rows.js reads back out of the
+    # data-show-label/data-hide-label attributes this page renders).
+    # They deliberately name the picture as well as the details: the
+    # panel-picture control now lives inside that detail row, and a name
+    # saying only "details" would hide it from the one user who most
+    # needs to be told it is there.
+    "Show flight details and picture":
+        "Afficher les détails du vol et l’image",
+    "Hide flight details and picture":
+        "Masquer les détails du vol et l’image",
     "Route": "Trajet",
     "State": "Sens",
     "Hex": "Code hex",
@@ -117,8 +126,26 @@ CATALOG = {
         "des teintes internes de rendu, pas une reproduction fidèle du "
         "vrai verre Spectra 6.",
 
-    # --- The unresolved-airline link to Health (D-21) --------------------
-    "View unresolved prefixes": "Voir les préfixes non résolus",
+    # --- The unresolved-airline link (D-21, retargeted by 22-09) ---------
+    # 22-09-PLAN.md Task 2 (X5): "View unresolved prefixes" is RETIRED
+    # with the two-hop route it named (Flights -> Health's read-only
+    # list -> Airlines). The link goes straight to the Airlines resolve
+    # view for this flight's own prefix now, so it names the action it
+    # performs instead of the list it used to land on.
+    "Name this airline": "Nommer cette compagnie",
     "Airline unknown": "Compagnie inconnue",
     "Route unavailable": "Trajet indisponible",
+
+    # --- 22-09-PLAN.md Task 2 (X5): the day separators ------------------
+    # The absolute form ("26 août") is not a catalogue entry: it is
+    # composed at render time from layout.month_abbr(), which is
+    # local_clock_text()'s own already-translated month table.
+    "Today": "Aujourd’hui",
+    "Yesterday": "Hier",
+
+    # --- 22-09-PLAN.md Task 2 (X5): the panel-picture control -----------
+    # Its VISIBLE label, now that it is a labelled text control inside
+    # the detail row rather than a 16px icon-only eye in the summary
+    # row. "View panel near this time" survives above as its title.
+    "View picture": "Voir l’image",
 }

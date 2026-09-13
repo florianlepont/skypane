@@ -64,6 +64,9 @@ from server.plane import calendar_rules  # noqa: E402
 from server.plane import colour_rules  # noqa: E402
 from server.plane import illustrations as server_illustrations  # noqa: E402
 from server.plane import manual_resolutions  # noqa: E402
+# 22-10-PLAN.md Task 2 (B6): the crop-geometry check below measures the
+# real 1200x1600 render's own ink bands rather than restating a constant.
+from server.plane import render  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
@@ -479,6 +482,98 @@ EXPECTED_CHECK_COUNT = 256
 # WR-11 root-sandbox failures, unrelated to this plan), not trusted
 # from arithmetic alone.
 EXPECTED_CHECK_COUNT = 258
+# 22-08-PLAN.md Task 1 (D-06/B16): +1 (Section 6: every FLASH_MESSAGES
+# template and every _PAGE_TITLES value, plus the 404's/login shell's
+# own <title> literals, round-trip to French and back via
+# i18n.t_lang()). 258 + 1 = 259, recomputed directly against the real
+# on-disk check(...) call count at execution time (257/259 pass — the
+# two documented WR-11 root-sandbox failures, unrelated to this plan),
+# not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 259
+# 22-08-PLAN.md Task 2 (D-06/B16): +1 (the nav landmark's aria-label
+# and the theme picker's three segment labels round-trip to French and
+# back via i18n.t_lang(), same section). 259 + 1 = 260, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (258/260 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 260
+# 22-10-PLAN.md Task 2 (B6): +1 (THEME_PREVIEW_CROP_BOX keeps
+# THEME_PREVIEW_SIZE's exact 8:3 ratio and cuts no ink band at either
+# edge — measured against a real 1200x1600 render's own ink bands, not
+# restated from the constant; negative-controlled against the box it
+# replaces, which fails on the caption band at 859-888). The pre-existing
+# pairwise-distinctness check above already covers the new box and needed
+# no edit. 260 + 1 = 261, recomputed directly against the real on-disk
+# check(...) call count at execution time (259/261 pass — the two
+# documented WR-11 root-sandbox failures, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 261
+# 22-13-PLAN.md Task 1 (X3): +3 (the clean login render carries neither
+# aria-invalid nor aria-describedby and style.css now carries the
+# field/primary/error-border rules it had none of; the wrong-password
+# render is programmatically associated and places its .field-error
+# message between the field and the primary; the locked-out render
+# shares that one error voice, with aria-describedby but deliberately no
+# aria-invalid, driven against its OWN isolated Harness() because
+# locking the process-global throttle cannot be undone over HTTP).
+# 261 + 3 = 264, recomputed directly against the real on-disk check(...)
+# call count at execution time (262/264 pass — the two documented WR-11
+# root-sandbox failures, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 264
+# 22-13-PLAN.md Task 2 (X3): +5 (login-card.js is served pre-auth with a
+# shared-cacheable JS content type; it stays ES5-safe/sink-free, carries
+# the reveal contract and duplicates no server-side throttling constant;
+# layout.LOGIN_CARD_SCRIPT_SRC equals app.LOGIN_CARD_SCRIPT_ROUTE; the
+# rendered login page carries exactly ONE <script occurrence, with no
+# inline script and no nonce, where login_shell() emitted ZERO before
+# this plan; and the toggle server-renders hidden, typed button,
+# aria-pressed="false", both translated names and .copy-btn's own
+# geometry, with the field's padding modifier deliberately absent
+# server-side). The pre-existing eleven-deferred-scripts check was
+# STRENGTHENED in place rather than counted as new: it keeps its count
+# of eleven and now also asserts login-card.js is absent from an
+# authenticated page, which is the "script count unchanged" half of this
+# task's own acceptance. 264 + 5 = 269, recomputed directly against the
+# real on-disk check(...) call count at execution time (267/269 pass —
+# the two documented WR-11 root-sandbox failures, unrelated to this
+# plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 269
+# 22-14-PLAN.md Task 1 (X9/D-10): +2 — the bottom tab bar rendered from
+# the ONE shared _nav_links() iteration (its destinations compared
+# element-for-element against the sidebar's, not merely asserted
+# non-empty; the four everyday routes as tab links and the Advanced
+# group inside a native <details>; exactly one aria-current="page" and
+# never on the <summary>; the More summary wearing the active pill on an
+# Advanced page; no script hook anywhere in the bar), and the bar's
+# absence from the login shell and from a page_shell() with no device
+# config, with the <body> clearance marker present exactly when the bar
+# is. The icon-sprite integrity check and the sprite-emitted-once check
+# were EDITED IN PLACE (twenty-one -> twenty-two members, icon-more),
+# not counted as new. 269 + 2 = 271, recomputed directly against the
+# real on-disk check(...) call count at execution time (269/271 pass —
+# the two documented WR-11 root-sandbox failures, unrelated to this
+# plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 271
+# 22-15-PLAN.md Task 3 (T14): +1 — a real GET of /static/submit-guard.js,
+# because a registration whose route 404s is a guard that does not exist
+# and the deferred-script check alone would still have passed. It pins
+# the ES5/sink ban, the DEFERRED disable (the correctness argument: an
+# inline disable drops a named submit button's own name/value from the
+# form data set, and the theme and language pickers are built from
+# exactly those), the defaultPrevented stand-down, the skip of the
+# control poll-cooldown.js owns, the absence of any label write, the
+# reuse of the ONE existing button:disabled rule still ordered after
+# button:active, and an unchanged script-src. TWO pre-existing checks
+# were retargeted in place by this plan with no count contribution: the
+# deferred-script count (eleven -> twelve, forced by this plan's own
+# registration, and now also pinning that the login shell does NOT get
+# the guard), and the tab-bar body-marker literal (Task 2, since <body>
+# gained the two refresh-state attributes). 271 + 1 = 272, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (270/272 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 272
 
 
 def _ago_iso(seconds):
@@ -1291,38 +1386,58 @@ def main():
             "for every NAV_TABS route",
             _page_shell_document_shape)
 
-        def _page_shell_marks_only_the_active_dropdown_link():
-            rendered = layout.page_shell(title="Health", active="health", body="")
-            # Scope to the dropdown's own <nav class="mobile-nav__nav" ...>
-            # only — page_shell() also renders a vertical sidebar copy of
-            # the same links (06.3-01's dashboard-shell rework), so
-            # searching the whole document would match whichever copy
-            # comes first in source order. This check was already
-            # rescoped once, in 06.3-01, for that same "two copies of the
-            # same links" reason; 06.6.1-05 rescopes it a second time, at
-            # the surviving hamburger dropdown that replaced the
-            # horizontal strip this check originally targeted.
-            nav_start = rendered.find('<nav class="mobile-nav__nav"')
+        def _page_shell_marks_only_the_active_sub960_nav_link():
+            # RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task
+            # 2, X9/D-10): this check was scoped to the hamburger
+            # dropdown's own <nav class="mobile-nav__nav"> — itself the
+            # second rescoping, after 06.3-01's "two copies of the same
+            # links" and 06.6.1-05's move off the retired horizontal
+            # strip. That block no longer exists: the dropdown holds
+            # preferences and the BOTTOM TAB BAR is the sub-960px nav.
+            # The assertion is unchanged in kind and stronger in one
+            # respect — it now also demands aria-current on the active
+            # link and its absence everywhere else, which the dropdown
+            # never carried at all.
+            rendered = layout.page_shell(
+                title="Health", active="health", body="",
+                device_config={"display_enabled": True, "quiet_hours_enabled": False})
+            nav_start = rendered.find('<nav class="tab-bar"')
             nav_end = rendered.find("</nav>", nav_start)
-            dropdown_nav_html = rendered[nav_start:nav_end]
+            tab_bar_html = rendered[nav_start:nav_end]
             for route, _ in layout.NAV_TABS:
                 slug = route.lstrip("/")
                 href_needle = 'href="%s"' % route
-                href_index = dropdown_nav_html.find(href_needle)
+                href_index = tab_bar_html.find(href_needle)
                 if href_index == -1:
-                    return False, "missing dropdown link for %r" % route
-                tag_start = dropdown_nav_html.rfind("<a", 0, href_index)
-                tag_end = dropdown_nav_html.find(">", href_index)
-                tag = dropdown_nav_html[tag_start:tag_end]
-                is_active_class_present = "mobile-nav__link--active" in tag
-                if slug == "health" and not is_active_class_present:
-                    return False, "expected the active link (%r) to carry the active class" % route
-                if slug != "health" and is_active_class_present:
-                    return False, "expected a non-active link (%r) to not carry the active class" % route
+                    return False, "missing tab-bar link for %r" % route
+                tag_start = tab_bar_html.rfind("<a", 0, href_index)
+                tag_end = tab_bar_html.find(">", href_index)
+                tag = tab_bar_html[tag_start:tag_end]
+                is_active_class_present = (
+                    "tab-bar__link--active" in tag
+                    or "mobile-nav__link--active" in tag)
+                has_aria_current = 'aria-current="page"' in tag
+                if slug == "health":
+                    if not is_active_class_present:
+                        return False, (
+                            "expected the active link (%r) to carry the active class" % route)
+                    if not has_aria_current:
+                        return False, (
+                            "expected the active link (%r) to carry aria-current" % route)
+                else:
+                    if is_active_class_present:
+                        return False, (
+                            "expected a non-active link (%r) to not carry the active class"
+                            % route)
+                    if has_aria_current:
+                        return False, (
+                            "expected a non-active link (%r) to not carry aria-current" % route)
             return True, ""
         check(
-            "the dropdown link matching `active` carries a distinguishing class, the others do not",
-            _page_shell_marks_only_the_active_dropdown_link)
+            "the sub-960px nav link matching `active` carries a distinguishing class and aria-current, "
+            "the others carry neither (retargeted from the retired dropdown nav onto the tab bar, "
+            "22-14-PLAN.md Task 2)",
+            _page_shell_marks_only_the_active_sub960_nav_link)
 
         # --- 06.6.4.1.1-04 (D-17): flash banner moves below page_header() ---
 
@@ -1485,7 +1600,12 @@ def main():
             "layout.NAV_TABS holds exactly 6 entries, in order home/display/flights/airlines/health/device",
             _nav_tabs_shrunk_to_four_settled_order)
 
-        def _sidebar_and_dropdown_render_exactly_four_links_one_active_each():
+        def _sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
+            # RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task
+            # 2, X9/D-10): the sub-960px half counted the dropdown's six
+            # links; the dropdown now holds preferences and the tab bar
+            # holds destinations. The count and the exactly-one-active
+            # assertion are unchanged; what they are counted over moved.
             sidebar_markup = layout.sidebar_nav("flights")
             sidebar_link_count = sidebar_markup.count('<a class="sidebar-link')
             if sidebar_link_count != 6:
@@ -1493,19 +1613,43 @@ def main():
             if sidebar_markup.count("sidebar-link--active") != 1:
                 return False, "expected exactly one active sidebar link"
 
-            doc = layout.page_shell(title="T", active="flights", body="<p>b</p>")
+            doc = layout.page_shell(
+                title="T", active="flights", body="<p>b</p>",
+                device_config={"display_enabled": True, "quiet_hours_enabled": False})
+            bar_start = doc.index('<nav class="tab-bar"')
+            bar = doc[bar_start:doc.index("</nav>", bar_start)]
+            bar_link_count = (
+                bar.count('<a class="tab-bar__link')
+                + bar.count('<a class="mobile-nav__link'))
+            if bar_link_count != 6:
+                return False, "expected exactly 6 tab-bar links, got %d" % bar_link_count
+            if bar.count("tab-bar__link--active") != 1:
+                return False, "expected exactly one active tab"
+
+            # And the dropdown now holds ZERO destination links — this is
+            # the ~420px page shove X9 measured, removed.
             panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
             panel = doc[panel_start:doc.index("</header>")]
-            dropdown_link_count = panel.count('<a class="mobile-nav__link')
-            if dropdown_link_count != 6:
-                return False, "expected exactly 6 mobile dropdown links, got %d" % dropdown_link_count
-            if panel.count("mobile-nav__link--active") != 1:
-                return False, "expected exactly one active mobile dropdown link"
+            if panel.count('<a class="mobile-nav__link') != 0:
+                return False, "expected the dropdown panel to hold no destination links at all"
+            if "mobile-nav__nav" in panel:
+                return False, (
+                    "expected the dropdown's own navigation landmark to be removed, not emptied")
+            for route, _label in layout.NAV_TABS:
+                if route == layout.HOME_ROUTE:
+                    # The state reminder is still a link to Home on a
+                    # non-Home page — that is nav_status_html()'s own
+                    # contract, not a destination menu entry.
+                    continue
+                if ('href="%s"' % route) in panel:
+                    return False, (
+                        "expected no destination href (%r) left in the dropdown panel" % route)
             return True, ""
         check(
-            "a rendered authenticated page contains exactly six sidebar nav links and exactly "
-            "six mobile dropdown links, with exactly one marked active in each",
-            _sidebar_and_dropdown_render_exactly_four_links_one_active_each)
+            "a rendered authenticated page contains exactly six sidebar nav links and exactly six "
+            "tab-bar links, with exactly one marked active in each, and the hamburger dropdown holds "
+            "zero destination links (retargeted from the dropdown onto the tab bar, 22-14-PLAN.md Task 2)",
+            _sidebar_and_tab_bar_render_exactly_six_links_one_active_each)
 
         def _eye_glyph_survives_nav_shrink():
             # 06.6.4.1-08 (D-22): "icon-nav-preview" (the eye glyph) stays
@@ -1590,10 +1734,25 @@ def main():
             # sharing the same "Primary navigation" aria-label
             # (06.6.1-UI-SPEC.md's Layout Contract); CSS alone decides
             # which is visible at a given width, so both are always in
-            # the DOM. This was "exactly one" before this plan, when the
+            # the DOM. This was "exactly one" before that plan, when the
             # horizontal strip carried no landmark of its own.
-            if rendered.count('aria-label="Primary navigation"') != 2:
-                return False, "expected exactly two Primary navigation landmarks (sidebar + dropdown)"
+            #
+            # RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task
+            # 2, X9/D-10): the sub-960px landmark moved from the dropdown
+            # to the bottom tab bar, so the PAIR is now sidebar + tab bar
+            # and the count is asserted on a render that has a tab bar.
+            # The check gains a second assertion the old one could not
+            # make: a page with no device config (the 404) carries
+            # exactly ONE landmark, never an empty second one.
+            with_bar = layout.page_shell(
+                title="Health", active="health", body="<p>b</p>",
+                device_config={"display_enabled": True, "quiet_hours_enabled": False})
+            if with_bar.count('aria-label="Primary navigation"') != 2:
+                return False, "expected exactly two Primary navigation landmarks (sidebar + tab bar)"
+            if rendered.count('aria-label="Primary navigation"') != 1:
+                return False, (
+                    "a page with no device config renders no tab bar, so it must expose exactly "
+                    "one navigation landmark — never an empty second one")
             if rendered.count('id="%s"' % layout.MOBILE_NAV_ID) != 1:
                 return False, "expected exactly one dropdown panel"
             if rendered.count('action="/ui-theme"') != 2:
@@ -1601,7 +1760,8 @@ def main():
             return True, ""
         check(
             "page_shell() wraps header+sidebar+main in .dashboard-shell with both nav landmarks "
-            "and both theme-form copies present",
+            "(sidebar + tab bar, and exactly one when there is no tab bar) and both theme-form "
+            "copies present",
             _page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme)
 
         def _page_shell_skip_link_target_is_focusable():
@@ -1638,17 +1798,21 @@ def main():
             # D-23/D-12/D-20) — see layout.py's own header comment on
             # ICON_IDS for the supersession note. quick task 260903-df3
             # grew it again, fourteen to fifteen (icon-upload, the
-            # Airlines lightbox replace zone's glyph).
-            if len(layout.ICON_IDS) != 21:
-                return False, "expected exactly twenty-one ICON_IDS, got %d" % len(layout.ICON_IDS)
-            if len(set(layout.ICON_IDS)) != 21:
+            # Airlines lightbox replace zone's glyph). 22-14-PLAN.md
+            # Task 1 (X9/D-10) grows it from twenty-one to twenty-two
+            # (icon-more, the bottom tab bar's "More" cell) — this check
+            # is edited IN PLACE, not added to: same three counts, one
+            # higher, no EXPECTED_CHECK_COUNT contribution.
+            if len(layout.ICON_IDS) != 22:
+                return False, "expected exactly twenty-two ICON_IDS, got %d" % len(layout.ICON_IDS)
+            if len(set(layout.ICON_IDS)) != 22:
                 return False, "expected ICON_IDS to have no duplicates"
             symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
             if sorted(symbol_ids) != sorted(layout.ICON_IDS):
                 return False, "sprite symbol ids %r do not match ICON_IDS %r" % (
                     symbol_ids, layout.ICON_IDS)
-            if layout.ICON_DEFS_HTML.count("<symbol") != 21:
-                return False, "expected exactly twenty-one <symbol occurrences, got %d" % (
+            if layout.ICON_DEFS_HTML.count("<symbol") != 22:
+                return False, "expected exactly twenty-two <symbol occurrences, got %d" % (
                     layout.ICON_DEFS_HTML.count("<symbol"))
             if 'stroke="currentColor"' not in layout.ICON_DEFS_HTML:
                 return False, "expected stroke=\"currentColor\" in the sprite"
@@ -1656,7 +1820,7 @@ def main():
                 return False, "a hard-coded hex fill would defeat the per-status tint"
             return True, ""
         check(
-            "layout.ICON_IDS has exactly twenty-one unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
+            "layout.ICON_IDS has exactly twenty-two unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
             _icon_sprite_integrity)
 
         def _icon_html_whitelist_enforcement():
@@ -1703,15 +1867,17 @@ def main():
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             if doc.count("<defs") != 1:
                 return False, "expected exactly one <defs, got %d" % doc.count("<defs")
-            if doc.count("<symbol") != 21:
-                return False, "expected exactly twenty-one <symbol, got %d" % doc.count("<symbol")
+            # 22-14-PLAN.md Task 1 (X9/D-10): twenty-one -> twenty-two
+            # (icon-more). Edited in place; no check added or removed.
+            if doc.count("<symbol") != 22:
+                return False, "expected exactly twenty-two <symbol, got %d" % doc.count("<symbol")
             if doc.index("icon-defs") >= doc.index("dashboard-shell"):
                 return False, "expected the sprite to precede the dashboard-shell div"
             if ' style="' in doc:
                 return False, "page_shell() must emit no inline styles"
             return True, ""
         check(
-            "page_shell() emits exactly one sprite (one <defs, twenty-one <symbol) before dashboard-shell, "
+            "page_shell() emits exactly one sprite (one <defs, twenty-two <symbol) before dashboard-shell, "
             "no inline styles",
             _page_shell_emits_sprite_once_no_inline_styles)
 
@@ -1930,11 +2096,25 @@ def main():
         # ("exactly two notification dots, one inside each Health link").
 
         def _health_nav_notification_dot():
+            # RETARGETED IN PLACE (22-14-PLAN.md Task 2, X9/D-10): the
+            # two nav renderers that draw this dot are now the sidebar
+            # and the bottom TAB BAR — the dropdown no longer holds the
+            # Health link the dot attached to. In the tab bar the dot
+            # sits on the More SUMMARY rather than inside the collapsed
+            # sheet, because a dot inside a closed <details> is invisible
+            # at exactly the moment it has something to say. The count
+            # ("exactly twice, one per nav renderer") is unchanged, so
+            # this stays one check, retargeted, not a new one.
+            _DOT_DEVICE_CFG = {"display_enabled": True, "quiet_hours_enabled": False}
             on = layout.page_shell(
-                title="T", active="health", body="<p>b</p>", health_alert="error")
+                title="T", active="health", body="<p>b</p>", health_alert="error",
+                device_config=_DOT_DEVICE_CFG)
             off = layout.page_shell(
-                title="T", active="health", body="<p>b</p>", health_alert=None)
-            default = layout.page_shell(title="T", active="health", body="<p>b</p>")
+                title="T", active="health", body="<p>b</p>", health_alert=None,
+                device_config=_DOT_DEVICE_CFG)
+            default = layout.page_shell(
+                title="T", active="health", body="<p>b</p>",
+                device_config=_DOT_DEVICE_CFG)
             if on.count(layout.NAV_NOTIFICATION_CLASS) != 2:
                 return False, "expected the notification class exactly twice (one per nav renderer) when health_alert='error'"
             if on.count(layout.HEALTH_ALERT_SUFFIX_TEXT) != 2:
@@ -1951,14 +2131,25 @@ def main():
             side_anchor_close_index = side.index("</a>", side_href_index)
             if not (side_href_index < side_dot_index < side_anchor_close_index):
                 return False, "expected the dot to sit inside the Health sidebar link"
-            dropdown = on[on.index('id="%s"' % layout.MOBILE_NAV_ID):on.index("</header>")]
-            drop_href_index = dropdown.index('href="/health"')
-            drop_dot_index = dropdown.index(layout.NAV_NOTIFICATION_CLASS)
-            drop_anchor_close_index = dropdown.index("</a>", drop_href_index)
-            if not (drop_href_index < drop_dot_index < drop_anchor_close_index):
-                return False, "expected the dot to sit inside the Health dropdown link"
+            # The sub-960px half: the dot sits inside the tab bar's More
+            # SUMMARY — the visible cell that leads to Health — and never
+            # inside the collapsed sheet, where it could not be seen.
+            bar_start = on.index('<nav class="tab-bar"')
+            bar = on[bar_start:on.index("</nav>", bar_start)]
+            summary_start = bar.index("<summary")
+            summary_end = bar.index("</summary>", summary_start)
+            if layout.NAV_NOTIFICATION_CLASS not in bar[summary_start:summary_end]:
+                return False, (
+                    "expected the dot inside the tab bar's More summary, not hidden inside "
+                    "its collapsed sheet")
+            if layout.NAV_NOTIFICATION_CLASS in bar[summary_end:]:
+                return False, (
+                    "expected no second dot inside the More sheet — one per nav renderer")
+            if layout.NAV_NOTIFICATION_CLASS in bar[:summary_start]:
+                return False, "expected no dot on any of the four everyday tabs"
             other_active = layout.page_shell(
-                title="T", active="config", body="", health_alert="error")
+                title="T", active="config", body="", health_alert="error",
+                device_config=_DOT_DEVICE_CFG)
             if other_active.count(layout.NAV_NOTIFICATION_CLASS) != 2:
                 return False, "expected exactly two dot occurrences (one per nav renderer) regardless of the active tab"
             css_path = os.path.join(HERE, "static", "style.css")
@@ -1970,8 +2161,9 @@ def main():
                 return False, "expected the visually-hidden utility class to be styled"
             return True, ""
         check(
-            "the Health notification dot appears inside the Health link in both nav renderers "
-            "when health_alert='error', nowhere when None/omitted, and never on another link",
+            "the Health notification dot appears inside the Health sidebar link and on the tab "
+            "bar's More summary — one per nav renderer — when health_alert='error', nowhere when "
+            "None/omitted, and never on another link (retargeted from the dropdown, 22-14-PLAN.md Task 2)",
             _health_nav_notification_dot)
 
         def _hidden_form_control_floor_and_global_floor_both_survive():
@@ -2020,8 +2212,13 @@ def main():
             _hidden_form_control_floor_and_global_floor_both_survive)
 
         def _health_nav_notification_dot_warn_severity():
+            # RETARGETED IN PLACE (22-14-PLAN.md Task 2): the sub-960px
+            # renderer that draws this dot is the tab bar now, so the
+            # render needs a device config for the bar to exist. Same
+            # count, same severity assertions.
             warn = layout.page_shell(
-                title="T", active="health", body="<p>b</p>", health_alert="warn")
+                title="T", active="health", body="<p>b</p>", health_alert="warn",
+                device_config={"display_enabled": True, "quiet_hours_enabled": False})
             if warn.count(layout.NAV_NOTIFICATION_CLASS) != 2:
                 return False, "expected the notification class exactly twice (one per nav renderer) when health_alert='warn'"
             if "dot--warn" not in warn:
@@ -2090,25 +2287,50 @@ def main():
             _toggle_aria_contract_and_fixed_label)
 
         def _dropdown_contents_and_order():
-            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            # RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task
+            # 2, X9/D-10). This check used to pin "every NAV_TABS link,
+            # then the theme form". The dropdown no longer holds
+            # destinations at all — that block WAS the ~420px page shove
+            # X9 measured — so the check now pins the panel's real
+            # contract instead: the state reminder first, then the
+            # language switch, the theme switch and Sign out, in that
+            # order, and NOTHING else. That is a narrower assertion, not
+            # a weaker one: it enumerates the whole panel rather than a
+            # prefix of it.
+            doc = layout.page_shell(
+                title="T", active="health", body="<p>b</p>",
+                device_config={"display_enabled": True, "quiet_hours_enabled": False})
             panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
             panel = doc[panel_start:doc.index("</header>")]
             for route, _label in layout.NAV_TABS:
-                if ('href="%s"' % route) not in panel:
-                    return False, "missing dropdown href for %r" % route
-            if panel.count("mobile-nav__link--active") != 1:
-                return False, "expected exactly one active dropdown link"
-            theme_index = panel.find('action="/ui-theme"')
-            if theme_index == -1:
-                return False, "expected the theme form inside the dropdown"
-            for route, _label in layout.NAV_TABS:
-                href_index = panel.index('href="%s"' % route)
-                if href_index > theme_index:
-                    return False, "expected every nav link to precede the theme form in the dropdown"
+                if route == layout.HOME_ROUTE:
+                    continue
+                if ('href="%s"' % route) in panel:
+                    return False, (
+                        "expected zero destination links in the dropdown, found %r" % route)
+            if "mobile-nav__link" in panel:
+                return False, "expected zero dropdown destination links"
+            order = []
+            for needle, name in (
+                    ('class="nav-status', "the state reminder"),
+                    ('action="/ui-lang"', "the language switch"),
+                    ('action="/ui-theme"', "the theme switch"),
+                    ('action="/logout"', "Sign out")):
+                index = panel.find(needle)
+                if index == -1:
+                    return False, "expected %s inside the dropdown" % name
+                order.append((index, name))
+            if order != sorted(order):
+                return False, (
+                    "expected the reminder, then language, theme and Sign out, in that order; "
+                    "got %r" % (order,))
+            if panel.count('class="mobile-nav__footer"') != 1:
+                return False, "expected exactly one footer region in the dropdown"
             return True, ""
         check(
-            "the dropdown panel holds every NAV_TABS link (exactly one active) followed by the "
-            "theme form, in that order",
+            "the dropdown panel holds the state reminder, then the language and theme switches and "
+            "Sign out, in that order — and zero destination links (retargeted in place from the "
+            "retired six-link menu, 22-14-PLAN.md Task 2)",
             _dropdown_contents_and_order)
 
         def _three_file_nav_dom_contract_guard():
@@ -2128,9 +2350,15 @@ def main():
             ):
                 if literal not in js:
                     return False, "DOM contract drift: %r is not looked up by nav-dropdown.js" % literal
+            # RETARGETED IN PLACE (22-14-PLAN.md Task 2): "mobile-nav__nav"
+            # leaves this list because its rule is DELETED along with the
+            # element (the dropdown holds no nav region any more), and
+            # "tab-bar" joins it because the sub-960px nav contract now
+            # spans that component too. "mobile-nav__link" stays: the tab
+            # bar's More sheet reuses it verbatim for its 44px/16px rows.
             for cls in (
                 "site-nav-toggle", "mobile-nav", "mobile-nav--open",
-                "mobile-nav__nav", "mobile-nav__link",
+                "mobile-nav__link", "tab-bar", "tab-bar__link",
             ):
                 if cls not in css:
                     return False, "DOM contract drift: %r is not styled in style.css" % cls
@@ -2155,25 +2383,49 @@ def main():
             # `.js .mobile-nav` CSS clipping rule and nav-dropdown.js's
             # `panel.hidden` toggling only ever apply once client-side
             # script has run, never from the server.
-            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            doc = layout.page_shell(
+                title="T", active="health", body="<p>b</p>",
+                device_config={"display_enabled": True, "quiet_hours_enabled": False})
             panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
             panel = doc[panel_start:doc.index("</header>")]
             if " hidden" in panel or 'hidden="' in panel:
                 return False, "the no-JS floor requires the panel stay in the accessibility tree"
             if "display:" in panel:
                 return False, "the no-JS floor requires the panel carry no inline display style"
+            # RETARGETED IN PLACE, STRICTLY NARROWER (22-14-PLAN.md Task
+            # 2, X9/D-10): the nav links this asserted are in the bottom
+            # TAB BAR now. The no-JS floor moves with them and gets
+            # stronger, because the tab bar's own "More" disclosure is a
+            # native <details> — so the Advanced group opens with scripts
+            # blocked too, which the dropdown could only do by being
+            # rendered unclipped.
+            bar_start = doc.index('<nav class="tab-bar"')
+            bar = doc[bar_start:doc.index("</nav>", bar_start)]
             for route, _label in layout.NAV_TABS:
-                if ('href="%s"' % route) not in panel:
-                    return False, "missing dropdown href for %r with JavaScript disabled" % route
+                if ('href="%s"' % route) not in bar:
+                    return False, "missing tab-bar href for %r with JavaScript disabled" % route
+            # A bare `hidden` attribute only — `aria-hidden` on the tab
+            # glyphs is correct and must not be caught by this.
+            if re.search(r"<[^>]*\shidden(?=[\s>=])", bar):
+                return False, (
+                    "the tab bar must never be hidden by an attribute — its visibility is a "
+                    "media query only")
+            if "<details class=\"tab-bar__more\">" not in bar:
+                return False, (
+                    "the Advanced group must open natively with scripts blocked, via <details>")
+            if "<script" in bar or "onclick" in bar:
+                return False, "the tab bar must need no script to work"
             html_tag_end = doc.index(">", doc.index("<html"))
             html_tag = doc[:html_tag_end]
             if 'class="js"' in html_tag or ' js"' in html_tag or ' js ' in html_tag:
                 return False, "server-rendered <html> tag must never carry the .js marker class"
             return True, ""
         check(
-            "with JavaScript disabled every nav link stays present in the dropdown panel's DOM "
-            "(the collapsed look is a CSS max-height constraint, not a hidden attribute or "
-            "display:none) and the server-rendered <html> tag carries no .js marker class",
+            "with JavaScript disabled the dropdown panel stays unclipped in the DOM (the collapsed "
+            "look is a CSS max-height constraint, not a hidden attribute or display:none), every nav "
+            "link stays reachable in the tab bar with its Advanced group behind a native <details> "
+            "needing no script, and the server-rendered <html> tag carries no .js marker class "
+            "(retargeted onto the tab bar, 22-14-PLAN.md Task 2)",
             _dropdown_survives_with_javascript_disabled)
 
         def _nav_dropdown_js_progressive_enhancement_state_machine():
@@ -2209,6 +2461,172 @@ def main():
             "implements the hidden-attribute/transitionend/reduced-motion state machine, matched "
             "by style.css's .js-scoped clipping rules",
             _nav_dropdown_js_progressive_enhancement_state_machine)
+
+        # --- 22-14-PLAN.md Task 1 (X9, D-10, 22-UI-SPEC.md §3.1): ------
+        # --- the bottom tab bar, the THIRD nav rendering             ---
+
+        _TAB_BAR_DEVICE_CFG = {
+            "display_enabled": True, "quiet_hours_enabled": False}
+
+        def _tab_bar_slice(doc):
+            start = doc.index('<nav class="tab-bar"')
+            return doc[start:doc.index("</nav>", start) + len("</nav>")]
+
+        def _tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
+            # The structural guarantee this check exists to defend
+            # (references/mobile-navigation.md): all nav renderings
+            # consume one iteration, so they cannot disagree about the
+            # tab set. Asserting the rendered DESTINATIONS match — not
+            # merely that both renderings are non-empty — is what makes
+            # a hand-listed copy of the routes fail here.
+            doc = layout.page_shell(
+                title="T", active="flights", body="<p>b</p>",
+                device_config=_TAB_BAR_DEVICE_CFG)
+            bar = _tab_bar_slice(doc)
+            sidebar = layout.sidebar_nav("flights")
+            bar_routes = re.findall(r'<a class="[^"]*" href="([^"]+)"', bar)
+            sidebar_routes = re.findall(
+                r'<a class="sidebar-link[^"]*" href="([^"]+)"', sidebar)
+            if bar_routes != sidebar_routes:
+                return False, (
+                    "expected the tab bar\'s destinations to equal the sidebar\'s, in order; "
+                    "got %r vs %r" % (bar_routes, sidebar_routes))
+            if sidebar_routes != [route for route, _label in layout.NAV_TABS]:
+                return False, (
+                    "expected both renderings to follow NAV_TABS order, got %r"
+                    % (sidebar_routes,))
+
+            # Five cells: the four everyday destinations as direct tab
+            # links, then More as a native <details>.
+            everyday = [route for route, _label in layout.NAV_GROUPS[0][1]]
+            advanced = [route for route, _label in layout.NAV_GROUPS[1][1]]
+            tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
+            if tab_links != everyday:
+                return False, (
+                    "expected exactly the unlabelled everyday group as tab links, got %r"
+                    % (tab_links,))
+            if bar.count("<details class=\"tab-bar__more\">") != 1:
+                return False, "expected exactly one <details> More cell"
+            if bar.count("<summary") != 1:
+                return False, "expected the More cell to be a native <summary>"
+            sheet = bar[bar.index('<div class="tab-bar__more-panel">'):]
+            sheet_links = re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', sheet)
+            if sheet_links != advanced:
+                return False, (
+                    "expected the More sheet to hold exactly the Advanced group, got %r"
+                    % (sheet_links,))
+
+            # Exactly one aria-current, on the real link, never on the
+            # disclosure control (T-22-53).
+            if bar.count('aria-current="page"') != 1:
+                return False, (
+                    "expected exactly one aria-current=\"page\" in the tab bar, got %d"
+                    % bar.count('aria-current="page"'))
+            if bar.count("tab-bar__link--active") != 1:
+                return False, "expected exactly one active tab"
+            active_tag_start = bar.rindex("<a", 0, bar.index('aria-current="page"'))
+            if "tab-bar__link--active" not in bar[active_tag_start:bar.index(
+                    ">", active_tag_start)]:
+                return False, "expected the aria-current link to be the active tab"
+
+            # On an Advanced page the More SUMMARY wears the pill, so a
+            # collapsed bar never lies about where you are — while
+            # aria-current stays on the one real link inside the sheet.
+            advanced_doc = layout.page_shell(
+                title="T", active="health", body="<p>b</p>",
+                device_config=_TAB_BAR_DEVICE_CFG)
+            advanced_bar = _tab_bar_slice(advanced_doc)
+            summary_start = advanced_bar.index("<summary")
+            summary_tag = advanced_bar[summary_start:advanced_bar.index(
+                ">", summary_start)]
+            if "tab-bar__link--active" not in summary_tag:
+                return False, (
+                    "expected the More summary to wear the active pill on an Advanced page, "
+                    "got %r" % (summary_tag,))
+            if 'aria-current="page"' in summary_tag:
+                return False, (
+                    "a <summary> is a disclosure control, not the current page — "
+                    "aria-current must stay on the link")
+            if advanced_bar.count('aria-current="page"') != 1:
+                return False, "expected exactly one aria-current on an Advanced page too"
+            if "tab-bar__link--active" in advanced_bar[
+                    :advanced_bar.index("<details")]:
+                return False, "expected none of the four everyday tabs to be active on /health"
+
+            # The landmark name goes through i18n.t() (its French half is
+            # pinned by companion/test_status_pages.py, which owns this
+            # plan's language checks), and the bar carries no script hook
+            # at all: More is a native <details>, so the no-JS floor
+            # (D-09) is met by construction rather than by a fallback.
+            if 'aria-label="Primary navigation"' not in bar:
+                return False, "expected the landmark name on the tab bar"
+            for banned in ("onclick", "data-", "<script", "id=\"site-nav-toggle\""):
+                if banned in bar:
+                    return False, (
+                        "the tab bar must carry no script hook (%r found)" % (banned,))
+            return True, ""
+        check(
+            "the bottom tab bar renders five cells fed by the ONE shared _nav_links() iteration — its "
+            "destinations equal the sidebar\'s in NAV_TABS order, the four everyday routes are tab links "
+            "and the Advanced group is a native <details> sheet, exactly one aria-current=\"page\" sits on "
+            "the real link (never on the <summary>), the More summary wears the active pill on an Advanced "
+            "page, it carries the shared Primary-navigation landmark name, and the whole bar carries no script "
+            "hook (X9/D-10, 22-14-PLAN.md Task 1)",
+            _tab_bar_is_five_cells_from_the_one_shared_nav_iteration)
+
+        def _tab_bar_is_absent_from_the_login_shell_and_the_404():
+            # 22-UI-SPEC.md §3.1: "Where the tab bar does not render: the
+            # login shell and the 404 ... Pre-session pages have no
+            # destinations to offer." The gate is exactly the one
+            # nav_status_html() already uses — a falsy device_config —
+            # so the two can never drift apart.
+            login = layout.login_shell("<p>login</p>")
+            if "tab-bar" in login:
+                return False, "expected no tab bar on the login shell"
+            no_ctx = layout.page_shell(title="404", active="", body="<p>x</p>")
+            if "tab-bar" in no_ctx:
+                return False, (
+                    "expected no tab bar on a page_shell() render with no device config")
+            if layout.TAB_BAR_BODY_CLASS in no_ctx:
+                return False, (
+                    "a page with no bar must reserve no clearance for one — "
+                    "the body marker must be absent")
+            if layout._tab_bar_html("home", device_config=None) != "":
+                return False, "expected _tab_bar_html(device_config=None) to render nothing"
+            if layout._tab_bar_html("home", device_config={}) != "":
+                return False, "expected _tab_bar_html(device_config={}) to render nothing"
+            with_ctx = layout.page_shell(
+                title="T", active="home", body="<p>x</p>",
+                device_config=_TAB_BAR_DEVICE_CFG)
+            # RETARGETED STRICTLY NARROWER by 22-15-PLAN.md Task 2 (T13),
+            # which changed this clause's own premise: `<body>` now also
+            # carries freshness.js's two translated loop-state strings,
+            # so the tag is no longer `<body class="...">` with nothing
+            # after it. The class marker must still be the FIRST
+            # attribute on the tag (which is what the trailing space
+            # pins), AND the two T13 attributes must be present — on
+            # BOTH shells, since they are emitted unconditionally like
+            # the deferred scripts. That is more than the single literal
+            # it replaces asserted.
+            if ('<body class="%s" ' % layout.TAB_BAR_BODY_CLASS) not in with_ctx:
+                return False, (
+                    "expected the body marker exactly when the bar renders, and first on the tag, "
+                    "so the page-foot clearance is reserved only where there is a bar to clear")
+            for doc, label in ((with_ctx, "a bar page"), (no_ctx, "a no-bar page")):
+                for attr in (layout.REFRESH_PAUSED_ATTR, layout.REFRESH_RECONNECTING_ATTR):
+                    if ('<body' in doc) and ('%s="' % attr) not in doc:
+                        return False, (
+                            "expected %r on <body> for %s — freshness.js builds its neutral "
+                            "loop-state badge client-side and reads its copy from there (T13)"
+                            % (attr, label))
+            if with_ctx.count('<nav class="tab-bar"') != 1:
+                return False, "expected exactly one tab bar per document"
+            return True, ""
+        check(
+            "the tab bar renders from the authenticated shell only and only with a device config — never "
+            "on the login shell, never on the 404 — and the <body> clearance marker appears exactly when "
+            "the bar does (X9/D-10, 22-14-PLAN.md Task 1)",
+            _tab_bar_is_absent_from_the_login_shell_and_the_404)
 
         # --- 260902-v26 Task 1: parse_single_uploaded_file(), stdlib-only ---
         # --- single-part multipart parser. Pure in-process checks — no   ---
@@ -2477,6 +2895,78 @@ def main():
         "the 18 themes' previews have pairwise-distinct mean RGB at the crop/size used "
         "(proves the crop box discriminates themes, D-07)",
         _theme_preview_means_pairwise_distinct)
+
+    def _theme_preview_crop_keeps_8_3_and_excludes_every_caption_glyph():
+        # B6 (22-AUDIT.md, 22-10-PLAN.md Task 2): the crop used to end at
+        # y=870 and sliced the render's caption mid-glyph ("AF1789 to New
+        # York" cut horizontally) at every chip size and in the large live
+        # preview. Both properties below are asserted by MEASUREMENT
+        # against a real render, never by restating the constant.
+        x0, y0, x1, y1 = theme_preview.THEME_PREVIEW_CROP_BOX
+        crop_w, crop_h = x1 - x0, y1 - y0
+        size_w, size_h = theme_preview.THEME_PREVIEW_SIZE
+        # Exact ratio, integer arithmetic - a float comparison would let a
+        # near-8:3 box through and the final resize would distort it.
+        if crop_w * size_h != crop_h * size_w:
+            return False, (
+                "the crop box's %dx%d must share THEME_PREVIEW_SIZE's exact %dx%d ratio, or the "
+                "final resize distorts it" % (crop_w, crop_h, size_w, size_h))
+
+        # Ink bands, measured on the "white" theme, where the background
+        # is pure white so "not white" is exactly "inked". render.py
+        # anchors the main text block off the illustration's own opaque
+        # bottom, identically for band and non-band themes, so the band
+        # positions measured here are theme-independent.
+        canvas = render.build_canvas(
+            theme_preview.THEME_PREVIEW_FLIGHT,
+            theme_preview.THEME_PREVIEW_STATE,
+            route=theme_preview.THEME_PREVIEW_ROUTE,
+            previous_flight=theme_preview.THEME_PREVIEW_PREVIOUS_FLIGHT,
+            previous_route=theme_preview.THEME_PREVIEW_PREVIOUS_ROUTE,
+            previous_state=theme_preview.THEME_PREVIEW_PREVIOUS_STATE,
+            theme_id="white",
+        ).convert("RGB")
+        width, height = canvas.size
+        px = canvas.load()
+        bands = []
+        start = None
+        for y in range(height):
+            inked = any(px[x, y] != (255, 255, 255) for x in range(width))
+            if inked and start is None:
+                start = y
+            elif not inked and start is not None:
+                bands.append((start, y - 1))
+                start = None
+        if start is not None:
+            bands.append((start, height - 1))
+        if len(bands) < 3:
+            return False, "expected at least three ink bands in the fixed scene, got %r" % (bands,)
+
+        inside = [b for b in bands if b[0] >= y0 and b[1] < y1]
+        if not inside:
+            return False, "the crop box contains no ink band at all - it would render blank"
+        # Nothing may be half in and half out: a band that straddles
+        # either edge IS the sliced-glyph defect.
+        for band_start, band_end in bands:
+            straddles_top = band_start < y0 <= band_end
+            straddles_bottom = band_start < y1 <= band_end
+            if straddles_top or straddles_bottom:
+                return False, (
+                    "ink band %r is cut by the crop box's %r edge - that is B6's sliced glyph"
+                    % ((band_start, band_end), "top" if straddles_top else "bottom"))
+        # And the band it exists to show must actually be in there: the
+        # tallest band is the main aircraft illustration.
+        tallest = max(bands, key=lambda b: b[1] - b[0])
+        if tallest not in inside:
+            return False, (
+                "the crop box must contain the main illustration band %r whole, got %r inside"
+                % (tallest, inside))
+        return True, ""
+    check(
+        "THEME_PREVIEW_CROP_BOX keeps THEME_PREVIEW_SIZE's exact 8:3 ratio and cuts no ink band at "
+        "either edge - every caption glyph is outside it and the main illustration band is inside "
+        "it whole, measured against a real render (B6, 22-10-PLAN.md Task 2)",
+        _theme_preview_crop_keeps_8_3_and_excludes_every_caption_glyph)
 
     def _theme_preview_bytes_stable_across_calls():
         first = theme_preview.preview_png_bytes("white")
@@ -2806,9 +3296,13 @@ def main():
         # (and never sharing a key with) the older save-triggered-sync
         # flash — every other FLASH_MESSAGES value still carries no
         # runtime placeholder at all.
+        # 22-05-PLAN.md Task 2 (D-04) widens it once more for
+        # FLASH_KEY_SAVED's own "%s" - the one computed delay sentence
+        # (companion/frame_state.py), never a fixed literal any more.
         _interpolated_keys = (
             app_module.FLASH_KEY_POLL_COOLDOWN, app_module.FLASH_KEY_RULE_REPLACED,
-            app_module.FLASH_KEY_CALENDAR_CONNECTED, app_module.FLASH_KEY_CALENDAR_CONNECT_OK)
+            app_module.FLASH_KEY_CALENDAR_CONNECTED, app_module.FLASH_KEY_CALENDAR_CONNECT_OK,
+            app_module.FLASH_KEY_SAVED)
         for key, text in app_module.FLASH_MESSAGES.items():
             if key in _interpolated_keys:
                 continue
@@ -2817,7 +3311,7 @@ def main():
                     "expected no runtime interpolation in FLASH_MESSAGES[%r], got %r "
                     "(UI-SPEC Autonomous Decision 6: flash copy is fixed, never "
                     "interpolated, except the cooldown, rule_replaced, "
-                    "calendar_connected and calendar_connect_ok keys)" % (key, text))
+                    "calendar_connected, calendar_connect_ok and saved keys)" % (key, text))
         return True, ""
     check(
         "every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six "
@@ -3656,28 +4150,282 @@ def main():
             "=>/ let / const  (21-03-PLAN.md Task 2)",
             _real_get_flight_rows_route_serves_expected_body)
 
-        def _eleven_deferred_scripts_before_closing_body():
+        def _twelve_deferred_scripts_before_closing_body():
             # Retargeted in place from _ten_deferred_scripts_before_
             # closing_body() (21-03-PLAN.md Task 2, D-15/R-12):
-            # flight-rows.js is the eleventh unconditional script.
+            # flight-rows.js was the eleventh unconditional script.
+            # Retargeted AGAIN, in place, by 22-15-PLAN.md Task 3 (T14):
+            # submit-guard.js is the twelfth, and it is the one script
+            # here whose consumer is EVERY form in the app rather than
+            # one page — one delegated document-level submit listener,
+            # which is why a single shell registration covers the lot and
+            # why a per-page include would be the per-page handler it
+            # exists to replace.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 11:
-                return False, "expected exactly 11 deferred <script src= tags before </body>, got %d" % count
+            if count != 12:
+                return False, "expected exactly 12 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
                     layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
-                    layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC):
+                    layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC,
+                    layout.SUBMIT_GUARD_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
+            # 22-13-PLAN.md Task 2 (X3): the app has THIRTEEN static
+            # scripts as of 22-15, but an authenticated page still loads
+            # exactly the twelve above — login-card.js is emitted by
+            # login_shell() alone. Asserted here, in the check that
+            # already owns this count, so "the authenticated page's
+            # script count is unchanged" is pinned by the same machine
+            # that pins the count itself rather than by inspection.
+            if layout.LOGIN_CARD_SCRIPT_SRC in doc:
+                return False, (
+                    "login-card.js must not be emitted on an authenticated page — "
+                    "nothing there carries a .login-form")
+            # T14's guard is an ENHANCEMENT, never a boundary: the login
+            # shell must keep working with no guard at all, and this
+            # plan deliberately registers on the authenticated shell
+            # only, so the login form keeps exactly today's behaviour.
+            login = layout.login_shell("<p>login</p>")
+            if layout.SUBMIT_GUARD_SCRIPT_SRC in login:
+                return False, (
+                    "submit-guard.js is registered on the authenticated shell only — the login "
+                    "shell keeps emitting exactly one deferred script (22-15-PLAN.md Task 3)")
             return True, ""
         check(
-            "a rendered authenticated page contains exactly eleven deferred <script src= tags "
+            "a rendered authenticated page contains exactly twelve deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
-            "poll-cooldown.js, confirm-submit.js, theme-preview.js and flight-rows.js",
-            _eleven_deferred_scripts_before_closing_body)
+            "poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js and "
+            "submit-guard.js — and NOT login-card.js, which login_shell() alone emits, nor "
+            "submit-guard.js on that login shell (retargeted in place by 22-15-PLAN.md Task 3)",
+            _twelve_deferred_scripts_before_closing_body)
+
+        def _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard():
+            # T14 (22-AUDIT.md, 22-15-PLAN.md Task 3). One shared guard
+            # for every form, replacing the one-form-only coverage
+            # poll-cooldown.js provided. Served over real HTTP, because
+            # a registration whose route 404s is a guard that does not
+            # exist — and the deferred-script check above would still
+            # pass.
+            status, headers, body = http_request(base + "/static/submit-guard.js")
+            if status != 200:
+                return False, "expected 200 from GET /static/submit-guard.js, got %d" % status
+            text = body.decode("utf-8")
+            for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
+                           "=>", " let ", " const ", "`"):
+                if banned in text:
+                    return False, "did not expect %r in the served submit-guard.js body" % banned
+            for token in ("addEventListener", "submit", "disabled", "setTimeout"):
+                if token not in text:
+                    return False, "expected %r in the served submit-guard.js body" % token
+            # The disable is DEFERRED, which is the whole correctness
+            # argument: a submit button's own name/value joins the form
+            # data set after the listeners return, and companion/
+            # layout.py's theme and language pickers are built from
+            # `<button type="submit" name="ui_theme"/"ui_lang">` — an
+            # inline disable would have made every theme and language
+            # switch a silent no-op.
+            if "window.setTimeout(function () {" not in text:
+                return False, (
+                    "expected the disable to run from a zero-delay timer, not inline in the "
+                    "listener (T14)")
+            if "evt.defaultPrevented" not in text:
+                return False, (
+                    "expected the guard to stand down when another listener cancelled the "
+                    "submission — a form that is not going anywhere must keep a usable button")
+            # The poll button keeps its own cooldown and must not be
+            # double-disabled or re-enabled by this file.
+            if "data-submit-pending" not in text:
+                return False, (
+                    "expected the guard to skip the control poll-cooldown.js already owns, by "
+                    "that script's own semantic handshake attribute (T14)")
+            # No label change: that is D3, Phase 23.
+            for progress_word in ("Saving", "Enregistrement", "textContent"):
+                if progress_word in text:
+                    return False, (
+                        "the guard must write only the `disabled` property — a progress label is "
+                        "D3, Phase 23, and this file must not pre-empt it (found %r)"
+                        % (progress_word,))
+            # The disabled APPEARANCE is the existing treatment, reused,
+            # never a new one: style.css must still declare exactly the
+            # one button:disabled rule, ordered after button:active.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path, "r", encoding="utf-8") as fh:
+                css = fh.read()
+            if css.count("button:disabled {") != 1:
+                return False, (
+                    "expected exactly one button:disabled rule — T14 reuses the existing disabled "
+                    "treatment and adds no new disabled styling")
+            if css.index("button:active {") > css.index("button:disabled {"):
+                return False, (
+                    "expected button:disabled to stay AFTER button:active in source order, or a "
+                    "pressed disabled button loses its own treatment")
+            # No CSP change: script-src 'self', no inline, no nonce.
+            app_path = os.path.join(HERE, "app.py")
+            with open(app_path, "r", encoding="utf-8") as fh:
+                app_src = fh.read()
+            # Scoped to the script-src directive: style-src legitimately
+            # carries 'unsafe-inline' for the app's own seven inline
+            # style attributes, and has since the header was written.
+            if "script-src 'self';" not in app_src:
+                return False, (
+                    "expected the CSP's script-src to stay exactly 'self' (T-22-59)")
+            if "script-src 'self' 'unsafe-inline'" in app_src or "nonce-" in app_src:
+                return False, (
+                    "T14 adds a same-origin file and nothing else — script-src must gain no "
+                    "unsafe-inline and no nonce (T-22-59)")
+            return True, ""
+        check(
+            "a real GET of /static/submit-guard.js returns 200 with an ES5-safe, sink-free body that "
+            "delegates a submit listener and disables the submitting control from a ZERO-DELAY TIMER "
+            "(so the browser has already built the form data set, which is what keeps the named "
+            "theme/language submit buttons working), stands down when another listener cancelled the "
+            "submission, skips the control poll-cooldown.js already owns, writes no label at all, reuses "
+            "the ONE existing button:disabled rule still ordered after button:active, and changes no CSP "
+            "(T14, 22-15-PLAN.md Task 3)",
+            _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard)
+
+        # --- 22-13-PLAN.md Task 2 (X3): login-card.js, the twelfth
+        # static script and the first one this app loads pre-auth ---
+
+        check(
+            "GET /static/login-card.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/login-card.js"))
+
+        def _login_card_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "login-card.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest")
+            for token in banned:
+                if token in src:
+                    return False, "login-card.js must not contain %r" % token
+            required = (
+                "addEventListener", "querySelector", "getAttribute",
+                "data-login-reveal", "aria-pressed",
+                "login-form__field--with-toggle")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in login-card.js" % token
+            # No throttling constant may be duplicated client-side: the
+            # server stays the only authority on whether a login is
+            # accepted (T-22-46).
+            for leaked in ("LOGIN_FAILURE_LIMIT", "LOGIN_LOCKOUT_S"):
+                if leaked in src:
+                    return False, (
+                        "login-card.js must not duplicate %r — the countdown is "
+                        "presentational over server state, never a second "
+                        "throttle" % leaked)
+            return True, ""
+        check(
+            "login-card.js stays ES5-safe and sink-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR), carries "
+            "the reveal contract (addEventListener/querySelector/getAttribute/"
+            "data-login-reveal/aria-pressed/the class-at-load modifier) and duplicates no "
+            "server-side throttling constant (X3, T-22-46/T-22-49)",
+            _login_card_script_es5_safe_and_no_html_write)
+
+        def _login_card_script_route_src_agree():
+            import companion.app as app_module
+            if layout.LOGIN_CARD_SCRIPT_SRC != app_module.LOGIN_CARD_SCRIPT_ROUTE:
+                return False, "login-card script route drift: %r vs %r" % (
+                    layout.LOGIN_CARD_SCRIPT_SRC, app_module.LOGIN_CARD_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.LOGIN_CARD_SCRIPT_SRC equals companion.app.LOGIN_CARD_SCRIPT_ROUTE",
+            _login_card_script_route_src_agree)
+
+        def _login_page_emits_exactly_one_script_tag():
+            status, _headers, body = http_request(base + "/login")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            if text.count("<script") != 1:
+                return False, (
+                    "expected exactly one <script occurrence on the login page, got %d "
+                    "— login_shell() emitted ZERO before this plan and must now emit "
+                    "exactly one" % text.count("<script"))
+            expected_tag = '<script src="%s" defer></script>' % layout.LOGIN_CARD_SCRIPT_SRC
+            if expected_tag not in text:
+                return False, "expected %r on the login page" % expected_tag
+            # The CSP's own no-inline-script rule (D-32/D-09), asserted
+            # on the ONE page in the app that is reachable without a
+            # session.
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", text):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            if "unsafe-inline" in text or "nonce-" in text:
+                return False, "no nonce or unsafe-inline may appear on the login page"
+            return True, ""
+        check(
+            "a rendered login page contains exactly ONE <script occurrence, the deferred "
+            "LOGIN_CARD_SCRIPT_SRC tag, with no inline script and no nonce — login_shell() "
+            "emitted zero script tags before this plan (X3, 22-13-PLAN.md Task 2)",
+            _login_page_emits_exactly_one_script_tag)
+
+        def _login_reveal_toggle_is_server_hidden_and_named():
+            status, _headers, body = http_request(base + "/login")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            toggle_at = text.find("data-login-reveal")
+            if toggle_at == -1:
+                return False, "expected the show-password toggle in the login card"
+            tag_open = text.rindex("<button", 0, toggle_at)
+            tag = text[tag_open:text.index(">", toggle_at) + 1]
+            # The no-JS floor, held by construction: the toggle is
+            # ALWAYS server-rendered hidden, and login-card.js is the
+            # only thing that ever reveals it.
+            if " hidden " not in tag:
+                return False, (
+                    "the show-password toggle must server-render with the hidden "
+                    "attribute, got %r" % tag)
+            if 'type="button"' not in tag:
+                return False, "the toggle must be type=\"button\", never a submit"
+            if 'aria-pressed="false"' not in tag:
+                return False, "the toggle must server-render aria-pressed=\"false\""
+            # Both accessible names ship, both translated, on every
+            # render — the script only swaps between them.
+            for needed in (
+                    'data-show-label="Show password"',
+                    'data-hide-label="Hide password"'):
+                if needed not in tag:
+                    return False, "expected %r on the toggle" % needed
+            from companion import i18n as i18n_module
+            for english in ("Show password", "Hide password"):
+                if i18n_module.t_lang(english, "fr") == english:
+                    return False, "%r has no French catalogue entry" % english
+            # It reuses .copy-btn verbatim rather than inventing a
+            # second icon-button size.
+            if 'class="copy-btn login-reveal"' not in tag:
+                return False, (
+                    "the toggle must carry .copy-btn as its first class so the 22x22 "
+                    "box, the 44x44 ::before hit area and the 14px glyph box are "
+                    "reused verbatim, got %r" % tag)
+            # The padding hook is NOT server-rendered: a scripts-blocked
+            # page must have no empty gutter.
+            if "login-form__field--with-toggle" in text:
+                return False, (
+                    "the field's padding modifier must be added at load by "
+                    "login-card.js, never server-rendered — a scripts-blocked page "
+                    "shows no toggle and so must reserve no room for one")
+            return True, ""
+        check(
+            "the server-rendered show-password toggle carries the hidden attribute, "
+            "type=\"button\", aria-pressed=\"false\", both translated accessible names and "
+            ".copy-btn's own icon-only geometry — and the field's padding modifier is NOT "
+            "server-rendered (X3, the no-JS floor by construction)",
+            _login_reveal_toggle_is_server_hidden_and_named)
 
         # --- login: wrong password, right password, cookie flags ---
 
@@ -3797,6 +4545,191 @@ def main():
             "GET /login (no session) is rendered by the dedicated login_shell(), not "
             "page_shell() — no sidebar/mobile-nav markup, autocomplete present",
             _login_page_uses_dedicated_login_shell)
+
+        # --- 22-13-PLAN.md Task 1 (X3, 22-UI-SPEC.md §3.2/§5 contract 5):
+        # the login card's stacked geometry and its programmatically
+        # associated error state ---
+
+        def _login_clean_render_carries_no_error_association():
+            status, _headers, body = http_request(base + "/login")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            # The two NEGATIVE assertions X3 turns on. `aria-invalid`
+            # must be absent entirely on a clean render — not present
+            # with a "false" value, which announces the field as
+            # validated-and-fine to a screen reader that has been given
+            # nothing to validate yet.
+            if "aria-invalid" in text:
+                return False, (
+                    "a clean login render must carry no aria-invalid at all, "
+                    "found one in the response body")
+            if "aria-describedby" in text:
+                return False, (
+                    "a clean login render must carry no aria-describedby — "
+                    "there is no message for it to point at")
+            if 'id="login-error"' in text:
+                return False, "a clean login render must render no message element"
+            # The stacked geometry's own hooks, server side.
+            for needed in ('class="login-form"', 'class="login-form__input"'):
+                if needed not in text:
+                    return False, "expected %r in the login card markup" % needed
+            # The page title IS the brand mark, in the correct role
+            # (22-UI-SPEC.md §3.2 declines the audit's "small brand
+            # mark" suggestion): a bare <h1 class="page-title">, with no
+            # glyph beside it, this app's own headings-carry-no-glyphs
+            # rule (quick task 260902-j8w).
+            if '<h1 class="page-title">SkyPane</h1>' not in text:
+                return False, "expected the bare page-title brand mark with no glyph beside it"
+            if "<svg" in text or "icon-defs" in text:
+                return False, (
+                    "the login card must add no icon/brand glyph — login_shell() "
+                    "deliberately emits no ICON_DEFS_HTML sprite")
+            # The stylesheet actually carries the geometry the markup
+            # asks for. Before this plan, style.css had NO rule for
+            # either control (X3's headline finding).
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path, encoding="utf-8") as fh:
+                css = fh.read()
+            for selector in (
+                    ".login-form__input {",
+                    '.login-form__input[aria-invalid="true"] {',
+                    '.login-card button[type="submit"] {'):
+                if selector not in css:
+                    return False, "expected the rule %r in companion/static/style.css" % selector
+            return True, ""
+        check(
+            "GET /login with no error renders the stacked card (a .login-form with a "
+            ".login-form__input and a bare page-title brand mark, no glyph, no sprite) and "
+            "carries NEITHER aria-invalid NOR aria-describedby — never aria-invalid=\"false\" "
+            "— with style.css carrying the field/primary/error-border rules it had none of "
+            "before (X3, 22-13-PLAN.md Task 1)",
+            _login_clean_render_carries_no_error_association)
+
+        def _login_error_render_is_programmatically_associated():
+            status, _headers, body = http_request(
+                base + "/login", method="POST",
+                data=urllib.parse.urlencode(
+                    {"password": "still-not-the-real-password"}).encode())
+            if status != 401:
+                return False, "expected 401 for a wrong password, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            if 'aria-invalid="false"' in text:
+                return False, "aria-invalid=\"false\" must never be emitted on this card"
+            for needed in (
+                    'aria-invalid="true"',
+                    'aria-describedby="login-error"',
+                    '<p id="login-error" class="field-error text-label" role="alert">'):
+                if needed not in text:
+                    return False, "expected %r in the error render" % needed
+            # Placement: the message sits UNDER the field and ABOVE the
+            # primary, which is the whole point of reusing .field-error
+            # (its margin-top attaches it to the control above it). Before
+            # this plan the message was a bare <p class="text-body"> at
+            # the TOP of the card, outside the form entirely.
+            field_at = text.index('class="login-form__input"')
+            message_at = text.index('id="login-error"')
+            submit_at = text.index('<button type="submit">')
+            if not field_at < message_at < submit_at:
+                return False, (
+                    "expected field -> message -> primary in document order, got "
+                    "offsets %d / %d / %d" % (field_at, message_at, submit_at))
+            if '<p class="text-body" role="alert">' in text:
+                return False, (
+                    "the old bare text-body alert paragraph must be gone — one error "
+                    "voice on this card")
+            return True, ""
+        check(
+            "a wrong-password login render carries aria-invalid=\"true\", "
+            "aria-describedby=\"login-error\" and a role=\"alert\" message in the existing "
+            ".field-error text-label treatment, rendered between the field and the primary "
+            "(X3, 22-UI-SPEC.md §5 contract 5)",
+            _login_error_render_is_programmatically_associated)
+
+        def _login_lockout_render_shares_the_one_error_voice():
+            # Its own isolated Harness(), mirroring the manual-resolution
+            # checks below: driving the process-global LOGIN_THROTTLE to
+            # its limit locks THAT subprocess out for LOGIN_LOCKOUT_S,
+            # and the lockout branch is checked before the password is,
+            # so a correct password cannot unlock it again over HTTP.
+            # Running this against the shared harness would break every
+            # later check that logs in.
+            lockout_harness = Harness()
+            try:
+                lockout_harness.start()
+                lockout_base = lockout_harness.base_url()
+                for _attempt in range(auth.LOGIN_FAILURE_LIMIT):
+                    http_request(
+                        lockout_base + "/login", method="POST",
+                        data=urllib.parse.urlencode({"password": "wrong"}).encode())
+                status, _headers, body = http_request(
+                    lockout_base + "/login", method="POST",
+                    data=urllib.parse.urlencode({"password": TEST_PASSWORD}).encode())
+                if status != 429:
+                    return False, (
+                        "expected 429 once the throttle has locked out, got %d" % status)
+                text = body.decode("utf-8", errors="replace")
+                # Same treatment, same element id, same role — only the
+                # copy differs (22-UI-SPEC.md §3.2's "one error voice").
+                if '<p id="login-error" class="field-error text-label" role="alert">' not in text:
+                    return False, (
+                        "the lockout sentence must render in the SAME .field-error "
+                        "text-label treatment as the wrong-password message")
+                if 'aria-describedby="login-error"' not in text:
+                    return False, "expected aria-describedby on the locked-out field"
+                # But NOT aria-invalid: what the user typed is not what
+                # is wrong during a lockout, and aria-invalid="false" is
+                # never emitted on this card either.
+                if "aria-invalid" in text:
+                    return False, (
+                        "the lockout branch must carry no aria-invalid — the typed "
+                        "value is not what is wrong, the form is locked")
+                if "Too many attempts" not in text:
+                    return False, "expected the server-computed lockout sentence"
+                # 22-13-PLAN.md Task 3 (X3): both controls are natively
+                # disabled, and the live countdown is seeded from the
+                # server's OWN remaining figure — appearing exactly once
+                # in the page, on the form, in the same
+                # server-computes/data-attribute/script-reads shape
+                # poll-cooldown.js already uses. No throttling constant
+                # crosses with it (T-22-46/T-22-48).
+                if text.count("data-lockout-seconds=") != 1:
+                    return False, (
+                        "expected exactly one server-produced countdown seed in the "
+                        "rendered page, got %d" % text.count("data-lockout-seconds="))
+                seed = re.search(r'data-lockout-seconds="(\d+)"', text)
+                if not seed or int(seed.group(1)) <= 0:
+                    return False, (
+                        "expected a positive server-computed seed, got %r"
+                        % (seed.group(1) if seed else None))
+                if int(seed.group(1)) > auth.LOGIN_LOCKOUT_S:
+                    return False, (
+                        "the seed must be the server's own seconds_remaining() "
+                        "figure, never longer than the window itself")
+                for needed in ('data-lockout-template="', 'data-lockout-token="'):
+                    if needed not in text:
+                        return False, "expected %r on the locked-out form" % needed
+                if "LOGIN_FAILURE_LIMIT" in text or str(auth.LOGIN_FAILURE_LIMIT) + '"' in text:
+                    return False, "no throttling constant may be rendered into the page"
+                field_tag = text[text.index("<input type=\"password\""):]
+                field_tag = field_tag[:field_tag.index(">") + 1]
+                if " disabled" not in field_tag:
+                    return False, (
+                        "the password field must be natively disabled during a "
+                        "lockout, got %r" % field_tag)
+                if '<button type="submit" disabled>' not in text:
+                    return False, (
+                        "the primary must be natively disabled during a lockout, in "
+                        "the existing button:disabled treatment")
+                return True, ""
+            finally:
+                lockout_harness.stop()
+                lockout_harness.cleanup()
+        check(
+            "a locked-out login render puts the server-computed lockout sentence in the SAME "
+            ".field-error text-label role=alert treatment under the field, with "
+            "aria-describedby but deliberately no aria-invalid (X3, one error voice)",
+            _login_lockout_render_shares_the_one_error_voice)
 
         def _both_shells_agree_on_document_language():
             # D-01/UXA-09: a single, cheap, permanent guard that
@@ -4213,8 +5146,15 @@ def main():
             _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
             display_text = display_body.decode("utf-8", errors="replace")
             device_text = device_body.decode("utf-8", errors="replace")
-            if 'name="theme"' not in display_text or 'name="quiet_hours_enabled"' not in display_text:
-                return False, "expected the Display page to carry the theme and quiet-hours groups"
+            # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): retargeted — the
+            # quiet_hours_enabled checkbox this check used to require is
+            # retired outright (the Frame strip is the only on/off
+            # control left); the schedule itself (quiet_hours_start/end)
+            # is what still lives on this page.
+            if 'name="theme"' not in display_text or 'name="quiet_hours_start"' not in display_text:
+                return False, "expected the Display page to carry the theme and quiet-hours schedule groups"
+            if 'name="quiet_hours_enabled"' in display_text or 'name="display_enabled"' in display_text:
+                return False, "expected no quiet_hours_enabled/display_enabled checkbox on the Display page"
             # 20-07 (D-10/D-11) moved Runway (and Calendar/the rules
             # editor) from Device to Display; only the LED group stayed
             # on Device — Display carries tracked_runway but never
@@ -7401,6 +8341,80 @@ def main():
         # plan's own new checks in test_view_pages.py (Home's health
         # link, Airlines' "Change pictures" toggle) and test_config_
         # page.py (Display's two full <details> disclosures).
+
+        # ==============================================================
+        # Section 6 (22-08-PLAN.md Task 1/2, D-06/B16): round-trip
+        # checks for every flash template, every page <title> and the
+        # nav/theme labels this plan translates — i18n.t_lang(), never
+        # prefs.set_request_prefs(), which would leak its ContextVar
+        # state into every check that runs after this one in the same
+        # process (companion/test_i18n.py's own documented reason for
+        # the same choice).
+        # ==============================================================
+
+        def _flash_and_title_strings_round_trip_to_french_and_back():
+            import companion.app as app_module
+            import companion.i18n as i18n_module
+
+            def _assert_round_trips(text, label):
+                en_result = i18n_module.t_lang(text, "en")
+                if en_result != text:
+                    return (
+                        "expected t_lang(%r, 'en') to be byte-identical to "
+                        "the English source (%s), got %r" % (text, label, en_result))
+                fr_result = i18n_module.t_lang(text, "fr")
+                if fr_result == text:
+                    return (
+                        "expected t_lang(%r, 'fr') (%s) to be a real French "
+                        "translation, got the English source back unchanged"
+                        % (text, label))
+                return None
+
+            for key, template in app_module.FLASH_MESSAGES.items():
+                problem = _assert_round_trips(template, "FLASH_MESSAGES[%r]" % (key,))
+                if problem:
+                    return False, problem
+            for route, title in app_module._PAGE_TITLES.items():
+                problem = _assert_round_trips(title, "_PAGE_TITLES[%r]" % (route,))
+                if problem:
+                    return False, problem
+            # The two <title> literals with no FLASH_MESSAGES/_PAGE_TITLES
+            # home: the 404's own short-form title and the login shell's.
+            for title in ("Not Found", "Login"):
+                problem = _assert_round_trips(title, "the %r <title> literal" % (title,))
+                if problem:
+                    return False, problem
+            return True, ""
+        check(
+            "every companion.app.FLASH_MESSAGES template and every "
+            "_PAGE_TITLES value, plus the 404's and login shell's own "
+            "<title> literals, round-trip to French under "
+            "i18n.t_lang(..., 'fr') and to their original English text "
+            "under i18n.t_lang(..., 'en')",
+            _flash_and_title_strings_round_trip_to_french_and_back)
+
+        def _nav_and_theme_labels_round_trip_to_french_and_back():
+            import companion.i18n as i18n_module
+            for text in ("Primary navigation", "Auto", "Light", "Dark"):
+                en_result = i18n_module.t_lang(text, "en")
+                if en_result != text:
+                    return False, (
+                        "expected t_lang(%r, 'en') to be byte-identical to "
+                        "the English source, got %r" % (text, en_result))
+                fr_result = i18n_module.t_lang(text, "fr")
+                if fr_result == text:
+                    return False, (
+                        "expected t_lang(%r, 'fr') to be a real French "
+                        "translation, got the English source back "
+                        "unchanged" % (text,))
+            return True, ""
+        check(
+            "the nav landmark's aria-label (\"Primary navigation\") and "
+            "the theme picker's three segment labels (\"Auto\"/\"Light\"/"
+            "\"Dark\") round-trip to French under i18n.t_lang(..., 'fr') "
+            "and to their original English text under "
+            "i18n.t_lang(..., 'en') (D-06/B16)",
+            _nav_and_theme_labels_round_trip_to_french_and_back)
 
     finally:
         harness.stop()

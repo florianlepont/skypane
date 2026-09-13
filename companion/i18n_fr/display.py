@@ -73,7 +73,7 @@ CATALOG = {
     "— when the screen is lit and when it stays quiet.":
         "— quand l’écran est allumé et quand il reste silencieux.",
     "Applies the next time the frame wakes up.":
-        "S’applique la prochaine fois que le cadre se réveille.",
+        "S’applique au prochain réveil du cadre.",
 
     # --- Frame colours card (config_page.py's _frame_colours_card_html(),
     #     D-06..D-12, 21-05-PLAN.md Task 1) — replaces the retired Theme
@@ -95,6 +95,15 @@ CATALOG = {
         "Choisissez le thème de couleurs pour les départs, les "
         "arrivées, les vols du calendrier et vos propres règles.",
     "Selected": "Sélectionné",
+    # 22-10-PLAN.md Task 1 (X6): the one-line legend under each chip
+    # grid naming the two swatch dots. See config_page.py's
+    # THEME_CHIP_SWATCH_LEGEND for why this names departures/arrivals
+    # rather than 22-UI-SPEC.md's proposed "Background · Ink".
+    "Departures · Arrivals": "Départs · Arrivées",
+    # 22-10-PLAN.md Task 1 (T10/B16): the "Current" badge on the saved
+    # chip/runway card, which used to be a hard-coded English
+    # `content: "Current"` in style.css that no catalogue could reach.
+    "Current": "Actuel",
 
     # --- The live theme preview above the chip grid (D-22..D-24,
     #     20-11-PLAN.md Task 2, 20-UI-SPEC.md copy table E) -------------
@@ -157,25 +166,34 @@ CATALOG = {
     "Callsign prefix": "Préfixe d’indicatif",
     "Delete": "Supprimer",
 
-    # --- Screen on/off + Quiet hours cards, and their shared instant-
-    #     switch words (config_page.py's display_group()/
-    #     quiet_hours_group(), D-19) ----------------------------------
-    "Screen on / off": "Écran allumé / éteint",
-    "Turns the physical panel off remotely, without touching the "
-    "hardware. Takes effect within about 5 minutes, both switching "
-    "off and back on.":
-        "Éteint le panneau physique à distance, sans toucher au "
-        "matériel. Prend effet en environ 5 minutes, à l’extinction "
-        "comme au rallumage.",
-    "Enable display": "Activer l’écran",
+    # --- Quiet hours card (config_page.py's quiet_hours_group(), D-19) -
+    # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): "Screen on / off",
+    # display_group()'s own caption, "Enable display" and "Enable quiet
+    # hours" are all deleted here, in the same commit as their English
+    # source constants/checkbox labels — the Frame strip is now the ONLY
+    # on/off control for either setting, and none of the four is called
+    # through i18n.t() anywhere any more.
     "Quiet hours": "Heures calmes",
-    "Pauses the frame's wake, poll and display cycle overnight. "
-    "Applies on the next scheduled poll, which may now be hours away.":
+    # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): the enable-by-schedule
+    # sentence that replaces the retired "Applies on the next scheduled
+    # poll, which may now be hours away" wording — Task 2 appends one
+    # computed delay sentence (below) as this caption's own second
+    # sentence, never a second, competing caption element.
+    "Pauses the frame's wake, poll and display cycle during the schedule "
+    "below — the Frame strip's Quiet hours switch is what turns it on "
+    "and off.":
         "Met en pause le réveil, la vérification et l’affichage du "
-        "cadre pendant la nuit. S’applique lors de la prochaine "
-        "vérification programmée, qui peut désormais être dans "
-        "plusieurs heures.",
-    "Enable quiet hours": "Activer les heures calmes",
+        "cadre pendant la plage horaire ci-dessous — c’est l’interrupteur "
+        "Heures calmes du bandeau Cadre qui l’active ou la désactive.",
+    # 22-05-PLAN.md Task 2 (D-04): the two DELAY_DUE/DELAY_HELD delay-
+    # sentence branches this caption's own computed second sentence uses
+    # are DELIBERATELY NOT redefined here — they already have a live
+    # entry in companion/i18n_fr/frame_state.py (22-02-PLAN.md Task 2),
+    # and the package's own auto-merge guard raises on a duplicate key.
+    # config_page.py's own scanner-visibility copies
+    # (_QUIET_HOURS_DELAY_DUE_TEXT/_QUIET_HOURS_DELAY_HELD_TEXT) are what
+    # make the D-05 AST scan trace these two CATALOG keys as genuinely
+    # produced now — see that module's own comment for the pattern.
     "Start": "Début",
     "End": "Fin",
     "Night (%s–%s)": "Nuit (%s–%s)",

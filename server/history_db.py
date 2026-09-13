@@ -30,6 +30,7 @@ import os
 import sqlite3
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py (lines 31-38),
 # so this file works both as `import server.history_db` and when executed
@@ -272,10 +273,26 @@ def latest_device_health(conn):
     return dict(row) if row is not None else None
 
 
+def _paris_day_or_none(ts):
+    """Parse a stored `device_health.ts` string and return the `date` of its
+    Europe/Paris calendar day, or `None` if `ts` does not parse. A naive
+    `ts` (no UTC offset) is taken as UTC before converting - the same
+    assumption SQLite's `date()` made, so a `2026-09-02T01:30:00+02:00`
+    reading still buckets to `2026-09-02` in Paris, not `2026-09-01` in UTC.
+    """
+    try:
+        parsed = datetime.fromisoformat(ts)
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(ZoneInfo("Europe/Paris")).date()
+
+
 def daily_battery_averages(conn, since=None):
-    """(260902-l0b) One row per UTC calendar day that has at least one
-    numeric battery reading, newest day first: `{"ts": "YYYY-MM-DD",
-    "battery_mv": <int>, "reading_count": <int>}`.
+    """(22-06-PLAN.md Task 1) One row per Europe/Paris calendar day that has
+    at least one numeric battery reading, newest day first: `{"ts":
+    "YYYY-MM-DD", "battery_mv": <int>, "reading_count": <int>}`.
 
     The key is deliberately named `ts`, not `day` - it makes these rows
     structurally interchangeable with `recent_device_health()`'s rows for
@@ -283,58 +300,78 @@ def daily_battery_averages(conn, since=None):
     off whatever it is given. One plotting function, one row contract, no
     adapter layer.
 
-    `battery_mv` is `AVG(battery_mv)` rounded to the nearest integer in
-    Python (`int(round(...))`, never in SQL) - `reading_count` is how many
-    rows contributed to that average.
+    `battery_mv` is the mean of the bucket's `battery_mv` values rounded to
+    the nearest integer in Python (`int(round(...))`) - `reading_count` is
+    how many rows contributed to that average.
 
-    Four facts, verified against a real SQLite connection during planning
-    (re-verify before trusting, a stored `ts` is attacker-influenceable -
-    see `tail_caddy_battery_log()` below):
-    - `date(ts)` converts an offset timestamp to UTC *before* taking the
-      calendar day (`2026-09-02T01:30:00+02:00` -> `"2026-09-01"`), so
-      buckets are UTC days - consistent with every other timestamp on the
-      Health page, which is labelled UTC. Every other timestamp shape the
-      writer produces (naive, `Z`-suffixed, space-separated, fractional
-      seconds) parses the same way.
-    - `date()` returns NULL for an unparseable string. `ts` in this table
-      is `TEXT NOT NULL` but not otherwise validated - `tail_caddy_battery_log()`
-      stores whatever string sits in a Caddy access-log entry's own `ts`
-      field, so a hostile or malformed value can reach this column. The
-      query filters `date(ts) IS NOT NULL` so such a row forms no bucket
-      at all, rather than a phantom NULL-keyed day.
-    - `AVG()` already ignores NULL inputs on its own, but the explicit
-      `battery_mv IS NOT NULL` filter is kept anyway: without it, a day
-      with only NULL-battery rows would still form a bucket (an `AVG` of
-      nothing is NULL, which the `int(round(...))` cast would then choke
-      on), and `reading_count` needs to mean "readings that contributed to
-      this average", not "rows recorded on this day".
+    Five facts (the first four preserved from the SQL version this
+    replaced, re-verify before trusting, a stored `ts` is attacker-
+    influenceable - see `tail_caddy_battery_log()` below):
+    - The calendar day is now the Europe/Paris day, not the UTC day:
+      bucketing happens in Python via `_paris_day_or_none()`, which
+      converts through `ZoneInfo("Europe/Paris")` before taking `.date()`.
+      `2026-09-02T01:30:00+02:00` -> Paris day `2026-09-02` (it was UTC day
+      `2026-09-01` under the old `date(ts)` behaviour). Every other
+      timestamp shape the writer produces (naive, `Z`-suffixed,
+      space-separated, fractional seconds) still parses, via
+      `datetime.fromisoformat()`.
+    - A row whose `ts` does not parse forms no bucket at all, rather than a
+      phantom NULL-keyed day - `ts` in this table is `TEXT NOT NULL` but
+      not otherwise validated, and `tail_caddy_battery_log()` stores
+      whatever string sits in a Caddy access-log entry's own `ts` field, so
+      a hostile or malformed value can reach this column. `_paris_day_or_
+      none()` catches the parse failure per row and returns `None`, which
+      is filtered out before averaging - the same behaviour `date(ts) IS
+      NOT NULL` provided.
+    - The `battery_mv IS NOT NULL` filter stays in the SQL fetch: without
+      it, a day with only NULL-battery rows would still form a bucket (an
+      average of nothing would then choke the `int(round(...))` cast), and
+      `reading_count` needs to mean "readings that contributed to this
+      average", not "rows recorded on this day".
     - This is a read. D-13's keep-forever retention is untouched here or
       anywhere - `since`, like `BATTERY_TREND_LIMIT` elsewhere in this
       codebase, is a display window, never a retention bound. Nothing is
       deleted.
+    - DST caveat, same accepted framing as `seconds_until_quiet_hours_end()`
+      (`server/device_config.py`): there is no SQL fixed-offset modifier
+      that is DST-correct for Europe/Paris (`date(ts, '+1 hours')` is wrong
+      for half the year; `date(ts, 'localtime')` follows the server OS's
+      timezone, not a fixed Europe/Paris), so the bucketing had to move to
+      Python. `ZoneInfo` resolves the fold correctly across both
+      transitions (the skipped March hour and the repeated October hour),
+      which is the property a fixed-offset SQL modifier cannot have.
 
-    Two literal-string branches, `?`-parameterised, mirroring
-    `route_source_counts()`/`corroboration_counts()` above. The `since`
-    cutoff compares `ts` directly against the placeholder - never a
-    `date()` call wrapped around the left-hand side, which would discard
-    `idx_device_health_ts`.
+    The `since` cutoff still compares raw `ts` directly against the
+    placeholder in SQL - never a `date()` call wrapped around the
+    left-hand side - so `idx_device_health_ts` is still used; only the
+    GROUP BY moved out of SQL.
     """
     if since is not None:
         rows = conn.execute(
-            "SELECT date(ts) AS day, AVG(battery_mv) AS avg_mv, COUNT(*) AS n "
-            "FROM device_health WHERE ts >= ? AND battery_mv IS NOT NULL "
-            "AND date(ts) IS NOT NULL GROUP BY date(ts) ORDER BY day DESC",
+            "SELECT ts, battery_mv FROM device_health "
+            "WHERE ts >= ? AND battery_mv IS NOT NULL",
             (since,),
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT date(ts) AS day, AVG(battery_mv) AS avg_mv, COUNT(*) AS n "
-            "FROM device_health WHERE battery_mv IS NOT NULL "
-            "AND date(ts) IS NOT NULL GROUP BY date(ts) ORDER BY day DESC"
+            "SELECT ts, battery_mv FROM device_health WHERE battery_mv IS NOT NULL"
         ).fetchall()
+
+    buckets = {}
+    for row in rows:
+        day = _paris_day_or_none(row["ts"])
+        if day is None:
+            continue
+        total, count = buckets.get(day, (0, 0))
+        buckets[day] = (total + row["battery_mv"], count + 1)
+
     return [
-        {"ts": row["day"], "battery_mv": int(round(row["avg_mv"])), "reading_count": row["n"]}
-        for row in rows
+        {
+            "ts": day.isoformat(),
+            "battery_mv": int(round(buckets[day][0] / buckets[day][1])),
+            "reading_count": buckets[day][1],
+        }
+        for day in sorted(buckets.keys(), reverse=True)
     ]
 
 

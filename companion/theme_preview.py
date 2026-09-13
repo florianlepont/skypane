@@ -98,18 +98,47 @@ THEME_PREVIEW_PREVIOUS_ROUTE = {
 THEME_PREVIEW_STATE = "departing"
 THEME_PREVIEW_PREVIOUS_STATE = "arriving"
 
-# Full canvas width, a 450px-tall horizontal slice starting a little past
-# the top-row labels. Exactly 8:3 (1200:450), matching THEME_PREVIEW_SIZE
-# below so the final resize never distorts the crop. Measured (2026-09-03)
-# against all 16 registered themes to yield a pairwise-distinct mean RGB —
-# it spans the main illustration/text block and, for the five band themes,
-# the diagonal band's own crossing, so every theme paints something
-# different inside this box. D-07's "thin band across the top third of the
-# chip, cropped from the real 1200x1600 render" is what this constant
-# implements. Re-confirmed (2026-09-05) against the widened 18-theme set
-# (quick task 260905-e04's two tone-on-tone band_*_field themes) — still a
-# pairwise-distinct mean RGB across all 18, no change needed to this box.
-THEME_PREVIEW_CROP_BOX = (0, 420, 1200, 870)
+# Full canvas width, a 450px-tall horizontal slice of the panel's
+# colour-bearing illustration band. Exactly 8:3 (1200:450), matching
+# THEME_PREVIEW_SIZE below so the final resize never distorts the crop.
+#
+# TWO PROPERTIES ARE LOAD-BEARING and must both survive any future change
+# to this constant: the exact 8:3 ratio, and a PAIRWISE-DISTINCT mean RGB
+# across every registered theme (so no two themes can render identical
+# chips). Measured (2026-09-03) against 16 themes, re-confirmed
+# (2026-09-05) against the widened 18-theme set (quick task 260905-e04's
+# two tone-on-tone band_*_field themes), and re-measured again below.
+#
+# B6 (22-AUDIT.md, 22-10-PLAN.md Task 2): the box was (0, 420, 1200, 870)
+# and sliced the render's own caption mid-glyph — "AF1789 to New York"
+# cut horizontally — at every chip size and in the large live preview. A
+# sliced glyph reads as a rendering bug rather than as a crop.
+#
+# The fix EXCLUDES the caption entirely rather than including it: a
+# 160x108 chip (104px compact after X6) cannot render legible caption
+# text at any crop, and the chip's job is to show the theme's COLOURS —
+# its illustration band plus its two real-palette swatch dots. Measured
+# ink bands in the 1200x1600 fixed-scene render (rows carrying any
+# non-background pixel): 70-84 the top labels, 489-792 the main aircraft,
+# 859-888 the caption, 904-919 the airline sub-caption, 1122+ the
+# previous-flight card. render.py anchors the main text block at
+# `main_placement.content[3] + MAIN_TEXT_GAP_PX` = 847 for every theme,
+# band themes included, so 847 is the theme-independent ceiling.
+#
+# This box is 390..840: it clears the top labels by 305px, contains the
+# whole main illustration, and ends 7px above the text block's own anchor
+# and 19px above the caption's first inked row. Re-measured (2026-09-13)
+# across all 18 registered themes: still pairwise-distinct, minimum
+# per-channel-sum separation 14.845 (the box it replaces measured 14.968
+# on the same metric — an unchanged margin, not a newly-narrow one).
+#
+# NOT a CSS `object-fit` workaround: this is a server-side constant, and
+# the PNG it produces is served to the chips, the live preview and every
+# other consumer. Fixing it in the stylesheet would leave the image wrong
+# for all of them. `preview_signature()` below folds this constant into
+# the cache digest, so changing it is a clean cache MISS with no purge
+# step — THEME_PREVIEW_CACHE_VERSION did not need bumping.
+THEME_PREVIEW_CROP_BOX = (0, 390, 1200, 840)
 
 # 2x D-07's ~160x60 figure, so the chip's 160px-wide band stays crisp on a
 # 2x (Retina-class) display. The panel is DOWNscaled here (1200 -> 320,

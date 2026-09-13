@@ -33,6 +33,12 @@ before binding the socket. A missing password fails closed — this
 service must never come up with authentication silently disabled.
 """
 import email.message
+# 22-13-PLAN.md Task 3 (X3): used for exactly one thing — serialising the
+# login lockout's server-computed remaining-seconds figure into the
+# data-* attribute companion/static/login-card.js seeds its countdown
+# from, which is what 22-UI-SPEC.md §3.2 specifies for that seed. The
+# figure never crosses this boundary as anything a client supplied.
+import json
 import os
 import socket
 import sqlite3
@@ -58,7 +64,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    auth, i18n, illustration_normalize, layout, prefs, theme_preview, wake)
+    auth, frame_state, i18n, illustration_normalize, layout, prefs, theme_preview, wake)
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
@@ -189,6 +195,20 @@ THEME_PREVIEW_SCRIPT_ROUTE = "/static/theme-preview.js"
 # FLIGHT_ROWS_SCRIPT_SRC must equal this exactly, mirroring the
 # SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the eleventh static script.
 FLIGHT_ROWS_SCRIPT_ROUTE = "/static/flight-rows.js"
+# 22-13-PLAN.md Task 2 (X3): companion/layout.py's LOGIN_CARD_SCRIPT_SRC
+# must equal this exactly, mirroring the SCRIPT_ROUTE/NAV_SCRIPT_ROUTE
+# pairs above — the twelfth static script. Pre-auth like every one of
+# them, which here is not merely acceptable but required: the only page
+# that loads it is the login page, which by definition has no session.
+LOGIN_CARD_SCRIPT_ROUTE = "/static/login-card.js"
+# 22-15-PLAN.md Task 3 (T14): companion/layout.py's
+# SUBMIT_GUARD_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the thirteenth static
+# script. Pre-auth like every one of them; the file itself is inert
+# until a form is submitted, so serving it before a session exists costs
+# nothing and keeps this route identical in shape to its twelve
+# siblings.
+SUBMIT_GUARD_SCRIPT_ROUTE = "/static/submit-guard.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -354,7 +374,13 @@ FLASH_MESSAGES = {
     FLASH_KEY_QUIET_ON: "Quiet hours turned on — applies the next time the frame wakes up.",
     FLASH_KEY_QUIET_OFF: "Quiet hours turned off — applies the next time the frame wakes up.",
     FLASH_KEY_QUICK_FAILED: "Couldn't change that — please try again.",
-    FLASH_KEY_SAVED: "Saved — will apply on the frame's next scheduled refresh.",
+    # 22-05-PLAN.md Task 2 (D-04): "%s" is filled by _resolve_flash_text()'s
+    # own frame-state special case below with ONE computed delay sentence
+    # (companion/frame_state.py, via the SAME wake.next_wake_status()
+    # triple the Frame strip and the Quiet hours caption both read) —
+    # never the retired fixed literal "will apply on the frame's next
+    # scheduled refresh" this key used to carry.
+    FLASH_KEY_SAVED: "Saved — %s",
     FLASH_KEY_SAVE_FAILED: (
         "Couldn't save settings — please try again. If this keeps "
         "happening, check the companion service logs."),
@@ -366,8 +392,15 @@ FLASH_MESSAGES = {
         "Poll trigger failed — please try again. If this keeps happening, "
         "check the companion service logs."),
     FLASH_KEY_POLL_ALREADY_RUNNING: "A poll is already in progress — try again in a moment.",
+    # 22-05-PLAN.md Task 2 (D-04): reworded to remove the retired "will
+    # apply on the frame's next scheduled refresh" literal (the acceptance
+    # grep for that phrase is repository-wide, not scoped to the settings
+    # save it originally described) — matches FLASH_KEY_RULE_ADDED's own
+    # established "next time it wakes and polls" voice, an accurate,
+    # already-existing wording for this same "next scheduled poll cycle"
+    # fact, not a new claim about illustrations specifically.
     FLASH_KEY_ILLUSTRATION_REPLACED: (
-        "Illustration replaced — will apply on the frame's next scheduled refresh."),
+        "Illustration replaced — the frame will use it next time it wakes and polls."),
     # Actionable, states the real requirements in user terms, and never
     # echoes a server path or any part of the uploaded file back to the
     # client (T-v26-02-08) — validate_illustration_file()'s own problem
@@ -588,6 +621,8 @@ _POLL_COOLDOWN_JS_PATH = os.path.join(_HERE, "static", "poll-cooldown.js")
 _CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
 _THEME_PREVIEW_JS_PATH = os.path.join(_HERE, "static", "theme-preview.js")
 _FLIGHT_ROWS_JS_PATH = os.path.join(_HERE, "static", "flight-rows.js")
+_LOGIN_CARD_JS_PATH = os.path.join(_HERE, "static", "login-card.js")
+_SUBMIT_GUARD_JS_PATH = os.path.join(_HERE, "static", "submit-guard.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -622,6 +657,57 @@ _PAGE_TITLES = {
 # instead of the generic "Companion Access" copy the old page_shell()-based
 # login reused.
 LOGIN_EXPLANATION_TEXT = "Sign in to manage this device's settings."
+
+# 22-13-PLAN.md Task 1 (X3, 22-UI-SPEC.md §3.2): the login card's lockout
+# sentence, promoted to a module constant beside LOGIN_EXPLANATION_TEXT
+# above — the same treatment that constant already documents for
+# user-facing copy. Unchanged wording, unchanged French catalogue key;
+# only its home moves, because _login_body() and (from Task 3) the live
+# countdown's own template must both be built from this one string rather
+# than from two literals that could drift.
+LOGIN_LOCKOUT_TEXT = "Too many attempts — try again in %ds."
+
+# 22-13-PLAN.md Task 3 (X3): the substitution token the live countdown
+# swaps for the current remaining figure each second, mirroring
+# companion/pages/config_page.py's own POLL_COOLDOWN_TEMPLATE_TOKEN
+# exactly. The template is built by replacing "%d" in the ALREADY
+# TRANSLATED sentence rather than by hand, because the French catalogue
+# entry puts a space before the unit ("dans %d s.") and rebuilding that
+# on the JS side would silently drop it.
+#
+# The value is POLL_COOLDOWN_TEMPLATE_TOKEN's own, byte for byte, and
+# that is load-bearing rather than cosmetic: companion/test_i18n.py's
+# Check 1 scans every UPPERCASE module constant in this file and demands
+# a French catalogue entry for it, excluding only values that are
+# plainly not prose. "__N__" is excluded as an uppercase code; a
+# lowercase placeholder such as a braced single letter is NOT, and would
+# have to be either translated (meaningless) or added to an exception
+# list (which this plan will not do silently).
+LOGIN_LOCKOUT_TEMPLATE_TOKEN = "__N__"
+
+# The id the login card's ONE message element carries (the wrong-password
+# error and the lockout sentence share it — one error voice per
+# 22-UI-SPEC.md §3.2), and the id `aria-describedby` points at when, and
+# only when, that message is rendered. One constant, so the attribute and
+# its target can never drift apart.
+LOGIN_MESSAGE_ID = "login-error"
+
+# 22-13-PLAN.md Task 2 (X3): the show-password toggle's two accessible
+# names. Both are rendered on every login page as server-escaped data-*
+# attributes and swapped by companion/static/login-card.js, so that file
+# hard-codes no English of its own — the same shape flight-rows.js's own
+# data-show-label/data-hide-label pair already uses for its row toggle.
+LOGIN_REVEAL_SHOW_LABEL = "Show password"
+LOGIN_REVEAL_HIDE_LABEL = "Hide password"
+
+# The toggle's two glyphs: a filled circle while the value is masked, a
+# hollow one while it is revealed. Not translated and never translatable
+# — they are marks, not words, which is why they sit outside the
+# LOGIN_REVEAL_*_LABEL pair above and inside an aria-hidden span. They
+# exist so the control's own state is legible without relying on colour
+# (the pressed wash) alone.
+LOGIN_REVEAL_MASKED_GLYPH = "●"
+LOGIN_REVEAL_SHOWN_GLYPH = "○"
 
 # Quick task 260903-peo (UIR-16): the 404 page's title and one-sentence
 # purpose, promoted to module constants matching LOGIN_EXPLANATION_TEXT's
@@ -664,7 +750,8 @@ def _validated_next_route(candidate):
     return candidate if candidate in allowed else None
 
 
-def _resolve_flash_text(flash_key, state_dir, rule_key=None):
+def _resolve_flash_text(
+        flash_key, state_dir, rule_key=None, last_checkin_ts=None, device_cfg=None):
     """`rule_key` (Phase 15 D-10, 15-05-PLAN.md) is the second special
     case this function carries, mirroring FLASH_KEY_POLL_COOLDOWN's own
     runtime-value-interpolation shape immediately below: FLASH_KEY_RULE_
@@ -684,10 +771,54 @@ def _resolve_flash_text(flash_key, state_dir, rule_key=None):
     parameter could carry — degrades to the generic FLASH_KEY_RULE_ADDED
     copy rather than ever reaching the page unvalidated; `escape_html()`
     on render (`layout.flash_banner()`) is the second line.
+
+    22-05-PLAN.md Task 2 (D-04): `last_checkin_ts`/`device_cfg` (both
+    fully defaulted, so every pre-existing caller that does not pass
+    them behaves exactly as before) feed the ONE computed delay sentence
+    FLASH_KEY_SAVED's own special case below needs — the SAME
+    `wake.next_wake_status()` triple the Frame strip and the Quiet hours
+    caption both read (`companion/frame_state.py`), so all three can
+    never disagree about when a save reaches the frame.
     """
     if flash_key not in FLASH_MESSAGES:
         return None
-    template = FLASH_MESSAGES[flash_key]
+    # 22-08-PLAN.md Task 1 (D-06/B16): translate the TEMPLATE first, then
+    # fill any "{n}"/"{s}"/"{key}"/"%s" placeholder afterwards, never the
+    # other way round — so the French template controls where the
+    # interpolated value lands, exactly like the FLASH_KEY_SAVED branch
+    # below already does for its own delay-sentence fill. Written as one
+    # expression (`i18n.t(FLASH_MESSAGES[flash_key])`), not a two-step
+    # `x = FLASH_MESSAGES[flash_key]; x = i18n.t(x)`, so companion/
+    # test_i18n.py's ast-based scanner (which traces a dict reached
+    # through a Name inside an i18n.t() call's own argument expression)
+    # sees FLASH_MESSAGES as a real i18n.t() consumer and scans every one
+    # of its values for a French catalogue entry.
+    template = i18n.t(FLASH_MESSAGES[flash_key])
+    if flash_key == FLASH_KEY_SAVED:
+        # The three retired wordings this key (and its own settings-page
+        # caption siblings) used to carry — "Takes effect within about 5
+        # minutes", "Applies on the next scheduled poll, which may now be
+        # hours away", "Saved — will apply on the frame's next scheduled
+        # refresh" — are all gone; this is their one shared replacement.
+        next_wake_iso, effective_interval_s, hold_reason = wake.next_wake_status(
+            last_checkin_ts, device_cfg or {})
+        delay_template = frame_state.delay_sentence_template(
+            next_wake_iso, effective_interval_s, hold_reason)
+        delay_text = i18n.t(delay_template)
+        if "%s" in delay_text:
+            next_wake_parsed = layout.parse_iso(next_wake_iso)
+            clock = (
+                layout.local_clock_text(next_wake_parsed)
+                if next_wake_parsed is not None else None)
+            delay_text = (
+                delay_text % clock if clock else i18n.t(frame_state.DELAY_UNKNOWN))
+        # Lower-cased so the computed clause reads naturally after
+        # "Saved — " (every frame_state sentence is written to stand
+        # alone, capitalised, as a settings-caption's own second
+        # sentence — not as a flash banner's trailing clause).
+        if delay_text:
+            delay_text = delay_text[:1].lower() + delay_text[1:]
+        return template % delay_text
     if flash_key == FLASH_KEY_POLL_COOLDOWN:
         return template.format(n=poll_cooldown_remaining(state_dir))
     if flash_key == FLASH_KEY_CALENDAR_CONNECTED:
@@ -713,7 +844,13 @@ def _resolve_flash_text(flash_key, state_dir, rule_key=None):
     if flash_key == FLASH_KEY_RULE_REPLACED:
         normalised_key = colour_rules.normalise_rule_callsign(rule_key)
         if normalised_key is None:
-            return FLASH_MESSAGES[FLASH_KEY_RULE_ADDED]
+            # 22-08-PLAN.md Task 1 (D-06): this fallback used to return
+            # FLASH_MESSAGES[FLASH_KEY_RULE_ADDED] directly — the raw,
+            # untranslated English template, bypassing the i18n.t() call
+            # every other return path in this function now goes through
+            # (Rule 1 fix: an invalid rule_key silently produced an
+            # English banner under a French request).
+            return i18n.t(FLASH_MESSAGES[FLASH_KEY_RULE_ADDED])
         return template.format(key=normalised_key)
     return template
 
@@ -1294,6 +1431,11 @@ class Handler(BaseHTTPRequestHandler):
         # (plan 16-03), which is what makes this safe to call
         # unconditionally on every authenticated page render (T-16-DOS).
         calendar_registry = calendar_rules.load_calendar_registry(state_dir)
+        # 22-05-PLAN.md Task 2 (D-04): captured once here and reused for
+        # both the "last_checkin_ts" ctx key below and _resolve_flash_
+        # text()'s own FLASH_KEY_SAVED special case — never a second,
+        # independent read of the same fact.
+        last_checkin_ts = _safe_last_checkin_ts(state_dir)
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
@@ -1311,7 +1453,7 @@ class Handler(BaseHTTPRequestHandler):
             # Data only — the page module that renders it formats it
             # (wake.next_wake_at_iso() + layout.local_clock_text()),
             # matching wake.py's own deliberate no-view-dependency rule.
-            "last_checkin_ts": _safe_last_checkin_ts(state_dir),
+            "last_checkin_ts": last_checkin_ts,
             # D-07 (11-04): the deployed SKYPANE_SLEEP_S, read fresh from
             # this process's own environment on every request — an int in
             # [WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S] or None. An
@@ -1323,7 +1465,9 @@ class Handler(BaseHTTPRequestHandler):
             # (11-RESEARCH.md Open Question 2: an empty numeric input
             # means "leave unchanged", never "clear").
             "wake_interval_env_default": env_wake_interval_default(),
-            "flash": _resolve_flash_text(flash_key, state_dir, rule_key=rule_key),
+            "flash": _resolve_flash_text(
+                flash_key, state_dir, rule_key=rule_key, last_checkin_ts=last_checkin_ts,
+                device_cfg=device_cfg),
             # 06.6.2-06 (UXA-07): the ARIA role the resolved flash text
             # should render with, looked up from the same flash_key this
             # method already resolved above — "status" for any key not
@@ -1490,7 +1634,14 @@ class Handler(BaseHTTPRequestHandler):
             % (HOME_ROUTE, layout.escape_html(i18n.t("Back to Home")))
         )
         return layout.page_shell(
-            title="Not Found", active="", body=body,
+            # 22-08-PLAN.md Task 1 (D-06/B16): the <title> tag's own short
+            # form — distinct from NOT_FOUND_TITLE above (the page
+            # heading's longer sentence) — was the literal "Not Found",
+            # rendering an English browser tab under a French "État"/etc.
+            # sidebar. i18n.t() needs a new companion/i18n_fr/common.py
+            # entry for this exact string (unrelated to NOT_FOUND_TITLE's
+            # own, already-translated one).
+            title=i18n.t("Not Found"), active="", body=body,
             ui_theme=self._resolved_ui_theme(), health_alert=health_alert)
 
     def _login_body(self, error=None, lockout_seconds=None, next_route=None):
@@ -1510,36 +1661,176 @@ class Handler(BaseHTTPRequestHandler):
         unconditionally — this is the one page in the app with a
         single, always-relevant focus target, so no error-conditional
         branching is needed.
+
+        `error`, when truthy (22-08-PLAN.md Task 3, D-06/B16), is
+        ALREADY translated — the caller runs it through i18n.t() before
+        passing it in, so companion/test_i18n.py's scanner can trace
+        the literal at its one real call site instead of across an
+        opaque function-parameter boundary it has no way to follow.
+        This function only escapes it; it never calls i18n.t() itself
+        on `error`.
+
+        22-13-PLAN.md Task 1 (X3, 22-UI-SPEC.md §3.2/§5 contract 5)
+        restructures the card: the message — whichever of the two
+        applies — moves from a bare `<p class="text-body">` at the TOP
+        of the card into the form, directly UNDER the field, in the
+        existing `.field-error text-label` treatment (companion/static/
+        style.css:383, added 19-07 for A-25; this card is that class's
+        second consumer, and its `margin-top` exists for exactly this
+        placement). One error voice: the lockout sentence and the
+        wrong-password sentence share the treatment and the element id,
+        differing only in copy.
+
+        `aria-describedby` is emitted only when a message is actually
+        rendered, and `aria-invalid="true"` only on the wrong-password
+        branch. It is never emitted with a negative value (that would
+        announce a field as validated-and-fine before anything has been
+        validated), and never on the lockout branch, where the typed
+        value is not what is wrong — the form is locked. `role="alert"`
+        is kept on both, which is the existing, correct behaviour.
+
+        This prose deliberately avoids writing the negative attribute
+        out as a literal: 22-13-PLAN.md Task 1's own acceptance
+        criterion is a `grep -c` over this whole file, and a mention in
+        a docstring would trip it exactly as three earlier plans in this
+        phase tripped a JS harness guard with a token inside their own
+        new comment.
         """
         parts = [
             '<h1 class="page-title">SkyPane</h1>',
             '<p class="text-body">%s</p>' % layout.escape_html(i18n.t(LOGIN_EXPLANATION_TEXT)),
         ]
-        if lockout_seconds:
-            parts.append(
-                '<p class="text-body" role="alert">%s</p>'
-                % layout.escape_html(
-                    i18n.t("Too many attempts — try again in %ds.") % lockout_seconds))
+        # `if lockout_seconds:` (not `is not None`) keeps this branch
+        # byte-identical in behaviour to the one it replaces — a zero or
+        # absent figure has never rendered a lockout sentence, and
+        # companion/static/login-card.js's own `remaining > 0` guard
+        # agrees with it, exactly as poll-cooldown.js and
+        # poll_trigger_section() agree with each other.
+        locked = bool(lockout_seconds)
+        if locked:
+            message = i18n.t(LOGIN_LOCKOUT_TEXT) % lockout_seconds
         elif error:
-            parts.append(
-                '<p class="text-body" role="alert">%s</p>'
-                % layout.escape_html(i18n.t(error)))
+            message = error
+        else:
+            message = None
+
+        field_attrs = ""
+        if message is not None:
+            field_attrs += ' aria-describedby="%s"' % LOGIN_MESSAGE_ID
+        if message is not None and not locked:
+            field_attrs += ' aria-invalid="true"'
+        # 22-13-PLAN.md Task 3 (X3): during a lockout both controls are
+        # natively disabled, in the EXISTING `button:disabled` treatment
+        # (companion/static/style.css:1815) — no new disabled styling is
+        # added anywhere. This is an affordance, never a boundary:
+        # companion/auth.py's LoginThrottle is re-consulted on every
+        # POST before the password is even looked at, so a visitor who
+        # re-enables these two elements in devtools gains nothing at all.
+        if locked:
+            field_attrs += " disabled"
+
+        # The live countdown's seed and template, on the form itself —
+        # the same server-computes-it/data-attribute/script-reads-it
+        # mechanism companion/pages/config_page.py's poll_trigger_
+        # section() and companion/static/poll-cooldown.js established
+        # (06.6-02 D-01), reused rather than re-derived. The remaining
+        # figure is LOGIN_THROTTLE.seconds_remaining()'s own output,
+        # serialised here; it is never computed from a client clock, and
+        # no throttling constant crosses to the client.
+        form_attrs = ""
+        if locked:
+            form_attrs = (
+                ' data-lockout-seconds="%s" data-lockout-template="%s"'
+                ' data-lockout-token="%s"' % (
+                    layout.escape_html(json.dumps(int(lockout_seconds))),
+                    layout.escape_html(
+                        i18n.t(LOGIN_LOCKOUT_TEXT).replace(
+                            "%d", LOGIN_LOCKOUT_TEMPLATE_TOKEN)),
+                    layout.escape_html(LOGIN_LOCKOUT_TEMPLATE_TOKEN)))
+
+        message_html = (
+            '<p id="%s" class="field-error text-label" role="alert">%s</p>'
+            % (LOGIN_MESSAGE_ID, layout.escape_html(message))
+        ) if message is not None else ""
+
         next_field_html = (
             '<input type="hidden" name="next" value="%s">'
             % layout.escape_html(next_route)) if next_route else ""
         parts.append(
-            '<form method="post" action="%s">'
+            '<form method="post" action="%s" class="login-form"%s>'
             "%s"
             '<label for="password">%s</label>'
+            '<span class="login-form__field">'
             '<input type="password" id="password" name="password" '
-            'autocomplete="current-password" autofocus required>'
-            '<button type="submit">%s</button>'
+            'class="login-form__input" '
+            'autocomplete="current-password" autofocus required%s>'
+            "%s"
+            "</span>"
+            "%s"
+            '<button type="submit"%s>%s</button>'
             "</form>" % (
-                LOGIN_ROUTE, next_field_html,
+                LOGIN_ROUTE, form_attrs, next_field_html,
                 layout.escape_html(i18n.t("Password")),
+                field_attrs,
+                self._login_reveal_toggle_html(),
+                message_html,
+                " disabled" if locked else "",
                 layout.escape_html(i18n.t("Sign in")))
         )
         return "".join(parts)
+
+    @staticmethod
+    def _login_reveal_toggle_html():
+        """The show-password toggle — 22-13-PLAN.md Task 2 (X3,
+        22-UI-SPEC.md §3.2).
+
+        Server-rendered with the `hidden` attribute, ALWAYS, on every
+        branch. companion/static/login-card.js is the only thing that
+        ever removes it, at load. That is the no-JS floor held by
+        construction rather than by a fallback: a browser with scripts
+        blocked never runs that file, so it never sees this control at
+        all — which is this app's own recorded precedent (see
+        .claude/skills/sketch-findings-skypane/references/
+        settings-page-patterns.md: a control that silently does nothing
+        is worse than no control). The same browser loses nothing else:
+        the form still submits and the password still reaches the
+        server exactly as before.
+
+        Reuses `.copy-btn` VERBATIM — the 22x22 visual box, the
+        transparent no-border fill, the `::before` inset synthesizing a
+        real 44x44 hit area, and the scoped 14px glyph box — so no new
+        icon-button size is invented. What it does NOT reuse is
+        `.copy-btn`'s SVG: `login_shell()` emits no ICON_DEFS_HTML
+        sprite, and emitting one would be a third edit to that function
+        beyond the two 22-13-PLAN.md scopes into this plan, so the
+        glyph is a text character in the same 14px box instead. The
+        glyph is swapped with the state (filled = the value is masked,
+        hollow = it is revealed) so the control's own appearance is not
+        carried by colour alone; `aria-pressed` and the two translated
+        accessible names carry it for everyone else.
+
+        Both labels and both glyphs are rendered here, as server-escaped
+        data-* attributes, and read back by the script — the same shape
+        flight-rows.js's own data-show-label/data-hide-label pair uses,
+        so no English string is ever hard-coded on the JS side.
+        """
+        show_label = i18n.t(LOGIN_REVEAL_SHOW_LABEL)
+        return (
+            '<button type="button" class="copy-btn login-reveal" hidden '
+            'aria-pressed="false" aria-label="%s" title="%s" '
+            'data-login-reveal data-show-label="%s" data-hide-label="%s" '
+            'data-show-glyph="%s" data-hide-glyph="%s">'
+            '<span class="icon login-reveal__glyph" aria-hidden="true" '
+            'data-login-reveal-glyph>%s</span>'
+            "</button>" % (
+                layout.escape_html(show_label),
+                layout.escape_html(show_label),
+                layout.escape_html(show_label),
+                layout.escape_html(i18n.t(LOGIN_REVEAL_HIDE_LABEL)),
+                layout.escape_html(LOGIN_REVEAL_MASKED_GLYPH),
+                layout.escape_html(LOGIN_REVEAL_SHOWN_GLYPH),
+                layout.escape_html(LOGIN_REVEAL_MASKED_GLYPH))
+        )
 
     def _render_login_page(self, error=None, lockout_seconds=None, next_route=None):
         # D-03 (20-01-PLAN.md Task 2): pre-session, exactly like
@@ -1680,6 +1971,24 @@ class Handler(BaseHTTPRequestHandler):
         Task 2, D-15/R-12) — the eleventh static script.
         """
         return self._serve_script_file(_FLIGHT_ROWS_JS_PATH)
+
+    def _serve_login_card_script(self):
+        """Serve companion/static/login-card.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_flight_rows_script()'s shape exactly (22-13-PLAN.md
+        Task 2, X3) — the twelfth static script, and the only one whose
+        single consumer is a page that cannot have a session.
+        """
+        return self._serve_script_file(_LOGIN_CARD_JS_PATH)
+
+    def _serve_submit_guard_script(self):
+        """Serve companion/static/submit-guard.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_login_card_script()'s shape exactly (22-15-PLAN.md
+        Task 3, T14) — the thirteenth static script, and the first one
+        whose consumer is every form in the app rather than one page.
+        """
+        return self._serve_script_file(_SUBMIT_GUARD_JS_PATH)
 
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
@@ -2410,7 +2719,17 @@ class Handler(BaseHTTPRequestHandler):
             layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
             if ctx["flash"] else None)
         return layout.page_shell(
-            title=_PAGE_TITLES[route], active=layout.nav_slug(route), body=body,
+            # 22-08-PLAN.md Task 1 (D-06/B16): _PAGE_TITLES' six values are
+            # the exact same English strings as the corresponding nav
+            # labels ("Home", "Display", "Flights", "Airlines", "Health",
+            # "Device") — companion/i18n_fr/nav.py already carries their
+            # French entries, so this i18n.t() call resolves through that
+            # existing catalogue without a new entry, and companion/
+            # test_i18n.py's widened scan (Task 3) sees this dict as a
+            # real i18n.t() consumer via the same Name-in-call-argument
+            # tracing FLASH_MESSAGES above now relies on.
+            title=i18n.t(_PAGE_TITLES[route]), active=layout.nav_slug(route),
+            body=body,
             ui_theme=ctx["ui_theme"], flash=flash_html,
             health_alert=ctx["health_severity"], device_config=ctx["device_config"])
 
@@ -2491,6 +2810,12 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == FLIGHT_ROWS_SCRIPT_ROUTE:
             return self._serve_flight_rows_script()
+
+        if path == LOGIN_CARD_SCRIPT_ROUTE:
+            return self._serve_login_card_script()
+
+        if path == SUBMIT_GUARD_SCRIPT_ROUTE:
+            return self._serve_submit_guard_script()
 
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:
@@ -2586,7 +2911,14 @@ class Handler(BaseHTTPRequestHandler):
                 set_cookie=auth.session_set_cookie_header(token))
         LOGIN_THROTTLE.record_failure()
         return self.send_html(401, self._render_login_page(
-            error="Incorrect password. Try again.", next_route=next_route))
+            # 22-08-PLAN.md Task 3 (D-06/B16): translated HERE, at the
+            # literal call site — see _login_body()'s own docstring for
+            # why (`error` is an opaque parameter by the time it
+            # reaches that function, invisible to the ast-based scanner
+            # rule (c) traces i18n.t() call arguments with — this only
+            # became a live gap once app.py joined the scan in this
+            # same task).
+            error=i18n.t("Incorrect password. Try again."), next_route=next_route))
 
     def _handle_settings_post(self):
         """POST /settings — an app.py-owned handler (D-06/D-09), a

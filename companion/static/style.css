@@ -13,7 +13,11 @@
  * The full current list, kept exhaustive on purpose so a future reader
  * can tell an intended use from an accidental one: primary
  * (`type="submit"`) buttons, links, the focused-input outline, the
- * active sidebar/dropdown link indicator and its tinted pill, the
+ * active sidebar/dropdown/tab-bar link indicator and its tinted pill
+ * (22-14-PLAN.md Task 1 widens this one entry to its third rendering —
+ * the bottom tab bar reuses the identical 12% wash, accent text and
+ * semibold weight, so this is one more consumer of an already-listed
+ * use, not a new accent consumer and not a new entry), the
  * hamburger toggle's active state, a stat tile's icon tint and top
  * accent when no ok/warn/error status applies, the skip link's fill,
  * the selected runway card's border and check glyph, the native
@@ -43,6 +47,45 @@
  * at all — a muted-text mix and a dashed edge only — so it adds nothing
  * to this list. Do not broaden this list without updating
  * 06.6.1-UI-SPEC.md's Color section.
+ *
+ * 22-04-PLAN.md Task 2 (C2, 22-UI-SPEC.md §1 "Accent reservation — the
+ * delta this phase makes"): this list LOSES two entries and gains none.
+ * The Frame strip's two switch buttons ("Switch off"/"Switch on",
+ * "Turn off"/"Turn on") are `type="submit"` and used to be covered by
+ * the "primary buttons" entry above — a `.frame-strip__cell button`
+ * rule (equal (0,1,1) specificity to `button[type="submit"]`, placed
+ * after it in source order, the same mechanism `.logout-form button`/
+ * `.dirty-bar__cancel` already use) now repaints them with the ordinary
+ * quiet-button wash instead, so "primary buttons" no longer includes
+ * them.
+ *
+ * The arithmetic, CORRECTED IN PLACE by 22-16-PLAN.md's closing sweep
+ * because the premise it rested on was wrong. This paragraph used to
+ * read "06.6.4.1-04 already removed the Disconnect button's accent fill
+ * as a specificity BUG fix ... this task's own removal is the first of
+ * the two genuine losses this phase makes". THE FIRST HALF WAS FALSE
+ * WHEN IT WAS WRITTEN and stayed false for another eleven plans: the
+ * Disconnect fill was still live, because `.calendar-disconnect-btn`
+ * was (0,1,0) against `button[type="submit"]`'s (0,1,1), so the primary
+ * accent fill won outright and this app's one DESTRUCTIVE control
+ * rendered as the page's primary CTA. 22-15-PLAN.md Task 1 (T2) is what
+ * actually removed it, by element-qualifying the selector to
+ * `button.calendar-disconnect-btn` — equal (0,1,1) specificity, decided
+ * by source order (see that rule's own comment, far below).
+ *
+ * What the correction does and does not move: the COUNT above is
+ * unchanged, because the Disconnect fill was never a deliberate entry
+ * on this list to begin with — it was a specificity accident, not a
+ * reservation. What moves is WHERE the two losses land. Both are this
+ * phase's: 22-04-PLAN.md Task 2 repainting the Frame strip's two switch
+ * buttons (the sentence above), and 22-15-PLAN.md Task 1 clearing the
+ * Disconnect fill. 22-05-PLAN.md's own settings-form work makes no
+ * change to this list at all. After this phase, `.stat-tile--accent`'s
+ * own top rail is the Frame strip's ONLY remaining accent, and the
+ * page's accent has returned to Save/the page's one primary action —
+ * this sentence states the result; it does not itself remove anything
+ * from the list above, since "primary buttons" is still correct for
+ * every OTHER submit button in the app.
  *
  * Colour-separation contract (heading-color-consistency debug session):
  * `--color-accent` must stay measurably distinguishable from every
@@ -581,11 +624,20 @@ h3,
 }
 
 /* Visible focus outline on every focusable element — never removed without
- * a replacement (accessibility floor, D-22). */
+ * a replacement (accessibility floor, D-22).
+ *
+ * T15 (22-UI-SPEC.md §5 contract 2, 22-15-PLAN.md Task 1): `summary`
+ * joins the list. It is a NATIVE interactive element — keyboard
+ * focusable, Enter/Space operable, already carrying the touch-target
+ * register's kept 44px entry — and it was the one such element in the
+ * app with no visible focus state at all, which is a hole in this
+ * floor rather than a styling gap. It is added here, to the one rule
+ * that owns the floor, rather than given a treatment of its own. */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+summary:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
@@ -695,8 +747,17 @@ a:hover {
   transition: max-height .22s ease;
 }
 
+/* T11 (22-14-PLAN.md Task 2): the ONE max-height for the open dropdown.
+ * A second declaration used to sit ~4900 lines further down and win
+ * silently at 640px; it is deleted, not re-tuned. This value is
+ * MEASURED, not guessed: with the destination links gone the panel holds
+ * the state reminder, the language and theme switches and Sign out, and
+ * its content measures 165px in French at 390px —
+ * the language where the segments and the Sign out label are longest.
+ * The cap is rounded up from that to leave room for a longer future
+ * footer string without clipping it. */
 .js .mobile-nav--open {
-  max-height: 420px;
+  max-height: 320px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -706,32 +767,43 @@ a:hover {
 }
 
 /* Unified save bar (06.6.4.1 D-04, retargeted by 19-10-PLAN.md D-09/
- * A-27): hides the form's always-rendered bottom Save settings button
- * once dirty-state.js has PROVEN its own replacement bar exists, so the
- * dirty-state bar is the sole visible save affordance rather than both
- * showing at once. This used to key on `.js` — added to <html>
- * unconditionally as `nav-dropdown.js`'s very first statement (the same
- * mechanism the `.js .mobile-nav` rules above still rely on) — but `.js`
- * says nothing about whether dirty-state.js itself succeeded, so any
- * failure in that other, unrelated file left this fallback button
- * hidden with no working replacement: no way to save settings at all
- * (A-27). `.dirty-ready` is instead added by dirty-state.js itself, only
- * once it has confirmed `[data-dirty-bar]` and `[data-dirty-count]` both
- * exist — see that file's own header comment — so this rule now applies
- * if and only if a working replacement bar is actually present. Without
- * JS, or if dirty-state.js's own guard fails, `.dirty-ready` never
- * appears, this rule never matches, and the bottom button remains the
- * only way to save (D-06 graceful degradation, now also the D-09 no-
- * way-to-save fix). */
-.dirty-ready [data-static-save-fallback] {
+ * A-27, then again by 22-01-PLAN.md Task 2 D-01/B1): hides the form's
+ * always-rendered bottom Save settings button once dirty-state.js has
+ * PROVEN its own replacement bar is actually live, so the dirty-state
+ * bar is the sole visible save affordance rather than both showing at
+ * once. This used to key on `.js` — added to <html> unconditionally as
+ * `nav-dropdown.js`'s very first statement (the same mechanism the
+ * `.js .mobile-nav` rules above still rely on) — but `.js` says nothing
+ * about whether dirty-state.js itself succeeded, so any failure in that
+ * other, unrelated file left this fallback button hidden with no
+ * working replacement: no way to save settings at all (A-27).
+ * `.dirty-ready` was the first fix: added by dirty-state.js itself, only
+ * once it confirmed `[data-dirty-bar]`/`[data-dirty-count]` exist. That
+ * turned out to still be element PRESENCE, not proven liveness (B1) —
+ * every field attached to the form only via `form=` lived outside it, so
+ * the bar's own listeners never fired for them, and the fallback still
+ * hid while the replacement bar silently never worked for those fields.
+ * This rule now requires a SECOND, narrower marker too: `.dirty-shown`,
+ * written only inside dirty-state.js's own updateBar() function, in the
+ * branch that actually reveals the bar with real content — never at
+ * script-init time. The fallback button hides if and only if BOTH
+ * classes are present, i.e. only once a working replacement has
+ * genuinely displayed at least once. Without JS, or if either of
+ * dirty-state.js's own guards fails, at least one class never appears,
+ * this rule never matches, and the bottom button remains the only way to
+ * save (D-06 graceful degradation, the D-09 no-way-to-save fix, and now
+ * B1's proven-liveness fix). */
+.dirty-ready.dirty-shown [data-static-save-fallback] {
   display: none;
 }
 
-.mobile-nav__nav {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-sm);
-}
+/* 22-14-PLAN.md Task 2 (X9/D-10): `.mobile-nav__nav`'s own rule is
+ * DELETED, not left as a dead selector — the element it styled no
+ * longer exists in any rendering (companion/layout.py's
+ * _mobile_nav_html() emits the state reminder and the footer only).
+ * `.mobile-nav__link` below survives and is REUSED by the tab bar's
+ * "More" sheet at the foot of this file, which is why that rule's 44px
+ * floor is still load-bearing. */
 
 /* The 44px floor was D-22's original guarantee for this rule. D-05
  * (06.6.4-04) was a desktop compactness pass whose trade belonged only on
@@ -943,6 +1015,33 @@ select.visually-hidden {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
+/* B7/C3 (22-AUDIT.md, 22-10-PLAN.md Task 2): the missing HALF of the
+ * pair above. Clicking a language or theme segment reloads the page with
+ * the pointer still over the now-ACTIVE segment; `button[type="submit"]:
+ * hover` is (0,2,1) and beats `.theme-form .theme-option--active`'s
+ * (0,2,0), so the segment took the primary accent FILL while keeping the
+ * active rule's accent TEXT — accent on accent, measured rgb(150,54,16)
+ * behind rgb(177,63,22). "FR"/"EN" was unreadable until the pointer
+ * moved.
+ *
+ * This is a POSITIVE RESTORE rule, not a re-scope: (0,3,0) beats the
+ * submit hover, and it restates the active pill's own two properties
+ * rather than inventing a hover appearance. The values come from the
+ * wash register verbatim — the same 12% accent mix the active rule above
+ * uses, which is also the app's shared tinted-pill idiom. 22-AUDIT.md's
+ * own "12-18% wash" is a suggestion; references/control-density.md's
+ * register is the contract, so no new percentage is introduced here.
+ *
+ * Why this cannot be one unscoped `.theme-form .theme-option:hover`
+ * instead: at (0,3,0) it would equal this rule's specificity and, placed
+ * later, would paint the 4.5% text wash over the active segment's own
+ * tint the moment the pointer crossed it. The :not()-scoped pair is the
+ * documented correct shape. */
+.theme-form .theme-option--active:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
 /* Read-only theme status (06.6.3 D-04) — a plain <div> replacing the old
  * <fieldset> in this slot; a bare <div> inherits none of fieldset's box
  * styling, so padding/margin-bottom are restated explicitly here to match
@@ -1130,21 +1229,57 @@ select.visually-hidden {
  * two call sites). Full-strength --color-text on the sidebar surface
  * — the same pairing .sidebar-link's own unmodified colour rule
  * already relies on site-wide (contrast measured and pinned in
- * companion/test_contrast_check.py). */
+ * companion/test_contrast_check.py).
+ *
+ * B10 (22-14-PLAN.md Task 2): was `display: block` — an inline run with
+ * no white-space control, which the audit measured wrapping MID-PHRASE
+ * at 207x48px ("Screen on · Quiet hours" / "on"; in French "Heures /
+ * calmes activées"). Each state is now its own `.nav-status__segment`
+ * with `white-space: nowrap`, inside a wrapping flex row: the line may
+ * break BETWEEN the two states, never inside one. French's longest
+ * segment ("Heures calmes désactivées") fits the 240px sidebar's own
+ * content width, which is what makes the wrapping row a real fallback
+ * rather than a second way to produce the same defect. */
 .nav-status {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* Column gap only. A row gap would be paid ON TOP of the two wrapped
+   * lines in the 240px sidebar, where the French pair cannot fit on one
+   * line (98px + 165px + the separator against a 207px content column)
+   * — measured at 52px with a symmetric gap, against B10's own 48px
+   * ceiling, and 48px with this one. */
+  gap: 0 var(--space-xs);
   padding: 0 var(--space-sm) var(--space-sm);
   color: var(--color-text);
   text-decoration: none;
 }
 
-.nav-status:hover {
+.nav-status__segment {
+  white-space: nowrap;
+  /* inline-flex, not a bare inline run: the 12px `.dot` inside carries
+   * `vertical-align: middle`, which grows each line box past the 14px
+   * text's own 1.4 leading. In the 240px sidebar, where the French pair
+   * needs two lines, that surplus put the reminder at 48.19px against
+   * B10's own 48px ceiling — measured, then removed by aligning the dot
+   * as a flex item instead of as an inline baseline participant. */
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Scoped to the ANCHOR (B10): on Home the reminder renders as a <span>
+ * with no href at all — companion/layout.py's nav_status_html() — and a
+ * non-link that underlines under the pointer would claim an
+ * interactivity it does not have, which is the same defect as the
+ * "go to Home" label this plan removes, one layer down. */
+a.nav-status:hover {
   text-decoration: underline;
 }
 
+/* No horizontal margin any more: the flex `gap` above owns the spacing
+ * between the separator and both segments, in one place. */
 .nav-status__sep {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  margin: 0 2px;
 }
 
 /* Banners: a near-neutral card surface, a hairline border and a 3px
@@ -1267,6 +1402,26 @@ select.visually-hidden {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   flex: none;
   min-width: 0;
+}
+
+/* T13 (22-15-PLAN.md Task 2): the FOURTH consumer of this file's
+ * `[hidden]`-versus-`display` guard, joining `.dirty-bar[hidden]`,
+ * `.refresh-pill[hidden]` and `.login-reveal[hidden]`. The rule above
+ * declares `display: inline-flex`, and an author-stylesheet `display`
+ * always beats the user-agent stylesheet's `[hidden] { display: none }`
+ * regardless of source order — so the moment any `.banner__pill` is
+ * hidden with the native `hidden` attribute it would render anyway.
+ * freshness.js's neutral loop-state badge is the first such consumer;
+ * the guard belongs on the component, not on that one badge, because
+ * the collision is a property of the base rule.
+ *
+ * `display: none`, not the `visibility: hidden` `.refresh-pill[hidden]`
+ * deliberately uses: that pill is absolutely positioned and its sibling
+ * comment explains it must keep reserving nothing; this badge is an
+ * in-flow inline child of the freshness line and must take no space at
+ * all when the loop is healthy. */
+.banner__pill[hidden] {
+  display: none;
 }
 
 /* quick task 260902-v2v (UIR-03): the anomaly banner's count-and-noun
@@ -1621,6 +1776,29 @@ button:active {
   color: var(--color-text);
 }
 
+/* 22-04-PLAN.md Task 2 (C2, T-22-13): the Frame strip's two switch
+ * buttons ("Switch off"/"Switch on", "Turn off"/"Turn on") are
+ * `<button type="submit">` and would otherwise inherit the primary
+ * accent fill above. `.frame-strip__cell button` and
+ * `button[type="submit"]` share equal (0,1,1) specificity — an element
+ * selector plus a class selector on the same side either way — so this
+ * rule is placed after `button[type="submit"]` in source order, which
+ * is what actually wins the cascade here (the exact `.logout-form
+ * button`/`.dirty-bar__cancel` precedent above, never raised further:
+ * a higher specificity would start beating class-scoped controls this
+ * app also relies on). Restates the base `button` rule's own quiet
+ * wash/border explicitly (never a new wash value — 4.5%/9% is the
+ * existing register) and neutralizes `box-shadow` for the identical
+ * reason `.logout-form button`/`.dirty-bar__cancel` do: this is a
+ * submit button and would otherwise inherit the primary inset
+ * highlight. */
+.frame-strip__cell button {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  box-shadow: none;
+  color: var(--color-text);
+}
+
 /* 06.6.4 (D-01b): the quiet-button hover reveal. Placement here is
  * load-bearing: this rule MUST sit after both `.logout-form button`
  * (0,1,1) and `.dirty-bar__cancel` (0,1,0) above in source order.
@@ -1631,7 +1809,11 @@ button:active {
  * rule uniform and easy to audit. Without this placement the two
  * quietest controls in the app would have no hover feedback. The primary
  * button is unaffected — its own hover rule above carries higher
- * specificity and restates the neutralized border explicitly. */
+ * specificity and restates the neutralized border explicitly.
+ * 22-04-PLAN.md Task 2: `.frame-strip__cell button` (0,1,1) above is
+ * ALSO equal specificity to this rule, and is placed before it in
+ * source order too, so the strip's own switch buttons get the same
+ * hover wash for free, exactly like the two quiet buttons above. */
 button:hover {
   background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
   border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
@@ -1786,9 +1968,27 @@ button:disabled {
    * exactly one emitter in the repository, runway_fieldset() (confirmed
    * by grep), so retiring this declaration cannot affect another
    * consumer. Grow-and-shrink from a 150px basis with a 140px floor lays
-   * the three cards out in one wrapping row instead of one per line. */
-  flex: 1 1 150px;
-  min-width: 140px;
+   * the three cards out in one wrapping row instead of one per line.
+   *
+   * SUPERSEDED by 22-10-PLAN.md Task 2 (B9). The 150px basis plus the
+   * 140px floor is exactly what produced the measured 2 + 1 orphan at
+   * 390px: a 308px content column fits two 150px cards and wraps the
+   * third alone, which then grew to the full 308x217. A zero basis with
+   * no minimum makes the three cards structurally incapable of
+   * overflowing their line — three items whose hypothetical main size is
+   * 0 always share one flex line — so there is no width at which they
+   * can wrap 2 + 1 again. At 1280px this is a no-op: the old rule
+   * already distributed the free space equally, so all three cards
+   * measure 271.3px before and after.
+   *
+   * `.runway-row` itself is deliberately NOT given `flex-wrap: nowrap`,
+   * which is what 22-UI-SPEC.md §2's B9 row prescribes: that class has a
+   * SECOND consumer, `quiet_hours_group()`'s three-preset row, whose
+   * buttons carry long labels ("Night (23:00-07:00)") that must still be
+   * allowed to wrap on a phone. Fixing B9 on the card rather than the
+   * row leaves that second consumer untouched. */
+  flex: 1 1 0;
+  min-width: 0;
   cursor: pointer;
 }
 
@@ -1802,10 +2002,42 @@ button:disabled {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* A real 2px border, not merely a class toggle with no visual difference.
- * The global `* { box-sizing: border-box; }` reset above already keeps
- * `.runway-card`'s own padding/size stable with this border added, so
- * unselected siblings never shift.
+/* T6 (22-AUDIT.md, 22-UI-SPEC.md §2's T6 row, 22-15-PLAN.md Task 1) —
+ * THE BORDER WIDTH IS NOW CONSTANT AT 1px IN EVERY STATE, and the
+ * selection weight moves to an inset ring. The paragraph below used to
+ * claim the opposite was safe; it was wrong, and the correction is
+ * recorded here rather than the claim quietly deleted.
+ *
+ * What the old claim missed: `box-sizing: border-box` keeps an
+ * element's own CONTENT box from growing when its border thickens — it
+ * does not keep the element's own OUTER box from growing, because
+ * border-box sizing only fixes the outer box where a `width` or a
+ * `flex-basis` resolves to a definite length. `.runway-card` is
+ * `flex: 1 1 0` in a wrapping row (B9, 22-10-PLAN.md Task 2), so its
+ * outer width is DISTRIBUTED free space plus its own border: the saved
+ * card measured 98.67px against its siblings' 96.66/96.67px at 390px —
+ * exactly 2px wider, exactly the audit's reported symptom. Siblings do
+ * shift, and a selected card is a different size from an unselected
+ * one. companion/test_browser_ux.py carried a STATED allowance for that
+ * difference, naming this plan as the one that deletes it; it is
+ * deleted.
+ *
+ * The replacement signal: `box-shadow: inset 0 0 0 2px` paints a 2px
+ * ring just inside the padding box. It occupies no layout space at all
+ * — a box-shadow never contributes to any box — so selection is now
+ * geometrically free. The border stays 1px and only RECOLOURS to the
+ * accent, which is what it already did; the 12% wash and the check
+ * glyph are untouched. The result reads slightly heavier than the old
+ * 2px border (1px accent edge plus a 2px accent ring), which is on the
+ * right side of 06.6.4.1.1-06's own "the selected element is very hard
+ * to see" report.
+ *
+ * Every rule in this file that painted a 2px selected-state border is
+ * converted the same way in this one commit, including the two dashed
+ * "this is what is saved" markers inside the @supports block below —
+ * a 2px dashed ring against 1px siblings is the identical defect
+ * wearing a different dash pattern.
+ *
  *
  * 06.6.4.1.1-06 (developer checkpoint follow-up): the background wash
  * below is an ADDITION to the border above, not a replacement — the
@@ -1829,7 +2061,8 @@ button:disabled {
  * a new property to this same already-excluded selector rather than
  * touching the hover rule itself. */
 .runway-card--selected {
-  border: 2px solid var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
@@ -1917,6 +2150,44 @@ button:disabled {
   cursor: pointer;
 }
 
+/* T6's one chip-specific addition (22-15-PLAN.md Task 1). An inset
+ * box-shadow is painted on an element's own background/border layer, so
+ * it sits BENEATH that element's children — and `.theme-chip__preview`
+ * is a full-bleed `width: 100%` image occupying the chip's top 56px.
+ * Without this overlay the selection ring would be hidden along the
+ * whole preview band and visible only around the body, which reads as a
+ * rendering fault rather than as a selected chip. `.runway-card` needs
+ * nothing equivalent: its own image sits inside `var(--space-md)` of
+ * padding and never reaches the ring.
+ *
+ * `box-shadow: inherit` is the entire mechanism, and it is why this is
+ * ONE unconditional rule rather than a duplicate of every selected-state
+ * rule below. The pseudo-element simply redraws whatever box-shadow the
+ * chip itself currently computes, above the image instead of below it,
+ * so every state — selected, saved-but-not-live, hovered — tracks
+ * automatically and can never drift out of step with the rule that
+ * actually declares it.
+ *
+ * The chip's own `overflow: hidden` clips this overlay, which is what
+ * keeps the inherited OUTER hover shadow (`--shadow-card-hover`, on an
+ * unselected hovered chip) from painting a second, smaller copy of
+ * itself: an outer shadow drawn on a padding-box-sized overlay falls
+ * entirely outside that overlay and is clipped away. Only the inset
+ * ring survives, which is the one thing this overlay exists to carry.
+ *
+ * `pointer-events: none` so the overlay can never intercept a click
+ * meant for the label; the check glyph and the saved-state `::after`
+ * badge are both positioned later in tree order and so still paint
+ * above it. */
+.theme-chip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inherit;
+}
+
 /* Scoped with :not(.theme-chip--selected), the same D-03a property
  * .runway-card documents above: hovering a selected chip must never be
  * able to clear its accent border, independent of source order. */
@@ -1926,11 +2197,18 @@ button:disabled {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* A real 2px border, not merely a class toggle with no visual
- * difference — the global `* { box-sizing: border-box; }` reset keeps
- * unselected sibling chips from shifting when this is added. */
+/* T6 (22-15-PLAN.md Task 1): constant 1px border, selection carried by
+ * the inset ring — see `.runway-card--selected`'s own comment above for
+ * the full diagnosis and the measurement. `.theme-chip` is a fixed
+ * `width: 160px` rather than a flex child, so its own outer box did NOT
+ * grow; what it did instead was eat 1px of its 160px on each side, so
+ * the selected chip's preview band and body were 2px narrower than its
+ * neighbours' and the swatch row reflowed. Same defect, same fix, and
+ * the ring is drawn INSIDE the chip's `overflow: hidden` clip so it
+ * follows the rounded corners exactly as the border does. */
 .theme-chip--selected {
-  border: 2px solid var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
 }
 
 /* 06.6.4.1.1-06 (developer checkpoint follow-up): same background-wash
@@ -2079,8 +2357,13 @@ button:disabled {
  * block already wins its target element on specificity alone, verified
  * above. */
 @supports selector(:has(*)) {
+  /* T6 (22-15-PLAN.md Task 1): constant 1px border plus the inset ring,
+   * matching the `--selected` fallback rule above declaration for
+   * declaration — the two mechanisms must stay visually identical or a
+   * browser without `:has()` gets a different-sized chip. */
   .theme-chip:has(input:checked) {
-    border: 2px solid var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-accent);
   }
 
   .theme-chip:has(input:checked) .theme-chip__body {
@@ -2092,19 +2375,41 @@ button:disabled {
   }
 
   /* D-03a, transferred to live state: a positive restore rule, not a
-   * re-scoped guard — see the specificity arithmetic above. */
+   * re-scoped guard — see the specificity arithmetic above.
+   *
+   * T6 (22-15-PLAN.md Task 1), reconciled IN THE SAME COMMIT as the
+   * rule it guards. This used to declare `box-shadow: none`, whose only
+   * job was to suppress the hover elevation shadow the (0,3,0) guard
+   * above would otherwise paint. Once selection IS a box-shadow, `none`
+   * stops being a suppression and becomes an erasure: the selection
+   * ring would vanish the instant a pointer crossed a selected chip.
+   * The ring is restated here instead, which suppresses the hover
+   * elevation exactly as before (box-shadow is a single property, so
+   * declaring the ring replaces the elevation outright) while keeping
+   * the selection signal. */
   .theme-chip:has(input:checked):hover,
   .theme-chip:has(input:checked):focus-within {
     border-color: var(--color-accent);
-    box-shadow: none;
+    box-shadow: inset 0 0 0 2px var(--color-accent);
   }
 
   /* Quiet "this is what is saved" marker: accent-free, so it can never
    * read as a second selection. Reuses the file's established 70%
    * muted-text mix rather than inventing a new strength — no new wash
    * percentage either, since this ring has no background at all. */
+  /* T6 (22-15-PLAN.md Task 1): 1px, not 2px. A dashed 2px ring against
+   * 1px siblings is the same layout shift wearing a different dash
+   * pattern — a chip can be saved-but-not-live at the very moment its
+   * neighbour is live-selected, so both states have to be geometrically
+   * free or the grid still moves. `box-shadow: none` is explicit here
+   * and load-bearing: this rule must CLEAR the accent ring the
+   * `--selected` fallback rule above paints, and a `border` shorthand
+   * cannot reach a box-shadow. The dashed 1px muted edge is a
+   * deliberately quiet marker with no accent in it at all, exactly as
+   * before. */
   .theme-chip--selected:not(:has(input:checked)) {
-    border: 2px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+    box-shadow: none;
   }
 
   .theme-chip--selected:not(:has(input:checked)) .theme-chip__body {
@@ -2129,9 +2434,31 @@ button:disabled {
    * Bottom-right, not top-right: top-right on this component sits over
    * .theme-chip__preview, the rendered panel image — the identical
    * constraint that already scopes this chip's selected-wash to
-   * .theme-chip__body rather than the whole chip. */
+   * .theme-chip__body rather than the whole chip.
+   *
+   * 22-10-PLAN.md Task 1 (T10, 22-AUDIT.md): the text is no longer the
+   * hard-coded English literal it was — `attr(data-current-label)` reads
+   * a translated string companion/pages/config_page.py renders onto the
+   * saved chip/card (CURRENT_BADGE_LABEL/CURRENT_BADGE_ATTR). Only the
+   * English moved; the four points above are unchanged and the
+   * pseudo-element stays a pseudo-element. A chip with no such attribute
+   * renders an empty string, which is the correct degradation: the
+   * attribute is emitted only on the one chip this selector can match.
+   *
+   * 22-14-PLAN.md Task 2, Rule 1 auto-fix: the paragraph above used to
+   * open with a stray comment TERMINATOR — the 22-10 note was appended
+   * after the original block's own closing marker instead of inside it.
+   * Everything from that marker to the next brace parsed as part of the
+   * selector below, so THIS ENTIRE RULE WAS SILENTLY DROPPED by every
+   * browser and the saved-chip "Current" badge never rendered at all.
+   * Found while measuring B10 in a real browser, which is the only
+   * place a CSS parse error of this shape is visible: no
+   * string-comparison harness can see it, because the file still
+   * CONTAINS every declaration it is asked about. A structural guard
+   * pinning the file at zero stray terminators ships in
+   * companion/test_status_pages.py alongside this fix. */
   .theme-chip--selected:not(:has(input:checked))::after {
-    content: "Current";
+    content: attr(data-current-label);
     position: absolute;
     bottom: var(--space-sm);
     right: var(--space-sm);
@@ -2142,8 +2469,12 @@ button:disabled {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
+  /* T6 (22-15-PLAN.md Task 1): constant 1px border plus the inset ring,
+   * matching `.runway-card--selected` above declaration for
+   * declaration. */
   .runway-card:has(input:checked) {
-    border: 2px solid var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   }
 
@@ -2151,14 +2482,22 @@ button:disabled {
     display: inline-flex;
   }
 
+  /* T6 (22-15-PLAN.md Task 1): the same positive-restore reconciliation
+   * the chip's own hover rule above documents in full — `none` would
+   * now erase the selection ring rather than suppress the hover
+   * elevation. */
   .runway-card:has(input:checked):hover,
   .runway-card:has(input:checked):focus-within {
     border-color: var(--color-accent);
-    box-shadow: none;
+    box-shadow: inset 0 0 0 2px var(--color-accent);
   }
 
+  /* T6 (22-15-PLAN.md Task 1): 1px dashed, and an explicit
+   * `box-shadow: none` to clear the fallback rule's accent ring — see
+   * the chip's own saved-state rule above for the full reasoning. */
   .runway-card--selected:not(:has(input:checked)) {
-    border: 2px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+    box-shadow: none;
     background: transparent;
   }
 
@@ -2168,9 +2507,13 @@ button:disabled {
 
   /* Top-right here (unlike the chip's bottom-right): .runway-card has no
    * preview band occupying that corner — its only other content is a
-   * plain-text number and an optional airport-diagram image below it. */
+   * plain-text number and an optional airport-diagram image below it.
+   *
+   * 22-10-PLAN.md Task 1 (T10): attribute-driven, exactly like the
+   * chip's own badge above — see that rule's comment for the full
+   * reasoning. */
   .runway-card--selected:not(:has(input:checked))::after {
-    content: "Current";
+    content: attr(data-current-label);
     position: absolute;
     top: var(--space-sm);
     right: var(--space-sm);
@@ -2190,8 +2533,42 @@ button:disabled {
    * covers this same-parent radio+label pair); kept for a future
    * markup change only. */
   .frame-colours__list li:has(input:checked) .frame-colours__row {
-    border: 2px solid var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  /* T15 (22-UI-SPEC.md §5 contract 1, 22-15-PLAN.md Task 1). A selected
+   * chip or card had a focus state PIXEL-IDENTICAL to rest: the real
+   * focus target is the visually-hidden native radio inside the label,
+   * whose own outline is off-screen and unseeable, and both components'
+   * `:focus-within` rules are `:not(--selected)`-scoped precisely so
+   * they can never repaint a selected card. So keyboard focus on the
+   * one card that matters was invisible.
+   *
+   * The values are the GLOBAL focus-visible floor's own, copied
+   * verbatim from the `a/button/input/select:focus-visible` rule near
+   * the top of this file — not a new treatment, and deliberately an
+   * `outline` rather than another box-shadow so it cannot collide with
+   * T6's selection ring on the same property. `outline-offset: 2px`
+   * puts it clear of the chip's `overflow: hidden` clip (an element's
+   * own outline is never clipped by its own overflow).
+   *
+   * `:focus-visible` on the inner radio, not `:focus-within`: a mouse
+   * click on a label focuses the radio, and a ring on every pointer
+   * selection would be noise. This is the distinction the rest of the
+   * file's focus rules already draw.
+   *
+   * It lives INSIDE this one feature-query block because it needs
+   * `:has()`, and companion/test_config_page.py pins this file at
+   * EXACTLY ONE such block. A browser without `:has()` keeps today's
+   * behaviour — the same accepted-degradation framing every other rule
+   * in this block already carries, and `:has()` has been Baseline
+   * widely-available since December 2023. */
+  .runway-card:has(input:focus-visible),
+  .theme-chip:has(input:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
 }
 
@@ -2438,13 +2815,17 @@ button:disabled {
  * belongs here rather than on a Health-scoped override.
  *
  * This closes 260901-uzi's Finding 5 candidate (a). Candidate (b) — the
- * sticky background's own token, currently --color-canvas, flagged by
- * that task's own comment on `.data-table-wrap th` below as never
- * live-validated against the in-card tables — is deliberately NOT
- * changed here. It remains open, still correctly reasoned in its own
- * comment, and is a separate one-declaration decision with its own risk
- * to History's table (the only one long enough for the sticky state to
- * actually engage). */
+ * sticky header background's own token, currently --color-canvas,
+ * flagged as never live-validated against the in-card tables — was left
+ * open here for a later one-declaration decision.
+ *
+ * T4 (22-15-PLAN.md Task 1) CLOSES candidate (b) by making it moot
+ * rather than by deciding it. The `.data-table-wrap th` rule that
+ * carried both the sticky claim and that background is deleted below:
+ * the wrapper has no height, so the header could never stick, so there
+ * was never a stuck header for any token to paint. Nothing about THIS
+ * rule changes — only the open question that used to point at the rule
+ * below it. */
 /* 06.6.4.1.1 (D-13): 11px -> 12px, converging onto the one unified label
  * voice this file now states once, on .stat-tile__caption's own comment
  * below. Every other declaration here already matched that voice. */
@@ -2459,30 +2840,33 @@ button:disabled {
   border-bottom: 1px solid var(--color-border);
 }
 
-/* Sticky desktop table header (06.6.3, History/Airlines) — scoped to
- * .data-table-wrap's own scroll container, not the page, so it never
- * collides with the >=960px sticky sidebar (D-21). Position/top/z-index
- * are unchanged by 06.6.4 (D-07 restyles the header, not the sticky
- * behaviour); only the background token changed, from the elevated
- * secondary surface to --color-canvas. The declaration itself must stay
- * — an opaque background is the only thing stopping body rows showing
- * through a stuck header — but it can no longer be the tinted elevated
- * surface, or the quiet-label treatment .data-table th declares above is
- * defeated the instant the table scrolls. --color-canvas is chosen
- * because History's table (the only one in the app long enough for the
- * sticky state to actually engage) renders directly on the page
- * background, not inside a card; RESEARCH.md flags this specific token
- * as never live-validated — if the in-card tables (Airlines, Health)
- * read as a visibly mismatched strip against the white card surface once
- * scrolled, the primary card surface token is the equally-valid
- * alternative and this is a one-declaration change, an explicit item on
- * the closing checklist. */
-.data-table-wrap th {
-  position: sticky;
-  top: 0;
-  background: var(--color-canvas);
-  z-index: 1;
-}
+/* T4 (22-AUDIT.md, 22-UI-SPEC.md §2's T4 row, 22-15-PLAN.md Task 1):
+ * the sticky desktop table header is REMOVED, rule and all.
+ *
+ * It could never engage. Sticky positioning resolves against the
+ * nearest scrollport, which for these cells is `.data-table-wrap` — and
+ * that wrapper declares `overflow-x: auto` with NO height and no
+ * `max-height`, so it has no vertical scrollport for a header to stick
+ * inside. The page scrolls instead, and the page is not the sticky
+ * containing block here. Six years of file history describe a behaviour
+ * no browser has ever produced: the header simply scrolled away with
+ * its table, exactly as if the rule were absent.
+ *
+ * Removing the claim rather than making it true, deliberately. Giving
+ * the wrapper a `max-height` would put a second, nested vertical
+ * scrollbar inside a page that already scrolls, on four tables at once,
+ * as a rider on a defect report that asked for nothing of the sort.
+ * Sticky day headers are Phase 23's D7 and will be specified there.
+ * Removing a lie beats adding a second one.
+ *
+ * The rule's `background: var(--color-canvas)` goes with it. That
+ * declaration existed ONLY to stop body rows showing through a stuck
+ * header, and quick task 260901-uzi's finding 5 candidate (b) — "is
+ * --color-canvas the right token here, against the in-card tables?" —
+ * is therefore MOOT, not merely deferred: there is no stuck header to
+ * paint. Recorded for the closing design-system sweep (22-16), which
+ * marks references/data-density.md's sticky-header entry SUPERSEDED and
+ * retires candidate (b) with it. */
 
 .data-table td {
   padding: 13px var(--space-md);
@@ -2526,6 +2910,33 @@ table.data-table--flights .cell-inline-sep {
   display: none;
 }
 
+/* 22-12-PLAN.md Task 2 (B12) — the SECOND consumer of the stacked-cell
+ * exception above, and it arrived the same way the first one did: by
+ * headless measurement, not by eye. Health's unresolved-prefix table
+ * measured 886px (EN) / 1026px (FR) inside an 830px `.data-table-wrap`
+ * at a 1280px viewport, because `.data-table`'s `min-width: max-content`
+ * no-crop floor sizes each column to its widest UNWRAPPED line and the
+ * First seen / Last seen cells' one-line form ("1 août 08:00 (il y a
+ * 42 j)") wanted 251px of ink EACH — 564px of the budget for two of six
+ * columns. Shortening the French headers alone was measured to be
+ * incapable of closing that gap; stacking is what makes each column's
+ * max-content width the wider of its two lines instead of their
+ * concatenation.
+ *
+ * `references/data-density.md`'s warning still stands and is not being
+ * loosened here: this is NOT license to stack any other merged cell
+ * "for consistency". It is the same local fix for the same measured
+ * cause, applied to the second table in this app that demonstrably has
+ * it, and it stays scoped to that table by its own modifier class. */
+table.data-table--registry .cell-primary,
+table.data-table--registry .cell-secondary {
+  display: block;
+}
+
+table.data-table--registry .cell-inline-sep {
+  display: none;
+}
+
 /* 21-03-PLAN.md Task 2 (D-15/R-12, 21-UI-SPEC.md §F): the expandable
  * detail row's own styling — tokens only, no new colour literal. The
  * no-JS floor (D-15, locked) is a VISIBLE detail row by default; the
@@ -2557,6 +2968,99 @@ table.data-table--flights .cell-inline-sep {
  * convention for a component-scoped hide instead of a page-wide one. */
 .flight-detail-row--collapsed {
   display: none;
+}
+
+/* 22-09-PLAN.md Task 1 (X5, 22-UI-SPEC.md §2): the row-toggle's FIRST
+ * rule block — the control shipped in Phase 21 with markup only and no
+ * CSS of its own, riding the base `button` rule's 30px geometry with a
+ * visible "More"/"Plus" label. X5 removes that label (fifty text
+ * buttons leaving the scan path is the whole point of the fix), which
+ * is exactly what dissolves `references/control-density.md`'s recorded
+ * rejection of the icon-only pattern for this control ("unlike
+ * .copy-btn, the row-toggle carries visible text"). `.row-toggle`
+ * therefore moves from the touch-target register's TRADED-AWAY category
+ * to its RELOCATED category, and plan 22-16 marks that rejection
+ * SUPERSEDED in place with this reasoning.
+ *
+ * Every value below is `.copy-btn`'s own, reused verbatim rather than
+ * re-chosen: the 22x22 visual box, the 6px radius, the `::before`
+ * negative 11px inset that synthesizes a real 44x44 pointer/touch hit
+ * area (22 + 11 + 11 = 44), the 7% hover wash, and the 14px glyph size
+ * `.copy-btn .icon` already scopes its SVG down to. The control is
+ * BIGGER than the 30px text button it replaces, not smaller.
+ *
+ * The glyph rotates with the state and takes no transition of its own:
+ * a rotating-chevron transition is D3/Phase 23's motion budget, not
+ * this phase's. The global prefers-reduced-motion block at the top of
+ * this file already covers a plain transform for free. */
+.row-toggle {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.row-toggle::before {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+
+.row-toggle:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.row-toggle__glyph {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.row-toggle[aria-expanded="true"] .row-toggle__glyph {
+  transform: rotate(180deg);
+}
+
+/* 22-09-PLAN.md Task 2 (X5, 22-UI-SPEC.md §2): the day separator row.
+ * Thirty-six to fifty rows used to run together with nothing marking
+ * where one Paris day ended and the next began.
+ *
+ * NOT sticky, deliberately and by instruction: sticky day headers are
+ * D7/Phase 23, and T4 in this same phase removes the app's one broken
+ * sticky-positioning claim rather than adding a second one. This rule
+ * therefore declares no positioning of any kind — the phrase is spelled
+ * out here rather than quoted as a declaration on purpose, so this
+ * plan's own acceptance grep for the file's sticky-declaration count
+ * keeps measuring declarations and not prose about them.
+ *
+ * `--color-canvas` is the page ground the table sits on (the same token
+ * the retired sticky-header note named), so the separator reads as a
+ * gap in the list rather than as another data row; the label voice
+ * comes from the `.text-label` class the <th> already carries plus the
+ * uppercase/tracking/70%-muted register `.data-table th` itself uses —
+ * no new muted strength, no new size. */
+.flight-day-row th {
+  background: var(--color-canvas);
+  text-align: left;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The pointer cursor for the whole-row click, keyed ONLY on the class
+ * companion/static/flight-rows.js adds to each summary row at load —
+ * the same component-scoped class-at-load idiom
+ * .flight-detail-row--collapsed above uses, and for the same reason: a
+ * scripts-blocked page must never show a pointer over a row that does
+ * nothing. This is the file's only `cursor: pointer` on a table row. */
+.flight-row--clickable {
+  cursor: pointer;
 }
 
 /* quick task 260902-bl2 (bug 1): the Resolution-statistics table's
@@ -2714,11 +3218,31 @@ table.data-table--flights .cell-inline-sep {
  * above it — so a second muting strength here meant the identical
  * content read at two different weights purely as a function of
  * viewport width. One secondary-data role, one opacity. */
+/* 22-09-PLAN.md Task 2 (X5): the flex `gap` is retired here in favour
+ * of the real `.cell-inline-sep` middle dot the markup now carries
+ * between the route and the state ("ORY → JFK · Departing", which used
+ * to run together). That separator brings its own `--space-xs` margins,
+ * so keeping the gap as well would space this one line differently from
+ * every other separated pair in the app. */
 .history-card__secondary {
   display: flex;
-  gap: var(--space-sm);
   opacity: 0.7;
   margin-top: var(--space-xs);
+}
+
+/* 22-09-PLAN.md Task 2 (X5): the card's airline line — the name and the
+ * artwork the phone card used to drop entirely (both were reachable
+ * only by opening the disclosure, so the card showed strictly less
+ * about a flight than the desktop row for the same data). */
+.history-card__airline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.history-card__airline-name {
+  font-size: var(--font-label-size);
 }
 
 .history-card__time {
@@ -2821,14 +3345,35 @@ table.data-table--flights .cell-inline-sep {
 }
 
 /* Phase 13 (13-04-PLAN.md Task 1, D-12): the resolve section's own
- * sighting-context definition list on Airlines. This file declares no
- * `dl`/`dt`/`dd` rule of its own anywhere — Health's own registry
- * disclosure (`.data-card__details dl`, immediately above) already
- * renders its definition list on browser defaults, so matching that
- * treatment here means adding nothing but this block's own bottom
- * margin, from the existing `md` token. */
+ * sighting-context definition list on Airlines. The original rule
+ * declared nothing but this block's own bottom margin, leaving the list
+ * on browser defaults to match Health's registry disclosure.
+ *
+ * B5 (22-11-PLAN.md Task 1): SUPERSEDED in that one respect — the audit
+ * recorded the `<dl>` as "hand-indented", which is what the UA default
+ * `dd { margin-inline-start: 40px }` paints: five labels at the left
+ * edge with five values stranded 40px in, on their own lines. The five
+ * pairs become two real columns instead, label then value, so a
+ * household member reads "Last seen  15:49 (2d ago)" on one line. This
+ * is a layout correction to an existing rule, not a new class family
+ * and not a new token: both gaps come from the existing xs/sm scale,
+ * and the `dt`/`dd` children keep every type declaration their own
+ * `text-label`/`text-body` classes already give them. `auto 1fr` sizes
+ * the label column to the longest label ("Example callsign") once, so
+ * the values share one left edge. The `dt`/`dd` selector is scoped
+ * inside `.resolve-context`, so this file still declares no bare
+ * `dl`/`dt`/`dd` rule and Health's list is untouched. */
 .resolve-context {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-xs) var(--space-sm);
+  align-items: baseline;
   margin: 0 0 var(--space-md);
+}
+
+.resolve-context dt,
+.resolve-context dd {
+  margin: 0;
 }
 
 /* Phase 13 (13-04-PLAN.md Task 1, D-13): the resolve section's Step A
@@ -2952,6 +3497,19 @@ table.data-table--flights .cell-inline-sep {
   font-family: var(--font-ui);
   font-size: 12px;
   font-weight: var(--weight-regular);
+  /* 22-09-PLAN.md Task 3 (B11), Rule 1 auto-fix: `line-height` is one
+   * more UA button property this rule's own stated contract ("every
+   * declaration below undoes a specific base-button property ... so the
+   * button variant and the link variant land on pixel-identical
+   * output") had not actually undone. A <button> takes the UA's
+   * `line-height: normal` (14px at this font size) while Airlines' <a>
+   * variant inherits the body's 1.5 (18px) — measured in a real browser
+   * at 390px, the two converged controls were 4px apart in height and
+   * History's Clear sat 2px lower than the count beside it. Inheriting
+   * makes both variants the same height, which is what the rule
+   * promised, and is what lets the count and Clear share one top inside
+   * the centre-aligned .filter-bar__meta group. */
+  line-height: inherit;
   letter-spacing: normal;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-decoration: underline;
@@ -2964,31 +3522,30 @@ table.data-table--flights .cell-inline-sep {
 }
 
 /* Phase 14 (14-03-PLAN.md Task 2, D-11): the clickable manual-resolution
- * summary line. A new, unscoped class rather than extending the
- * selector above — the summary line sits below .filter-bar, not
- * inside it (UI-SPEC Autonomous Decision 4), so it cannot inherit that
- * scoped selector. Declares the identical property list
- * .filter-bar [data-filter-clear] uses above, byte-for-byte. */
-.manual-summary {
-  height: auto;
-  min-height: 0;
-  min-width: 0;
-  padding: 0;
-  background: none;
-  border: none;
-  box-shadow: none;
-  border-radius: 0;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: var(--weight-regular);
-  letter-spacing: normal;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-
+ * summary. It used to declare "the identical property list
+ * .filter-bar [data-filter-clear] uses above, byte-for-byte" — a 12px
+ * underlined bare link sitting BELOW the filter bar, because
+ * 06.6.4.1-UI-SPEC.md's Autonomous Decision 4 put it outside the bar and
+ * a scoped selector therefore could not reach it.
+ *
+ * X7 (22-11-PLAN.md Task 2): SUPERSEDED, premise and all. The audit
+ * found it read as neither a control nor a caption ("1 manual
+ * resolutions" as a 12px link), and the reason is that it was drawn as
+ * body prose while behaving as a filter. It moved INSIDE the filter bar
+ * and now wears `.airline-card__chip` verbatim in the markup — the same
+ * label voice the cards' own chips wear, which is the vocabulary this
+ * page already uses for a small categorical token. The whole copied
+ * property list is deleted rather than forked: everything it used to
+ * restate now comes from the chip class, and this rule is reduced to the
+ * one thing a chip does not carry because a chip is not interactive —
+ * a hover state.
+ *
+ * `.manual-summary:hover` (0,2,0) outranks the base `button:hover`
+ * (0,1,1), so the chip wash deepens on hover instead of the base
+ * button's. The wash values are the chip's own 6% -> 12% pair, the same
+ * step `.calendar-disconnect-btn` takes; no new strength is invented. */
 .manual-summary:hover {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
   color: var(--color-text);
 }
 
@@ -2996,6 +3553,47 @@ table.data-table--flights .cell-inline-sep {
 .empty-state {
   padding: var(--space-lg);
   text-align: center;
+}
+
+/* 22-12-PLAN.md Task 1 (D-08's C1, 22-UI-SPEC.md §1 Typography / §2 X8):
+ * the in-tile variant of the block above, emitted only by
+ * layout.empty_state(..., compact=True). The type change itself is NOT
+ * here — the compact form composes the already-existing `.text-body
+ * .widget-verdict` and `.text-label .widget-detail` pairs, which is the
+ * whole reason no new type tier had to be invented. This rule therefore
+ * declares nothing but box: a tile already supplies its own padding, so
+ * a second 24px inset inside it read as a floating island, and the
+ * centring that is right for a full-card empty state fights the tile's
+ * own left-aligned label/verdict/detail column. Zero padding plus the
+ * inherited left alignment is what makes the empty tile occupy exactly
+ * the verdict and detail slots of X8's one-tile anatomy. */
+.empty-state--compact {
+  padding: 0;
+  text-align: left;
+}
+
+/* The two child rules the compact variant needs, and the only two rules
+ * `.empty-state__heading` / `.empty-state__body` have ever had in this
+ * file — both classes existed as bare markup hooks until now, with all
+ * of their treatment coming from the co-classed `.text-*` tier. Scoped
+ * to the compact wrapper so the full-card form stays byte-identical.
+ *
+ * The heading takes the semibold weight `.text-body` does not declare,
+ * landing it on the Emphasis role (16px sans semibold) — the same
+ * treatment a tile's verdict row wears, reached through the empty
+ * state's own class rather than by borrowing `.widget-verdict`, which
+ * would claim a judgement an empty state does not make. The margins
+ * match `.widget-verdict`'s own rhythm so a compact empty state and a
+ * filled tile sit on the same baseline grid. The body needs no rule of
+ * its own: `.text-label` sizes it and `.section-caption` supplies this
+ * file's single 70% muted strength. */
+.empty-state--compact .empty-state__heading {
+  margin: 0 0 var(--space-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.empty-state--compact .empty-state__body {
+  margin: 0;
 }
 
 /* Native <details>/<summary> disclosures (06.6.3, shared) — first use in
@@ -3040,6 +3638,58 @@ summary::marker {
 
 summary::-webkit-details-marker {
   color: var(--color-accent);
+}
+
+/* T3 (22-AUDIT.md, 22-UI-SPEC.md §5 contract 3, 22-15-PLAN.md Task 1).
+ * The two marker rules directly above have had no effect since the
+ * `summary` rule gained `display: flex`: a flex container generates no
+ * `::marker` at all, so every <details> in the app lost its open/closed
+ * indicator and a disclosure was distinguishable from static text only
+ * by its accent colour. The rules are kept rather than deleted — they
+ * are correct for any future non-flex summary and cost nothing — and
+ * this explicit chevron restores the indicator for the flex one.
+ *
+ * This RESTORES the `<summary>` disclosure-marker entry already on the
+ * accent-reservation list in this file's header comment. It is not a
+ * new accent consumer and the list does not change: `currentColor`
+ * resolves to the `summary` rule's own `--color-accent` wherever that
+ * colour is in force, and to the inherited colour where a call site
+ * deliberately overrides it (`.tab-bar__link` sets `--color-text`, so
+ * the tab bar's chevron is text-coloured, not accent-coloured, which is
+ * what an inactive tab must be).
+ *
+ * Pure geometry, no glyph: two 2px edges of an empty box rotated 45
+ * degrees. Deliberately not a text character — a `content` string is
+ * exactly the hard-coded-English hazard T10 had to unpick, and an arrow
+ * glyph's rendering varies by installed font.
+ *
+ * `flex: none` is load-bearing: the chevron is a flex ITEM of the
+ * summary row, and without it a long label would shrink the box to a
+ * sliver. `margin-right` rather than a `gap` on the parent, so no
+ * existing summary's own internal spacing changes.
+ *
+ * The rotation is a `transform` and the fade is a `transition`, both
+ * already covered by the single global `@media (prefers-reduced-motion:
+ * reduce)` block at the top of this file. NO per-rule reduced-motion
+ * block is added here: references/accessibility-contrast.md's "What to
+ * Avoid" names that as dead code, not a safety net. */
+summary::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-right: var(--space-sm);
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform .15s ease;
+}
+
+/* Child combinator, not a descendant one: a <details> nested inside
+ * another one must never rotate its parent's marker. (0,1,2) against
+ * the (0,0,2) base above. */
+details[open] > summary::before {
+  transform: rotate(45deg);
 }
 
 .readings-disclosure {
@@ -3093,10 +3743,26 @@ summary::-webkit-details-marker {
 /* :focus-within alongside :hover on purpose: several tiles now contain
  * focusable children (the sparkline hit targets from Phase 06.5), and a
  * keyboard user should get the same lift affordance a mouse user gets.
- * border-color: transparent clears the resting hairline the moment the
- * shadow appears, so the two treatments never overlap (D-03). */
-.stat-tile:hover, .stat-tile:focus-within {
-  border-color: transparent;
+ *
+ * 22-04-PLAN.md Task 2 (T9): this declaration used to clear the resting
+ * hairline the moment the shadow appears, on all four edges, "so the
+ * two treatments never overlap (D-03)" — that stops being true of the
+ * TOP edge as of this task: `border-inline-color`/`border-block-end-color`
+ * (side-and-bottom only) replace the four-edge `border-color: transparent`
+ * shorthand, leaving `border-block-start` — a modifier tile's own
+ * status/accent rail (`.stat-tile--ok/--warn/--error/--accent` above) —
+ * intact through hover/focus-within instead of erasing it. The two
+ * treatments still never overlap on the three edges this rule still
+ * clears; only the top rail is now exempt, deliberately.
+ *
+ * `:not(.frame-strip)` scopes the WHOLE hover/focus-within reveal (the
+ * border change and the lift alike) away from the Frame strip: the
+ * strip is a control area, not a browsable card, and must not lift 1px
+ * or lose its own top rail just because a button inside it is hovered
+ * or focused. */
+.stat-tile:not(.frame-strip):hover, .stat-tile:not(.frame-strip):focus-within {
+  border-inline-color: transparent;
+  border-block-end-color: transparent;
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-1px);
 }
@@ -3846,6 +4512,26 @@ summary::-webkit-details-marker {
   gap: var(--space-lg);
 }
 
+/* X7 (22-11-PLAN.md Task 2, 22-UI-SPEC.md §2): exactly two cards per row
+ * on a phone. The auto-fill idiom above is the right default on a wide
+ * screen but collapses to ONE column inside a 342px content column
+ * (342 < 2 x 200 + 24), which is what made this page 5800px tall at
+ * 390px — one airline per screenful. A FIXED two-column template below
+ * 960px is therefore not a tuning of the floor but a different rule:
+ * `minmax(0, 1fr)` (never `1fr` alone) is what lets a column shrink
+ * below its content's intrinsic width, which is what a 450x132
+ * illustration inside it needs.
+ *
+ * At 390px: (342 - 24) / 2 = 159px per card, and the served 450x132
+ * frame scales to about 159x47 — still legible as a livery swatch,
+ * which is the whole job of a card in this grid. The page height
+ * roughly halves. */
+@media (max-width: 959.98px) {
+  .illustration-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* The 06.6.4 D-03 hairline-at-rest/shadow-on-hover card contract,
  * verbatim — do not "restore" a resting shadow on this component. */
 .airline-card {
@@ -3915,6 +4601,20 @@ a.airline-card {
  * so grid rows stay aligned whether a card holds art or a gap. No new
  * token, no accent use. aria-hidden="true" and empty in the markup —
  * the card's own visible, announced callsign text is the real content. */
+/* 22-07-PLAN.md Task 2 (B18) note: home_page.py's own recent-flight
+ * thumbnail placeholder (`.recent-flight__thumb--placeholder`, defined
+ * further down this file) deliberately does NOT join this selector as
+ * a shared list — companion/test_status_pages.py (owned by a sibling
+ * plan this wave, not editable here) pins the literal standalone
+ * selector text ".airline-card__placeholder {" as its own complete
+ * rule body carrying all five of this rule's declarations. Its dashed
+ * border/radius/canvas-fill values are instead reused BY VALUE (the
+ * exact same var() tokens, no new literal) on that rule's own
+ * definition, matching this rule's own comment below ("copied verbatim
+ * rather than inventing a second 'no image' treatment") — the real fix
+ * for the B18 weight mismatch is giving the REAL thumbnail this same
+ * treatment (see img.recent-flight__thumb below), not touching this
+ * rule. */
 .airline-card__placeholder {
   aspect-ratio: 450 / 132;
   border: 1px dashed var(--color-border);
@@ -4007,6 +4707,27 @@ a.airline-card {
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* X7 (22-11-PLAN.md Task 2, 22-UI-SPEC.md §2): the per-card "Replace
+ * picture" control's PLACEMENT inside the card — and nothing else. Its
+ * entire visual treatment (30px, 12px text, the 6%/12% washes, the 20%
+ * hairline) comes from `.calendar-disconnect-btn`, reused verbatim in
+ * the markup as that component's SECOND consumer, exactly as
+ * references/control-density.md predicted when it named it "the pattern
+ * to reuse the next time this app needs a small, deliberately
+ * de-emphasized secondary action". No modifier class, no second base
+ * rule and emphatically no `.btn` family: this block declares margin
+ * and width only, so the single `.calendar-disconnect-btn` rule above
+ * stays the one place that component's geometry is defined.
+ *
+ * Full-width inside the ~159px phone card because a 2-column grid leaves
+ * no room for the control to sit beside anything, and a centred stub
+ * button under a left-aligned name reads as debris. */
+.airline-card .calendar-disconnect-btn {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-sm);
 }
 
 /* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
@@ -4327,7 +5048,27 @@ a.airline-card {
    * element in document order and nothing it overlaps creates a
    * competing stacking context, so a z-index here would be an unearned
    * magic number — if a future overlap appears, add one then with a
-   * stated reason. */
+   * stated reason.
+   *
+   * 22-14-PLAN.md Task 3 (T7, D-10): that future overlap has appeared,
+   * and the escape clause above is being used exactly as it was
+   * written, so the STATED REASON is recorded here rather than the
+   * paragraph deleted. The bottom tab bar (at the foot of this file) is
+   * a new `position: fixed` element that genuinely competes for the
+   * same corner of a phone viewport, so "nothing it overlaps creates a
+   * competing stacking context" has stopped being true. `z-index: 30`
+   * is declared at BOTH breakpoints — one value for the component, not
+   * one per width — and sits above the tab bar's 20.
+   *
+   * Why the save bar wins rather than the tab bar: the save bar is the
+   * user's ACTIVE TASK and the tab bar is ambient chrome, and a blocked
+   * save is the P0 (B1/CFG-25) this entire phase exists to fix. A
+   * wrapped, taller save bar covering a tab is acceptable; a tab bar
+   * covering the Save button is not. Geometric separation comes first
+   * (see the sub-960px rule, where the bar's own bottom offset gains
+   * the tab bar's height so the two never overlap at all); this
+   * stacking order is belt-and-braces for the cases geometry cannot
+   * cover, such as a save bar that wraps taller than its own gap. */
   .dirty-bar {
     position: fixed;
     bottom: var(--space-lg);
@@ -4336,6 +5077,24 @@ a.airline-card {
     width: fit-content;
     max-width: calc(min(1440px, 100%) - var(--space-md) * 2);
     margin: 0 auto;
+    z-index: 30;
+  }
+
+  /* T7: the fixed bar covers page content at the foot of a scrolled
+   * page. Scoped to `.dirty-ready` — the class companion/static/
+   * dirty-state.js adds to <html> once it has confirmed its own bar
+   * exists — so a page with no save bar reserves nothing.
+   *
+   * 88px, MEASURED not guessed: the bar renders 64px tall at 1280px and
+   * sits `var(--space-lg)` (24px) above the viewport foot, so its whole
+   * footprint is 88px — already on the 8px spacing grid. Measured in
+   * BOTH languages: at this width the bar is `width: fit-content` and
+   * does not wrap, so English and French render the same 64px and there
+   * is no longer-copy case to budget for. The phone figure differs and
+   * is larger; see the tab bar's own block at the foot of this file for
+   * it and for why it is declared there. */
+  .dirty-ready .dashboard-main {
+    padding-bottom: calc(var(--space-2xl) + 88px);
   }
 
   /* History's mobile/desktop toggle (06.6.3 D-07), inverted at this
@@ -4507,6 +5266,174 @@ a.airline-card {
   box-shadow: var(--shadow-card-hover);
 }
 
+/* 22-13-PLAN.md Task 1 (X3, 22-UI-SPEC.md §3.2): the login card's own
+ * FORM geometry. The .login-shell/.login-card pair above has existed
+ * since 06.6.2-07, but nothing in this file had ever styled the two
+ * controls inside it, which is the whole of X3's measured defect: the
+ * field took the global `input` rule's 44px floor while the button took
+ * the base `button` rule's 30px / 6px-radius register, so a 225x44 r8
+ * field sat beside a 68x30 r6 button 7px lower, and on a phone the
+ * button wrapped glued underneath at a 0px gap.
+ *
+ * Stacked, not one row: label -> field -> message (when there is one)
+ * -> primary. Both controls take the full content column, so at 390px
+ * neither is narrower than the other. */
+/* 22-13-PLAN.md Task 2 (X3): the field's own box, which exists only so
+ * the show-password toggle can sit inside its right edge. Rendered on
+ * every branch, with or without a toggle — the modifier class below is
+ * what reserves room, and companion/static/login-card.js is the only
+ * thing that ever adds it. */
+.login-form__field {
+  position: relative;
+  display: block;
+}
+
+.login-form__input {
+  display: block;
+  width: 100%;
+  /* An explicit height, not the global `input` rule's `min-height`
+   * floor: the primary below must be able to state the SAME number, and
+   * a floor plus a fixed height cannot be compared by a reader (or by
+   * the browser harness) without resolving the padding too. The global
+   * `* { box-sizing: border-box }` reset makes this the border-box
+   * height, so the global rule's own --space-sm padding stays inside
+   * it. */
+  height: 44px;
+}
+
+/* The error-coloured field edge. Gated before shipping, exactly as
+ * 22-UI-SPEC.md §3.2 requires and as .status-card__headline--warn's own
+ * precedent binds: --color-status-error against the three surfaces this
+ * field is ever seen on measures 6.29 / 5.16 / 5.73 in light mode
+ * (#BE123C on #FFFFFF card, #EEE8DE field fill, #F7F4EF canvas) and
+ * 6.53 / 5.93 / 7.13 in dark (#FB7185 on #151922 / #1C222D / #0C0F14) —
+ * every one of them past WCAG_AA_UI_COMPONENT (3.0), so the border
+ * ships. companion/test_contrast_check.py pins all six.
+ *
+ * Attribute-selected, not class-selected, on purpose: the visual state
+ * and the announced state are then physically the same attribute and
+ * cannot drift — the same reasoning .site-nav-toggle[aria-expanded]
+ * already carries. Colour is never alone either way: the message under
+ * the field names the problem and the next action. */
+.login-form__input[aria-invalid="true"] {
+  border-color: var(--color-status-error);
+}
+
+/* 22-13-PLAN.md Task 2 (X3): room for the toggle, reserved ONLY once
+ * the toggle is actually there. companion/static/login-card.js appends
+ * this modifier at load — the same per-script class-at-load idiom
+ * theme-preview.js and flight-rows.js established — so a page with
+ * scripts blocked has no unexplained empty gutter down the right of its
+ * password field.
+ *
+ * --space-xl (32px), not 22-UI-SPEC.md §3.2's own suggested 40px: that
+ * figure is not a token, and §1 of the same document forbids any new
+ * off-scale literal beyond the three it enumerates (none of which is
+ * this). 32px clears the toggle's real reach — a 22px box inset
+ * --space-sm (8px) from the edge occupies the last 30px — and the
+ * visible glyph is centred in that box, so the typed value clears the
+ * mark by roughly 9px. */
+.login-form__field--with-toggle .login-form__input {
+  padding-right: var(--space-xl);
+}
+
+/* The toggle itself. Every dimension it has comes from `.copy-btn`,
+ * which it carries as its first class: the 22x22 visual box, the
+ * transparent no-border fill, the `::before { inset: -11px }` that
+ * synthesizes a real 44x44 hit area, the hover wash, and the 14px glyph
+ * box via `.copy-btn .icon`. This rule adds POSITION and nothing else —
+ * no width, no height, no radius, no font size, so there is no second
+ * icon-button size in the file to keep in step.
+ *
+ * `top: 0; bottom: 0; margin-block: auto` rather than a
+ * `transform: translateY(-50%)`, deliberately: the base `button:active`
+ * rule presses every button in this app 1px with its own `transform`,
+ * and a centring transform here would be overwritten by it, making the
+ * toggle jump to the top of the field on every press. Absolute
+ * centring by auto margins leaves that 1px press working exactly as it
+ * does everywhere else.
+ *
+ * These rules sit AFTER `.copy-btn` in source order, which is what lets
+ * this equal-specificity `position: absolute` win over its
+ * `position: relative`. Do not move either block. */
+.login-reveal {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: var(--space-sm);
+  margin-block: auto;
+}
+
+/* Without this, the server-rendered `hidden` attribute has no effect and
+ * the whole no-JS floor collapses: `.copy-btn`'s own `display:
+ * inline-flex` is an author-stylesheet declaration and beats the
+ * user-agent `[hidden] { display: none }` regardless of source order, so
+ * a browser with scripts blocked would render a show-password button
+ * that does nothing at all — the exact defect this control was built to
+ * avoid. Same collision class, and the same fix, as `.dirty-bar[hidden]`
+ * and `.refresh-pill[hidden]` above: a component whose base rule sets
+ * `display` always needs its own higher-specificity `[hidden]` selector.
+ * Found by companion/test_browser_ux.py's own scripts-blocked pass, not
+ * by inspection. */
+.login-reveal[hidden] {
+  display: none;
+}
+
+/* The pressed state, in the file's own quiet color-mix wash idiom at
+ * `.copy-btn:hover`'s own 7% strength — no new colour, no accent (this
+ * is not a main action). Attribute-selected so the visual state and the
+ * announced state are physically the same attribute, as with
+ * `.site-nav-toggle[aria-expanded]` and the error border above.
+ * Colour is not alone: the glyph itself swaps filled/hollow with the
+ * state, and the field's own value visibly changes. */
+.login-reveal[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+/* The glyph is a text character, not an SVG: login_shell() emits no
+ * ICON_DEFS_HTML sprite and this plan may not add one. `.copy-btn .icon`
+ * already sizes this span to 14x14; these three declarations only
+ * centre the character inside that box, which an SVG would not have
+ * needed. */
+.login-reveal__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* The primary. A named, scoped exception to the base `button` rule's
+ * 30px / 6px-radius register, for three reasons that all have to hold
+ * together — see .claude/skills/sketch-findings-skypane/references/
+ * control-density.md's touch-target register, which this joins in the
+ * KEPT category, not the traded-away list:
+ *   1. 44px RESTORES the WCAG 2.5.5 (AAA) floor here rather than
+ *      trading it — a floor gain, the same reasoning quick task
+ *      260902-qkm used to restore .mobile-nav__link's own 44px;
+ *   2. matching the field's height AND radius is what makes the pair
+ *      read as one object, which is C4's new composition rule;
+ *   3. this is the app's only pre-auth surface, with no density
+ *      argument to trade the floor against.
+ *
+ * The full-width accent fill is correct HERE and only here, and is not
+ * a contradiction of B15 (which removed the app's other one, 22-10):
+ * the login card is a single-purpose pre-auth surface with exactly one
+ * action and no competing content, so `Sign in` IS the page's single
+ * main action — which is precisely what C2 reserves the accent for.
+ * This satisfies C2, it does not breach it.
+ *
+ * margin-top is the ONE medium spacing token separating the two
+ * controls; with a message present, .field-error's own --space-xs
+ * margin-top attaches the message to the field above it and this
+ * token then separates the message from the primary. */
+.login-card button[type="submit"] {
+  width: 100%;
+  height: 44px;
+  border-radius: var(--radius-control);
+  font-size: var(--font-body-size);
+  margin-top: var(--space-md);
+}
+
 /* History lightbox (D-20, §8.3) — a native <dialog> element, styled by
  * class. box-shadow: var(--shadow-card-hover) at rest is this phase's
  * one deliberate exception to the hairline-at-rest contract every other
@@ -4596,6 +5523,30 @@ a.airline-card {
  * is not a new token. */
 .lightbox::backdrop {
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* B5 (22-11-PLAN.md Task 1, 22-UI-SPEC.md §2): the dialog's ONE action
+ * row. Before this, Close was the dialog's bare last child and the
+ * resolve form's Save sat inside the form above it, so the two painted
+ * as two stacked block rows — the audit's own "Save/Close buttons
+ * stacked on two lines". `justify-content: space-between` is what puts
+ * the quiet Close at the left edge and the primary Save at the right;
+ * when the Save is hidden (every non-gap mode, panel-lookup.js mirrors
+ * the form's own state) Close simply stays where it already was.
+ *
+ * C4, as §4 states it: these two read as SEPARATE OBJECTS on a shared
+ * row, not as one object, so they are centre-aligned and each keeps its
+ * own registered geometry. No height, no min-height and no radius is
+ * declared here on purpose — forcing a shared height would be the
+ * one-object rule applied to the wrong composition. This is a layout
+ * row, not a button family: both children keep the element selectors
+ * (`button`, `button[type="submit"]`) they already matched. */
+.lightbox__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
 }
 
 /* quick task 260902-tli: the Airlines gallery's wide lightbox variant.
@@ -4934,6 +5885,39 @@ a.airline-card {
   flex-direction: column;
 }
 
+/* B15 (22-AUDIT.md, 22-10-PLAN.md Task 2): "Connect calendar"/"Replace"
+ * measured 830x30 at 1280px and 308px on a phone — the only full-width
+ * primary button in the app, where every other primary is content-width.
+ * No rule ever declared a width: the button is a direct child of this
+ * COLUMN flex container, whose default `align-items: stretch` stretched
+ * it across the cross axis. `align-self: flex-start` opts this one child
+ * out of that stretch, which both sizes it to its content and leaves its
+ * left edge equal to the field's above it. `width: auto` is the explicit
+ * statement of the resulting intrinsic width.
+ *
+ * Scoped away from `.rule-add-form--inline` (the rules add-form), where
+ * the container is a ROW and `align-self` would instead pull the Add
+ * button off that row's `align-items: center` baseline.
+ *
+ * Accent is KEPT. B15's fix column is about geometry only, and greying
+ * this button would be a second, unasked change — 22-UI-SPEC.md §1's
+ * accent-reservation delta lists it as "kept, width only". */
+.rule-add-form:not(.rule-add-form--inline) > button[type="submit"] {
+  align-self: flex-start;
+  width: auto;
+}
+
+/* B14 (22-10-PLAN.md Task 2): the normalised 24h value rendered beside a
+ * native `<input type="time">`, which formats itself from the browser's
+ * locale ("11:00 PM") rather than from the stored value ("23:00"). Inline
+ * beside its control, in the label voice `.text-label` already supplies —
+ * this rule adds only the spacing that keeps it off the input's edge. */
+.field-inline-value {
+  margin-left: var(--space-xs);
+  white-space: nowrap;
+}
+
+
 /* =====================================================================
  * Phase 18 — companion audit / UX refactor.
  *
@@ -4974,15 +5958,16 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.mobile-nav__nav .nav-group {
-  margin-top: var(--space-sm);
-}
-
-/* The dropdown grew two entries and a group label; the old 420px cap
- * would clip the footer. */
-.js .mobile-nav--open {
-  max-height: 640px;
-}
+/* 22-14-PLAN.md Task 2 (T11, X9/D-10): the `.mobile-nav__nav .nav-group`
+ * override and the SECOND open-state max-height (640px) that used to sit
+ * here are both DELETED. The dropdown no longer holds nav links or a
+ * group label, so the first selector matched nothing; and the second
+ * silently overrode the 420px declaration beside `.js .mobile-nav`
+ * above it, which is T11's whole finding — two values for one state,
+ * only one of them ever in effect. There is now exactly one open-state
+ * declaration in this file, pinned by measurement against the reduced
+ * French content at 390px. `.nav-group`/`.nav-group__label` above stay: the desktop
+ * sidebar still renders the Advanced group. */
 
 /* 2. Page-header screen caption --------------------------------------- */
 .page-header__screen {
@@ -5003,8 +5988,18 @@ a.airline-card {
   margin-top: 0;
 }
 
+/* B2 (22-07-PLAN.md Task 2): explicit, greppable align-items: stretch —
+ * already the inherited value from the shared .dashboard-grid rule
+ * above (a class this element also carries), but restated here rather
+ * than left implicit, matching that rule's own "kept explicit" idiom.
+ * The audit's measured 112/112/131px on a phone was primarily this
+ * grid's single column stacking three unequal-content rows (the
+ * Flight-data tile's own extra re-embedded-verdict line, B2's other
+ * half, fixed in Task 1) — this declaration is the belt to that
+ * fix's own suspenders. */
 .home-status-grid {
   margin-bottom: var(--space-sm);
+  align-items: stretch;
 }
 
 .widget-verdict {
@@ -5060,18 +6055,6 @@ a.airline-card {
   gap: var(--space-sm);
 }
 
-.quick-action {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--color-border);
-  border-left-width: 4px;
-  border-radius: var(--radius-control);
-  background: var(--color-canvas);
-}
-
 .quick-action--on {
   border-left-color: var(--color-status-ok);
 }
@@ -5082,13 +6065,6 @@ a.airline-card {
 
 .quick-action--neutral {
   border-left-color: var(--color-border);
-}
-
-.quick-action__text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
 }
 
 .quick-action__label {
@@ -5119,19 +6095,65 @@ a.airline-card {
   min-width: 96px;
 }
 
-/* 21-04-PLAN.md Task 1 (D-01/D-02): the Screen on/off and Quiet hours
- * cards no longer embed an instant switch of their own — both switches
- * now render once, in the shared Frame strip below — so the divider
- * rule that used to separate a card's own switch from its scheduled
- * controls (.quick-action-slot, 20-04-PLAN.md Task 1) has no consumer
- * left and is deleted rather than kept as stale, misleading CSS.
- *
- * The Frame strip (D-01, D-02, D-05) — one shared surface holding the
- * Screen switch, the Quiet hours switch and the next-update headline,
- * atop Home and Display alike (layout.frame_strip_html()). Reuses
- * .stat-tile/.stat-tile--accent verbatim for the card surface itself
- * (padding, border-radius, hairline, accent top-border) — this rule
- * adds only the internal 3-cell flex layout. */
+/* 22-04-PLAN.md Task 2 (B13): every Frame-strip cell — both switch cells
+ * and the update cell alike — shares this ONE wrapper: padding, hairline,
+ * radius and surface, plus a fixed three-row internal grid (label, then
+ * state plus control, then caption; layout.py's _frame_strip_cell_html()
+ * is the one Python builder for all three). A cell with nothing to put
+ * in a row still renders that row's own (empty) track, which is what
+ * keeps all three cells' rows lined up — today (before this task) the
+ * Screen cell puts its button on the label row while the Quiet-hours
+ * cell pushes it to its own row, which is why the three cells measure
+ * 119/165/69px tall instead of one shared height. `.quick-action`'s own
+ * `--on/--off/--neutral` left-edge colour below stays exclusive to the
+ * two switch cells (added below, on the SAME element, never here) — the
+ * update cell never carries `.quick-action` at all, so it can never
+ * paint a control-state signal it does not have. */
+.frame-strip__cell {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  row-gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+}
+
+/* The switch cells' own control-state left edge (D-01) — `.quick-action`
+ * is added alongside `.frame-strip__cell` on the SAME element; only the
+ * border WIDTH lives here, the colour comes from `--on`/`--off`/
+ * `--neutral` above, matching the pre-restructure contract exactly. */
+.frame-strip__cell.quick-action {
+  border-left-width: 4px;
+}
+
+/* Row 2 (state plus control): state text and the switch's own <form>
+ * side by side, matching the pre-restructure `.quick-action` row's own
+ * layout — now scoped to one grid row instead of the whole cell. Every
+ * cell (including the update cell, whose row 2 is the headline
+ * paragraph alone) shares this rule; it is a no-op for a cell with only
+ * one child in this row. */
+.frame-strip__row--state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+/* The Frame strip (D-01, D-02, D-05; 22-04-PLAN.md Task 2, B13) — one
+ * shared surface holding the Screen switch, the Quiet hours switch and
+ * the next-update headline, atop Home and Display alike
+ * (layout.frame_strip_html()). Reuses .stat-tile/.stat-tile--accent
+ * verbatim for the card surface itself (padding, border-radius,
+ * hairline, accent top-border) — this rule adds only the flex layout
+ * that lays the three cells out side by side; each cell's own chrome
+ * now comes from `.frame-strip__cell` above, not from this container.
+ * `align-items: stretch` (was `center`) is B13's own fix: all three
+ * cells now report equal offsetHeight at every width, because a
+ * flex-stretched item's own internal grid can only ever be as tall as
+ * its OWN three rows demand at minimum — never shorter than its
+ * siblings. */
 .frame-strip {
   margin-bottom: var(--space-lg);
 }
@@ -5139,42 +6161,13 @@ a.airline-card {
 .frame-strip__cells {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-lg);
 }
 
-/* Both classes on the SAME element (.frame-strip__cell.quick-action
- * quick-action--on/off) — this is what lets each switch cell keep
- * .quick-action's own flex-row/padding/border/background chrome while
- * also sizing itself as a flex item of .frame-strip__cells above. The
- * two switch cells share the row, each wrapping to its own line first
- * before the update cell does. flex-wrap here (not on the base
- * .quick-action rule, which has no other consumer left after this
- * task) lets the relocated "Applies the next time the frame wakes up."
- * caption — carried over as a THIRD child alongside .quick-action__text
- * and the <form>, never dropped (D-02) — fall onto its own full-width
- * line under the label/state and the form/button instead of squeezing
- * into the same row as a third space-between item. */
-.frame-strip__cell.quick-action {
-  flex: 1 1 220px;
-  flex-wrap: wrap;
-}
-
-.frame-strip__cell.quick-action > .section-caption {
-  flex: 1 1 100%;
-  margin: 0;
-}
-
+.frame-strip__cell.quick-action,
 .frame-strip__cell--update {
-  flex: 1 1 160px;
-  min-width: 0;
-}
-
-/* Phase 21 polish (D-01): the next update is the largest text in the
- * strip — one step above the switch cells' body-size state text. */
-.frame-strip__cell--update .status-card__headline {
-  font-size: var(--font-heading-size);
-  line-height: 1.2;
+  flex: 1 1 220px;
 }
 
 @media (max-width: 699.98px) {
@@ -5199,9 +6192,27 @@ a.airline-card {
  * second rule introduces no new colour literal. .now-showing__image's
  * own extra sizing (the 360px cap, the auto margin) moves to its own
  * rule immediately below so .preview-frame__image is never affected by
- * it. */
+ * it.
+ *
+ * 22-07-PLAN.md Task 2 (B18): `img.recent-flight__thumb` (the REAL
+ * thumbnail <img> only — the tag qualifier is deliberate, not
+ * decorative: the dashed placeholder variant is a <span> that ALSO
+ * carries the bare .recent-flight__thumb class for its shared 40x40
+ * sizing below, and without the `img` qualifier this selector would
+ * tie with `.airline-card__placeholder, .recent-flight__thumb--
+ * placeholder`'s own dashed-border rule at equal specificity, letting
+ * source order — not intent — decide which border/background wins on
+ * the placeholder span) joins here too — one more selector, no new
+ * colour literal, no new radius — so a real illustration carries the
+ * SAME white-backing/hairline/radius weight as the frame picture and
+ * the theme preview. Its own width:40px/height:40px/object-fit:cover/
+ * border-radius further down this file (declared AFTER this rule,
+ * higher specificity via the same `img.` qualifier) still wins for
+ * sizing; only the border/background/display are new here. */
 .now-showing__image,
-.preview-frame__image {
+.preview-frame__image,
+img.recent-flight__thumb,
+img.history-card__thumb {
   display: block;
   width: 100%;
   height: auto;
@@ -5213,6 +6224,22 @@ a.airline-card {
 .now-showing__image {
   max-width: 360px;
   margin: 0 auto var(--space-sm);
+}
+
+/* 22-09-PLAN.md Task 2 (X5): the Flights phone card's own thumbnail
+ * sizing — the Airlines gallery's 450x132 served frame in a fixed
+ * 56px-tall box with `contain` fitting, so a wide livery panel is
+ * letterboxed rather than cropped. Declared AFTER the shared rule
+ * above and with the same `img.` qualifier, exactly like
+ * `img.recent-flight__thumb`'s own sizing rule, so it wins for width/
+ * height while the white backing, the hairline and the radius still
+ * come from that one shared rule — one rule, an additional selector,
+ * no new colour literal. */
+img.history-card__thumb {
+  height: 56px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 .now-showing__caption {
@@ -5256,26 +6283,74 @@ a.airline-card {
 .recent-flight__detail,
 .recent-flight__time {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  overflow-wrap: anywhere;
-}
-
-.recent-flight__time {
-  text-align: right;
-  max-width: 60%;
-  justify-self: end;
 }
 
 .recent-flight__detail {
+  overflow-wrap: anywhere;
   grid-column: 2 / -1;
   grid-row: 2;
 }
 
-/* 20-04-PLAN.md Task 1 (D-17.2): the thumbnail itself. object-fit: cover
- * absorbs the artwork's own aspect ratio; the placeholder variant reuses
- * the exact dashed no-artwork treatment already shipped for a manually-
- * resolved airline with no artwork (Phase 13/14), copied verbatim rather
- * than inventing a second "no image" treatment. */
-.recent-flight__thumb {
+/* B18 (22-07-PLAN.md Task 2): the recent-flight time is one line — the
+ * clock and the relative age (joined by .cell-inline-sep) can never
+ * wrap onto a second line. `overflow-wrap: anywhere` used to be
+ * shared with .recent-flight__detail above (written for that column's
+ * own long airline/route text, not this short clock+age pair) and is
+ * dropped here rather than merely overridden, since the two mechanisms
+ * fight: overflow-wrap can still force a mid-word break to avoid
+ * overflowing a width cap even under white-space: nowrap.
+ *
+ * Quick task 260913-bjy (B11's missing fourth surface, after 22-09 on
+ * Flights, 22-11 on Airlines and 22-12 on Health): the PERCENTAGE WIDTH
+ * CAP this rule also carried is deleted, because it could only ever be
+ * a lie to the layout engine. This item sits in .recent-flight's third,
+ * content-sized `auto` track, so that track resolves to the item's own
+ * max-content width — and a percentage cap then resolves against that
+ * same content-derived width, clamping the box to 60 per cent of
+ * exactly the content it was meant to bound. Under white-space: nowrap
+ * nothing can reflow into the smaller box, so the relative age simply
+ * painted the other 40 per cent outside it. Measured at EVERY width
+ * from 320px to 1440px, in both languages and both themes, always the
+ * same ratio: clientWidth 88px against a scrollWidth of 147px in
+ * English, 93px against 155px in French. Below 960px that overflow
+ * escaped the VIEWPORT too and gave Home a horizontal scrollbar
+ * (390px viewport: documentElement.scrollWidth 411 FR / 408 EN); at
+ * 960px and above it still escaped the CARD (the age painting to 1253
+ * against a row ending at 1191 at 1280px), which is why nine plans of
+ * desktop review never saw it. With the cap gone the track IS the line:
+ * the one-line intent above is preserved verbatim, and the age sits
+ * inside the card at every width companion/test_browser_ux.py measures.
+ *
+ * A wrapping flex container was measured here FIRST and rejected on the
+ * measurement, not on taste: the `auto` track always grows to
+ * max-content before the neighbouring minmax(0, 1fr) track yields, so
+ * flex-wrap never engaged at any width from 320px up and would have
+ * shipped inert — the same class of dead declaration the sticky-header
+ * entry in the design-system notes was retired for. */
+.recent-flight__time {
+  text-align: right;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+/* 20-04-PLAN.md Task 1 (D-17.2): the thumbnail's own 40x40 box.
+ * object-fit: cover absorbs the artwork's own aspect ratio. The shared
+ * white-backing/hairline declarations now live on the `img.recent-
+ * flight__thumb` rule above (22-07-PLAN.md Task 2, B18); this rule's
+ * OWN selector is tag-qualified the same way (`img.`, specificity
+ * 0-1-1, matching that rule's) so it still overrides that rule's
+ * width:100%/height:auto for the real thumbnail by source order alone
+ * — a bare `.recent-flight__thumb` selector here would be a LOWER
+ * specificity than the shared rule's `img.` qualifier and would lose
+ * regardless of being declared later. `.recent-flight__thumb--
+ * placeholder` (the dashed <span> variant) joins this same rule for
+ * its own matching 40x40/radius/flex box; its own dashed border/
+ * canvas-fill live on the separate rule immediately below, reusing
+ * `.airline-card__placeholder`'s exact values (never a new literal) —
+ * which is what makes a missing thumbnail match the real ones in
+ * weight (B18). */
+img.recent-flight__thumb,
+.recent-flight__thumb--placeholder {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-control);
@@ -5285,7 +6360,6 @@ a.airline-card {
 
 .recent-flight__thumb--placeholder {
   border: 1px dashed var(--color-border);
-  border-radius: var(--radius-control);
   background: var(--color-canvas);
 }
 
@@ -5311,6 +6385,43 @@ a.airline-card {
   min-width: 9rem;
 }
 
+/* B17 (22-AUDIT.md, 22-10-PLAN.md Task 3): the wake-interval field held
+ * a 448px-wide box for a 3-4 digit number, inherited from the global
+ * `input, select` rule's own sizing on this page. `8ch` is a CONTENT-FIT
+ * width in character units — the correct unit for "sized for its
+ * content", and one of the exactly three off-scale literals
+ * 22-UI-SPEC.md §1 permits, alongside the safe-area inset and the tab
+ * bar's 56px. The 96px minimum keeps the box usable in a narrow or
+ * condensed font where 8ch would collapse.
+ *
+ * DELIBERATELY NO HEIGHT. The global `input, select` rule's 44px
+ * `min-height` is the touch-target register's "kept" entry for
+ * `<input type="number">` (11-03-PLAN.md), and `width` does not touch
+ * `min-height`, so that entry still holds verbatim after this rule. Do
+ * not add a height here.
+ *
+ * Selected by `name`, not by id: this file carries no id selector at all
+ * and should not gain its first one here. `.config-form input[name=
+ * "..."]` is (0,2,1) — EQUAL to the `.config-form input[type="number"]`
+ * rule directly above, and placed immediately after it, which is this
+ * file's own documented equal-specificity-plus-source-order mechanism
+ * (`.logout-form button`, `.dirty-bar__cancel`). Raising specificity
+ * instead would start beating rules this one has no business beating.
+ *
+ * It must live HERE, beside that rule, rather than up with the other
+ * field-layout rules: the phase-18 `width: 100%` above is what it
+ * narrows, and splitting the two apart is how the next reader ends up
+ * re-deriving why a `width` declaration two thousand lines earlier has
+ * no effect. NOTE for the phase-closing sweep: that phase-18 rule exists
+ * so "Uses server default" is not truncated to "Uses se"; in a 96px box
+ * this field's placeholder truncates again whenever no interval is
+ * stored. B17's "sized for its content" is the later, narrower decision
+ * and wins for this one field, but the interaction is real. */
+.config-form input[name="wake_interval_s"] {
+  width: 8ch;
+  min-width: 96px;
+}
+
 /* Theme-chip names must never wrap and stagger the row. */
 .theme-chip__name {
   white-space: nowrap;
@@ -5318,14 +6429,59 @@ a.airline-card {
   text-overflow: ellipsis;
 }
 
-/* The filter bar's count and Clear control stay together on one line
- * instead of Clear wrapping alone underneath. */
-.filter-bar__count {
-  margin-left: auto;
-}
+/* Phase 18's A-18 fix: the filter bar's count and Clear control stay
+ * together on one line instead of Clear wrapping alone underneath.
+ *
+ * SUPERSEDED in mechanism by 22-09-PLAN.md Task 3 (B11) — this is A-18
+ * REGRESSING A SECOND TIME, named as such so a future reader sees it has
+ * now broken twice. Two `nowrap` siblings in one `flex-wrap: wrap`
+ * container do not wrap as a unit: `nowrap` stops a break INSIDE each
+ * one, and nothing stopped the flex container breaking BETWEEN them, so
+ * at 390px Clear still dropped alone onto its own line. The pair is
+ * wrapped in one `.filter-bar__meta` group below instead, which is a
+ * single flex item and therefore moves whole or not at all.
+ *
+ * `.filter-bar__count`'s own `margin-left: auto` was KEPT here by
+ * 22-09-PLAN.md Task 3, with a stated expiry: "Airlines and Health still
+ * render a bare count with no wrapper (plans 22-11 and 22-12 adopt the
+ * same group element on their own filter bars), and removing it here
+ * would un-right-align both of them."
+ *
+ * RETIRED by 22-12-PLAN.md Task 3, which is the plan that landed the
+ * third and last of those three adoptions. All three filtered pages now
+ * render their count inside `.filter-bar__meta` (grep: exactly three
+ * `.filter-bar__count` call sites, in history_page.py, airlines_page.py
+ * and health_page.py, each one a child of that group), and that group
+ * carries the auto margin itself. Inside a content-sized flex item there
+ * is no free space for a second auto margin to absorb, so the
+ * declaration had become genuinely inert rather than merely redundant —
+ * this removal changes no rendered pixel, and 22-11-SUMMARY.md's own
+ * note named this plan as the one that could honestly make it. If a
+ * fourth filter bar is ever added, wrap its pair in the group; do not
+ * reinstate this rule. */
 
 .filter-bar [data-filter-clear] {
   white-space: nowrap;
+}
+
+/* B11 (22-09-PLAN.md Task 3, 22-UI-SPEC.md §2): the count + Clear group.
+ * ONE flex item holding both controls, so they wrap as a unit and Clear
+ * can never drop alone onto its own line again. The auto left margin
+ * moves here with them (it is what pushes the pair to the end of the
+ * bar, the role it played on the count alone before).
+ *
+ * Written page-agnostic on purpose: Airlines (22-11) and Health (22-12)
+ * adopt it by adding this same wrapper element around their own count
+ * and Clear, with NO per-page variant. Both pages' Clear controls stay
+ * converged on the existing `.filter-bar [data-filter-clear]` rule
+ * (06.6.4 D-08) — that selector is not forked here, and no second clear
+ * class is introduced. */
+.filter-bar__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  white-space: nowrap;
+  margin-left: auto;
 }
 
 /* A manually-resolved airline with no artwork yet renders the same
@@ -5345,20 +6501,42 @@ a.airline-card__zoom {
   /* The save bar used to sit in normal flow at the very bottom of the
    * page on phones — below every group, the rules table and the
    * refresh section — so a change made near the top had no visible way
-   * to be saved. Pin it like the desktop rule already does. */
+   * to be saved. Pin it like the desktop rule already does.
+   *
+   * 22-14-PLAN.md Task 3 (D-10, T7): GEOMETRIC SEPARATION FIRST. The
+   * bottom tab bar lands at exactly this corner — `bottom: 0`, 56px of
+   * row plus the same safe-area inset — so the bar's own offset gains
+   * that 56px and the two never overlap at all in the normal case.
+   * D-10's "must not cover the pinned save bar" is then satisfied by
+   * arithmetic rather than by a stacking assurance.
+   *
+   * The stacking order is the belt-and-braces half, for the cases
+   * geometry cannot cover (a save bar wrapped taller than its own gap):
+   * `z-index: 30`, raised from 20 so the component declares ONE value
+   * across both breakpoints, above the tab bar's 20. The desktop rule
+   * above carries the full stated reason, as that block's own escape
+   * clause requires. */
   .dirty-bar {
     position: fixed;
     left: var(--space-md);
     right: var(--space-md);
-    bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--space-md) + 56px + env(safe-area-inset-bottom, 0px));
     margin: 0;
-    z-index: 20;
+    z-index: 30;
     flex-wrap: wrap;
   }
 
-  .quick-action {
-    flex-wrap: wrap;
-  }
+  /* T7's phone-side content clearance is NOT declared here. It has to
+   * beat `.has-tab-bar .page-content`, which targets the same element at
+   * the same (0,2,0) specificity, so it is declared AFTER it — in the
+   * tab bar's own block at the foot of this file, next to the rule it
+   * supersedes rather than 900 lines away from it. */
+
+  /* 22-04-PLAN.md Task 2: `.quick-action` no longer establishes its own
+   * flex row (that layout moved onto `.frame-strip__row--state`, one
+   * row inside the cell's own grid) — this sub-960px `flex-wrap: wrap`
+   * override is retired as dead alongside it, not left as stale CSS
+   * with no element left to match its old flex-row context. */
 }
 
 /* Recent flights on a phone: callsign and time share the first row and
@@ -5508,7 +6686,53 @@ a.airline-card__zoom {
 /* 21-04-PLAN.md Task 3 (D-04): .status-card__rows had exactly one
  * consumer (the deleted _status_card_html()'s own <div>) and is
  * deleted with it; .status-card__headline/--warn above survive — the
- * strip now reuses both verbatim for its own next-update line. */
+ * strip now reuses both verbatim for its own next-update line.
+ *
+ * C6, 22-04-PLAN.md Task 2: the Phase 21 polish override on the update
+ * cell's own headline element (`d9e0338`) — it set that one element's
+ * font-size to the heading-size custom property and a tighter
+ * line-height — promoted this line to the 22px Section-heading size, and
+ * is retired outright: it competed with the 22px regular serif section
+ * headings beside it. `.status-card__headline` above returns to its own
+ * 16px semibold Emphasis base for every consumer, strip included. Its
+ * intent — being the most prominent thing IN the strip — still holds
+ * without the override, because the switch cells' own state text
+ * (`.quick-action__state`) is Body-size REGULAR, not semibold. */
+
+/* C5, 22-04-PLAN.md Task 2: the one time-value role, replacing four
+ * treatments this phase found (14px grey label on Home, 16px bold mono
+ * on Health, 14px mono in tables, mono under the picture) with one
+ * shared rule. `--font-ui` (never mono — mono stays reserved for
+ * identifiers: callsign, ICAO24 hex, the masked calendar URL) plus
+ * `font-variant-numeric: tabular-nums` so a changing clock/countdown
+ * digit never reflows its neighbours. No new token, no new family, no
+ * new size: `--font-body-size`/`--font-label-size` and `--weight-
+ * regular`/`--weight-semibold` are the same four-size/two-weight scale
+ * every other rule in this file already draws from. `.time-value` alone
+ * is the supporting-value shape (label-size, regular); `.time-value--
+ * primary` is the primary-value shape (body-size, semibold) — a
+ * modifier, not a second role. The relative age accompanying either
+ * shape is a SIBLING element, not a variant of this class, at the
+ * file's own existing 70% muted color-mix() strength
+ * (`.time-value__age`, matching `.quick-action__label`'s own use of the
+ * identical mix). This plan applies the primary shape to the Frame
+ * strip's own next-wake clock text only; later plans (22-06, 22-07,
+ * 22-09, 22-12) adopt it at their own render sites. */
+.time-value {
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+}
+
+.time-value--primary {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+}
+
+.time-value__age {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
 
 /* --- 21-UI-SPEC.md §E: the merged Calendar card (D-13/D-14, R-08/R-09)
  * ------------------------------------------------------------------------
@@ -5547,8 +6771,41 @@ a.airline-card__zoom {
  * treatment `button[type="submit"]` would otherwise give it. No
  * `.btn`/`.btn--secondary`/`.btn--small` family exists anywhere in this
  * file — R-09 explicitly names this the new class pair to introduce,
- * not an existing family to reuse. */
-.calendar-disconnect-btn {
+ * not an existing family to reuse.
+ *
+ * T2 (22-AUDIT.md, 22-15-PLAN.md Task 1). The paragraph above described
+ * an intent this selector could not deliver. The bare class was (0,1,0)
+ * and `button[type="submit"]` is (0,1,1) — an element selector plus an
+ * attribute selector — so the primary accent fill won outright, and the
+ * DESTRUCTIVE Disconnect control rendered as the page's primary CTA
+ * while every declaration below was dead. Config's Disconnect is the
+ * only `type="submit"` consumer (Airlines' per-card Replace and
+ * History's picture control are both `type="button"`), so the defect
+ * was invisible on two of the three call sites.
+ *
+ * The fix is the mechanism this file already uses in four places
+ * (`.logout-form button`, `.dirty-bar__cancel`, `.frame-strip__cell
+ * button`, `.config-form input[name="wake_interval_s"]`): EQUAL
+ * specificity plus source order. `button.calendar-disconnect-btn` is
+ * (0,1,1) — equal to the primary rule — and this block sits thousands
+ * of lines after it, so source order decides and the grey treatment
+ * wins. Deliberately NOT a `:where()` wrapper around the primary
+ * rule's own selector: dropping that rule to (0,0,0) would surrender
+ * the accent fill to every
+ * competing zero-specificity rule in the file at once (22-UI-SPEC.md
+ * §2's T2 row states this prohibition directly).
+ *
+ * `box-shadow: none` is new and load-bearing for the same reason
+ * `.logout-form button`/`.dirty-bar__cancel`/`.frame-strip__cell
+ * button` each carry it: this is a submit button and would otherwise
+ * keep the primary rule's inset highlight even once the fill is
+ * repainted, which is what made the control read as raised.
+ *
+ * `.airline-card .calendar-disconnect-btn` further down is (0,2,0) and
+ * declares display/width/margin ONLY — no colour, no border, no
+ * shadow — so it is unaffected by this change and keeps sourcing its
+ * entire visual treatment from here, exactly as its own comment says. */
+button.calendar-disconnect-btn {
   min-height: 30px;
   padding: 4px var(--space-sm);
   font-size: 12px;
@@ -5556,10 +6813,18 @@ a.airline-card__zoom {
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
   border-radius: var(--radius-control);
+  box-shadow: none;
 }
-.calendar-disconnect-btn:hover,
-.calendar-disconnect-btn:focus-visible {
+/* (0,2,1), equal to `button[type="submit"]:hover` and later in source —
+ * the same arithmetic as the base rule above, one pseudo-class up on
+ * both sides. The border-color and box-shadow are restated here because
+ * the primary hover rule declares both, and the base rule above cannot
+ * reach a hovered element the primary hover rule also matches. */
+button.calendar-disconnect-btn:hover,
+button.calendar-disconnect-btn:focus-visible {
   background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 20%, transparent);
+  box-shadow: none;
 }
 
 /* D-13: the masked feed URL (host + "…", companion/pages/config_page.
@@ -5597,6 +6862,16 @@ a.airline-card__zoom {
  * by :checked instead of a --active class toggle. */
 .theme-form input[type="radio"] + label {
   height: 28px;
+  /* T12 (22-AUDIT.md, 22-10-PLAN.md Task 1): the global `label` rule
+   * near the top of this file gives EVERY label `margin-bottom:
+   * var(--space-sm)`. This rule never reset it, so each 28px segment
+   * carried an 8px tail inside the 2px-padded `.theme-form` container —
+   * measured 42px tall where 34px is the control's real height, with the
+   * segments floating against the container's top edge instead of
+   * filling it. `.theme-chip` above resets the identical global margin
+   * for the identical reason; this is that reset, for the segmented
+   * control. */
+  margin-bottom: 0;
   flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
@@ -5629,10 +6904,30 @@ a.airline-card__zoom {
   outline-offset: 2px;
 }
 
+/* X6 (22-AUDIT.md "rules add-form segmented control + input
+ * right-aligned, 'Add rule' far right"), 22-10-PLAN.md Task 1.
+ *
+ * ROOT CAUSE, measured rather than assumed: this modifier never reset
+ * `.rule-add-form`'s own `flex-direction: column` (above). In a COLUMN
+ * flex container the cross axis is horizontal, so `align-items:
+ * flex-end` pushed every child — the segmented control, the value
+ * input and the Add button — to the RIGHT edge of an 830px form, each
+ * on its own line. There is, and was, no `margin-left: auto` anywhere
+ * on this form; the 22-AUDIT.md/22-UI-SPEC.md reading that there was
+ * one is corrected here.
+ *
+ * `flex-direction: row` is therefore the actual fix, and `align-items:
+ * center` is the composition rule C4 states: these four controls read
+ * as SEPARATE objects sharing a row (not as one field-plus-its-action),
+ * so they are centre-aligned and each keeps its own registered
+ * geometry. Neither the 28px segment nor the 44px native-input floor is
+ * touched here — references/control-density.md protects both
+ * explicitly, and a height-match would have had to break one of them. */
 .rule-add-form--inline {
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: var(--space-sm);
 }
 
@@ -5831,8 +7126,14 @@ a.airline-card__zoom {
  * inside the file's existing live-selection-state @supports block) is
  * a belt-and-braces duplicate for a future markup change, not
  * load-bearing today. */
+/* T6 (22-15-PLAN.md Task 1): constant 1px border plus the inset ring,
+ * the third and last selectable surface converted. These rows are a
+ * vertical `flex-direction: column` list, so the old 2px border made a
+ * checked row 2px TALLER than its siblings and nudged every row below
+ * it — the same defect the chips and cards showed horizontally. */
 input:checked + .frame-colours__row {
-  border: 2px solid var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 /* 21-REVIEW.md CR-01: the radio sits INSIDE the label, so a sibling
@@ -5860,7 +7161,23 @@ input:checked + .frame-colours__row {
  * small-caps muted label voice this file already uses for a secondary
  * heading (e.g. .rule-row__kind's own text before the .banner__pill
  * treatment), reused verbatim rather than a new size/weight/tracking. */
+/* C1 (22-AUDIT.md, 22-10-PLAN.md Task 1): the serif leak. This legend
+ * wears the 12px uppercase label voice but inherited `--font-serif` from
+ * the shared `h1, h2, h3, legend, .text-heading` rule near the top of
+ * this file, so it rendered as 12px uppercase Iowan Old Style — a label
+ * role in a heading family.
+ *
+ * The fix is a LATER, HIGHER-SPECIFICITY override on this one instance —
+ * (0,1,0) here against the shared selector's (0,0,1), and further down
+ * the file — which is the same "non-serif exception, the other
+ * direction" mechanism `.page-section--nested > h2` already uses.
+ * `legend` STAYS in that shared selector: it earned its place there as a
+ * bug fix (a sans-semibold <legend> sitting above a serif-regular <h2>
+ * at the same size), and removing it is a different, larger change than
+ * overriding one instance. Do not "simplify" this by editing the shared
+ * selector instead. */
 .frame-colours__panel-legend {
+  font-family: var(--font-ui);
   font-size: 12px;
   font-weight: var(--weight-semibold);
   text-transform: uppercase;
@@ -5914,6 +7231,35 @@ input:checked + .frame-colours__row {
   text-decoration: none;
   color: var(--color-text);
   font-weight: var(--weight-semibold);
+  /* X7 (22-11-PLAN.md Task 2): the audit's "CHANGE PICTURES". This
+   * anchor sits inside a `.page-header__screen` wrapper — a class whose
+   * own role on the Device page is a label-voice CAPTION, where
+   * uppercase is correct — and inherited that caption's
+   * `text-transform: uppercase`. A shouting button is not a label, and
+   * this app's CTA voice is sentence case everywhere else ("Save airline
+   * name", "Send a test"). Declared HERE, on the toggle's own existing
+   * class, rather than by inventing a button class the file's own header
+   * comment refuses to have. */
+  text-transform: none;
+}
+
+/* The caption under the toggle inherits the same uppercase from the same
+ * wrapper, and is a sentence — "Replace an airline's picture or add one
+ * for an airline that has none." — so it is even less a label than the
+ * button is. Scoped to a caption INSIDE the wrapper, which is why the
+ * Device page's own `<p class="page-header__screen text-label">` (the
+ * class on the element, not on an ancestor) is untouched and keeps its
+ * label voice. */
+.page-header__screen .section-caption {
+  text-transform: none;
+}
+
+/* X7: the "Editing" state badge beside the toggle. `.banner__pill` is
+ * reused verbatim for its label voice; this rule contributes only the
+ * gap between the two, since the markup emits no whitespace between
+ * them and both are inline-flex. */
+.page-header__screen .banner__pill {
+  margin-left: var(--space-sm);
 }
 
 .airlines-edit-toggle:hover {
@@ -5924,5 +7270,284 @@ input:checked + .frame-colours__row {
 @media (max-width: 959.98px) {
   .airlines-edit-toggle {
     height: 36px;
+  }
+}
+
+/* B9 fallback (22-10-PLAN.md Task 2, 22-AUDIT.md's own second option).
+ *
+ * Below 360px the three equal columns stop being the right shape: the
+ * content column is ~238px at 320px, giving each card ~73px with 32px of
+ * padding inside it, and `.runway-card__number`'s longest label
+ * ("Runway 3 (07/25)") then paints past the card's own border
+ * (scrollWidth > clientWidth, measured). At 390px — the audit's own
+ * measurement viewport — the same cards measure ~97px and the label
+ * wraps cleanly inside them, which is why this fallback starts below
+ * 360 and not at the 960px breakpoint.
+ *
+ * The fallback is the audit's vertical radio LIST, never a re-wrap: a
+ * 2 + 1 orphan is the defect B9 exists to remove, and reintroducing it
+ * one breakpoint lower would be the same defect at a smaller size. A
+ * 100% basis inside the row's existing `flex-wrap: wrap` puts one card
+ * per line with no change to `.runway-row`, whose second consumer
+ * (quiet_hours_group()'s preset row) must keep wrapping normally. */
+@media (max-width: 359.98px) {
+  .runway-card {
+    flex: 1 1 100%;
+  }
+}
+
+/* ===================================================================== *
+ * The bottom tab bar (X9, 22-14-PLAN.md Task 1, 22-UI-SPEC.md §3.1)     *
+ * ===================================================================== *
+ *
+ * D-10 (22-CONTEXT.md) locks X9's mechanism to a bottom tab bar and
+ * forbids the alternative the audit's own fix column had also offered:
+ * `.claude/skills/sketch-findings-skypane/references/mobile-navigation
+ * .md` carries a locked REJECTED verdict on an absolute-positioned
+ * overlay for the PRIMARY nav, established by real-device testing during
+ * 06.6.1-06 — an out-of-flow panel can only ever cover content, never
+ * push it, which is why `.mobile-nav` above is in-flow via
+ * `flex-basis: 100%`. Nothing in this block touches that rule or that
+ * verdict. The dropdown still pushes; it just has far less to push with
+ * now that destinations live down here.
+ *
+ * The measured defect: opening the hamburger shoved a 390x844 viewport
+ * about 420px down — a near-full-screen push — to reach any page. Every
+ * everyday destination is now one tap away at ZERO page shift.
+ *
+ * `display: none` is declared here, outside the media query, and only
+ * lifted below 960px. Stated that way round on purpose: a desktop that
+ * never matches the query below can never show the bar, whatever later
+ * rules arrive. The >=960px sidebar is untouched.
+ */
+.tab-bar {
+  display: none;
+}
+
+@media (max-width: 959.98px) {
+  /* 959.98px, not 959px: the same fractional boundary the sub-960px
+   * rules above already use, so a fractional-CSS-pixel viewport cannot
+   * land in a one-device-pixel gap with neither nav visible.
+   *
+   * Surface/shadow: `--color-secondary` (the nav surface `.mobile-nav`
+   * already uses), a single TOP hairline, and `--shadow-card-hover` at
+   * REST. The resting shadow is a floating-overlay exception to the
+   * card hairline-at-rest contract, the same exception `.mobile-nav`,
+   * `.lightbox` and `.dirty-bar` already carry, for the same reason:
+   * this genuinely floats over the content it covers.
+   *
+   * NO border radius, deliberately. `--radius-card` is for floating
+   * elements that do NOT touch the viewport edge; this bar is anchored
+   * to three of them, and rounding an edge-anchored box leaves slivers
+   * of page showing through its corners. Getting that pairing backwards
+   * is the easiest mistake available here.
+   *
+   * 56px is one of the three off-scale literals 22-UI-SPEC.md §1 admits
+   * for this phase (the safe-area inset below is the second); it is the
+   * tab ROW's height, with the inset added as padding underneath so the
+   * row itself never shrinks on a device with a home indicator.
+   *
+   * `z-index: 20` puts the bar above ordinary page content and BELOW
+   * `.dirty-bar`'s 30 — see the save-bar rules and their stated reason. */
+  .tab-bar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--color-secondary);
+    border-top: 1px solid var(--color-border);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* Five equal cells: `flex: 1 1 0` (not `1 1 auto`) so the widest label
+   * cannot buy itself a wider tab. At 390px that is 78x56px per cell,
+   * which clears the WCAG 2.5.5 44px floor DIRECTLY in both axes — this
+   * is a met-directly touch target, not a traded-away one, because
+   * nothing was traded for it.
+   *
+   * `.tab-bar__link` is also the `<summary>` of the "More" `<details>`
+   * below, which is why this rule declares `color` explicitly: the
+   * global `summary` rule paints its own text with `--color-accent`
+   * (a disclosure-control affordance), and an inactive tab must read as
+   * an inactive tab, not as the current page. (0,1,0) beats (0,0,1). */
+  .tab-bar__link {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 56px;
+    display: flex;
+    color: var(--color-text);
+    text-decoration: none;
+    font-family: var(--font-ui);
+  }
+
+  /* The active/hover tint is painted on this INNER wrapper, not on the
+   * cell, so the pill is inset from the cell edge while the cell keeps
+   * its full 78x56px tap area. */
+  .tab-bar__pill {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    margin: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-control);
+    transition: background-color .15s ease, color .15s ease;
+  }
+
+  /* 11px regular, sentence case, and explicitly NOT the label voice —
+   * no `text-transform`, no `letter-spacing`. A nav destination is a
+   * destination, not a label, and shouting four of them at the foot of
+   * every phone page would make the bar the loudest thing on screen.
+   * The size joins this file's existing sub-scale exception tier beside
+   * `.sparkline-axis-label` (10px) and `.cell-secondary`; it is not a
+   * fifth entry in the four-size type scale. */
+  .tab-bar__label {
+    font-size: 11px;
+    font-weight: var(--weight-regular);
+    line-height: 1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The app's ONE active-signal idiom, verbatim: the same 12% accent
+   * wash, accent text and semibold weight `.sidebar-link--active`,
+   * `.mobile-nav__link--active` and `.theme-option--active` already
+   * share. Not a fourth treatment — a third consumer of the third. */
+  .tab-bar__link--active {
+    color: var(--color-accent);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__link--active .tab-bar__pill {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  /* :not()-scoped for exactly the reason `.mobile-nav__link`'s own hover
+   * rule above already states, and which `references/control-density.md`
+   * names as a specific failure: a bare hover selector here would be
+   * equal specificity and later in source, so it would erase the active
+   * tint the instant the pointer crossed the current tab. */
+  .tab-bar__link:not(.tab-bar__link--active):hover .tab-bar__pill {
+    background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  }
+
+  /* "More" is a native <details>. It is the cell itself, so it takes the
+   * same `flex: 1 1 0` share as the four links, and `position: relative`
+   * only to anchor its own sheet. */
+  .tab-bar__more {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    position: relative;
+  }
+
+  .tab-bar__more > .tab-bar__link {
+    flex: 1 1 auto;
+  }
+
+  /* T3, decided deliberately rather than inherited (22-15-PLAN.md Task
+   * 1). `.tab-bar__link` is ALSO the <summary> of the "More" details,
+   * so the global `summary::before` chevron lands here too — and
+   * 22-UI-SPEC.md §3.1 and §5 contract 3 both require that it does:
+   * "More" is a disclosure and must say so.
+   *
+   * Taken OUT OF FLOW, which is the whole decision. In flow the chevron
+   * is a flex item beside `.tab-bar__pill` inside a 78x56px cell, and
+   * it would compress the centred icon-and-label stack the other four
+   * tabs render at full width — a visibly narrower fifth cell for a
+   * 6px marker. Absolutely positioned against `.tab-bar__more`'s own
+   * already-declared `position: relative`, it costs the layout nothing:
+   * the cell stays 78x56px, the tap area is untouched, and the stack
+   * stays centred. The `margin-right` and `flex` the base rule sets are
+   * cleared for the same reason.
+   *
+   * The rotation is INVERTED against the base rule, and that is not a
+   * style choice: this sheet opens UPWARD (see the panel rule below),
+   * so the base rule's right-when-closed / down-when-open convention
+   * would point the marker away from the panel it controls. Closed
+   * points up, at the space the sheet will occupy; open points down, at
+   * the bar the sheet folds back into. Still one transform, still
+   * covered by the one global reduced-motion block, still no per-rule
+   * block. */
+  .tab-bar__more > .tab-bar__link::before {
+    position: absolute;
+    top: 7px;
+    right: 12px;
+    margin-right: 0;
+    transform: rotate(-135deg);
+  }
+
+  .tab-bar__more[open] > .tab-bar__link::before {
+    transform: rotate(45deg);
+  }
+
+  /* The sheet opens UPWARD from the bar.
+   *
+   * This `position: absolute` is NOT a reversal of the rejected-overlay
+   * verdict recorded in `references/mobile-navigation.md`. That verdict
+   * is about the PRIMARY nav's push-versus-overlay behaviour on a
+   * component that must be able to push page content down; this is a
+   * two-item secondary sheet anchored to a bar that is already fixed,
+   * pushes nothing, and never could. Recorded here as well as in
+   * companion/layout.py's `_tab_bar_html()` so a future reader meets the
+   * distinction wherever they arrive first.
+   *
+   * Rows reuse `.mobile-nav__link` verbatim (44px, 16px, `--font-ui`)
+   * rather than re-declaring that geometry — see that rule and quick
+   * task 260902-qkm's note on why its 44px floor is load-bearing.
+   *
+   * Radius on the top corners only: the sheet sits flush on the bar and
+   * its right edge meets the viewport edge, so a full `--radius-card`
+   * would round two corners that touch something. */
+  .tab-bar__more-panel {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-sm);
+    background: var(--color-secondary);
+    border: 1px solid var(--color-border);
+    border-top-left-radius: var(--radius-card);
+    border-top-right-radius: var(--radius-card);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* The last card must never sit under the bar. Scoped to the
+   * server-rendered `.has-tab-bar` body class (companion/layout.py's
+   * TAB_BAR_BODY_CLASS), which is present only when the bar really
+   * rendered — so the 404 and the preview-image error pages, which
+   * render no bar, reserve no space for one. */
+  .has-tab-bar .page-content {
+    padding-bottom: calc(
+      var(--space-2xl) + 56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* T7, phone side (22-14-PLAN.md Task 3). When the save bar is live the
+   * page must clear BOTH fixed elements: the tab bar's 56px row and the
+   * save bar floating above it. Declared here, immediately after the
+   * rule it supersedes, because the two target the same element at the
+   * same (0,2,0) specificity and source order is what decides between
+   * them — writing this beside the sub-960px `.dirty-bar` block instead
+   * would have let the tab bar's own clearance silently win.
+   *
+   * 144px, MEASURED not guessed, and measured in BOTH languages rather
+   * than assumed: at 390px the bar is full-width and wraps, and it is
+   * ENGLISH that wraps taller here (122px against French's 110px) —
+   * the opposite of this file's usual longer-copy-is-French case, and
+   * exactly why the figure was measured instead of reasoned about. 122px
+   * of bar plus its own `var(--space-md)` offset above the tab bar is
+   * 138px, rounded up to 144px on the 8px spacing grid. */
+  .dirty-ready .page-content {
+    padding-bottom: calc(
+      var(--space-2xl) + 56px + 144px + env(safe-area-inset-bottom, 0px));
   }
 }

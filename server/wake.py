@@ -159,39 +159,143 @@ def device_staleness_thresholds(wake_interval_s):
     return (warn_s, error_s)
 
 
-def next_wake_at_iso(last_checkin_ts, device_cfg):
-    """The next time the device is expected to wake, as an ISO-8601 UTC
-    string — `last_checkin_ts + effective_wake_interval_s(device_cfg)` —
-    or `None` when it cannot be determined (D-13/S-02).
+# 22-02-PLAN.md Task 1 (D-03/CFG-26): the hold-reason vocabulary. A
+# module constant, not a bare string literal, so every consumer (the
+# strip, the tiles, companion/frame_state.py) compares against the same
+# identity rather than each hand-typing "quiet_hours" and risking a typo
+# that silently never matches. `None` is the other legal value, meaning
+# "not held" — there is deliberately no second reason constant for a
+# screen that is merely off, because that case is already fully absorbed
+# into `effective_wake_interval_s()`'s own DISPLAY_OFF_SLEEP_S branch: a
+# longer, but still perfectly ordinary, cadence. Only an active
+# quiet-hours window changes the STATE a consumer should render (D-03's
+# "held" state), so only it gets a reason.
+HOLD_QUIET_HOURS = "quiet_hours"
 
-    `None` is returned, never raised, for every one of these cases:
+
+def next_wake_status(last_checkin_ts, device_cfg):
+    """The `(next_wake_iso, effective_interval_s, hold_reason)` triple
+    every consumer of "when will the frame next wake" needs (D-03/
+    CFG-26, 22-02-PLAN.md Task 1): the strip's headline, the Home/Health
+    status tiles and every settings delay caption all read this ONE
+    result instead of each re-deriving their own — that is what makes
+    the disagreement X2 found ("Expected since 23:0x" beside "Checking
+    in normally") impossible by construction.
+
+    Returns `(None, None, None)` — never raises — for every one of
+    these cases, matching `next_wake_at_iso()`'s own pre-existing
+    never-raise contract:
       - `last_checkin_ts` is falsy (no check-in recorded yet) or is not
         a string `datetime.fromisoformat()`-equivalent parsing accepts;
       - `effective_wake_interval_s(device_cfg)` itself returns `None`
         (no on-disk `wake_interval_s`, no `SKYPANE_SLEEP_S`, and the
-        screen is not off).
+        screen is not off) — with no known base cadence there is
+        nothing for a quiet-hours extension to compose against.
 
     `last_checkin_ts` is parsed with the same naive-value-is-UTC
-    convention this codebase's own clock-text formatter documents (it
-    matches `history_db.utc_now_iso()`'s own timezone-aware output, but
-    a hand-written or legacy naive value must not raise or silently
-    misread as local time): a timezone-naive result is stamped UTC
-    before the addition, never left ambiguous.
+    convention this module has always used (see `next_wake_at_iso()`
+    below): a timezone-naive result is stamped UTC before any
+    arithmetic, never left ambiguous.
+
+    Quiet-hours composition — reproduces `stub-server/byos_server.py`'s
+    own `quiet_hours_sleep_s(display_off_sleep_s(base_sleep_s, ...),
+    ...)`, i.e. `max(base_interval, seconds_remaining_in_the_window)`, by
+    composing two already-tested primitives; no new window arithmetic is
+    invented here (`device_config.quiet_hours_status()`'s own "never
+    raise" contract already covers a hostile config or epoch).
+    `effective_wake_interval_s(device_cfg)` supplies the base half
+    (already screen-off aware); `device_config.quiet_hours_status()`
+    supplies the quiet-hours half, called TWICE against the same
+    `device_cfg`, both times against an epoch derived only from
+    `last_checkin_ts` and the base interval — never against a
+    render-time "now":
+
+      1. At the check-in epoch itself (`parsed.timestamp()`), catching
+         a window already active when the device last reported in — the
+         device's own sleep_s at that moment already reflects the hold.
+      2. At the check-in epoch PLUS the base interval — the base
+         candidate wake, before any quiet-hours extension — catching a
+         window that OPENS between the check-in and that candidate.
+         This second call is necessary, not optional: a device polling
+         every 15 minutes that last checked in two minutes before a
+         23:00 quiet-hours window opens gets told, at THAT poll, to
+         sleep the ordinary 900s (the window is not active yet at
+         22:58); it is the poll landing inside the window a quarter
+         hour later that actually receives the long hold. Reporting the
+         naive 22:58 + 900s = 23:13 candidate as "the next wake" would
+         be technically the device's literal next radio contact, but it
+         would misrepresent what a household member cares about — the
+         frame is, in every practical sense, held for the night — and
+         is exactly the shape of X2's nightly false alarm this plan
+         exists to remove. Both calls reuse the SAME tested primitive
+         (`quiet_hours_status`) at a different, still check-in-derived
+         epoch; no new window arithmetic is written here.
+
+    Whichever call (or both) reports an active window sets
+    `hold_reason` to `HOLD_QUIET_HOURS` and contributes its own
+    check-in-relative seconds figure — the first call's remaining
+    seconds are already measured from the check-in; the second call's
+    are converted to the same frame of reference by adding the base
+    interval that elapsed to reach it. `effective_interval_s` is the max
+    of the base interval and every contributed figure, so quiet hours
+    can only ever lengthen the wait, never shorten it, matching
+    `quiet_hours_sleep_s()`'s own documented invariant.
+
+    Inherits `seconds_until_quiet_hours_end()`'s own accepted PEP 495
+    `fold=0` DST caveat rather than reopening it: a window boundary
+    configured inside the 02:00-03:00 transition hour on the last Sunday
+    of March or October can resolve up to an hour off for that one
+    instant, twice a year — accepted there, accepted here for the same
+    reason (D-01's "never shorter than the base sleep" rule bounds the
+    worst case to one extra or one missing wake).
+    """
+    if not last_checkin_ts:
+        return None, None, None
+    try:
+        parsed = datetime.fromisoformat(last_checkin_ts)
+    except (TypeError, ValueError):
+        return None, None, None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    interval_s = effective_wake_interval_s(device_cfg)
+    if interval_s is None:
+        return None, None, None
+
+    checkin_epoch = parsed.timestamp()
+    remaining_at_checkin, _end_hm = device_config.quiet_hours_status(
+        device_cfg, checkin_epoch)
+    remaining_at_candidate, _end_hm2 = device_config.quiet_hours_status(
+        device_cfg, checkin_epoch + interval_s)
+
+    hold_reason = None
+    effective_interval_s = interval_s
+    if remaining_at_checkin is not None:
+        hold_reason = HOLD_QUIET_HOURS
+        effective_interval_s = max(effective_interval_s, remaining_at_checkin)
+    if remaining_at_candidate is not None:
+        hold_reason = HOLD_QUIET_HOURS
+        effective_interval_s = max(
+            effective_interval_s, interval_s + remaining_at_candidate)
+
+    next_wake_iso = (parsed + timedelta(seconds=effective_interval_s)).isoformat()
+    return next_wake_iso, effective_interval_s, hold_reason
+
+
+def next_wake_at_iso(last_checkin_ts, device_cfg):
+    """The next time the device is expected to wake, as an ISO-8601 UTC
+    string, or `None` when it cannot be determined (D-13/S-02).
+
+    A thin wrapper over `next_wake_status()` (D-03/CFG-26,
+    22-02-PLAN.md Task 1) returning its ISO element only. Its name,
+    signature, None-cases and never-raise contract are all unchanged by
+    that extension, so `home_page.py:421` and `config_page.py:3109` keep
+    compiling and keep returning the same values for every
+    non-quiet-hours configuration; they migrate to the richer accessor
+    in their own plan, not here.
 
     Returns a plain ISO string, not formatted text — deliberately not
     run through any formatter here, since this module has no view
     dependency (see the module docstring above): each caller formats
     the value itself for display.
     """
-    if not last_checkin_ts:
-        return None
-    try:
-        parsed = datetime.fromisoformat(last_checkin_ts)
-    except (TypeError, ValueError):
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    interval_s = effective_wake_interval_s(device_cfg)
-    if interval_s is None:
-        return None
-    return (parsed + timedelta(seconds=interval_s)).isoformat()
+    return next_wake_status(last_checkin_ts, device_cfg)[0]
