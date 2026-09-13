@@ -627,7 +627,13 @@ EXPECTED_CHECK_COUNT = 273
 # against the real on-disk check(...) call count at execution time (the
 # two documented WR-11 root-sandbox failures are unrelated to this
 # plan), not trusted from arithmetic alone.
-EXPECTED_CHECK_COUNT = 288
+# 23-07-PLAN.md Task 2 (D2/CFG-36): +2 — the /quick/led route's own
+# round trip (one explicit keyword, every other flag carried forward,
+# 303-with-flash for a form post, 204 for a fetch, generic failure flash
+# and no write for a crafted state, every non-member return_to falling
+# back to /device by MEMBERSHIP, and no write reachable by GET) and its
+# unauthenticated-POST gate. 288 + 2 = 290, recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 290
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -5906,6 +5912,91 @@ def main():
             "body and no Location — the same write either way, and a crafted state value is "
             "never a 204 (D2/CFG-36, T-23-26, 23-07-PLAN.md Task 1)",
             _quick_routes_answer_204_for_a_fetch_and_303_for_a_form)
+
+        def _quick_led_route_saves_redirects_and_negotiates():
+            # 23-07-PLAN.md Task 2 (D2/CFG-36, T-23-23/24/25). The third
+            # quick route, following _handle_quick_toggle()'s shape
+            # exactly: one explicit led_enabled keyword to
+            # save_device_config(), never a partial POST /settings.
+            device_config.save_device_config(harness.tmpdir, led_enabled=True)
+            # 1. a form post: stores False and redirects with its flash
+            status, headers, _ = http_request(
+                base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"state": "off", "return_to": "/device"}).encode())
+            if status != 303 or headers.get("Location") != "/device?flash=%s" % (
+                    app_module.FLASH_KEY_LED_OFF):
+                return False, "expected a 303 to /device?flash=led_off, got %d/%r" % (
+                    status, headers.get("Location"))
+            on_disk = device_config.load_device_config(harness.tmpdir)
+            if on_disk["led_enabled"] is not False:
+                return False, "expected led_enabled False on disk, got %r" % (on_disk["led_enabled"],)
+            # The sibling flags must be untouched — this route writes ONE
+            # explicit keyword and carries everything else forward.
+            if on_disk["display_enabled"] is not True or on_disk["quiet_hours_enabled"] is not True:
+                return False, (
+                    "expected /quick/led to carry every other flag forward untouched, got %r"
+                    % (on_disk,))
+            # 2. the fetch shape: 204, empty, no Location, and it saves
+            status, headers, body = http_request(
+                base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"state": "on", "return_to": "/device"}).encode(),
+                extra_headers={"X-Requested-With": app_module.QUICK_FETCH_HEADER_VALUE})
+            if status != 204 or body or headers.get("Location"):
+                return False, (
+                    "expected an empty 204 with no Location for the fetch shape, got %d/%r/%r"
+                    % (status, body[:80], headers.get("Location")))
+            if device_config.load_device_config(harness.tmpdir)["led_enabled"] is not True:
+                return False, "expected the 204 branch to still save led_enabled True"
+            # 3. an invalid state: the generic failure flash, nothing stored
+            status, headers, _ = http_request(
+                base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"state": "toggle", "return_to": "/device"}).encode())
+            if status != 303 or headers.get("Location") != "/device?flash=%s" % (
+                    app_module.FLASH_KEY_QUICK_FAILED):
+                return False, (
+                    "expected a crafted state value to redirect with the generic quick_failed "
+                    "flash, got %d/%r" % (status, headers.get("Location")))
+            if device_config.load_device_config(harness.tmpdir)["led_enabled"] is not True:
+                return False, "expected a rejected quick action to write nothing"
+            # 4. T-23-24: the return_to whitelist is a MEMBERSHIP test
+            # against this route's OWN allowed set, never a prefix and
+            # never a URL parse. /device is the only member; the strip's
+            # own two pages are deliberately NOT members, so a crafted
+            # return_to cannot send a Device switch somewhere else.
+            for hostile in ("https://evil.example/", "//evil.example", "/flights",
+                            "/device/../flights", "/", "/display"):
+                status, headers, _ = http_request(
+                    base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": "on", "return_to": hostile}).encode())
+                if status != 303 or headers.get("Location") != "/device?flash=%s" % (
+                        app_module.FLASH_KEY_LED_ON):
+                    return False, (
+                        "return_to=%r: expected a fall back to /device, got %d/%r"
+                        % (hostile, status, headers.get("Location")))
+            # 5. T-23-23: no state change is reachable by GET. SameSite=
+            # Strict is this app's only CSRF control, so a GET-reachable
+            # write would have no defence at all.
+            device_config.save_device_config(harness.tmpdir, led_enabled=False)
+            status, _headers, _body = http_request(
+                base + app_module.QUICK_LED_ROUTE + "?state=on", cookie=session_cookie)
+            if status != 404:
+                return False, "expected GET /quick/led to 404, got %d" % status
+            if device_config.load_device_config(harness.tmpdir)["led_enabled"] is not False:
+                return False, "a GET must never write"
+            return True, ""
+        check(
+            "POST /quick/led stores one explicit led_enabled keyword and carries every other flag "
+            "forward, redirects to /device with its own flash for a form post, answers 204 with an "
+            "empty body for a fetch, redirects with the generic failure flash and writes nothing "
+            "for a crafted state, falls back to /device for every non-member return_to, and is not "
+            "reachable by GET at all (D2/CFG-36, T-23-23/T-23-24/T-23-25, 23-07-PLAN.md Task 2)",
+            _quick_led_route_saves_redirects_and_negotiates)
+
+        check(
+            "unauthenticated POST /quick/led redirects to /login without page content",
+            _unauth_redirects_to_login(
+                "POST", app_module.QUICK_LED_ROUTE,
+                data=urllib.parse.urlencode({"state": "off"}).encode()))
 
         check(
             "unauthenticated POST /quick/display redirects to /login without page content",

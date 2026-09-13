@@ -677,7 +677,16 @@ EXPECTED_CHECK_COUNT = 233
 # landing on this page's form is the P0 Phase 22 existed to fix.
 # 233 + 2 = 235, recomputed directly against the real on-disk check(...)
 # call count at execution time, not trusted from arithmetic alone.
-EXPECTED_CHECK_COUNT = 235
+# 23-07-PLAN.md Task 2 (D2/CFG-36, X1/D-04): +2. One pins that the
+# Diagnostic LED group renders exactly ONE control — a server-rendered
+# role=switch whose aria-checked is the stored value in both directions,
+# with no input[name="led_enabled"] checkbox surviving beside it. One
+# pins its cross-DOM form: an EMPTY sibling of #settings-form carrying
+# the inverted posted state, placed outside the settings form on Device
+# and not rendered at all on Display. The eight-combination absent-field
+# guard was EXTENDED in place rather than duplicated, so it contributes
+# nothing to this count. 235 + 2 = 237, recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 237
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -6194,6 +6203,116 @@ def main():
         "declaration — disjoint, together equal to the legacy single page — and unknown screen ids "
         "fall back to the default screen",
         _scope_groups_follow_the_screen_registry)
+
+    # --- 23-07-PLAN.md Task 2 (D2/CFG-36, X1/D-04): the Diagnostic LED
+    # becomes the third real switch. ONE control for the setting
+    # afterwards — a switch beside a surviving checkbox is exactly the
+    # defect X1/D-04 was written to remove.
+
+    def _the_led_group_renders_one_switch_and_no_surviving_checkbox():
+        for stored in (True, False):
+            rendered = config_page.led_group(stored)
+            if 'name="led_enabled"' in rendered:
+                return False, (
+                    "stored=%r: an input named led_enabled still renders in the LED group — the "
+                    "switch and a surviving checkbox would be TWO controls for one setting, the "
+                    "exact defect X1/D-04 exists to remove" % (stored,))
+            expected = (
+                '<button type="submit" class="switch" role="switch" aria-checked="%s"'
+                ' aria-labelledby="%s" aria-describedby="%s %s" %s>'
+                % ("true" if stored else "false",
+                   config_page.QUICK_LED_LABEL_ID, config_page.QUICK_LED_STATE_ID,
+                   config_page.LED_SECTION_CAPTION_ID, layout.QUICK_SWITCH_CONTROL_ATTR))
+            if expected not in rendered:
+                return False, (
+                    "stored=%r: expected the server-rendered switch %r — aria-checked is the "
+                    "SAVED value, the name is the setting, and the group's own caption stays "
+                    "reachable as a description" % (stored, expected))
+            if rendered.count('role="switch"') != 1:
+                return False, (
+                    "stored=%r: expected exactly ONE control in the LED group, got %d role=switch "
+                    "elements" % (stored, rendered.count('role="switch"')))
+            # The button is attached ACROSS the DOM to a form that is a
+            # sibling of #settings-form: the group renders INSIDE the
+            # settings form, and a <form> can never nest inside another.
+            if ('form="%s"' % config_page.QUICK_LED_FORM_ID) not in rendered:
+                return False, (
+                    "stored=%r: the switch must reach its own form through a form= attribute — "
+                    "the cross-DOM idiom the Send-a-test button already uses, because this card "
+                    "renders inside <form id=\"settings-form\">" % (stored,))
+            if config_page.LED_SECTION_CAPTION_ID not in rendered:
+                return False, "stored=%r: the group's caption id is gone" % (stored,)
+            # The pending-marker host and both translated state wordings.
+            if layout.QUICK_SWITCH_REGION_ATTR not in rendered:
+                return False, (
+                    "stored=%r: the LED card carries no %s — quick-switch.js has nothing to mark "
+                    "pending" % (stored, layout.QUICK_SWITCH_REGION_ATTR))
+            if (layout.QUICK_STATE_ON_ATTR not in rendered
+                    or layout.QUICK_STATE_OFF_ATTR not in rendered):
+                return False, "stored=%r: expected both state wordings server-rendered" % (stored,)
+        return True, ""
+    check(
+        "config_page.led_group() renders exactly ONE control for the setting — a server-rendered "
+        "role=switch whose aria-checked is the stored value in both directions, named by the "
+        "setting, described by its state span AND the group's own caption, attached across the DOM "
+        "to its own /quick/led form — and no input[name=\"led_enabled\"] checkbox survives beside "
+        "it (D2/CFG-36, X1/D-04, 23-07-PLAN.md Task 2)",
+        _the_led_group_renders_one_switch_and_no_surviving_checkbox)
+
+    def _the_quick_led_form_is_a_sibling_of_the_settings_form():
+        # The <form> must never nest inside <form id="settings-form">:
+        # HTML forbids it and the browser silently drops the inner one,
+        # which would make the switch post the SETTINGS route instead —
+        # a partial settings save, the exact shape T-23-25 is about.
+        section = config_page.quick_led_form_html(True)
+        if not section.startswith('<form method="post" action="/quick/led" '):
+            return False, (
+                "expected the LED quick form to open with its own literal method/action, got %r"
+                % (section[:120],))
+        if ('id="%s"' % config_page.QUICK_LED_FORM_ID) not in section:
+            return False, "expected the form to carry the id the switch's form= attribute names"
+        if "data-quick-switch" not in section:
+            return False, (
+                "expected the D-04 handshake attribute on the form — dirty-state.js and "
+                "quick-switch.js both key on it")
+        for token in ('<input type="hidden" name="state" value="off">',
+                      '<input type="hidden" name="return_to" value="/device">'):
+            if token not in section:
+                return False, "expected %r in the LED quick form, got %r" % (token, section)
+        if config_page.quick_led_form_html(False).count('name="state" value="on"') != 1:
+            return False, (
+                "the posted state must be the OPPOSITE of the stored one, or pressing the switch "
+                "with scripts blocked re-asserts the state it is already in")
+        if "<button" in section:
+            return False, (
+                "the form stays EMPTY — its button lives in the LED card and reaches it across "
+                "the DOM, mirroring notifications_test_section()'s own shape")
+        # And on a real Device render it is a sibling, not a descendant.
+        tmp = tempfile.mkdtemp(prefix="skypane-quick-led-")
+        try:
+            device_config.save_device_config(tmp, led_enabled=True)
+            ctx = {"state_dir": tmp, "device_config": device_config.load_device_config(tmp)}
+            device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+            form_open = device.index('<form class="config-form"')
+            form_close = device.index("</form>", form_open)
+            quick_at = device.index('action="/quick/led"')
+            if form_open < quick_at < form_close:
+                return False, (
+                    "the LED quick form renders INSIDE <form id=\"settings-form\"> — a nested "
+                    "<form> is dropped by every browser and the switch would post /settings "
+                    "instead, which is a partial settings save (T-23-25)")
+            display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+            if "/quick/led" in display:
+                return False, "expected no LED quick form on the Display scope, which has no LED group"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "config_page.quick_led_form_html() is an EMPTY form carrying its own method/action/id, the "
+        "D-04 handshake attribute and the two hidden fields with the posted state inverted from the "
+        "stored one — and render() places it as a SIBLING of the settings form on the Device scope "
+        "and not at all on Display (D2/CFG-36, 23-07-PLAN.md Task 2)",
+        _the_quick_led_form_is_a_sibling_of_the_settings_form)
 
     def _display_scope_carries_runway_and_calendar_device_carries_neither():
         # 20-07-PLAN.md Task 1 (D-10/D-11): the group move itself, at the
