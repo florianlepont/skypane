@@ -222,7 +222,13 @@ CATALOG = {
         "Allumée seulement pendant la brève fenêtre de réveil de "
         "l’appareil, non visible du côté mur. S’applique lors de "
         "la prochaine vérification programmée.",
-    "Enable diagnostic LED": "Activer la LED de diagnostic",
+    # 23-07-PLAN.md Task 2 (D2/CFG-36): "Enable diagnostic LED" is
+    # DELETED, not commented out. It was the label of the LED checkbox,
+    # and that checkbox is retired — the Diagnostic LED is now a
+    # role="switch" named by the group's own heading ("Diagnostic LED",
+    # already a catalogue key) and stated by aria-checked, so there is no
+    # action-shaped label left to translate. Check 2 of the i18n harness
+    # is what found it: a key no module produces is a key nobody reads.
     "Wake interval": "Intervalle de réveil",
     "How often the frame wakes to poll for updates. Shorter means "
     "fresher info and more battery drain; longer means more battery "

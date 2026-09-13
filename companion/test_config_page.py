@@ -911,38 +911,39 @@ def main():
         "runway-card labels, and a Save settings submit button",
         _render_shape_theme_chip_grid_runway_cards_groups_and_save_button)
 
-    def _led_group_carries_classed_label_and_unchanged_input_attrs():
-        # quick task 260901-qif: pins the settings-checkbox label class
-        # (renamed from led-checkbox by 10-05-PLAN.md Task 2) and guards
-        # the input's name/value/checked attribute sequence against a
-        # future markup edit silently reordering it - the two live-HTTP
-        # LED checks further down this file match on that exact sequence.
+    def _led_group_carries_the_switch_and_its_state_attribute_sequence():
+        # quick task 260901-qif used to pin the settings-checkbox label
+        # class and the input's name/value/checked attribute sequence.
+        # 23-07-PLAN.md Task 2 (D2/CFG-36) RETARGETS it in place: that
+        # checkbox is gone and its label class with it, because the LED
+        # is now a role="switch" applying instantly over /quick/led.
+        # The property this check is actually about — that the control's
+        # state-bearing attribute sequence cannot be reordered silently
+        # by a later markup edit, since the live-HTTP LED checks further
+        # down this file match on it — survives verbatim; only the
+        # sequence itself has changed.
         checked_html = config_page.led_group(True)
         unchecked_html = config_page.led_group(False)
-        label_open = '<label class="settings-checkbox">'
-        if checked_html.count(label_open) != 1:
-            return False, "expected led_group(True) to carry exactly one <label class=\"settings-checkbox\"> occurrence"
-        if unchecked_html.count(label_open) != 1:
-            return False, "expected led_group(False) to carry exactly one <label class=\"settings-checkbox\"> occurrence"
-        led_value = escape_html(config_page.LED_CHECKBOX_VALUE)
-        expected_checked = 'name="led_enabled" value="%s" checked' % led_value
-        if expected_checked not in checked_html:
-            return False, "expected led_group(True) to carry %r" % (expected_checked,)
-        # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - with no
-        # error, the input now carries a bare aria-describedby pointing
-        # at LED_SECTION_CAPTION_ID (via _field_error_attrs()'s hint_id)
-        # before the closing '>', not a bare closing '>' any more.
-        expected_unchecked = (
-            'name="led_enabled" value="%s" aria-describedby="%s">'
-            % (led_value, escape_html(config_page.LED_SECTION_CAPTION_ID)))
-        if expected_unchecked not in unchecked_html:
-            return False, "expected led_group(False) to carry %r with no checked flag" % (expected_unchecked,)
-        if "checked" in unchecked_html:
-            return False, "expected led_group(False) to carry no checked flag at all"
+        if 'class="settings-checkbox"' in checked_html:
+            return False, (
+                "the settings-checkbox label is retired with the checkbox it wrapped — the LED "
+                "has ONE control now (X1/D-04)")
+        for name, rendered, expected_state in (
+                ("led_group(True)", checked_html, "true"),
+                ("led_group(False)", unchecked_html, "false")):
+            expected = 'class="switch" role="switch" aria-checked="%s"' % expected_state
+            if rendered.count(expected) != 1:
+                return False, "expected %s to carry exactly one %r" % (name, expected)
+            if rendered.count('class="switch__thumb"') != 1:
+                return False, "expected %s to carry exactly one switch thumb" % name
+        if 'aria-checked="true"' in unchecked_html:
+            return False, "expected led_group(False) to claim no on state at all"
         return True, ""
     check(
-        "led_group() emits the settings-checkbox label class and preserves the input's name/value/checked attribute sequence",
-        _led_group_carries_classed_label_and_unchanged_input_attrs)
+        "led_group() emits the switch and preserves its class/role/aria-checked attribute sequence "
+        "in both states, with the retired settings-checkbox label gone (retargeted in place from "
+        "the checkbox's own sequence by 23-07-PLAN.md Task 2)",
+        _led_group_carries_the_switch_and_its_state_attribute_sequence)
 
     # ------------------------------------------------------------------
     # 10-05-PLAN.md Task 3: quiet_hours_group() markup/field-order/
@@ -1484,6 +1485,12 @@ def main():
         # on this legacy SCOPE_ALL render.
         heading_ids = {
             "Runway": config_page.RUNWAY_GROUP_HEADING_ID,
+            # 23-07-PLAN.md Task 2 (D2/CFG-36): the LED heading gained an
+            # id for the same reason Runway's has one — it is now the
+            # accessible NAME of a control (this group's role="switch",
+            # through aria-labelledby) rather than only a heading. The
+            # heading role, its level and its text are untouched.
+            "Diagnostic LED": config_page.QUICK_LED_LABEL_ID,
         }
         for name in ("Runway", "Diagnostic LED", config_page.POLL_SECTION_HEADING):
             heading_id = heading_ids.get(name)
@@ -1873,7 +1880,12 @@ def main():
         led_rendered = config_page.led_group(True)
         groups = (
             ("runway_fieldset()", runway_rendered, "</h2>", "runway-row", 1),
-            ("led_group()", led_rendered, "</h2>", "settings-checkbox", 1),
+            # 23-07-PLAN.md Task 2 (D2/CFG-36): the control marker is
+            # retargeted in place from "settings-checkbox" to the
+            # switch's own class — the LED's control changed, the
+            # heading-then-caption-then-control ORDER this row is about
+            # did not.
+            ("led_group()", led_rendered, "</h2>", 'class="switch"', 1),
         )
         for name, rendered, heading_close_marker, control_marker, expected_p_count in groups:
             if rendered.count("<p") != expected_p_count:
@@ -6219,15 +6231,17 @@ def main():
                     "exact defect X1/D-04 exists to remove" % (stored,))
             expected = (
                 '<button type="submit" class="switch" role="switch" aria-checked="%s"'
-                ' aria-labelledby="%s" aria-describedby="%s %s" %s>'
+                ' aria-labelledby="%s" aria-describedby="%s %s" %s form="%s">'
                 % ("true" if stored else "false",
                    config_page.QUICK_LED_LABEL_ID, config_page.QUICK_LED_STATE_ID,
-                   config_page.LED_SECTION_CAPTION_ID, layout.QUICK_SWITCH_CONTROL_ATTR))
+                   config_page.LED_SECTION_CAPTION_ID, layout.QUICK_SWITCH_CONTROL_ATTR,
+                   config_page.QUICK_LED_FORM_ID))
             if expected not in rendered:
                 return False, (
                     "stored=%r: expected the server-rendered switch %r — aria-checked is the "
                     "SAVED value, the name is the setting, and the group's own caption stays "
-                    "reachable as a description" % (stored, expected))
+                    "reachable as a description; got %r"
+                    % (stored, expected, rendered))
             if rendered.count('role="switch"') != 1:
                 return False, (
                     "stored=%r: expected exactly ONE control in the LED group, got %d role=switch "
@@ -7761,20 +7775,39 @@ def main():
         rendered = config_page.render(
             _TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE,
             errors={"led_enabled": "msg"}, submitted={})
-        input_match = re.search(r'<input type="checkbox" name="led_enabled"[^>]*>', rendered)
+        # 23-07-PLAN.md Task 2 (D2/CFG-36): retargeted in place from the
+        # led_enabled CHECKBOX to the role="switch" that replaced it. The
+        # contract is unchanged and now has a third id to keep in order:
+        # the switch's own state span, then the group's caption (the hint
+        # the checkbox carried through _field_error_attrs()'s hint_id),
+        # then the error anchor — hint still before error, and none of
+        # the three overwriting another.
+        input_match = re.search(r'<button type="submit" class="switch"[^>]*>', rendered)
         if not input_match:
-            return False, "expected the led_enabled checkbox to still render"
+            return False, "expected the led_enabled switch to render"
         describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
         if not describedby_match:
-            return False, "expected an aria-describedby on the errored led_enabled checkbox"
+            return False, "expected an aria-describedby on the errored led_enabled switch"
         ids = describedby_match.group(1).split(" ")
-        if ids != [config_page.LED_SECTION_CAPTION_ID, "led-enabled-error"]:
-            return False, "expected the hint id first, then the error id, got %r" % (ids,)
+        if ids != [config_page.QUICK_LED_STATE_ID, config_page.LED_SECTION_CAPTION_ID,
+                   "led-enabled-error"]:
+            return False, (
+                "expected the state id, then the hint id, then the error id, got %r" % (ids,))
+        # And with no error the third id simply is not there — so the
+        # clause above is about the ERROR rather than about a constant
+        # three-id string.
+        clean = config_page.render(
+            _TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE, errors={}, submitted={})
+        clean_match = re.search(r'<button type="submit" class="switch"[^>]*>', clean)
+        if not clean_match or "led-enabled-error" in clean_match.group(0):
+            return False, (
+                "expected no error id on the switch's aria-describedby when there is no error")
         return True, ""
     check(
-        "a control carrying both a hint and an error (led_enabled, rendered with an errors dict) has "
-        "BOTH ids in its aria-describedby, hint first then error, never one overwriting the other "
-        "(D-12/A-30)",
+        "a control carrying both a hint and an error (led_enabled's switch, rendered with an errors "
+        "dict) has its state, hint and error ids in its aria-describedby, hint still before error, "
+        "never one overwriting another, and no error id at all when there is no error (D-12/A-30; "
+        "retargeted in place from the retired checkbox by 23-07-PLAN.md Task 2)",
         _control_with_both_hint_and_error_carries_both_ids_in_order)
 
     # ==================================================================

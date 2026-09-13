@@ -1311,27 +1311,56 @@ def main():
                         page = context.new_page()
                         _login(page, harness.base_url())
                         base_url = harness.base_url()
+                        # 23-07-PLAN.md Task 2 (D2/CFG-36, X1/D-04):
+                        # RETARGETED IN PLACE from the Diagnostic LED
+                        # checkbox to the wake-interval field. The LED is
+                        # no longer a Save-governed control at all — it
+                        # is a role="switch" applying instantly over
+                        # /quick/led — so it cannot witness a save-bar
+                        # round trip any more. The wake-interval number
+                        # input is the Device scope's surviving
+                        # form=-attached field and carries this check's
+                        # real subject unchanged: the bar reveals, names
+                        # its own section, and the value persists on
+                        # save, exactly as Display's does. (The LED's own
+                        # no-JS persistence is proven separately, in this
+                        # file's scripts-blocked switch check.)
                         page.goto(base_url + "/device")
-                        led_sel = 'input[name="led_enabled"]'
-                        was_checked = page.eval_on_selector(led_sel, "el => el.checked")
-                        _click_control(page, led_sel)
+                        wake_sel = 'input[name="wake_interval_s"]'
+                        before = page.eval_on_selector(wake_sel, "el => el.value")
+                        target = "1800" if before != "1800" else "3600"
+                        page.fill(wake_sel, target)
                         bar = page.locator("[data-dirty-bar]")
                         if bar.is_hidden():
                             return False, "expected the save bar to become visible on Device too"
                         count_text = page.locator("[data-dirty-count]").inner_text()
-                        if "Diagnostic LED" not in count_text:
-                            return False, "expected the bar to name Diagnostic LED, got %r" % count_text
+                        if "Wake interval" not in count_text:
+                            return False, "expected the bar to name Wake interval, got %r" % count_text
                         with page.expect_navigation():
                             page.locator(".dirty-bar__save").click()
                         page.goto(base_url + "/device")
-                        now_checked = page.eval_on_selector(led_sel, "el => el.checked")
-                        if now_checked == was_checked:
-                            return False, "expected the Diagnostic LED checkbox to have flipped and persisted"
+                        if page.eval_on_selector(wake_sel, "el => el.value") != target:
+                            return False, (
+                                "expected the edited wake interval to have persisted, got %r"
+                                % page.eval_on_selector(wake_sel, "el => el.value"))
+                        # And the LED switch, which is NOT part of that
+                        # form, must be unmoved by the save — the whole
+                        # point of T-23-25.
+                        led_state = page.eval_on_selector(
+                            '[data-quick-region] button[role="switch"]',
+                            "el => el.getAttribute('aria-checked')")
+                        if led_state not in ("true", "false"):
+                            return False, (
+                                "expected the Device page to render an LED switch with a real "
+                                "aria-checked, got %r" % (led_state,))
                         return True, ""
                     finally:
                         context.close()
                 check(
-                    "Device: the same reveal-and-persist round trip proves the two scopes stay in step (B1)",
+                    "Device: the same reveal-and-persist round trip proves the two scopes stay in "
+                    "step (B1) — witnessed by the wake-interval field since the Diagnostic LED "
+                    "stopped being a Save-governed control (retargeted in place by 23-07-PLAN.md "
+                    "Task 2, D2/CFG-36)",
                     _device_reveal_and_persist_stays_in_step_with_display)
 
                 def _fallback_save_reachable_until_bar_proven_live():

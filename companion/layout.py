@@ -3023,7 +3023,7 @@ def stat_tile(caption, content_html, status=None, icon=None, caption_title=None)
     ) % (css_class, title_attr, caption_html, content_html)
 
 
-def quick_switch_html(action, return_to, is_on, label_id, state_id):
+def quick_switch_html(action, return_to, is_on, label_id, state_id, form_id=None):
     """One real `role="switch"` control over the `<form>` that already
     shipped (D2/CFG-36, 23-07-PLAN.md Task 1/2). The ONE write site for
     all three switches — the Frame strip's Screen and Quiet hours, and
@@ -3058,28 +3058,50 @@ def quick_switch_html(action, return_to, is_on, label_id, state_id):
     The track and thumb are `aria-hidden` presentational spans: the
     button IS the control, and they are how it looks.
 
+    `state_id` may be a SPACE-SEPARATED id list rather than one id —
+    `aria-describedby` takes several, and the Diagnostic LED passes its
+    state span plus the group's own caption, so converting that group to
+    a switch does not cost it the hint its checkbox used to carry.
+
+    `form_id` is for the one caller whose switch cannot contain its own
+    form: `companion/pages/config_page.py`'s LED group renders INSIDE
+    `<form id="settings-form">`, and a `<form>` can never nest inside
+    another. Passed a form id, this function renders the BUTTON ONLY,
+    attached across the DOM through a `form=` attribute — the same idiom
+    the save bar and the Send-a-test button already use — and the
+    caller renders the matching empty `<form>` as a sibling. `action`
+    and `return_to` then belong to that form and are ignored here.
+
     Pure markup. No inline handler, no script, nothing that depends on
     JavaScript existing — with the script blocked this posts and the
     server saves, which is the whole of the no-JS floor here.
     """
+    button_html = (
+        '<button type="submit" class="switch" role="switch" aria-checked="%s"'
+        ' aria-labelledby="%s" aria-describedby="%s" %s%s>'
+        '<span class="switch__track" aria-hidden="true">'
+        '<span class="switch__thumb"></span></span>'
+        "</button>"
+    ) % (
+        "true" if is_on else "false",
+        escape_html(label_id), escape_html(state_id),
+        QUICK_SWITCH_CONTROL_ATTR,
+        (' form="%s"' % escape_html(form_id)) if form_id else "",
+    )
+    if form_id:
+        return button_html
     next_state = QUICK_STATE_OFF if is_on else QUICK_STATE_ON
     return (
         '<form method="post" action="%s" class="quick-action__form" data-quick-switch>'
         '<input type="hidden" name="%s" value="%s">'
         '<input type="hidden" name="return_to" value="%s">'
-        '<button type="submit" class="switch" role="switch" aria-checked="%s"'
-        ' aria-labelledby="%s" aria-describedby="%s" %s>'
-        '<span class="switch__track" aria-hidden="true">'
-        '<span class="switch__thumb"></span></span>'
-        "</button>"
+        "%s"
         "</form>"
     ) % (
         escape_html(action),
         QUICK_STATE_FIELD, escape_html(next_state),
         escape_html(return_to),
-        "true" if is_on else "false",
-        escape_html(label_id), escape_html(state_id),
-        QUICK_SWITCH_CONTROL_ATTR,
+        button_html,
     )
 
 

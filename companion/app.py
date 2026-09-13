@@ -399,6 +399,12 @@ FLASH_KEY_DISPLAY_OFF = "display_off"
 FLASH_KEY_QUIET_ON = "quiet_on"
 FLASH_KEY_QUIET_OFF = "quiet_off"
 FLASH_KEY_QUICK_FAILED = "quick_failed"
+# 23-07-PLAN.md Task 2 (D2/CFG-36): the LED switch's own two outcomes,
+# worded like the Quiet-hours pair above rather than like the Screen
+# pair — the LED, like quiet hours, takes effect on the frame's next
+# wake rather than within about five minutes.
+FLASH_KEY_LED_ON = "led_on"
+FLASH_KEY_LED_OFF = "led_off"
 
 FLASH_MESSAGES = {
     FLASH_KEY_DISPLAY_ON: (
@@ -410,6 +416,8 @@ FLASH_MESSAGES = {
     FLASH_KEY_QUIET_ON: "Quiet hours turned on — applies the next time the frame wakes up.",
     FLASH_KEY_QUIET_OFF: "Quiet hours turned off — applies the next time the frame wakes up.",
     FLASH_KEY_QUICK_FAILED: "Couldn't change that — please try again.",
+    FLASH_KEY_LED_ON: "Diagnostic LED turned on — applies the next time the frame wakes up.",
+    FLASH_KEY_LED_OFF: "Diagnostic LED turned off — applies the next time the frame wakes up.",
     # 22-05-PLAN.md Task 2 (D-04): "%s" is filled by _resolve_flash_text()'s
     # own frame-state special case below with ONE computed delay sentence
     # (companion/frame_state.py, via the SAME wake.next_wake_status()
@@ -3293,6 +3301,15 @@ class Handler(BaseHTTPRequestHandler):
         if field == "display_enabled":
             kwargs = {"display_enabled": enabled}
             flash_key = FLASH_KEY_DISPLAY_ON if enabled else FLASH_KEY_DISPLAY_OFF
+        elif field == "led_enabled":
+            # 23-07-PLAN.md Task 2 (T-23-25): ONE explicit keyword, the
+            # same shape the two branches beside it use. This is the
+            # whole reason the LED needed a route of its own rather than
+            # a fetch at POST /settings — a partial settings body
+            # silently resolves every field it omits, and that is the
+            # regression D-12.1 records.
+            kwargs = {"led_enabled": enabled}
+            flash_key = FLASH_KEY_LED_ON if enabled else FLASH_KEY_LED_OFF
         else:
             kwargs = {"quiet_hours_enabled": enabled}
             flash_key = FLASH_KEY_QUIET_ON if enabled else FLASH_KEY_QUIET_OFF
@@ -3371,6 +3388,23 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._handle_quick_toggle("quiet_hours_enabled")
+
+        # 23-07-PLAN.md Task 2 (D2/CFG-36, T-23-23): gated here beside
+        # every other state-changing route, so this write is a
+        # session-checked POST and nothing else — there is no CSRF token
+        # anywhere in this app, and SameSite=Strict is the only control,
+        # which is exactly why a state change must never be reachable by
+        # GET. Its return_to whitelist is its OWN: the LED switch lives
+        # on the Device page and nowhere else, so /device is the single
+        # member and the fallback both (T-23-24 — a membership test,
+        # never a prefix match and never a URL parse).
+        if path == QUICK_LED_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_quick_toggle(
+                "led_enabled",
+                allowed_return_to=(layout.DEVICE_ROUTE,),
+                fallback_return_to=layout.DEVICE_ROUTE)
 
         # 19-04-PLAN.md (D-18/A-35, T-19-04): gated like every other
         # state-changing route above — an unauthenticated caller setting

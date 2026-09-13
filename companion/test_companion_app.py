@@ -5918,7 +5918,9 @@ def main():
             # quick route, following _handle_quick_toggle()'s shape
             # exactly: one explicit led_enabled keyword to
             # save_device_config(), never a partial POST /settings.
-            device_config.save_device_config(harness.tmpdir, led_enabled=True)
+            device_config.save_device_config(
+                harness.tmpdir, led_enabled=True, display_enabled=True,
+                quiet_hours_enabled=True)
             # 1. a form post: stores False and redirects with its flash
             status, headers, _ = http_request(
                 base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,

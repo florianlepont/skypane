@@ -1820,28 +1820,93 @@ def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=
     combined with any error id in one space-separated value (hint
     first), never a second, competing `aria-describedby`.
     """
-    checked = _submitted_checkbox_checked(
-        submitted, "led_enabled", LED_CHECKBOX_VALUE, current_led_enabled)
-    error_attrs = _field_error_attrs(
-        errors, "led_enabled", "led-enabled", hint_id=LED_SECTION_CAPTION_ID)
+    is_on = current_led_enabled is True
     error_html = _field_error_html(errors, "led_enabled", "led-enabled")
+    # D-12/A-30's hint-then-error order, preserved across the conversion.
+    # The switch describes itself with its own state span first, then the
+    # group's caption (the hint the checkbox used to carry through
+    # _field_error_attrs()'s hint_id), then the error anchor when there
+    # is one — three ids on one attribute, never one overwriting another.
+    described_by = QUICK_LED_STATE_ID + " " + LED_SECTION_CAPTION_ID
+    if errors and errors.get("led_enabled"):
+        described_by = described_by + " led-enabled-error"
     return (
-        '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">%s</h2>'
+        '<div class="theme-status" %s="%s" %s>'
+        '<h2 class="text-heading" id="%s">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        '<label class="settings-checkbox">'
-        '<input type="checkbox" name="led_enabled" value="%s"%s%s> %s'
-        "</label>"
+        '<div class="settings-switch-row">%s%s</div>'
         "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(LED_SECTION_HEADING)),
-        escape_html(i18n.t(LED_SECTION_HEADING)),
+        layout.QUICK_SWITCH_REGION_ATTR,
+        escape_html(QUICK_LED_LABEL_ID), escape_html(i18n.t(LED_SECTION_HEADING)),
         escape_html(LED_SECTION_CAPTION_ID),
         escape_html(_with_next_wake(i18n.t(LED_SECTION_CAPTION), next_wake_clock)),
-        escape_html(LED_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
-        escape_html(i18n.t("Enable diagnostic LED")),
+        layout.quick_switch_state_html(
+            QUICK_LED_STATE_ID,
+            i18n.t(layout.QUICK_ACTION_ON_TEXT), i18n.t(layout.QUICK_ACTION_OFF_TEXT), is_on),
+        layout.quick_switch_html(
+            "", "", is_on, QUICK_LED_LABEL_ID,
+            described_by, form_id=QUICK_LED_FORM_ID),
         error_html,
+    )
+
+
+QUICK_LED_FORM_ID = "quick-led"
+QUICK_LED_LABEL_ID = "quick-switch-led-label"
+QUICK_LED_STATE_ID = "quick-switch-led-state"
+
+
+def quick_led_form_html(current_led_enabled):
+    """The Diagnostic LED switch's own `<form method="post"
+    action="/quick/led">` (D2/CFG-36, 23-07-PLAN.md Task 2) — EMPTY, and
+    a sibling of `<form id="{SETTINGS_FORM_ID}">`.
+
+    Exactly `notifications_test_section()`'s shape, for exactly its
+    reason: `led_group()` renders INSIDE the settings form, and a
+    `<form>` can never nest inside another `<form>` — a browser silently
+    drops the inner one, and the switch would then submit the SETTINGS
+    form instead. That is not a cosmetic failure: a fetch-driven partial
+    `POST /settings` is the precise shape T-23-25/D-12.1 is about. The
+    button therefore stays in the card and reaches this element across
+    the DOM through `form="{QUICK_LED_FORM_ID}"`, the same cross-DOM
+    idiom the save bar and the Send-a-test button already use.
+
+    The action attribute is written as literal path text, not a `%s`
+    interpolation of a route constant, matching the established
+    convention of every other immediate-action form in this module
+    (this module's acceptance gate greps the literal form-action text).
+
+    `return_to` is `layout.DEVICE_ROUTE`: the LED switch renders on the
+    Device page and nowhere else. `companion/app.py` validates it by
+    MEMBERSHIP against that route's own single-member whitelist before
+    ever using it as a redirect target (T-21-12/T-23-24) — this function
+    has no opinion on validity, exactly like `frame_strip_html()`.
+
+    The posted `state` is the OPPOSITE of the stored one, so a press with
+    scripts blocked switches the LED rather than re-asserting the state
+    it is already in. `companion/static/quick-switch.js` keeps that field
+    inverted after an optimistic flip; with the script absent, this
+    server-rendered value is the whole mechanism.
+
+    `data-quick-switch` is the D-04 handshake both
+    `companion/static/dirty-state.js` and
+    `companion/static/quick-switch.js` key on. Do not delete it as
+    apparently unused from this module's own perspective.
+    """
+    next_state = (
+        layout.QUICK_STATE_OFF if current_led_enabled is True else layout.QUICK_STATE_ON)
+    return (
+        '<form method="post" action="/quick/led" id="%s" '
+        'class="quick-action__form" data-quick-switch>'
+        '<input type="hidden" name="state" value="%s">'
+        '<input type="hidden" name="return_to" value="%s">'
+        "</form>"
+    ) % (
+        escape_html(QUICK_LED_FORM_ID),
+        escape_html(next_state),
+        escape_html(layout.DEVICE_ROUTE),
     )
 
 
@@ -3439,6 +3504,14 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # "" on both of those scopes.
     notifications_test_html = (
         notifications_test_section() if screens.GROUP_NOTIFICATIONS in groups else "")
+    # 23-07-PLAN.md Task 2 (D2/CFG-36): the LED switch's own form, for
+    # the identical reason and in the identical position as the
+    # Send-a-test form above — an immediate-action <form> can never nest
+    # inside <form id="settings-form">, so it renders after </form>
+    # closes and its button reaches it across the DOM. "" on every scope
+    # that does not render the LED group.
+    quick_led_html = (
+        quick_led_form_html(current_led_enabled) if screens.GROUP_LED in groups else "")
     # 19-12-PLAN.md Task 2 (D-23): the conditional selector joins the
     # screen caption in BOTH scoped headers' action_html slot — with
     # today's single-member registry it renders as "", so both headers
@@ -3615,6 +3688,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "%s"
         "%s"
+        "%s"
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
@@ -3653,6 +3727,10 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # positioned right after the Notifications card's own in-form
         # content (inside groups_html above) and before Manual refresh.
         notifications_test_html,
+        # 23-07-PLAN.md Task 2 (D2/CFG-36): the LED switch's own empty
+        # form, a sibling of the settings form for the same reason the
+        # Send-a-test form above is one. "" on Display/SCOPE_ALL.
+        quick_led_html,
         # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): "When it is on"'s own
         # header plus the Screen on/off and Quiet hours cards — always ""
         # on the Device/SCOPE_ALL paths (both set it to "" explicitly

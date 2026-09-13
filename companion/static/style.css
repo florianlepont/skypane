@@ -6507,6 +6507,20 @@ a.airline-card {
   transform: translateX(20px);
 }
 
+/* The settings-page switch row (the Diagnostic LED card). The strip's
+ * own cells already have a state-plus-control row from
+ * `.frame-strip__row--state`; a settings card has no such grid, so this
+ * is the one rule that gives the state word and the switch the same
+ * side-by-side relationship inside `.theme-status`. `space-between`
+ * rather than a fixed gap: at 360px the state word stays left and the
+ * switch stays at the edge the thumb travels toward. */
+.settings-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
 /* The unconfirmed window. companion/static/quick-switch.js marks the
  * REGION (not the control) while its fetch is in flight, which is the
  * same marker companion/static/freshness.js's swap already skips — one
