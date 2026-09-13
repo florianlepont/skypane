@@ -663,9 +663,17 @@ Not a rename phase — but **D12 introduces persistent, self-updating state outs
   @view-transition { navigation: auto; }
 }
 
-/* Names must be unique per document. layout.py renders THREE nav copies
- * simultaneously (sidebar / mobile-nav / tab-bar, layout.py:1905-1920),
- * so target the sidebar specifically — never a shared nav class. */
+/* Names must be unique per document. CORRECTED 2026-09-13 by 23-04, which
+ * measured it in a browser: layout.py renders TWO nav landmarks, not three
+ * — `nav.sidebar-nav` and `nav.tab-bar`. 22-14 Task 2 REMOVED
+ * `<nav class="mobile-nav__nav">` rather than emptying it, so the three
+ * remaining mentions of it in layout.py are comments about its removal.
+ * The hazard and the prescription are unchanged — two is still more than
+ * one, so target the sidebar specifically, never a shared nav class —
+ * but every later phase-23 plan inherits this paragraph, so the count is
+ * corrected at the source rather than in one plan's summary. Also
+ * corrected there: `.page-header__title` and `.preview-frame img` do not
+ * exist; the real selectors are `.page-title` and `.preview-frame__image`. */
 .dashboard-sidebar { view-transition-name: skypane-sidebar; }
 .page-header__title { view-transition-name: skypane-title; }
 .preview-frame img  { view-transition-name: skypane-picture; }
