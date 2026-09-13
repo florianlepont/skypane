@@ -1386,6 +1386,26 @@ a.nav-status:hover {
   min-width: 0;
 }
 
+/* T13 (22-15-PLAN.md Task 2): the FOURTH consumer of this file's
+ * `[hidden]`-versus-`display` guard, joining `.dirty-bar[hidden]`,
+ * `.refresh-pill[hidden]` and `.login-reveal[hidden]`. The rule above
+ * declares `display: inline-flex`, and an author-stylesheet `display`
+ * always beats the user-agent stylesheet's `[hidden] { display: none }`
+ * regardless of source order — so the moment any `.banner__pill` is
+ * hidden with the native `hidden` attribute it would render anyway.
+ * freshness.js's neutral loop-state badge is the first such consumer;
+ * the guard belongs on the component, not on that one badge, because
+ * the collision is a property of the base rule.
+ *
+ * `display: none`, not the `visibility: hidden` `.refresh-pill[hidden]`
+ * deliberately uses: that pill is absolutely positioned and its sibling
+ * comment explains it must keep reserving nothing; this badge is an
+ * in-flow inline child of the freshness line and must take no space at
+ * all when the loop is healthy. */
+.banner__pill[hidden] {
+  display: none;
+}
+
 /* quick task 260902-v2v (UIR-03): the anomaly banner's count-and-noun
  * lead text ("2 warnings:") must never itself break mid-phrase once
  * .banner gains flex-wrap above — wrapping the row is what fixes the

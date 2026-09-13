@@ -235,6 +235,20 @@ EXPECTED_CHECK_COUNT = 19
 # recomputed directly against the real on-disk check(...) call count at
 # execution time (20/20 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 20
+# 22-15-PLAN.md Task 2 (T13): +1 — Health's refresh endpoint made to
+# fail, then to recover, with Playwright's clock driving the 45s cadence
+# and the 45s first retry rung so the check costs no wall clock. It
+# proves the three things only a real browser can: the loop does not
+# stop (a retry really fires after the failure), a visible NEUTRAL
+# .dot--off badge carrying no warn token really appears while the
+# "Updating" pill stands down, and the badge really goes away on
+# recovery AND computes display: none, which is the only way to see that
+# the .banner__pill[hidden] guard is doing its job. The pre-existing B9
+# runway-card check was retargeted in place by Task 1 (22-10's stated T6
+# border allowance deleted) with no count change. 20 + 1 = 21,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (21/21 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 21
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -1966,6 +1980,118 @@ def main():
                     "at both breakpoints — and at neither breakpoint does the fixed bar cover the last "
                     "section once the page is scrolled to its foot (D-10/T7, 22-14-PLAN.md Task 3)",
                     _save_bar_and_tab_bar_never_overlap_at_390x844)
+
+                def _refresh_loop_shows_a_neutral_pill_on_failure_and_clears_on_recovery():
+                    # T13 (22-15-PLAN.md Task 2). The defect was that any
+                    # non-OK response stopped the loop for the life of
+                    # the page with NO visible sign - a frozen page and a
+                    # live one looked identical. Only a real browser can
+                    # prove the repair: it needs a real fetch to fail, a
+                    # real timer to fire the retry, and a real element to
+                    # appear and then go away again.
+                    #
+                    # Playwright's clock is what makes this a fast check
+                    # rather than a two-minute one: freshness.js's
+                    # cadence is 45s and its first retry rung is another
+                    # 45s, so real time would cost 90s of wall clock per
+                    # run. install() is called AFTER login so the login
+                    # navigation runs on a real clock.
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.clock.install()
+                        page.goto(base_url + "/health")
+                        page.wait_for_load_state("networkidle")
+
+                        badge = "[data-refresh-state-pill]"
+                        if page.locator(badge).count() != 0:
+                            return False, (
+                                "expected no loop-state badge on a healthy page load - the badge "
+                                "exists only while the loop is retrying or deliberately idle")
+
+                        # Break the endpoint the loop polls. The route is
+                        # added after the initial navigation, so only the
+                        # script's own fetch is affected.
+                        failing = {"on": True}
+
+                        def _health_route(route):
+                            if failing["on"]:
+                                route.abort()
+                            else:
+                                route.continue_()
+
+                        page.route("**/health", _health_route)
+
+                        # Fire one interval tick: the fetch fails, the
+                        # ladder schedules a retry and the badge appears.
+                        page.clock.run_for(46000)
+                        page.wait_for_selector(badge + ":not([hidden])", timeout=10000)
+                        state = page.evaluate(
+                            "() => {"
+                            " var el = document.querySelector('[data-refresh-state-pill]');"
+                            " var dot = el.querySelector('.dot');"
+                            " var cs = getComputedStyle(el);"
+                            " return {cls: el.getAttribute('class'),"
+                            "         dot: dot ? dot.getAttribute('class') : null,"
+                            "         text: el.textContent.trim(),"
+                            "         display: cs.display,"
+                            "         updating: document.querySelector("
+                            "           '[data-refresh-pill]').hidden};}")
+                        if "dot--off" not in (state["dot"] or ""):
+                            return False, (
+                                "the loop-state badge must carry the NEUTRAL .dot--off dot - a "
+                                "browser that lost its connection is not a device fault - got %r"
+                                % (state["dot"],))
+                        for warn_token in ("warn", "error", "danger"):
+                            if warn_token in (state["cls"] or "") or warn_token in (state["dot"] or ""):
+                                return False, (
+                                    "the loop-state badge must carry no warn token at all, got "
+                                    "class %r dot %r" % (state["cls"], state["dot"]))
+                        if not state["text"]:
+                            return False, "expected visible copy in the loop-state badge"
+                        if not state["updating"]:
+                            return False, (
+                                "expected the 'Updating' pill to be hidden while the state badge "
+                                "shows - exactly one pill is ever visible")
+
+                        # Recover. The first rung is another 45s; the
+                        # next attempt succeeds and the badge clears.
+                        failing["on"] = False
+                        page.clock.run_for(46000)
+                        page.wait_for_function(
+                            "() => {"
+                            " var el = document.querySelector('[data-refresh-state-pill]');"
+                            " return !el || el.hidden === true;}",
+                            timeout=10000)
+
+                        # The [hidden]-versus-display collision: the
+                        # badge composes .banner__pill, whose own rule
+                        # declares display: inline-flex, and an author
+                        # display always beats the user-agent
+                        # [hidden] { display: none } regardless of source
+                        # order. Without style.css's own guard the badge
+                        # would still be painted right here.
+                        hidden_display = page.evaluate(
+                            "() => {"
+                            " var el = document.querySelector('[data-refresh-state-pill]');"
+                            " return el ? getComputedStyle(el).display : 'absent';}")
+                        if hidden_display not in ("none", "absent"):
+                            return False, (
+                                "a hidden loop-state badge must compute display: none - the "
+                                ".banner__pill[hidden] guard is what makes the native hidden "
+                                "attribute work on this component, got %r" % (hidden_display,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "when Health's refresh endpoint starts failing the loop does NOT stop: it schedules a "
+                    "backed-off retry and shows a visible NEUTRAL .dot--off badge carrying no warn token "
+                    "while the 'Updating' pill stands down, and when the endpoint recovers the next "
+                    "attempt succeeds and the badge goes away and computes display: none through the "
+                    ".banner__pill[hidden] guard (T13, 22-15-PLAN.md Task 2)",
+                    _refresh_loop_shows_a_neutral_pill_on_failure_and_clears_on_recovery)
             finally:
                 browser.close()
     finally:

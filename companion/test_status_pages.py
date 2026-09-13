@@ -723,6 +723,21 @@ EXPECTED_CHECK_COUNT = 266
 # anomaly_active() root-sandbox failure, unrelated to this plan), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 267
+# 22-15-PLAN.md Task 2 (T13): +1 — the server-side half of the refresh
+# loop's repair, pinning what a running browser cannot show: stopLoop()
+# reduced to its definition plus its two deliberate background-tab
+# teardowns (neither failure path may call it — that WAS the defect), a
+# bounded exponential ladder starting AT the normal cadence so a failing
+# server sees a strictly decreasing request rate, a success resetting the
+# backoff, the in-flight guard, the two targeted-swap skips, the badge
+# built from neutral classes only with the .dot--off dot, style.css's
+# .banner__pill[hidden] display guard (that class's FOURTH consumer), and
+# both strings rendering onto <body> in both languages byte-identical to
+# the script's own English fallbacks. 267 + 1 = 268, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (267/268 pass — the one documented anomaly_active() root-sandbox
+# failure, unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 268
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -11292,6 +11307,141 @@ def main():
         ".data-table-wrap th rule survives to claim sticky positioning a wrapper with no height could "
         "never provide (T3/T4, 22-15-PLAN.md Task 1)",
         _every_disclosure_has_a_marker_and_no_header_claims_to_stick)
+
+    def _refresh_loop_retries_with_backoff_and_says_so_neutrally():
+        """22-15-PLAN.md Task 2 — T13, from the server side.
+
+        The browser half (companion/test_browser_ux.py) proves the badge
+        really appears and really clears. This half pins the things a
+        running browser cannot show: that the copy exists in BOTH
+        languages on every shell, that the loop's source carries a real
+        bounded ladder rather than a single retry, that the in-flight
+        guard and the targeted swap exist, and above all that the
+        silent-stop calls are GONE from both failure paths.
+        """
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path, "r", encoding="utf-8") as fh:
+            js = fh.read()
+        # Strip comments so this check can be neither satisfied nor
+        # defeated by prose — the same discipline the CSS checks above
+        # apply.
+        code = re.sub(r"/\*.*?\*/", "", js, flags=re.DOTALL)
+        code = re.sub(r"^\s*//.*$", "", code, flags=re.M)
+
+        # --- the silent stop is gone from both failure paths ---------
+        if code.count("stopLoop") != 3:
+            return False, (
+                "expected exactly three stopLoop references in freshness.js code — its definition "
+                "and its two DELIBERATE background-tab teardowns. Neither failure path may call "
+                "it: that was T13's whole defect, a loop that stopped for the life of the page "
+                "with nothing visible to say so. Got %d" % code.count("stopLoop"))
+        for handler in ("failAndRetry", "succeed"):
+            if ("function %s(" % handler) not in code:
+                return False, "expected freshness.js to define %s() (T13)" % handler
+
+        # --- a real, bounded, DECREASING-rate ladder -----------------
+        if "RETRY_CEILING_MS" not in code or "Math.min(retryDelayMs * 2" not in code:
+            return False, (
+                "expected an exponential retry delay bounded by a stated ceiling — an unbounded "
+                "ladder, or a fixed delay, is not what T-22-56 asks for")
+        if "RETRY_BASE_MS = AUTO_REFRESH_INTERVAL_MS" not in code:
+            return False, (
+                "expected the ladder to START at the normal cadence, never below it — the whole "
+                "mitigation is that a failing server sees a strictly DECREASING request rate")
+        if "retryDelayMs = 0" not in code:
+            return False, "expected a success to reset the backoff to zero (T13)"
+
+        # --- the in-flight guard and the targeted swap ---------------
+        if "var inFlight = false;" not in code or "if (inFlight) {" not in code:
+            return False, (
+                "expected an in-flight guard — without it a slow response and a visibility "
+                "catch-up can race, and the LAST to resolve wins the swap (T13)")
+        if "isEqualNode" not in code:
+            return False, (
+                "expected the swap to skip regions that did not change, compared with "
+                "isEqualNode() — replacing an unchanged region destroys any focus inside it")
+        if "existing.contains(active)" not in code:
+            return False, (
+                "expected the swap to skip any region containing the focused element (T13)")
+        # The interaction-skip guard and the visibility gating are
+        # unchanged by this plan and must stay that way.
+        for untouched in ("userIsInteracting", "visibilitychange", "AUTO_REFRESH_INTERVAL_MS = 45000"):
+            if untouched not in code:
+                return False, "expected %r to survive T13 untouched" % (untouched,)
+
+        # --- neutral, never a warning --------------------------------
+        if 'dot.className = "dot dot--off";' not in code:
+            return False, (
+                "expected the loop-state badge's dot to be the neutral .dot--off — a browser that "
+                "lost its connection is not a device fault (22-UI-SPEC.md §5 contract 9)")
+        if 'badge.className = "banner__pill";' not in code:
+            return False, "expected the badge to compose .banner__pill (22-UI-SPEC.md's T13 row)"
+        # Scoped to the badge BUILDER's own body, not the whole file:
+        # SWAP_SELECTORS legitimately names div.banner--warn as a region
+        # to swap, which is a different thing entirely from the badge
+        # wearing a warn token.
+        builder_at = code.index("function stateBadge(")
+        builder = code[builder_at:code.index("\n  }", builder_at)]
+        for warn_token in ("warn", "error", "danger", "alert", "status-"):
+            if warn_token in builder:
+                return False, (
+                    "the loop-state badge must be built from neutral classes only, found %r in "
+                    "stateBadge() — T13's state is never a warning" % (warn_token,))
+
+        # --- the [hidden] guard the badge depends on -----------------
+        css_source = _css_source()
+        stripped_css = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
+        if ".banner__pill[hidden] {" not in stripped_css:
+            return False, (
+                "expected a .banner__pill[hidden] guard — .banner__pill declares display: "
+                "inline-flex, which always beats the user-agent [hidden] rule, so the badge would "
+                "render even when hidden. Fourth consumer of this file's [hidden]-vs-display "
+                "guard, after .dirty-bar, .refresh-pill and .login-reveal")
+        guard = _block(stripped_css, ".banner__pill[hidden] {")
+        if "display: none" not in guard:
+            return False, "expected .banner__pill[hidden] to hide by display, not visibility"
+
+        # --- the copy, server-rendered, in BOTH languages ------------
+        if layout.REFRESH_PAUSED_TEXT != "Paused" or layout.REFRESH_RECONNECTING_TEXT != "Reconnecting…":
+            return False, (
+                "expected 22-UI-SPEC.md §1's own copy verbatim, got %r / %r"
+                % (layout.REFRESH_PAUSED_TEXT, layout.REFRESH_RECONNECTING_TEXT))
+        for text in (layout.REFRESH_PAUSED_TEXT, layout.REFRESH_RECONNECTING_TEXT):
+            if layout.i18n.t_lang(text, "fr") == text:
+                return False, "expected a French entry for %r" % (text,)
+            if layout.i18n.t_lang(text, "en") != text:
+                return False, "expected %r to round-trip unchanged in English" % (text,)
+        # The English fallbacks inside the script must be byte-identical
+        # to the server-side constants, or a page with no attributes
+        # renders different copy from one with them.
+        for text in (layout.REFRESH_PAUSED_TEXT, layout.REFRESH_RECONNECTING_TEXT):
+            if ('"%s"' % text) not in code:
+                return False, (
+                    "expected freshness.js's own English fallback for %r to match the server "
+                    "constant byte for byte" % (text,))
+        try:
+            for lang, expected_paused in (("en", "Paused"), ("fr", "En pause")):
+                prefs.set_request_prefs(lang=lang)
+                rendered = layout.page_shell(
+                    title="T", active="health", body="<p>x</p>", lang=lang)
+                if ('%s="%s"' % (layout.REFRESH_PAUSED_ATTR, expected_paused)) not in rendered:
+                    return False, (
+                        "expected the paused copy on <body> in %s, got neither" % lang)
+                if ('%s="' % layout.REFRESH_RECONNECTING_ATTR) not in rendered:
+                    return False, "expected the reconnecting copy on <body> in %s" % lang
+        finally:
+            prefs.set_request_prefs(lang="en")
+        return True, ""
+    check(
+        "freshness.js no longer stops dead on a failure: stopLoop() survives only as its definition and "
+        "its two deliberate background-tab teardowns, a bounded exponential ladder starting AT the normal "
+        "cadence (so a failing server sees a strictly decreasing rate) replaces it, a success resets the "
+        "backoff, an in-flight guard stops two fetches racing, the swap skips unchanged regions and any "
+        "region holding focus, the state badge is .banner__pill with the NEUTRAL .dot--off and no warn "
+        "token anywhere in the file, style.css carries the .banner__pill[hidden] display guard the badge "
+        "depends on, and both strings render onto <body> in both languages matching the script's own "
+        "English fallbacks byte for byte (T13, 22-15-PLAN.md Task 2)",
+        _refresh_loop_retries_with_backoff_and_says_so_neutrally)
 
     def _nav_toggle_label_now_describes_the_preferences_panel():
         if layout.NAV_TOGGLE_LABEL != "Account and preferences":

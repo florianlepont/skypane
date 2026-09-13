@@ -208,4 +208,12 @@ CATALOG = {
     "Paste a valid calendar feed URL to connect one.":
         "Collez une URL de flux de calendrier valide pour en "
         "connecter un.",
+    # T13 (22-15-PLAN.md Task 2, 22-UI-SPEC.md §1's copy table): the two
+    # neutral states companion/static/freshness.js's refresh loop can be
+    # in. Rendered onto <body> by companion/layout.py and read
+    # client-side; the English forms are also the script's own
+    # no-attribute fallbacks, which is why companion/test_i18n.py's
+    # Check 6 requires these entries from the JS side as well.
+    "Paused": "En pause",
+    "Reconnecting…": "Reconnexion…",
 }

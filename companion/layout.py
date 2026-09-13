@@ -1306,6 +1306,33 @@ TAB_BAR_MORE_ICON_ID = "icon-more"
 # render no bar — reserve no space for one.
 TAB_BAR_BODY_CLASS = "has-tab-bar"
 
+# T13 (22-AUDIT.md, 22-UI-SPEC.md §1's copy table and §5 contract 9,
+# 22-15-PLAN.md Task 2). companion/static/freshness.js shows a visible
+# neutral badge when its refresh loop is retrying or deliberately idle,
+# instead of stopping dead and silently. The badge is built client-side
+# — the loop can be in either state long after the server's response was
+# written — so its two strings are server-rendered onto `<body>` here
+# and read with getAttribute(), the same attribute-with-English-fallback
+# idiom dirty-state.js and poll-cooldown.js already use.
+#
+# They live on `<body>` rather than on the pill, deliberately: the pill
+# itself is rendered by companion/pages/health_page.py, which this plan
+# does not own, and the freshness wrapper it sits in is one of
+# freshness.js's own swap targets — an attribute there would be replaced
+# out from under the script on every successful refresh. `<body>` is
+# never swapped.
+#
+# Emitted unconditionally, exactly like the eleven deferred scripts
+# below: most pages carry no refresh loop at all and the attributes are
+# inert there, which is this file's established convention rather than
+# an oversight.
+REFRESH_PAUSED_TEXT = "Paused"
+REFRESH_RECONNECTING_TEXT = "Reconnecting…"
+
+# Must equal the attribute names companion/static/freshness.js reads.
+REFRESH_PAUSED_ATTR = "data-refresh-paused-text"
+REFRESH_RECONNECTING_ATTR = "data-refresh-reconnecting-text"
+
 
 def _tab_bar_html(active, health_alert=None, device_config=None):
     """The bottom tab bar — the THIRD nav rendering (X9, locked to this
@@ -1810,6 +1837,15 @@ def page_shell(
         active, health_alert=health_alert, device_config=device_config)
     body_class_attr = (
         ' class="%s"' % TAB_BAR_BODY_CLASS if tab_bar_html else "")
+    # T13 (22-15-PLAN.md Task 2): freshness.js's two neutral loop-state
+    # strings, translated here and read client-side. See their constants
+    # above for why they live on <body>.
+    body_class_attr += (
+        ' %s="%s" %s="%s"' % (
+            REFRESH_PAUSED_ATTR,
+            escape_html(i18n.t(REFRESH_PAUSED_TEXT)),
+            REFRESH_RECONNECTING_ATTR,
+            escape_html(i18n.t(REFRESH_RECONNECTING_TEXT))))
     flash_html = flash or ""
     banner_html = banner or ""
 

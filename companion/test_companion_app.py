@@ -2579,10 +2579,27 @@ def main():
             with_ctx = layout.page_shell(
                 title="T", active="home", body="<p>x</p>",
                 device_config=_TAB_BAR_DEVICE_CFG)
-            if ('<body class="%s">' % layout.TAB_BAR_BODY_CLASS) not in with_ctx:
+            # RETARGETED STRICTLY NARROWER by 22-15-PLAN.md Task 2 (T13),
+            # which changed this clause's own premise: `<body>` now also
+            # carries freshness.js's two translated loop-state strings,
+            # so the tag is no longer `<body class="...">` with nothing
+            # after it. The class marker must still be the FIRST
+            # attribute on the tag (which is what the trailing space
+            # pins), AND the two T13 attributes must be present — on
+            # BOTH shells, since they are emitted unconditionally like
+            # the deferred scripts. That is more than the single literal
+            # it replaces asserted.
+            if ('<body class="%s" ' % layout.TAB_BAR_BODY_CLASS) not in with_ctx:
                 return False, (
-                    "expected the body marker exactly when the bar renders, so the page-foot "
-                    "clearance is reserved only where there is a bar to clear")
+                    "expected the body marker exactly when the bar renders, and first on the tag, "
+                    "so the page-foot clearance is reserved only where there is a bar to clear")
+            for doc, label in ((with_ctx, "a bar page"), (no_ctx, "a no-bar page")):
+                for attr in (layout.REFRESH_PAUSED_ATTR, layout.REFRESH_RECONNECTING_ATTR):
+                    if ('<body' in doc) and ('%s="' % attr) not in doc:
+                        return False, (
+                            "expected %r on <body> for %s — freshness.js builds its neutral "
+                            "loop-state badge client-side and reads its copy from there (T13)"
+                            % (attr, label))
             if with_ctx.count('<nav class="tab-bar"') != 1:
                 return False, "expected exactly one tab bar per document"
             return True, ""
