@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 23-03-PLAN.md (wave 1) — the <time data-relative> convention and the future form
-last_updated: "2026-09-13T15:33:38.950Z"
+last_updated: "2026-09-13T16:05:24.673Z"
 last_activity: 2026-09-13
 progress:
   total_phases: 38
   completed_phases: 32
   total_plans: 214
-  completed_plans: 205
+  completed_plans: 206
   percent: 84
 ---
 
@@ -56,8 +56,10 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 23 (companion-dynamism-live-updates-real-switches-motion-budge) — IN PROGRESS (1/11 plans)
-Plan: 2 of 11
+Phase: 23 (companion-dynamism-live-updates-real-switches-motion-budge) — IN PROGRESS (4/11 plans)
+Plan: 3 of 11
+
+**23-04 executed (2026-09-13), wave 2 (depends on 23-01, 23-02) — D10 in full, the cheapest item in the phase and the only one a scripts-blocked visitor gets whole.** Task 1 added ONE `@view-transition { navigation: auto; }` at-rule nested in `@media (prefers-reduced-motion: no-preference)` — the form CSS View Transitions 2 §8.3.1 permits and the harness Chromium 151 was re-verified this session to parse AND retain in the CSSOM — plus three names in three rules of their own: `skypane-sidebar` on `.dashboard-sidebar`, `skypane-title` on `.page-title`, `skypane-picture` on `.preview-frame__image`. Each renders at most once per document; none is on a shared class, and none is on the four-selector rule `.preview-frame__image` shares with `img.recent-flight__thumb`/`img.history-card__thumb`, which render once PER ROW (36 on /flights). The wrapper prevents the transition being SET UP rather than running it at a zeroed duration, and no `animation: none` second belt was added. 23-01's gap comment was updated IN PLACE to record the closure, the global reduce block is byte-identical, its count still 2, and `EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS` moved 0 → 1 — the single anticipated line, with the guard's assertions and messages untouched. No markup, no script, no Python module: `grep -c startViewTransition` across style.css and every static script is 0. Task 2 added two browser checks, `EXPECTED_CHECK_COUNT` 26 → 28 re-derived by RUNNING: per-route uniqueness counted from the COMPUTED `view-transition-name` on every element of all six authenticated routes (a source scan proves a declaration appears once; only a browser proves a selector MATCHES once), and the opt-out read from the at-rule's own `parentRule.conditionText` and evaluated — never from a bare `matchMedia()` literal, which is false under a reduce context regardless of the stylesheet and so would pass with the at-rule unwrapped. That vacuous draft was caught before it reached disk. Five mutations, each exactly one additional failure: the wrapper deleted (270/273 on the source guard), `.dashboard-sidebar` "simplified" to bare `nav`, the at-rule moved out of its wrapper while LEAVING a wrapper in the file, the wrapper narrowed so it can never match, and a name declaration deleted — the last four all at 27/28 with the source guard green at 271/273 throughout, so each browser check is proven to do the work unaided. **Finding that outlives the plan: there are TWO navigation landmarks per authenticated document, not the three 23-RESEARCH.md's Risk 3 and every Phase 23 plan state — 22-14 Task 2 REMOVED `<nav class="mobile-nav__nav">` rather than emptying it.** A bare `nav` selector was measured resolving to `nav.sidebar-nav` and `nav.tab-bar`; the hazard and the prescription are unchanged, and both comments that repeated "three" were corrected in place. `CFG-32`/`CFG-33` deliberately NOT ticked (23-11 closes them); `REQUIREMENTS.md` untouched, its stale rows logged to the phase's `deferred-items.md`.
 
 **23-01 executed (2026-09-13), wave 1 — the motion-budget foundation the rest of Phase 23 spends from.** Task 1 added exactly two mode-independent duration tokens to `:root` beside the radii — `--motion-fast: 180ms` (REACTION: a state change the user caused and is watching for confirmation of — 23-08's detail row and chevron, 23-09's save bar, 23-10's selection/crossfade/dialog entrances, and 23-06's self-refresh fades) and `--motion-slow: 2s` (AMBIENT: the one loop nobody is waiting on — 23-05's breathing dot) — plus `@keyframes skypane-pulse`, the app's first and only keyframes, cycling opacity 1 → 0.35 → 1 and nothing else, shared by D14's breathing dot and D22's pulse so two near-identical blocks never appear. The order-of-magnitude gap between the tokens is deliberate: the two are CATEGORIES ("is anyone waiting on this?"), not two speeds, because a refresh fade and a status-dot cycle want durations three seconds apart. A stylesheet-resident NOTE (not a rule) beside the global reduce block records the one gap `*, *::before, *::after` genuinely cannot reach — it matches ELEMENTS, and the `::view-transition` pseudo-element tree is not one — and names 23-04 as the plan that closes it with a `no-preference` wrapper rather than by zeroing the pseudo-elements' duration. 92 insertions, 0 deletions, proving the global block and `.js .mobile-nav`'s override byte-identical mechanically. Task 2 made the budget executable: one comment-stripped source scan in `test_companion_app.py` asserting every keyframes name defined once, every animation reference resolving, every animation duration coming from `var(--motion-*)`, the two reduced-motion block counts equalling named constants (`EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2`, frozen for the phase; `EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 0`, which 23-04 alone raises to 1), and `interpolate-size`/`calc-size(` absent. Comments are stripped FIRST because this stylesheet's comments quote every token the scan counts. The `@media (prefers-reduced-motion: …)` blocks are brace-matched out before the token rule runs, since their `0.01ms !important` is a bare literal ON PURPOSE — it cancels motion. Five mutations each produced exactly one additional failure naming the defect (duplicate keyframes, bare 400ms, third reduce block, `interpolate-size`, dangling reference); `@keyframes fake-name` inside a comment produced none. `EXPECTED_CHECK_COUNT` 272 → 273, re-derived by running. Two prose traps designed around rather than discovered: the gap note avoids the literals `@view-transition` and `view-transition-name` because 23-04's own criteria grep the RAW file for both and expect 1 and 3, and the keyframes comment avoids `@keyframes` because this task's own criterion expects 1.
 
@@ -387,6 +389,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 23 P01 | 50min | 2 tasks | 2 files |
 | Phase 23 P02 | ~55min | 2 tasks | 1 files |
 | Phase 23 P03 | 2h | 2 tasks | 5 files |
+| Phase 23 P04 | 70min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -710,6 +713,9 @@ Recent decisions affecting current work:
 - [Phase 23]: 23-02: companion/test_browser_ux.py gets one no-JS helper (java_script_enabled=False now appears exactly once), one named viewport set including the 360px contract floor, and a disclosure sweep that runs under reduced motion — Zero net checks (26 -> 26, re-derived by running). The sweep sets details.open = true and measures in the same task, which is correct only while nothing animates; 23-08 and 23-10 animate disclosures on purpose. Reduced motion makes final geometry the immediate geometry through the app's own 0.01ms override rather than through a wait. 260913-eab's own mutation still caught, at the same numbers: .data-table-wrap 278px box against 369px content at 360px/en.
 - [Phase ?]: 23-03: the <time data-relative> datetime attribute carries the Europe/Paris instant, not the raw stored ISO — two shipped D-05/B4 checks forbid the raw string surviving into concise_timestamp_html() output (mutation-proven)
 - [Phase ?]: 23-03: the s/m/h/d ladder three boundaries now live in one _age_bucket() helper read by both directions; before this plan each boundary had TWO sites, one per language branch of relative_age_text()
+- [Phase ?]: 23-04 (D10/CFG-33): cross-document view transitions ship as ONE @media (prefers-reduced-motion: no-preference)-wrapped at-rule plus three names on .dashboard-sidebar, .page-title and .preview-frame__image — each in a rule of its own, never on the four-selector rule .preview-frame__image shares with two per-row thumbnail classes. No script, no markup change, no feature detection; an unsupported engine (no Firefox) simply navigates.
+- [Phase ?]: 23-04: the reduced-motion opt-out is asserted by reading the media condition OFF THE AT-RULE'S OWN parentRule in the CSSOM and evaluating that string, never by calling matchMedia() with a literal — the literal form is false under a reduce context no matter what the stylesheet says, so it would pass with the at-rule unwrapped, which is the entire defect. That draft was caught and replaced before shipping.
+- [Phase ?]: 23-04 finding: layout.py renders TWO navigation landmarks per authenticated document (nav.sidebar-nav, nav.tab-bar), not the three 23-RESEARCH.md's Risk 3 and every Phase 23 plan state — 22-14 Task 2 REMOVED the preferences panel's <nav> rather than emptying it. Measured via mutation, not reasoned about; the collision hazard and the .dashboard-sidebar prescription are unchanged.
 
 ### Pending Todos
 
@@ -811,7 +817,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T15:33:38.900Z
+Last session: 2026-09-13T16:05:16.787Z
 Stopped at: Completed 23-03-PLAN.md (wave 1) — the <time data-relative> convention and the future form
 
 Resume file: 
