@@ -2781,6 +2781,41 @@ def main():
                     # listens for `toggle` or queries `details` at all
                     # (freshness.js's own listener was removed by D-02),
                     # so there is no JS-driven content to wait for.
+                    #
+                    # Sound TODAY, and the context below is what keeps it
+                    # sound tomorrow. This sweep sets `details.open =
+                    # true` and measures in the SAME task, which is
+                    # correct only while nothing animates. Phase 23
+                    # animates disclosures on purpose (23-08's Flights
+                    # detail row and its chevron, 23-10's remainder), and
+                    # a box measured mid-transition is NARROWER than its
+                    # final box — so this check would begin failing on
+                    # geometry that is in fact correct, intermittently,
+                    # on the slowest file in the suite. An intermittently
+                    # red check is worse than no check: it teaches people
+                    # to ignore it, and this one was built because a real
+                    # phone found a defect sixteen plans and 22 automated
+                    # checks had missed.
+                    #
+                    # So the context below REQUESTS REDUCED MOTION, and
+                    # that is the whole fix. It makes the final state the
+                    # IMMEDIATE state through the app's OWN global
+                    # override (companion/static/style.css's
+                    # `prefers-reduced-motion: reduce` block, which
+                    # drives every transition and animation to 0.01ms) —
+                    # so a measurement taken straight after the state
+                    # change is final geometry by construction rather
+                    # than by luck. It has a second virtue: it exercises
+                    # that override on every route, in both languages, at
+                    # all three widths, for free.
+                    #
+                    # Deliberately NOT a timeout, a sleep or an
+                    # event listener. A timing wait across 47 disclosures
+                    # x 6 routes x 2 languages x 3 widths is a flakiness
+                    # generator and real wall clock on a file already at
+                    # ~50s; and listening for the event a <details> fires
+                    # when it opens is the same family of mechanism the
+                    # paragraph above already rules out.
                     probe = (
                         "() => {"
                         "  const all = [...document.querySelectorAll('details')];"
@@ -2855,7 +2890,8 @@ def main():
                     for width in VIEWPORT_WIDTHS_RESPONSIVE:
                         for lang in ("en", "fr"):
                             context = browser.new_context(
-                                viewport={"width": width, "height": 844})
+                                viewport={"width": width, "height": 844},
+                                reduced_motion="reduce")
                             try:
                                 page = context.new_page()
                                 base_url = harness.base_url()
