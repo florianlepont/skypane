@@ -85,6 +85,7 @@ if REPO_ROOT not in sys.path:
 
 from companion import auth, layout  # noqa: E402
 from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
+from companion.pages import config_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
@@ -420,6 +421,43 @@ EXPECTED_CHECK_COUNT = 28
 # call count at execution time (32/32 pass), not trusted from arithmetic
 # alone.
 EXPECTED_CHECK_COUNT = 32
+# 23-06-PLAN.md Task 3 (D1/CFG-35): +6. The three skip rules, the number
+# D-12 protects, the fade's condition and the settings page's no-JS
+# floor — none of which any string-comparison harness can see.
+#
+# HOW A REFRESH IS FORCED: the loop's cadence is 45 seconds, so these
+# checks drive its own CATCH-UP path — Date.now is shifted forward for
+# the duration of one dispatched visibilitychange and restored on the
+# next statement (doRefresh() runs synchronously inside the listener).
+# What is simulated is the CLOCK; what runs is the shipped script's own
+# listener, elapsed comparison and guards.
+#
+# EVERY ONE OF THE SIX CARRIES ITS OWN CONTROL, because every one of them
+# asserts that something did NOT happen and a dead loop satisfies all of
+# them:
+#  (1) focus: the focused region is CHANGED first so the "unchanged
+#      region" skip cannot be what saves it, a second region proves a
+#      swap happened at all, and a second phase proves the SAME changed
+#      region is replaced once nothing is focused inside it.
+#  (2) pending: the same shape — marker injected here because plan 23-07
+#      is what sets it in production — with a second phase proving the
+#      same region is replaced once the marker is removed.
+#  (3) dirty form: REQUESTS are counted, not DOM state, because a page
+#      that fetched and then declined to swap is a different and worse
+#      behaviour; the control is the same trigger on the clean page.
+#  (4) hidden tab: requests counted on ALL THREE pages, each against a
+#      control proving that page does fetch while visible. The
+#      visibility mechanism is 23-05's and carries its limits in its own
+#      comment.
+#  (5) the fade: both phases in one check — the same picture must not
+#      animate, a genuinely different src must, and the class must
+#      resolve to the stylesheet's own fade-in block.
+#  (6) no-JS Display: a real save through the fallback Save, at 360px, in
+#      both languages, asserted against the config on DISK.
+# 32 + 6 = 38, recomputed directly against the real on-disk check(...)
+# call count at execution time (38/38 pass), not trusted from arithmetic
+# alone.
+EXPECTED_CHECK_COUNT = 38
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -3666,6 +3704,441 @@ def main():
                     "resolves to the one animation the stylesheet defines (D14/CFG-34, "
                     "23-05-PLAN.md Task 3)",
                     _an_expired_countdown_reads_waiting_and_never_a_warning)
+
+                # --- 23-06-PLAN.md Task 3 (D1/CFG-35): the three skips,
+                # and the number D-12 was written to protect.
+                #
+                # HOW A REFRESH IS FORCED, once, for every check below.
+                # The loop's own cadence is 45 seconds and no test may
+                # wait that long, so these checks drive the loop's
+                # CATCH-UP path instead: freshness.js re-arms on
+                # visibilitychange and refetches immediately when more
+                # than one interval has passed since the document was
+                # generated. Date.now is shifted forward for the
+                # duration of the dispatch and restored on the next
+                # statement — doRefresh() is called synchronously inside
+                # the listener, so the shift is over before anything
+                # else can observe it. What is simulated is the CLOCK;
+                # what is exercised is the shipped script's own
+                # listener, its own elapsed comparison and its own
+                # guards, unmodified.
+                #
+                # Every request assertion COUNTS REQUESTS rather than
+                # reading the DOM. "Zero requests" is the contract D-12
+                # protects, and a DOM-based proxy would pass on a page
+                # that fetched and then declined to swap — a different
+                # and much worse behaviour.
+
+                REFRESH_SETTLE_MS = 1200
+
+                def _force_refresh(page):
+                    page.evaluate(
+                        "() => {"
+                        "  var real = Date.now;"
+                        "  Date.now = function () { return real() + 600000; };"
+                        "  try {"
+                        "    document.dispatchEvent(new Event('visibilitychange'));"
+                        "  } finally {"
+                        "    Date.now = real;"
+                        "  }"
+                        "}")
+
+                def _count_document_requests(page, url):
+                    """A live counter of fetches of `url` made by the page
+                    itself. Returns a zero-argument reader."""
+                    seen = []
+                    page.on("request", lambda request: (
+                        seen.append(request.url)
+                        if request.url.split("?")[0] == url else None))
+                    return lambda: len(seen)
+
+                def _mark(page, selector, name):
+                    """Tag a live node with a JS expando — the only handle
+                    that proves NODE IDENTITY across a swap. An attribute
+                    would not do: the replacement comes from a second
+                    document and would never carry it, so an
+                    attribute-based check could not tell "this node
+                    survived" from "a node matching the same selector is
+                    here"."""
+                    page.eval_on_selector(
+                        selector, "el => { el.__skypaneProbe = %r; }" % name)
+
+                def _marked(page, selector, name):
+                    return page.eval_on_selector(
+                        selector, "el => el.__skypaneProbe === %r" % name)
+
+                def _dirty_the_region(page, selector):
+                    """Make a live region DIFFER from its freshly-fetched
+                    counterpart, so the "this region did not change" skip
+                    cannot be what leaves it alone.
+
+                    Without this these checks would be vacuous in the
+                    quietest possible way: on a page nothing has changed
+                    on, isEqualNode() skips every region anyway, and an
+                    assertion that a region survived would pass on a loop
+                    with no focus rule and no pending rule at all.
+                    """
+                    page.eval_on_selector(
+                        selector, "el => el.setAttribute('data-probe-dirty', '1')")
+
+                def _a_swap_leaves_the_region_holding_focus_alone():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/")
+                        page.wait_for_load_state("networkidle")
+                        region = ".frame-strip"
+                        focus_target = ".frame-strip button[type=\"submit\"]"
+                        page.eval_on_selector(focus_target, "el => el.focus()")
+                        _mark(page, region, "focused-region")
+                        _mark(page, focus_target, "focused")
+                        _dirty_the_region(page, region)
+                        # THE FIRST CONTROL: a refresh that swapped
+                        # NOTHING would satisfy "the region survived"
+                        # perfectly. The freshness line differs on every
+                        # cycle by construction (its pill carries
+                        # data-loaded-at, a new instant each time), so it
+                        # is the honest witness that a swap happened.
+                        _mark(page, ".page-header__freshness", "elsewhere")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, ".page-header__freshness", "elsewhere"):
+                            return False, (
+                                "control: no region was swapped at all, so the focus assertion "
+                                "below would prove nothing — the freshness line's own node "
+                                "survived a refresh it should not have")
+                        if not _marked(page, region, "focused-region"):
+                            return False, (
+                                "the region holding keyboard focus was REPLACED — a refresh that "
+                                "silently moves focus to the top of the document while someone "
+                                "is tabbing through a card is A-20's own harm, smaller (D1)")
+                        active = page.evaluate(
+                            "() => document.activeElement.__skypaneProbe === 'focused'")
+                        if not active:
+                            return False, (
+                                "focus left the element the user was in: document.activeElement "
+                                "is no longer that node")
+                        # THE SECOND CONTROL, and the one that makes this
+                        # a statement about FOCUS rather than about that
+                        # region: blur, change the region in the same way
+                        # again, and it must now be replaced.
+                        page.evaluate("() => document.activeElement.blur()")
+                        _mark(page, region, "unfocused-region")
+                        _dirty_the_region(page, region)
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, region, "unfocused-region"):
+                            return False, (
+                                "control: the same changed region survived with NOTHING focused "
+                                "inside it, so the assertion above was not measuring the focus "
+                                "rule at all")
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a Home refresh swaps the regions that changed while leaving the one holding "
+                    "keyboard focus untouched — asserted on NODE IDENTITY through a JS expando, "
+                    "not on a selector match, because a replaced node matching the same selector "
+                    "is exactly the defect — against a control proving another region really was "
+                    "swapped in the same cycle (D1/CFG-35, 23-06-PLAN.md Task 3)",
+                    _a_swap_leaves_the_region_holding_focus_alone)
+
+                def _a_swap_leaves_a_pending_region_alone():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/")
+                        page.wait_for_load_state("networkidle")
+                        # The marker is injected here because plan 23-07
+                        # is what sets it in production — the swap rule
+                        # lands first, on purpose, so that plan only has
+                        # to mark its own control. The element goes
+                        # INSIDE the region, not on it, which is the
+                        # harder of the two cases the skip handles.
+                        region = ".home-status-grid"
+                        page.eval_on_selector(
+                            region,
+                            "el => { var probe = document.createElement('span');"
+                            "  probe.setAttribute('data-pending', '');"
+                            "  el.appendChild(probe); el.__skypaneProbe = 'pending'; }")
+                        _mark(page, ".page-header__freshness", "elsewhere")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, ".page-header__freshness", "elsewhere"):
+                            return False, (
+                                "control: no region was swapped at all, so the pending assertion "
+                                "below would prove nothing")
+                        if not _marked(page, region, "pending"):
+                            return False, (
+                                "a region holding an element marked data-pending was replaced — "
+                                "that repaints an optimistic control with the server's older "
+                                "answer and makes it bounce back under the user's finger "
+                                "(T-23-21, the D1-races-D2 rule plan 23-07 depends on)")
+                        still_there = page.eval_on_selector_all(
+                            region + " [data-pending]", "els => els.length")
+                        if still_there != 1:
+                            return False, (
+                                "expected the pending marker itself to survive the cycle, found "
+                                "%d" % (still_there,))
+                        # THE SECOND CONTROL, and the one that makes this
+                        # a statement about the MARKER: drop it, change
+                        # the region the same way, and it must now be
+                        # replaced. Without this the check passes on a
+                        # loop that never swaps that region for any
+                        # reason at all.
+                        page.eval_on_selector(
+                            region,
+                            "el => { el.querySelector('[data-pending]').removeAttribute("
+                            "  'data-pending');"
+                            "  el.__skypaneProbe = 'unmarked'; }")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, region, "unmarked"):
+                            return False, (
+                                "control: the same changed region survived with the marker "
+                                "REMOVED, so the assertion above was not measuring the pending "
+                                "rule at all")
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a region containing a [data-pending] element survives a refresh untouched, by "
+                    "node identity, while another region on the same page is swapped in the same "
+                    "cycle — the reconciliation rule plan 23-07 sets its marker for, proven before "
+                    "it has a marker to set (T-23-21, 23-06-PLAN.md Task 3)",
+                    _a_swap_leaves_a_pending_region_alone)
+
+                def _a_dirty_settings_form_stands_the_whole_cycle_down():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+                        count = _count_document_requests(page, base_url + "/display")
+                        # CONTROL FIRST: with the form clean, the very
+                        # same trigger DOES fetch. Without this the
+                        # assertion below passes on a page whose loop
+                        # never ran for any reason at all.
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        clean_requests = count()
+                        if clean_requests < 1:
+                            return False, (
+                                "control: a clean Display page issued no request at all (%d), so "
+                                "the dirty-form assertion below would measure nothing"
+                                % (clean_requests,))
+                        # Now a real edit, made the way a user makes one.
+                        current = device_config.load_device_config(harness.tmpdir)["theme"]
+                        other = next(t for t in device_config.THEME_IDS if t != current)
+                        _click_control(page, 'input[name="theme"][value="%s"]' % other)
+                        page.wait_for_timeout(200)
+                        bar_shown = page.eval_on_selector(
+                            "[data-dirty-bar]", "el => !el.hidden")
+                        if not bar_shown:
+                            return False, (
+                                "expected the save bar to report the unsaved edit — this check "
+                                "gates on the bar's own live answer, so a bar that never "
+                                "appeared would make it vacuous")
+                        before = count()
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        during_edit = count() - before
+                        if during_edit != 0:
+                            return False, (
+                                "expected ZERO requests while the settings form has unsaved "
+                                "edits, counted %d — a page mid-edit should not be fetching and "
+                                "diffing itself at all, and a swap landing on a half-edited form "
+                                "is B1 with a new cause" % (during_edit,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a Display page whose save bar reports unsaved edits issues ZERO requests when "
+                    "the same trigger that fetched on the clean page fires — counted as REQUESTS, "
+                    "not inferred from the DOM, because a page that fetched and then declined to "
+                    "swap is a different and worse behaviour — against a control proving the clean "
+                    "page does fetch (T-23-20/T-23-21, 23-06-PLAN.md Task 3)",
+                    _a_dirty_settings_form_stands_the_whole_cycle_down)
+
+                def _a_hidden_tab_issues_zero_requests_on_all_three_pages():
+                    base_url = harness.base_url()
+                    for route in ("/", "/display", "/health"):
+                        context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                        try:
+                            page = context.new_page()
+                            _login(page, base_url)
+                            page.goto(base_url + route)
+                            page.wait_for_load_state("networkidle")
+                            count = _count_document_requests(page, base_url + route)
+                            # CONTROL: the page really is running a loop.
+                            _force_refresh(page)
+                            page.wait_for_timeout(REFRESH_SETTLE_MS)
+                            if count() < 1:
+                                return False, (
+                                    "control: %s issued no request when visible (%d), so the "
+                                    "hidden-tab assertion below would measure nothing — this "
+                                    "page is not running the loop at all"
+                                    % (route, count()))
+                            # The same limitation 23-05 recorded applies:
+                            # neither a second page taking focus nor CDP's
+                            # visibility override works in this harness, so
+                            # the page's own report is overridden in-page
+                            # and a real visibilitychange Event dispatched.
+                            # What is simulated is the BROWSER'S REPORT;
+                            # what is exercised is the shipped script's own
+                            # listener and its own document.hidden reads.
+                            page.evaluate(
+                                "() => {"
+                                "  Object.defineProperty(document, 'hidden',"
+                                "    {configurable: true, get: () => true});"
+                                "  Object.defineProperty(document, 'visibilityState',"
+                                "    {configurable: true, get: () => 'hidden'});"
+                                "}")
+                            before = count()
+                            _force_refresh(page)
+                            page.wait_for_timeout(REFRESH_SETTLE_MS)
+                            hidden_requests = count() - before
+                            if hidden_requests != 0:
+                                return False, (
+                                    "%s issued %d request(s) while reporting itself hidden — "
+                                    "zero from a backgrounded tab is the number D-12 was written "
+                                    "to protect, and three pages polling instead of one is only "
+                                    "acceptable because of it (T-23-20)"
+                                    % (route, hidden_requests))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "a tab reporting itself hidden issues ZERO requests on ALL THREE pages that "
+                    "now run the loop — counted as requests, each against a control proving the "
+                    "same page and the same trigger DO fetch while visible — which is the number "
+                    "D-12 was written to protect and the reason three pages polling is acceptable "
+                    "at all (T-23-20, 23-06-PLAN.md Task 3)",
+                    _a_hidden_tab_issues_zero_requests_on_all_three_pages)
+
+                def _the_picture_fades_only_when_the_picture_changed():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/")
+                        page.wait_for_load_state("networkidle")
+                        image = ".preview-frame__image"
+                        _mark(page, ".page-header__freshness", "elsewhere")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, ".page-header__freshness", "elsewhere"):
+                            return False, (
+                                "control: nothing was swapped, so 'it did not fade' below would "
+                                "prove nothing")
+                        klass = page.eval_on_selector(
+                            image, "el => el.getAttribute('class') || ''")
+                        if "is-fading-in" in klass.split():
+                            return False, (
+                                "the picture faded in on a cycle that brought back the SAME "
+                                "picture (class=%r) — a flash every 45 seconds for no "
+                                "information is worse than no fade at all" % (klass,))
+                        # And now a genuinely different picture: the live
+                        # src is changed so the fetched one differs from
+                        # it, which is exactly the state a new render
+                        # produces.
+                        page.eval_on_selector(
+                            image, "el => { el.setAttribute('src', el.getAttribute('src')"
+                                   " + '?stale=1'); }")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        klass = page.eval_on_selector(
+                            image, "el => el.getAttribute('class') || ''")
+                        if "is-fading-in" not in klass.split():
+                            return False, (
+                                "a NEW picture arrived and did not fade in (class=%r) — the fade "
+                                "is the only thing that says a render happened" % (klass,))
+                        animation = page.eval_on_selector(
+                            image, "el => getComputedStyle(el).animationName")
+                        if animation != "skypane-fade-in":
+                            return False, (
+                                "expected the fade class to resolve to the stylesheet's own "
+                                "fade-in block, got %r" % (animation,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the frame picture fades in when a NEW render arrives and does NOT animate "
+                    "when the same picture is swapped back in — both phases in one check, against "
+                    "a control proving a swap happened at all, with the class proven to resolve to "
+                    "the stylesheet's own fade-in block (D1+D3, 23-06-PLAN.md Task 3)",
+                    _the_picture_fades_only_when_the_picture_changed)
+
+                def _display_still_saves_with_scripts_blocked_at_360px():
+                    # THE ONE ASSERTION IN THIS PLAN THAT WOULD CATCH THE
+                    # PHASE 22 P0 RECURRING, which is why it lives at
+                    # this plan's own commit rather than in the closing
+                    # sweep: this plan adds markup to Display's header,
+                    # and a wrapper that broke the form= association B1
+                    # depends on would make the page unsaveable with
+                    # scripts blocked, exactly as B1 did with them on.
+                    base_url = harness.base_url()
+                    for lang in ("en", "fr"):
+                        with _no_js_page(browser, base_url, "/display",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                            page.context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/display")
+                            if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
+                                return False, "expected the measurement at the 360px contract floor"
+                            current = device_config.load_device_config(harness.tmpdir)["theme"]
+                            other = next(
+                                t for t in device_config.THEME_IDS if t != current)
+                            page.eval_on_selector(
+                                'input[name="theme"][value="%s"]' % other,
+                                "el => el.checked = true")
+                            save = page.query_selector(
+                                "[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
+                            if save is None:
+                                return False, (
+                                    "lang=%s: the fallback Save is the ONLY way to save this page "
+                                    "with scripts blocked, and it is not rendered" % (lang,))
+                            with page.expect_navigation():
+                                save.click()
+                            saved = device_config.load_device_config(harness.tmpdir)["theme"]
+                            if saved != other:
+                                return False, (
+                                    "lang=%s: a Display save did not persist with scripts blocked "
+                                    "at 360px — expected theme %r, got %r. This is the P0 Phase "
+                                    "22 existed to fix" % (lang, other, saved))
+                            # The freshness line this plan added renders
+                            # there too, and renders NOTHING that moves.
+                            if page.locator(".page-header__freshness").count() != 1:
+                                return False, (
+                                    "lang=%s: expected exactly one freshness line on a "
+                                    "scripts-blocked Display page" % (lang,))
+                    return True, ""
+                check(
+                    "with scripts blocked at 360px, in BOTH languages, a Display setting still "
+                    "saves through the fallback Save and persists to disk, with the freshness line "
+                    "this plan added rendering beside it — the one assertion here that would catch "
+                    "the Phase 22 P0 recurring (B1/CFG-38, 23-06-PLAN.md Task 3)",
+                    _display_still_saves_with_scripts_blocked_at_360px)
             finally:
                 browser.close()
     finally:
