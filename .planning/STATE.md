@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 23-02-PLAN.md (wave 1) — browser-harness helpers landed, 26/26, zero net checks
-last_updated: "2026-09-13T15:28:59.718Z"
+stopped_at: Completed 23-03-PLAN.md (wave 1) — the <time data-relative> convention and the future form
+last_updated: "2026-09-13T15:33:38.950Z"
 last_activity: 2026-09-13
 progress:
   total_phases: 38
   completed_phases: 32
   total_plans: 214
-  completed_plans: 204
+  completed_plans: 205
   percent: 84
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [██████████] 95%
+  [██████████] 96%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -386,6 +386,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P16 | 35m | 4 tasks | 11 files |
 | Phase 23 P01 | 50min | 2 tasks | 2 files |
 | Phase 23 P02 | ~55min | 2 tasks | 1 files |
+| Phase 23 P03 | 2h | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -707,6 +708,8 @@ Recent decisions affecting current work:
 - [Phase 23]: 23-01: the motion guard's token rule brace-matches every @media (prefers-reduced-motion: ...) block OUT of the source it scans — Their animation-duration: 0.01ms !important is a bare literal on purpose — it exists to CANCEL motion, so binding it to a motion token would invert its purpose. Their counts are asserted separately, before the removal.
 - [Phase 23]: 23-01: the interpolate-size / calc-size() ban is measured on COMMENT-STRIPPED source, not raw — The plan's own final behaviour says comment text must not satisfy OR BREAK any check, so a later plan may document why the primitives are banned without failing the ban. The mutation that proves the check adds a real declaration.
 - [Phase 23]: 23-02: companion/test_browser_ux.py gets one no-JS helper (java_script_enabled=False now appears exactly once), one named viewport set including the 360px contract floor, and a disclosure sweep that runs under reduced motion — Zero net checks (26 -> 26, re-derived by running). The sweep sets details.open = true and measures in the same task, which is correct only while nothing animates; 23-08 and 23-10 animate disclosures on purpose. Reduced motion makes final geometry the immediate geometry through the app's own 0.01ms override rather than through a wait. 260913-eab's own mutation still caught, at the same numbers: .data-table-wrap 278px box against 369px content at 360px/en.
+- [Phase ?]: 23-03: the <time data-relative> datetime attribute carries the Europe/Paris instant, not the raw stored ISO — two shipped D-05/B4 checks forbid the raw string surviving into concise_timestamp_html() output (mutation-proven)
+- [Phase ?]: 23-03: the s/m/h/d ladder three boundaries now live in one _age_bucket() helper read by both directions; before this plan each boundary had TWO sites, one per language branch of relative_age_text()
 
 ### Pending Todos
 
@@ -808,8 +811,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T15:28:59.670Z
-Stopped at: Completed 23-02-PLAN.md (wave 1) — browser-harness helpers landed, 26/26, zero net checks
+Last session: 2026-09-13T15:33:38.900Z
+Stopped at: Completed 23-03-PLAN.md (wave 1) — the <time data-relative> convention and the future form
 
 Resume file: 
 
