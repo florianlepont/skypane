@@ -249,6 +249,19 @@ EXPECTED_CHECK_COUNT = 20
 # recomputed directly against the real on-disk check(...) call count at
 # execution time (21/21 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 21
+# 22-15-PLAN.md Task 3 (T14): +1 — a real double click on the save bar's
+# Save, with the POST answered 204 so no new document commits and the
+# page under test survives to be clicked again. It proves the one thing
+# no source scan can: that the guard's DEFERRED disable really lands
+# between the two clicks, which is the whole mechanism (an inline
+# disable would drop a named submit button's own name/value from the
+# form data set, and the theme and language pickers are built from
+# exactly those). It also re-proves the two flows the guard must not
+# fight — a real save still persists, a Frame strip switch still
+# navigates — with the guard installed. 21 + 1 = 22, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (22/22 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 22
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -2092,6 +2105,113 @@ def main():
                     "attempt succeeds and the badge goes away and computes display: none through the "
                     ".banner__pill[hidden] guard (T13, 22-15-PLAN.md Task 2)",
                     _refresh_loop_shows_a_neutral_pill_on_failure_and_clears_on_recovery)
+
+                def _a_second_click_on_save_produces_no_second_post():
+                    # T14 (22-15-PLAN.md Task 3). The audit found exactly
+                    # one double-submission guard in the app - the poll
+                    # button's - and every other form accepting a repeat
+                    # POST. Only a real browser can prove the shared
+                    # guard works, because the whole mechanism is the
+                    # ordering between a submit event, the form data set
+                    # the browser builds from it, and a zero-delay timer.
+                    #
+                    # The POST is intercepted and answered 204 rather
+                    # than allowed through. That is what makes this check
+                    # deterministic instead of a race: a 204 is the one
+                    # response to a form POST that commits no new
+                    # document, so the page stays put, the button is
+                    # still there to click a second time and to inspect,
+                    # and every POST that reaches the wire is counted
+                    # exactly once. (Aborting the route does NOT work
+                    # here - Chromium commits its own network-error
+                    # document, which destroys the page under test.)
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        theme_ids = device_config.THEME_IDS
+
+                        page.goto(base_url + "/display")
+                        original = page.eval_on_selector(
+                            'input[name="theme"]:checked', "el => el.value")
+                        target = next(t for t in theme_ids if t != original)
+                        _click_control(page, 'input[name="theme"][value="%s"]' % target)
+                        if page.locator("[data-dirty-bar]").is_hidden():
+                            return False, "expected the save bar after a theme edit"
+
+                        posts = {"n": 0}
+
+                        def _count_and_block(route, request):
+                            if request.method == "POST":
+                                posts["n"] += 1
+                                route.fulfill(status=204, body="")
+                            else:
+                                route.continue_()
+
+                        page.route("**/*", _count_and_block)
+
+                        save = '.dirty-bar__save'
+                        page.eval_on_selector(save, "el => el.click()")
+                        # The guard disables from a zero-delay timer, on
+                        # purpose: a submit button's own name/value is
+                        # contributed to the form data set AFTER the
+                        # listeners return, so an inline disable can drop
+                        # it. Wait for the timer rather than assuming it.
+                        page.wait_for_function(
+                            "() => {"
+                            " var b = document.querySelector('.dirty-bar__save');"
+                            " return !!b && b.disabled === true;}",
+                            timeout=5000)
+                        if posts["n"] != 1:
+                            return False, (
+                                "expected exactly one POST from the first click, got %d"
+                                % posts["n"])
+
+                        # The second click, as a separate task - which is
+                        # what a human double click actually is.
+                        page.eval_on_selector(save, "el => el.click()")
+                        page.wait_for_timeout(300)
+                        if posts["n"] != 1:
+                            return False, (
+                                "expected a repeat click to produce NO second POST, got %d total "
+                                "(T14)" % posts["n"])
+                        label = page.eval_on_selector(save, "el => el.textContent.trim()")
+                        for progress_word in ("Saving", "Enregistrement", "…"):
+                            if progress_word in label:
+                                return False, (
+                                    "the guard must not change any button's label - a progress "
+                                    "word is D3, Phase 23 - got %r" % (label,))
+
+                        # And the two flows the guard must not fight
+                        # still work, with the route removed: a real save
+                        # persists, and a strip switch still navigates.
+                        page.unroute("**/*")
+                        page.goto(base_url + "/display")
+                        _click_control(page, 'input[name="theme"][value="%s"]' % target)
+                        with page.expect_navigation():
+                            page.locator(save).click()
+                        page.goto(base_url + "/display")
+                        if not page.eval_on_selector(
+                                'input[name="theme"][value="%s"]' % target, "el => el.checked"):
+                            return False, (
+                                "expected the save bar to still persist a real save with the "
+                                "shared guard installed (T14)")
+                        switch = page.locator("[data-quick-switch] button[type=\"submit\"]").first
+                        if switch.count() == 0:
+                            return False, "expected a Frame strip switch to exercise"
+                        with page.expect_navigation():
+                            switch.click()
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a second click on the save bar's Save produces NO second POST - the shared guard "
+                    "disables the submitting control from a zero-delay timer, so the browser has already "
+                    "built the form data set (which is what keeps the named theme/language submit buttons "
+                    "working) - and it changes no label, while a real save still persists and a Frame "
+                    "strip switch still navigates with the guard installed (T14, 22-15-PLAN.md Task 3)",
+                    _a_second_click_on_save_produces_no_second_post)
             finally:
                 browser.close()
     finally:

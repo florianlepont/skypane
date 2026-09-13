@@ -201,6 +201,14 @@ FLIGHT_ROWS_SCRIPT_ROUTE = "/static/flight-rows.js"
 # them, which here is not merely acceptable but required: the only page
 # that loads it is the login page, which by definition has no session.
 LOGIN_CARD_SCRIPT_ROUTE = "/static/login-card.js"
+# 22-15-PLAN.md Task 3 (T14): companion/layout.py's
+# SUBMIT_GUARD_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the thirteenth static
+# script. Pre-auth like every one of them; the file itself is inert
+# until a form is submitted, so serving it before a session exists costs
+# nothing and keeps this route identical in shape to its twelve
+# siblings.
+SUBMIT_GUARD_SCRIPT_ROUTE = "/static/submit-guard.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -614,6 +622,7 @@ _CONFIRM_SUBMIT_JS_PATH = os.path.join(_HERE, "static", "confirm-submit.js")
 _THEME_PREVIEW_JS_PATH = os.path.join(_HERE, "static", "theme-preview.js")
 _FLIGHT_ROWS_JS_PATH = os.path.join(_HERE, "static", "flight-rows.js")
 _LOGIN_CARD_JS_PATH = os.path.join(_HERE, "static", "login-card.js")
+_SUBMIT_GUARD_JS_PATH = os.path.join(_HERE, "static", "submit-guard.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -1972,6 +1981,15 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_LOGIN_CARD_JS_PATH)
 
+    def _serve_submit_guard_script(self):
+        """Serve companion/static/submit-guard.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_login_card_script()'s shape exactly (22-15-PLAN.md
+        Task 3, T14) — the thirteenth static script, and the first one
+        whose consumer is every form in the app rather than one page.
+        """
+        return self._serve_script_file(_SUBMIT_GUARD_JS_PATH)
+
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
         if payload is None:
@@ -2795,6 +2813,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == LOGIN_CARD_SCRIPT_ROUTE:
             return self._serve_login_card_script()
+
+        if path == SUBMIT_GUARD_SCRIPT_ROUTE:
+            return self._serve_submit_guard_script()
 
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:

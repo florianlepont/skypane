@@ -201,6 +201,15 @@ FLIGHT_ROWS_SCRIPT_SRC = "/static/flight-rows.js"
 # authenticated page carries a .login-form).
 LOGIN_CARD_SCRIPT_SRC = "/static/login-card.js"
 
+# 22-15-PLAN.md Task 3 (T14): must equal companion/app.py's
+# SUBMIT_GUARD_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above — the THIRTEENTH static script and the
+# TWELFTH emitted by page_shell(), which is what moves the deferred-tag
+# count on an authenticated page from eleven to twelve. One shared
+# disable-on-submit guard for every form, replacing the one-form-only
+# coverage poll-cooldown.js provided.
+SUBMIT_GUARD_SCRIPT_SRC = "/static/submit-guard.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 # D-16/D-19 (20-01-PLAN.md Task 2): the quick-action form protocol,
@@ -1965,6 +1974,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -2021,6 +2031,13 @@ def page_shell(
         # page, since only Flights renders .flight-detail-row/
         # [data-row-toggle].
         FLIGHT_ROWS_SCRIPT_SRC,
+        # 22-15-PLAN.md Task 3 (T14): twelfth script on this shell, same
+        # unconditional convention — and here the convention is the
+        # point rather than a habit. The guard is a DELEGATED document
+        # level submit listener, so covering every form in the app costs
+        # exactly one registration; a per-page include would be the
+        # per-page handler this file exists to replace.
+        SUBMIT_GUARD_SCRIPT_SRC,
     )
 
 

@@ -555,6 +555,25 @@ EXPECTED_CHECK_COUNT = 269
 # the two documented WR-11 root-sandbox failures, unrelated to this
 # plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 271
+# 22-15-PLAN.md Task 3 (T14): +1 — a real GET of /static/submit-guard.js,
+# because a registration whose route 404s is a guard that does not exist
+# and the deferred-script check alone would still have passed. It pins
+# the ES5/sink ban, the DEFERRED disable (the correctness argument: an
+# inline disable drops a named submit button's own name/value from the
+# form data set, and the theme and language pickers are built from
+# exactly those), the defaultPrevented stand-down, the skip of the
+# control poll-cooldown.js owns, the absence of any label write, the
+# reuse of the ONE existing button:disabled rule still ordered after
+# button:active, and an unchanged script-src. TWO pre-existing checks
+# were retargeted in place by this plan with no count contribution: the
+# deferred-script count (eleven -> twelve, forced by this plan's own
+# registration, and now also pinning that the login shell does NOT get
+# the guard), and the tab-bar body-marker literal (Task 2, since <body>
+# gained the two refresh-state attributes). 271 + 1 = 272, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (270/272 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 272
 
 
 def _ago_iso(seconds):
@@ -4131,26 +4150,34 @@ def main():
             "=>/ let / const  (21-03-PLAN.md Task 2)",
             _real_get_flight_rows_route_serves_expected_body)
 
-        def _eleven_deferred_scripts_before_closing_body():
+        def _twelve_deferred_scripts_before_closing_body():
             # Retargeted in place from _ten_deferred_scripts_before_
             # closing_body() (21-03-PLAN.md Task 2, D-15/R-12):
-            # flight-rows.js is the eleventh unconditional script.
+            # flight-rows.js was the eleventh unconditional script.
+            # Retargeted AGAIN, in place, by 22-15-PLAN.md Task 3 (T14):
+            # submit-guard.js is the twelfth, and it is the one script
+            # here whose consumer is EVERY form in the app rather than
+            # one page — one delegated document-level submit listener,
+            # which is why a single shell registration covers the lot and
+            # why a per-page include would be the per-page handler it
+            # exists to replace.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 11:
-                return False, "expected exactly 11 deferred <script src= tags before </body>, got %d" % count
+            if count != 12:
+                return False, "expected exactly 12 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
                     layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
-                    layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC):
+                    layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC,
+                    layout.SUBMIT_GUARD_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
-            # 22-13-PLAN.md Task 2 (X3): the app has TWELVE static
-            # scripts as of this plan, but an authenticated page still
-            # loads exactly the eleven above — login-card.js is emitted
-            # by login_shell() alone. Asserted here, in the check that
+            # 22-13-PLAN.md Task 2 (X3): the app has THIRTEEN static
+            # scripts as of 22-15, but an authenticated page still loads
+            # exactly the twelve above — login-card.js is emitted by
+            # login_shell() alone. Asserted here, in the check that
             # already owns this count, so "the authenticated page's
             # script count is unchanged" is pinned by the same machine
             # that pins the count itself rather than by inspection.
@@ -4158,13 +4185,108 @@ def main():
                 return False, (
                     "login-card.js must not be emitted on an authenticated page — "
                     "nothing there carries a .login-form")
+            # T14's guard is an ENHANCEMENT, never a boundary: the login
+            # shell must keep working with no guard at all, and this
+            # plan deliberately registers on the authenticated shell
+            # only, so the login form keeps exactly today's behaviour.
+            login = layout.login_shell("<p>login</p>")
+            if layout.SUBMIT_GUARD_SCRIPT_SRC in login:
+                return False, (
+                    "submit-guard.js is registered on the authenticated shell only — the login "
+                    "shell keeps emitting exactly one deferred script (22-15-PLAN.md Task 3)")
             return True, ""
         check(
-            "a rendered authenticated page contains exactly eleven deferred <script src= tags "
+            "a rendered authenticated page contains exactly twelve deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
-            "poll-cooldown.js, confirm-submit.js, theme-preview.js and flight-rows.js — and "
-            "NOT login-card.js, which login_shell() alone emits",
-            _eleven_deferred_scripts_before_closing_body)
+            "poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js and "
+            "submit-guard.js — and NOT login-card.js, which login_shell() alone emits, nor "
+            "submit-guard.js on that login shell (retargeted in place by 22-15-PLAN.md Task 3)",
+            _twelve_deferred_scripts_before_closing_body)
+
+        def _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard():
+            # T14 (22-AUDIT.md, 22-15-PLAN.md Task 3). One shared guard
+            # for every form, replacing the one-form-only coverage
+            # poll-cooldown.js provided. Served over real HTTP, because
+            # a registration whose route 404s is a guard that does not
+            # exist — and the deferred-script check above would still
+            # pass.
+            status, headers, body = http_request(base + "/static/submit-guard.js")
+            if status != 200:
+                return False, "expected 200 from GET /static/submit-guard.js, got %d" % status
+            text = body.decode("utf-8")
+            for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
+                           "=>", " let ", " const ", "`"):
+                if banned in text:
+                    return False, "did not expect %r in the served submit-guard.js body" % banned
+            for token in ("addEventListener", "submit", "disabled", "setTimeout"):
+                if token not in text:
+                    return False, "expected %r in the served submit-guard.js body" % token
+            # The disable is DEFERRED, which is the whole correctness
+            # argument: a submit button's own name/value joins the form
+            # data set after the listeners return, and companion/
+            # layout.py's theme and language pickers are built from
+            # `<button type="submit" name="ui_theme"/"ui_lang">` — an
+            # inline disable would have made every theme and language
+            # switch a silent no-op.
+            if "window.setTimeout(function () {" not in text:
+                return False, (
+                    "expected the disable to run from a zero-delay timer, not inline in the "
+                    "listener (T14)")
+            if "evt.defaultPrevented" not in text:
+                return False, (
+                    "expected the guard to stand down when another listener cancelled the "
+                    "submission — a form that is not going anywhere must keep a usable button")
+            # The poll button keeps its own cooldown and must not be
+            # double-disabled or re-enabled by this file.
+            if "data-submit-pending" not in text:
+                return False, (
+                    "expected the guard to skip the control poll-cooldown.js already owns, by "
+                    "that script's own semantic handshake attribute (T14)")
+            # No label change: that is D3, Phase 23.
+            for progress_word in ("Saving", "Enregistrement", "textContent"):
+                if progress_word in text:
+                    return False, (
+                        "the guard must write only the `disabled` property — a progress label is "
+                        "D3, Phase 23, and this file must not pre-empt it (found %r)"
+                        % (progress_word,))
+            # The disabled APPEARANCE is the existing treatment, reused,
+            # never a new one: style.css must still declare exactly the
+            # one button:disabled rule, ordered after button:active.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path, "r", encoding="utf-8") as fh:
+                css = fh.read()
+            if css.count("button:disabled {") != 1:
+                return False, (
+                    "expected exactly one button:disabled rule — T14 reuses the existing disabled "
+                    "treatment and adds no new disabled styling")
+            if css.index("button:active {") > css.index("button:disabled {"):
+                return False, (
+                    "expected button:disabled to stay AFTER button:active in source order, or a "
+                    "pressed disabled button loses its own treatment")
+            # No CSP change: script-src 'self', no inline, no nonce.
+            app_path = os.path.join(HERE, "app.py")
+            with open(app_path, "r", encoding="utf-8") as fh:
+                app_src = fh.read()
+            # Scoped to the script-src directive: style-src legitimately
+            # carries 'unsafe-inline' for the app's own seven inline
+            # style attributes, and has since the header was written.
+            if "script-src 'self';" not in app_src:
+                return False, (
+                    "expected the CSP's script-src to stay exactly 'self' (T-22-59)")
+            if "script-src 'self' 'unsafe-inline'" in app_src or "nonce-" in app_src:
+                return False, (
+                    "T14 adds a same-origin file and nothing else — script-src must gain no "
+                    "unsafe-inline and no nonce (T-22-59)")
+            return True, ""
+        check(
+            "a real GET of /static/submit-guard.js returns 200 with an ES5-safe, sink-free body that "
+            "delegates a submit listener and disables the submitting control from a ZERO-DELAY TIMER "
+            "(so the browser has already built the form data set, which is what keeps the named "
+            "theme/language submit buttons working), stands down when another listener cancelled the "
+            "submission, skips the control poll-cooldown.js already owns, writes no label at all, reuses "
+            "the ONE existing button:disabled rule still ordered after button:active, and changes no CSP "
+            "(T14, 22-15-PLAN.md Task 3)",
+            _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard)
 
         # --- 22-13-PLAN.md Task 2 (X3): login-card.js, the twelfth
         # static script and the first one this app loads pre-auth ---
