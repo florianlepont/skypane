@@ -738,6 +738,25 @@ EXPECTED_CHECK_COUNT = 267
 # (267/268 pass — the one documented anomaly_active() root-sandbox
 # failure, unrelated to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 268
+# 23-03-PLAN.md Task 1 (D14/CFG-34): +5 — the element convention this
+# app had none of. Before this plan `grep -rn '<time' companion/`
+# matched nothing at all, so "one script ticking every relative age"
+# (23-05) had nothing to tick. The five new checks pin a WRAPPING
+# rather than a rewording: the element's own text must EQUAL
+# relative_age_text()'s output for all four buckets in both languages;
+# a falsy/None/unparseable/mismatched timestamp must degrade to escaped
+# plain text rather than to an element carrying an invented instant;
+# the new future form must read the SAME three bucket boundaries the
+# past ladder reads, asserted at and around each one, and clamp an
+# already-elapsed instant to the zero bucket; one function must serve
+# both directions, bounded either side of now; and
+# concise_timestamp_html()'s relative half must be that element with
+# its span, its title, its absolute-first ordering and its no-raw-ISO
+# rule all untouched. 268 + 5 = 273, recomputed directly against the
+# real on-disk check(...) call count at execution time (272/273 pass —
+# the one documented anomaly_active() root-sandbox failure, unrelated
+# to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 273
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -8175,6 +8194,217 @@ def main():
         "relative_age_text()'s positional signature (age_seconds first) is untouched — lang is a "
         "trailing keyword only",
         _relative_age_text_signature_unchanged_positionally)
+
+    # ======================================================================
+    # Section 1.8b: companion/layout.py's element convention for a
+    # relative time (23-03-PLAN.md Task 1, D14/CFG-34). Before this
+    # plan the app rendered no <time> element anywhere at all, so every
+    # relative age it showed was frozen from page load until something
+    # replaced the whole region. These checks pin the WRAPPING: the
+    # element's own text must be the ladder's own output, byte for
+    # byte, in both languages, because equality is the only thing that
+    # proves the ladder was called rather than re-derived beside it.
+    #
+    # Every check resets prefs' ContextVars in a finally block so no
+    # check's language leaks into the next one, exactly as Section 1.8
+    # above does.
+    # ======================================================================
+
+    # The one shape these checks parse. Written once here rather than
+    # inline in four places so a change to the element convention fails
+    # in one obvious spot instead of four subtle ones.
+    _RELATIVE_ELEMENT_RE = re.compile(
+        r'<time datetime="([^"]*)" data-relative>([^<]*)</time>')
+
+    def _relative_time_html_wraps_the_one_ladder_in_both_languages():
+        # The four buckets, one representative age each: seconds,
+        # minutes, hours, days. 90000s is 1d, the same age Section 1.8's
+        # own French check uses, so the two cannot drift apart.
+        ages = (30, 180, 7200, 90000)
+        base = datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc)
+        now_iso = _iso(base)
+        try:
+            for lang in ("en", "fr"):
+                prefs.set_request_prefs(lang=lang)
+                for age in ages:
+                    ts = _iso(base - timedelta(seconds=age))
+                    rendered = layout.relative_time_html(ts, now_iso)
+                    match = _RELATIVE_ELEMENT_RE.search(rendered)
+                    if match is None:
+                        return False, (
+                            "lang=%s age=%ds: expected a <time datetime=... data-relative> "
+                            "element, got %r" % (lang, age, rendered))
+                    instant, inner = match.group(1), match.group(2)
+                    expected = layout.relative_age_text(age, lang=lang)
+                    if inner != expected:
+                        return False, (
+                            "lang=%s age=%ds: expected the element's own text to EQUAL "
+                            "relative_age_text()'s output %r, got %r — a wrapping that changes "
+                            "the string is a second ladder, not a wrapping"
+                            % (lang, age, expected, inner))
+                    if not instant:
+                        return False, (
+                            "lang=%s age=%ds: expected a non-empty machine-readable instant"
+                            % (lang, age))
+                    if layout.parse_iso(instant) is None:
+                        return False, (
+                            "lang=%s age=%ds: expected a parseable instant, got %r"
+                            % (lang, age, instant))
+                    if layout.age_seconds(instant, now_iso) != age:
+                        return False, (
+                            "lang=%s age=%ds: expected the element's instant to name the SAME "
+                            "moment its text describes, got %r" % (lang, age, instant))
+        finally:
+            prefs.set_request_prefs(lang="en")
+        return True, ""
+    check(
+        "layout.relative_time_html() renders a <time datetime=... data-relative> element whose "
+        "own text EQUALS layout.relative_age_text()'s output for all four buckets in BOTH "
+        "languages, and whose instant names the same moment that text describes (23-03, D14)",
+        _relative_time_html_wraps_the_one_ladder_in_both_languages)
+
+    def _relative_time_html_degrades_without_an_invented_instant():
+        now_iso = "2026-09-13T12:00:00+00:00"
+        cases = (
+            ("", "a falsy timestamp"),
+            (None, "a None timestamp"),
+            ("not-a-date", "an unparseable timestamp"),
+        )
+        for ts, label in cases:
+            rendered = layout.relative_time_html(ts, now_iso)
+            if "<time" in rendered:
+                return False, (
+                    "%s must NOT produce a <time> element — an element with an empty or "
+                    "invented instant is worse than no element, got %r" % (label, rendered))
+        # A mismatched now_ts (naive vs aware) is the one degrade path
+        # age_seconds() alone catches; it must not raise either.
+        if "<time" in layout.relative_time_html("2026-09-13T11:00:00+00:00", "not-a-date"):
+            return False, "an unparseable now_ts must degrade to plain text, not a <time> element"
+        # And the degrade path still escapes: an unparseable timestamp
+        # is the one value here that can carry hostile bytes.
+        hostile = layout.relative_time_html('<script>alert(1)</script>', now_iso)
+        if "<script>" in hostile:
+            return False, "expected the degrade path to escape its input, got %r" % (hostile,)
+        return True, ""
+    check(
+        "layout.relative_time_html() degrades to escaped plain text — never a raise, never a "
+        "<time> element carrying an empty or invented instant — for a falsy, None, unparseable "
+        "or mismatched timestamp (23-03)",
+        _relative_time_html_degrades_without_an_invented_instant)
+
+    def _future_form_shares_the_past_ladders_own_buckets():
+        # One ladder in two directions: the future form must agree with
+        # the past form about which bucket a given number of seconds
+        # falls in, at and around every boundary. Comparing the UNIT
+        # each direction picks is what proves they share boundaries —
+        # comparing the words would only prove they were both written.
+        boundaries = (0, 1, 59, 60, 61, 3599, 3600, 3601, 86399, 86400, 86401, 900000)
+        try:
+            for lang in ("en", "fr"):
+                prefs.set_request_prefs(lang=lang)
+                for seconds in boundaries:
+                    past = layout.relative_age_text(seconds, lang=lang)
+                    future = layout.relative_future_text(seconds, lang=lang)
+                    if not future:
+                        return False, (
+                            "lang=%s seconds=%d: expected a non-empty future form" % (lang, seconds))
+                    if "-" in future:
+                        return False, (
+                            "lang=%s seconds=%d: a future form must never carry a negative "
+                            "number, got %r" % (lang, seconds, future))
+                    if future == past:
+                        return False, (
+                            "lang=%s seconds=%d: the future form must not be the past form — "
+                            "both read %r" % (lang, seconds, future))
+                # The clamp, in the direction that is easy to get wrong:
+                # an already-elapsed "future" instant resolves to the
+                # zero bucket, never to a negative and never to a
+                # past-tense string.
+                if layout.relative_future_text(-5, lang=lang) != layout.relative_future_text(
+                        0, lang=lang):
+                    return False, (
+                        "lang=%s: an already-elapsed future instant must resolve to the zero "
+                        "bucket" % (lang,))
+        finally:
+            prefs.set_request_prefs(lang="en")
+        return True, ""
+    check(
+        "layout.relative_future_text() reads the SAME s/m/h/d bucket boundaries the past ladder "
+        "reads (asserted at and around all three), is never negative, is never the past form, "
+        "and clamps an already-elapsed instant to the zero bucket, in both languages (23-03)",
+        _future_form_shares_the_past_ladders_own_buckets)
+
+    def _relative_time_html_reads_a_future_instant_forwards():
+        base = datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc)
+        now_iso = _iso(base)
+        try:
+            for lang in ("en", "fr"):
+                prefs.set_request_prefs(lang=lang)
+                # One second either side of `now`: both must render a
+                # bounded string, and neither a negative number.
+                for delta, direction in ((timedelta(seconds=1), "past"),
+                                         (timedelta(seconds=-1), "future")):
+                    rendered = layout.relative_time_html(_iso(base - delta), now_iso)
+                    match = _RELATIVE_ELEMENT_RE.search(rendered)
+                    if match is None:
+                        return False, "lang=%s %s: expected a <time> element, got %r" % (
+                            lang, direction, rendered)
+                    if "-" in match.group(2):
+                        return False, "lang=%s %s: expected no negative number, got %r" % (
+                            lang, direction, match.group(2))
+                ahead = layout.relative_time_html(_iso(base + timedelta(minutes=4)), now_iso)
+                ahead_match = _RELATIVE_ELEMENT_RE.search(ahead)
+                if ahead_match is None:
+                    return False, "lang=%s: expected a <time> element for a future instant" % (lang,)
+                if ahead_match.group(2) != layout.relative_future_text(240, lang=lang):
+                    return False, (
+                        "lang=%s: expected a future instant's element to carry the future form "
+                        "%r, got %r" % (
+                            lang, layout.relative_future_text(240, lang=lang),
+                            ahead_match.group(2)))
+        finally:
+            prefs.set_request_prefs(lang="en")
+        return True, ""
+    check(
+        "layout.relative_time_html() reads a FUTURE instant through the future form and a past "
+        "one through the past form — one function, both directions, bounded and non-negative one "
+        "second either side of now, in both languages (23-03, for 23-06's countdown)",
+        _relative_time_html_reads_a_future_instant_forwards)
+
+    def _concise_timestamp_htmls_relative_half_is_now_an_element():
+        now_iso = "2026-09-12T12:00:00+00:00"
+        ts = "2026-09-11T22:30:00+00:00"  # 00:30 Paris the NEXT day (CEST)
+        rendered = layout.concise_timestamp_html(ts, now_iso)
+        match = _RELATIVE_ELEMENT_RE.search(rendered)
+        if match is None:
+            return False, (
+                "expected concise_timestamp_html()'s relative half to be a <time data-relative> "
+                "element, got %r" % (rendered,))
+        expected_age = layout.relative_age_text(layout.age_seconds(ts, now_iso))
+        if match.group(2) != expected_age:
+            return False, (
+                "expected the element's text to be the unchanged relative age %r, got %r"
+                % (expected_age, match.group(2)))
+        # The outer span, its class, its title and the absolute-first
+        # ordering are NOT this plan's business and must be untouched.
+        if not rendered.startswith('<span class="mono" title="'):
+            return False, "expected the outer mono span and its title to be unchanged, got %r" % (
+                rendered,)
+        if not rendered.endswith("</span>"):
+            return False, "expected the outer span to still close the value"
+        clock = layout.local_clock_text(layout.parse_iso(ts), layout.parse_iso(now_iso))
+        if rendered.index(layout.escape_html(clock)) > rendered.index("<time"):
+            return False, "expected absolute-first ordering to be preserved (D-02/06.6 OQ1)"
+        if ts in rendered:
+            return False, (
+                "expected zero occurrences of the RAW ISO string — the element's own instant is "
+                "the Europe/Paris form, so D-05/B4's no-raw-ISO rule still holds (22-06 Task 3)")
+        return True, ""
+    check(
+        "layout.concise_timestamp_html()'s parenthesised relative half is now a "
+        "<time data-relative> element, its text unchanged, with its outer mono span, its title, "
+        "its absolute-first ordering and its no-raw-ISO rule all untouched (23-03, D-09/D-05)",
+        _concise_timestamp_htmls_relative_half_is_now_an_element)
 
     # ======================================================================
     # Section 1.9: companion/pages/health_page.py rendered through t(),

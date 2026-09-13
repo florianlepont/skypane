@@ -535,6 +535,15 @@ EXPECTED_CHECK_COUNT = 139
 # proven to take a FIXED repeat(2, minmax(0, 1fr)) template below 960px while the desktop
 # auto-fill idiom is left alone. Re-derived by running the harness (143/143).
 EXPECTED_CHECK_COUNT = 143
+# 23-03-PLAN.md Task 1 (D14/CFG-34): +1 — History's Timestamp cells now
+# carry concise_timestamp_html()'s new <time data-relative> element.
+# History is the widest surface that reads THROUGH that function, and
+# its cells travel data_table()'s raw_columns path, so this is also the
+# proof that a raw-markup producer's new element arrives as markup
+# rather than as a double-escaped "&lt;time" literal on the page — the
+# one failure mode T-23-09 names. Re-derived by running the harness
+# (144/144).
+EXPECTED_CHECK_COUNT = 144
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1467,6 +1476,51 @@ def main():
     check(
         "History's Timestamp column/mobile primary line read through layout.concise_timestamp_html(), format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key",
         _timestamp_column_absolute_and_relative)
+
+    def _history_timestamps_carry_a_relative_time_element():
+        # 23-03-PLAN.md Task 1 (D14/CFG-34): concise_timestamp_html()'s
+        # relative half is now a <time data-relative> element, so every
+        # surface that reads THROUGH that function inherits the
+        # convention without its own page module changing at all.
+        # History is the widest such surface, and its cells go through
+        # data_table()'s raw_columns — so this check is also the proof
+        # that the element survives that path as MARKUP rather than
+        # arriving double-escaped as literal text on the page.
+        tmp = _mkstate("h-ts-relative-element")
+        try:
+            seeded_ts = "2026-08-28T13:58:02+00:00"
+            three_min_later = "2026-08-28T14:01:02+00:00"
+            _seed_runway_events(tmp, [
+                {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, now=three_min_later))
+            match = re.search(
+                r'<time datetime="([^"]*)" data-relative>([^<]*)</time>', rendered)
+            if match is None:
+                return False, (
+                    "expected at least one <time datetime=... data-relative> element on the "
+                    "rendered History page")
+            if "&lt;time" in rendered:
+                return False, (
+                    "expected the element to reach the page as markup — a double-escaped "
+                    "'&lt;time' means a raw-markup producer was escaped again by its caller")
+            if match.group(2) != layout.relative_age_text(
+                    layout.age_seconds(seeded_ts, three_min_later)):
+                return False, (
+                    "expected the element's text to be the unchanged relative age, got %r"
+                    % (match.group(2),))
+            if layout.age_seconds(match.group(1), three_min_later) != 180:
+                return False, (
+                    "expected the element's own machine-readable instant to name the seeded "
+                    "row's moment, got %r" % (match.group(1),))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's Timestamp cells carry layout.concise_timestamp_html()'s new "
+        "<time data-relative> element through data_table()'s raw_columns — as real markup, "
+        "never double-escaped — with its text and its instant both intact (23-03, D14/CFG-34)",
+        _history_timestamps_carry_a_relative_time_element)
 
     def _corroboration_copy_agrees_with_health_page():
         # D-03, restated by quick task 260902-w4t (UIR-04): History's
