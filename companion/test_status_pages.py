@@ -757,6 +757,31 @@ EXPECTED_CHECK_COUNT = 268
 # the one documented anomaly_active() root-sandbox failure, unrelated
 # to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 273
+# 23-05-PLAN.md Task 2 (D22's remainder, D14/CFG-34): +3. The freshness
+# line's clock becomes a ticking age and gains a neutral dot that
+# breathes while the loop is live. One check pins the dot's
+# server-rendered markup (the app's own off dot, aria-hidden, no status
+# or accent token, and NOT carrying the breathing class at render time —
+# a server-rendered one would breathe on a page with no loop running at
+# all); one pins the ticking element over the same instant
+# data-loaded-at carries, the absolute timestamp still in its tooltip,
+# and data-loaded-at/data-refresh-pill still exactly once page-wide; one
+# scans freshness.js's source and proves the breathing class is DERIVED
+# from that file's own interval handle and state badge inside a single
+# function, called from exactly the four places its state already
+# changes, with 22-15's retry ladder, ceiling, in-flight guard and
+# targeted swap all still present (T-23-15).
+# ONE pre-existing check was retargeted in place with no count
+# contribution: 19-09/A-20's "no relative age inside
+# .page-header__freshness" ban. A-20's defect was a FROZEN zero, not an
+# age, so the ban is now "every age here must be inside a live <time
+# data-relative> element" — which fails on A-20's own defect exactly as
+# the old one did, and additionally on an age that has stopped moving.
+# 273 + 3 = 276, recomputed directly against the real on-disk check(...)
+# call count at execution time (275/276 pass — the one documented
+# anomaly_active() root-sandbox failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 276
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -7016,10 +7041,32 @@ def main():
             wrapper_slice = rendered[wrapper_start:wrapper_end]
             if "data-refresh-pill" not in wrapper_slice:
                 return False, "expected the hidden refresh pill inside the freshness wrapper"
-            if " ago" in wrapper_slice:
+            # 23-05-PLAN.md Task 2 (D14/D22/CFG-34): RETARGETED IN
+            # PLACE, and strictly strengthened. 19-09-PLAN.md (A-20)
+            # banned any relative age here because the one that stood
+            # was STRUCTURALLY ALWAYS ZERO: `now` was computed once per
+            # request and fed straight back into a timestamp claiming to
+            # be "(Ns ago)" of itself. The defect was the FREEZE, not
+            # the age. The line now carries a LIVE age —
+            # layout.relative_time_html() over the same instant
+            # data-loaded-at holds, advanced once a second by
+            # companion/static/relative-time.js — so the ban becomes:
+            # every age in this wrapper must be inside a <time
+            # data-relative> element, and a frozen one is still
+            # forbidden. Re-rendering A-20's own defect (a bare "(0s
+            # ago)" outside an element) fails here exactly as it did
+            # before.
+            outside = re.sub(r"<time [^>]*data-relative[^>]*>.*?</time>", "",
+                             wrapper_slice, flags=re.S)
+            if " ago" in outside or "il y a" in outside:
                 return False, (
-                    "expected no relative-age suffix inside .page-header__freshness — "
-                    "'(0s ago)' was structurally always zero (A-20)")
+                    "expected every relative age inside .page-header__freshness to be a live "
+                    "<time data-relative> element — a frozen age here is A-20's own defect "
+                    "('(0s ago)' was structurally always zero), got %r" % (outside,))
+            if wrapper_slice.count("data-relative") != 1:
+                return False, (
+                    "expected exactly one <time data-relative> element inside "
+                    ".page-header__freshness, got %d" % wrapper_slice.count("data-relative"))
 
             if wrapper_slice.count("data-refresh-clock") != 1:
                 return False, (
@@ -12072,6 +12119,188 @@ def main():
         "companion/static/style.css's own dot--* class-name occurrence count is unchanged by this "
         "plan (9 before, 9 after) — this plan adds no dot class",
         _health_render_no_new_dot_class_count_unchanged)
+
+    # --- 23-05-PLAN.md Task 2 (D22's remainder, D14/CFG-34): the live
+    # indicator tells the truth. Three checks: the dot's server-rendered
+    # markup, the ticking age that replaces the frozen clock, and a
+    # source scan proving the breathing class is toggled from the loop's
+    # OWN state rather than from a second state machine beside it.
+
+    def _health_freshness_line_carries_a_neutral_live_dot():
+        tmp = _mkstate("h-live-dot")
+        try:
+            rendered = health_page.render(_ctx(tmp, now=_iso(_now())))
+            start = rendered.index('<p class="page-header__freshness')
+            wrapper = rendered[start:rendered.index("</p>", start) + len("</p>")]
+            if wrapper.count(health_page.REFRESH_LIVE_DOT_ATTR) != 1:
+                return False, (
+                    "expected exactly one %s inside .page-header__freshness, got %d"
+                    % (health_page.REFRESH_LIVE_DOT_ATTR,
+                       wrapper.count(health_page.REFRESH_LIVE_DOT_ATTR)))
+            dot_at = wrapper.index(health_page.REFRESH_LIVE_DOT_ATTR)
+            tag = wrapper[wrapper.rindex("<", 0, dot_at):wrapper.index(">", dot_at) + 1]
+            if 'class="dot dot--off"' not in tag:
+                return False, (
+                    "expected the live dot to be the app's own NEUTRAL dot and nothing else — a "
+                    "refresh loop that is listening is not a device verdict and must not borrow "
+                    "one's colour, got %r" % (tag,))
+            for verdict in ("dot--ok", "dot--warn", "dot--error", "status-warn", "accent"):
+                if verdict in tag:
+                    return False, (
+                        "expected no status/accent token on the live dot, found %r in %r"
+                        % (verdict, tag))
+            if 'aria-hidden="true"' not in tag:
+                return False, (
+                    "expected the live dot to be aria-hidden — it is decorative, and the loop's "
+                    "real state is already announced by the Paused/Reconnecting badge beside it")
+            # Server-rendered STATIC. The motion is one class
+            # companion/static/freshness.js adds, so a scripts-blocked
+            # page shows a still dot beside an age that does not move,
+            # which is exactly what is true there.
+            if "is-breathing" in wrapper:
+                return False, (
+                    "expected the server to render the dot STILL — the breathing class is "
+                    "freshness.js's to add, and a server-rendered one would breathe on a page "
+                    "with no loop running at all, got %r" % (wrapper,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health's freshness line carries exactly one neutral, aria-hidden live dot — the app's own "
+        "off dot with no status or accent token and no breathing class at render time, because the "
+        "motion belongs to the loop that knows whether it is listening (D22, 23-05-PLAN.md Task 2)",
+        _health_freshness_line_carries_a_neutral_live_dot)
+
+    def _health_freshness_clock_is_a_ticking_age_over_the_loaded_at_instant():
+        tmp = _mkstate("h-ticking-age")
+        try:
+            now_iso = _iso(_now())
+            rendered = health_page.render(_ctx(tmp, now=now_iso))
+            start = rendered.index('<p class="page-header__freshness')
+            wrapper = rendered[start:rendered.index("</p>", start) + len("</p>")]
+            # The element, over the SAME instant data-loaded-at carries —
+            # not a second instant computed beside it.
+            expected = layout.relative_time_html(now_iso, now_iso)
+            if expected not in wrapper:
+                return False, (
+                    "expected the freshness line's value to be layout.relative_time_html() over "
+                    "the same instant data-loaded-at carries (%r), got %r" % (expected, wrapper))
+            # data-loaded-at stays exactly once, page-wide: freshness.js
+            # reads it with a single querySelector and a second would
+            # silently win.
+            if rendered.count("data-loaded-at") != 1:
+                return False, (
+                    "expected exactly one data-loaded-at page-wide, got %d"
+                    % rendered.count("data-loaded-at"))
+            if rendered.count("data-refresh-pill") != 1:
+                return False, (
+                    "expected exactly one data-refresh-pill page-wide, got %d"
+                    % rendered.count("data-refresh-pill"))
+            # Nothing lost: the full Europe/Paris local timestamp is
+            # still on the clock span's title (22-16's D-05/CFG-28
+            # conversion), and the raw ISO still does not survive.
+            expected_title = layout.escape_html(
+                health_page._full_local_timestamp_text(now_iso))
+            if ('title="%s"' % expected_title) not in wrapper:
+                return False, (
+                    "expected the absolute timestamp to stay available in the element's tooltip "
+                    "(%r), got %r" % (expected_title, wrapper))
+            # The <time> element is INSIDE the .page-header__freshness
+            # wrapper, which is one of REFRESH_SWAP_SELECTORS' entries —
+            # so the value a swap replaces and the value the ticker
+            # advances are the same one.
+            if ".page-header__freshness" not in health_page.REFRESH_SWAP_SELECTORS:
+                return False, (
+                    "expected .page-header__freshness to still be a swap target — the ticking "
+                    "age is honest between swaps and reset by them")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health's freshness line reads a LIVE relative age over the same instant data-loaded-at "
+        "carries, with the absolute timestamp still in the element's tooltip, exactly one "
+        "data-loaded-at and one data-refresh-pill page-wide, and the wrapper still a swap target "
+        "(D22's remainder, 23-05-PLAN.md Task 2)",
+        _health_freshness_clock_is_a_ticking_age_over_the_loaded_at_instant)
+
+    def _freshness_js_breathes_only_from_the_loops_own_state():
+        # T-23-15: a dot that breathes while the page is not actually
+        # listening is a lie the user has no way to check. The mitigation
+        # is structural rather than careful — the class is DERIVED from
+        # the loop's own two state variables inside one function, and
+        # that function is called from the four places the loop's state
+        # already changes. There is no second timer and no second
+        # variable tracking liveness.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        if "function syncLiveDot()" not in js:
+            return False, (
+                "expected freshness.js to derive the breathing class in ONE function — two "
+                "sources for one claim is this codebase's most repeated defect")
+        if "intervalHandle !== null && currentState === null" not in js:
+            return False, (
+                "expected the breathing class to be DERIVED from the loop's own interval handle "
+                "AND its own state badge — either half alone lets the dot breathe while the "
+                "page is paused or failing (T-23-15)")
+        # Called from every function that changes either half, and from
+        # nowhere else. setState() covers both paused and reconnecting;
+        # clearState() covers recovery and return-from-hidden; start/stop
+        # cover the interval itself, including tick()'s own belt-and-
+        # braces stop in a background tab.
+        for owner, body_end in (
+                ("function setState(state) {", "function clearState()"),
+                ("function clearState() {", "// 23-05-PLAN.md Task 2"),
+                ("function startLoop() {", "function stopLoop()"),
+                ("function stopLoop() {", "document.addEventListener")):
+            if owner not in js:
+                return False, "expected %r in freshness.js" % owner
+            region = js[js.index(owner):js.index(body_end, js.index(owner))]
+            if "syncLiveDot()" not in region:
+                return False, (
+                    "expected syncLiveDot() to be called from %s — the breathing class must "
+                    "change where the loop's own state changes, never from a second state "
+                    "machine beside it" % owner)
+        if js.count("syncLiveDot();") != 4:
+            return False, (
+                "expected exactly four syncLiveDot() call sites (setState, clearState, "
+                "startLoop, stopLoop), got %d — a fifth caller is a second state machine"
+                % js.count("syncLiveDot();"))
+        # The loop still never paints its own failure as a device fault.
+        for verdict in ("dot--warn", "dot--error", "status-warn"):
+            if verdict in js:
+                return False, (
+                    "freshness.js must carry no status vocabulary — a browser that lost its "
+                    "connection is not a device fault (22-15's own argued ground), found %r"
+                    % verdict)
+        # 22-15's own work, byte-for-byte present: the ladder, its
+        # ceiling and the in-flight guard are NOT re-implemented here.
+        for untouched in ("RETRY_BASE_MS", "RETRY_CEILING_MS = 600000",
+                          "function failAndRetry()", "inFlight", "isEqualNode"):
+            if untouched not in js:
+                return False, (
+                    "expected 22-15's own %r to survive untouched — this plan adds the two "
+                    "things T13 deliberately left for Phase 23 and re-implements none of it"
+                    % untouched)
+        # The dot's own selector and class must agree with the Python
+        # that renders the element and the CSS that animates it.
+        if health_page.REFRESH_LIVE_DOT_ATTR not in js:
+            return False, (
+                "freshness.js does not name %r — health_page.py renders the hook and this file "
+                "is the only thing that toggles it" % health_page.REFRESH_LIVE_DOT_ATTR)
+        css_source = _css_source()
+        if ".is-breathing {" not in css_source:
+            return False, (
+                "expected companion/static/style.css to declare the breathing rule freshness.js "
+                "toggles — a class with no rule is motion nobody ever sees")
+        return True, ""
+    check(
+        "freshness.js DERIVES the breathing class from its own interval handle and state badge in "
+        "one function, called from exactly the four places its state already changes, carries no "
+        "status vocabulary, leaves 22-15's retry ladder/ceiling/in-flight guard/targeted swap "
+        "untouched, and agrees with both the Python hook and the CSS rule (T-23-15, "
+        "23-05-PLAN.md Task 2)",
+        _freshness_js_breathes_only_from_the_loops_own_state)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
