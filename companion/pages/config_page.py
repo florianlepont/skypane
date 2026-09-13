@@ -587,6 +587,33 @@ DIRTY_LIST_AND = ", and "
 DIRTY_UNSAVED_SINGULAR = "1 unsaved change"
 DIRTY_UNSAVED_PLURAL = " unsaved changes"
 
+# 23-09-PLAN.md Task 2 (D3/CFG-32): the SIXTH word on the same element,
+# and the one T14 (22-15-PLAN.md Task 3) deliberately left for this
+# phase — "Disable only — do NOT change any label to a progress word;
+# that is D3, Phase 23."
+#
+# It rides the identical data-*-attribute-with-an-English-fallback idiom
+# as the five connectors above, for the identical reason: the French is
+# a catalogue entry rather than a JS literal, and this constant's own
+# English value is also companion/static/dirty-state.js's documented
+# fallback, so the two can never silently disagree about what a bar
+# rendered WITHOUT the attribute says.
+#
+# There is deliberately no "Saved" counterpart here, and its absence is
+# a decision rather than an omission. Saving is a full form POST that
+# replaces the document: the bar that shows this word does not exist any
+# more when the save completes. Reporting the finished state on the bar
+# would mean carrying a flag across that navigation, which would mean
+# browser storage, and this app holds no client state at all — a second
+# source of truth beside the server is the one thing its whole
+# discipline excludes. The completed state is companion/app.py's
+# existing FLASH_KEY_SAVED confirmation, delivered on the page the
+# browser actually lands on, which is where the reader's eyes are.
+#
+# The ellipsis is the single U+2026 character, matching this module's
+# own "Polling…" and layout.py's "Reconnecting…" — never three periods.
+DIRTY_SAVING_TEXT = "Saving…"
+
 # Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
 # row verbatim (D-17); "{n}" is filled in with a server-computed
 # remaining-seconds figure, never anything client-supplied. This text is
@@ -3426,7 +3453,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         '<div class="dirty-bar" data-dirty-bar hidden role="status" '
         'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
         'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
-        'data-dirty-unsaved-plural="%s">'
+        'data-dirty-unsaved-plural="%s" data-dirty-saving="%s">'
         "<span data-dirty-count>%s</span>"
         '<button type="submit" class="dirty-bar__save" form="%s">%s</button>'
         '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
@@ -3434,7 +3461,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     ) % (
         escape_html(i18n.t(DIRTY_CHANGED_SUFFIX)), escape_html(i18n.t(DIRTY_AND)),
         escape_html(i18n.t(DIRTY_LIST_AND)), escape_html(i18n.t(DIRTY_UNSAVED_SINGULAR)),
-        escape_html(i18n.t(DIRTY_UNSAVED_PLURAL)),
+        escape_html(i18n.t(DIRTY_UNSAVED_PLURAL)), escape_html(i18n.t(DIRTY_SAVING_TEXT)),
         escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT)), SETTINGS_FORM_ID,
         escape_html(i18n.t("Save settings")), escape_html(i18n.t("Cancel")),
     )

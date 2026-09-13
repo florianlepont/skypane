@@ -267,6 +267,17 @@ CATALOG = {
     "1 unsaved change": "1 modification non enregistrée",
     " unsaved changes": " modifications non enregistrées",
 
+    # --- 23-09-PLAN.md Task 2 (D3/CFG-32): the bar's SIXTH word, read
+    #     as data-dirty-saving by the same script, and the label the
+    #     Save control wears while its POST is in flight. T14
+    #     (22-15-PLAN.md Task 3) left this word to D3 deliberately.
+    #     "Enregistrement…" is the progressive form of the same verb
+    #     "Enregistrer les réglages" above already uses, so the control
+    #     reads as the same action continuing rather than a new one, and
+    #     it carries the same single U+2026 ellipsis as "Vérification en
+    #     cours…" above.
+    "Saving…": "Enregistrement…",
+
     # --- Field-level validation errors (config_page.py's
     #     _field_error_html(), rendered wherever `errors` carries one) --
     "That is not one of the available choices.":
