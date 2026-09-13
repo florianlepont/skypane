@@ -1495,6 +1495,17 @@ def _filter_bar_html(total, summary_html=""):
     it unreadable as an action (X7). Placed after the field and before
     the count/Clear group, so the bar reads left to right as "search,
     then a shortcut, then how many matched and how to undo".
+
+    B11 (22-11-PLAN.md Task 3): the count and the Clear control are
+    siblings inside ONE `.filter-bar__meta` group — the SHARED element
+    plan 22-09 introduced on History, adopted verbatim here with no
+    per-page variant rule and no fork of the converged
+    `[data-filter-clear]` control (06.6.4 D-08). Two `nowrap` siblings in
+    a wrapping flex container never wrapped as a unit, which is how
+    Phase 18's A-18 came back at 390px with "Clear" alone on its own
+    line; one group is a single flex item and moves whole or not at all.
+    A second page-scoped variant is how A-18 came back the FIRST time —
+    do not add one here.
     """
     count_text = i18n.t("%d of %d shown") % (total, total)
     empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total
@@ -1506,8 +1517,10 @@ def _filter_bar_html(total, summary_html=""):
         '<input type="search" id="%s" data-filter-input>'
         "</div>"
         "%s"
+        '<div class="filter-bar__meta">'
         '<span class="filter-bar__count" data-filter-count>%s</span>'
         '<button type="button" data-filter-clear>%s</button>'
+        "</div>"
         "</div>"
         '<div class="empty-state" data-filter-empty hidden>'
         '<p class="empty-state__heading text-heading">%s</p>'

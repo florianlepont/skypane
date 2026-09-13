@@ -149,6 +149,15 @@ EXPECTED_CHECK_COUNT = 9
 # directly against the real on-disk check(...) call count at execution
 # time (10/10 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 10
+# 22-11-PLAN.md Task 3 (B11): +1 — at a 390px viewport the Airlines
+# filter count and Clear control report the same bounding-box top, both
+# inside the one shared .filter-bar__meta group plan 22-09 introduced,
+# adopted verbatim with no per-page variant. This is the second of the
+# three filtered pages the audit measured; Health is plan 22-12's. 10 + 1
+# = 11, recomputed directly against the real on-disk check(...) call
+# count at execution time (11/11 pass), not trusted from arithmetic
+# alone.
+EXPECTED_CHECK_COUNT = 11
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -547,6 +556,55 @@ def main():
                     "159px the contract predicts, and the whole page under 3200px (X7, "
                     "22-11-PLAN.md Task 2)",
                     _airlines_grid_renders_two_cards_per_row_at_390px)
+
+                def _airlines_filter_count_and_clear_share_one_line_at_390px():
+                    # B11 (22-11-PLAN.md Task 3): the SECOND of the three
+                    # filtered pages. Same defect, same shared
+                    # `.filter-bar__meta` group plan 22-09 added — adopted
+                    # verbatim, never forked into a per-page variant,
+                    # which is how Phase 18's A-18 came back the first
+                    # time. Measured, like its Flights sibling: equal
+                    # getBoundingClientRect().top is the contract.
+                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/airlines")
+                        count = page.locator("[data-filter-count]").first
+                        clear = page.locator("[data-filter-clear]").first
+                        count.wait_for(state="visible")
+                        clear.wait_for(state="visible")
+                        count_box = count.bounding_box()
+                        clear_box = clear.bounding_box()
+                        if count_box is None or clear_box is None:
+                            return False, "expected both the count and Clear to have a box at 390px"
+                        if round(count_box["y"]) != round(clear_box["y"]):
+                            return False, (
+                                "expected the Airlines filter count and Clear to report the same "
+                                "top at 390px (A-18 regressing), got %r and %r"
+                                % (count_box["y"], clear_box["y"]))
+                        # Adopted, not forked: the pair is inside the one
+                        # shared group element, and Airlines adds no
+                        # variant of its own.
+                        in_group = page.eval_on_selector_all(
+                            ".filter-bar__meta",
+                            "els => els.map(el => [!!el.querySelector('[data-filter-count]'),"
+                            " !!el.querySelector('[data-filter-clear]')])")
+                        if in_group != [[True, True]]:
+                            return False, (
+                                "expected exactly one .filter-bar__meta group on Airlines holding "
+                                "both controls, got %r" % (in_group,))
+                        if page.viewport_size["width"] != 390:
+                            return False, "expected the measurement to be taken at 390px"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "at 390px on Airlines the filter count and the Clear control report the same "
+                    "bounding-box top, both inside the one shared .filter-bar__meta group plan "
+                    "22-09 introduced — adopted verbatim, no per-page variant (B11, 22-11-PLAN.md "
+                    "Task 3, the second of the three filtered pages)",
+                    _airlines_filter_count_and_clear_share_one_line_at_390px)
 
                 # ----------------------------------------------------------------
                 # 22-01-PLAN.md Task 3 (D-01/D-02, B1/T1/T8): the four checks
