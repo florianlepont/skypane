@@ -364,14 +364,90 @@ html[data-ui-theme="dark"] {
  * override above, and shipping one without its own opt-out would hand a
  * reduced-motion user full-page cross-fades with no way to escape them.
  *
- * That gap is closed by 23-04, not here. It wraps its own
- * view-transition at-rule in a `prefers-reduced-motion: no-preference`
- * media query rather than zeroing these pseudo-elements' duration, and
- * the wrapper is the better shape for one reason: it prevents the
+ * That gap is CLOSED, by the rule immediately below (23-04-PLAN.md
+ * Task 1, D10/CFG-33) — no longer by a future plan. It wraps the
+ * navigation at-rule in a `prefers-reduced-motion: no-preference` media
+ * query rather than zeroing these pseudo-elements' duration, and the
+ * wrapper is the better shape for one reason: it prevents the
  * transition being SET UP at all, instead of setting one up and then
  * running it fast. A near-zero duration is not the same thing as none —
  * the same reasoning `.js .mobile-nav`'s narrow `none` override further
  * down this file already rests on. */
+
+/* D10/CFG-33 (23-04-PLAN.md Task 1): cross-document view transitions —
+ * the whole feature, and the only enhancement in Phase 23 that a
+ * scripts-blocked visitor gets in full. No script, no framework, no
+ * fallback branch, no feature detection and no markup change: the
+ * browser snapshots the outgoing document and cross-fades it into the
+ * incoming one, and a browser that has not implemented this simply
+ * ignores the at-rule and navigates exactly as it did before. Baseline
+ * "limited" as of 2026-09-13 (webstatus.dev, re-read in
+ * 23-RESEARCH.md): Chrome/Edge 126+, Safari/iOS 18.2+, and NOT Firefox,
+ * which therefore sees today's instant navigation and nothing else
+ * different. Both of the design system's reference devices — the
+ * Android at 360px and the iPhone at 390px — are covered.
+ *
+ * WHY THE MEDIA WRAPPER, AND WHY IT IS NOT BELT-AND-BRACES. It is the
+ * opt-out the block above genuinely cannot provide, not a second copy
+ * of it. Source: CSS View Transitions Module Level 2, §8.3.1 — "as per
+ * default behavior, the [navigation] rule can be nested inside a
+ * conditional group rule such as @media or @supports" — and this exact
+ * nested form was verified to parse and to be RETAINED in the CSSOM in
+ * this project's own harness Chromium (151.0.7922.34), not assumed from
+ * the prose. Wrapping it means that under reduced motion the
+ * transition is never SET UP; the alternative (an `animation: none`
+ * override on the pseudo-elements) would set one up and then run it at
+ * a zeroed duration, which is strictly weaker AND is the dead-code-
+ * not-a-safety-net pattern `references/accessibility-contrast.md`
+ * records. There is deliberately no such override anywhere in this
+ * file.
+ *
+ * SAME-ORIGIN ONLY, by spec — stated here rather than left as an
+ * unstated assumption: the browser only runs a transition between two
+ * same-origin documents. Nothing in this app links off-origin from a
+ * page carrying this at-rule, so no additional gate is needed; if one
+ * is ever added, it degrades to an ordinary navigation on its own.
+ *
+ * THE THREE NAMES BELOW MUST BE UNIQUE PER RENDERED DOCUMENT, and that
+ * is the one way this feature fails silently: a name that matches twice
+ * makes the browser drop the transition with no error anywhere. Read
+ * this before "simplifying" any of the three selectors — companion/
+ * layout.py renders THREE navigation copies into EVERY authenticated
+ * document simultaneously (the sidebar, the preferences panel and the
+ * bottom tab bar), hidden from one another only by the 960px media
+ * query further down this file. A name hung on a shared navigation
+ * class would therefore be declared three times in one document and the
+ * whole cross-fade would vanish. The sidebar is targeted by
+ * `.dashboard-sidebar`, its own `<aside>` class, which is rendered
+ * exactly once. `.page-title` is page_header()'s single `<h1>`, and
+ * `.preview-frame__image` is Home's frame picture and the app's only
+ * render site of that class. companion/test_browser_ux.py counts the
+ * COMPUTED value on every authenticated route, because only a browser
+ * can see a selector matching twice.
+ *
+ * Each name is declared in a rule of its own on purpose. In particular
+ * `.preview-frame__image` shares its white-backing/hairline/radius
+ * declarations with `.now-showing__image`, `img.recent-flight__thumb`
+ * and `img.history-card__thumb` in one four-selector rule below, and
+ * the thumbnails render once PER ROW — putting a name on that shared
+ * rule would collide dozens of times on Flights. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}
+
+.dashboard-sidebar {
+  view-transition-name: skypane-sidebar;
+}
+
+.page-title {
+  view-transition-name: skypane-title;
+}
+
+.preview-frame__image {
+  view-transition-name: skypane-picture;
+}
 
 /* The app's FIRST and ONLY keyframes block (23-01-PLAN.md Task 1,
  * D3/CFG-32). This stylesheet carried zero before this plan; this one
