@@ -3863,12 +3863,22 @@ def main():
             # ONE write site. Before this plan the count's text was
             # assigned in four branches of updateBar(); four write sites
             # is four places a later plan can forget the gate below.
-            writes = src.count("countEl.textContent =")
-            if writes != 1:
+            #
+            # The negative lookahead is load-bearing, not decoration: a
+            # plain substring search for the assignment also matches the
+            # GATE's own `=== ` comparison one line above it, so the
+            # count would read one higher than the truth and this check
+            # would have been failing on the very implementation it
+            # exists to require. Same substring-collision class 23-08
+            # hit on a selector that ended in another selector.
+            write_sites = [m.start() for m in re.finditer(
+                r"countEl\.textContent =(?!=)", src)]
+            if len(write_sites) != 1:
                 return False, (
-                    "expected exactly ONE countEl.textContent assignment in dirty-state.js, got "
-                    "%d — the count lives in a role=\"status\" region, so every extra write site "
-                    "is another way for the same number to be announced twice" % (writes,))
+                    "expected exactly ONE assignment to the count's textContent in "
+                    "dirty-state.js, got %d — the count lives in a role=\"status\" region, so "
+                    "every extra write site is another way for the same number to be announced "
+                    "twice" % (len(write_sites),))
 
             # THE GATE. Without it the text is rewritten on every
             # keystroke — the live region re-announces a number that did
@@ -3891,7 +3901,7 @@ def main():
                     "animation (.is-fading-in), whose own rule comment says it names the motion "
                     "rather than the component so the next thing that changes under the reader "
                     "spends it — not a fourth keyframes block")
-            write_at = src.index("countEl.textContent =")
+            write_at = write_sites[0]
             add_at = src.index("classList.add(")
             if add_at < write_at:
                 return False, (

@@ -309,6 +309,52 @@
     return labels;
   }
 
+  // 23-09-PLAN.md Task 1 (D3/CFG-32): the stylesheet's EXISTING
+  // changed-value animation, not a fourth keyframes block. Its own rule
+  // comment says it names the motion rather than the component so the
+  // next thing that changes under the reader spends it, and 23-08's own
+  // notes hand it to this plan by name. The bar's ENTRANCE is a
+  // different motion and has its own block; this is only the count.
+  var COUNT_CHANGED_CLASS = "is-fading-in";
+
+  // The count's ONE write site (there were four, one per branch of
+  // updateBar() below), and the whole reason it is one.
+  //
+  // The bar is role="status" and this element is its content, so every
+  // write to it is a potential announcement. updateBar() runs on every
+  // change AND every input event — which is every keystroke in the
+  // wake-interval and quiet-hours fields — and most of those produce the
+  // same sentence again. Re-writing identical text into a live region is
+  // how a screen reader ends up reading the same number twice, and
+  // animating it would be motion carrying no information, which is the
+  // one thing a motion budget exists to stop. So: nothing happens at all
+  // unless the sentence genuinely differs.
+  //
+  // The TEXT is written first and the CLASS second. What animates is the
+  // element's presentation; the number itself is never tweened, so the
+  // displayed value is the real one at every instant including the
+  // animation's first frame. An animation that had to rewrite the text
+  // mid-transition would be the wrong animation, not a reason to accept
+  // a partial announcement.
+  //
+  // Removed, reflowed, re-added: a class that is already present runs
+  // nothing on the next change, because the browser coalesces a remove
+  // and an add in the same frame into no change at all. Reading a layout
+  // property in between is what forces the removal to take effect first
+  // — and it is a READ, not a timer: this file's own header makes "never
+  // a timer" a standing constraint, and a live check enforces it.
+  function setCountText(text) {
+    if (countEl.textContent === text) {
+      return;
+    }
+    countEl.textContent = text;
+    if (countEl.classList) {
+      countEl.classList.remove(COUNT_CHANGED_CLASS);
+      void countEl.offsetWidth;
+      countEl.classList.add(COUNT_CHANGED_CLASS);
+    }
+  }
+
   function updateBar() {
     var count = countDifferences();
     // T1: re-arm the leave-guard the moment a real edit exists again —
@@ -336,17 +382,17 @@
       // section wrapper. Falls back to the raw-count copy this file
       // shipped before D-03's section-naming so the bar can never go
       // silent while unsaved edits exist.
-      countEl.textContent = count === 1
+      setCountText(count === 1
         ? dirtyUnsavedSingular
-        : count + dirtyUnsavedPlural;
+        : count + dirtyUnsavedPlural);
       return;
     }
     if (labels.length === 1) {
-      countEl.textContent = labels[0] + dirtyChangedSuffix;
+      setCountText(labels[0] + dirtyChangedSuffix);
       return;
     }
     if (labels.length === 2) {
-      countEl.textContent = labels[0] + dirtyAnd + labels[1] + dirtyChangedSuffix;
+      setCountText(labels[0] + dirtyAnd + labels[1] + dirtyChangedSuffix);
       return;
     }
     // Three or more: every label but the last joined with ", " (a
@@ -354,7 +400,7 @@
     // read identically), the last one prefixed with the final joiner —
     // UI-SPEC §5.1's table.
     var head = labels.slice(0, labels.length - 1).join(", ");
-    countEl.textContent = head + dirtyListAnd + labels[labels.length - 1] + dirtyChangedSuffix;
+    setCountText(head + dirtyListAnd + labels[labels.length - 1] + dirtyChangedSuffix);
   }
 
   var suppressGuard = false;

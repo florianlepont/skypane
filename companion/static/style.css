@@ -579,6 +579,77 @@ html[data-ui-theme="dark"] {
   }
 }
 
+/* 23-09-PLAN.md Task 1 (D3/CFG-32, spending 23-01's budget): the app's
+ * FOURTH keyframes block, argued for rather than assumed, the way the
+ * second and third were.
+ *
+ * The three existing blocks are an opacity CYCLE (the ambient pulse), an
+ * opacity RAMP (the fade a refreshed region spends) and a background
+ * WASH (a row that just landed). None of them moves anything. What the
+ * save bar needs is the one motion none of them describes: it has to
+ * ARRIVE — travel a short distance into the position it then keeps —
+ * because that is the difference between a control the reader watches
+ * appear and one that was apparently always there and they simply had
+ * not noticed. The fade alone would have made a bar carrying the only
+ * Save button on the page materialise out of the page background.
+ *
+ * WHY AN ANIMATION RATHER THAN A TRANSITION, which is the real decision
+ * here. The bar goes from `display: none` (its server-rendered `hidden`
+ * attribute) to displayed, and a transition has no previous computed
+ * value to start from across that change — it needs an @starting-style
+ * entry, which is exactly what 23-08 wrote for the Flights detail row.
+ * That was right there and is wrong here: @starting-style is newer than
+ * this component's audience, so a transition would move for some
+ * visitors and silently do nothing for the rest. That is the shape of
+ * failure 23-01's interpolate-size ban exists to stop, and it is not a
+ * smaller failure because the property involved is Baseline-newer
+ * rather than Chromium-only. An animation runs for everyone, and an
+ * element that is `display: none` runs none of it, so the
+ * scripts-blocked reader — for whom this bar never appears at all — is
+ * reached by nothing here either.
+ *
+ * TRANSFORM AND OPACITY, AND NOTHING ELSE, and that ban is a
+ * correctness rule rather than a performance one. This component's own
+ * history is why: a bar stranded at an intermediate SIZE is a blocked
+ * save, and this app has already shipped a blocked save once (B1). The
+ * `.js .mobile-nav` override further down this file is the recorded
+ * precedent for a size-interpolating transition stranding a computed
+ * value when its duration is forced to 0.01ms. Neither property here
+ * can strand anything: with no fill mode the element is handed straight
+ * back to its own computed style the instant the animation ends, and
+ * that style has never mentioned either property.
+ *
+ * The travel is `--space-md`, the file's own spacing token, and it is
+ * DOWNWARD-origin on purpose: the bar is pinned to the bottom of the
+ * viewport at both breakpoints, so arriving from below it is the
+ * direction it would come from if it were a physical object sliding
+ * into place, and it never crosses the content it is about to sit over.
+ *
+ * Its duration comes from `var(--motion-fast)` at the call site. That is
+ * 23-01's REACTION token by its own definition — the user just made an
+ * edit and is watching for the confirmation that it can be saved — and
+ * 23-01's own comment already names "the save bar's entrance" among the
+ * surfaces it was chosen for. The guard rejects a bare literal there.
+ *
+ * UNDER REDUCED MOTION THIS DOES NOT SLIDE, and there is no block here
+ * saying so — the global override earlier in this file already zeroes
+ * animation-duration for every element, and a per-rule block would be
+ * the dead-code-not-a-safety-net pattern accessibility-contrast.md
+ * records a verdict on. The stylesheet's live reduce-block count stays
+ * at two. The outcome under that preference is correct rather than
+ * merely tolerable: the bar is simply there, at full opacity, in its
+ * final position, which is what it did before this plan. */
+@keyframes skypane-bar-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-md));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -2093,6 +2164,23 @@ button:active {
   border-radius: var(--radius-card);
   margin-top: var(--space-md);
   box-shadow: var(--shadow-card-hover), 0 12px 32px rgba(18, 21, 27, 0.16);
+  /* 23-09-PLAN.md Task 1 (D3/CFG-32): the entrance. Declared on the
+   * base rule, so the component has ONE arrival at both breakpoints
+   * rather than one per width — the same discipline its own z-index
+   * comment argues for below. The block it names, and the reason it is
+   * an animation rather than a transition, are at the keyframes' own
+   * site near the top of this file. `ease-out` at the call site because
+   * easing is not a token: 23-01 spent exactly two custom properties and
+   * easing was deliberately not one of them.
+   *
+   * It fires when the bar's own `display` changes from `none`, which is
+   * the only way this element is ever revealed (companion/static/
+   * dirty-state.js sets `bar.hidden = false`, and the `[hidden]`
+   * override immediately below is what makes that attribute mean
+   * anything against the `display: flex` above). Setting `hidden = false`
+   * on a bar that is already shown is not a style change, so a second
+   * edit moves only the count, not the whole bar again. */
+  animation: skypane-bar-arrive var(--motion-fast) ease-out;
 }
 
 /* Without this, the native `hidden` attribute dirty-state.js relies on to
