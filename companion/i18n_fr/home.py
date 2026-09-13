@@ -62,21 +62,34 @@ CATALOG = {
     "Status": "Statut",
 
     # --- Status-row labels (20-UI-SPEC.md §A) ---------------------------
+    # 22-07-PLAN.md Task 1 (X4): "Frame" is renamed to "Check-ins" for
+    # home_page.FRAME_ROW_LABEL — the strip's own <h2> heading (a
+    # DIFFERENT constant, companion/layout.py's FRAME_STRIP_HEADING)
+    # keeps "Frame"/"Cadre", so that entry is NOT removed from this
+    # catalogue even though home_page.py no longer reads it directly.
+    "Check-ins": "Connexions",
     "Frame": "Cadre",
     "Battery": "Batterie",
     "Flight data": "Données de vol",
 
     # --- Status-row verdicts (20-UI-SPEC.md §A) -------------------------
-    # FRAME_STATE_TEXT's three values are byte-identical to health_page.
-    # DEVICE_STATE_TEXT's own three values (20-RESEARCH.md Pitfall 3 —
-    # this is exactly why the two dicts must never be edited to differ:
-    # they legitimately describe the same states identically on both
-    # pages). companion/i18n_fr/health.py (20-03-PLAN.md) already owns
-    # "Checking in normally"/"Has not checked in for a while"/"Has not
-    # checked in for a long time" as catalogue keys — the auto-merge
-    # package raises on a duplicate key, so this module reuses those
-    # three entries by NOT redefining them here; i18n.t() resolves them
-    # from the one shared catalogue regardless of which page calls it.
+    # FRAME_STATE_TEXT's "ok"/"warn"/"error" values are byte-identical
+    # to health_page.DEVICE_STATE_TEXT's own three values
+    # (20-RESEARCH.md Pitfall 3 — this is exactly why the two dicts must
+    # never be edited to differ: they legitimately describe the same
+    # states identically on both pages). companion/i18n_fr/health.py
+    # (20-03-PLAN.md) already owns "Checking in normally"/"Has not
+    # checked in for a while"/"Has not checked in for a long time" as
+    # catalogue keys — the auto-merge package raises on a duplicate
+    # key, so this module reuses those three entries by NOT redefining
+    # them here; i18n.t() resolves them from the one shared catalogue
+    # regardless of which page calls it. 22-07-PLAN.md Task 1 (D-03/
+    # CFG-26) widens FRAME_STATE_TEXT with a fourth "off" key —
+    # "Asleep for quiet hours" — reusing companion/i18n_fr/health.py's
+    # OWN 22-04-PLAN.md Task 3 entry for the identical English string,
+    # for the same reason: not redefined here either. DATA_STATE_TEXT's
+    # own new "off" key ("No detection yet") likewise reuses health.py's
+    # 22-03-PLAN.md Task 1 entry.
     "Up to date": "À jour",
     "A little stale": "Un peu daté",
     "Stale — the server may be down": "Données anciennes — le serveur est peut-être en panne",

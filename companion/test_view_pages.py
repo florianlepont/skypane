@@ -460,6 +460,13 @@ EXPECTED_CHECK_COUNT = 114
 # against the real on-disk check(...) call count at execution time
 # (116/116 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 116
+# 22-07-PLAN.md Task 1: +5 (116 -> 121) — Home's Frame tile matches the strip byte-for-byte
+# on the nightly held regression (same clock, zero warn/error tokens) and flips to late
+# together with it; the Flight-data tile renders exactly one verdict with Health's verdict-
+# free pipeline_detail_html beneath it, never Health's own verdict a second time (B2);
+# airline names route through display_airline_name(), matching Flights (X4); and exactly one
+# element on the page is named "Frame" (X4). Re-derived by running the harness (121/121).
+EXPECTED_CHECK_COUNT = 121
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -4162,10 +4169,17 @@ def main():
         # app.py's page_context() threads into every authenticated
         # page's ctx — with `now` on a different calendar day from
         # every seeded timestamp, so a surviving English month
-        # abbreviation or "ago" is unmistakable. Also proves the
-        # Flight-data row's detail joins its verdict/timestamp/last-
-        # detection clauses with " · " rather than running them
-        # together with no punctuation at all.
+        # abbreviation or "ago" is unmistakable.
+        #
+        # 22-07-PLAN.md Task 1 (B2) RETARGET: this check used to also
+        # assert the Flight-data row's detail joined its verdict/
+        # timestamp/last-detection clauses with " · " — that was
+        # exercising the OLD re-embedded-pipeline_html defect this very
+        # plan removes. Home now reads pipeline_detail_html (health_
+        # page.py's verdict-free, SINGLE-clause sibling of pipeline_
+        # html, 22-03-PLAN.md), so the Flight-data row's detail is one
+        # clause, not three, and never joins anything with " · " at
+        # all — the assertion below is flipped to pin exactly that.
         from companion.pages import home_page
         from server import history_db as _hdb
         import companion.prefs as _prefs
@@ -4206,19 +4220,177 @@ def main():
             data_row_start = rendered.index("Données de vol")
             data_row_end = rendered.index("</div>", data_row_start)
             data_row = rendered[data_row_start:data_row_end]
-            if data_row.count(" · ") < 2:
+            if data_row.count(" · ") != 0:
                 return False, (
-                    "expected the Flight-data row's detail to join its verdict/timestamp/"
-                    "last-detection clauses with ' · ' (got %r)" % (data_row,))
+                    "expected NO ' · '-joined multi-clause detail in the Flight-data row — "
+                    "22-07-PLAN.md Task 1 (B2) replaced the re-embedded 3-clause pipeline_html "
+                    "with the verdict-free, single-clause pipeline_detail_html (got %r)"
+                    % (data_row,))
+            if health_page.PIPELINE_STATE_TEXT["error"] in data_row:
+                return False, (
+                    "expected Health's own PIPELINE_STATE_TEXT verdict wording NOT to appear "
+                    "inside Home's Flight-data row — Home renders its OWN verdict only (B2)")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "Home's status card, fed a REAL health_page.compute_health_state() result computed "
         "under lang='fr', fully localises the Frame/Flight-data rows' timestamps (no English "
-        "month abbreviation or ' ago' survives) and joins the Flight-data row's separate "
-        "clauses with ' · ' instead of running them together (Polish fix 2)",
+        "month abbreviation or ' ago' survives) and the Flight-data row's detail is now a "
+        "single, verdict-free clause — never joined with ' · ', never repeating Health's own "
+        "verdict wording (Polish fix 2 / 22-07-PLAN.md Task 1 B2 retarget)",
         _home_status_card_localises_real_health_state_timestamps_under_french)
+
+    # --- 22-07-PLAN.md Task 1 (X2/B2/X4): Home reads one frame state, one
+    # pipeline detail and one airline name -----------------------------
+
+    def _home_frame_tile_matches_strip_for_the_nightly_held_regression():
+        # The exact X2 nightly false alarm fixture (22-UI-SPEC.md §3.3
+        # rule 6, mirrored from test_status_pages.py's own
+        # _frame_strip_nightly_regression_held_is_neutral_never_warn):
+        # quiet hours 23:00-07:00, last check-in 22:58, clock 02:00
+        # Europe/Paris. battery_state/pipeline_state are pinned "ok" in
+        # the fixture so the warn/error scan below is unambiguously
+        # about the Frame signal alone, not an unrelated tile.
+        from companion.pages import home_page
+        from datetime import datetime, timezone, timedelta
+        paris = timezone(timedelta(hours=1))
+        device_cfg = {
+            "wake_interval_s": 900, "display_enabled": True,
+            "quiet_hours_enabled": True,
+            "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        }
+        checkin = datetime(2026, 1, 15, 22, 58, 0, tzinfo=paris)
+        clock = datetime(2026, 1, 16, 2, 0, 0, tzinfo=paris)
+        ctx = {
+            "last_checkin_ts": checkin.isoformat(), "device_config": device_cfg,
+            "now": clock.isoformat(), "gallery_entries": [],
+            "health_state": {"battery_state": "ok", "pipeline_state": "ok"},
+            "state_dir": "/tmp/skypane-no-such-state-dir",
+        }
+        rendered = home_page.render(ctx)
+        for warn_token in ("dot--warn", "dot--error", "stat-tile--warn", "stat-tile--error"):
+            if warn_token in rendered:
+                return False, "expected zero %r in a held Home render, found it" % (warn_token,)
+        strip_match = re.search(r'time-value time-value--primary">([^<]+)</span>', rendered)
+        tile_match = re.search(r'<span class="time-value">([^<]+)</span>', rendered)
+        if not strip_match or not tile_match:
+            return False, "expected both the strip and the Frame tile to render a clock value"
+        if strip_match.group(1) != tile_match.group(1):
+            return False, (
+                "expected the SAME clock string in the strip and the Frame tile, got %r vs %r"
+                % (strip_match.group(1), tile_match.group(1)))
+        if home_page.FRAME_STATE_TEXT["off"] not in rendered:
+            return False, "expected the held Frame tile's own neutral verdict text"
+        return True, ""
+    check(
+        "the nightly regression (quiet hours 23:00-07:00, check-in 22:58, clock 02:00 Europe/"
+        "Paris): Home's Frame tile and the strip render the SAME clock string, and zero warn/"
+        "error tokens appear anywhere on the page (X2, D-03/CFG-26)",
+        _home_frame_tile_matches_strip_for_the_nightly_held_regression)
+
+    def _home_frame_tile_flips_to_late_together_with_the_strip():
+        from companion.pages import home_page
+        device_cfg = {"wake_interval_s": 900, "display_enabled": True}
+        ctx = {
+            "last_checkin_ts": "2026-08-27T11:00:00+00:00", "device_config": device_cfg,
+            "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
+            "health_state": {"battery_state": "ok", "pipeline_state": "ok"},
+            "state_dir": "/tmp/skypane-no-such-state-dir",
+        }
+        rendered = home_page.render(ctx)
+        if "Expected since" not in rendered:
+            return False, "expected the strip's own late headline"
+        if "dot--warn" not in rendered:
+            return False, "expected the strip's own warn dot for a late frame"
+        if home_page.FRAME_STATE_TEXT["warn"] not in rendered:
+            return False, "expected the Frame tile's own late verdict text"
+        if "stat-tile stat-tile--warn" not in rendered:
+            return False, "expected the Frame tile's own warn border class"
+        return True, ""
+    check(
+        "a late frame flips the strip to 'Expected since'/dot--warn and Home's Frame tile to "
+        "its own late verdict/stat-tile--warn together, at the same threshold — they cannot "
+        "disagree because neither computes anything the other does not (X2)",
+        _home_frame_tile_flips_to_late_together_with_the_strip)
+
+    def _home_flight_data_tile_one_verdict_verdict_free_detail():
+        from companion.pages import home_page
+        ctx = {
+            "health_state": {
+                "device_state": "ok", "pipeline_state": "warn", "battery_state": "ok",
+                "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
+                "pipeline_html": (
+                    '<p>%s</p><p>10 Sep 23:58 (1d ago)</p>' % health_page.PIPELINE_STATE_TEXT["warn"]),
+                "pipeline_detail_html": '<span class="mono">10 Sep 23:58 (1d ago)</span>',
+            },
+            "device_config": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
+            "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
+        }
+        rendered = home_page.render(ctx)
+        if rendered.count(home_page.DATA_STATE_TEXT["warn"]) != 1:
+            return False, "expected Home's own Flight-data verdict exactly once"
+        if health_page.PIPELINE_STATE_TEXT["warn"] in rendered:
+            return False, (
+                "expected Health's own pipeline verdict text NOT to appear on Home — re-"
+                "embedding it is the exact double-verdict stacking B2 removes")
+        if "10 Sep 23:58" not in rendered:
+            return False, "expected the verdict-free pipeline_detail_html's own timestamp to render"
+        return True, ""
+    check(
+        "Home's Flight-data tile renders exactly one verdict (its own DATA_STATE_TEXT) with "
+        "Health's verdict-free pipeline_detail_html beneath it, never Health's own "
+        "PIPELINE_STATE_TEXT verdict sentence a second time (B2)",
+        _home_flight_data_tile_one_verdict_verdict_free_detail)
+
+    def _home_recent_flights_use_display_airline_name_matching_flights():
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        tmp = _mkstate("home-airline-alias")
+        try:
+            with _hdb.open_db(tmp) as conn:
+                _hdb.record_runway_event(
+                    conn, ts="2026-08-27T11:50:00+00:00", hex="3c6444", callsign="CCM123",
+                    airline="CCM Airlines", origin="ORY", destination="AJA",
+                    confirmed_state="departing")
+            ctx = {
+                "state_dir": tmp, "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
+                "health_state": {}, "device_config": {},
+            }
+            rendered = home_page.render(ctx)
+            if "Air Corsica" not in rendered:
+                return False, "expected the aliased display name 'Air Corsica' on Home"
+            if "CCM Airlines" in rendered:
+                return False, "expected the raw upstream airline string not to leak onto Home"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a recent-flight row whose stored airline is an alias (\"CCM Airlines\") renders the "
+        "SAME display name (\"Air Corsica\") Flights shows via display_airline_name(), never "
+        "the raw upstream string (X4)",
+        _home_recent_flights_use_display_airline_name_matching_flights)
+
+    def _home_exactly_one_element_named_frame():
+        from companion.pages import home_page
+        ctx = {
+            "health_state": {}, "device_config": {}, "state_dir": "/tmp/skypane-no-such-state-dir",
+            "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
+        }
+        rendered = home_page.render(ctx)
+        if rendered.count(">Frame<") != 1:
+            return False, (
+                "expected exactly one element named 'Frame' (the strip's own heading), got %d"
+                % (rendered.count(">Frame<"),))
+        if home_page.FRAME_ROW_LABEL == "Frame":
+            return False, "expected the tile caption to be renamed away from 'Frame' (X4 collision)"
+        if home_page.FRAME_ROW_LABEL not in rendered:
+            return False, "expected the renamed tile caption to still render"
+        return True, ""
+    check(
+        "exactly one element on a rendered Home page is named 'Frame' (the shared strip's own "
+        "heading) — Home's tile caption is renamed to resolve the X4 collision",
+        _home_exactly_one_element_named_frame)
 
     def _home_catalog_keys_all_present_in_merged_catalog():
         import companion.i18n_fr as i18n_fr
