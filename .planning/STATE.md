@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-07-PLAN.md
-last_updated: "2026-09-13T00:36:40.876Z"
+stopped_at: Completed 22-08-PLAN.md
+last_updated: "2026-09-13T01:29:22.634Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 193
+  completed_plans: 194
   percent: 89
 ---
 
@@ -26,7 +26,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [██████████] 95%
+  [██████████] 96%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -360,6 +360,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P05 | ~110min | 3 tasks | 11 files |
 | Phase 22 P06 | 30min | 3 tasks | 6 files |
 | Phase 22 P07 | 75min | 2 tasks | 4 files |
+| Phase 22 P08 | 45min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -635,6 +636,9 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-07: Home's Frame tile detail is a bare clock (.time-value span), never the full HEADLINE_HELD sentence — mirrors health_page's own already-shipped bare-clock/separate-verdict shape rather than the test_i18n.py hand-off comment's forward guess
 - [Phase 22]: 22-07: display_airline_name() aliases every user-visible airline string (flight one-liner, thumbnail alt text) but never illustration-key resolution, which stays on the raw stored name per render.py's own documented boundary
 - [Phase 22]: 22-07: img.recent-flight__thumb (tag-qualified) joins the shared white-backing rule instead of a bare class, so the dashed placeholder span (which shares the bare class for its own sizing) can never match it; the placeholder's dashed values are reused BY VALUE from .airline-card__placeholder, not by sharing that selector, since test_status_pages.py pins it standalone
+- [Phase 22]: 22-08: translate the flash-message template via i18n.t(FLASH_MESSAGES[flash_key]) as one expression before any percent/format fill, so the ast scanner traces the dict as a real i18n.t() consumer
+- [Phase 22]: 22-08: companion/app.py is now a real D-05 scan target in test_i18n.py, replacing the _APP_PY_OWNED_STRINGS exception list
+- [Phase 22]: 22-08: the three singular/plural fixes (manual resolutions, upcoming flights, days/events caption) are deferred to 22-11/22-10/22-12 respectively, since each lives in a file this plan does not own; CFG-29 is left unchecked pending their completion
 
 ### Pending Todos
 
@@ -658,6 +662,7 @@ None yet.
 - 06.3-05 Task 1 done (VALIDATION.md reconciled, commit 9bc163e). scripts/run-all-tests.sh exits 1: pre-existing, out-of-scope server/test_poll_loop.py digest-pin failure unrelated to this phase (needs unmerged upstream commit aeac512 merged). Per T-06.3-13, nyquist_compliant stays false while suite is red -- pending human/orchestrator decision. Task 2 (browser visual sign-off) is a human-check step, not yet performed; plan not complete.
 - Phase 06.6.4.1.1 plan 06 stopped at Task 2's blocking developer checkpoint after Task 1's full-suite/coverage/live-route gates passed; see 06.6.4.1.1-06-SUMMARY.md
 - state.advance-plan cannot parse Current Plan/Total Plans in Phase from STATE.md (known recurring limitation, documented repeatedly in this file's own history since Phase 10/11) - Current Position section is stale (references Phase 21) and was not hand-corrected here, out of scope for a single-plan executor
+- CFG-29 not yet complete: three plural fixes (manual resolutions/22-11, upcoming flights/22-10, days-events caption/22-12) deferred by 22-08-SUMMARY.md, each in a file 22-08 does not own
 
 ### Quick Tasks Completed
 
@@ -726,8 +731,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T00:36:40.823Z
-Stopped at: Completed 22-07-PLAN.md
+Last session: 2026-09-13T01:29:22.582Z
+Stopped at: Completed 22-08-PLAN.md
 
 Resume file: 
 
