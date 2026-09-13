@@ -597,6 +597,22 @@ EXPECTED_CHECK_COUNT = 219
 # directly against the real on-disk check(...) call count at execution
 # time (223/223 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 223
+# 22-10-PLAN.md Task 1 (X6/T10/T12/C1): +4. One check pins the single
+# chip density across all four Display grids plus the one-per-grid swatch
+# legend; one pins the "Current" badge's server-rendered, translated
+# data-current-label on exactly the --selected elements (EN and FR); one
+# pins T12's global-label-margin reset beside C1's later, higher-
+# specificity non-serif legend override (with bare `legend` still in the
+# shared serif selector); one pins the rules add-form as a left-aligned,
+# centre-aligned ROW. Two existing count-shaped assertions are RETARGETED
+# in place, no net count change from either: the departures grid's
+# "plain class" assertion inverts to "no plain grid survives", and the
+# quiet-marker check swaps `content: "Current"` for `content:
+# attr(data-current-label)` (comment-filtered, so the rule's own
+# four-point justification prose survives the grep). 223 + 4 = 227,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (227/227 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 227
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -3465,8 +3481,18 @@ def main():
             "device_config": {"theme": "white", "tracked_runway": "3"},
             "poll_cooldown_remaining": 0,
         }, scope=config_page.SCOPE_DISPLAY)
-        if 'class="theme-chip-grid"' not in rendered:
-            return False, "expected the first (departures) grid's plain class"
+        # 22-10-PLAN.md Task 1 (X6): retargeted in place. The departures
+        # grid used to be the page's one full-size grid and was asserted
+        # here by its plain `class="theme-chip-grid"`; X6 gives the whole
+        # Display page one chip density, so that plain class must now be
+        # ABSENT and every grid must carry the compact modifier. The
+        # dedicated one-density check below owns the positive assertion;
+        # this line keeps the negative one at the site that used to pin
+        # the opposite, so the reversal cannot be missed by a reader.
+        if 'class="theme-chip-grid"' in rendered:
+            return False, (
+                "expected NO plain (non-compact) chip grid on Display any more - X6 gives the "
+                "page one chip density")
         if 'class="theme-chip-grid theme-chip-grid--compact"' not in rendered:
             return False, "expected the arrivals/calendar grids' compact modifier class"
         theme_count = len(device_config.THEME_IDS)
@@ -4056,10 +4082,34 @@ def main():
             if "display: none;" not in window:
                 return False, "%r must hide the check glyph" % (check_selector,)
 
-        current_literal = 'content: "Current";'
+        # 22-10-PLAN.md Task 1 (T10): retargeted in place. The badge's
+        # text used to be the hard-coded English literal
+        # `content: "Current";`, twice, in an app that ships in two
+        # languages. It is now `content: attr(data-current-label)`, with
+        # the translated string server-rendered onto the element. The
+        # pseudo-element itself is unchanged, so every other assertion in
+        # this check still holds verbatim; only the source of the text
+        # moved. The English literal must now be ABSENT.
+        current_literal = "content: attr(%s)" % config_page.CURRENT_BADGE_ATTR
         if source.count(current_literal) != 2:
             return False, (
                 "expected exactly 2 occurrences of %r, got %d" % (current_literal, source.count(current_literal)))
+        hard_coded = 'content: "Current"'
+        # Comment-filtered deliberately, and this filter is load-bearing
+        # rather than convenient: the DECLARATION is gone, but the rule's
+        # own comment block still quotes `content: "Current"` while
+        # recording the four-point justification for keeping a
+        # pseudo-element instead of a <span>. 22-UI-SPEC.md §2's T10 row
+        # says that justification is unchanged, so the comment must
+        # survive — deleting prose to satisfy a grep is the defect this
+        # filter exists to prevent. Same filter shape as this plan's own
+        # acceptance criterion (`grep -v '^ *[*/]'`).
+        declarations = "\n".join(
+            line for line in source.splitlines() if not line.lstrip().startswith(("*", "/")))
+        if hard_coded in declarations:
+            return False, (
+                "expected zero hard-coded English %r DECLARATIONS - T10 moves the badge's "
+                "text to a server-rendered, translated attribute" % (hard_coded,))
 
         for after_selector in (
             ".theme-chip--selected:not(:has(input:checked))::after {",
@@ -4084,9 +4134,10 @@ def main():
         return True, ""
     check(
         "the saved-but-no-longer-live --selected card degrades to an accent-free dashed 70%-muted ring with its "
-        "wash/check glyph cleared and an English \"Current\" ::after tag (exactly 2 occurrences site-wide, zero "
-        "French copy), reusing the established muted-text strength rather than inventing a new one "
-        "(quick task 260904-bbi)",
+        "wash/check glyph cleared and a \"Current\" ::after tag whose text is read from the server-rendered, "
+        "translated data-current-label attribute (exactly 2 occurrences site-wide, zero hard-coded English "
+        "declarations, zero French copy in the stylesheet), reusing the established muted-text strength rather "
+        "than inventing a new one (quick task 260904-bbi; retargeted by 22-10-PLAN.md Task 1, T10)",
         _saved_but_unchecked_card_degrades_to_a_quiet_current_marker)
 
     def _style_css_carries_section_caption_and_restyled_fixed_dirty_bar():
@@ -7516,6 +7567,177 @@ def main():
         "a French Display render's live preview shows ‘Aperçu avec votre dernier "
         "vol : ’ followed by the seeded event's callsign (D-24/D-05)",
         _french_display_render_shows_the_live_preview_caption_with_flight_in_french)
+
+    # --- 22-10-PLAN.md Task 1 (X6, T10, T12, C1) ----------------------
+
+    def _display_renders_one_chip_density_and_a_swatch_legend_under_every_grid():
+        # X6: one chip size on the whole page. Before this plan the
+        # departures grid rendered eighteen 160x108 chips while the
+        # Arrivals/Calendar/Rules grids rendered the same eighteen themes
+        # at ~104px - one control, two shapes, on one page.
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
+
+        grid_classes = re.findall(r'<div class="(theme-chip-grid[^"]*)"', rendered)
+        if len(grid_classes) != 4:
+            return False, (
+                "expected 4 chip grids on Display (departures, arrivals, calendar, rules), got %d"
+                % len(grid_classes))
+        for cls in grid_classes:
+            if "theme-chip-grid--compact" not in cls:
+                return False, "every chip grid must carry the compact modifier, got %r" % (cls,)
+
+        chip_classes = re.findall(r'<label class="(theme-chip[^"]*)"', rendered)
+        theme_count = len(device_config.THEME_IDS)
+        # 4 grids x every theme, plus the two leading "Same as departures"
+        # placeholder chips (arrivals + calendar), which are
+        # .theme-chip--placeholder and carry no --compact modifier of
+        # their own (they have no preview band to shrink).
+        real_chips = [c for c in chip_classes if "theme-chip--placeholder" not in c]
+        if len(real_chips) != theme_count * 4:
+            return False, (
+                "expected %d real chips (%d themes x 4 grids), got %d"
+                % (theme_count * 4, theme_count, len(real_chips)))
+        for cls in real_chips:
+            if "theme-chip--compact" not in cls:
+                return False, "every chip must carry the size-only compact modifier, got %r" % (cls,)
+
+        # The legend: one line under each grid, never one per chip.
+        legend = escape_html(config_page.THEME_CHIP_SWATCH_LEGEND)
+        if rendered.count(legend) != 4:
+            return False, (
+                "expected the swatch legend exactly once per grid (4), got %d - it is a legend "
+                "under the grid, not a caption per chip" % rendered.count(legend))
+        legend_html = '<p class="text-label section-caption">%s</p>' % legend
+        if legend_html not in rendered:
+            return False, (
+                "expected the legend to carry .text-label section-caption's exact declaration set")
+        # Outside the radiogroup, immediately after its closing </div>.
+        if ("</label></div>" + legend_html) not in rendered:
+            return False, "expected the legend to render as a sibling AFTER the grid, not inside it"
+        return True, ""
+    check(
+        "every colour-usage chip grid on Display renders at the compact density (one chip size per "
+        "page, X6) and each grid is followed by exactly one swatch legend in .text-label "
+        "section-caption's own declaration set, outside the radiogroup (22-10-PLAN.md Task 1)",
+        _display_renders_one_chip_density_and_a_swatch_legend_under_every_grid)
+
+    def _the_current_badge_reads_a_server_rendered_translated_attribute():
+        # T10: the badge's text used to be hard-coded English inside
+        # style.css. It is now rendered onto the saved chip/card only -
+        # the only element `--selected:not(:has(input:checked))::after`
+        # can match - and read back with content: attr(...).
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
+        attr = config_page.CURRENT_BADGE_ATTR
+        en = '%s="%s"' % (attr, escape_html(config_page.CURRENT_BADGE_LABEL))
+        # One saved runway card, plus the saved theme chip in each of the
+        # four grids that has "white" as its effective selection. Assert
+        # the invariant that matters instead of a brittle total: every
+        # element carrying the attribute also carries a --selected class,
+        # and every --selected element carries the attribute.
+        if rendered.count(attr + "=") == 0:
+            return False, "expected the saved chip/card to carry the %s attribute" % attr
+        if rendered.count(en) != rendered.count(attr + "="):
+            return False, "expected every %s value to be the translated badge label" % attr
+        for tag in re.findall(r"<label class=\"[^\"]*\"[^>]*>", rendered):
+            has_attr = (attr + "=") in tag
+            is_selected = "--selected" in tag
+            if has_attr != is_selected:
+                return False, (
+                    "the %s attribute must be emitted on exactly the --selected elements, got %r"
+                    % (attr, tag))
+
+        prefs.set_request_prefs(lang="fr")
+        try:
+            fr_rendered = config_page.render({
+                "device_config": {"theme": "white", "tracked_runway": "3"},
+                "poll_cooldown_remaining": 0,
+            }, scope=config_page.SCOPE_DISPLAY)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if ('%s="Actuel"' % attr) not in fr_rendered:
+            return False, "expected the French render to carry the translated badge text"
+        if ('%s="Current"' % attr) in fr_rendered:
+            return False, "expected no English badge text in a French render"
+        return True, ""
+    check(
+        "the 'Current' badge's text is server-rendered as a translated data-current-label attribute "
+        "on exactly the --selected chip/card (never on any other), and the French render carries the "
+        "French text (T10/B16, 22-10-PLAN.md Task 1)",
+        _the_current_badge_reads_a_server_rendered_translated_attribute)
+
+    def _segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif():
+        source = _read_static("style.css")
+
+        # T12: the global `label { margin-bottom: var(--space-sm) }` made
+        # the segmented rule-kind control 8px taller than its own 28px
+        # segments plus 2px padding, with the segments floating against
+        # the container's top edge.
+        selector = '.theme-form input[type="radio"] + label {'
+        if selector not in source:
+            return False, "expected style.css to declare %r" % (selector,)
+        body = source[source.index(selector) + len(selector):source.index("}", source.index(selector))]
+        if "margin-bottom: 0" not in body:
+            return False, "%r must reset the global label margin-bottom (T12)" % (selector,)
+        if "height: 28px" not in body:
+            return False, "%r must keep its registered 28px segment height" % (selector,)
+
+        # C1: the label-voice legend leaves the serif family by a LATER,
+        # HIGHER-SPECIFICITY rule - `legend` itself stays in the shared
+        # serif selector, which it earned as a bug fix.
+        serif_selector = "legend,\n.text-heading {"
+        if serif_selector not in source:
+            return False, "expected `legend` to stay in the shared serif selector"
+        serif_idx = source.index(serif_selector)
+        legend_selector = ".frame-colours__panel-legend {"
+        if legend_selector not in source:
+            return False, "expected style.css to declare %r" % (legend_selector,)
+        legend_idx = source.index(legend_selector)
+        if legend_idx <= serif_idx:
+            return False, (
+                "the label-voice legend's override must come AFTER the shared serif rule in "
+                "source order")
+        legend_body = source[legend_idx + len(legend_selector):source.index("}", legend_idx)]
+        if "font-family: var(--font-ui)" not in legend_body:
+            return False, "%r must take the label-voice legend out of the serif family" % (legend_selector,)
+        return True, ""
+    check(
+        "the segmented control resets the global label margin-bottom while keeping its 28px segments "
+        "(T12), and the label-voice legend leaves the serif family through a later, higher-specificity "
+        "rule while bare `legend` stays in the shared serif selector (C1, 22-10-PLAN.md Task 1)",
+        _segmented_control_resets_the_global_label_margin_and_the_legend_leaves_the_serif)
+
+    def _the_rules_add_form_is_one_left_aligned_centre_aligned_row():
+        source = _read_static("style.css")
+        selector = ".rule-add-form--inline {"
+        if selector not in source:
+            return False, "expected style.css to declare %r" % (selector,)
+        body = source[source.index(selector) + len(selector):source.index("}", source.index(selector))]
+        # The real defect: this modifier never reset .rule-add-form's own
+        # flex-direction: column, so `align-items: flex-end` aligned every
+        # child to the RIGHT of an 830px form, each on its own line.
+        if "flex-direction: row" not in body:
+            return False, (
+                "%r must reset .rule-add-form's own flex-direction: column - that, not a "
+                "margin-left: auto, is what right-aligned this form" % (selector,))
+        if "align-items: center" not in body:
+            return False, (
+                "%r must centre-align its four separate controls (C4's composition rule)" % (selector,))
+        if "flex-end" in body:
+            return False, "%r must not keep the flex-end cross-axis alignment" % (selector,)
+        if "margin-left: auto" in body:
+            return False, "%r must declare no auto left margin" % (selector,)
+        return True, ""
+    check(
+        "the rules add-form renders as one left-aligned, centre-aligned flex ROW (X6/C4) - the "
+        "flex-direction: column it never reset, not an auto margin, is what pushed 'Add rule' to the "
+        "far right (22-10-PLAN.md Task 1)",
+        _the_rules_add_form_is_one_left_aligned_centre_aligned_row)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

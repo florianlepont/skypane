@@ -95,6 +95,15 @@ CATALOG = {
         "Choisissez le thème de couleurs pour les départs, les "
         "arrivées, les vols du calendrier et vos propres règles.",
     "Selected": "Sélectionné",
+    # 22-10-PLAN.md Task 1 (X6): the one-line legend under each chip
+    # grid naming the two swatch dots. See config_page.py's
+    # THEME_CHIP_SWATCH_LEGEND for why this names departures/arrivals
+    # rather than 22-UI-SPEC.md's proposed "Background · Ink".
+    "Departures · Arrivals": "Départs · Arrivées",
+    # 22-10-PLAN.md Task 1 (T10/B16): the "Current" badge on the saved
+    # chip/runway card, which used to be a hard-coded English
+    # `content: "Current"` in style.css that no catalogue could reach.
+    "Current": "Actuel",
 
     # --- The live theme preview above the chip grid (D-22..D-24,
     #     20-11-PLAN.md Task 2, 20-UI-SPEC.md copy table E) -------------

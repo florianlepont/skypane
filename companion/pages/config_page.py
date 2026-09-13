@@ -184,6 +184,39 @@ FRAME_COLOURS_ROW_LABELS = {
     COLOUR_USAGE_CALENDAR: "Calendar flights",
     COLOUR_USAGE_RULES: "Per-flight rules",
 }
+# 22-10-PLAN.md Task 1 (X6): the one-line legend that names every chip's
+# two `.theme-chip__dot` swatches, rendered ONCE UNDER each grid rather
+# than once per chip — 22-AUDIT.md X6's "two unexplained square swatches
+# per chip/row" is a naming defect, not a density one, so the fix is a
+# single line of text, not eighteen.
+#
+# COPY DEVIATION, recorded here rather than in a commit message so it
+# survives: 22-UI-SPEC.md §2's X6 row prescribes the literal copy
+# "Background · Ink" / "Fond · Encre". That copy names the wrong two
+# values. The dots are `_palette_hex(theme["departing_index"])` and
+# `_palette_hex(theme["arriving_index"])` — the ink a theme paints a
+# DEPARTURE and an ARRIVAL in. A theme's background is not drawn as a
+# dot at all, and its `ink_index` (a real, separate THEMES key) is not
+# either. Shipping the spec's copy would have replaced two unexplained
+# swatches with two mislabelled ones, which is a worse defect than the
+# one X6 reports. The words chosen instead are the usage panels' own
+# labels above, so the legend and the panel a user is looking at name
+# the same two things.
+THEME_CHIP_SWATCH_LEGEND = "Departures · Arrivals"
+# 22-10-PLAN.md Task 1 (T10/B16/D-06): the "Current" badge's own text.
+# It used to be a hard-coded English `content: "Current"` literal inside
+# companion/static/style.css (twice), which no catalogue can reach; it is
+# now server-rendered onto the saved chip/card as `data-current-label`
+# and read back by `content: attr(data-current-label)`. The pseudo-element
+# itself is unchanged — see that rule's own four-point justification for
+# why this is not a <span>.
+CURRENT_BADGE_LABEL = "Current"
+# The attribute the badge's `content: attr(...)` reads. Written as
+# literal text at both the markup site below and in style.css, matching
+# this file's established convention for a cross-file attribute contract
+# (see CALENDAR_DISCONNECT_FORM_ID's own comment) — the constant exists
+# so test_config_page.py can reference the name without retyping it.
+CURRENT_BADGE_ATTR = "data-current-label"
 # The attribute-as-CSS-hook/JS-hook contract theme-preview.js (Task 3)
 # reads: each row's own radio names which usage panel it selects, and
 # each panel carries the matching target.
@@ -1103,8 +1136,16 @@ def _theme_chip_grid_html(
         selected = theme_id == selected_theme_id
         checked = " checked" if selected else ""
         chip_class = "theme-chip"
+        current_attr_html = ""
         if selected:
             chip_class += " theme-chip--selected"
+            # 22-10-PLAN.md Task 1 (T10): emitted ONLY on the saved chip,
+            # because `.theme-chip--selected:not(:has(input:checked))::after`
+            # is the only selector that can ever read it. A translated
+            # constant, escaped at its attribute site like every other
+            # attribute on this page — never user input (T-22-35).
+            current_attr_html = ' %s="%s"' % (
+                CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
         if chip_extra_class:
             chip_class += " " + chip_extra_class
         theme = device_config.THEMES[theme_id]
@@ -1119,7 +1160,7 @@ def _theme_chip_grid_html(
         departing_hex = _palette_hex(theme["departing_index"])
         arriving_hex = _palette_hex(theme["arriving_index"])
         chips.append(
-            '<label class="%s" data-preview-src="%s%s.png?live=1">'
+            '<label class="%s" data-preview-src="%s%s.png?live=1"%s>'
             '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
             '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
             'width="320" height="120" loading="lazy" style="background:%s">'
@@ -1133,7 +1174,7 @@ def _theme_chip_grid_html(
             '<span class="theme-chip__check">%s<span class="visually-hidden">%s</span></span>'
             "</label>"
             % (
-                chip_class, THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
+                chip_class, THEME_PREVIEW_ROUTE_PREFIX, escaped_id, current_attr_html,
                 escape_html(field_name), escaped_id, form_attr_html, checked,
                 THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
                 escape_html(i18n.t(THEME_PREVIEW_ALT_TEMPLATE) % label),
@@ -1148,8 +1189,22 @@ def _theme_chip_grid_html(
     if extra_class:
         grid_class = grid_class + " " + extra_class
     attr_html = (" %s" % extra_attr) if extra_attr else ""
-    return '<div class="%s"%s>%s%s</div>' % (
-        grid_class, attr_html, leading_chip_html, "".join(chips))
+    # 22-10-PLAN.md Task 1 (X6): the swatch legend, one line UNDER the
+    # grid and OUTSIDE it — outside so it is not a child of the element
+    # carrying `role="radiogroup"`, where a stray non-radio child would
+    # be announced inside the group.
+    #
+    # It carries `.text-label section-caption`'s exact declaration set
+    # and no class of its own. A legend under a CONTROL is not the
+    # section's caption: `references/settings-page-patterns.md`'s
+    # one-caption-per-section rule is about the caption that follows a
+    # section HEADING, and each usage panel's own caption (the rules
+    # panel's `RULES_SECTION_CAPTION`) is untouched by this. Stating that
+    # here rather than leaving a reviewer to infer it.
+    legend_html = '<p class="text-label section-caption">%s</p>' % escape_html(
+        i18n.t(THEME_CHIP_SWATCH_LEGEND))
+    return '<div class="%s"%s>%s%s</div>%s' % (
+        grid_class, attr_html, leading_chip_html, "".join(chips), legend_html)
 
 
 def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
@@ -1238,10 +1293,18 @@ def _same_as_departures_chip_html(field_name, checked, radio_form_id=None):
     """
     form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     chip_class = "theme-chip theme-chip--placeholder"
+    current_attr_html = ""
     if checked:
         chip_class += " theme-chip--selected"
+        # 22-10-PLAN.md Task 1 (T10): this chip can be the saved one too
+        # (Arrivals/Calendar left on "Same as departures" is the DEFAULT
+        # state), so it needs the badge attribute for the same reason
+        # every other --selected chip does. Omitting it here would have
+        # rendered an EMPTY badge on the commonest saved value of all.
+        current_attr_html = ' %s="%s"' % (
+            CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
     return (
-        '<label class="%s">'
+        '<label class="%s"%s>'
         '<input type="radio" name="%s" value="" class="visually-hidden"%s%s>'
         '<span class="theme-chip__body theme-chip__body--placeholder">'
         '<span class="theme-chip__name">%s</span>'
@@ -1249,7 +1312,8 @@ def _same_as_departures_chip_html(field_name, checked, radio_form_id=None):
         '<span class="theme-chip__check">%s<span class="visually-hidden">%s</span></span>'
         "</label>"
     ) % (
-        chip_class, escape_html(field_name), form_attr_html, " checked" if checked else "",
+        chip_class, current_attr_html,
+        escape_html(field_name), form_attr_html, " checked" if checked else "",
         escape_html(i18n.t(SAME_AS_DEPARTURES_LABEL)),
         layout.icon_html("icon-check"), escape_html(i18n.t("Selected")),
     )
@@ -1333,8 +1397,26 @@ def _frame_colours_card_html(
     effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
     departures_grid_attr = 'role="radiogroup" aria-labelledby="%s"' % escape_html(
         FRAME_COLOURS_HEADING_ID)
+    # 22-10-PLAN.md Task 1 (X6): the departures grid was this page's LAST
+    # full-size chip grid — eighteen 160x108 chips against the same
+    # eighteen themes rendered at ~104px in the Arrivals, Calendar and
+    # Rules panels, i.e. one control in two shapes on one page. It joins
+    # the compact density here, so the Display page has exactly one chip
+    # size. The chips are a PICKER; this card's real preview is the large
+    # live preview rendered above them, so a 160px chip bought nothing
+    # and cost ~1500px of page.
+    #
+    # `.theme-chip--compact` is a SIZE-ONLY modifier and inherits every
+    # selected-state rule automatically (references/control-density.md),
+    # so no selection logic changes here and none was touched.
+    #
+    # X6's OTHER half — "grid folded behind the big preview (dialog/
+    # drawer)" — is D5, Phase 23 (the theme carousel), and is
+    # deliberately NOT shipped here. Named so the omission reads as a
+    # scope boundary rather than a miss.
     departures_grid = _theme_chip_grid_html(
         "theme", effective_theme_id, extra_attr=departures_grid_attr,
+        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
         radio_form_id=SETTINGS_FORM_ID)
     theme_error_html = _field_error_html(errors, "theme", "theme")
     departures_safe_id = (
@@ -1588,6 +1670,12 @@ def runway_fieldset(
         checked = " checked" if selected else ""
         card_class = (
             "runway-card runway-card--selected" if selected else "runway-card")
+        # 22-10-PLAN.md Task 1 (T10): the badge's own translated text,
+        # emitted only on the saved card — the same contract
+        # _theme_chip_grid_html() above documents.
+        current_attr_html = (
+            ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
+            if selected else "")
         # Polish fix 5 (D-05): device_config.runway_label()'s registry
         # text ("Runway 3 (07/25)", …) is translated at this display
         # site via i18n.t() — the id (runway_id) itself never changes;
@@ -1604,7 +1692,7 @@ def runway_fieldset(
                 )
             )
         cards.append(
-            '<label class="%s">'
+            '<label class="%s"%s>'
             '<input type="radio" name="tracked_runway" value="%s" class="visually-hidden" '
             'form="%s"%s>'
             '<span class="runway-card__number">%s</span>'
@@ -1612,7 +1700,8 @@ def runway_fieldset(
             '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
             "</label>"
             % (
-                card_class, escaped_id, SETTINGS_FORM_ID, checked, escape_html(label),
+                card_class, current_attr_html,
+                escaped_id, SETTINGS_FORM_ID, checked, escape_html(label),
                 image_html, layout.icon_html("icon-check"),
                 escape_html(i18n.t("Selected")),
             )

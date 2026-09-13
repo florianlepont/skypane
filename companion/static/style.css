@@ -2187,8 +2187,17 @@ button:disabled {
    * .theme-chip__preview, the rendered panel image — the identical
    * constraint that already scopes this chip's selected-wash to
    * .theme-chip__body rather than the whole chip. */
+   *
+   * 22-10-PLAN.md Task 1 (T10, 22-AUDIT.md): the text is no longer the
+   * hard-coded English literal it was — `attr(data-current-label)` reads
+   * a translated string companion/pages/config_page.py renders onto the
+   * saved chip/card (CURRENT_BADGE_LABEL/CURRENT_BADGE_ATTR). Only the
+   * English moved; the four points above are unchanged and the
+   * pseudo-element stays a pseudo-element. A chip with no such attribute
+   * renders an empty string, which is the correct degradation: the
+   * attribute is emitted only on the one chip this selector can match. */
   .theme-chip--selected:not(:has(input:checked))::after {
-    content: "Current";
+    content: attr(data-current-label);
     position: absolute;
     bottom: var(--space-sm);
     right: var(--space-sm);
@@ -2225,9 +2234,13 @@ button:disabled {
 
   /* Top-right here (unlike the chip's bottom-right): .runway-card has no
    * preview band occupying that corner — its only other content is a
-   * plain-text number and an optional airport-diagram image below it. */
+   * plain-text number and an optional airport-diagram image below it.
+   *
+   * 22-10-PLAN.md Task 1 (T10): attribute-driven, exactly like the
+   * chip's own badge above — see that rule's comment for the full
+   * reasoning. */
   .runway-card--selected:not(:has(input:checked))::after {
-    content: "Current";
+    content: attr(data-current-label);
     position: absolute;
     top: var(--space-sm);
     right: var(--space-sm);
@@ -5956,6 +5969,16 @@ a.airline-card__zoom {
  * by :checked instead of a --active class toggle. */
 .theme-form input[type="radio"] + label {
   height: 28px;
+  /* T12 (22-AUDIT.md, 22-10-PLAN.md Task 1): the global `label` rule
+   * near the top of this file gives EVERY label `margin-bottom:
+   * var(--space-sm)`. This rule never reset it, so each 28px segment
+   * carried an 8px tail inside the 2px-padded `.theme-form` container —
+   * measured 42px tall where 34px is the control's real height, with the
+   * segments floating against the container's top edge instead of
+   * filling it. `.theme-chip` above resets the identical global margin
+   * for the identical reason; this is that reset, for the segmented
+   * control. */
+  margin-bottom: 0;
   flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
@@ -5988,10 +6011,30 @@ a.airline-card__zoom {
   outline-offset: 2px;
 }
 
+/* X6 (22-AUDIT.md "rules add-form segmented control + input
+ * right-aligned, 'Add rule' far right"), 22-10-PLAN.md Task 1.
+ *
+ * ROOT CAUSE, measured rather than assumed: this modifier never reset
+ * `.rule-add-form`'s own `flex-direction: column` (above). In a COLUMN
+ * flex container the cross axis is horizontal, so `align-items:
+ * flex-end` pushed every child — the segmented control, the value
+ * input and the Add button — to the RIGHT edge of an 830px form, each
+ * on its own line. There is, and was, no `margin-left: auto` anywhere
+ * on this form; the 22-AUDIT.md/22-UI-SPEC.md reading that there was
+ * one is corrected here.
+ *
+ * `flex-direction: row` is therefore the actual fix, and `align-items:
+ * center` is the composition rule C4 states: these four controls read
+ * as SEPARATE objects sharing a row (not as one field-plus-its-action),
+ * so they are centre-aligned and each keeps its own registered
+ * geometry. Neither the 28px segment nor the 44px native-input floor is
+ * touched here — references/control-density.md protects both
+ * explicitly, and a height-match would have had to break one of them. */
 .rule-add-form--inline {
   display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: var(--space-sm);
 }
 
@@ -6219,7 +6262,23 @@ input:checked + .frame-colours__row {
  * small-caps muted label voice this file already uses for a secondary
  * heading (e.g. .rule-row__kind's own text before the .banner__pill
  * treatment), reused verbatim rather than a new size/weight/tracking. */
+/* C1 (22-AUDIT.md, 22-10-PLAN.md Task 1): the serif leak. This legend
+ * wears the 12px uppercase label voice but inherited `--font-serif` from
+ * the shared `h1, h2, h3, legend, .text-heading` rule near the top of
+ * this file, so it rendered as 12px uppercase Iowan Old Style — a label
+ * role in a heading family.
+ *
+ * The fix is a LATER, HIGHER-SPECIFICITY override on this one instance —
+ * (0,1,0) here against the shared selector's (0,0,1), and further down
+ * the file — which is the same "non-serif exception, the other
+ * direction" mechanism `.page-section--nested > h2` already uses.
+ * `legend` STAYS in that shared selector: it earned its place there as a
+ * bug fix (a sans-semibold <legend> sitting above a serif-regular <h2>
+ * at the same size), and removing it is a different, larger change than
+ * overriding one instance. Do not "simplify" this by editing the shared
+ * selector instead. */
 .frame-colours__panel-legend {
+  font-family: var(--font-ui);
   font-size: 12px;
   font-weight: var(--weight-semibold);
   text-transform: uppercase;
