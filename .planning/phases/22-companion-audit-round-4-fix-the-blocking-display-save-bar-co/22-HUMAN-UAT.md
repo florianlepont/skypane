@@ -166,3 +166,22 @@ shrink under pressure, which a viewport media query cannot express: the row is
 row width. The honest predictor is container width — a container query, which is
 a layout mechanism this codebase does not yet use, and so its own plan rather
 than a quick task's drive-by.
+
+## Developer decision, 2026-09-13: 360 px is the floor
+
+Two independent 320 px defects had accumulated (the readings table breaking mid-phrase,
+the recent-flight callsign starving), and they jointly raised whether 320 px is a
+supported width at all. Put to the developer with a side-by-side rendering of the same
+table at 320 px and 360 px rather than as an abstract question.
+
+**Decision: 360 px is the minimum supported width. Nothing is changed for 320 px.**
+
+Consequences, recorded in `.claude/skills/sketch-findings-skypane/SKILL.md` so future
+UI work reads them: design and measure down to 360 px; keep the existing 320 px
+assertions (they pass and cost nothing); and if 320 px is ever the sole blocker on a
+design, relax the width rather than contort the layout. The known 320 px imperfection
+— `08:00 (il y` / `a 44 j)` instead of a clean break — is accepted as cosmetic.
+
+The accessibility case is the one reason to revisit this: a 390 px phone becomes
+roughly 320 px under a large browser font-size setting. To be revisited on a real
+request, not pre-emptively.
