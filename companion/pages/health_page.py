@@ -415,40 +415,23 @@ FRESHNESS_PREFIX_TEXT = "Updated "
 # is deleted — the freshness loop in companion/static/freshness.js now
 # always runs, unconditionally, with no client-side pause state to label.
 
-# 19-09-PLAN.md (D-02): the single, greppable definition of every DOM
-# region companion/static/freshness.js swaps wholesale, replacing each
-# node with its own equivalent from a fetched copy of this same page.
-# Duplicated rather than imported — freshness.js is a static asset, not
-# a Python module — matching the BATTERY_READOUT_ID/SPARKLINE_HIT_CLASS
-# cross-file contract immediately below. Any change to the script's own
-# swap-target list must change this tuple too;
-# companion/test_status_pages.py pins the two in agreement.
+# 19-09-PLAN.md (D-02): the DOM regions companion/static/freshness.js
+# swaps wholesale on this page, replacing each node with its own
+# equivalent from a fetched copy of this same page.
 #
-# Deliberately excludes the sparkline <svg>/.sparkline-hit, the registry
-# card and its filter bar, and every <details> disclosure — swapping any
-# of those would leave companion/static/battery-trend.js's chart or
-# companion/static/list-filter.js's filter permanently dead (each
-# captures its DOM once, with no re-init hook) or would silently discard
-# an in-progress filter query. See freshness.js's own header for the
-# fuller record of this trade.
-#
-# `a[href="/health"]` — not a ".dot"/".nav-notification" selector — is
-# the nav-severity swap target on purpose: the severity dot only exists
-# in the DOM when severity is "warn"/"error" (companion/layout.py's
-# _health_alert_markup() renders nothing at all for "ok"), so a dot-only
-# selector would have nothing to replace on the far more common
-# transition where severity newly clears. The whole nav link is always
-# present in both documents regardless of severity, in both nav
-# renderings (sidebar_nav() and _mobile_nav_html()), so swapping it
-# whole is what keeps the swap correct across every severity
-# transition, not just a fixed dot.
-REFRESH_SWAP_SELECTORS = (
-    ".dashboard-grid",
-    "div.banner--anomaly, div.banner--warn",
-    "section.banner",
-    ".page-header__freshness",
-    'a[href="/health"]',
-)
+# 23-06-PLAN.md Task 1 (D1/CFG-35): MOVED, not copied. The tuple that
+# stood here is now one entry in companion/layout.py's own
+# REFRESH_SWAP_SELECTORS_BY_PAGE — the per-page registry Home and the
+# Display scope join — and this name resolves FROM it. The name survives
+# because every existing reader and every shipped pin uses it; the
+# second definition site does not, because three hand-kept tuples is the
+# shape scope_groups()'s SCOPE_ALL already taught this codebase not to
+# build. Every word of the reasoning that lived here — the per-entry
+# comments, the deliberate exclusions, and why the whole nav link rather
+# than a dot is the severity target — moved WITH the tuple and is in
+# layout.py beside it, unabridged.
+REFRESH_SWAP_SELECTORS = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[
+    layout.REFRESH_PAGE_HEALTH]
 
 # D-02: per-point interactive hit-target contract. BATTERY_READOUT_ID and
 # SPARKLINE_HIT_CLASS are looked up by companion/static/battery-trend.js

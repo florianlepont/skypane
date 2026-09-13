@@ -7762,11 +7762,17 @@ def main():
                 "focused element) must survive this plan untouched")
         # The pending skip is PER REGION and lives in the swap, because
         # the swap is the thing that would repaint an optimistic flip.
-        if layout.REFRESH_PENDING_ATTR not in swap_body:
+        if ('var PENDING_ATTR = "%s";' % layout.REFRESH_PENDING_ATTR) not in code:
             return False, (
-                "expected swapNodes() to skip a region containing %r — plan 23-07 marks its own "
+                "expected freshness.js to name layout.REFRESH_PENDING_ATTR (%r) in its own "
+                "constant — the marker plan 23-07 sets has one definition site on each side and "
+                "a rename on one alone is a skip that silently never fires"
+                % (layout.REFRESH_PENDING_ATTR,))
+        if "PENDING_ATTR" not in swap_body and "PENDING_SELECTOR" not in swap_body:
+            return False, (
+                "expected swapNodes() to skip a region marked pending — plan 23-07 marks its own "
                 "optimistic control and this is the reconciliation rule that reads the mark "
-                "(T-23-21)" % (layout.REFRESH_PENDING_ATTR,))
+                "(T-23-21)")
         # The dirty-form stand-down is PER TICK: a settings page whose
         # form is mid-edit should not be fetching and diffing itself at
         # all. So it is NOT in the swap, and the pending skip is not in
@@ -7778,7 +7784,7 @@ def main():
                 "expected tick() itself to stand the whole cycle down while the settings form "
                 "has unsaved edits — a page mid-edit should not be fetching and diffing itself "
                 "at all (T-23-20/T-23-21)")
-        if layout.REFRESH_PENDING_ATTR in tick_body:
+        if "PENDING_ATTR" in tick_body or "PENDING_SELECTOR" in tick_body:
             return False, (
                 "the pending skip is PER REGION, not per tick: one unconfirmed control must not "
                 "stand down the refresh of every other region on the page")

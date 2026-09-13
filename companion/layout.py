@@ -1655,6 +1655,82 @@ REFRESH_PAUSED_ATTR = "data-refresh-paused-text"
 REFRESH_RECONNECTING_ATTR = "data-refresh-reconnecting-text"
 
 
+# --- 23-06-PLAN.md Task 1 (D1/CFG-35): the swap registry --------------
+#
+# companion/static/freshness.js used to carry one hard-coded list of
+# five selectors, duplicated in companion/pages/health_page.py and
+# pinned equal. D1 puts the same loop on Home and on the Display scope,
+# and three hand-maintained tuples is the shape scope_groups()'s own
+# SCOPE_ALL already taught this codebase not to build: they agree on the
+# day they are written and drift silently afterwards, with no signal
+# from any one of them alone.
+#
+# So: ONE mapping here, one page key rendered on <body> by page_shell()
+# below, and one object literal in the script mirroring this. The
+# cross-file agreement is pinned entry-for-entry AND key-for-key by
+# companion/test_status_pages.py, in both directions — a key the script
+# carries and this mapping does not is the drift the one-tuple pin
+# structurally could not see.
+#
+# THE KEYS ARE nav_slug()'s OWN VALUES, never a second vocabulary:
+# page_shell() already receives exactly this string as `active`, so the
+# key has one definition site too (companion/app.py's _page_shell_for()
+# calls nav_slug(route) once for every authenticated page).
+REFRESH_PAGE_ATTR = "data-refresh-page"
+REFRESH_PAGE_HOME = nav_slug(HOME_ROUTE)
+REFRESH_PAGE_DISPLAY = nav_slug(DISPLAY_ROUTE)
+REFRESH_PAGE_HEALTH = nav_slug(HEALTH_ROUTE)
+
+# The marker a region carries while it holds an OPTIMISTIC control whose
+# server confirmation has not arrived (D1 races D2 — 23-RESEARCH.md's
+# own coupling). The swap skips any region containing it, because the
+# swap is the thing that would repaint a flip the user just made with
+# the server's older answer, making the control appear to bounce back.
+# Implemented in the swap by 23-06; plan 23-07 sets the attribute on its
+# own control and nothing else has to change. Duplicated into
+# freshness.js rather than imported — a static asset is not a Python
+# module — and pinned by companion/test_status_pages.py, exactly like
+# every other cross-file literal in this file.
+REFRESH_PENDING_ATTR = "data-pending"
+
+# 19-09-PLAN.md (D-02), moved here in full by 23-06-PLAN.md Task 1: the
+# single, greppable definition of every DOM region
+# companion/static/freshness.js swaps wholesale, replacing each node
+# with its own equivalent from a fetched copy of the same page.
+# Duplicated rather than imported — freshness.js is a static asset, not
+# a Python module — matching the BATTERY_READOUT_ID/SPARKLINE_HIT_CLASS
+# cross-file contract companion/pages/health_page.py carries. Any change
+# to the script's own registry must change this mapping too.
+#
+# HEALTH (19-09-PLAN.md's own five, in their original order):
+# deliberately EXCLUDES the sparkline <svg>/.sparkline-hit, the registry
+# card and its filter bar, and every <details> disclosure — swapping any
+# of those would leave companion/static/battery-trend.js's chart or
+# companion/static/list-filter.js's filter permanently dead (each
+# captures its DOM once, with no re-init hook) or would silently discard
+# an in-progress filter query. See freshness.js's own header for the
+# fuller record of this trade.
+#
+# `a[href="/health"]` — not a ".dot"/".nav-notification" selector — is
+# the nav-severity swap target on purpose: the severity dot only exists
+# in the DOM when severity is "warn"/"error" (_health_alert_markup()
+# renders nothing at all for "ok"), so a dot-only selector would have
+# nothing to replace on the far more common transition where severity
+# newly clears. The whole nav link is always present in both documents
+# regardless of severity, in both nav renderings (sidebar_nav() and
+# _tab_bar_html()), so swapping it whole is what keeps the swap correct
+# across every severity transition, not just a fixed dot.
+REFRESH_SWAP_SELECTORS_BY_PAGE = {
+    REFRESH_PAGE_HEALTH: (
+        ".dashboard-grid",
+        "div.banner--anomaly, div.banner--warn",
+        "section.banner",
+        ".page-header__freshness",
+        'a[href="/health"]',
+    ),
+}
+
+
 def _tab_bar_html(active, health_alert=None, device_config=None):
     """The bottom tab bar — the THIRD nav rendering (X9, locked to this
     mechanism by D-10), shown by page_shell() below 960px only.
@@ -2167,6 +2243,22 @@ def page_shell(
             escape_html(i18n.t(REFRESH_PAUSED_TEXT)),
             REFRESH_RECONNECTING_ATTR,
             escape_html(i18n.t(REFRESH_RECONNECTING_TEXT))))
+    # 23-06-PLAN.md Task 1 (D1/CFG-35): the page key that selects this
+    # document's swap-region list out of REFRESH_SWAP_SELECTORS_BY_PAGE
+    # above. On <body> for the reason the two attributes above are: the
+    # freshness wrapper and the nav link are themselves swap targets, and
+    # <body> is the one element no swap ever replaces.
+    #
+    # Rendered for EVERY page, including the ones that declare no
+    # regions, and the guard is in the script rather than in whether the
+    # attribute was emitted — the same "emitted unconditionally, inert
+    # where it does not apply" convention the eleven deferred scripts and
+    # the copy attributes above already follow. `active` is nav_slug()'s
+    # own output, which is what makes the key set have one definition
+    # site; an unknown key (a future page, a bare test render) selects
+    # nothing and the loop returns.
+    body_class_attr += ' %s="%s"' % (
+        REFRESH_PAGE_ATTR, escape_html(active))
     # 23-05-PLAN.md Task 1 (D14/CFG-34): relative-time.js's nine
     # wordings, on <body> for exactly the reason the two above are —
     # several <time data-relative> elements sit inside freshness.js's
