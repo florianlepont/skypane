@@ -7800,11 +7800,23 @@ def main():
         if "data-dirty-bar" not in code:
             return False, (
                 "expected the dirty-form gate to read the save bar's own element")
-        if ".hidden" not in code:
+        # MEASURED INSIDE THE GATE ITSELF, not anywhere in the file:
+        # ".hidden" appears in this script for document.hidden and for
+        # the pill, so a file-wide scan for it is satisfied by a gate
+        # that reads neither of the two things it is supposed to. A
+        # presence-only gate — B1's own defect — is what this clause
+        # exists to fail, and it does (mutation-tested).
+        edits_at = code.index("function unsavedEdits(")
+        edits_body = code[edits_at:code.index("\n  }", edits_at)]
+        if "DIRTY_READY_CLASS" not in edits_body:
             return False, (
-                "expected the dirty-form gate to read the bar's CURRENT visibility — a bar that "
-                "exists and is hidden reports no unsaved edits, and presence alone is exactly "
-                "the proxy B1 was")
+                "expected the gate to read dirty-state.js's own liveness marker, got %r"
+                % (edits_body,))
+        if "bar.hidden" not in edits_body:
+            return False, (
+                "expected the gate to read the BAR'S OWN current visibility — a bar that exists "
+                "and is hidden reports no unsaved edits, and taking its mere presence for an "
+                "answer is 22-01/B1's defect exactly, got %r" % (edits_body,))
         # And nothing about the cadence, the ladder or the guard moved.
         for needle in ("AUTO_REFRESH_INTERVAL_MS = 45000", "RETRY_CEILING_MS = 600000",
                        "RETRY_BASE_MS", "inFlight", "failAndRetry()", "isEqualNode",
