@@ -49,7 +49,7 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-23**: The simple/full mode switch, its route and cookie, every gate it drove, and the Health "Pause updates" button are removed
 - [x] **CFG-24**: Naming an unrecognised airline on Airlines offers the picture upload again without the "Change pictures" toggle, which keeps only replace/delete of existing artwork
 - [x] **CFG-25**: Every setting on Display can be saved from a browser with JavaScript on — the save bar appears whenever any field changes, the fallback Save stays reachable until it does, and a browser-level test harness exercises the interactions the string-comparison harnesses cannot see
-- [ ] **CFG-26**: The frame's state reads the same everywhere — one quiet-hours- and screen-off-aware "next wake" estimate feeds the strip, the status tiles and the settings captions, with a grace window before any warning, so a frame that is deliberately asleep is never reported as late
+- [x] **CFG-26**: The frame's state reads the same everywhere — one quiet-hours- and screen-off-aware "next wake" estimate feeds the strip, the status tiles and the settings captions, with a grace window before any warning, so a frame that is deliberately asleep is never reported as late
 - [x] **CFG-27**: Each frame setting has one control and one stated delay — the Frame strip owns Screen on/off and Quiet hours on/off, the settings form keeps only the quiet-hours schedule, and one computed sentence says when a change reaches the frame
 - [ ] **CFG-28**: Every visible time is Paris local time, including the battery readout and its chart, every tooltip, and the airline resolve dialog; raw ISO appears only behind a copy control
 - [ ] **CFG-29**: No English leaks into the French interface — flash banners, page titles, plurals and attribute text are translated, and the completeness harness covers the places it currently cannot see
@@ -145,11 +145,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-23 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
 | CFG-24 | Phase 21 | Complete (21-VERIFICATION.md 10/10) |
 | CFG-25 | Phase 22 | Planned (22-01..22-16) |
-| CFG-26 | Phase 22 | Planned (22-01..22-16) |
+| CFG-26 | Phase 22 | Complete (22-02, 22-04, 22-07) |
 | CFG-27 | Phase 22 | Complete (22-05) |
 | CFG-28 | Phase 22 | In progress — 22-06 landed the battery/tooltip half; 22-11 lands the resolve-dialog half |
 | CFG-29 | Phase 22 | Planned (22-01..22-16) |
-| CFG-30 | Phase 22 | Planned (22-01..22-16) |
+| CFG-30 | Phase 22 | In progress — served by nine plans (D-07's B2-B18/X3-X9); 22-07 landed the Home half of B2, B18 and X4 |
 | CFG-31 | Phase 22 | Planned (22-01..22-16) |
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.

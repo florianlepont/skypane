@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-06-PLAN.md
-last_updated: "2026-09-12T23:57:36.095Z"
+stopped_at: Completed 22-07-PLAN.md
+last_updated: "2026-09-13T00:36:40.876Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 192
+  completed_plans: 193
   percent: 89
 ---
 
@@ -359,6 +359,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P04 | 95min | 3 tasks | 7 files |
 | Phase 22 P05 | ~110min | 3 tasks | 11 files |
 | Phase 22 P06 | 30min | 3 tasks | 6 files |
+| Phase 22 P07 | 75min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -631,6 +632,9 @@ Recent decisions affecting current work:
 - [Phase 22]: Battery day bucketing moves from SQLite date() to Python ZoneInfo(Europe/Paris); no fixed-offset SQL modifier is DST-correct
 - [Phase 22]: A sparkline point's title/aria-label/data-when collapse to one shared string (data-mv already carries the value machine-readably)
 - [Phase 22]: Every title/tooltip on Health's battery section is now a full day-qualified Europe/Paris timestamp, not a bare clock
+- [Phase 22]: 22-07: Home's Frame tile detail is a bare clock (.time-value span), never the full HEADLINE_HELD sentence — mirrors health_page's own already-shipped bare-clock/separate-verdict shape rather than the test_i18n.py hand-off comment's forward guess
+- [Phase 22]: 22-07: display_airline_name() aliases every user-visible airline string (flight one-liner, thumbnail alt text) but never illustration-key resolution, which stays on the raw stored name per render.py's own documented boundary
+- [Phase 22]: 22-07: img.recent-flight__thumb (tag-qualified) joins the shared white-backing rule instead of a bare class, so the dashed placeholder span (which shares the bare class for its own sizing) can never match it; the placeholder's dashed values are reused BY VALUE from .airline-card__placeholder, not by sharing that selector, since test_status_pages.py pins it standalone
 
 ### Pending Todos
 
@@ -722,8 +726,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-12T23:56:59.421Z
-Stopped at: Completed 22-06-PLAN.md
+Last session: 2026-09-13T00:36:40.823Z
+Stopped at: Completed 22-07-PLAN.md
 
 Resume file: 
 
