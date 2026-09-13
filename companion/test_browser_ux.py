@@ -300,6 +300,22 @@ EXPECTED_CHECK_COUNT = 23
 # on-disk check(...) call count at execution time (24/24 pass), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 24
+# Quick task 260913-dgh: +1 — Home's recent-flight callsign measured
+# against its OWN content, at 320, 360, 390, 768 AND 1280px, in both
+# languages. Every overflow check in this file until now measured a box
+# against a CONTAINER; this defect collapses the box itself, so the
+# element stayed inside its row and inside the viewport while its text
+# painted straight over the time beside it. Measured before the fix:
+# a callsign box of 10.9px (FR) / 18.6px (EN) for 57.8px of content at
+# 320px, and 50.9px (FR) at 360px — a common Android width, which is why
+# this check does not stop at 320. 1280px is measured because the row is
+# only 292.4px there and the callsign track had 7.5px of slack against a
+# relative-age string with no upper bound. Mutation-tested by reverting
+# the stylesheet rule: 24/25, this check the only one red, naming the
+# starved callsign, its box and its content width. 24 + 1 = 25,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (25/25 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 25
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -2356,6 +2372,136 @@ def main():
                     "edge clears it, and no row's content escapes its own box (B11's fourth and "
                     "last surface, quick task 260913-bjy)",
                     _home_paints_nothing_outside_the_viewport_or_its_cards)
+
+                def _recent_flight_callsigns_are_never_starved():
+                    # Quick task 260913-dgh. The Home check immediately
+                    # above measures every element against the VIEWPORT
+                    # and every row descendant against its own ROW box,
+                    # and is structurally blind to this defect: the
+                    # starved element's own box stays well inside the
+                    # row — it is the box itself that collapses, and the
+                    # TEXT paints out of it, straight over the time
+                    # beside it. Nothing in this file measured a box
+                    # against its own content until now.
+                    #
+                    # Measured before the fix, callsign box against
+                    # callsign content: 10.9px for 57.8px at 320px in
+                    # French and 18.6px at 320px in English, 50.9px at
+                    # 360px in French. 360px is a common Android width
+                    # and is measured here for exactly that reason —
+                    # a 320px-only check would have called English at
+                    # 360px clean and stopped.
+                    #
+                    # 1280px is measured too, and not as ceremony: the
+                    # row is 292.4px there (the desktop sidebar and the
+                    # two-column picture row narrow it), the callsign
+                    # track had 7.5px of slack, and
+                    # layout.relative_age_text()'s day bucket has no
+                    # upper bound — so the seeded age only ever grows
+                    # and the desktop was a handful of pixels from the
+                    # same defect. This check gets stronger with
+                    # wall-clock time, never weaker.
+                    #
+                    # The 768px assertion is the other half, and it is
+                    # what stops the fix being "give the time its own
+                    # line everywhere": with 686px of row there, the
+                    # callsign and the time must still share the first
+                    # line. It is deliberately NOT asserted at 1280px,
+                    # where the growing age string will legitimately
+                    # wrap one day — that is the fix working, not
+                    # failing.
+                    probe = (
+                        "() => {"
+                        "  const rows = document.querySelectorAll('.recent-flight');"
+                        "  const starved = [];"
+                        "  let cells = 0, sameLine = 0, twoLine = 0;"
+                        "  rows.forEach(row => {"
+                        "    const cs = row.querySelector('.recent-flight__callsign');"
+                        "    const tm = row.querySelector('.recent-flight__time');"
+                        "    if (!cs) return;"
+                        "    cells += 1;"
+                        "    const box = cs.getBoundingClientRect().width;"
+                        "    const range = document.createRange();"
+                        "    range.selectNodeContents(cs);"
+                        "    const text = range.getBoundingClientRect().width;"
+                        "    if (text > box + 0.5)"
+                        "      starved.push(cs.textContent + ': box ' + box.toFixed(2)"
+                        "        + 'px for ' + text.toFixed(2) + 'px of content');"
+                        "    if (tm) {"
+                        # Two items share a flex line when their boxes
+                        # overlap VERTICALLY. Equal tops would be the
+                        # wrong test, and was measured being wrong here:
+                        # the row is baseline-aligned and the time
+                        # renders at the smaller label size, so the two
+                        # tops differ by 3px on the SAME line. The
+                        # overlap test discriminates exactly — measured
+                        # false at 320px in both languages and at 360px
+                        # in French, true at every other width/language
+                        # pair.
+                        "      const a = cs.getBoundingClientRect();"
+                        "      const b = tm.getBoundingClientRect();"
+                        "      if (a.bottom > b.top + 0.5 && b.bottom > a.top + 0.5) sameLine += 1;"
+                        "      else twoLine += 1;"
+                        "    }"
+                        "  });"
+                        "  return {rows: rows.length, cells: cells, starved: starved,"
+                        "          sameLine: sameLine, twoLine: twoLine,"
+                        "          sw: document.documentElement.scrollWidth,"
+                        "          cw: document.documentElement.clientWidth};"
+                        "}")
+                    for width in (320, 360, 390, 768, 1280):
+                        for lang in ("fr", "en"):
+                            context = browser.new_context(
+                                viewport={"width": width, "height": 844})
+                            try:
+                                page = context.new_page()
+                                base_url = harness.base_url()
+                                _login(page, base_url)
+                                context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+                                page.goto(base_url + "/")
+                                page.locator(".recent-flight").first.wait_for(state="visible")
+                                seen = page.evaluate(probe)
+                                if page.viewport_size["width"] != width:
+                                    return False, (
+                                        "expected the measurement to be taken at %dpx" % (width,))
+                                if not seen["rows"] or seen["cells"] != seen["rows"]:
+                                    return False, (
+                                        "expected every seeded recent-flight row to carry a "
+                                        "callsign at %dpx/%s, got %d callsigns in %d rows — "
+                                        "with a mismatch this check measures nothing"
+                                        % (width, lang, seen["cells"], seen["rows"]))
+                                if seen["starved"]:
+                                    return False, (
+                                        "the recent-flight callsign column is STARVED at "
+                                        "%dpx/%s — its box is narrower than its own text, so "
+                                        "the callsign paints out of it and over the time "
+                                        "beside it: %r"
+                                        % (width, lang, seen["starved"]))
+                                if seen["sw"] > width:
+                                    return False, (
+                                        "Home scrolls sideways at %dpx/%s (documentElement."
+                                        "scrollWidth %d against a client width of %d) — a "
+                                        "callsign column that refuses to yield must not buy "
+                                        "that by pushing the row past the viewport (B11)"
+                                        % (width, lang, seen["sw"], seen["cw"]))
+                                if width == 768 and (seen["twoLine"] or not seen["sameLine"]):
+                                    return False, (
+                                        "expected the callsign and the time to share the first "
+                                        "line at 768px/%s, where the row is 686px wide, but %d "
+                                        "of %d rows put the time on its own line — the fix must "
+                                        "not cost a line where there is room"
+                                        % (lang, seen["twoLine"], seen["cells"]))
+                            finally:
+                                context.close()
+                    return True, ""
+                check(
+                    "no recent-flight callsign is ever starved by the time column - its box is "
+                    "never narrower than its own text at 320, 360, 390, 768 or 1280px in EITHER "
+                    "language, Home still never scrolls sideways at any of them, and at 768px "
+                    "the callsign and the time still share one line (quick task 260913-dgh)",
+                    _recent_flight_callsigns_are_never_starved)
 
                 def _health_tables_fit_their_wraps_with_every_disclosure_open():
                     # Quick task 260913-cz6 — the page STATE nobody
