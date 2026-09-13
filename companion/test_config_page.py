@@ -613,6 +613,19 @@ EXPECTED_CHECK_COUNT = 223
 # recomputed directly against the real on-disk check(...) call count at
 # execution time (227/227 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 227
+# 22-10-PLAN.md Task 2 (B9/B14/B15/B7/C3): +2. One check pins B14's
+# `lang` attribute plus the visible normalised-24h sibling on both time
+# inputs, in both languages, and that the value was not smuggled into a
+# placeholder or a title instead; one pins B9's zero-basis runway card
+# (with `.runway-row` still wrapping for its second consumer, the
+# quiet-hours preset row), B15's content-width left-aligned calendar
+# button with its accent kept, and B7/C3's active-segment hover restore
+# at the register's own 12% accent wash. The form="settings-form"
+# assertion the new `lang` attribute sits inside is RETARGETED in place,
+# no net count change. 227 + 2 = 229, recomputed directly against the
+# real on-disk check(...) call count at execution time (229/229 pass),
+# not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 229
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -6099,10 +6112,17 @@ def main():
         # quiet_hours_group()'s own on/off checkbox. Only the Quiet
         # hours schedule itself (Start/End) still cross-submits via
         # form="settings-form" now.
+        # 22-10-PLAN.md Task 2 (B14): retargeted again, in place — each
+        # time input now also carries `lang` (the site language) between
+        # `required` and `form=`. The form= contract this check exists
+        # for is unchanged; only the literal it greps had to absorb the
+        # new attribute.
         rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
         for needle in (
-                '<input type="time" name="quiet_hours_start" value="22:00" required form="settings-form"',
-                '<input type="time" name="quiet_hours_end" value="06:00" required form="settings-form"'):
+                '<input type="time" name="quiet_hours_start" value="22:00" required'
+                ' lang="en" form="settings-form"',
+                '<input type="time" name="quiet_hours_end" value="06:00" required'
+                ' lang="en" form="settings-form"'):
             if needle not in rendered:
                 return False, "expected %r in the rendered Display page" % (needle,)
         if 'name="display_enabled"' in rendered or 'name="quiet_hours_enabled"' in rendered:
@@ -7738,6 +7758,118 @@ def main():
         "flex-direction: column it never reset, not an auto margin, is what pushed 'Add rule' to the "
         "far right (22-10-PLAN.md Task 1)",
         _the_rules_add_form_is_one_left_aligned_centre_aligned_row)
+
+    # --- 22-10-PLAN.md Task 2 (B9, B14, B15, B7/C3) -------------------
+
+    def _each_time_input_carries_the_site_language_and_a_visible_24h_sibling():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        for name, value in (("quiet_hours_start", "22:00"), ("quiet_hours_end", "06:00")):
+            needle = '<input type="time" name="%s" value="%s"' % (name, value)
+            if needle not in rendered:
+                return False, "expected %r in the rendered Display page" % (needle,)
+            idx = rendered.index(needle)
+            tail = rendered[idx:idx + 400]
+            if 'lang="en"' not in tail:
+                return False, "%s must carry the site language as lang= (B14)" % name
+            sibling = (
+                '<span class="text-label field-inline-value" aria-hidden="true">%s</span>' % value)
+            if sibling not in tail:
+                return False, (
+                    "%s must be followed by a VISIBLE sibling showing the normalised 24h value, "
+                    "not a placeholder and not a title (B14)" % name)
+            # The value must not have been smuggled into a placeholder or
+            # a title instead - both are what B14's fix column rules out.
+            input_tag = rendered[idx:rendered.index(">", idx)]
+            if "placeholder=" in input_tag or "title=" in input_tag:
+                return False, "%s must carry neither a placeholder nor a title (B14)" % name
+
+        prefs.set_request_prefs(lang="fr")
+        try:
+            fr_rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if 'lang="fr"' not in fr_rendered:
+            return False, "expected a French render to set lang=\"fr\" on its time inputs"
+        if 'type="time" name="quiet_hours_start" value="22:00" required lang="en"' in fr_rendered:
+            return False, "expected no lang=\"en\" time input in a French render"
+        return True, ""
+    check(
+        "each <input type=\"time\"> carries the site language and a visible sibling showing the "
+        "normalised 24h value (never a placeholder, never a title), in both languages "
+        "(B14, 22-10-PLAN.md Task 2)",
+        _each_time_input_carries_the_site_language_and_a_visible_24h_sibling)
+
+    def _style_css_carries_the_b9_b15_and_b7_geometry_rules():
+        source = _read_static("style.css")
+
+        # B9: three equal runway cards on one line, never a 2 + 1 orphan.
+        # A zero basis with no minimum is what makes wrapping structurally
+        # impossible for three items; the 150px/140px pair it replaces is
+        # exactly what produced the measured orphan at 390px.
+        selector = ".runway-card {"
+        idx = source.index(selector)
+        body = source[idx + len(selector):source.index("\n}", idx)]
+        if "flex: 1 1 0;" not in body:
+            return False, ".runway-card must take a zero flex basis (B9)"
+        if "min-width: 0;" not in body:
+            return False, ".runway-card must take no minimum width (B9)"
+        # Comment-filtered: the rule keeps a SUPERSEDED comment naming the
+        # 150px/140px pair it replaces and why that pair produced the
+        # orphan. That prose is the record of the change and must not be
+        # deleted to satisfy a grep - so only DECLARATION lines are read.
+        declarations = "\n".join(
+            line for line in body.splitlines() if not line.lstrip().startswith(("*", "/")))
+        if "150px" in declarations or "140px" in declarations:
+            return False, ".runway-card must not keep the 150px basis / 140px floor that wrapped 2 + 1"
+        # .runway-row has a SECOND consumer (the quiet-hours preset row),
+        # which must keep wrapping - so the fix must not sit on the row.
+        row_idx = source.index(".runway-row {")
+        row_body = source[row_idx + len(".runway-row {"):source.index("\n}", row_idx)]
+        if "nowrap" in row_body:
+            return False, (
+                ".runway-row must keep flex-wrap: wrap - quiet_hours_group()'s preset row shares "
+                "this class and must still be allowed to wrap")
+
+        # B15: the calendar Connect/Replace button is content-width and
+        # left-aligned, and keeps its accent fill (geometry only).
+        b15 = '.rule-add-form:not(.rule-add-form--inline) > button[type="submit"] {'
+        if b15 not in source:
+            return False, "expected style.css to declare %r (B15)" % (b15,)
+        b15_body = source[source.index(b15) + len(b15):source.index("\n}", source.index(b15))]
+        if "align-self: flex-start" not in b15_body:
+            return False, "%r must opt the button out of the column's stretch (B15)" % (b15,)
+        if "width: auto" not in b15_body:
+            return False, "%r must declare an automatic width (B15)" % (b15,)
+        for banned in ("width: 100%", "display: block", "flex: 1"):
+            if banned in b15_body:
+                return False, "%r must declare no full-width treatment, found %r" % (b15, banned)
+
+        # B7/C3: the selected-and-hovered segment restore rule, at the
+        # register's own 12% accent wash - no new percentage.
+        b7 = ".theme-form .theme-option--active:hover {"
+        if b7 not in source:
+            return False, "expected style.css to declare %r (B7/C3)" % (b7,)
+        b7_body = source[source.index(b7) + len(b7):source.index("\n}", source.index(b7))]
+        if "color-mix(in srgb, var(--color-accent) 12%, transparent)" not in b7_body:
+            return False, (
+                "%r must restore the register's own 12%% accent wash, not a new percentage "
+                "(22-AUDIT.md's '12-18%%' is a suggestion; the register is the contract)" % (b7,))
+        if "color: var(--color-accent)" not in b7_body:
+            return False, "%r must restore the active segment's accent text" % (b7,)
+        # Its :not()-scoped partner must still exist, or a hover on a
+        # non-active segment would fall through to the primary fill.
+        partner = ".theme-form .theme-option:not(.theme-option--active):hover {"
+        if partner not in source:
+            return False, "expected the :not()-scoped non-active hover rule to stay (B7/C3)"
+        if source.index(partner) > source.index(b7):
+            return False, "the :not()-scoped rule must stay ahead of the active restore rule"
+        return True, ""
+    check(
+        "style.css carries B9's zero-basis runway card (with .runway-row still wrapping for its "
+        "second consumer), B15's content-width left-aligned calendar button with its accent kept, "
+        "and B7/C3's active-segment hover restore at the register's own 12% accent wash "
+        "(22-10-PLAN.md Task 2)",
+        _style_css_carries_the_b9_b15_and_b7_geometry_rules)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

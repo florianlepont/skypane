@@ -973,6 +973,33 @@ select.visually-hidden {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
+/* B7/C3 (22-AUDIT.md, 22-10-PLAN.md Task 2): the missing HALF of the
+ * pair above. Clicking a language or theme segment reloads the page with
+ * the pointer still over the now-ACTIVE segment; `button[type="submit"]:
+ * hover` is (0,2,1) and beats `.theme-form .theme-option--active`'s
+ * (0,2,0), so the segment took the primary accent FILL while keeping the
+ * active rule's accent TEXT — accent on accent, measured rgb(150,54,16)
+ * behind rgb(177,63,22). "FR"/"EN" was unreadable until the pointer
+ * moved.
+ *
+ * This is a POSITIVE RESTORE rule, not a re-scope: (0,3,0) beats the
+ * submit hover, and it restates the active pill's own two properties
+ * rather than inventing a hover appearance. The values come from the
+ * wash register verbatim — the same 12% accent mix the active rule above
+ * uses, which is also the app's shared tinted-pill idiom. 22-AUDIT.md's
+ * own "12-18% wash" is a suggestion; references/control-density.md's
+ * register is the contract, so no new percentage is introduced here.
+ *
+ * Why this cannot be one unscoped `.theme-form .theme-option:hover`
+ * instead: at (0,3,0) it would equal this rule's specificity and, placed
+ * later, would paint the 4.5% text wash over the active segment's own
+ * tint the moment the pointer crossed it. The :not()-scoped pair is the
+ * documented correct shape. */
+.theme-form .theme-option--active:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
 /* Read-only theme status (06.6.3 D-04) — a plain <div> replacing the old
  * <fieldset> in this slot; a bare <div> inherits none of fieldset's box
  * styling, so padding/margin-bottom are restated explicitly here to match
@@ -1843,9 +1870,27 @@ button:disabled {
    * exactly one emitter in the repository, runway_fieldset() (confirmed
    * by grep), so retiring this declaration cannot affect another
    * consumer. Grow-and-shrink from a 150px basis with a 140px floor lays
-   * the three cards out in one wrapping row instead of one per line. */
-  flex: 1 1 150px;
-  min-width: 140px;
+   * the three cards out in one wrapping row instead of one per line.
+   *
+   * SUPERSEDED by 22-10-PLAN.md Task 2 (B9). The 150px basis plus the
+   * 140px floor is exactly what produced the measured 2 + 1 orphan at
+   * 390px: a 308px content column fits two 150px cards and wraps the
+   * third alone, which then grew to the full 308x217. A zero basis with
+   * no minimum makes the three cards structurally incapable of
+   * overflowing their line — three items whose hypothetical main size is
+   * 0 always share one flex line — so there is no width at which they
+   * can wrap 2 + 1 again. At 1280px this is a no-op: the old rule
+   * already distributed the free space equally, so all three cards
+   * measure 271.3px before and after.
+   *
+   * `.runway-row` itself is deliberately NOT given `flex-wrap: nowrap`,
+   * which is what 22-UI-SPEC.md §2's B9 row prescribes: that class has a
+   * SECOND consumer, `quiet_hours_group()`'s three-preset row, whose
+   * buttons carry long labels ("Night (23:00-07:00)") that must still be
+   * allowed to wrap on a phone. Fixing B9 on the card rather than the
+   * row leaves that second consumer untouched. */
+  flex: 1 1 0;
+  min-width: 0;
   cursor: pointer;
 }
 
@@ -5160,6 +5205,38 @@ a.airline-card {
   flex-direction: column;
 }
 
+/* B15 (22-AUDIT.md, 22-10-PLAN.md Task 2): "Connect calendar"/"Replace"
+ * measured 830x30 at 1280px and 308px on a phone — the only full-width
+ * primary button in the app, where every other primary is content-width.
+ * No rule ever declared a width: the button is a direct child of this
+ * COLUMN flex container, whose default `align-items: stretch` stretched
+ * it across the cross axis. `align-self: flex-start` opts this one child
+ * out of that stretch, which both sizes it to its content and leaves its
+ * left edge equal to the field's above it. `width: auto` is the explicit
+ * statement of the resulting intrinsic width.
+ *
+ * Scoped away from `.rule-add-form--inline` (the rules add-form), where
+ * the container is a ROW and `align-self` would instead pull the Add
+ * button off that row's `align-items: center` baseline.
+ *
+ * Accent is KEPT. B15's fix column is about geometry only, and greying
+ * this button would be a second, unasked change — 22-UI-SPEC.md §1's
+ * accent-reservation delta lists it as "kept, width only". */
+.rule-add-form:not(.rule-add-form--inline) > button[type="submit"] {
+  align-self: flex-start;
+  width: auto;
+}
+
+/* B14 (22-10-PLAN.md Task 2): the normalised 24h value rendered beside a
+ * native `<input type="time">`, which formats itself from the browser's
+ * locale ("11:00 PM") rather than from the stored value ("23:00"). Inline
+ * beside its control, in the label voice `.text-label` already supplies —
+ * this rule adds only the spacing that keeps it off the input's edge. */
+.field-inline-value {
+  margin-left: var(--space-xs);
+  white-space: nowrap;
+}
+
 /* =====================================================================
  * Phase 18 — companion audit / UX refactor.
  *
@@ -6342,5 +6419,28 @@ input:checked + .frame-colours__row {
 @media (max-width: 959.98px) {
   .airlines-edit-toggle {
     height: 36px;
+  }
+}
+
+/* B9 fallback (22-10-PLAN.md Task 2, 22-AUDIT.md's own second option).
+ *
+ * Below 360px the three equal columns stop being the right shape: the
+ * content column is ~238px at 320px, giving each card ~73px with 32px of
+ * padding inside it, and `.runway-card__number`'s longest label
+ * ("Runway 3 (07/25)") then paints past the card's own border
+ * (scrollWidth > clientWidth, measured). At 390px — the audit's own
+ * measurement viewport — the same cards measure ~97px and the label
+ * wraps cleanly inside them, which is why this fallback starts below
+ * 360 and not at the 960px breakpoint.
+ *
+ * The fallback is the audit's vertical radio LIST, never a re-wrap: a
+ * 2 + 1 orphan is the defect B9 exists to remove, and reintroducing it
+ * one breakpoint lower would be the same defect at a smaller size. A
+ * 100% basis inside the row's existing `flex-wrap: wrap` puts one card
+ * per line with no change to `.runway-row`, whose second consumer
+ * (quiet_hours_group()'s preset row) must keep wrapping normally. */
+@media (max-width: 359.98px) {
+  .runway-card {
+    flex: 1 1 100%;
   }
 }

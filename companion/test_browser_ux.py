@@ -123,6 +123,14 @@ EXPECTED_CHECK_COUNT = 6
 # check(...) call count at execution time (7/7 pass), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 7
+# 22-10-PLAN.md Task 2 (B9): +1 — at a 390px viewport the three runway
+# cards report one shared line, equal heights and border-excluded widths
+# equal within 1px, each still clearing 44x44. The measured defect was a
+# 2 + 1 orphan (150x150, 150x150, then a lone 308x217), which only a real
+# layout engine can see. 7 + 1 = 8, recomputed directly against the real
+# on-disk check(...) call count at execution time (8/8 pass), not trusted
+# from arithmetic alone.
+EXPECTED_CHECK_COUNT = 8
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -707,6 +715,91 @@ def main():
                     "persists with NO beforeunload dialog, while a plain nav-link navigation with the "
                     "same unsaved edit still raises one (22-05-PLAN.md Task 3, D-04)",
                     _strip_switch_navigates_without_the_leave_guard_while_other_navigation_still_warns)
+
+                def _three_runway_cards_share_one_line_at_390px():
+                    # B9 (22-AUDIT.md, 22-10-PLAN.md Task 2). The measured
+                    # defect was a 2 + 1 orphan at 390px: 150x150, 150x150,
+                    # then a lone 308x217. Only a real layout engine can
+                    # see this, which is why it lives here and not in a
+                    # string-comparison harness.
+                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+                        boxes = page.evaluate(
+                            "() => [...document.querySelectorAll('.runway-card')]"
+                            ".map(e => { const b = e.getBoundingClientRect(); "
+                            "const s = getComputedStyle(e); "
+                            "const bw = parseFloat(s.borderLeftWidth) "
+                            "+ parseFloat(s.borderRightWidth); "
+                            "return {w: b.width, inner: b.width - bw, border: bw, "
+                            "h: b.height, top: b.top, left: b.left}; })")
+                        if len(boxes) != 3:
+                            return False, "expected 3 runway cards, got %d" % len(boxes)
+
+                        tops = [b["top"] for b in boxes]
+                        if max(tops) - min(tops) > 0.5:
+                            return False, (
+                                "expected all three cards on ONE line (equal tops), got %r - a "
+                                "2 + 1 orphan is exactly B9's defect" % (tops,))
+                        heights = [b["h"] for b in boxes]
+                        if max(heights) - min(heights) > 0.5:
+                            return False, "expected three equal card heights, got %r" % (heights,)
+                        lefts = sorted(b["left"] for b in boxes)
+                        if lefts != [b["left"] for b in sorted(boxes, key=lambda b: b["left"])]:
+                            return False, "expected three distinct columns"
+
+                        # B9's "equal within 1px" is asserted on the cards'
+                        # BORDER-EXCLUDED widths, which is what "three
+                        # equal columns" actually means and what the flex
+                        # rule controls.
+                        #
+                        # STATED EXCEPTION, with the plan that removes it:
+                        # the cards' OUTER widths are NOT equal within 1px
+                        # today, and cannot be made so by this plan. The
+                        # saved card carries `.runway-card--selected`'s 2px
+                        # border against its siblings' 1px, and under
+                        # `box-sizing: border-box` with a zero flex basis
+                        # that makes its outer box exactly 2px wider
+                        # (measured 98.67 against 96.66/96.67 at 390px).
+                        # That is T6 - "selection shifts layout by 2px" -
+                        # which 22-15-PLAN.md owns and closes by holding
+                        # the border constant at 1px and moving the
+                        # selection signal to `box-shadow: inset`. Once
+                        # 22-15 lands, `inner` and `w` converge and the
+                        # border allowance below can be deleted.
+                        inners = [b["inner"] for b in boxes]
+                        if max(inners) - min(inners) > 1.0:
+                            return False, (
+                                "expected three equal card widths within 1px once each card's own "
+                                "border is excluded, got %r (outer %r)"
+                                % (inners, [b["w"] for b in boxes]))
+                        borders = sorted({round(b["border"], 2) for b in boxes})
+                        if borders not in ([2.0], [2.0, 4.0]):
+                            return False, (
+                                "expected the only outer-width difference to be the selected card's "
+                                "own 2px border (T6), got border totals %r" % (borders,))
+                        # Touch target, confirmed by measurement rather than
+                        # assumed: the cards get narrower, and the hidden
+                        # radio's register entry is exempt BY DELEGATION to
+                        # this wrapping <label>, so the label itself must
+                        # still clear 44px in BOTH axes.
+                        for b in boxes:
+                            if b["w"] < 44 or b["h"] < 44:
+                                return False, (
+                                    "every runway card must stay >=44x44 for the hidden radio's "
+                                    "exempt-by-delegation touch-target entry, got %r" % (b,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "at 390px the three runway cards report one shared line (equal tops), equal "
+                    "heights, border-excluded widths equal within 1px (the outer widths differ only "
+                    "by the selected card's own 2px border - T6, 22-15-PLAN.md), and each still "
+                    "clears 44x44 - never a 2 + 1 orphan (B9, 22-10-PLAN.md Task 2)",
+                    _three_runway_cards_share_one_line_at_390px)
             finally:
                 browser.close()
     finally:

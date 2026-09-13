@@ -64,6 +64,9 @@ from server.plane import calendar_rules  # noqa: E402
 from server.plane import colour_rules  # noqa: E402
 from server.plane import illustrations as server_illustrations  # noqa: E402
 from server.plane import manual_resolutions  # noqa: E402
+# 22-10-PLAN.md Task 2 (B6): the crop-geometry check below measures the
+# real 1200x1600 render's own ink bands rather than restating a constant.
+from server.plane import render  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
@@ -494,6 +497,17 @@ EXPECTED_CHECK_COUNT = 259
 # time (258/260 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 260
+# 22-10-PLAN.md Task 2 (B6): +1 (THEME_PREVIEW_CROP_BOX keeps
+# THEME_PREVIEW_SIZE's exact 8:3 ratio and cuts no ink band at either
+# edge — measured against a real 1200x1600 render's own ink bands, not
+# restated from the constant; negative-controlled against the box it
+# replaces, which fails on the caption band at 859-888). The pre-existing
+# pairwise-distinctness check above already covers the new box and needed
+# no edit. 260 + 1 = 261, recomputed directly against the real on-disk
+# check(...) call count at execution time (259/261 pass — the two
+# documented WR-11 root-sandbox failures, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 261
 
 
 def _ago_iso(seconds):
@@ -2492,6 +2506,78 @@ def main():
         "the 18 themes' previews have pairwise-distinct mean RGB at the crop/size used "
         "(proves the crop box discriminates themes, D-07)",
         _theme_preview_means_pairwise_distinct)
+
+    def _theme_preview_crop_keeps_8_3_and_excludes_every_caption_glyph():
+        # B6 (22-AUDIT.md, 22-10-PLAN.md Task 2): the crop used to end at
+        # y=870 and sliced the render's caption mid-glyph ("AF1789 to New
+        # York" cut horizontally) at every chip size and in the large live
+        # preview. Both properties below are asserted by MEASUREMENT
+        # against a real render, never by restating the constant.
+        x0, y0, x1, y1 = theme_preview.THEME_PREVIEW_CROP_BOX
+        crop_w, crop_h = x1 - x0, y1 - y0
+        size_w, size_h = theme_preview.THEME_PREVIEW_SIZE
+        # Exact ratio, integer arithmetic - a float comparison would let a
+        # near-8:3 box through and the final resize would distort it.
+        if crop_w * size_h != crop_h * size_w:
+            return False, (
+                "the crop box's %dx%d must share THEME_PREVIEW_SIZE's exact %dx%d ratio, or the "
+                "final resize distorts it" % (crop_w, crop_h, size_w, size_h))
+
+        # Ink bands, measured on the "white" theme, where the background
+        # is pure white so "not white" is exactly "inked". render.py
+        # anchors the main text block off the illustration's own opaque
+        # bottom, identically for band and non-band themes, so the band
+        # positions measured here are theme-independent.
+        canvas = render.build_canvas(
+            theme_preview.THEME_PREVIEW_FLIGHT,
+            theme_preview.THEME_PREVIEW_STATE,
+            route=theme_preview.THEME_PREVIEW_ROUTE,
+            previous_flight=theme_preview.THEME_PREVIEW_PREVIOUS_FLIGHT,
+            previous_route=theme_preview.THEME_PREVIEW_PREVIOUS_ROUTE,
+            previous_state=theme_preview.THEME_PREVIEW_PREVIOUS_STATE,
+            theme_id="white",
+        ).convert("RGB")
+        width, height = canvas.size
+        px = canvas.load()
+        bands = []
+        start = None
+        for y in range(height):
+            inked = any(px[x, y] != (255, 255, 255) for x in range(width))
+            if inked and start is None:
+                start = y
+            elif not inked and start is not None:
+                bands.append((start, y - 1))
+                start = None
+        if start is not None:
+            bands.append((start, height - 1))
+        if len(bands) < 3:
+            return False, "expected at least three ink bands in the fixed scene, got %r" % (bands,)
+
+        inside = [b for b in bands if b[0] >= y0 and b[1] < y1]
+        if not inside:
+            return False, "the crop box contains no ink band at all - it would render blank"
+        # Nothing may be half in and half out: a band that straddles
+        # either edge IS the sliced-glyph defect.
+        for band_start, band_end in bands:
+            straddles_top = band_start < y0 <= band_end
+            straddles_bottom = band_start < y1 <= band_end
+            if straddles_top or straddles_bottom:
+                return False, (
+                    "ink band %r is cut by the crop box's %r edge - that is B6's sliced glyph"
+                    % ((band_start, band_end), "top" if straddles_top else "bottom"))
+        # And the band it exists to show must actually be in there: the
+        # tallest band is the main aircraft illustration.
+        tallest = max(bands, key=lambda b: b[1] - b[0])
+        if tallest not in inside:
+            return False, (
+                "the crop box must contain the main illustration band %r whole, got %r inside"
+                % (tallest, inside))
+        return True, ""
+    check(
+        "THEME_PREVIEW_CROP_BOX keeps THEME_PREVIEW_SIZE's exact 8:3 ratio and cuts no ink band at "
+        "either edge - every caption glyph is outside it and the main illustration band is inside "
+        "it whole, measured against a real render (B6, 22-10-PLAN.md Task 2)",
+        _theme_preview_crop_keeps_8_3_and_excludes_every_caption_glyph)
 
     def _theme_preview_bytes_stable_across_calls():
         first = theme_preview.preview_png_bytes("white")

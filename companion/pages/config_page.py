@@ -25,6 +25,8 @@ from companion import frame_state  # 22-05-PLAN.md Task 2 (D-04): the one
 # (companion/layout.py, 22-04-PLAN.md) and this module's own Quiet hours
 # caption both read frame_state.delay_sentence_template() from the SAME
 # wake.next_wake_status() triple, so the two can never disagree.
+from companion import prefs  # 22-10-PLAN.md Task 2 (B14): the resolved
+# site language, set as `lang` on both native time inputs.
 from companion import screens
 from companion import wake
 # 20-07-PLAN.md Task 3 (D-36): the former EDIT_QUERY_PARAM import (19-12-
@@ -1817,6 +1819,38 @@ def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=
     )
 
 
+def _normalised_time_html(value):
+    """B14 (22-AUDIT.md, 22-10-PLAN.md Task 2): the normalised 24h value
+    rendered as a VISIBLE sibling beside a native `<input type="time">`.
+
+    A native time control formats itself from the browser's own locale,
+    so a browser in en-US renders the stored "23:00" as "11:00 PM" —
+    directly beside a preset button this same group labels
+    "Night (23:00-07:00)". One value, two notations, no way to tell they
+    are the same. The audit's fix is to SHOW the stored 24h text; this is
+    it.
+
+    Not a placeholder (a time input never shows one) and not a `title`
+    (invisible until hovered, and unreachable by touch) — a real, visible
+    element, which is what the fix column asks for.
+
+    `aria-hidden`: the input's own value is already announced natively,
+    in the user's own notation, by the control itself. Repeating it in
+    the accessibility tree would announce the same value twice with no
+    added information. The visual duplication is the whole point of this
+    element and the aural duplication is not.
+
+    Renders nothing at all for a falsy/unparseable value rather than
+    fabricating one, matching this file's "omit, don't fabricate"
+    convention. The value is already server-validated HH:MM by
+    `handle_post()`; this only ever echoes it back.
+    """
+    if not value or not re.match(r"^\d{2}:\d{2}$", str(value)):
+        return ""
+    return ' <span class="text-label field-inline-value" aria-hidden="true">%s</span>' % escape_html(
+        value)
+
+
 def quiet_hours_group(current_start, current_end, errors=None, submitted=None, delay_sentence=None):
     """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md;
     restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1; its own on/off
@@ -1950,6 +1984,14 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     # the caller — this is the ONE place it is escaped, alongside the
     # caption's own first sentence, in a single combined string (matching
     # this file's "translate first, escape once" convention).
+    # 22-10-PLAN.md Task 2 (B14): the site's own resolved language, set
+    # on both <input type="time"> elements. `<html lang>` already carries
+    # it, but a native time control formats itself from the BROWSER's
+    # locale, not the document's — so this attribute is the standards-
+    # level request, and the visible sibling below is the fix that
+    # actually holds when a browser ignores it (a Chromium in en-US
+    # renders "11:00 PM" either way).
+    site_lang = prefs.current_lang()
     effective_delay_sentence = (
         delay_sentence if delay_sentence is not None else i18n.t(frame_state.DELAY_UNKNOWN))
     caption_html = "%s %s" % (i18n.t(QUIET_HOURS_SECTION_CAPTION), effective_delay_sentence)
@@ -1958,9 +2000,11 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
         "%s"
-        '<label>%s <input type="time" name="quiet_hours_start" value="%s" required form="%s"%s></label>'
+        '<label>%s <input type="time" name="quiet_hours_start" value="%s" required'
+        ' lang="%s" form="%s"%s>%s</label>'
         "%s"
-        '<label>%s <input type="time" name="quiet_hours_end" value="%s" required form="%s"%s></label>'
+        '<label>%s <input type="time" name="quiet_hours_end" value="%s" required'
+        ' lang="%s" form="%s"%s>%s</label>'
         "%s"
         "</div>"
     ) % (
@@ -1970,10 +2014,12 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         escape_html(caption_html),
         preset_row_html,
         escape_html(i18n.t("Start")),
-        escape_html(effective_start), SETTINGS_FORM_ID, start_error_attrs,
+        escape_html(effective_start), escape_html(site_lang), SETTINGS_FORM_ID, start_error_attrs,
+        _normalised_time_html(effective_start),
         start_error_html,
         escape_html(i18n.t("End")),
-        escape_html(effective_end), SETTINGS_FORM_ID, end_error_attrs,
+        escape_html(effective_end), escape_html(site_lang), SETTINGS_FORM_ID, end_error_attrs,
+        _normalised_time_html(effective_end),
         end_error_html,
     )
 
