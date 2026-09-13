@@ -354,6 +354,66 @@ EXPECTED_CHECK_COUNT = 26
 # 23-02-PLAN.md Task 2: net 0 again. The general disclosure sweep gained
 # a reduced-motion context and nothing else. 26/26, recomputed the same
 # way.
+# 23-04-PLAN.md Task 2 (D10/CFG-33): +2. The two ways a cross-document
+# view transition fails SILENTLY, made loud. (1) Per-route uniqueness of
+# every transition name, counted from the COMPUTED value on every element
+# of every authenticated route — not from the stylesheet's selectors,
+# because the risk is not that the sheet declares a name twice, it is
+# that one selector MATCHES twice in a document companion/layout.py
+# puts two navigation landmarks into (three until 22-14 removed the
+# preferences panel's copy — re-counted here, not carried from the
+# brief); a name that matches twice makes the browser drop the whole
+# transition with no error anywhere. (2) The
+# reduced-motion opt-out, asserted through the CSSOM rather than by
+# watching a cross-fade: on the slowest file in the suite a visual timing
+# assertion would be a flakiness generator, while the condition guarding
+# the at-rule is deterministic and is exactly the property that gets got
+# wrong. Mutation-tested, both of them, and both mutations were chosen to
+# leave companion/test_companion_app.py's source-level motion guard GREEN
+# (271/273 throughout) so these two are proven to do the work unaided.
+# "Simplifying" the sidebar's selector to the bare `nav` element took the
+# first red at 27/28, reporting the name, the count, the route and the
+# offending tags (`nav.sidebar-nav`, `nav.tab-bar`); deleting the
+# `.page-title` declaration took it red at 27/28 on the declared-set
+# guard instead, which is what stops it degenerating into a check that
+# passes by measuring nothing. Moving the at-rule out of its
+# `no-preference` wrapper while LEAVING that wrapper in the file took the
+# second red at 27/28 (live under reduced motion), and narrowing the
+# wrapper to a condition that can never match took it red at 27/28 the
+# other way (wrapped into something nobody ever sees). 26 + 2 = 28,
+# recomputed directly against the real on-disk
+# check(...) call count at execution time (28/28 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 28
+
+# --- The view-transition names this app declares (23-04-PLAN.md Task 2,
+# D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
+# ONE element must carry it. Both halves are asserted: the declared set
+# is compared against what the served stylesheet actually declares (so a
+# name added, renamed or dropped there fails here rather than silently
+# widening the contract), and the routes are compared against the
+# rendered documents.
+#
+# The route lists are structural facts, not preferences, and each one is
+# the REASON its selector was chosen over an obvious alternative:
+#   .dashboard-sidebar  the <aside>, rendered once per authenticated
+#                       document. NOT a shared navigation class: three
+#                       navigation copies (sidebar, preferences panel,
+#                       tab bar) are in the DOM of every one of these
+#                       pages simultaneously, hidden from each other only
+#                       by a media query, so a name on a class they share
+#                       would be declared three times in one document.
+#   .page-title         page_header()'s single <h1>.
+#   .preview-frame__image  Home's frame picture, the app's ONLY render
+#                       site of that class — hence the one-route list,
+#                       which a plan that renders it elsewhere must widen
+#                       here on purpose.
+VIEW_TRANSITION_ROUTES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
+VIEW_TRANSITION_NAMES = {
+    "skypane-sidebar": VIEW_TRANSITION_ROUTES,
+    "skypane-title": VIEW_TRANSITION_ROUTES,
+    "skypane-picture": ("/",),
+}
 
 # --- The viewport sizes this file measures at (23-02-PLAN.md Task 1) ---
 # One named set replacing the inline {"width": ..., "height": ...} dicts
@@ -2957,6 +3017,255 @@ def main():
                     "change makes this fail rather than silently measure nothing (quick task "
                     "260913-eab)",
                     _every_disclosure_on_every_page_opens_without_overflow)
+
+                # --- 23-04-PLAN.md Task 2 (D10/CFG-33): the two ways a
+                # cross-document view transition fails silently ---
+
+                def _view_transition_names_are_unique_on_every_route():
+                    # WHY THIS IS COUNTED IN A BROWSER AND FROM COMPUTED
+                    # VALUES. A stylesheet scan can prove that a name is
+                    # DECLARED once; it cannot prove that its selector
+                    # MATCHES once. companion/layout.py puts two
+                    # navigation landmarks into every authenticated
+                    # document at the same time — the sidebar's vertical
+                    # one and the bottom tab bar — and the 960px media
+                    # query decides only which is VISIBLE, never how many
+                    # exist. (23-RESEARCH.md and 23-04-PLAN.md both say
+                    # three, counting the preferences panel's copy; 22-14
+                    # Task 2 REMOVED that one rather than emptying it, so
+                    # the count is two today and would be three again the
+                    # moment a panel-level landmark returns. Measured
+                    # here, not carried from the brief.) A name hung on a
+                    # class those share — or on the bare `nav` element,
+                    # the "simplification" a later reader is most likely
+                    # to reach for — is declared exactly once in
+                    # style.css, passes every source scan in this
+                    # repository, and resolves to two elements in the
+                    # DOM, at which point the browser drops the entire
+                    # transition with no error, no console warning and no
+                    # visual difference from a browser that never
+                    # supported it. That is the defect this check exists
+                    # for, and only a real document can see it.
+                    #
+                    # Three anti-vacuity guards, because "no name appears
+                    # twice" is trivially satisfied by a page that
+                    # declares no names at all — the exact shape of
+                    # vacuous check 23-03 caught in its own work:
+                    #   1. the set of names the SERVED stylesheet
+                    #      declares must equal VIEW_TRANSITION_NAMES's
+                    #      keys, so dropping or renaming a declaration
+                    #      fails here instead of quietly emptying the
+                    #      measurement;
+                    #   2. every name must resolve to EXACTLY one element
+                    #      on each route its entry lists — zero is a
+                    #      failure, not a pass;
+                    #   3. and to zero elements on the routes it does
+                    #      not, so widening a selector is a deliberate
+                    #      edit here rather than a silent one.
+                    probe = (
+                        "() => {"
+                        "  const declared = [];"
+                        "  const walk = (rules) => {"
+                        "    for (const r of rules) {"
+                        "      if (r.style && r.style.viewTransitionName)"
+                        "        declared.push(r.style.viewTransitionName);"
+                        "      if (r.cssRules) walk(r.cssRules);"
+                        "    }"
+                        "  };"
+                        "  for (const sheet of document.styleSheets) {"
+                        "    try { walk(sheet.cssRules); } catch (e) {}"
+                        "  }"
+                        "  const counts = {}, where = {};"
+                        "  const all = document.querySelectorAll('*');"
+                        "  all.forEach(el => {"
+                        "    const v = getComputedStyle(el).viewTransitionName;"
+                        "    if (!v || v === 'none') return;"
+                        "    counts[v] = (counts[v] || 0) + 1;"
+                        "    (where[v] = where[v] || []).push("
+                        "      el.tagName.toLowerCase() + '.' + (el.className.toString() || '-'));"
+                        "  });"
+                        "  return {declared: declared, counts: counts, where: where,"
+                        "          elements: all.length};"
+                        "}")
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        for route in VIEW_TRANSITION_ROUTES:
+                            page.goto(base_url + route)
+                            page.locator("main").first.wait_for(state="visible")
+                            seen = page.evaluate(probe)
+                            if seen["elements"] < 20:
+                                return False, (
+                                    "expected a rendered document on %s, found %d elements — "
+                                    "with fewer, this check measures nothing"
+                                    % (route, seen["elements"]))
+                            declared = sorted(set(seen["declared"]))
+                            if declared != sorted(VIEW_TRANSITION_NAMES):
+                                return False, (
+                                    "the stylesheet served to %s declares the view-transition "
+                                    "names %r, but this file pins %r (VIEW_TRANSITION_NAMES) — a "
+                                    "name added, renamed or dropped in companion/static/style.css "
+                                    "must be a deliberate edit here too, because every assertion "
+                                    "below is empty for a name nobody declares"
+                                    % (route, declared, sorted(VIEW_TRANSITION_NAMES)))
+                            # Duplicates FIRST, and over every computed
+                            # name rather than only the declared three:
+                            # the browser's own `root` name on the
+                            # document element counts here too, so a plan
+                            # that ever declares `root` collides with the
+                            # UA rule and is caught by the same line.
+                            for name, count in sorted(seen["counts"].items()):
+                                if count > 1:
+                                    return False, (
+                                        "the view-transition name %r resolves to %d elements on "
+                                        "%s (%r) — names must be unique per rendered document or "
+                                        "the browser drops the transition silently; if this is a "
+                                        "navigation selector, note that more than one navigation "
+                                        "landmark is in the DOM of every authenticated page at "
+                                        "once, hidden from each other only by a media query"
+                                        % (name, count, route, seen["where"][name]))
+                            for name, routes in sorted(VIEW_TRANSITION_NAMES.items()):
+                                got = seen["counts"].get(name, 0)
+                                if route in routes and got != 1:
+                                    return False, (
+                                        "expected exactly one element carrying the view-transition "
+                                        "name %r on %s, found %d — its selector matches nothing "
+                                        "there any more, so the transition it names is gone and "
+                                        "every uniqueness assertion about it is vacuous"
+                                        % (name, route, got))
+                                if route not in routes and got:
+                                    return False, (
+                                        "the view-transition name %r now resolves on %s, which "
+                                        "VIEW_TRANSITION_NAMES does not list for it — widening a "
+                                        "named selector is a deliberate edit, not a side effect"
+                                        % (name, route))
+                    finally:
+                        context.close()
+                    return True, ""
+                check(
+                    "every view-transition name the served stylesheet declares resolves to AT MOST "
+                    "one element on each of the six authenticated routes, counted from the "
+                    "COMPUTED value on every element of the real document — the sidebar and the "
+                    "page title on all six, Home's frame picture on Home only, and the declared "
+                    "set itself pinned so a dropped declaration fails rather than emptying the "
+                    "measurement. A name matching twice (two navigation landmarks share every "
+                    "authenticated DOM, and a bare `nav` selector reaches both) makes the browser "
+                    "drop the whole transition with no error anywhere, and no source scan can see "
+                    "it (D10/CFG-33, 23-04-PLAN.md Task 2)",
+                    _view_transition_names_are_unique_on_every_route)
+
+                def _the_view_transition_is_off_under_reduced_motion():
+                    # ASKING THE CSSOM, NOT WATCHING THE PIXELS. A visual
+                    # assertion here would be a timing test on the
+                    # slowest file in the suite, and an intermittently
+                    # red check teaches people to ignore it. The
+                    # condition guarding the at-rule is deterministic and
+                    # is precisely the property that gets got wrong.
+                    #
+                    # AND NOT matchMedia() ON ITS OWN, which would be the
+                    # vacuous version of this check: `matchMedia(
+                    # '(prefers-reduced-motion: no-preference)').matches`
+                    # is false in a reduce context no matter what this
+                    # app's stylesheet says, so it would pass with the
+                    # at-rule sitting unwrapped at the top level — the
+                    # whole defect. The condition evaluated below is read
+                    # OFF THE AT-RULE'S OWN PARENT RULE, so the check
+                    # fails unless the at-rule is genuinely nested inside
+                    # a media rule whose condition is false under reduced
+                    # motion and true otherwise. A wrapper around some
+                    # other rule does not satisfy it, an inverted
+                    # `reduce` wrapper does not satisfy it, and
+                    # `navigation: none` does not satisfy it either.
+                    probe = (
+                        "() => {"
+                        "  const found = [];"
+                        "  const walk = (rules, parent) => {"
+                        "    for (const r of rules) {"
+                        "      if (r.constructor.name === 'CSSViewTransitionRule') {"
+                        "        const cond = parent && parent.conditionText"
+                        "          ? parent.conditionText : null;"
+                        "        found.push({nav: r.navigation, text: r.cssText,"
+                        "                    parent: parent ? parent.constructor.name : null,"
+                        "                    cond: cond,"
+                        "                    matches: cond === null"
+                        "                      ? null : matchMedia(cond).matches});"
+                        "      }"
+                        "      if (r.cssRules) walk(r.cssRules, r);"
+                        "    }"
+                        "  };"
+                        "  for (const sheet of document.styleSheets) {"
+                        "    try { walk(sheet.cssRules, null); } catch (e) {}"
+                        "  }"
+                        "  return found;"
+                        "}")
+                    # Both context modes, because the two halves of the
+                    # contract are different statements: under reduce the
+                    # transition must not be set up at all, and under
+                    # no-preference it must be — a wrapper that never
+                    # matches would satisfy the first half alone and ship
+                    # a feature nobody ever sees.
+                    for reduced, want_match in ((True, False), (False, True)):
+                        extra = {"reduced_motion": "reduce"} if reduced else {}
+                        context = browser.new_context(**extra)
+                        try:
+                            page = context.new_page()
+                            base_url = harness.base_url()
+                            _login(page, base_url)
+                            page.goto(base_url + "/")
+                            page.locator("main").first.wait_for(state="visible")
+                            found = page.evaluate(probe)
+                            where = ("a reduced_motion='reduce' context" if reduced
+                                     else "a default (no-preference) context")
+                            if len(found) != 1:
+                                return False, (
+                                    "expected exactly one view-transition at-rule in the CSSOM of "
+                                    "the stylesheet served to %s, found %d (%r) — zero means the "
+                                    "feature is gone, more than one means two rules disagree about "
+                                    "whether navigations animate" % (where, len(found), found))
+                            rule = found[0]
+                            if rule["nav"] != "auto":
+                                return False, (
+                                    "the view-transition at-rule declares navigation %r in %s — "
+                                    "only 'auto' actually animates a navigation"
+                                    % (rule["nav"], where))
+                            if rule["parent"] != "CSSMediaRule" or not rule["cond"]:
+                                return False, (
+                                    "the view-transition at-rule sits at the top level of the "
+                                    "stylesheet in %s (parent rule %r) rather than inside a media "
+                                    "rule — so it is LIVE UNDER REDUCED MOTION: style.css's global "
+                                    "`*, *::before, *::after` override matches ELEMENTS and never "
+                                    "reaches the ::view-transition pseudo-element tree, which is "
+                                    "why this wrapper is the opt-out and not a duplicate of it"
+                                    % (where, rule["parent"]))
+                            if "prefers-reduced-motion" not in rule["cond"]:
+                                return False, (
+                                    "the view-transition at-rule is nested in `@media %s` in %s, "
+                                    "which says nothing about motion preference — the wrapper "
+                                    "exists to prevent the transition being SET UP for a visitor "
+                                    "who asked for less motion" % (rule["cond"], where))
+                            if rule["matches"] is not want_match:
+                                return False, (
+                                    "the media condition guarding the view-transition at-rule "
+                                    "(`%s`) evaluates to %r in %s, expected %r — under reduced "
+                                    "motion the transition must never be set up, and under "
+                                    "no-preference it must be, or the feature is wrapped into "
+                                    "something nobody ever sees"
+                                    % (rule["cond"], rule["matches"], where, want_match))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "the cross-document view transition is genuinely OPT-OUT: its at-rule is the "
+                    "only one in the CSSOM, declares navigation: auto, and is nested inside a "
+                    "media rule whose own conditionText — read off the at-rule's parent, never "
+                    "from a bare matchMedia() call, which would pass with the at-rule unwrapped — "
+                    "evaluates FALSE in a reduced_motion='reduce' context and TRUE in a default "
+                    "one, so a visitor who asked for less motion never has the transition set up "
+                    "at all rather than having one set up and run fast (D3+D10/CFG-33, "
+                    "23-04-PLAN.md Task 2)",
+                    _the_view_transition_is_off_under_reduced_motion)
             finally:
                 browser.close()
     finally:
