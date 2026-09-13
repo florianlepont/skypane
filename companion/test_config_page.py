@@ -663,6 +663,21 @@ EXPECTED_CHECK_COUNT = 232
 # recomputed directly against the real on-disk check(...) call count at
 # execution time (233/233 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 233
+# 23-06-PLAN.md Task 2 (D1/CFG-35): +2 — the Display scope joins the
+# refresh loop D1 puts on Home and Health. One check pins the line it
+# renders as layout.freshness_line_html()'s own output verbatim (one
+# builder, three call sites), exactly one data-loaded-at and one
+# data-refresh-pill, the page key on <body>, and the degrade for a
+# caller with no render instant: no marker at all rather than an element
+# carrying an invented one. One pins what the loop must never touch —
+# no Display swap region may name a form, a dirty marker or a save
+# control, and the settings form, its cross-DOM form= attachment and the
+# fallback Save must all still render, with the freshness line above
+# them in the header. That second one is 22-01/B1 kept closed: a swap
+# landing on this page's form is the P0 Phase 22 existed to fix.
+# 233 + 2 = 235, recomputed directly against the real on-disk check(...)
+# call count at execution time, not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 235
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -8250,6 +8265,102 @@ def main():
         "never reads '1 upcoming flights', in both languages (D-06/B16/CFG-29, 22-10-PLAN.md "
         "Task 3 — found by 22-08, landed here because this plan owns config_page.py)",
         _the_calendar_status_detail_has_a_singular_form)
+
+    # --- 23-06-PLAN.md Task 2 (D1/CFG-35): the Display scope joins the
+    # refresh loop, and its form does not move ---------------------------
+
+    def _display_ctx(now=None):
+        ctx = {
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True,
+                              "wake_interval_s": 900, "display_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+            "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+        }
+        if now is not None:
+            ctx["now"] = now
+        return ctx
+
+    def _the_display_scope_refreshes_itself_from_the_same_builder():
+        now = "2026-08-27T12:00:00+00:00"
+        rendered = config_page.render(_display_ctx(now), scope=config_page.SCOPE_DISPLAY)
+        built = layout.freshness_line_html(now)
+        if built not in rendered:
+            return False, (
+                "expected the Display scope's freshness line to be layout.freshness_line_html()'s "
+                "own output verbatim — the same builder Health and Home call, so the three pages "
+                "cannot disagree about what a freshness line is. Built:\n%r" % (built,))
+        for attr, want in (("data-loaded-at", 1), ("data-refresh-pill", 1)):
+            if rendered.count(attr) != want:
+                return False, (
+                    "expected exactly %d %s on the Display scope — freshness.js reads the first "
+                    "with a single querySelector and a second would silently win, got %d"
+                    % (want, attr, rendered.count(attr)))
+        # The loop's own gate: without the marker there is no loop, and
+        # with a page key that declares no regions there is no swap.
+        if layout.REFRESH_PAGE_DISPLAY not in layout.REFRESH_SWAP_SELECTORS_BY_PAGE:
+            return False, "expected the Display scope to declare its own swap regions"
+        shell = layout.page_shell(
+            title="Display", active=layout.REFRESH_PAGE_DISPLAY, body=rendered)
+        if ('%s="%s"' % (layout.REFRESH_PAGE_ATTR, layout.REFRESH_PAGE_DISPLAY)) not in shell:
+            return False, "expected the Display document to carry its own page key on <body>"
+        # A ctx with no render instant renders no freshness line at all
+        # rather than an element carrying an empty or invented one — the
+        # same degrade frame_strip_html() applies to a missing next wake.
+        bare = config_page.render(_display_ctx(), scope=config_page.SCOPE_DISPLAY)
+        if "data-loaded-at" in bare:
+            return False, (
+                "expected no freshness marker at all when the caller has no render instant — an "
+                "element carrying an empty instant reads as a correct time to a script and is "
+                "worse than no element")
+        return True, ""
+    check(
+        "the Display scope renders layout.freshness_line_html()'s own output verbatim with exactly "
+        "one data-loaded-at and one data-refresh-pill, declares its own swap regions, carries its "
+        "page key on <body>, and renders no freshness marker at all when the caller has no render "
+        "instant (D1/CFG-35, 23-06-PLAN.md Task 2)",
+        _the_display_scope_refreshes_itself_from_the_same_builder)
+
+    def _the_display_form_is_untouched_by_the_refresh_loop():
+        # The one thing a swap must never touch. Display is a settings
+        # page, and 22-01/B1 — this page rendered unsaveable with JS on —
+        # is the defect of record this clause exists to keep closed.
+        now = "2026-08-27T12:00:00+00:00"
+        rendered = config_page.render(_display_ctx(now), scope=config_page.SCOPE_DISPLAY)
+        for selector in layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_DISPLAY]:
+            for banned in ("form", config_page.SETTINGS_FORM_ID, "dirty", "save"):
+                if banned in selector:
+                    return False, (
+                        "the Display scope declares the swap region %r, which names %r — a swap "
+                        "that lands on this page's form is the P0 Phase 22 existed to fix"
+                        % (selector, banned))
+        # The form, its cross-DOM attachment and the fallback Save are
+        # all still rendered, unchanged by this plan's header edit.
+        if ('<form class="config-form" method="post" id="%s"' % config_page.SETTINGS_FORM_ID) \
+                not in rendered and ('id="%s"' % config_page.SETTINGS_FORM_ID) not in rendered:
+            return False, "expected the settings form to still render on the Display scope"
+        if ('form="%s"' % config_page.SETTINGS_FORM_ID) not in rendered:
+            return False, (
+                "expected the cross-DOM form= attachment B1 depends on to survive — every saved "
+                "theme radio submits through it")
+        if config_page.STATIC_SAVE_FALLBACK_ATTR not in rendered:
+            return False, (
+                "expected the fallback Save button to stay reachable — with scripts blocked it "
+                "is the ONLY way to save this page")
+        # The freshness line is in the page HEADER, above the form, and
+        # the form is not inside it.
+        header_at = rendered.index("page-header__freshness")
+        form_at = rendered.index('id="%s"' % config_page.SETTINGS_FORM_ID)
+        if header_at > form_at:
+            return False, (
+                "expected the freshness line in the page header, above the settings form, got "
+                "it at %d with the form at %d" % (header_at, form_at))
+        return True, ""
+    check(
+        "no Display swap region names a form, a dirty marker or a save control, and the settings "
+        "form, its cross-DOM form= attachment and the fallback Save all still render with the "
+        "freshness line above them in the page header — a swap landing on this page's form is the "
+        "P0 Phase 22 existed to fix (B1/D1, 23-06-PLAN.md Task 2)",
+        _the_display_form_is_untouched_by_the_refresh_loop)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

@@ -806,6 +806,26 @@ EXPECTED_CHECK_COUNT = 276
 # 276 + 3 = 279, recomputed directly against the real on-disk check(...)
 # call count at execution time, not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 279
+# 23-06-PLAN.md Task 2 (D1/CFG-35): +4. Home and the Display scope join
+# the loop, from one shared freshness builder. One check pins that
+# builder's output verbatim in both Health's and Home's rendered pages,
+# the markup gone from health_page.py entirely, one data-loaded-at and
+# one data-refresh-pill each, and the dot/prefix/clock/pill order. One
+# pins that Home declares the four regions that actually change between
+# polls and that every literal in every one of its selectors appears in
+# the rendered page — a selector matching nothing is a region that
+# silently never refreshes — plus the Display scope's deliberately
+# conservative two. One pins the strip's countdown as FORMATTING: a
+# marked <time data-relative-countdown> over companion/wake.py's own
+# resolved instant, reading the ladder's future form, beside a state
+# word that stays frame_state.resolve_state()'s, with no script in
+# companion/static naming a state or a headline template at all. One
+# pins the picture fade: a named keyframes block spending
+# var(--motion-fast) with no bare literal, applied only after
+# freshness.js compares the image's own src, and never server-rendered.
+# 279 + 4 = 283, recomputed directly against the real on-disk check(...)
+# call count at execution time, not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 283
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -7835,6 +7855,291 @@ def main():
         "presence (B1's lesson) — with the interval, ladder, ceiling, in-flight guard and "
         "redirect:manual all untouched (D1/CFG-35, 23-06-PLAN.md Task 1)",
         _23_06_the_loop_knows_three_things_it_must_not_repaint)
+
+    # --- 23-06-PLAN.md Task 2 (D1/CFG-35): Home and the Frame strip go
+    # live, from the same builder and the same loop ------------------------
+
+    def _home_ctx(tmp, now):
+        """A Home ctx rich enough to render every region Home declares —
+        a gallery entry for the picture, a check-in for the strip's own
+        next-wake resolution, and a device config for its two switches.
+        """
+        return {
+            "state_dir": tmp, "now": now,
+            "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+            "last_checkin_ts": now,
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "health_state": {"device_state": "ok", "pipeline_state": "ok",
+                             "battery_state": "ok",
+                             "device_detail_html": "", "pipeline_html": ""},
+            "simple_mode": False,
+        }
+
+    def _selector_literals(selector):
+        """Every literal identifier a CSS selector names — its tags,
+        classes, attribute names and quoted attribute values.
+
+        Used to ask a rendered page "do you actually contain the region
+        you declared?" without a DOM parser. It is deliberately loose
+        about STRUCTURE (it cannot tell a section from a div) and exact
+        about NAMES, which is where the drift this guards against
+        happens: a class renamed in a page module and not in the
+        registry is a region that silently stops refreshing, with no
+        error anywhere.
+        """
+        return [token for token in re.split(r'[.#\[\],"=\s>]+', selector) if token]
+
+    def _23_06_the_freshness_line_has_one_builder_and_three_call_sites():
+        from companion.pages import home_page
+        tmp = _mkstate("h-shared-freshness")
+        try:
+            now_iso = _iso(_now())
+            built = layout.freshness_line_html(now_iso)
+            health = health_page.render(_ctx(tmp, now=now_iso))
+            home = home_page.render(_home_ctx(tmp, now_iso))
+            for rendered, name in ((health, "Health"), (home, "Home")):
+                if built not in rendered:
+                    return False, (
+                        "expected %s's freshness line to be layout.freshness_line_html()'s own "
+                        "output verbatim — one definition site, three call sites, the same "
+                        "contract frame_strip_html() and sidebar_nav() already state. Built:\n%r"
+                        "\nRendered page has: %r"
+                        % (name, built,
+                           rendered[rendered.index("page-header__freshness") - 40:
+                                    rendered.index("page-header__freshness") + 300]
+                           if "page-header__freshness" in rendered else "no freshness line"))
+                if rendered.count("data-loaded-at") != 1:
+                    return False, (
+                        "expected exactly one data-loaded-at on %s — freshness.js reads it with "
+                        "a single querySelector and a second would silently win, got %d"
+                        % (name, rendered.count("data-loaded-at")))
+                if rendered.count("data-refresh-pill") != 1:
+                    return False, (
+                        "expected exactly one data-refresh-pill on %s, got %d"
+                        % (name, rendered.count("data-refresh-pill")))
+            # The markup now comes from layout.py, and health_page.py
+            # does not build a second one beside it.
+            health_src_path = os.path.join(HERE, "pages", "health_page.py")
+            with open(health_src_path) as fh:
+                health_src = fh.read()
+            if 'class="page-header__freshness' in health_src:
+                return False, (
+                    "companion/pages/health_page.py still builds its own freshness line — the "
+                    "markup has one definition site and it is companion/layout.py")
+            layout_src_path = os.path.join(HERE, "layout.py")
+            with open(layout_src_path) as fh:
+                layout_src = fh.read()
+            if 'class="page-header__freshness' not in layout_src:
+                return False, "expected the freshness line's markup in companion/layout.py"
+            # The builder's own shape, in source order: the neutral dot,
+            # the prefix, the clock element, the pill.
+            positions = [
+                built.index(layout.REFRESH_LIVE_DOT_ATTR),
+                built.index(layout.escape_html(health_page.i18n.t(layout.FRESHNESS_PREFIX_TEXT))),
+                built.index("data-refresh-clock"),
+                built.index("data-refresh-pill"),
+            ]
+            if positions != sorted(positions):
+                return False, (
+                    "expected dot, prefix, clock, pill in that source order, got %r in %r"
+                    % (positions, built))
+            if built.count("data-relative") != 1:
+                return False, (
+                    "expected exactly one <time data-relative> in the freshness line, got %d"
+                    % built.count("data-relative"))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health's and Home's freshness lines are layout.freshness_line_html()'s own output "
+        "verbatim — ONE definition site, the markup gone from health_page.py entirely — each page "
+        "renders exactly one data-loaded-at and one data-refresh-pill, and the builder emits the "
+        "dot, the prefix, the clock element and the pill in that order with exactly one <time "
+        "data-relative> (D1/CFG-35, 23-06-PLAN.md Task 2)",
+        _23_06_the_freshness_line_has_one_builder_and_three_call_sites)
+
+    def _23_06_home_declares_the_regions_it_actually_renders():
+        from companion.pages import home_page
+        tmp = _mkstate("h-home-regions")
+        try:
+            now_iso = _iso(_now())
+            rendered = home_page.render(_home_ctx(tmp, now_iso))
+            registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
+            if layout.REFRESH_PAGE_HOME not in registry:
+                return False, "expected Home to declare its own swap regions"
+            if layout.REFRESH_PAGE_DISPLAY not in registry:
+                return False, "expected the Display scope to declare its own swap regions"
+            # NOT a closed set: plan 23-08 adds Flights, and this check
+            # must not be the thing that has to change for it to.
+            missing = []
+            for selector in registry[layout.REFRESH_PAGE_HOME]:
+                for token in _selector_literals(selector):
+                    if token not in rendered:
+                        missing.append((selector, token))
+            if missing:
+                return False, (
+                    "Home declares regions it does not render: %r — a selector that matches "
+                    "nothing is a region that silently never refreshes, and nothing else in this "
+                    "codebase would notice" % (missing,))
+            # What Home's list must COVER, named here rather than left
+            # implied: the strip (where the frame's state is claimed),
+            # the status tiles, the picture and the recent-flights list.
+            home_list = registry[layout.REFRESH_PAGE_HOME]
+            for needle in ("frame-strip", "home-status-grid", "preview-frame", "home-flights"):
+                if not any(needle in selector for selector in home_list):
+                    return False, (
+                        "expected Home's swap regions to cover %r — the four things that change "
+                        "between polls, got %r" % (needle, home_list))
+            if ".page-header__freshness" not in home_list:
+                return False, (
+                    "expected Home's freshness line to be a swap target, like Health's: it is "
+                    "what carries data-loaded-at and the state badge the loop rebuilds")
+            # DISPLAY IS DELIBERATELY CONSERVATIVE. Everything else on
+            # that page is a form, and a form is the one thing a swap
+            # must never touch.
+            display_list = registry[layout.REFRESH_PAGE_DISPLAY]
+            if set(display_list) != {".page-header__freshness", ".frame-strip"}:
+                return False, (
+                    "expected the Display scope to declare exactly the strip and the freshness "
+                    "line — everything else on that page is a form; got %r" % (display_list,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home declares the four regions that actually change between polls (the strip, the status "
+        "tiles, the picture, the recent-flights list) plus its freshness line, every literal in "
+        "every one of its selectors appears in the rendered page, and the Display scope declares "
+        "exactly the strip and the freshness line — everything else there is a form (D1/CFG-35, "
+        "23-06-PLAN.md Task 2)",
+        _23_06_home_declares_the_regions_it_actually_renders)
+
+    def _23_06_the_strip_countdown_formats_and_never_decides():
+        # D1's own hardest clause: the countdown is FORMATTING. The
+        # instant and the state word are server-computed by
+        # companion/wake.py through frame_state.resolve_state(), and the
+        # element ticks toward that instant without ever recomputing
+        # whether the frame is due, held or late.
+        now_iso = "2026-08-27T12:00:00+00:00"
+        ctx = {
+            "now": now_iso, "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+        }
+        strip = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        if "frame-strip__cell--update" not in strip:
+            return False, "expected the strip's next-update cell in this fixture"
+        cell = strip[strip.index("frame-strip__cell--update"):]
+        element = re.search(r"<time ([^>]*)>(.*?)</time>", cell, flags=re.S)
+        if element is None:
+            return False, (
+                "expected a <time data-relative> countdown in the next-update cell — the "
+                "user's own answer to 'will I make the next RER' is how long, not what o'clock")
+        attrs, text = element.group(1), element.group(2)
+        if layout.RELATIVE_COUNTDOWN_ATTR not in attrs:
+            return False, (
+                "expected the countdown to be marked as one (%r) — an unmarked element turns "
+                "itself into an age the moment its instant passes, which is a different claim "
+                "halfway through its own life" % (layout.RELATIVE_COUNTDOWN_ATTR,))
+        # It ticks toward the SERVER's own instant, not one computed here.
+        resolved_iso = wake.next_wake_status(
+            ctx["last_checkin_ts"], ctx["device_config"])[0]
+        expected_instant = layout._machine_instant(layout.parse_iso(resolved_iso))
+        if ('datetime="%s"' % layout.escape_html(expected_instant)) not in attrs:
+            return False, (
+                "expected the countdown to carry companion/wake.py's own resolved next-wake "
+                "instant %r, got %r" % (expected_instant, attrs))
+        if text != layout.escape_html(layout.relative_future_text(
+                int((layout.parse_iso(resolved_iso) - layout.parse_iso(now_iso))
+                    .total_seconds()))):
+            return False, (
+                "expected the countdown's server text to be the ladder's own future form over "
+                "that instant, got %r" % (text,))
+        # And the state word is untouched by it: the headline still
+        # carries frame_state's own template, rendered whole.
+        if "Next update ≈" not in strip:
+            return False, (
+                "expected the state word to stay frame_state.resolve_state()'s own — the "
+                "countdown formats a duration and decides nothing (D-03/CFG-26)")
+        # No script anywhere computes a frame state.
+        js_dir = os.path.join(HERE, "static")
+        for filename in sorted(os.listdir(js_dir)):
+            if not filename.endswith(".js"):
+                continue
+            with open(os.path.join(js_dir, filename)) as fh:
+                js = fh.read()
+            for banned in ("resolve_state", "HEADLINE_LATE", "HEADLINE_HELD", "HEADLINE_DUE"):
+                if banned in js:
+                    return False, (
+                        "companion/static/%s names %r — whether the frame is due, held or late "
+                        "is server/wake.py's answer and no script's" % (filename, banned))
+        return True, ""
+    check(
+        "the Frame strip's next-update cell carries a marked <time data-relative-countdown> over "
+        "companion/wake.py's OWN resolved instant, reading the ladder's future form, beside a "
+        "state word that stays frame_state.resolve_state()'s — and no script in companion/static "
+        "names a state or a headline template at all (D1/D-03/CFG-26, 23-06-PLAN.md Task 2)",
+        _23_06_the_strip_countdown_formats_and_never_decides)
+
+    def _23_06_the_picture_fades_only_when_the_picture_changed():
+        # A fade that fires on every swap would flash the page every 45
+        # seconds for no information, which is worse than no fade at all.
+        css_source = _css_source()
+        stripped = re.sub(r"/\*.*?\*/", " ", css_source, flags=re.S)
+        names = re.findall(r"@keyframes\s+([A-Za-z_-][\w-]*)", stripped)
+        if len(names) != len(set(names)):
+            return False, "every @keyframes name is defined exactly once (23-01's own guard)"
+        if "skypane-fade-in" not in names:
+            return False, (
+                "expected a named fade-in keyframes block for the refreshed picture, got %r"
+                % (names,))
+        rule_at = stripped.index(".is-fading-in")
+        rule = stripped[rule_at:stripped.index("}", rule_at)]
+        if "var(--motion-fast)" not in rule:
+            return False, (
+                "expected the fade to spend 23-01's REACTION token — somebody is waiting to read "
+                "the new value — got %r" % (rule,))
+        if re.search(r"(?<![\w-])\d+(?:\.\d+)?m?s(?![\w-])", rule):
+            return False, (
+                "expected no bare duration literal in the fade rule (23-01's guard), got %r"
+                % (rule,))
+        # The JS half: the class is added only after a real src
+        # comparison, and only ever by the script.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        code = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        code = re.sub(r"//[^\n]*", " ", code)
+        fade_at = code.index("function markPictureFade(")
+        fade_body = code[fade_at:code.index("\n  }", fade_at)]
+        if '"src"' not in fade_body:
+            return False, (
+                "expected the fade to compare the picture's own src — the honest signal for "
+                "'this is a NEW render' — got %r" % (fade_body,))
+        if "FADE_CLASS" not in fade_body:
+            return False, "expected the fade class to be added inside that comparison"
+        if code.count("FADE_CLASS") < 2:
+            return False, (
+                "the fade class is declared and never applied — a constant that agrees with the "
+                "stylesheet and is not consumed proves nothing")
+        # The SERVER never renders it: the motion belongs to the loop
+        # that knows a new picture arrived, exactly like the breathing
+        # dot 23-05 shipped.
+        from companion.pages import home_page
+        tmp = _mkstate("h-fade")
+        try:
+            rendered = home_page.render(_home_ctx(tmp, _iso(_now())))
+            if "is-fading-in" in rendered:
+                return False, (
+                    "expected the server to render no fade class at all — a picture that fades "
+                    "in on every page load is an animation playing, not information")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the refreshed picture fades through a named keyframes block spending var(--motion-fast) "
+        "with no bare literal, the class is applied only after freshness.js compares the image's "
+        "own src (a fade on every swap would flash the page every 45s for no information), and the "
+        "server renders it never (D1+D3/CFG-32, 23-06-PLAN.md Task 2)",
+        _23_06_the_picture_fades_only_when_the_picture_changed)
 
     # --- 19-06-PLAN.md Task 1: layout.stat_tile()'s caption_title tooltip
     # (D-06) ------------------------------------------------------------
