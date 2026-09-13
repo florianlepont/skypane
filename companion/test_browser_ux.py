@@ -262,6 +262,28 @@ EXPECTED_CHECK_COUNT = 21
 # against the real on-disk check(...) call count at execution time
 # (22/22 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 22
+# Quick task 260913-bjy (B11): +1 — Home measured against the viewport
+# and against its own recent-flight row boxes, in BOTH languages, at
+# 390px AND 1280px. B11 is the audit's "no horizontal scrollbar at
+# 390px", closed by measurement on Flights (22-09), Airlines (22-11) and
+# Health (22-12); Home was its missing FOURTH surface, the one page
+# nobody re-measured after 22-07 put the recent-flight time on one line,
+# and it had been scrolling sideways in both themes and both languages
+# ever since (documentElement.scrollWidth 411 FR / 408 EN against 390).
+# The cause was a percentage width cap on `.recent-flight__time`
+# resolving against the content-sized `auto` grid track the item itself
+# sizes — so it clamped the box to 60% of its OWN content, and
+# `white-space: nowrap` left nothing able to reflow into the smaller box.
+# That is why this check measures the CARD boundary as well as the
+# viewport: the clamp held at every width from 320px to 1440px, and at
+# 1280px the age still painted outside its row (right edge 1253 against a
+# row ending at 1191) while staying inside the viewport, where scrollWidth
+# is blind to it. Mutation-tested by restoring the deleted declaration:
+# 22/23, this check the only one red, naming `time-value__age` as the
+# element painting past the edge. 22 + 1 = 23, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (23/23 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 23
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -2212,6 +2234,112 @@ def main():
                     "working) - and it changes no label, while a real save still persists and a Frame "
                     "strip switch still navigates with the guard installed (T14, 22-15-PLAN.md Task 3)",
                     _a_second_click_on_save_produces_no_second_post)
+
+                def _home_paints_nothing_outside_the_viewport_or_its_cards():
+                    # B11 (quick task 260913-bjy) — the audit's "no
+                    # horizontal scrollbar at 390px" closed on its FOURTH
+                    # and last surface. Flights (22-09), Airlines (22-11)
+                    # and Health (22-12) were each measured and closed;
+                    # Home is the page nobody re-measured after 22-07 put
+                    # the recent-flight time on one line, and it had been
+                    # scrolling sideways ever since (documentElement
+                    # .scrollWidth 411 FR / 408 EN against a 390 client
+                    # width, in both themes).
+                    #
+                    # Written to catch the CLASS on this page rather than
+                    # the one selector that happened to cause it: every
+                    # element is measured against the viewport, and every
+                    # recent-flights descendant against its own row box.
+                    #
+                    # The second half is not redundant. The cause was a
+                    # percentage width cap resolving against a
+                    # content-sized `auto` grid track, so it clamped the
+                    # box to 60% of its own content at EVERY width, not
+                    # just narrow ones. At 1280px the age still painted
+                    # outside its card (right edge 1253 against a row
+                    # ending at 1191) while staying inside the viewport —
+                    # so scrollWidth alone is blind to the desktop half of
+                    # the same defect, which is exactly how it survived
+                    # nine plans of review.
+                    #
+                    # Both languages, because French is the wider driver
+                    # here ("(il y a 42 j)" against "(42d ago)") and the
+                    # seeded age string only grows with wall-clock time —
+                    # the day bucket in layout.relative_age_text() has no
+                    # ceiling, so this check can only get stronger.
+                    probe = (
+                        "() => {"
+                        "  const vw = window.innerWidth;"
+                        "  const escaped = [], spilled = [];"
+                        "  document.querySelectorAll('*').forEach(el => {"
+                        "    const r = el.getBoundingClientRect();"
+                        "    if (r.width > 0 && r.right > vw + 0.5)"
+                        "      escaped.push(el.className.toString() || el.tagName);"
+                        "  });"
+                        "  document.querySelectorAll('.recent-flight').forEach(row => {"
+                        "    const rr = row.getBoundingClientRect();"
+                        "    row.querySelectorAll('*').forEach(el => {"
+                        "      const r = el.getBoundingClientRect();"
+                        "      if (r.width > 0 && (r.right > rr.right + 0.5 || r.left < rr.left - 0.5))"
+                        "        spilled.push(el.className.toString() || el.tagName);"
+                        "    });"
+                        "  });"
+                        "  return {sw: document.documentElement.scrollWidth,"
+                        "          cw: document.documentElement.clientWidth,"
+                        "          rows: document.querySelectorAll('.recent-flight').length,"
+                        "          escaped: [...new Set(escaped)],"
+                        "          spilled: [...new Set(spilled)]};"
+                        "}")
+                    for width in (390, 1280):
+                        for lang in ("en", "fr"):
+                            context = browser.new_context(
+                                viewport={"width": width, "height": 844})
+                            try:
+                                page = context.new_page()
+                                base_url = harness.base_url()
+                                _login(page, base_url)
+                                context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+                                page.goto(base_url + "/")
+                                page.locator(".recent-flight").first.wait_for(state="visible")
+                                seen = page.evaluate(probe)
+                                if page.viewport_size["width"] != width:
+                                    return False, (
+                                        "expected the measurement to be taken at %dpx" % (width,))
+                                if not seen["rows"]:
+                                    return False, (
+                                        "expected the seeded recent-flight rows to render at "
+                                        "%dpx/%s — with none, this check measures nothing"
+                                        % (width, lang))
+                                if seen["sw"] > width:
+                                    return False, (
+                                        "Home scrolls sideways at %dpx/%s: documentElement."
+                                        "scrollWidth %d against a client width of %d, painted "
+                                        "past the right edge by %r (B11)"
+                                        % (width, lang, seen["sw"], seen["cw"],
+                                           seen["escaped"]))
+                                if seen["escaped"]:
+                                    return False, (
+                                        "expected nothing on Home to paint right of the %dpx "
+                                        "viewport in %s, got %r (B11)"
+                                        % (width, lang, seen["escaped"]))
+                                if seen["spilled"]:
+                                    return False, (
+                                        "expected every recent-flight row to contain its own "
+                                        "content at %dpx/%s, but %r painted outside its row box "
+                                        "— the half of this defect no scrollWidth can see (B11)"
+                                        % (width, lang, seen["spilled"]))
+                            finally:
+                                context.close()
+                    return True, ""
+                check(
+                    "Home paints nothing outside the viewport and nothing outside its own "
+                    "recent-flight rows, measured in BOTH languages at 390px and at 1280px: "
+                    "documentElement.scrollWidth never exceeds the viewport, no element's right "
+                    "edge clears it, and no row's content escapes its own box (B11's fourth and "
+                    "last surface, quick task 260913-bjy)",
+                    _home_paints_nothing_outside_the_viewport_or_its_cards)
             finally:
                 browser.close()
     finally:

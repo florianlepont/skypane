@@ -6298,10 +6298,37 @@ img.history-card__thumb {
  * own long airline/route text, not this short clock+age pair) and is
  * dropped here rather than merely overridden, since the two mechanisms
  * fight: overflow-wrap can still force a mid-word break to avoid
- * overflowing max-width even under white-space: nowrap. */
+ * overflowing a width cap even under white-space: nowrap.
+ *
+ * Quick task 260913-bjy (B11's missing fourth surface, after 22-09 on
+ * Flights, 22-11 on Airlines and 22-12 on Health): the PERCENTAGE WIDTH
+ * CAP this rule also carried is deleted, because it could only ever be
+ * a lie to the layout engine. This item sits in .recent-flight's third,
+ * content-sized `auto` track, so that track resolves to the item's own
+ * max-content width — and a percentage cap then resolves against that
+ * same content-derived width, clamping the box to 60 per cent of
+ * exactly the content it was meant to bound. Under white-space: nowrap
+ * nothing can reflow into the smaller box, so the relative age simply
+ * painted the other 40 per cent outside it. Measured at EVERY width
+ * from 320px to 1440px, in both languages and both themes, always the
+ * same ratio: clientWidth 88px against a scrollWidth of 147px in
+ * English, 93px against 155px in French. Below 960px that overflow
+ * escaped the VIEWPORT too and gave Home a horizontal scrollbar
+ * (390px viewport: documentElement.scrollWidth 411 FR / 408 EN); at
+ * 960px and above it still escaped the CARD (the age painting to 1253
+ * against a row ending at 1191 at 1280px), which is why nine plans of
+ * desktop review never saw it. With the cap gone the track IS the line:
+ * the one-line intent above is preserved verbatim, and the age sits
+ * inside the card at every width companion/test_browser_ux.py measures.
+ *
+ * A wrapping flex container was measured here FIRST and rejected on the
+ * measurement, not on taste: the `auto` track always grows to
+ * max-content before the neighbouring minmax(0, 1fr) track yields, so
+ * flex-wrap never engaged at any width from 320px up and would have
+ * shipped inert — the same class of dead declaration the sticky-header
+ * entry in the design-system notes was retired for. */
 .recent-flight__time {
   text-align: right;
-  max-width: 60%;
   justify-self: end;
   white-space: nowrap;
 }

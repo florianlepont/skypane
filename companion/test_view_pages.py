@@ -5757,10 +5757,22 @@ def main():
             css_source = fh.read()
         # .recent-flight__time appears in TWO rules — a shared colour-only
         # rule with .recent-flight__detail, and its own dedicated rule
-        # (text-align/max-width/justify-self/white-space). "max-width: 60%"
-        # is unique to the latter, so anchor on it rather than the bare
-        # selector text (which would find the shared rule first).
-        start = css_source.index("max-width: 60%")
+        # (text-align/justify-self/white-space). The bare selector text
+        # cannot anchor this lookup: the shared rule ends in the IDENTICAL
+        # ".recent-flight__time {" and comes first in source order. So
+        # anchor on a declaration unique to the dedicated rule.
+        #
+        # Quick task 260913-bjy: that anchor used to be the percentage
+        # width cap, which this task deleted — it clamped the box to 60%
+        # of its OWN max-content (the item sits in a content-sized `auto`
+        # grid track, so the percentage resolved against the very content
+        # it bounded) and painted the relative age outside the card at
+        # every width, off the right edge of a 390px viewport. The anchor
+        # moved to "justify-self: end", verified unique in the stylesheet.
+        # It is deliberately a DIFFERENT declaration from the asserted
+        # one, so this check still fails if `white-space: nowrap` alone is
+        # ever dropped.
+        start = css_source.index("justify-self: end")
         block_start = css_source.rindex("{", 0, start)
         end = css_source.index("}", start)
         block = css_source[block_start:end]
