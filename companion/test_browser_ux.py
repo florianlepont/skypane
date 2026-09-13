@@ -537,6 +537,18 @@ EXPECTED_CHECK_COUNT = 51
 # restores the saved theme THROUGH the crossfade rather than around it
 # (T8). 51 + 2 = 53, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 53
+# 23-10-PLAN.md Task 3 (D3/CFG-32): +1 — Home's frame picture and a theme
+# chip's preview band each reserve their FINAL box before their image
+# arrives, measured at the 360px contract floor and at 1280px by HOLDING
+# the real image request rather than racing it. This is the only
+# assertion that proves a skeleton did what it was for, and the defect it
+# found was real: Home's picture measured 2x2 before the image resolved
+# and 380x506 after, a ~500px jump at 1280px. The same plan corrects the
+# seed fixture's 8x8 stand-in render to the 600x800 the markup itself
+# declares, because an image whose loaded ratio is 1:1 against a 3:4
+# promise makes this measurement meaningless. 53 + 1 = 54, re-derived by
+# RUNNING.
+EXPECTED_CHECK_COUNT = 54
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -681,7 +693,16 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
     # on-disk filename/format contract can never drift from what a real
     # poll cycle produces.
     from PIL import Image
-    canvas = Image.new("RGB", (8, 8), "white")
+    # 23-10-PLAN.md Task 3 (D3/CFG-32): 600x800, not the 8x8 stand-in
+    # this fixture used to write. The size is not decoration — Home's own
+    # <img> declares width="600" height="800", and an 8x8 render makes
+    # the loaded image's aspect ratio 1:1 against the 3:4 the markup
+    # promises. A skeleton whose box differs from its image's box IS the
+    # layout shift it was added to prevent, so the one fixture in this
+    # repository that a browser measures that shift against cannot be the
+    # one fixture whose proportions are wrong. 600x800 is the markup's
+    # own declared size and the real 1200x1600 panel render's own ratio.
+    canvas = Image.new("RGB", (600, 800), "white")
     for i in range(3):
         render_ts = (base_ts + timedelta(minutes=i)).isoformat()
         poll_loop._save_to_gallery(state_dir, canvas, render_ts)
@@ -2212,6 +2233,116 @@ def main():
                     "SAVED theme through that same crossfade — T8 asserted through the fade "
                     "rather than around it (D3/CFG-32, T-23-38, 23-10-PLAN.md Task 2)",
                     _the_live_preview_crossfade_settles_correct_and_cancel_restores_it)
+
+                def _images_hold_their_place_before_they_arrive():
+                    # 23-10-PLAN.md Task 3 (D3/CFG-32, T-23-39). The only
+                    # assertion that proves a skeleton did what it was
+                    # for: the box BEFORE the image resource resolves
+                    # equals the box AFTER, measured at the 360px
+                    # contract floor and at 1280px.
+                    #
+                    # The image request is HELD by a route handler rather
+                    # than raced against - "measure quickly and hope" is
+                    # how this kind of check passes on a fast machine and
+                    # proves nothing. Nothing is faked: the real request
+                    # is paused, the real boxes are read, the real
+                    # request is then let through, and the real decoded
+                    # image is measured.
+                    #
+                    # A skeleton that does not reserve the final size IS
+                    # the layout shift it exists to prevent, which is why
+                    # the reserved box is asserted to be a real box
+                    # (a collapsed 2x2 image box equals a collapsed 2x2
+                    # image box, and that is how this check would
+                    # otherwise pass on the defect: Home at 1280px
+                    # measured 2x2 before and 380x506 after).
+                    surfaces = (
+                        ("/", ".preview-frame", ".preview-frame__image", "**/gallery/**", 100),
+                        ("/display", ".theme-chip", ".theme-chip__preview",
+                         "**/theme-preview/**", 40),
+                    )
+                    for width in (VIEWPORT_MIN_SUPPORTED["width"],
+                                  VIEWPORT_DESKTOP["width"]):
+                        for route_path, box_sel, img_sel, url_glob, floor in surfaces:
+                            context = browser.new_context(
+                                viewport={"width": width, "height": VIEWPORT_DESKTOP["height"]})
+                            try:
+                                page = context.new_page()
+                                _login(page, harness.base_url())
+                                held = []
+                                page.route(url_glob, lambda route: held.append(route))
+                                page.goto(harness.base_url() + route_path,
+                                          wait_until="domcontentloaded")
+                                page.wait_for_selector(img_sel, state="attached")
+                                page.wait_for_timeout(400)
+                                read = (
+                                    "sels => { const b = document.querySelector(sels[0]);"
+                                    "const i = document.querySelector(sels[1]);"
+                                    "if (!b || !i) return null;"
+                                    "const r = e => { const x = e.getBoundingClientRect();"
+                                    "return [Math.round(x.width * 100) / 100,"
+                                    " Math.round(x.height * 100) / 100]; };"
+                                    "return {box: r(b), img: r(i),"
+                                    " skeleton: getComputedStyle(i).backgroundImage,"
+                                    " complete: i.complete, nat: [i.naturalWidth,"
+                                    " i.naturalHeight]}; }")
+                                before = page.evaluate(read, [box_sel, img_sel])
+                                if before is None:
+                                    return False, (
+                                        "%s at %dpx renders no %s/%s to measure"
+                                        % (route_path, width, box_sel, img_sel))
+                                if before["nat"][0]:
+                                    return False, (
+                                        "%s at %dpx: the image resolved before it could be "
+                                        "measured unloaded — the hold did not hold (%r)"
+                                        % (route_path, width, before))
+                                if before["img"][1] < floor:
+                                    return False, (
+                                        "%s at %dpx: the UNLOADED image reserves only %r — a "
+                                        "collapsed box is the layout shift a skeleton exists to "
+                                        "prevent, and it would make the equality below pass for "
+                                        "the wrong reason (T-23-39)"
+                                        % (route_path, width, before["img"]))
+                                if before["skeleton"] == "none":
+                                    return False, (
+                                        "%s at %dpx: %s paints no skeleton at all while its "
+                                        "image is still coming — the reserved box is correct and "
+                                        "completely blank"
+                                        % (route_path, width, img_sel))
+                                for route_obj in held:
+                                    route_obj.continue_()
+                                page.unroute(url_glob)
+                                page.wait_for_function(
+                                    "sel => { const i = document.querySelector(sel);"
+                                    " return i.complete && i.naturalWidth > 0; }",
+                                    arg=img_sel, timeout=5000)
+                                page.wait_for_timeout(200)
+                                after = page.evaluate(read, [box_sel, img_sel])
+                                if before["box"] != after["box"]:
+                                    return False, (
+                                        "%s at %dpx: %s moved when its image arrived — %r before, "
+                                        "%r after. A skeleton whose box differs from its image's "
+                                        "box IS the layout shift it was added to prevent "
+                                        "(T-23-39)"
+                                        % (route_path, width, box_sel, before["box"],
+                                           after["box"]))
+                                if before["img"] != after["img"]:
+                                    return False, (
+                                        "%s at %dpx: %s itself resized when it arrived — %r "
+                                        "before, %r after (T-23-39)"
+                                        % (route_path, width, img_sel, before["img"],
+                                           after["img"]))
+                            finally:
+                                context.close()
+                    return True, ""
+                check(
+                    "Home's frame picture and a theme chip's preview band each reserve their FINAL "
+                    "box before their image arrives — the real request is HELD, the real box is "
+                    "measured unloaded (and asserted to be a real box, not a collapsed one, with "
+                    "a skeleton painted in it), the request is let through, and the box after the "
+                    "decoded image lands is plain-equal to the box before it, at the 360px "
+                    "contract floor and at 1280px (D3/CFG-32, T-23-39, 23-10-PLAN.md Task 3)",
+                    _images_hold_their_place_before_they_arrive)
 
                 def _the_no_js_floor_holds_for_both_settings_pages():
                     # D-09's floor, asserted at THIS plan's own commit
