@@ -1100,6 +1100,19 @@ def _flight_detail_row_html(row, index):
     fully visible detail row (D-15, locked) — companion/static/
     flight-rows.js adds the collapsing class at load, never this
     function.
+
+    23-08-PLAN.md Task 2 (D3/CFG-32): the cell's whole content is
+    wrapped in a two-element grid reveal, and that wrapper is the ONLY
+    reason this markup is nested rather than flat. D3 asks the detail
+    row to open with HEIGHT, the sanctioned mechanism for that is
+    animating `grid-template-rows` between `0fr` and `1fr`, and a `<tr>`
+    cannot be a grid container — its `display` is `table-row`, which is
+    also a DISCRETE property, so nothing on the row box can be animated
+    at all. The wrapper moves the animation off the row and into the
+    cell, where a grid track really can grow; its inner element is what
+    clips the overflowing content while the track is short. Both are
+    inert with no script: style.css only animates them under the class
+    flight-rows.js adds to <html> itself.
     """
     row_name = _row_copy_name(row["callsign"], row["hex"])
     parts = []
@@ -1125,7 +1138,11 @@ def _flight_detail_row_html(row, index):
         if row["callsign"] else "")
     return (
         '<tr class="flight-detail-row" id="flight-detail-%d" data-row-detail %s="%s">'
-        '<td colspan="6"><dl class="flight-detail-row__grid">%s</dl>%s%s</td>'
+        '<td colspan="6">'
+        '<div class="flight-detail-row__reveal">'
+        '<div class="flight-detail-row__reveal-inner">'
+        '<dl class="flight-detail-row__grid">%s</dl>%s%s'
+        "</div></div></td>"
         "</tr>"
     ) % (index, layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
          "".join(parts), copy_name_button, row.get("view_panel_html", ""))
@@ -1406,14 +1423,18 @@ def _history_cards_html(formatted_rows, now=None):
         # the desktop row for the same data. The one-hop resolve link
         # rides with the airline name, so the card and the desktop cell
         # carry the identical affordance exactly once each.
+        # 23-08-PLAN.md Task 2 (D7/CFG-37): the airline line keeps the
+        # thumbnail and the name exactly where 22-09 put them and LOSES
+        # the resolve link, which now sits outside the disclosure
+        # entirely (see the card assembly below). The line itself moves
+        # inside the <summary>, unchanged.
         airline_line = (
             '<div class="history-card__airline">%s'
-            '<span class="history-card__airline-name">%s</span>%s'
+            '<span class="history-card__airline-name">%s</span>'
             "</div>"
         ) % (
             row.get("thumb_html", ""),
             escape_html(airline_display),
-            _row_resolve_link_html(row),
         )
         # A-37/D-20: the mobile disclosure's three copy buttons name
         # their own row too, via the same _row_copy_name() fallback
@@ -1421,7 +1442,10 @@ def _history_cards_html(formatted_rows, now=None):
         row_name = _row_copy_name(row["callsign"], row["hex"])
         details = (
             '<details class="history-card__details">'
-            "<summary>%s</summary>"
+            '<summary class="history-card__summary">'
+            '<div class="history-card__face">%s%s%s</div>'
+            '<span class="visually-hidden">%s</span>'
+            "</summary>"
             "<dl>"
             '<dt>%s</dt><dd class="mono">%s%s</dd>'
             "<dt>%s</dt><dd>%s</dd>"
@@ -1432,6 +1456,7 @@ def _history_cards_html(formatted_rows, now=None):
             "</dl>%s"
             "</details>"
         ) % (
+            primary, secondary, airline_line,
             escape_html(i18n.t("More details")),
             escape_html(i18n.t("Callsign")),
             escape_html(row["callsign"]),
@@ -1460,12 +1485,32 @@ def _history_cards_html(formatted_rows, now=None):
             # beside the hex, the timestamp and their copy buttons.
             row.get("view_panel_html", ""),
         )
+        # 23-08-PLAN.md Task 2 (D7/CFG-37): the card's three face
+        # blocks moved INSIDE the <details> above, as its <summary>, so
+        # a tap anywhere on the card opens it through the native
+        # disclosure it already contained. This is a restructure of what
+        # opens the card, not a new mechanism, and it needs no script:
+        # with scripts blocked the same summary is the same control.
+        #
+        # The resolve link is the one thing left OUT of the summary, and
+        # deliberately. It is a control in its own right, and inside a
+        # <summary> it would both join the disclosure's accessible name
+        # (so the card would announce itself as "… Name this airline")
+        # and compete with the disclosure for the same activation. It
+        # keeps a visible home on the card face, after the disclosure,
+        # so the phone card still carries every affordance the desktop
+        # row does — the X5 property 22-09 established and this plan
+        # must not spend.
+        resolve_link = _row_resolve_link_html(row)
+        resolve_html = (
+            '<div class="history-card__resolve">%s</div>' % resolve_link
+            if resolve_link else "")
         items.append(
             '<li class="history-card" data-filter-text="%s" '
-            'data-filter-group="%d" %s="%s">%s%s%s%s</li>'
+            'data-filter-group="%d" %s="%s">%s%s</li>'
             % (_filter_text_attr(row), index,
                layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
-               primary, secondary, airline_line, details))
+               details, resolve_html))
     return '<ul class="history-cards">%s</ul>' % "".join(items)
 
 

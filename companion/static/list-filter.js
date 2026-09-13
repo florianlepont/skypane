@@ -94,6 +94,16 @@
   // user-facing copy. It is a wire name, not copy, and the idiom says so.
   var COUNT_ATTR = "data-filter-count";
   var COUNT_SELECTOR = "[" + COUNT_ATTR + "]";
+
+  // 23-08-PLAN.md Task 2 (D7/CFG-37): the stylesheet's EXISTING
+  // changed-value animation, not a fourth keyframes block. Its own rule
+  // comment says it names the motion rather than the component so the
+  // next thing that changes under the reader spends it — this is that
+  // next thing. Applied to the count's ELEMENT and never to its number:
+  // the text below is written first and the class second, so the
+  // displayed value is correct at every instant, including the
+  // animation's first frame.
+  var COUNT_CHANGED_CLASS = "is-fading-in";
   // companion/static/freshness.js's post-swap announcement. Listened
   // for, never dispatched from here.
   var SWAPPED_EVENT = "skypane-regions-swapped";
@@ -165,9 +175,27 @@
     if (countEl) {
       var countTemplate = countEl.getAttribute("data-filter-count-template")
         || "%d of %d shown";
-      countEl.textContent = countTemplate
+      var countText = countTemplate
         .replace("%d", String(visibleCount))
         .replace("%d", String(totalCount));
+      // Only on a REAL change. This function runs on every keystroke
+      // and after every swap, and most of those produce the same
+      // sentence again — animating that would be motion carrying no
+      // information, which is the one thing a motion budget exists to
+      // stop.
+      if (countEl.textContent !== countText) {
+        countEl.textContent = countText;
+        if (countEl.classList) {
+          // Removed, reflowed, re-added. A class that is already there
+          // runs nothing on a second change, and the browser would
+          // otherwise coalesce the remove and the add in one frame into
+          // no change at all — reading a layout property in between is
+          // what forces the removal to actually take effect first.
+          countEl.classList.remove(COUNT_CHANGED_CLASS);
+          void countEl.offsetWidth;
+          countEl.classList.add(COUNT_CHANGED_CLASS);
+        }
+      }
     }
     if (emptyEl) {
       emptyEl.hidden = !(query !== "" && visibleCount === 0);

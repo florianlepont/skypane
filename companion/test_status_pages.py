@@ -12485,9 +12485,33 @@ def main():
         stripped = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
 
         # --- T3: the marker exists, and it rotates ------------------
-        marker = _block(stripped, "summary::before {")
+        #
+        # 23-08-PLAN.md Task 2: the needle is ANCHORED now, and the
+        # reason is recorded rather than fixed silently. This looked up
+        # the first occurrence of "summary::before {" in the file, and
+        # 23-08 added `.history-card__summary::before` — a selector that
+        # ENDS in the needle and sits earlier in the stylesheet — so the
+        # lookup started reading the card's own positioning override
+        # instead of the global marker this check is about. The
+        # assertions are unchanged; only which rule they are asked of is
+        # fixed, and the anchor is what makes that unambiguous. This is
+        # the same substring-collision class 23-07 hit on an attribute
+        # name, and the check was right to go red.
+        marker = _block(stripped, "\nsummary::before {")
         if 'content: ""' not in marker:
             return False, "expected an explicit summary::before disclosure marker (T3)"
+        # And the card summary REUSES that marker rather than drawing a
+        # second one. A rule of its own that redeclared the geometry
+        # would be two chevrons to keep in step, which is the thing the
+        # single shared rule exists to prevent.
+        if ".history-card__summary::before" in stripped:
+            card_marker = _block(stripped, ".history-card__summary::before {")
+            for redeclared in ("content:", "width:", "height:", "border-right", "border-bottom"):
+                if redeclared in card_marker:
+                    return False, (
+                        "expected the card summary's marker override to change only WHERE the "
+                        "shared chevron sits, not to redraw it (found %r in %r) — two chevrons "
+                        "is two things to keep in step (T3)" % (redeclared, card_marker))
         if "flex: none" not in marker:
             return False, (
                 "expected the marker to declare flex: none — it is a flex item of the summary "

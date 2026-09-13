@@ -3361,9 +3361,97 @@ table.data-table--registry .cell-inline-sep {
 /* D-15's own no-JS floor: visible by default. flight-rows.js adds
  * this class to every .flight-detail-row at load, mirroring
  * nav-dropdown.js's own "document.documentElement.className += ' js'"
- * convention for a component-scoped hide instead of a page-wide one. */
+ * convention for a component-scoped hide instead of a page-wide one.
+ *
+ * 23-08-PLAN.md Task 2 (D3/CFG-32): THIS DECLARATION IS THE DELIBERATE
+ * CHOICE, and it stays exactly as it is. The height animation below is
+ * ONE-DIRECTIONAL: opening animates, closing is instant. The
+ * alternative D3 allows — keeping the row present and driving
+ * `display` through `transition-behavior: allow-discrete` so it leaves
+ * the flow only once the collapse finishes — was considered and
+ * declined, for one reason that outranks the nicer closing animation:
+ * for the whole of that transition, and for any browser that does not
+ * support the property, the row's links, buttons and copy controls are
+ * still in the tab order and still in the accessibility tree. A
+ * keyboard user tabbing past a "closed" row would land inside it, and a
+ * screen reader would read out a row nobody can see. `display: none` is
+ * the only end state that removes an element from BOTH, with no support
+ * question attached, and it is the property companion/test_view_pages.py
+ * and companion/test_browser_ux.py both assert. A row that shuts
+ * instantly is a smaller loss than a row that is secretly still there. */
 .flight-detail-row--collapsed {
   display: none;
+}
+
+/* 23-08-PLAN.md Task 2 (D3/CFG-32): the detail row opens with HEIGHT.
+ *
+ * WHY THERE IS A WRAPPER AT ALL, since that is the first thing a reader
+ * of this rule will wonder. The obvious place for the animation is the
+ * row, and the row cannot carry it: a <tr> is `display: table-row`, so
+ * it is not a grid container and has no row track to grow; and
+ * `display` is a DISCRETE property, so it jumps rather than
+ * interpolates no matter what is declared. So the animation lives one
+ * level down, inside the <td>, on a wrapper
+ * companion/pages/history_page.py renders for exactly this purpose.
+ *
+ * The mechanism is `grid-template-rows` between `0fr` and `1fr` — a
+ * single-track grid whose track grows from nothing to its content's own
+ * height, with the inner element clipping what does not fit yet. It is
+ * the mechanism 23-RESEARCH.md's Baseline table picks for this job, and
+ * the reason is the two things it is NOT: not a guessed `max-height`
+ * (which either clips tall content or animates through empty space on
+ * short content, and here the content varies per row — a flight with no
+ * hex and no runway has half the rows of one with both), and not
+ * `interpolate-size`/`calc-size()`, which are Chromium-only and would
+ * animate for some visitors while silently doing nothing for the rest.
+ * 23-01's own guard bans both by name.
+ *
+ * `min-height: 0` on the inner element is load-bearing and not
+ * defensive: a grid item's automatic minimum size is its content's, so
+ * without it the track never actually reaches 0fr and the row would
+ * simply appear at full height with a pointless transition attached.
+ *
+ * SCOPED TO THE CLASS flight-rows.js ADDS TO <html> ITSELF, which is
+ * the no-JS floor rather than tidiness. With scripts blocked every
+ * detail row is rendered open and stays open — that is D-15, locked —
+ * and an unscoped @starting-style would then run this entry animation
+ * on every one of up to fifty rows at first paint, unfolding the whole
+ * page in front of a reader who has touched nothing. Unscoped, it is
+ * motion nobody asked for; scoped, a scripts-blocked page declares no
+ * transition at all.
+ *
+ * The @starting-style block is what makes the OPENING animate: an
+ * element going from `display: none` to displayed has no previous
+ * computed value to transition from, so without a declared starting
+ * value the transition is one that can never run. Where it is not
+ * supported the row simply appears, which is exactly what it did
+ * before this plan — the animation is additive and degrades to today.
+ *
+ * `var(--motion-fast)`: 23-01's REACTION token, which names this
+ * surface in its own comment. Somebody pressed the control and is
+ * watching for it to answer.
+ *
+ * UNDER REDUCED MOTION THIS DOES NOT GROW, and there is no block here
+ * saying so — the global override at the top of this file already
+ * drives every transition-duration to 0.01ms, and a per-rule block
+ * would be the dead-code-not-a-safety-net pattern
+ * accessibility-contrast.md records a verdict on. The stylesheet's live
+ * reduce-block count stays at two. */
+.flight-rows-live .flight-detail-row__reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--motion-fast) ease-out;
+}
+
+@starting-style {
+  .flight-rows-live .flight-detail-row__reveal {
+    grid-template-rows: 0fr;
+  }
+}
+
+.flight-detail-row__reveal-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* 22-09-PLAN.md Task 1 (X5, 22-UI-SPEC.md §2): the row-toggle's FIRST
@@ -3385,10 +3473,25 @@ table.data-table--registry .cell-inline-sep {
  * `.copy-btn .icon` already scopes its SVG down to. The control is
  * BIGGER than the 30px text button it replaces, not smaller.
  *
- * The glyph rotates with the state and takes no transition of its own:
- * a rotating-chevron transition is D3/Phase 23's motion budget, not
- * this phase's. The global prefers-reduced-motion block at the top of
- * this file already covers a plain transform for free. */
+ * The glyph rotates with the state. 22-09 left it with no transition
+ * of its own and named D3/Phase 23's motion budget as the plan that
+ * would add one; 23-08-PLAN.md Task 2 is that plan, and the transition
+ * is below.
+ *
+ * `transform` by name rather than `all`: the rotation is the only thing
+ * that changes here, and `all` would animate every property a future
+ * edit happens to add to this rule, including ones nobody chose to
+ * animate. `var(--motion-fast)` because this is a control answering a
+ * press.
+ *
+ * NO per-rule reduced-motion block, and that was pre-approved rather
+ * than assumed: references/control-density.md:78 says in advance that
+ * "the global prefers-reduced-motion block already covers a plain
+ * transform for free, and a per-rule block here would be dead code, not
+ * a safety net." The global block at the top of this file drives every
+ * transition-duration to 0.01ms, so under that preference the chevron
+ * simply is where it should be. The stylesheet's live reduce-block
+ * count stays at two. */
 .row-toggle {
   width: 22px;
   height: 22px;
@@ -3416,6 +3519,7 @@ table.data-table--registry .cell-inline-sep {
   display: inline-block;
   font-size: 14px;
   line-height: 1;
+  transition: transform var(--motion-fast) ease;
 }
 
 .row-toggle[aria-expanded="true"] .row-toggle__glyph {
@@ -3646,8 +3750,93 @@ table.data-table--registry .cell-inline-sep {
   font-size: var(--font-label-size);
 }
 
+/* 23-08-PLAN.md Task 2 (D7/CFG-37): the disclosure is the card's WHOLE
+ * content now, not a strip under it, so the gap that used to separate
+ * it from the airline line above is gone — that line is inside it. The
+ * gap moved to the body, below. */
 .history-card__details {
+  margin-top: 0;
+}
+
+/* The card's face, promoted to be the <summary> of the <details> the
+ * card already contained. A tap anywhere on the card opens it, through
+ * the native disclosure and with no script involved at all — which is
+ * why this is a restructure of what the summary IS rather than a new
+ * mechanism, and why it holds with scripts blocked.
+ *
+ * THE NEGATIVE MARGIN IS THE "ANYWHERE" PART. `.history-card` carries
+ * `padding: var(--space-md)`, and without this the summary would stop
+ * at the padding's inner edge — a tap on the card's own margin of
+ * breathing space would land on the <li> and do nothing, which is the
+ * kind of near-miss that reads as a broken control rather than as a
+ * boundary. Pulling the summary out by exactly that padding and
+ * re-declaring it here makes the tappable box the card's whole face,
+ * with the inner spacing unchanged to the eye.
+ *
+ * `color: inherit` overrides the global `summary` rule's
+ * `--color-accent`. That rule is right for a summary whose text IS its
+ * label; here the summary's text is the flight's own data, and painting
+ * a callsign, a route and an airline name in the accent colour would
+ * claim every one of them as a control. The chevron below keeps the
+ * accent, so the affordance is still accent-coloured while the data is
+ * not — the same split `.tab-bar__link` already makes for its own
+ * summary.
+ *
+ * `min-height: 0` overrides the global 44px floor, which would
+ * otherwise fight this box's own content height; the card face is
+ * several lines tall and clears 44px many times over. */
+.history-card__summary {
+  margin: calc(var(--space-md) * -1);
+  padding: var(--space-md);
+  align-items: center;
+  color: inherit;
+  min-height: 0;
+}
+
+/* The shared chevron, moved to the trailing edge. `order` rather than a
+ * second pseudo-element: the global `summary::before` already draws it,
+ * already rotates it on open and already carries the reduced-motion
+ * reasoning, so this rule only changes where it sits. On a card whose
+ * face is three stacked lines, a leading chevron would indent every one
+ * of them; a trailing one reads as the card's own affordance.
+ *
+ * `flex: none` and the rotation stay the base rule's. Only the accent
+ * is restated, because `currentColor` now resolves to the inherited
+ * text colour set above rather than to the summary's own accent. */
+.history-card__summary::before {
+  order: 1;
+  margin-right: 0;
+  margin-left: var(--space-md);
+  color: var(--color-accent);
+}
+
+/* The face's three stacked lines are one flex item, so the chevron sits
+ * beside the block rather than between its lines. `min-width: 0` is the
+ * usual flex-item floor: without it a long callsign or route would
+ * refuse to shrink and push the chevron off the card. */
+.history-card__face {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The gap the disclosure's own margin used to provide, moved to the
+ * body it actually separates. */
+.history-card__details > dl {
+  margin-top: var(--space-md);
+}
+
+/* The one-hop resolve link, kept on the card face and OUT of the
+ * summary (companion/pages/history_page.py's own comment holds the
+ * reasoning). Its `.cell-unresolved-link` left margin exists to space
+ * it from the airline name it used to follow INLINE; on its own line
+ * that margin is a stray indent, so it is zeroed here rather than the
+ * shared class being changed for the desktop cell that still needs it. */
+.history-card__resolve {
   margin-top: var(--space-sm);
+}
+
+.history-card__resolve .cell-unresolved-link {
+  margin-left: 0;
 }
 
 /* Health's own generic mobile card-list mechanism (quick task 260903-ghy,

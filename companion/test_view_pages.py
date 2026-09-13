@@ -5436,8 +5436,10 @@ def main():
             _seed_runway_events(tmp, [
                 {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FACEONE",
                  "airline": "Air France"},
-                {"ts": "2026-08-27T09:00:00+00:00", "hex": "fc02", "callsign": "FACETWO",
-                 "airline": "Totally Unknown Air"},
+                # No airline at all, so airline_label falls to
+                # AIRLINE_FALLBACK_TEXT and the one-hop resolve link is
+                # actually rendered — the whole point of the second row.
+                {"ts": "2026-08-27T09:00:00+00:00", "hex": "fc02", "callsign": "FACETWO"},
             ])
             rendered = history_page.render(_history_ctx(tmp))
             li = _row_block(rendered, "li", 0)
