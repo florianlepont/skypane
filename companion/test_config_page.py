@@ -700,6 +700,21 @@ EXPECTED_CHECK_COUNT = 237
 # shadow and BOTH of T7's MEASURED clearance figures unchanged.
 # 237 + 1 = 238, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 238
+# 23-09-PLAN.md Task 2 (D3/CFG-32, closing T14's deferred label): +1 —
+# the in-flight word, and the argument that makes relabelling a
+# submitter safe. The word is a server-rendered, translated data-*
+# attribute on the same bar element the five connector words already
+# ride on, with a byte-identical English fallback in dirty-state.js; the
+# relabel runs only for a <button> carrying no name, because a control
+# with no name contributes no entry to the form data set at all and an
+# <input type="submit">'s label IS its submitted value; it writes
+# textContent and never `value`, never `disabled` (submit-guard.js owns
+# the one disable in the app) and never preventDefault. The same check
+# asserts no companion/static/*.js reaches for client storage, on
+# comment-stripped source — a "Saved" flag carried across the save's own
+# navigation is precisely what would have introduced the first one.
+# 238 + 1 = 239, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 239
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1554,6 +1569,142 @@ def main():
     check(
         "Settings opens with the shared layout.page_header() component, not a bare <h1>",
         _render_opens_with_shared_page_header)
+
+    def _the_save_control_says_what_it_is_doing_without_changing_what_it_posts():
+        # 23-09-PLAN.md Task 2 (D3/CFG-32). T14 (22-15-PLAN.md Task 3)
+        # deliberately left this label change for this phase, in as many
+        # words: "Disable only — do NOT change any label to a progress
+        # word; that is D3, Phase 23." This is that plan, and this check
+        # is the source-level half of it.
+        #
+        # The whole risk lives in one sentence of submit-guard.js's own
+        # header: a submit button's name/value pair joins the form data
+        # set AFTER the submit event's listeners return, which is why
+        # THAT file disables from a zero-delay timer instead of inline.
+        # A relabel has to answer the same question, and the answer here
+        # is a property of the control rather than of the timing — so the
+        # check asserts the property.
+        #
+        # Read directly rather than through this file's own _read_static()
+        # helper: that helper is defined further down the same enclosing
+        # function, so its name is unbound at the moment this check runs.
+        static_dir = os.path.join(os.path.dirname(__file__), "static")
+        with open(os.path.join(static_dir, "dirty-state.js")) as fh:
+            source = fh.read()
+
+        # (a) THE WORD IS THE SERVER'S, not a JS literal. Same
+        # attribute-with-an-English-fallback idiom the bar's five
+        # connector words already use, so the French is a catalogue
+        # entry and the two can never silently disagree about what a
+        # missing attribute degrades to.
+        if not hasattr(config_page, "DIRTY_SAVING_TEXT"):
+            return False, "expected config_page to name the in-flight word as its own constant"
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        marker = 'data-dirty-saving="%s"' % config_page.DIRTY_SAVING_TEXT
+        if marker not in rendered:
+            return False, (
+                "expected the bar to carry %r — the in-flight word belongs on the same element "
+                "the other five translated words already ride on" % (marker,))
+        if "data-dirty-saving" not in source:
+            return False, "expected dirty-state.js to read the in-flight word off the bar"
+        if ('"%s"' % config_page.DIRTY_SAVING_TEXT) not in source:
+            return False, (
+                "expected dirty-state.js's English fallback literal for the in-flight word to "
+                "match the server constant byte for byte, or a bar rendered without the "
+                "attribute says something different from one rendered with it")
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_rendered = config_page.render({
+                "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+                "poll_cooldown_remaining": 0,
+            })
+        finally:
+            prefs.set_request_prefs(lang="en")
+        fr_word = layout.i18n.t_lang(config_page.DIRTY_SAVING_TEXT, "fr")
+        if fr_word == config_page.DIRTY_SAVING_TEXT:
+            return False, (
+                "expected a French entry for %r — every new visible word is a catalogue entry"
+                % (config_page.DIRTY_SAVING_TEXT,))
+        if ('data-dirty-saving="%s"' % fr_word) not in fr_rendered:
+            return False, "expected a French render to carry the French in-flight word"
+
+        # (b) THE RELABEL IS SAFE BY THE CONTROL'S OWN SHAPE, not by
+        # timing. It runs only for a <button> carrying no name, and a
+        # control with no name contributes no entry to the form data set
+        # at all — so there is nothing the label could displace. The
+        # <input type="submit"> case is excluded by the same clause and
+        # for a sharper reason: that element's label IS its submitted
+        # value, so relabelling one would genuinely change the payload.
+        if "function relabelSubmitter(" not in source:
+            return False, "expected dirty-state.js to name its relabel"
+        body_at = source.index("function relabelSubmitter(")
+        body = source[body_at:source.index("\n  }", body_at)]
+        if '"BUTTON"' not in body:
+            return False, (
+                "expected the relabel to run only for a <button> — an <input type=\"submit\">'s "
+                "label is its submitted value, so relabelling one would change the payload")
+        if 'getAttribute("name")' not in body:
+            return False, (
+                "expected the relabel to stand down for a NAMED submitter: a named control's "
+                "name/value pair is part of the form data set, and companion/layout.py's theme "
+                "and language pickers are exactly that shape")
+        if ".value" in body:
+            return False, (
+                "expected the relabel to write only textContent — writing `value` on a submitter "
+                "is writing the form data set itself")
+        for forbidden in ("preventDefault", "return false", "disabled"):
+            if forbidden in body:
+                return False, (
+                    "the relabel found %r — it adds a label and nothing else: it must never "
+                    "cancel the submission, and the disable is submit-guard.js's, once, for "
+                    "every form in the app" % (forbidden,))
+
+        # (c) NO SECOND DISABLE anywhere in this file. submit-guard.js
+        # already owns that for every form, from a zero-delay timer, and
+        # two files writing the same property is how they start
+        # disagreeing about who re-enables it.
+        if "disabled" in source:
+            return False, (
+                "dirty-state.js must not write or read `disabled` at all — submit-guard.js owns "
+                "the double-submit guard for every form in the app")
+
+        # (d) NO CLIENT STATE, in any script. The completed state is
+        # NOT persisted across the save's navigation: the POST replaces
+        # the document, so the bar that said the in-flight word does not
+        # exist when the save finishes, and carrying a flag across that
+        # navigation would mean browser storage. This app holds none, on
+        # purpose — a second source of truth beside the server is the
+        # one thing its whole discipline excludes. The completed state
+        # is the existing save-confirmation flash, on the page the
+        # browser actually lands on.
+        #
+        # Measured on COMMENT-STRIPPED source, the way 23-01's own motion
+        # guard measures its bans, so a script may still write down WHY
+        # it holds no client state without failing the rule.
+        for name in sorted(os.listdir(static_dir)):
+            if not name.endswith(".js"):
+                continue
+            with open(os.path.join(static_dir, name)) as fh:
+                live = re.sub(r"/\*.*?\*/", "", fh.read(), flags=re.DOTALL)
+            live = re.sub(r"^\s*//.*$", "", live, flags=re.MULTILINE)
+            for store in ("sessionStorage", "localStorage", "indexedDB"):
+                if store in live:
+                    return False, (
+                        "companion/static/%s reaches for %s — this app holds no client state at "
+                        "all, deliberately, and a 'Saved' flag carried across the save's own "
+                        "navigation is exactly the thing that would introduce one" % (name, store))
+        return True, ""
+    check(
+        "the save bar's in-flight word is a server-rendered, translated data-* attribute with a "
+        "byte-identical English fallback in dirty-state.js, and the relabel is safe by the "
+        "control's own shape rather than by timing — a <button> with no name contributes nothing "
+        "to the form data set, so the relabel writes textContent only, never `value`, never "
+        "`disabled`, never preventDefault — while no script anywhere reaches for client storage "
+        "(D3/CFG-32, T14's deferred label, 23-09-PLAN.md Task 2)",
+        _the_save_control_says_what_it_is_doing_without_changing_what_it_posts)
 
     def _settings_form_carries_config_form_class_hook():
         # D-01 stable class hook: the settings form (POST /config) needs a
