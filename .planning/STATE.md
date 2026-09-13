@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-15-PLAN.md
-last_updated: "2026-09-13T06:35:48.459Z"
+stopped_at: Completed 22-16-PLAN.md — Phase 22 closed (16/16 plans); design system updated in step, CFG-25..CFG-31 all complete
+last_updated: "2026-09-13T07:08:34.484Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
-  completed_phases: 31
+  completed_phases: 32
   total_plans: 203
   completed_plans: 202
-  percent: 99
+  percent: 91
 ---
 
 ---
@@ -26,7 +26,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [██████████] 99%
+  [██████████] 100%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -368,6 +368,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P13 | 95min | 3 tasks | 8 files |
 | Phase 22 P14 | 26min | 3 tasks | 7 files |
 | Phase 22 P15 | 95min | 3 tasks | 11 files |
+| Phase 22 P16 | 35m | 4 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -680,6 +681,11 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-15 (T13): the retry ladder starts AT the normal 45s cadence and the interval is left running as a heartbeat rather than torn down, so a failing server sees a strictly decreasing request rate and a recovered page is never left with no schedule
 - [Phase 22]: 22-15 (T14): the disable-on-submit must be DEFERRED to a zero-delay timer, never inline — a submit button's name/value joins the form data set after the listeners return, and layout.py's theme and language pickers are named submit buttons whose name/value IS the request
 - [Phase 22]: 22-15 (T14): a static script needs an explicit route in companion/app.py; registering in layout.py alone ships a 404. Four mechanical additions there were made as a Rule 3 deviation from the plan's files_owned, which excludes app.py
+- [Phase ?]: 22-16: sketch-findings-skypane updated in step with Phase 22 — all twenty 22-UI-SPEC.md §4 rows applied across seven skill files, every supersession marked IN PLACE with a stated reason and nothing deleted (verified by diff)
+- [Phase ?]: 22-16: two recorded verdicts reversed, both argued rather than assumed — the icon-only pattern for .row-toggle (X5 dissolved its stated ground) and .dirty-bar's no-z-index paragraph (T7, via that paragraph's own escape clause). The two rejected NAV verdicts stay unchanged and unreversed
+- [Phase ?]: 22-16: three stale load-bearing numbers corrected at source — the @supports :has() block count is ONE (verified live; the stale 'two' is what an earlier draft of this phase's own UI spec copied, causing a checker BLOCK), the floating-overlay shadow exception count is FOUR, and the compact-chip usage sentence is no longer exhaustive
+- [Phase ?]: 22-16: two §4 rows were WRONG against the shipped code and were corrected rather than applied mechanically — T6 covers three selectable surfaces plus both dashed markers and needs .theme-chip's box-shadow: inherit overlay; .dot--off has four consumers, not three
+- [Phase ?]: 22-16: CFG-28 closed by converting Health's page-header clock title from a raw UTC ISO to a Paris-local full timestamp and RETARGETING 19-09's pin in place (mutation-tested); style.css's accent arithmetic corrected at the false premise 22-15 found
 
 ### Pending Todos
 
@@ -708,6 +714,7 @@ None yet.
 - OPEN, flagged by 22-13 for 22-16, NOT a blocker for any plan: three design-system rows from 22-UI-SPEC.md 4 are now owed by landed code — `.login-card button[type="submit"]` joining references/control-density.md's touch-target register in the KEPT category with its three-point justification, `.field-error` gaining its SECOND consumer in references/settings-page-patterns.md with the under-the-control placement rule stated, and C4's composition rule itself, whose worked example (the login card's field + Sign in, both 44px, both 8px radius) now exists in code
 - NOTED by 22-13, for whoever records the collision: a component whose base rule sets `display` needs its own higher-specificity `[hidden]` selector or the server-rendered hidden attribute is silently defeated by the author stylesheet. style.css now has THREE such rules — `.dirty-bar[hidden]`, `.refresh-pill[hidden]` and `.login-reveal[hidden]`. The third was found by companion/test_browser_ux.py's scripts-blocked pass, not by inspection: `.copy-btn`'s `display: inline-flex` was rendering a dead show-password button on a page with JavaScript off
 - NOTED by 22-13, a plan-frontmatter inaccuracy 22-16 may want to correct rather than inherit: 22-13-PLAN.md's own must_haves claim style.css had no `.login-card` rule, and derive an acceptance grep from it. `.login-shell`/`.login-card` have existed since 06.6.2-07, so that grep was already non-zero before the plan ran and cannot discriminate. What genuinely did not exist is any rule for the two CONTROLS inside the card, which is what the audit row actually said (`.login-form`)
+- STATE.md is structurally degraded: two YAML frontmatter blocks and two '## Current Position' sections, both stale, so 'gsd-sdk query state.advance-plan' cannot parse it and errors. Pre-existing and long-documented in the file's own history; 22-16 updated the position/session fields by hand per that precedent. Worth a dedicated repair.
 
 ### Quick Tasks Completed
 
@@ -776,8 +783,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T06:35:12.293Z
-Stopped at: Completed 22-14-PLAN.md
+Last session: 2026-09-13T07:07:44.971Z
+Stopped at: Completed 22-16-PLAN.md — Phase 22 closed (16/16 plans); design system updated in step, CFG-25..CFG-31 all complete
 
 Resume file: 
 
