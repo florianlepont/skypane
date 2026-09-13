@@ -73,6 +73,7 @@ path). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_browser_ux.py
 """
+import contextlib
 import os
 import sys
 from datetime import datetime, timedelta, timezone
@@ -341,6 +342,50 @@ EXPECTED_CHECK_COUNT = 25
 # real on-disk check(...) call count at execution time (26/26 pass),
 # not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 26
+# 23-02-PLAN.md Task 1: net 0, and deliberately so. The three
+# scripts-blocked checks above were refactored onto one shared
+# `_no_js_page()` helper and the repeated inline viewport dicts onto the
+# named set below; not one check(...) call site was added, removed or
+# retargeted, and not one assertion inside the three was altered. The
+# count is recorded IN PLACE rather than re-asserted below because a new
+# assignment here would claim a change this plan did not make. Still 26,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (26/26 pass), not trusted from arithmetic alone.
+# 23-02-PLAN.md Task 2: net 0 again. The general disclosure sweep gained
+# a reduced-motion context and nothing else. 26/26, recomputed the same
+# way.
+
+# --- The viewport sizes this file measures at (23-02-PLAN.md Task 1) ---
+# One named set replacing the inline {"width": ..., "height": ...} dicts
+# this file repeated at nine call sites. 360 is here because it is the
+# MINIMUM SUPPORTED VIEWPORT (developer decision 2026-09-13, recorded in
+# .claude/skills/sketch-findings-skypane/SKILL.md) and until now nothing
+# in this file could name it — the assertions were a mix of 320 and 390.
+#
+# 320 STAYS a measured width even though the contract floor is 360, and
+# that is deliberate, not an oversight for a later reader to tidy away.
+# SKILL.md states both of the floor's non-licences in as many words: it
+# "does not license shipping something broken at 360 px", and it "does
+# not mean deleting the 320 px assertions that already exist in
+# companion/test_browser_ux.py. They pass today, they cost nothing, and
+# they catch real defects. Keep them." The narrow rung below is that
+# sentence, executable.
+VIEWPORT_MIN_SUPPORTED = {"width": 360, "height": 844}
+VIEWPORT_PHONE = {"width": 390, "height": 844}
+VIEWPORT_DESKTOP = {"width": 1280, "height": 900}
+# Out of contract since 2026-09-13, still measured — see above.
+VIEWPORT_WIDTH_NARROW = 320
+VIEWPORT_WIDTH_TABLET = 768
+# The two width ladders, for the checks that build one context per width
+# rather than one fixed-size context. Derived from the three sizes above
+# so a width has exactly one definition in this file.
+VIEWPORT_WIDTHS_RESPONSIVE = (
+    VIEWPORT_MIN_SUPPORTED["width"], VIEWPORT_PHONE["width"],
+    VIEWPORT_DESKTOP["width"])
+VIEWPORT_WIDTHS_ALL = (
+    VIEWPORT_WIDTH_NARROW, VIEWPORT_MIN_SUPPORTED["width"],
+    VIEWPORT_PHONE["width"], VIEWPORT_WIDTH_TABLET,
+    VIEWPORT_DESKTOP["width"])
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -439,6 +484,48 @@ def _login(page, base_url):
     page.fill("#password", TEST_PASSWORD)
     page.click('button[type="submit"]')
     page.wait_for_load_state("networkidle")
+
+
+@contextlib.contextmanager
+def _no_js_page(browser, base_url, route, viewport=None, sign_in=True):
+    """A scripts-blocked browser context, signed in, landed on `route`.
+
+    The one place in this file that blocks scripts. Three checks each
+    spelled this sequence out by hand (Health, the two settings pages,
+    and the login card), and 23-RESEARCH.md's Wave 0 gap list names five
+    more controls that each need one; a transcribed sequence is a
+    sequence that can be transcribed WRONG, and a scripts-blocked proof
+    that quietly ran with scripts enabled would pass while proving
+    nothing. Keeping the flag to a single call site is what makes that
+    failure mode unavailable rather than merely unlikely.
+
+    `sign_in=False` exists for the login card, whose whole subject is the
+    unauthenticated page: it asserts what /login renders with scripts
+    blocked and THEN signs in as its last act. That is not a weaker use
+    of the helper, it is the only honest one for a check about signing
+    in.
+
+    `viewport` is optional and defaults to the Playwright default the
+    three converted checks already ran under, so converting them changes
+    nothing at all. Pass VIEWPORT_MIN_SUPPORTED to measure a
+    scripts-blocked control at the 360px contract floor.
+
+    `context.close()` runs in a finally, the discipline every check in
+    this file already follows by hand.
+    """
+    extra = {} if viewport is None else {"viewport": viewport}
+    context = browser.new_context(java_script_enabled=False, **extra)
+    try:
+        page = context.new_page()
+        if sign_in:
+            page.goto(base_url + "/login")
+            page.fill("#password", TEST_PASSWORD)
+            page.click('button[type="submit"]')
+            page.wait_for_load_state("load")
+        page.goto(base_url + route)
+        yield page
+    finally:
+        context.close()
 
 
 def _click_control(page, selector):
@@ -630,7 +717,7 @@ def main():
                     # getBoundingClientRect().top is the contract, and
                     # this assertion fails if it ever reopens a third
                     # time.
-                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -666,7 +753,7 @@ def main():
                     # to ONE column inside a 342px content column. Only a
                     # real layout engine resolves auto-fill, so this is
                     # measured rather than asserted off the stylesheet.
-                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -748,7 +835,7 @@ def main():
                     # which is how Phase 18's A-18 came back the first
                     # time. Measured, like its Flights sibling: equal
                     # getBoundingClientRect().top is the contract.
-                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -807,7 +894,7 @@ def main():
                     #   stacked cells   EN  830   FR  900
                     #   + short FR hdrs EN  830   FR  830
                     for lang in ("en", "fr"):
-                        context = browser.new_context(viewport={"width": 1280, "height": 900})
+                        context = browser.new_context(viewport=VIEWPORT_DESKTOP)
                         try:
                             page = context.new_page()
                             base_url = harness.base_url()
@@ -881,7 +968,7 @@ def main():
                     # its siblings: equal getBoundingClientRect().top is
                     # the contract, so a third regression fails here
                     # instead of being noticed by eye.
-                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -935,16 +1022,7 @@ def main():
                     # cells and re-wraps a filter bar — all server-
                     # rendered, and all of it must therefore be complete
                     # with scripts blocked.
-                    context = browser.new_context(java_script_enabled=False)
-                    try:
-                        page = context.new_page()
-                        base_url = harness.base_url()
-                        page.goto(base_url + "/login")
-                        page.fill("#password", TEST_PASSWORD)
-                        page.click('button[type="submit"]')
-                        page.wait_for_load_state("load")
-                        page.goto(base_url + "/health")
-
+                    with _no_js_page(browser, harness.base_url(), "/health") as page:
                         tiles = page.eval_on_selector_all(".stat-tile", "els => els.length")
                         if tiles != 4:
                             return False, (
@@ -1001,8 +1079,6 @@ def main():
                                 "expected the Resolve link (%r) to navigate to the Airlines "
                                 "resolve surface with scripts blocked, got %r" % (href, page.url))
                         return True, ""
-                    finally:
-                        context.close()
                 check(
                     "with scripts blocked Health renders in full — all four tiles with their "
                     "label/verdict/detail slots each exactly once, the registry filter bar and "
@@ -1284,7 +1360,7 @@ def main():
                     # then a lone 308x217. Only a real layout engine can
                     # see this, which is why it lives here and not in a
                     # string-comparison harness.
-                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -1382,16 +1458,8 @@ def main():
                     # an attribute read (T10). Both are exactly the kind
                     # of change that can look fine with scripts running
                     # and be dead without them, so a break must fail here.
-                    context = browser.new_context(java_script_enabled=False)
-                    try:
-                        page = context.new_page()
-                        base_url = harness.base_url()
-                        page.goto(base_url + "/login")
-                        page.fill("#password", TEST_PASSWORD)
-                        page.click('button[type="submit"]')
-                        page.wait_for_load_state("load")
-
-                        page.goto(base_url + "/display")
+                    base_url = harness.base_url()
+                    with _no_js_page(browser, base_url, "/display") as page:
                         if not page.query_selector(".theme-chip"):
                             return False, "Display must render its chips with scripts blocked"
                         # T10: the badge's text is an ATTRIBUTE now, so it
@@ -1446,8 +1514,6 @@ def main():
                                 "expected the test submission to redirect back to Device, got %r"
                                 % page.url)
                         return True, ""
-                    finally:
-                        context.close()
                 check(
                     "with scripts blocked both settings pages render and stay usable: the 'Current' "
                     "badge's text is server-rendered into data-current-label, no usage panel is "
@@ -1584,10 +1650,8 @@ def main():
                     # with scripts blocked the toggle is not there at all
                     # (never a dead control), no gutter is reserved for
                     # it, and the form still signs in.
-                    context = browser.new_context(java_script_enabled=False)
-                    try:
-                        page = context.new_page()
-                        page.goto(harness.base_url() + "/login")
+                    with _no_js_page(
+                            browser, harness.base_url(), "/login", sign_in=False) as page:
                         if page.locator("[data-login-reveal]").is_visible():
                             return False, (
                                 "with scripts blocked the toggle must stay hidden — a "
@@ -1606,8 +1670,6 @@ def main():
                                 "expected a scripts-blocked sign-in to succeed, landed on %r"
                                 % page.url)
                         return True, ""
-                    finally:
-                        context.close()
                 check(
                     "the show-password toggle reveals ITSELF at load (the hidden attribute is "
                     "removed, not overridden), swaps aria-pressed and its translated accessible "
@@ -1700,8 +1762,7 @@ def main():
                     # the 240px sidebar and a 390px phone — a count only a
                     # real layout engine can produce, which is why this
                     # one is here rather than in a source harness.
-                    context = browser.new_context(
-                        viewport={"width": 1280, "height": 900})
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -1751,8 +1812,7 @@ def main():
                         context.close()
 
                         # The same contract at 390px, inside the dropdown.
-                        context = browser.new_context(
-                            viewport={"width": 390, "height": 844})
+                        context = browser.new_context(viewport=VIEWPORT_PHONE)
                         page = context.new_page()
                         _login(page, harness.base_url())
                         context.add_cookies([{
@@ -1837,8 +1897,7 @@ def main():
                     # colour transition could hide an OPEN panel), and a
                     # close with no transition at all that never re-applied
                     # the hidden property.
-                    context = browser.new_context(
-                        viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -1897,8 +1956,7 @@ def main():
                         # stylesheet switches the transition off entirely
                         # and no transitionend will ever arrive.
                         context = browser.new_context(
-                            viewport={"width": 390, "height": 844},
-                            reduced_motion="reduce")
+                            viewport=VIEWPORT_PHONE, reduced_motion="reduce")
                         page = context.new_page()
                         _login(page, harness.base_url())
                         page.goto(harness.base_url() + "/display")
@@ -2474,7 +2532,7 @@ def main():
                         "          sw: document.documentElement.scrollWidth,"
                         "          cw: document.documentElement.clientWidth};"
                         "}")
-                    for width in (320, 360, 390, 768, 1280):
+                    for width in VIEWPORT_WIDTHS_ALL:
                         for lang in ("fr", "en"):
                             context = browser.new_context(
                                 viewport={"width": width, "height": 844})
@@ -2794,7 +2852,7 @@ def main():
                                 % (where, seen["escaped"], seen["sw"], seen["cw"]))
                         return ""
 
-                    for width in (360, 390, 1280):
+                    for width in VIEWPORT_WIDTHS_RESPONSIVE:
                         for lang in ("en", "fr"):
                             context = browser.new_context(
                                 viewport={"width": width, "height": 844})
