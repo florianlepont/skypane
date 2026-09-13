@@ -782,6 +782,30 @@ EXPECTED_CHECK_COUNT = 273
 # anomaly_active() root-sandbox failure, unrelated to this plan), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 276
+# 23-06-PLAN.md Task 1 (D1/CFG-35): +3. The five hard-coded swap
+# selectors become a per-page registry with ONE definition site, and the
+# loop learns three things it must not repaint. One check pins the
+# single definition site and the two key sets equal in BOTH directions —
+# the drift the one-tuple form structurally could not see — with every
+# selector appearing exactly once per registry entry in the script's
+# comment-stripped code and the registry proven to be read (an agreeing
+# list nobody consumes proves nothing, 23-05's own M7 in this file's
+# shape). One pins the page key: server-rendered on <body> for every
+# registry key AND for a page with no entry, read by the script, and
+# resolved with an own-property test so "constructor" is a no-op rather
+# than an inherited Object property. One pins the three skips: 22-15's
+# unchanged-region and focused-region skips still in swapNodes(), the
+# new per-region pending skip beside them, and the dirty-form stand-down
+# in tick() — keyed on dirty-state.js's own dirty-ready liveness marker
+# AND the bar's current visibility, never on its mere presence, which is
+# 22-01/B1's defect of record — with the interval, ladder, ceiling,
+# in-flight guard and redirect:manual all asserted unmoved.
+# ONE pre-existing check was generalised in place with no count
+# contribution: 19-09's cross-file swap-selector pin now iterates every
+# page key in the registry rather than the one tuple.
+# 276 + 3 = 279, recomputed directly against the real on-disk check(...)
+# call count at execution time, not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 279
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -7503,25 +7527,32 @@ def main():
     # --- 19-09-PLAN.md Task 3: pin the new freshness contract ------------
 
     def _19_09_freshness_swap_selectors_pinned_both_directions():
-        # The duplicated-not-imported agreement between health_page.
-        # REFRESH_SWAP_SELECTORS and freshness.js's own SWAP_SELECTORS
-        # array, pinned from both directions: every declared target must
-        # actually appear in the script, AND the script's excluded
-        # regions (the sparkline hit class, the filter-input attribute,
-        # a <details> selector) must never sneak into a future edit's
-        # swap list — a future editor who widens the swap to "just
-        # replace the whole main content" would silently kill
-        # battery-trend.js's chart and list-filter.js's filter, exactly
-        # the regression D-02's own interfaces section names by number
-        # (Pitfall 5).
+        # The duplicated-not-imported agreement between the Python swap
+        # registry and freshness.js's own copy of it, pinned from both
+        # directions: every declared target must actually appear in the
+        # script, AND the script's excluded regions (the sparkline hit
+        # class, the filter-input attribute, a <details> selector) must
+        # never sneak into a future edit's swap list — a future editor
+        # who widens the swap to "just replace the whole main content"
+        # would silently kill battery-trend.js's chart and
+        # list-filter.js's filter, exactly the regression D-02's own
+        # interfaces section names by number (Pitfall 5).
+        #
+        # 23-06-PLAN.md Task 1 (D1/CFG-35): GENERALISED in place rather
+        # than replaced. The one tuple is now one entry in a per-page
+        # mapping, so this loop iterates every page's list; the key-set
+        # equality that the one-tuple form structurally could not see is
+        # asserted by its own check below.
         js_path = os.path.join(HERE, "static", "freshness.js")
         with open(js_path) as fh:
             js = fh.read()
-        for selector in health_page.REFRESH_SWAP_SELECTORS:
-            if selector not in js:
-                return False, (
-                    "expected health_page.REFRESH_SWAP_SELECTORS entry %r verbatim in "
-                    "freshness.js" % (selector,))
+        for page_key, selectors in sorted(
+                layout.REFRESH_SWAP_SELECTORS_BY_PAGE.items()):
+            for selector in selectors:
+                if selector not in js:
+                    return False, (
+                        "expected layout.REFRESH_SWAP_SELECTORS_BY_PAGE[%r] entry %r verbatim "
+                        "in freshness.js" % (page_key, selector))
         # A dot-prefixed class selector, as it would appear inside a
         # querySelector(All) call targeting the sparkline hit points for
         # REPLACEMENT — never confused with the space-padded substring
@@ -7543,11 +7574,249 @@ def main():
                 "the registry/readings disclosures are excluded from the swap list")
         return True, ""
     check(
-        "health_page.REFRESH_SWAP_SELECTORS' own entries all appear verbatim in freshness.js, and "
-        "freshness.js never carries a .sparkline-hit selector literal, a [data-filter-input] "
-        "reference, or a details[...] selector — the three regions Pitfall 5 names as fatal to swap "
-        "(19-09-PLAN.md Task 3)",
+        "every layout.REFRESH_SWAP_SELECTORS_BY_PAGE entry, on every page key, appears verbatim in "
+        "freshness.js, and freshness.js never carries a .sparkline-hit selector literal, a "
+        "[data-filter-input] reference, or a details[...] selector — the three regions Pitfall 5 "
+        "names as fatal to swap (19-09-PLAN.md Task 3, generalised in place from the one-tuple "
+        "form by 23-06-PLAN.md Task 1)",
         _19_09_freshness_swap_selectors_pinned_both_directions)
+
+    # --- 23-06-PLAN.md Task 1 (D1/CFG-35): one registry, one page key,
+    # three skip rules ----------------------------------------------------
+
+    def _js_code_without_comments(js):
+        """`js` with its /* */ and // comments blanked out.
+
+        The same idiom 23-01's motion guard and 23-05's ladder check use,
+        and for the same reason: freshness.js's comments quote the very
+        selectors, attributes and constants these checks count, so a scan
+        over raw source would be satisfied by a comment promising a rule
+        nobody wrote.
+        """
+        stripped = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", stripped)
+
+    def _23_06_the_swap_registry_has_one_definition_site_and_one_key_set():
+        # WHAT A WRONG IMPLEMENTATION DOES HERE, which is what each
+        # clause below exists to catch:
+        #   - it leaves the old tuple standing in health_page.py beside
+        #     the new mapping (two definition sites, agreeing today);
+        #   - it lets the script grow a page key the Python does not
+        #     have, or keep one the Python dropped — the drift the
+        #     one-tuple pin structurally could not see;
+        #   - it declares a registry that agrees with the Python and
+        #     never reads it, doing the real work from a second
+        #     hard-coded list (23-05's own M7, in this file's shape).
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        health_src_path = os.path.join(HERE, "pages", "health_page.py")
+        with open(health_src_path) as fh:
+            health_src = fh.read()
+
+        # ONE definition site. The NAME survives (every existing reader
+        # and pin keeps working); the second tuple literal does not.
+        if "REFRESH_SWAP_SELECTORS = (" in health_src:
+            return False, (
+                "companion/pages/health_page.py still defines its own REFRESH_SWAP_SELECTORS "
+                "tuple — the registry in companion/layout.py is the definition site and this "
+                "name must resolve FROM it, never beside it")
+        if "REFRESH_SWAP_SELECTORS" not in health_src:
+            return False, (
+                "expected health_page.REFRESH_SWAP_SELECTORS to survive as a name — every "
+                "existing reader and every shipped pin resolves through it")
+        registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
+        if health_page.REFRESH_SWAP_SELECTORS is not registry[layout.REFRESH_PAGE_HEALTH]:
+            return False, (
+                "expected health_page.REFRESH_SWAP_SELECTORS to BE the registry's Health entry, "
+                "not a copy of it — a copy is a second definition site with extra steps")
+        if health_page.REFRESH_SWAP_SELECTORS != (
+                ".dashboard-grid",
+                "div.banner--anomaly, div.banner--warn",
+                "section.banner",
+                ".page-header__freshness",
+                'a[href="/health"]'):
+            return False, (
+                "Health's five regions, in their existing order, are unchanged by the move — "
+                "got %r" % (health_page.REFRESH_SWAP_SELECTORS,))
+
+        # The two KEY SETS are equal. Parsed out of the script's own
+        # registry block rather than looked for one by one, so a key the
+        # script carries and the Python does not is visible too.
+        block = re.search(r"var SWAP_SELECTORS_BY_PAGE = \{(.*?)\n  \};", js, flags=re.S)
+        if block is None:
+            return False, (
+                "expected a single var SWAP_SELECTORS_BY_PAGE = { ... }; registry block in "
+                "freshness.js — the script's own copy of the mapping")
+        js_keys = set(re.findall(r'"([a-z][a-z0-9-]*)":', block.group(1)))
+        py_keys = set(registry)
+        if js_keys != py_keys:
+            return False, (
+                "freshness.js's registry keys %r and layout.REFRESH_SWAP_SELECTORS_BY_PAGE's %r "
+                "are not the same set — only in Python: %r; only in the script: %r. A key on one "
+                "side alone is a page that silently never refreshes, or a script list nothing "
+                "renders"
+                % (sorted(js_keys), sorted(py_keys),
+                   sorted(py_keys - js_keys), sorted(js_keys - py_keys)))
+
+        # Not vacuous: the registry must be the ONLY place those
+        # selectors appear in the script's own code, and it must
+        # actually be read. An agreeing registry beside a second
+        # hard-coded list, or an agreeing registry nobody consumes,
+        # satisfies every clause above.
+        code = _js_code_without_comments(js)
+        expected_hits = {}
+        for selectors in registry.values():
+            for selector in selectors:
+                expected_hits[selector] = expected_hits.get(selector, 0) + 1
+        for selector, want in sorted(expected_hits.items()):
+            got = code.count(selector)
+            if got != want:
+                return False, (
+                    "the selector %r appears %d time(s) in freshness.js's own code (comments "
+                    "stripped), expected %d — one per registry entry that carries it, because "
+                    "the registry is the single site and a second occurrence is a second list"
+                    % (selector, got, want))
+        if code.count("SWAP_SELECTORS_BY_PAGE") < 2:
+            return False, (
+                "SWAP_SELECTORS_BY_PAGE is declared in freshness.js but never read — a registry "
+                "that agrees with the Python and is not consumed proves nothing")
+        return True, ""
+    check(
+        "the swap registry has ONE definition site (health_page.REFRESH_SWAP_SELECTORS resolves "
+        "from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with Health's five "
+        "regions in their existing order, and no second tuple literal survives in health_page.py) "
+        "and ONE key set (the script's registry keys equal the Python's, in both directions), with "
+        "every selector appearing exactly once per registry entry in the script's comment-stripped "
+        "code and the registry actually read (D1/CFG-35, 23-06-PLAN.md Task 1)",
+        _23_06_the_swap_registry_has_one_definition_site_and_one_key_set)
+
+    def _23_06_the_page_key_is_server_rendered_and_gates_the_loop():
+        # The registry is selected by a key the SERVER renders, so a page
+        # that declares no regions runs no loop — and the script must
+        # resolve that key defensively, because "an unknown key" includes
+        # every inherited Object.prototype property name.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        code = _js_code_without_comments(js)
+        if layout.REFRESH_PAGE_ATTR not in code:
+            return False, (
+                "freshness.js never reads %r — the page key is how one loop serves three pages, "
+                "and a script that ignores it is back to one hard-coded list"
+                % (layout.REFRESH_PAGE_ATTR,))
+        if "hasOwnProperty" not in code:
+            return False, (
+                "expected freshness.js to resolve the page key with an own-property test: the "
+                "key arrives as markup, and 'constructor' or 'toString' would otherwise select "
+                "an inherited property instead of returning")
+        # Rendered on <body>, beside the two refresh copy attributes,
+        # for the reason those live there: several of these regions are
+        # this loop's own swap targets and <body> is never swapped.
+        for page_key in sorted(layout.REFRESH_SWAP_SELECTORS_BY_PAGE):
+            doc = layout.page_shell(title="T", active=page_key, body="<p>b</p>")
+            marker = '%s="%s"' % (layout.REFRESH_PAGE_ATTR, page_key)
+            if marker not in doc[:doc.index("</head>") + 200]:
+                if marker not in doc:
+                    return False, (
+                        "expected page_shell(active=%r) to render %s, got no such attribute"
+                        % (page_key, marker))
+            body_at = doc.index("<body")
+            body_tag = doc[body_at:doc.index(">", body_at) + 1]
+            if marker not in body_tag:
+                return False, (
+                    "expected the page key on the <body> tag itself (never inside a swap "
+                    "target), got %r" % (body_tag,))
+        # A page with no registry entry still renders a key, and the
+        # script's own guard is what makes it a no-op — the key set
+        # check above is what keeps the two lists honest.
+        doc = layout.page_shell(title="T", active="flights", body="<p>b</p>")
+        if ('%s="flights"' % layout.REFRESH_PAGE_ATTR) not in doc:
+            return False, (
+                "expected every authenticated document to carry its own page key, including the "
+                "pages that declare no swap regions — the guard is in the script, not in "
+                "whether the attribute was rendered")
+        return True, ""
+    check(
+        "the swap registry is selected by a page key the SERVER renders on <body> — present for "
+        "every registry key and for a page with no entry at all — and freshness.js reads that "
+        "attribute and resolves it with an own-property test, so an unknown key is a no-op rather "
+        "than an inherited Object property (D1/CFG-35, 23-06-PLAN.md Task 1)",
+        _23_06_the_page_key_is_server_rendered_and_gates_the_loop)
+
+    def _23_06_the_loop_knows_three_things_it_must_not_repaint():
+        # Focus, pending, dirty form. The first is 22-15's and is only
+        # re-asserted here; the other two are this plan's. Source scans
+        # only — the BEHAVIOUR of all three is proven in a real browser
+        # by companion/test_browser_ux.py, because a source scan cannot
+        # tell a skip that works from a skip that is spelled correctly.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        code = _js_code_without_comments(js)
+        swap_at = code.index("function swapNodes(")
+        swap_body = code[swap_at:code.index("\n  }", swap_at)]
+        if "isEqualNode" not in swap_body or "contains" not in swap_body:
+            return False, (
+                "22-15's two existing skips (an unchanged region, and a region holding the "
+                "focused element) must survive this plan untouched")
+        # The pending skip is PER REGION and lives in the swap, because
+        # the swap is the thing that would repaint an optimistic flip.
+        if layout.REFRESH_PENDING_ATTR not in swap_body:
+            return False, (
+                "expected swapNodes() to skip a region containing %r — plan 23-07 marks its own "
+                "optimistic control and this is the reconciliation rule that reads the mark "
+                "(T-23-21)" % (layout.REFRESH_PENDING_ATTR,))
+        # The dirty-form stand-down is PER TICK: a settings page whose
+        # form is mid-edit should not be fetching and diffing itself at
+        # all. So it is NOT in the swap, and the pending skip is not in
+        # the tick — each rule sits at the level it is about.
+        tick_at = code.index("function tick(")
+        tick_body = code[tick_at:code.index("\n  }", tick_at)]
+        if "unsavedEdits" not in tick_body and "UnsavedEdits" not in tick_body:
+            return False, (
+                "expected tick() itself to stand the whole cycle down while the settings form "
+                "has unsaved edits — a page mid-edit should not be fetching and diffing itself "
+                "at all (T-23-20/T-23-21)")
+        if layout.REFRESH_PENDING_ATTR in tick_body:
+            return False, (
+                "the pending skip is PER REGION, not per tick: one unconfirmed control must not "
+                "stand down the refresh of every other region on the page")
+        # B1's lesson, verbatim: PRESENCE of the bar is not proof it is
+        # live. The gate reads dirty-state.js's own liveness marker AND
+        # the bar's current visibility; a bar that merely exists, hidden,
+        # is not an unsaved edit.
+        if "dirty-ready" not in code:
+            return False, (
+                "expected the dirty-form gate to key on dirty-state.js's own proof-of-life "
+                "marker — 22-01/B1's defect of record was a gate keyed to a PROXY for liveness "
+                "rather than to liveness itself")
+        if "data-dirty-bar" not in code:
+            return False, (
+                "expected the dirty-form gate to read the save bar's own element")
+        if ".hidden" not in code:
+            return False, (
+                "expected the dirty-form gate to read the bar's CURRENT visibility — a bar that "
+                "exists and is hidden reports no unsaved edits, and presence alone is exactly "
+                "the proxy B1 was")
+        # And nothing about the cadence, the ladder or the guard moved.
+        for needle in ("AUTO_REFRESH_INTERVAL_MS = 45000", "RETRY_CEILING_MS = 600000",
+                       "RETRY_BASE_MS", "inFlight", "failAndRetry()", "isEqualNode",
+                       'redirect: "manual"'):
+            if needle not in js:
+                return False, (
+                    "expected %r to survive this plan — the cadence, the ladder, the ceiling, "
+                    "the in-flight guard and the expired-session handling are earned, not "
+                    "re-earned" % (needle,))
+        return True, ""
+    check(
+        "freshness.js knows three things it must not repaint: swapNodes() keeps 22-15's unchanged"
+        "-region and focused-region skips and gains a per-region pending skip, and tick() stands "
+        "the whole cycle down while the save bar reports unsaved edits — gated on dirty-state.js's "
+        "own dirty-ready liveness marker AND the bar's current visibility, never on the bar's mere "
+        "presence (B1's lesson) — with the interval, ladder, ceiling, in-flight guard and "
+        "redirect:manual all untouched (D1/CFG-35, 23-06-PLAN.md Task 1)",
+        _23_06_the_loop_knows_three_things_it_must_not_repaint)
 
     # --- 19-06-PLAN.md Task 1: layout.stat_tile()'s caption_title tooltip
     # (D-06) ------------------------------------------------------------
