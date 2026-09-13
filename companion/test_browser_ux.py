@@ -1210,33 +1210,43 @@ def main():
                         # B9's "equal within 1px" is asserted on the cards'
                         # BORDER-EXCLUDED widths, which is what "three
                         # equal columns" actually means and what the flex
-                        # rule controls.
+                        # rule controls - AND, since 22-15-PLAN.md Task 1
+                        # closed T6, on their outer widths too.
                         #
-                        # STATED EXCEPTION, with the plan that removes it:
-                        # the cards' OUTER widths are NOT equal within 1px
-                        # today, and cannot be made so by this plan. The
-                        # saved card carries `.runway-card--selected`'s 2px
-                        # border against its siblings' 1px, and under
-                        # `box-sizing: border-box` with a zero flex basis
-                        # that makes its outer box exactly 2px wider
+                        # 22-10-PLAN.md's STATED EXCEPTION IS DELETED HERE.
+                        # It read: the cards' outer widths are not equal
+                        # within 1px, because the saved card carries
+                        # `.runway-card--selected`'s 2px border against its
+                        # siblings' 1px and `box-sizing: border-box` does
+                        # not hold the OUTER box of a `flex: 1 1 0` item
                         # (measured 98.67 against 96.66/96.67 at 390px).
-                        # That is T6 - "selection shifts layout by 2px" -
-                        # which 22-15-PLAN.md owns and closes by holding
-                        # the border constant at 1px and moving the
-                        # selection signal to `box-shadow: inset`. Once
-                        # 22-15 lands, `inner` and `w` converge and the
-                        # border allowance below can be deleted.
+                        # It named 22-15-PLAN.md as the plan that removes
+                        # it. That plan holds every selected-state border
+                        # constant at 1px and carries selection on
+                        # `box-shadow: inset 0 0 0 2px`, which occupies no
+                        # layout space, so `inner` and `w` have converged
+                        # and the allowance is gone: plain equality on
+                        # BOTH, and every card's own border total must now
+                        # be exactly 2.0 (1px per side) with no second
+                        # value permitted.
                         inners = [b["inner"] for b in boxes]
                         if max(inners) - min(inners) > 1.0:
                             return False, (
                                 "expected three equal card widths within 1px once each card's own "
                                 "border is excluded, got %r (outer %r)"
                                 % (inners, [b["w"] for b in boxes]))
-                        borders = sorted({round(b["border"], 2) for b in boxes})
-                        if borders not in ([2.0], [2.0, 4.0]):
+                        outers = [b["w"] for b in boxes]
+                        if max(outers) - min(outers) > 1.0:
                             return False, (
-                                "expected the only outer-width difference to be the selected card's "
-                                "own 2px border (T6), got border totals %r" % (borders,))
+                                "expected three equal card OUTER widths within 1px now that T6 is "
+                                "closed - a selected card must be the same size as its siblings, "
+                                "got %r (inner %r)" % (outers, inners))
+                        borders = sorted({round(b["border"], 2) for b in boxes})
+                        if borders != [2.0]:
+                            return False, (
+                                "expected every card's border total to be exactly 2.0 (1px per "
+                                "side) in every selection state - T6 moved the 2px accent signal "
+                                "to an inset ring, got border totals %r" % (borders,))
                         # Touch target, confirmed by measurement rather than
                         # assumed: the cards get narrower, and the hidden
                         # radio's register entry is exempt BY DELEGATION to
@@ -1252,9 +1262,10 @@ def main():
                         context.close()
                 check(
                     "at 390px the three runway cards report one shared line (equal tops), equal "
-                    "heights, border-excluded widths equal within 1px (the outer widths differ only "
-                    "by the selected card's own 2px border - T6, 22-15-PLAN.md), and each still "
-                    "clears 44x44 - never a 2 + 1 orphan (B9, 22-10-PLAN.md Task 2)",
+                    "heights, and BOTH their border-excluded and their outer widths equal within "
+                    "1px at a border total of exactly 2.0 each - 22-10's stated T6 allowance for "
+                    "the selected card's 2px border is deleted, closed by 22-15-PLAN.md Task 1 - "
+                    "and each still clears 44x44 - never a 2 + 1 orphan (B9, 22-10-PLAN.md Task 2)",
                     _three_runway_cards_share_one_line_at_390px)
 
                 def _the_no_js_floor_holds_for_both_settings_pages():

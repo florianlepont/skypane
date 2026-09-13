@@ -647,6 +647,22 @@ EXPECTED_CHECK_COUNT = 231
 # on-disk check(...) call count at execution time (232/232 pass), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 232
+# 22-15-PLAN.md Task 1 (T2/T6/T15): +1 — one structural scan covering
+# all three cascade/box-model defects this harness can see from the
+# stylesheet source: the Disconnect control's element-qualified (0,1,1)
+# selector placed after the primary rule (with the primary rule's own
+# specificity intact and no :where() shortcut), zero 2px borders
+# anywhere in the file with all three selectable surfaces on a constant
+# 1px edge plus an inset accent ring, and summary joining the global
+# focus-visible floor beside a selected-card focus ring that lives
+# inside the ONE feature-query block. Four PRE-EXISTING clauses in the
+# two selected-state checks above were retargeted in place for T6 (2px
+# border -> constant border + inset ring; "clears the shadow" -> "must
+# not clear the shadow"), each strictly narrower than what it replaced
+# and each contributing nothing to this count. 232 + 1 = 233,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (233/233 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 233
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -3894,8 +3910,27 @@ def main():
             return False, "expected style.css to still declare a .runway-card--selected rule"
         idx = source.index(runway_selector)
         window = source[idx:idx + 1600]
-        if "border: 2px solid var(--color-accent);" not in window:
-            return False, ".runway-card--selected must keep its existing 2px accent border"
+        # RETARGETED by 22-15-PLAN.md Task 1 (T6). This clause used to
+        # read `border: 2px solid var(--color-accent);`. T6 is the
+        # defect that selection shifted layout by 2px: under
+        # `box-sizing: border-box` a 2px border still widens the OUTER
+        # box of a `flex: 1 1 0` card (measured 98.67px against
+        # 96.66/96.67px at 390px), so a selected card was a different
+        # size from its siblings. The border is now constant at 1px and
+        # only recolours; the 2px accent signal moved to an inset ring,
+        # which occupies no layout space at all. Strictly narrower than
+        # the clause it replaces: it pins BOTH halves of the new
+        # treatment and additionally forbids the 2px border returning.
+        if "border-color: var(--color-accent);" not in window:
+            return False, ".runway-card--selected must recolour its constant 1px border to the accent"
+        if "box-shadow: inset 0 0 0 2px var(--color-accent);" not in window:
+            return False, (
+                ".runway-card--selected must carry T6's inset accent ring — the selection signal "
+                "that replaced the layout-shifting 2px border")
+        if "border: 2px" in window:
+            return False, (
+                ".runway-card--selected must never declare a 2px border again — that is T6, the "
+                "2px layout shift this treatment exists to avoid")
         if wash not in window:
             return False, (
                 "expected .runway-card--selected to carry the same 12%-accent background wash "
@@ -3930,7 +3965,8 @@ def main():
     check(
         "both .runway-card--selected and .theme-chip--selected .theme-chip__body carry a 12%-accent "
         "background wash (color-mix), matching .theme-form .theme-option--active's established active-state "
-        "idiom, added alongside (not replacing) their existing border and check glyph (06.6.4.1.1-06)",
+        "idiom, added alongside (not replacing) their check glyph and their now-constant 1px border, whose "
+        "2px accent signal moved to an inset ring (06.6.4.1.1-06, retargeted by 22-15-PLAN.md Task 1 for T6)",
         _selected_runway_card_and_theme_chip_carry_a_background_wash)
 
     def _strong_selected_treatment_is_keyed_to_the_live_checked_radio():
@@ -3981,12 +4017,32 @@ def main():
             body = source[idx + len(selector):source.index("}", idx)]
             return body, ""
 
+        # T6 (22-15-PLAN.md Task 1) retargets every "2px accent border"
+        # clause in this check to the constant-1px-plus-inset-ring
+        # treatment that replaced it, and additionally forbids the 2px
+        # border ever returning. See
+        # _selected_runway_card_and_theme_chip_carry_a_background_wash()
+        # above for the measurement and the full reasoning. Both halves
+        # of the live-state treatment must match the `--selected`
+        # fallback exactly, or a browser without :has() renders a
+        # different-sized card.
+        def _carries_the_constant_border_and_inset_ring(body, label):
+            if "border-color: var(--color-accent);" not in body:
+                return "%s must recolour its constant 1px border to the accent" % (label,)
+            if "box-shadow: inset 0 0 0 2px var(--color-accent);" not in body:
+                return "%s must carry T6's inset accent ring" % (label,)
+            if "border: 2px" in body:
+                return "%s must never declare a 2px border again (T6's layout shift)" % (label,)
+            return None
+
         # Theme chip: strong border, body wash, check glyph shown.
         body, err = _rule_body(".theme-chip:has(input:checked) {")
         if body is None:
             return False, err
-        if "border: 2px solid var(--color-accent);" not in body:
-            return False, ".theme-chip:has(input:checked) must carry the 2px accent border"
+        err = _carries_the_constant_border_and_inset_ring(
+            body, ".theme-chip:has(input:checked)")
+        if err:
+            return False, err
 
         body, err = _rule_body(".theme-chip:has(input:checked) .theme-chip__body {")
         if body is None:
@@ -4011,16 +4067,32 @@ def main():
         window = source[idx:idx + 250]
         if "border-color: var(--color-accent);" not in window:
             return False, ".theme-chip:has(input:checked):hover must restore the accent border-color"
-        if "box-shadow: none;" not in window:
-            return False, ".theme-chip:has(input:checked):hover must clear the hover shadow"
+        # RETARGETED by 22-15-PLAN.md Task 1 (T6): this clause used to
+        # require `box-shadow: none;`, whose only job was to suppress
+        # the hover elevation shadow. Once selection IS a box-shadow,
+        # `none` erases the selection ring the instant a pointer crosses
+        # a selected chip. Restating the ring suppresses the elevation
+        # just as completely (box-shadow is one property) while keeping
+        # the signal — and this clause is narrower, because it now
+        # forbids the erasure as well as requiring the suppression.
+        if "box-shadow: inset 0 0 0 2px var(--color-accent);" not in window:
+            return False, (
+                ".theme-chip:has(input:checked):hover must RESTATE T6's inset ring, which "
+                "suppresses the hover elevation without erasing the selection signal")
+        if "box-shadow: none;" in window:
+            return False, (
+                ".theme-chip:has(input:checked):hover must not clear the shadow — that would "
+                "erase T6's selection ring on hover")
 
         # Runway card: strong border + wash on one rule (no body wrapper),
         # check glyph shown.
         body, err = _rule_body(".runway-card:has(input:checked) {")
         if body is None:
             return False, err
-        if "border: 2px solid var(--color-accent);" not in body:
-            return False, ".runway-card:has(input:checked) must carry the 2px accent border"
+        err = _carries_the_constant_border_and_inset_ring(
+            body, ".runway-card:has(input:checked)")
+        if err:
+            return False, err
         if wash not in body:
             return False, ".runway-card:has(input:checked) must carry the 12%-accent wash directly (no body wrapper)"
 
@@ -4039,8 +4111,15 @@ def main():
         window = source[idx:idx + 250]
         if "border-color: var(--color-accent);" not in window:
             return False, ".runway-card:has(input:checked):hover must restore the accent border-color"
-        if "box-shadow: none;" not in window:
-            return False, ".runway-card:has(input:checked):hover must clear the hover shadow"
+        # Same T6 retarget as the chip's own hover clause above.
+        if "box-shadow: inset 0 0 0 2px var(--color-accent);" not in window:
+            return False, (
+                ".runway-card:has(input:checked):hover must RESTATE T6's inset ring rather than "
+                "clearing the shadow")
+        if "box-shadow: none;" in window:
+            return False, (
+                ".runway-card:has(input:checked):hover must not clear the shadow — that would "
+                "erase T6's selection ring on hover")
 
         # Fallback intact: all four pre-existing server-class rules must
         # still exist verbatim (source.index would already have raised/
@@ -4062,6 +4141,129 @@ def main():
         "live :has(input:checked) state inside one @supports selector(:has(*)) block, for both .theme-chip and "
         ".runway-card, with every pre-existing --selected fallback rule surviving verbatim (quick task 260904-bbi)",
         _strong_selected_treatment_is_keyed_to_the_live_checked_radio)
+
+    def _destructive_disconnect_is_secondary_and_selection_is_free_and_focusable():
+        """22-15-PLAN.md Task 1 — T2, T6 and T15 in one structural scan.
+
+        All three were defects a code READER could see and no harness
+        could: every declaration involved was present in the file and
+        string-comparison correct, and the bugs lived entirely in the
+        cascade and in the box model.
+
+        T2  — the destructive Disconnect control wore the page's primary
+              accent fill because a bare class (0,1,0) loses to
+              `button[type="submit"]` (0,1,1). The fix is the element-
+              qualified selector at equal specificity, later in source;
+              the prohibition on weakening the primary rule with
+              `:where()` is asserted too, because that shortcut would
+              surrender the accent fill file-wide.
+        T6  — selection grew the border from 1px to 2px, so a selected
+              card was a different size from its siblings. No rule in
+              this file may declare a 2px border again.
+        T15 — a selected card's focus state was pixel-identical to rest
+              (the real focus target is an off-screen radio), and
+              `summary` was missing from the focus-visible floor.
+        """
+        source = _read_static("style.css")
+
+        # --- T2 -----------------------------------------------------
+        primary = 'button[type="submit"] {'
+        disconnect = "button.calendar-disconnect-btn {"
+        if primary not in source:
+            return False, "expected style.css to still declare the primary button[type=submit] rule"
+        if disconnect not in source:
+            return False, (
+                "expected the Disconnect control's rule to be element-qualified "
+                "(button.calendar-disconnect-btn), the (0,1,1) form that is equal in specificity "
+                "to the primary rule — T2")
+        if source.index(disconnect) <= source.index(primary):
+            return False, (
+                "expected button.calendar-disconnect-btn to sit AFTER button[type=\"submit\"] in "
+                "source order — at equal specificity source order is the whole mechanism (T2)")
+        # The primary rule keeps its own specificity: a zero-specificity
+        # wrapper around it is the shortcut 22-UI-SPEC.md's T2 row bans
+        # by name, because it hands the accent fill to every competing
+        # zero-specificity rule in the file at once.
+        if ":where(button" in source:
+            return False, (
+                "expected NO :where() wrapper on the primary button rule — dropping it to (0,0,0) "
+                "surrenders the accent fill file-wide (T2)")
+        disconnect_body = source[
+            source.index(disconnect) + len(disconnect):
+            source.index("}", source.index(disconnect))]
+        if "box-shadow: none;" not in disconnect_body:
+            return False, (
+                "expected button.calendar-disconnect-btn to neutralize box-shadow — this is a "
+                "submit button and would otherwise keep the primary rule's inset highlight, the "
+                "same reason .logout-form button/.dirty-bar__cancel/.frame-strip__cell button all "
+                "carry it (T2)")
+
+        # --- T6: not one 2px border left anywhere in the file --------
+        if "border: 2px" in source or "border-width: 2px" in source:
+            return False, (
+                "expected ZERO 2px border declarations in style.css — T6 holds every selectable "
+                "surface at a constant 1px and carries selection on an inset ring, so a 2px "
+                "border anywhere is a reintroduction of the 2px layout shift")
+        # The third selectable surface, which lives outside the chip/card
+        # group the checks above cover.
+        row_selector = "input:checked + .frame-colours__row {"
+        if row_selector not in source:
+            return False, "expected style.css to still declare %r" % (row_selector,)
+        row_body = source[
+            source.index(row_selector) + len(row_selector):
+            source.index("}", source.index(row_selector))]
+        if "border-color: var(--color-accent);" not in row_body:
+            return False, "expected the checked frame-colours row to recolour its 1px border (T6)"
+        if "box-shadow: inset 0 0 0 2px var(--color-accent);" not in row_body:
+            return False, "expected the checked frame-colours row to carry T6's inset ring"
+
+        # --- T15 ----------------------------------------------------
+        focus_rule = (
+            "a:focus-visible,\n"
+            "button:focus-visible,\n"
+            "input:focus-visible,\n"
+            "select:focus-visible,\n"
+            "summary:focus-visible {")
+        if focus_rule not in source:
+            return False, (
+                "expected summary to have joined the global focus-visible selector list — it is a "
+                "native interactive element with no visible focus state at all today (T15)")
+        supports_marker = "@supports selector(:has(*)) {"
+        if source.count(supports_marker) != 1:
+            return False, (
+                "expected exactly one @supports selector(:has(*)) block, got %d"
+                % source.count(supports_marker))
+        supports_idx = source.index(supports_marker)
+        selected_focus = (
+            ".runway-card:has(input:focus-visible),\n"
+            "  .theme-chip:has(input:focus-visible) {")
+        if selected_focus not in source:
+            return False, (
+                "expected a :has(input:focus-visible) focus ring covering BOTH selectable-card "
+                "components — a selected card's focus state is invisible without it (T15)")
+        if source.index(selected_focus) < supports_idx:
+            return False, (
+                "expected the selected-card focus ring INSIDE the one @supports selector(:has(*)) "
+                "block — this file is pinned at exactly one block, never two")
+        focus_body = source[
+            source.index(selected_focus) + len(selected_focus):
+            source.index("}", source.index(selected_focus))]
+        # The global floor's OWN values, not a new treatment.
+        for decl in ("outline: 2px solid var(--color-accent);", "outline-offset: 2px;"):
+            if decl not in focus_body:
+                return False, (
+                    "expected the selected-card focus ring to reuse the global focus-visible "
+                    "floor's own %r, not invent a treatment (T15)" % (decl,))
+        return True, ""
+    check(
+        "the destructive Disconnect control is element-qualified to (0,1,1) and placed after "
+        "button[type=\"submit\"] with the primary rule's own specificity intact and no :where() "
+        "shortcut (T2); style.css declares ZERO 2px borders anywhere, with all three selectable "
+        "surfaces carrying a recoloured constant 1px edge plus an inset accent ring (T6); and "
+        "summary has joined the global focus-visible floor while a selected chip or card gets that "
+        "same floor's own outline values through a :has(input:focus-visible) rule inside the ONE "
+        "feature-query block (T15) — 22-15-PLAN.md Task 1",
+        _destructive_disconnect_is_secondary_and_selection_is_free_and_focusable)
 
     def _calendar_fusion_css_retired_from_the_stylesheet():
         # 21-07-PLAN.md Task 3 (D-13/R-08/Pitfall 2): both retired

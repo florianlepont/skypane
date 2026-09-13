@@ -4432,10 +4432,28 @@ def main():
         css_path = os.path.join(HERE, "static", "style.css")
         with open(css_path) as fh:
             css = fh.read()
-        if len(re.findall(r"^\.calendar-disconnect-btn \{", css, re.M)) != 1:
+        # RETARGETED STRICTLY NARROWER by 22-15-PLAN.md Task 1 (T2), in
+        # a file that plan does not own, because that plan changed this
+        # clause's own premise: the base rule's selector is now
+        # `button.calendar-disconnect-btn` rather than the bare class.
+        # T2's defect was that the bare class at (0,1,0) lost to
+        # `button[type="submit"]` at (0,1,1), so Config's DESTRUCTIVE
+        # Disconnect rendered as the page's primary accent CTA and every
+        # declaration in this block was dead. The element-qualified form
+        # is (0,1,1) — equal specificity, later in source — which is the
+        # fix. This assertion is narrower than the one it replaces: it
+        # still pins "exactly one base rule block for both consumers"
+        # AND now also pins the element qualifier that makes the block
+        # reachable at all. A regression to the bare class fails here.
+        if len(re.findall(r"^button\.calendar-disconnect-btn \{", css, re.M)) != 1:
             return False, (
-                "expected exactly one .calendar-disconnect-btn base rule block serving every "
-                "consumer")
+                "expected exactly one button.calendar-disconnect-btn base rule block serving "
+                "every consumer, at the element-qualified (0,1,1) specificity T2 requires")
+        if re.search(r"^\.calendar-disconnect-btn \{", css, re.M):
+            return False, (
+                "expected NO bare .calendar-disconnect-btn base rule — at (0,1,0) it loses to "
+                "button[type=\"submit\"] (0,1,1) and the destructive Disconnect renders as the "
+                "page's primary accent CTA (T2)")
         placement = re.search(
             r"^\.airline-card \.calendar-disconnect-btn\s*\{([^}]*)\}", css, re.S | re.M)
         if placement is None:

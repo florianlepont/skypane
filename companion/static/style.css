@@ -606,11 +606,20 @@ h3,
 }
 
 /* Visible focus outline on every focusable element — never removed without
- * a replacement (accessibility floor, D-22). */
+ * a replacement (accessibility floor, D-22).
+ *
+ * T15 (22-UI-SPEC.md §5 contract 2, 22-15-PLAN.md Task 1): `summary`
+ * joins the list. It is a NATIVE interactive element — keyboard
+ * focusable, Enter/Space operable, already carrying the touch-target
+ * register's kept 44px entry — and it was the one such element in the
+ * app with no visible focus state at all, which is a hole in this
+ * floor rather than a styling gap. It is added here, to the one rule
+ * that owns the floor, rather than given a treatment of its own. */
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+summary:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
@@ -1955,10 +1964,42 @@ button:disabled {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* A real 2px border, not merely a class toggle with no visual difference.
- * The global `* { box-sizing: border-box; }` reset above already keeps
- * `.runway-card`'s own padding/size stable with this border added, so
- * unselected siblings never shift.
+/* T6 (22-AUDIT.md, 22-UI-SPEC.md §2's T6 row, 22-15-PLAN.md Task 1) —
+ * THE BORDER WIDTH IS NOW CONSTANT AT 1px IN EVERY STATE, and the
+ * selection weight moves to an inset ring. The paragraph below used to
+ * claim the opposite was safe; it was wrong, and the correction is
+ * recorded here rather than the claim quietly deleted.
+ *
+ * What the old claim missed: `box-sizing: border-box` keeps an
+ * element's own CONTENT box from growing when its border thickens — it
+ * does not keep the element's own OUTER box from growing, because
+ * border-box sizing only fixes the outer box where a `width` or a
+ * `flex-basis` resolves to a definite length. `.runway-card` is
+ * `flex: 1 1 0` in a wrapping row (B9, 22-10-PLAN.md Task 2), so its
+ * outer width is DISTRIBUTED free space plus its own border: the saved
+ * card measured 98.67px against its siblings' 96.66/96.67px at 390px —
+ * exactly 2px wider, exactly the audit's reported symptom. Siblings do
+ * shift, and a selected card is a different size from an unselected
+ * one. companion/test_browser_ux.py carried a STATED allowance for that
+ * difference, naming this plan as the one that deletes it; it is
+ * deleted.
+ *
+ * The replacement signal: `box-shadow: inset 0 0 0 2px` paints a 2px
+ * ring just inside the padding box. It occupies no layout space at all
+ * — a box-shadow never contributes to any box — so selection is now
+ * geometrically free. The border stays 1px and only RECOLOURS to the
+ * accent, which is what it already did; the 12% wash and the check
+ * glyph are untouched. The result reads slightly heavier than the old
+ * 2px border (1px accent edge plus a 2px accent ring), which is on the
+ * right side of 06.6.4.1.1-06's own "the selected element is very hard
+ * to see" report.
+ *
+ * Every rule in this file that painted a 2px selected-state border is
+ * converted the same way in this one commit, including the two dashed
+ * "this is what is saved" markers inside the @supports block below —
+ * a 2px dashed ring against 1px siblings is the identical defect
+ * wearing a different dash pattern.
+ *
  *
  * 06.6.4.1.1-06 (developer checkpoint follow-up): the background wash
  * below is an ADDITION to the border above, not a replacement — the
@@ -1982,7 +2023,8 @@ button:disabled {
  * a new property to this same already-excluded selector rather than
  * touching the hover rule itself. */
 .runway-card--selected {
-  border: 2px solid var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
@@ -2070,6 +2112,44 @@ button:disabled {
   cursor: pointer;
 }
 
+/* T6's one chip-specific addition (22-15-PLAN.md Task 1). An inset
+ * box-shadow is painted on an element's own background/border layer, so
+ * it sits BENEATH that element's children — and `.theme-chip__preview`
+ * is a full-bleed `width: 100%` image occupying the chip's top 56px.
+ * Without this overlay the selection ring would be hidden along the
+ * whole preview band and visible only around the body, which reads as a
+ * rendering fault rather than as a selected chip. `.runway-card` needs
+ * nothing equivalent: its own image sits inside `var(--space-md)` of
+ * padding and never reaches the ring.
+ *
+ * `box-shadow: inherit` is the entire mechanism, and it is why this is
+ * ONE unconditional rule rather than a duplicate of every selected-state
+ * rule below. The pseudo-element simply redraws whatever box-shadow the
+ * chip itself currently computes, above the image instead of below it,
+ * so every state — selected, saved-but-not-live, hovered — tracks
+ * automatically and can never drift out of step with the rule that
+ * actually declares it.
+ *
+ * The chip's own `overflow: hidden` clips this overlay, which is what
+ * keeps the inherited OUTER hover shadow (`--shadow-card-hover`, on an
+ * unselected hovered chip) from painting a second, smaller copy of
+ * itself: an outer shadow drawn on a padding-box-sized overlay falls
+ * entirely outside that overlay and is clipped away. Only the inset
+ * ring survives, which is the one thing this overlay exists to carry.
+ *
+ * `pointer-events: none` so the overlay can never intercept a click
+ * meant for the label; the check glyph and the saved-state `::after`
+ * badge are both positioned later in tree order and so still paint
+ * above it. */
+.theme-chip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inherit;
+}
+
 /* Scoped with :not(.theme-chip--selected), the same D-03a property
  * .runway-card documents above: hovering a selected chip must never be
  * able to clear its accent border, independent of source order. */
@@ -2079,11 +2159,18 @@ button:disabled {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* A real 2px border, not merely a class toggle with no visual
- * difference — the global `* { box-sizing: border-box; }` reset keeps
- * unselected sibling chips from shifting when this is added. */
+/* T6 (22-15-PLAN.md Task 1): constant 1px border, selection carried by
+ * the inset ring — see `.runway-card--selected`'s own comment above for
+ * the full diagnosis and the measurement. `.theme-chip` is a fixed
+ * `width: 160px` rather than a flex child, so its own outer box did NOT
+ * grow; what it did instead was eat 1px of its 160px on each side, so
+ * the selected chip's preview band and body were 2px narrower than its
+ * neighbours' and the swatch row reflowed. Same defect, same fix, and
+ * the ring is drawn INSIDE the chip's `overflow: hidden` clip so it
+ * follows the rounded corners exactly as the border does. */
 .theme-chip--selected {
-  border: 2px solid var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
 }
 
 /* 06.6.4.1.1-06 (developer checkpoint follow-up): same background-wash
@@ -2232,8 +2319,13 @@ button:disabled {
  * block already wins its target element on specificity alone, verified
  * above. */
 @supports selector(:has(*)) {
+  /* T6 (22-15-PLAN.md Task 1): constant 1px border plus the inset ring,
+   * matching the `--selected` fallback rule above declaration for
+   * declaration — the two mechanisms must stay visually identical or a
+   * browser without `:has()` gets a different-sized chip. */
   .theme-chip:has(input:checked) {
-    border: 2px solid var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-accent);
   }
 
   .theme-chip:has(input:checked) .theme-chip__body {
@@ -2245,19 +2337,41 @@ button:disabled {
   }
 
   /* D-03a, transferred to live state: a positive restore rule, not a
-   * re-scoped guard — see the specificity arithmetic above. */
+   * re-scoped guard — see the specificity arithmetic above.
+   *
+   * T6 (22-15-PLAN.md Task 1), reconciled IN THE SAME COMMIT as the
+   * rule it guards. This used to declare `box-shadow: none`, whose only
+   * job was to suppress the hover elevation shadow the (0,3,0) guard
+   * above would otherwise paint. Once selection IS a box-shadow, `none`
+   * stops being a suppression and becomes an erasure: the selection
+   * ring would vanish the instant a pointer crossed a selected chip.
+   * The ring is restated here instead, which suppresses the hover
+   * elevation exactly as before (box-shadow is a single property, so
+   * declaring the ring replaces the elevation outright) while keeping
+   * the selection signal. */
   .theme-chip:has(input:checked):hover,
   .theme-chip:has(input:checked):focus-within {
     border-color: var(--color-accent);
-    box-shadow: none;
+    box-shadow: inset 0 0 0 2px var(--color-accent);
   }
 
   /* Quiet "this is what is saved" marker: accent-free, so it can never
    * read as a second selection. Reuses the file's established 70%
    * muted-text mix rather than inventing a new strength — no new wash
    * percentage either, since this ring has no background at all. */
+  /* T6 (22-15-PLAN.md Task 1): 1px, not 2px. A dashed 2px ring against
+   * 1px siblings is the same layout shift wearing a different dash
+   * pattern — a chip can be saved-but-not-live at the very moment its
+   * neighbour is live-selected, so both states have to be geometrically
+   * free or the grid still moves. `box-shadow: none` is explicit here
+   * and load-bearing: this rule must CLEAR the accent ring the
+   * `--selected` fallback rule above paints, and a `border` shorthand
+   * cannot reach a box-shadow. The dashed 1px muted edge is a
+   * deliberately quiet marker with no accent in it at all, exactly as
+   * before. */
   .theme-chip--selected:not(:has(input:checked)) {
-    border: 2px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+    box-shadow: none;
   }
 
   .theme-chip--selected:not(:has(input:checked)) .theme-chip__body {
@@ -2317,8 +2431,12 @@ button:disabled {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
+  /* T6 (22-15-PLAN.md Task 1): constant 1px border plus the inset ring,
+   * matching `.runway-card--selected` above declaration for
+   * declaration. */
   .runway-card:has(input:checked) {
-    border: 2px solid var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   }
 
@@ -2326,14 +2444,22 @@ button:disabled {
     display: inline-flex;
   }
 
+  /* T6 (22-15-PLAN.md Task 1): the same positive-restore reconciliation
+   * the chip's own hover rule above documents in full — `none` would
+   * now erase the selection ring rather than suppress the hover
+   * elevation. */
   .runway-card:has(input:checked):hover,
   .runway-card:has(input:checked):focus-within {
     border-color: var(--color-accent);
-    box-shadow: none;
+    box-shadow: inset 0 0 0 2px var(--color-accent);
   }
 
+  /* T6 (22-15-PLAN.md Task 1): 1px dashed, and an explicit
+   * `box-shadow: none` to clear the fallback rule's accent ring — see
+   * the chip's own saved-state rule above for the full reasoning. */
   .runway-card--selected:not(:has(input:checked)) {
-    border: 2px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+    box-shadow: none;
     background: transparent;
   }
 
@@ -2369,8 +2495,42 @@ button:disabled {
    * covers this same-parent radio+label pair); kept for a future
    * markup change only. */
   .frame-colours__list li:has(input:checked) .frame-colours__row {
-    border: 2px solid var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 2px var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  /* T15 (22-UI-SPEC.md §5 contract 1, 22-15-PLAN.md Task 1). A selected
+   * chip or card had a focus state PIXEL-IDENTICAL to rest: the real
+   * focus target is the visually-hidden native radio inside the label,
+   * whose own outline is off-screen and unseeable, and both components'
+   * `:focus-within` rules are `:not(--selected)`-scoped precisely so
+   * they can never repaint a selected card. So keyboard focus on the
+   * one card that matters was invisible.
+   *
+   * The values are the GLOBAL focus-visible floor's own, copied
+   * verbatim from the `a/button/input/select:focus-visible` rule near
+   * the top of this file — not a new treatment, and deliberately an
+   * `outline` rather than another box-shadow so it cannot collide with
+   * T6's selection ring on the same property. `outline-offset: 2px`
+   * puts it clear of the chip's `overflow: hidden` clip (an element's
+   * own outline is never clipped by its own overflow).
+   *
+   * `:focus-visible` on the inner radio, not `:focus-within`: a mouse
+   * click on a label focuses the radio, and a ring on every pointer
+   * selection would be noise. This is the distinction the rest of the
+   * file's focus rules already draw.
+   *
+   * It lives INSIDE this one feature-query block because it needs
+   * `:has()`, and companion/test_config_page.py pins this file at
+   * EXACTLY ONE such block. A browser without `:has()` keeps today's
+   * behaviour — the same accepted-degradation framing every other rule
+   * in this block already carries, and `:has()` has been Baseline
+   * widely-available since December 2023. */
+  .runway-card:has(input:focus-visible),
+  .theme-chip:has(input:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
 }
 
@@ -2617,13 +2777,17 @@ button:disabled {
  * belongs here rather than on a Health-scoped override.
  *
  * This closes 260901-uzi's Finding 5 candidate (a). Candidate (b) — the
- * sticky background's own token, currently --color-canvas, flagged by
- * that task's own comment on `.data-table-wrap th` below as never
- * live-validated against the in-card tables — is deliberately NOT
- * changed here. It remains open, still correctly reasoned in its own
- * comment, and is a separate one-declaration decision with its own risk
- * to History's table (the only one long enough for the sticky state to
- * actually engage). */
+ * sticky header background's own token, currently --color-canvas,
+ * flagged as never live-validated against the in-card tables — was left
+ * open here for a later one-declaration decision.
+ *
+ * T4 (22-15-PLAN.md Task 1) CLOSES candidate (b) by making it moot
+ * rather than by deciding it. The `.data-table-wrap th` rule that
+ * carried both the sticky claim and that background is deleted below:
+ * the wrapper has no height, so the header could never stick, so there
+ * was never a stuck header for any token to paint. Nothing about THIS
+ * rule changes — only the open question that used to point at the rule
+ * below it. */
 /* 06.6.4.1.1 (D-13): 11px -> 12px, converging onto the one unified label
  * voice this file now states once, on .stat-tile__caption's own comment
  * below. Every other declaration here already matched that voice. */
@@ -2638,30 +2802,33 @@ button:disabled {
   border-bottom: 1px solid var(--color-border);
 }
 
-/* Sticky desktop table header (06.6.3, History/Airlines) — scoped to
- * .data-table-wrap's own scroll container, not the page, so it never
- * collides with the >=960px sticky sidebar (D-21). Position/top/z-index
- * are unchanged by 06.6.4 (D-07 restyles the header, not the sticky
- * behaviour); only the background token changed, from the elevated
- * secondary surface to --color-canvas. The declaration itself must stay
- * — an opaque background is the only thing stopping body rows showing
- * through a stuck header — but it can no longer be the tinted elevated
- * surface, or the quiet-label treatment .data-table th declares above is
- * defeated the instant the table scrolls. --color-canvas is chosen
- * because History's table (the only one in the app long enough for the
- * sticky state to actually engage) renders directly on the page
- * background, not inside a card; RESEARCH.md flags this specific token
- * as never live-validated — if the in-card tables (Airlines, Health)
- * read as a visibly mismatched strip against the white card surface once
- * scrolled, the primary card surface token is the equally-valid
- * alternative and this is a one-declaration change, an explicit item on
- * the closing checklist. */
-.data-table-wrap th {
-  position: sticky;
-  top: 0;
-  background: var(--color-canvas);
-  z-index: 1;
-}
+/* T4 (22-AUDIT.md, 22-UI-SPEC.md §2's T4 row, 22-15-PLAN.md Task 1):
+ * the sticky desktop table header is REMOVED, rule and all.
+ *
+ * It could never engage. Sticky positioning resolves against the
+ * nearest scrollport, which for these cells is `.data-table-wrap` — and
+ * that wrapper declares `overflow-x: auto` with NO height and no
+ * `max-height`, so it has no vertical scrollport for a header to stick
+ * inside. The page scrolls instead, and the page is not the sticky
+ * containing block here. Six years of file history describe a behaviour
+ * no browser has ever produced: the header simply scrolled away with
+ * its table, exactly as if the rule were absent.
+ *
+ * Removing the claim rather than making it true, deliberately. Giving
+ * the wrapper a `max-height` would put a second, nested vertical
+ * scrollbar inside a page that already scrolls, on four tables at once,
+ * as a rider on a defect report that asked for nothing of the sort.
+ * Sticky day headers are Phase 23's D7 and will be specified there.
+ * Removing a lie beats adding a second one.
+ *
+ * The rule's `background: var(--color-canvas)` goes with it. That
+ * declaration existed ONLY to stop body rows showing through a stuck
+ * header, and quick task 260901-uzi's finding 5 candidate (b) — "is
+ * --color-canvas the right token here, against the in-card tables?" —
+ * is therefore MOOT, not merely deferred: there is no stuck header to
+ * paint. Recorded for the closing design-system sweep (22-16), which
+ * marks references/data-density.md's sticky-header entry SUPERSEDED and
+ * retires candidate (b) with it. */
 
 .data-table td {
   padding: 13px var(--space-md);
@@ -3433,6 +3600,58 @@ summary::marker {
 
 summary::-webkit-details-marker {
   color: var(--color-accent);
+}
+
+/* T3 (22-AUDIT.md, 22-UI-SPEC.md §5 contract 3, 22-15-PLAN.md Task 1).
+ * The two marker rules directly above have had no effect since the
+ * `summary` rule gained `display: flex`: a flex container generates no
+ * `::marker` at all, so every <details> in the app lost its open/closed
+ * indicator and a disclosure was distinguishable from static text only
+ * by its accent colour. The rules are kept rather than deleted — they
+ * are correct for any future non-flex summary and cost nothing — and
+ * this explicit chevron restores the indicator for the flex one.
+ *
+ * This RESTORES the `<summary>` disclosure-marker entry already on the
+ * accent-reservation list in this file's header comment. It is not a
+ * new accent consumer and the list does not change: `currentColor`
+ * resolves to the `summary` rule's own `--color-accent` wherever that
+ * colour is in force, and to the inherited colour where a call site
+ * deliberately overrides it (`.tab-bar__link` sets `--color-text`, so
+ * the tab bar's chevron is text-coloured, not accent-coloured, which is
+ * what an inactive tab must be).
+ *
+ * Pure geometry, no glyph: two 2px edges of an empty box rotated 45
+ * degrees. Deliberately not a text character — a `content` string is
+ * exactly the hard-coded-English hazard T10 had to unpick, and an arrow
+ * glyph's rendering varies by installed font.
+ *
+ * `flex: none` is load-bearing: the chevron is a flex ITEM of the
+ * summary row, and without it a long label would shrink the box to a
+ * sliver. `margin-right` rather than a `gap` on the parent, so no
+ * existing summary's own internal spacing changes.
+ *
+ * The rotation is a `transform` and the fade is a `transition`, both
+ * already covered by the single global `@media (prefers-reduced-motion:
+ * reduce)` block at the top of this file. NO per-rule reduced-motion
+ * block is added here: references/accessibility-contrast.md's "What to
+ * Avoid" names that as dead code, not a safety net. */
+summary::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-right: var(--space-sm);
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform .15s ease;
+}
+
+/* Child combinator, not a descendant one: a <details> nested inside
+ * another one must never rotate its parent's marker. (0,1,2) against
+ * the (0,0,2) base above. */
+details[open] > summary::before {
+  transform: rotate(45deg);
 }
 
 .readings-disclosure {
@@ -6487,8 +6706,41 @@ a.airline-card__zoom {
  * treatment `button[type="submit"]` would otherwise give it. No
  * `.btn`/`.btn--secondary`/`.btn--small` family exists anywhere in this
  * file — R-09 explicitly names this the new class pair to introduce,
- * not an existing family to reuse. */
-.calendar-disconnect-btn {
+ * not an existing family to reuse.
+ *
+ * T2 (22-AUDIT.md, 22-15-PLAN.md Task 1). The paragraph above described
+ * an intent this selector could not deliver. The bare class was (0,1,0)
+ * and `button[type="submit"]` is (0,1,1) — an element selector plus an
+ * attribute selector — so the primary accent fill won outright, and the
+ * DESTRUCTIVE Disconnect control rendered as the page's primary CTA
+ * while every declaration below was dead. Config's Disconnect is the
+ * only `type="submit"` consumer (Airlines' per-card Replace and
+ * History's picture control are both `type="button"`), so the defect
+ * was invisible on two of the three call sites.
+ *
+ * The fix is the mechanism this file already uses in four places
+ * (`.logout-form button`, `.dirty-bar__cancel`, `.frame-strip__cell
+ * button`, `.config-form input[name="wake_interval_s"]`): EQUAL
+ * specificity plus source order. `button.calendar-disconnect-btn` is
+ * (0,1,1) — equal to the primary rule — and this block sits thousands
+ * of lines after it, so source order decides and the grey treatment
+ * wins. Deliberately NOT a `:where()` wrapper around the primary
+ * rule's own selector: dropping that rule to (0,0,0) would surrender
+ * the accent fill to every
+ * competing zero-specificity rule in the file at once (22-UI-SPEC.md
+ * §2's T2 row states this prohibition directly).
+ *
+ * `box-shadow: none` is new and load-bearing for the same reason
+ * `.logout-form button`/`.dirty-bar__cancel`/`.frame-strip__cell
+ * button` each carry it: this is a submit button and would otherwise
+ * keep the primary rule's inset highlight even once the fill is
+ * repainted, which is what made the control read as raised.
+ *
+ * `.airline-card .calendar-disconnect-btn` further down is (0,2,0) and
+ * declares display/width/margin ONLY — no colour, no border, no
+ * shadow — so it is unaffected by this change and keeps sourcing its
+ * entire visual treatment from here, exactly as its own comment says. */
+button.calendar-disconnect-btn {
   min-height: 30px;
   padding: 4px var(--space-sm);
   font-size: 12px;
@@ -6496,10 +6748,18 @@ a.airline-card__zoom {
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
   border-radius: var(--radius-control);
+  box-shadow: none;
 }
-.calendar-disconnect-btn:hover,
-.calendar-disconnect-btn:focus-visible {
+/* (0,2,1), equal to `button[type="submit"]:hover` and later in source —
+ * the same arithmetic as the base rule above, one pseudo-class up on
+ * both sides. The border-color and box-shadow are restated here because
+ * the primary hover rule declares both, and the base rule above cannot
+ * reach a hovered element the primary hover rule also matches. */
+button.calendar-disconnect-btn:hover,
+button.calendar-disconnect-btn:focus-visible {
   background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 20%, transparent);
+  box-shadow: none;
 }
 
 /* D-13: the masked feed URL (host + "…", companion/pages/config_page.
@@ -6801,8 +7061,14 @@ a.airline-card__zoom {
  * inside the file's existing live-selection-state @supports block) is
  * a belt-and-braces duplicate for a future markup change, not
  * load-bearing today. */
+/* T6 (22-15-PLAN.md Task 1): constant 1px border plus the inset ring,
+ * the third and last selectable surface converted. These rows are a
+ * vertical `flex-direction: column` list, so the old 2px border made a
+ * checked row 2px TALLER than its siblings and nudged every row below
+ * it — the same defect the chips and cards showed horizontally. */
 input:checked + .frame-colours__row {
-  border: 2px solid var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 2px var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 /* 21-REVIEW.md CR-01: the radio sits INSIDE the label, so a sibling
@@ -7119,6 +7385,42 @@ input:checked + .frame-colours__row {
 
   .tab-bar__more > .tab-bar__link {
     flex: 1 1 auto;
+  }
+
+  /* T3, decided deliberately rather than inherited (22-15-PLAN.md Task
+   * 1). `.tab-bar__link` is ALSO the <summary> of the "More" details,
+   * so the global `summary::before` chevron lands here too — and
+   * 22-UI-SPEC.md §3.1 and §5 contract 3 both require that it does:
+   * "More" is a disclosure and must say so.
+   *
+   * Taken OUT OF FLOW, which is the whole decision. In flow the chevron
+   * is a flex item beside `.tab-bar__pill` inside a 78x56px cell, and
+   * it would compress the centred icon-and-label stack the other four
+   * tabs render at full width — a visibly narrower fifth cell for a
+   * 6px marker. Absolutely positioned against `.tab-bar__more`'s own
+   * already-declared `position: relative`, it costs the layout nothing:
+   * the cell stays 78x56px, the tap area is untouched, and the stack
+   * stays centred. The `margin-right` and `flex` the base rule sets are
+   * cleared for the same reason.
+   *
+   * The rotation is INVERTED against the base rule, and that is not a
+   * style choice: this sheet opens UPWARD (see the panel rule below),
+   * so the base rule's right-when-closed / down-when-open convention
+   * would point the marker away from the panel it controls. Closed
+   * points up, at the space the sheet will occupy; open points down, at
+   * the bar the sheet folds back into. Still one transform, still
+   * covered by the one global reduced-motion block, still no per-rule
+   * block. */
+  .tab-bar__more > .tab-bar__link::before {
+    position: absolute;
+    top: 7px;
+    right: 12px;
+    margin-right: 0;
+    transform: rotate(-135deg);
+  }
+
+  .tab-bar__more[open] > .tab-bar__link::before {
+    transform: rotate(45deg);
   }
 
   /* The sheet opens UPWARD from the bar.

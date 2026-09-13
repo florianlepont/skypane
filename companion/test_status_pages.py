@@ -709,6 +709,20 @@ EXPECTED_CHECK_COUNT = 265
 # one documented anomaly_active() root-sandbox failure, unrelated to
 # this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 266
+# 22-15-PLAN.md Task 1 (T3, T4): +1 — one structural scan proving every
+# <details> regained an open/closed indicator after `summary { display:
+# flex }` silently killed `::marker` (the chevron, its [open] rotation
+# through a CHILD combinator, and the tab bar's own out-of-flow,
+# inverted-rotation variant for a sheet that opens upward), that the
+# prefers-reduced-motion block count is UNCHANGED at two because a
+# transform needs no per-rule block, and that no `.data-table-wrap th`
+# rule survives to claim sticky positioning inside a wrapper with no
+# height — nor does that wrapper gain a height to make the claim true.
+# 266 + 1 = 267, recomputed directly against the real on-disk check(...)
+# call count at execution time (266/267 pass — the one documented
+# anomaly_active() root-sandbox failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 267
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -11197,6 +11211,87 @@ def main():
         "— the structural guard for a real parse-error class that drops whole rules while leaving the "
         "source text a string-comparison harness reads as correct (22-14-PLAN.md Task 2, Rule 1)",
         _style_css_carries_no_stray_comment_terminator)
+
+    def _every_disclosure_has_a_marker_and_no_header_claims_to_stick():
+        """22-15-PLAN.md Task 1 — T3 and T4.
+
+        T3: `summary { display: flex }` stopped generating a `::marker`
+        at all, so every <details> in the app lost its open/closed
+        indicator. Both marker rules below it have been dead ever since
+        and no harness noticed, because the file still contains them.
+        The replacement is an explicit `::before` chevron that rotates
+        on `[open]`.
+
+        T4: `.data-table-wrap th` claimed `position` + sticky inside a
+        wrapper with `overflow-x: auto` and no height — no vertical
+        scrollport, so the claim could never engage. It is removed
+        rather than made true; sticky day headers are Phase 23's D7.
+        """
+        css_source = _css_source()
+        stripped = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
+
+        # --- T3: the marker exists, and it rotates ------------------
+        marker = _block(stripped, "summary::before {")
+        if 'content: ""' not in marker:
+            return False, "expected an explicit summary::before disclosure marker (T3)"
+        if "flex: none" not in marker:
+            return False, (
+                "expected the marker to declare flex: none — it is a flex item of the summary "
+                "row and a long label would otherwise shrink it to a sliver (T3)")
+        if "transform: rotate(" not in marker:
+            return False, "expected the closed-state marker to be a rotated box (T3)"
+        open_marker = _block(stripped, "details[open] > summary::before {")
+        if "transform: rotate(" not in open_marker:
+            return False, "expected the open state to rotate the marker (T3)"
+        if "details[open] summary::before" in stripped:
+            return False, (
+                "expected a CHILD combinator on the open-state rule — a descendant one rotates a "
+                "parent disclosure's marker when a nested one opens (T3)")
+
+        # T3 reaches the tab bar's "More" summary too (22-UI-SPEC.md
+        # §3.1), where it is taken out of flow so a 6px marker cannot
+        # narrow a 78x56px cell's centred icon-and-label stack.
+        tab_marker = _block(stripped, ".tab-bar__more > .tab-bar__link::before {")
+        if "position: absolute" not in tab_marker:
+            return False, (
+                "expected the tab bar's More marker to be positioned out of flow — in flow it is "
+                "a flex item beside .tab-bar__pill and compresses the cell (T3)")
+        if ".tab-bar__more[open] > .tab-bar__link::before" not in stripped:
+            return False, (
+                "expected the tab bar's More marker to have its own open state — the sheet opens "
+                "UPWARD, so the global right-closed/down-open convention points away from it (T3)")
+
+        # The rotation is a transform and the fade is a transition, both
+        # already covered by the single global reduced-motion override.
+        # A per-rule block here would be dead code, not a safety net
+        # (references/accessibility-contrast.md, "What to Avoid").
+        if stripped.count("@media (prefers-reduced-motion: reduce)") != 2:
+            return False, (
+                "expected exactly the two pre-existing prefers-reduced-motion blocks (the global "
+                "override and .js .mobile-nav's transition opt-out), got %d — T3 adds none"
+                % stripped.count("@media (prefers-reduced-motion: reduce)"))
+
+        # --- T4: the false claim is gone ----------------------------
+        if ".data-table-wrap th" in stripped:
+            return False, (
+                "expected NO .data-table-wrap th rule at all — its sticky claim could never "
+                "engage inside a wrapper with no height, and its --color-canvas background "
+                "existed only to serve that claim (T4)")
+        wrap = _block(stripped, ".data-table-wrap {")
+        for forbidden in ("max-height", "height:"):
+            if forbidden in wrap:
+                return False, (
+                    "expected .data-table-wrap to gain no height — T4 removes the false sticky "
+                    "claim rather than adding a second nested vertical scrollbar to four tables")
+        return True, ""
+    check(
+        "every <details> carries an explicit summary::before chevron that rotates on [open] through a "
+        "child combinator — including the bottom tab bar's More summary, where it is taken out of flow "
+        "so a marker cannot narrow the cell, and with its own inverted rotation because that sheet opens "
+        "upward — with the prefers-reduced-motion block count unchanged at two; and no "
+        ".data-table-wrap th rule survives to claim sticky positioning a wrapper with no height could "
+        "never provide (T3/T4, 22-15-PLAN.md Task 1)",
+        _every_disclosure_has_a_marker_and_no_header_claims_to_stick)
 
     def _nav_toggle_label_now_describes_the_preferences_panel():
         if layout.NAV_TOGGLE_LABEL != "Account and preferences":
