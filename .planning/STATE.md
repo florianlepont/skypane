@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-08-PLAN.md
-last_updated: "2026-09-13T02:03:19.439Z"
+stopped_at: Completed 22-10-PLAN.md
+last_updated: "2026-09-13T03:05:00.000Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 195
+  completed_plans: 196
   percent: 89
 ---
 
@@ -362,6 +362,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P07 | 75min | 2 tasks | 4 files |
 | Phase 22 P08 | 45min | 3 tasks | 6 files |
 | Phase 22 P09 | ~120min | 3 tasks | 7 files |
+| Phase 22 P10 | ~135min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -644,6 +645,14 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-09: .filter-bar__meta is the page-agnostic count+Clear group; two nowrap siblings in a wrapping flex container never wrapped as a unit, which is how A-18 regressed. 22-11 (Airlines) and 22-12 (Health) must add the same wrapper element, with no per-page variant
 - [Phase 22]: 22-09: the converged .filter-bar [data-filter-clear] rule gained line-height: inherit — its own contract promised the <button> and <a> variants land on pixel-identical output, and the UA's line-height was the one button property it had never undone (14px vs 18px)
 - [Phase 22]: 22-08: the three singular/plural fixes (manual resolutions, upcoming flights, days/events caption) are deferred to 22-11/22-10/22-12 respectively, since each lives in a file this plan does not own; CFG-29 is left unchecked pending their completion
+- [Phase 22]: 22-10: the swatch legend names Departures/Arrivals, NOT 22-UI-SPEC.md's prescribed "Background · Ink" — the two .theme-chip__dot swatches are departing_index/arriving_index, and a theme's background is never drawn as a dot; shipping the spec copy would have replaced two unexplained swatches with two mislabelled ones (22-16 records this in §4's X6 row)
+- [Phase 22]: 22-10: B9 is closed on .runway-card (flex: 1 1 0; min-width: 0), never on .runway-row as 22-UI-SPEC.md §2 prescribes — .runway-row has a SECOND consumer, quiet_hours_group()'s three-preset row, whose long labels must keep wrapping; three items with a zero basis cannot overflow a line at any width
+- [Phase 22]: 22-10: the rules add-form was right-aligned because .rule-add-form--inline never reset .rule-add-form's flex-direction: column (align-items: flex-end then aligns on the HORIZONTAL cross axis), not because of a margin-left: auto — there is none and never was
+- [Phase 22]: 22-10: THEME_PREVIEW_CROP_BOX is (0, 390, 1200, 840) — the caption band (ink rows 859-888) is excluded entirely, render.py's theme-independent main-text anchor is 847, the 8:3 ratio holds, and all 18 themes stay pairwise-distinct at minimum separation 14.845 vs the replaced box's 14.968
+- [Phase 22]: 22-10: X6's page-height target (2000px desktop / 2600px phone) is NOT met at 2389/3661 and cannot be by density alone — the remaining ~390px IS the chip grid, i.e. X6's deferred "fold behind the big preview" half (D5, Phase 23). Recorded so the checker reads a scope boundary, not a miss
+- [Phase 22]: 22-10: B9's "equal within 1px" is asserted on BORDER-EXCLUDED card widths; the outer widths differ by exactly the selected card's 2px border, which is T6 and belongs to 22-15. The browser check's border allowance is a stated exception naming 22-15 as the plan that deletes it
+- [Phase 22]: 22-10: half of B7/C3 already shipped — .theme-form .theme-option:not(--active):hover at 4.5% has existed since quick-260902-qkm; only the active-segment restore at the register's 12% accent wash was missing
+- [Phase 22]: 22-10: the wake-interval width rule is .config-form input[name="wake_interval_s"] placed immediately AFTER .config-form input[type="number"]'s phase-18 width: 100% at equal specificity — a specificity raise would beat rules it has no business beating, and this stylesheet carries no id selector at all
 
 ### Pending Todos
 
@@ -736,8 +745,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T02:03:19.387Z
-Stopped at: Completed 22-08-PLAN.md
+Last session: 2026-09-13T03:05:00.000Z
+Stopped at: Completed 22-10-PLAN.md
 
 Resume file: 
 
