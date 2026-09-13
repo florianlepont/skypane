@@ -1142,12 +1142,57 @@ Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 ### Phase 25: Companion dynamism III — "Controls": the modern controls that replace bare fields
 
 **Goal:** Five new controls, each with a no-JS fallback and a 360 px touch obligation: D16 (runway picked on one SVG map of Orly), D17 (24 h dial for quiet hours), D18 (wake-interval slider with freshness and battery-life gauges), D5 (theme carousel over the chip grid — this is also X6's deferred half, the reason Phase 22's Display page misses its height target) and D19 (drag-and-drop artwork with client-side crop).
-**Requirements**: TBD (assign at planning)
-**Depends on:** Phase 23
-**Plans:** 0 plans
+**Requirements**: CFG-46, CFG-47, CFG-48, CFG-49, CFG-50, CFG-51, CFG-52
+**Depends on:** Phase 23 (and inherits facts from Phase 24, which is planned but NOT executed)
+**Plans:** 8 plans across 7 waves
+
+**Planned 2026-09-13, and planning ONLY — this phase must not be executed before the developer has seen Phases 23 and 24 on screen.** That is the developer's own instruction and it is sound: this phase creates five new components, and a new component built on an unreviewed foundation is the expensive kind of rework.
+
+Planned with **no CONTEXT.md and no UI-SPEC** (the precedent Phases 23 and 24 both set), so **eight decisions were taken PROVISIONALLY** and every one is collected in `25-RESEARCH.md`'s "Open decisions" section for the developer:
+
+- **The phase spends exactly ONE new static script**, not the six-to-eight 23-RESEARCH.md predicted. D16 needs none (the runway radios are already a native radiogroup); D17 and D18 share one file because they are one behaviour — steer a continuous value, write it into the native input the form posts; D5 grows `theme-preview.js`, which already owns that radio group; D19 grows `panel-lookup.js`, which already owns those upload forms. 25-01 pays the three taxes (the deferred-script pin fourteen→fifteen, the French catalogue, the route and forbidden-sink guard) once, and no later plan moves the pin.
+- **The no-JS floor has exactly one safe shape here and it already exists four times over**: the server renders the submitting control unconditionally, and the enhancement writes into it. `.runway-card`/`.theme-chip`/`.frame-colours__row` are three live instances; `dirty-state.js`'s quiet-hours presets are the fourth. The converse defect — an affordance that renders but silently does nothing — is defeated by the **already-shipped `.js` class** (`nav-dropdown.js` sets it, `.js .mobile-nav` consumes it), used hide-by-default and reveal-under-`.js`, never the reverse.
+- **D18's "estimated battery life ≈ 38 days" cannot honestly be computed and is narrowed.** The per-wake energy cost has never been measured — DEVICE-05's multi-day discharge run is still deferred at the end of the project — so an absolute figure from an assumed cost would be the dishonest-state defect Phase 22's X2/B2/B3 arc spent a phase removing. The gauge derives from this device's own observed slope, states the slider's effect relatively, and prints an absolute figure only where the observed history supports one, with a named "not enough history yet" state otherwise. **The alternative, and a legitimate one, is to drop the battery gauge entirely and ship freshness alone.**
+- **D5's "full grid behind a dialog" is a native `<details>` instead** — a `<dialog>` cannot be opened without script, which would put eighteen themes behind a dead control with scripts blocked. Recorded as a deliberate deviation from the audit's wording, not a silent substitution.
+- **D19 sheds three clauses**, each with its ground: no client-side canvas crop (`illustration_normalize.py`'s own docstring records that a second, differently-thresholded measurement drifting from the first is the debug session that created it), no progress bar (`submit-guard.js` already disables on submit), and no hover-only aircraft types (hover is unreachable by touch — CFG-28's own ground).
+- **Two re-scopes, not builds.** D17's "fixes B14" describes work already shipped in 22-10 (`_normalised_time_html()`'s visible 24 h sibling) and must be PRESERVED. D5 is X6's deferred half, and 22-10 already recorded that the page-height target "is NOT met and cannot be by density alone" — so D5's success criterion is a **measured** Display height, reported honestly either way, not the carousel's existence.
+- **D16 redraws rather than embeds.** The three `runway-*.png` files are 338-371 KB photographs, not vectors. The map's bearings derive from the designators already in `device_config.RUNWAYS` (a designator IS its bearing to the nearest ten degrees, by ICAO convention), so the drawing cannot contradict its own labels. The photographs and their session-gated route stay served.
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 25 to break down)
+
+**Wave 1** *(parallel — two plans, disjoint files)*
+- [ ] 25-01-PLAN.md — wave 1: the phase's one new script with its three taxes paid once, the `.js`-gate control vocabulary, the shared battery-life arithmetic, and the executable no-JS control contract. Builds no control.
+- [ ] 25-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — operate-submit-**persist** under blocked scripts, keyboard-only operation with zero pointer events, real hit-tested area measurement, and the two-direction gate assertion; zero net checks
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 25-03-PLAN.md — wave 2: D16 — the runway picked on one drawn schematic of Orly, adding zero scripts because the three radios were always the control
+
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 25-04-PLAN.md — wave 3: D17 — the server-drawn 24 h arc, the two gated handles, and the wrapping-midnight arithmetic settled before anything is drawn
+
+**Wave 4** *(blocked on Wave 3)*
+- [ ] 25-05-PLAN.md — wave 4: D18 — the gated range input beside an untouched number input, and two gauges of which only one can currently be absolute
+
+**Wave 5** *(blocked on Wave 4)*
+- [ ] 25-06-PLAN.md — wave 5: D5 — the carousel around the one chip renderer, the full grid behind a native disclosure, and Display's height measured before and after
+
+**Wave 6** *(blocked on Wave 1)*
+- [ ] 25-07-PLAN.md — wave 6: D19 — the drop zone and framing preview over two byte-identical upload forms, with the normaliser untouched and picked-vs-dropped proven equivalent
+
+**Wave 7** *(blocked on all prior waves)*
+- [ ] 25-08-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's eight-decision list with each one's reversal cost, and the phase gate including the required real-device sweep
+
+*The waves are serial after wave 1 because `companion/pages/config_page.py` is written by four plans and `companion/static/style.css` by six, and this project's rule is one writer per file per wave — the same reason Phase 23 needed 9 waves for 11 plans and Phase 24 needs 7 for 9. 25-07 touches neither the settings page nor its form and is serialised only by the stylesheet.*
+
+Cross-cutting constraints (appearing in two or more plans' `must_haves`):
+- **The no-JS floor (D-09) is absolute and this is the phase most at risk from it.** Every control's fallback is an **executable check, not a promise**, and the proof is **operate → submit → reload → assert persisted**. A check asserting only that the control renders would pass against a control that saves nothing — the exact defect Phase 22 found.
+- CSP is `script-src 'self'`; the deferred-script pin moves ONCE, in 25-01, fourteen → fifteen, retargeted in place with a stated reason.
+- **Exactly ONE `@supports selector(:has(*))` block**, pinned by two named checks, with specificity arithmetic marked "verified, not to be re-derived". D5 is the largest threat to it in the whole phase and D16 the second.
+- Minimum viewport 360 px, no horizontal body scrollbar; every hit area ≥ 44 px in both axes **measured in a real browser**, or a named design-system register entry with a stated argument.
+- Every control is keyboard-operable with **zero pointer events**, and announces through the native control's own `aria-valuetext` — **never a `role="status"` region**, which re-announces identical text on every keystroke (Phase 23 learned this with its three switches).
+- Motion tokens only; `interpolate-size` and `calc-size(` banned; no new `@keyframes`; no per-rule `prefers-reduced-motion` block (the global one already covers plain transitions and a per-rule copy is recorded as dead code).
+- **Two standing refusals stay refused and unreversed:** the **overlay drawer** (three recorded rejections plus locked decision D-10, one from real-device testing) and **sticky day headers** (struck twice; every flight row already carries its date).
+- Every check mutation-tested and must survive the vacuity question; `EXPECTED_CHECK_COUNT` re-derived by RUNNING, never by arithmetic; the sandbox baseline is exactly 5 failing checks verified by NAME. A `SKIP` from `test_browser_ux.py` is a **failed phase gate**, not a caveat — this phase is entirely interaction.
 
 ### Phase 26: Companion dynamism IV — "App": the finishes
 
