@@ -412,18 +412,25 @@ html[data-ui-theme="dark"] {
  * is the one way this feature fails silently: a name that matches twice
  * makes the browser drop the transition with no error anywhere. Read
  * this before "simplifying" any of the three selectors — companion/
- * layout.py renders THREE navigation copies into EVERY authenticated
- * document simultaneously (the sidebar, the preferences panel and the
- * bottom tab bar), hidden from one another only by the 960px media
- * query further down this file. A name hung on a shared navigation
- * class would therefore be declared three times in one document and the
- * whole cross-fade would vanish. The sidebar is targeted by
- * `.dashboard-sidebar`, its own `<aside>` class, which is rendered
- * exactly once. `.page-title` is page_header()'s single `<h1>`, and
+ * layout.py puts TWO navigation landmarks into EVERY authenticated
+ * document simultaneously, the sidebar's own vertical one and the
+ * bottom tab bar, hidden from one another only by the 960px media query
+ * further down this file. (23-RESEARCH.md and this plan both say three,
+ * counting the preferences panel's copy — that one was REMOVED rather
+ * than emptied by 22-14, so the hazard is two-fold today and would be
+ * three-fold again the moment a panel-level landmark returns.) A name
+ * hung on a class those share, or on the bare `nav` element, is
+ * therefore declared once in this file and resolves twice in the
+ * document, and the whole cross-fade vanishes. The sidebar is targeted
+ * by `.dashboard-sidebar`, its own `<aside>` class, rendered exactly
+ * once. `.page-title` is page_header()'s single `<h1>`, and
  * `.preview-frame__image` is Home's frame picture and the app's only
  * render site of that class. companion/test_browser_ux.py counts the
  * COMPUTED value on every authenticated route, because only a browser
- * can see a selector matching twice.
+ * can see a selector matching twice — and that is not hypothetical:
+ * mutating `.dashboard-sidebar` to `nav` was measured here, and it
+ * resolves to `nav.sidebar-nav` and `nav.tab-bar` on all six routes
+ * while every source-level scan in this repository stays green.
  *
  * Each name is declared in a rule of its own on purpose. In particular
  * `.preview-frame__image` shares its white-backing/hairline/radius
