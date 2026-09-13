@@ -62,6 +62,13 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [ ] **CFG-36**: Screen, Quiet hours and LED are real switches — flipped over `fetch` with optimistic state and rollback on error, the absent-field semantics fixed first so a partial write can never silently disable a setting, and the underlying form still works with scripts blocked
 - [ ] **CFG-37**: The flights list is alive — a new detection arrives visibly, the detail row opens and closes with measured motion, and the filter count moves with its list
 - [ ] **CFG-38**: The browser harness can express this phase — a no-JS helper, a 360 px viewport constant, and a disclosure sweep that stays honest once the pages animate
+- [ ] **CFG-39**: One battery estimate and one drawing contract sit behind every picture in this phase — the five drawings share a single battery estimator and a single SVG drawing module (scale, geometry, label placement, colour binding), and the chart contract is enforced by a machine rather than a reviewer: one scale places marks, ticks and labels together; every axis label names a value the drawing actually reaches; every drawn shape carries an explicit fill; no colour literal appears in emitted SVG; and where a `viewBox` exists it contains its own outermost labels
+- [ ] **CFG-40**: The battery reading is drawn, not only written — a ring gauge rendered server-side from the shared estimator, large on Health and small in Home's battery tile, emitted by ONE function called twice rather than two similar functions, legible in both themes and at 360 px
+- [ ] **CFG-41**: The battery chart earns its canvas — a filled area under the line, an explicitly marked last point, and a drawn low-battery threshold the latest reading is judged against, added without losing the existing no-`viewBox` percentage-coordinate scheme, the per-point keyboard path, or the daily-average/raw-readings fallback
+- [ ] **CFG-42**: Home shows the day the device has had — a 24-hour timeline rendered server-side from `history.db` (check-ins, the held quiet-hours window, detections), readable with scripts blocked and at 360 px
+- [ ] **CFG-43**: Punctuality is reported only as far as the stored data can prove it — the grid is computed from observed check-in gaps judged against the cadence in force, states in its own caption what it measures and what it cannot know (a rotated-away log range is not a missed wake), and no plan assumes an expected-interval history that this project does not store
+- [ ] **CFG-44**: Home gains a hero the other drawings feed — one composition assembled from the same emitters this phase defines elsewhere, never a second copy of any of them
+- [ ] **CFG-45**: The phase's regression floor — every drawing renders with scripts blocked, fits 360 px with no horizontal scrollbar on the page body, takes every colour from the theme tokens so it reads in BOTH themes, spends only from the existing motion budget, and the design system is updated in step
 
 ## v2 Requirements
 
@@ -165,6 +172,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CFG-36 | Phase 23 | Planned — 23-07. The fourth switch (notifications) is deliberately NOT built: developer decision, option A, recorded on ROADMAP.md's Phase 23 entry |
 | CFG-37 | Phase 23 | Planned — 23-08. Sticky day headers are deliberately NOT built: developer decision, option A, on the sketch's own evidence that every row already carries its date |
 | CFG-38 | Phase 23 | Planned — 23-02, closed by 23-11 |
+| CFG-39 | Phase 24 | Planned — 24-01 (the shared estimator and the drawing contract, plus the executable chart guard every later plan is measured against); 24-09 closes |
+| CFG-40 | Phase 24 | Planned — 24-04 (one ring emitter, two call sites); 24-09 closes |
+| CFG-41 | Phase 24 | Planned — 24-05; 24-09 closes |
+| CFG-42 | Phase 24 | Planned — 24-06; 24-09 closes |
+| CFG-43 | Phase 24 | Planned — 24-03 (the readers, and the written settlement of the expected-interval blocker) and 24-07 (the grid itself); 24-09 closes |
+| CFG-44 | Phase 24 | Planned — 24-08; 24-09 closes |
+| CFG-45 | Phase 24 | Planned — 24-02 (the harness helpers), then asserted by every drawing plan, closed by 24-09 |
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.
 

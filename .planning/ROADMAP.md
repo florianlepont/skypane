@@ -1092,12 +1092,9 @@ Plans:
 ### Phase 24: Companion dynamism II — "Drawn": server-rendered SVG from the history
 
 **Goal:** The charts and pictures the data already supports, rendered server-side as SVG from `history.db`, sharing one battery estimator: D21 (battery ring gauge, reused small in Home's tile), D8 (battery chart with gradient area, marked last point, low-battery threshold), D13 (Home's day timeline), D20 (wake-punctuality grid) and D4 (the Home hero the others feed). **D20 carries a known blocker to settle at planning:** `device_health` records observed check-ins only, so "honoured-wake rate" needs historical expected intervals that are nowhere stored — either the schema grows or the metric changes.
-**Requirements**: TBD (assign at planning)
+**Requirements**: CFG-39 (one shared battery estimator + one SVG drawing contract, machine-enforced), CFG-40 (D21 ring gauge, one emitter, two sizes), CFG-41 (D8 battery chart: area, marked last point, low-battery threshold), CFG-42 (D13 Home day timeline), CFG-43 (D20, reported only as far as the stored data can prove it), CFG-44 (D4 Home hero), CFG-45 (the phase's regression floor: no-JS, 360 px, both themes, motion budget, design system updated in step)
 **Depends on:** Phase 23
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 24 to break down)
+**Plans:** 0/9 plans executed
 
 ### Phase 25: Companion dynamism III — "Controls": the modern controls that replace bare fields
 
