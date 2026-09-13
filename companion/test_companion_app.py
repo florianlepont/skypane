@@ -574,6 +574,98 @@ EXPECTED_CHECK_COUNT = 271
 # time (270/272 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 272
+# 23-01-PLAN.md Task 2 (D3/CFG-32): +1 — the motion-budget guard. Phase 23
+# adds motion to eight surfaces across nine plans, and before this check
+# nothing in the tree would have noticed a second near-identical
+# @keyframes block, a hard-coded 400ms animation duration, a third
+# reduced-motion block, or an interpolate-size declaration copied out of a
+# blog post. One check now reads companion/static/style.css, strips its
+# comments and asserts all four, plus the two reduced-motion block counts
+# below. No pre-existing check was retargeted. 272 + 1 = 273, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (271/273 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 273
+
+# 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
+# two numbers a plan has to edit deliberately rather than drift past.
+#
+# EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS pins the LIVE (comment-stripped)
+# `@media (prefers-reduced-motion: reduce)` block count in
+# companion/static/style.css. The two are style.css's global
+# `*, *::before, *::after` override (D-19) and `.js .mobile-nav`'s narrow
+# `transition: none`, the one documented case where 0.01ms is not good
+# enough because a size-interpolating transition still running at 0.01ms
+# can strand an intermediate computed value. THIS NUMBER STAYS AT TWO FOR
+# THE WHOLE OF PHASE 23: `references/accessibility-contrast.md`'s "What to
+# Avoid" records a per-rule reduced-motion block for a plain colour,
+# border, shadow or transform transition as dead code, not a safety net,
+# and the global override already covers every one of them for free. No
+# plan in this phase is permitted to move it; a plan that believes it has
+# the third genuine case must argue it the way `.js .mobile-nav` was
+# argued, in its own SUMMARY, before touching this line.
+EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
+# EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS pins the opposite wrapper,
+# and it starts at ZERO because the gap it exists for is not yet closed.
+# `*, *::before, *::after` matches ELEMENTS, and the view-transition
+# pseudo-element tree is not an element tree, so the global reduce block
+# does not disable a cross-document view transition (23-RESEARCH.md's
+# Risk 3, confirmed in this project's own harness Chromium). 23-04 is the
+# ONE plan permitted to move this constant, and it moves it to exactly 1:
+# it wraps its own view-transition at-rule in a
+# `prefers-reduced-motion: no-preference` media query, which prevents the
+# transition being set up at all rather than setting one up and running it
+# fast. Written down here so that edit is an anticipated one-line change
+# rather than a surprise failure — and so that any OTHER plan raising this
+# number has to explain itself first.
+EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 0
+
+# 23-01-PLAN.md Task 2: every non-custom identifier the `animation`
+# shorthand may legally carry BESIDES the keyframes name. Anything in an
+# animation value that is not one of these, not a `--custom-property` and
+# not a time literal is taken to be a keyframes reference and must
+# resolve to a block defined in the same stylesheet.
+_ANIMATION_VALUE_KEYWORDS = frozenset((
+    "var", "none", "infinite", "normal", "reverse", "alternate", "alternate-reverse",
+    "forwards", "backwards", "both", "running", "paused", "auto",
+    "linear", "ease", "ease-in", "ease-out", "ease-in-out",
+    "step-start", "step-end", "steps", "cubic-bezier",
+    "jump-start", "jump-end", "jump-none", "jump-both", "start", "end",
+    "inherit", "initial", "unset", "revert", "revert-layer",
+))
+
+
+def _without_reduced_motion_blocks(css_source):
+    """`css_source` with every `@media (prefers-reduced-motion: ...)` block
+    (query and body) removed, by brace matching rather than by regex.
+
+    23-01-PLAN.md Task 2. These blocks are the one place in the file where
+    a bare duration literal is correct: the global override's
+    `animation-duration: 0.01ms !important` exists to CANCEL motion, so
+    binding it to a motion token would invert its purpose. Their counts
+    are asserted separately, before this removal.
+    """
+    out = ""
+    pos = 0
+    for match in re.finditer(r"@media[^{]*prefers-reduced-motion", css_source):
+        if match.start() < pos:
+            continue
+        open_brace = css_source.find("{", match.start())
+        if open_brace < 0:
+            continue
+        depth = 0
+        index = open_brace
+        while index < len(css_source):
+            if css_source[index] == "{":
+                depth += 1
+            elif css_source[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            index += 1
+        out += css_source[pos:match.start()]
+        pos = index + 1
+    return out + css_source[pos:]
 
 
 def _ago_iso(seconds):
@@ -4287,6 +4379,145 @@ def main():
             "the ONE existing button:disabled rule still ordered after button:active, and changes no CSP "
             "(T14, 22-15-PLAN.md Task 3)",
             _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard)
+
+        # --- 23-01-PLAN.md Task 2 (D3/CFG-32): the motion budget, made
+        # executable. A budget that is only a document is a budget a
+        # reviewer has to remember; this is the machine that remembers
+        # for them, and every later Phase 23 plan is measured against it.
+
+        def _motion_budget_is_enforced_in_the_stylesheet():
+            # WHY THE COMMENTS ARE STRIPPED FIRST, AND WHY THAT IS THE
+            # WHOLE POINT: style.css's comments quote the very tokens
+            # this check counts. 23-01's own explanatory paragraphs name
+            # the keyframes block, both --motion-* tokens, the
+            # reduced-motion media features and the view-transition
+            # pseudo-elements in prose, and later plans will add more of
+            # the same. A scan over raw source would therefore be
+            # SATISFIED by a comment that promises a rule nobody wrote,
+            # and BROKEN by a comment that explains a rule correctly.
+            # Measuring the stripped source is what makes this check a
+            # statement about the stylesheet rather than about its
+            # documentation. (This is the same idiom test_status_pages.py
+            # already uses for its own style.css scans.)
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path, "r", encoding="utf-8") as fh:
+                css = fh.read()
+            # Non-greedy on purpose: a greedy match would swallow
+            # everything between the FIRST "/*" and the LAST "*/",
+            # i.e. almost the entire file.
+            stripped = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+
+            # --- 1. every keyframes name is defined exactly once -------
+            names = re.findall(r"@keyframes\s+([A-Za-z_-][\w-]*)", stripped)
+            seen = []
+            for name in names:
+                if name in seen:
+                    return False, (
+                        "@keyframes %r is defined %d times in companion/static/style.css — the "
+                        "motion budget is ONE shared definition per animation (D14's breathing "
+                        "dot and D22's pulse are the same animation and share one block); two "
+                        "near-identical keyframe blocks is the specific failure this check "
+                        "exists to catch" % (name, names.count(name)))
+                seen.append(name)
+
+            # --- reduced-motion block counts ---------------------------
+            # Counted BEFORE the animation scan below, because the next
+            # step deletes these blocks from the source it measures.
+            reduce_blocks = re.findall(
+                r"@media[^{]*prefers-reduced-motion\s*:\s*reduce", stripped)
+            if len(reduce_blocks) != EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS:
+                return False, (
+                    "companion/static/style.css carries %d live "
+                    "`@media (prefers-reduced-motion: reduce)` block(s), expected %d "
+                    "(EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS). The global override plus "
+                    "`.js .mobile-nav`'s narrow `none` are the only two; a per-rule block for a "
+                    "plain colour/border/shadow/transform transition is dead code, not a safety "
+                    "net, and the global block already covers it for free. Moving this number is "
+                    "a deliberate two-file edit, never a side effect"
+                    % (len(reduce_blocks), EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS))
+            no_pref_blocks = re.findall(
+                r"@media[^{]*prefers-reduced-motion\s*:\s*no-preference", stripped)
+            if len(no_pref_blocks) != EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS:
+                return False, (
+                    "companion/static/style.css carries %d live "
+                    "`@media (prefers-reduced-motion: no-preference)` wrapper(s), expected %d "
+                    "(EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS). 23-04 is the one plan "
+                    "permitted to raise this to 1, for the view-transition at-rule the global "
+                    "reduce block genuinely cannot reach; any other change here needs its own "
+                    "argument first"
+                    % (len(no_pref_blocks), EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS))
+
+            # --- 2/3. animation declarations: resolved names, token
+            # durations. The reduced-motion blocks are REMOVED from the
+            # source scanned below, and the exemption is the point of
+            # those blocks: their `animation-duration: 0.01ms !important`
+            # is a bare literal ON PURPOSE — it exists to CANCEL motion,
+            # so binding it to a motion token would be backwards.
+            live = _without_reduced_motion_blocks(stripped)
+            for match in re.finditer(
+                    r"(?<![\w-])(animation(?:-name|-duration)?)\s*:([^;}]*)", live):
+                prop, value = match.group(1), match.group(2).strip()
+                if prop in ("animation", "animation-name"):
+                    idents = [
+                        ident for ident in re.findall(r"(?<![\w-])(-?[A-Za-z_][\w-]*)", value)
+                        if ident.lower() not in _ANIMATION_VALUE_KEYWORDS
+                    ]
+                    for ident in idents:
+                        if ident not in names:
+                            return False, (
+                                "`%s: %s` names %r, which no @keyframes block in "
+                                "companion/static/style.css defines — a dangling animation "
+                                "reference renders as no animation at all and no browser "
+                                "reports it" % (prop, value, ident))
+                    if not idents:
+                        return False, (
+                            "`%s: %s` resolves to no keyframes name at all" % (prop, value))
+                if prop in ("animation", "animation-duration"):
+                    # The token rule binds `animation` ONLY, and the
+                    # asymmetry is a decision rather than an omission:
+                    # the file's fifteen `transition:` declarations
+                    # predate this phase with bare literals, and
+                    # converting them would open exactly the
+                    # stylesheet-wide refactor 22-CONTEXT.md's D-08/T16
+                    # forbids. Every `animation` declaration, by
+                    # contrast, is new by construction — there is no
+                    # legacy to grandfather, so the rule can be absolute.
+                    literal = re.search(r"(?<![\w-])\d+(?:\.\d+)?m?s(?![\w-])", value)
+                    if literal or "var(--motion-" not in value:
+                        return False, (
+                            "`%s: %s` takes its duration from %s — every animation duration in "
+                            "this file must come from var(--motion-fast) or var(--motion-slow), "
+                            "the whole of the phase's two-token motion budget. A plan that needs "
+                            "a third duration states why in its own SUMMARY instead of inlining "
+                            "one" % (prop, value,
+                                     ("the bare literal %r" % literal.group(0)) if literal
+                                     else "no --motion-* token"))
+
+            # --- 4. the two Chromium-only sizing primitives ------------
+            # Banned by this check rather than by a comment, because a
+            # comment is what a plan copying a blog post skips.
+            # `grid-template-rows: 0fr -> 1fr` is the sanctioned
+            # height-animation mechanism (23-08's and 23-10's to use).
+            # Measured on the STRIPPED source so a future plan may still
+            # write down WHY they are banned without failing the ban.
+            for banned in ("interpolate-size", "calc-size("):
+                if banned in live:
+                    return False, (
+                        "companion/static/style.css declares %r — Chromium-only and Baseline "
+                        "limited, so it animates for some visitors and silently does nothing for "
+                        "the rest. Use `grid-template-rows: 0fr -> 1fr`, which 23-RESEARCH.md's "
+                        "own Baseline table picks for exactly this job" % (banned,))
+            return True, ""
+        check(
+            "companion/static/style.css honours the phase's motion budget: every @keyframes name "
+            "is defined exactly once, every animation reference resolves to a block in the same "
+            "file, every animation duration comes from a var(--motion-*) token rather than a bare "
+            "literal, the live prefers-reduced-motion reduce/no-preference block counts equal "
+            "EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS/EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS, "
+            "and neither interpolate-size nor calc-size() appears — all measured on "
+            "COMMENT-STRIPPED source, because this stylesheet's comments quote every token the "
+            "check counts (D3/CFG-32, 23-01-PLAN.md Task 2)",
+            _motion_budget_is_enforced_in_the_stylesheet)
 
         # --- 22-13-PLAN.md Task 2 (X3): login-card.js, the twelfth
         # static script and the first one this app loads pre-auth ---
