@@ -466,6 +466,22 @@ EXPECTED_CHECK_COUNT = 32
 # switches at 360px in both languages. 38 + 4 = 42, re-derived by
 # RUNNING.
 EXPECTED_CHECK_COUNT = 42
+# 23-08-PLAN.md Task 3 (D7/CFG-37 + D3's two Flights clauses): +4 — a
+# detection recorded while the page is open proven to arrive at the top
+# and be the ONLY thing highlighted (both directions, both renderings,
+# with a first-load clause and a nothing-changed clause the empty-known-
+# set mutation reddens); the filter proven neither interrupted (requests
+# counted, with a control) nor undone by the swap that follows; a
+# COLLAPSED detail row proven to let none of its controls take focus,
+# against a control phase proving they are reachable once open, plus the
+# reveal wrapper's real computed transition; and the phone card proven to
+# open from a tap on its own face at 360px with scripts on AND with
+# scripts blocked; plus the half a swapped list gets wrong silently — a
+# refresh neither unfolding the whole table nor closing the row that was
+# opened, proven by EVENT identity against a renumbering insertion and
+# with focus blurred so the loop's focus skip cannot be what passes it.
+# 42 + 5 = 47, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 47
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -2881,10 +2897,51 @@ def main():
                         "          docSW: document.documentElement.scrollWidth,"
                         "          docCW: document.documentElement.clientWidth};"
                         "}")
+                    #
+                    # 23-08-PLAN.md Task 3: THE CONTEXT REQUESTS REDUCED
+                    # MOTION, and this is a deliberate fix rather than a
+                    # tidy-up. 23-02 gave its own generalised sibling
+                    # (260913-eab) exactly this treatment and recorded,
+                    # as a finding, that THIS check has the identical
+                    # exposure and was left alone only because that
+                    # plan's scope named one check and its acceptance
+                    # criterion pinned an occurrence count.
+                    #
+                    # The exposure: this check sets `details.open = true`
+                    # and measures in the SAME task, which is sound only
+                    # while nothing animates. Health carries four
+                    # disclosures. A box measured mid-transition is
+                    # NARROWER than its final box, so this would begin
+                    # failing intermittently on geometry that is in fact
+                    # correct — and it would be harder to diagnose than
+                    # its sibling's version of the same fault, because
+                    # the sibling is green.
+                    #
+                    # STATED PLAINLY: 23-08's own animations cannot reach
+                    # this check today. Every one of them is scoped to a
+                    # Flights-only selector (.flight-detail-row__reveal,
+                    # .row-toggle__glyph, .history-card__summary) and
+                    # /health renders none of them. This is therefore
+                    # prophylaxis, taken now because the cost is one
+                    # argument and because 23-10 owns the rest of D3's
+                    # motion and will animate more. An intermittently red
+                    # check is worse than no check: it teaches people to
+                    # ignore it.
+                    #
+                    # It weakens nothing. Reduced motion makes the final
+                    # state the IMMEDIATE state through the app's own
+                    # global override; the widths this check measures are
+                    # not a function of motion, so the same geometry is
+                    # asserted, just deterministically. It takes this
+                    # file's count of reduce-requesting contexts from 2
+                    # to 3 — written without the literal on purpose, so a
+                    # grep for the literal keeps counting contexts rather
+                    # than prose about them (23-01's own lesson).
                     width = 390
                     for lang in ("en", "fr"):
                         context = browser.new_context(
-                            viewport={"width": width, "height": 844})
+                            viewport={"width": width, "height": 844},
+                            reduced_motion="reduce")
                         try:
                             page = context.new_page()
                             base_url = harness.base_url()
@@ -4653,6 +4710,517 @@ def main():
                     "control that renders and silently does nothing (D2/CFG-36, CFG-38, "
                     "23-07-PLAN.md Task 3)",
                     _all_three_switches_still_post_with_scripts_blocked_at_360px)
+
+                # --- 23-08-PLAN.md Task 3 (D7/CFG-37 + D3's two Flights
+                # clauses): the live list, proven live -----------------
+                #
+                # The refresh is forced the same way every 23-06 check
+                # above forces it (_force_refresh + REFRESH_SETTLE_MS):
+                # the loop's own visibilitychange catch-up, against a
+                # shifted Date.now, with the shipped guards unmodified.
+
+                FLIGHT_ID_ATTR = layout.REFRESH_ROW_ID_ATTR
+                NEW_ROW_CLASS = layout.REFRESH_NEW_ROW_CLASS
+
+                def _record_a_new_detection(callsign, hex_value, ts):
+                    """One more runway_events row, written through the
+                    same module server/poll_loop.py writes them with —
+                    never a hand-built INSERT, so the row this check
+                    calls "a new detection" is the shape a real detection
+                    has."""
+                    with history_db.open_db(harness.tmpdir) as conn:
+                        history_db.record_runway_event(
+                            conn, ts=ts, hex=hex_value, callsign=callsign,
+                            aircraft_type="A320", confirmed_state="confirmed",
+                            corroborated=True, route_source="adsb",
+                            airline="Air France", origin="LFPO", destination="LFPG",
+                            tracked_runway=device_config.RUNWAY_IDS[0])
+
+                def _row_ids(page):
+                    return page.evaluate(
+                        "(attr) => [...document.querySelectorAll('tr[data-flight-row][' + attr"
+                        " + ']')].map(el => el.getAttribute(attr))", FLIGHT_ID_ATTR)
+
+                def _highlighted(page):
+                    return page.evaluate(
+                        "(cls) => [...document.querySelectorAll('.' + cls)].length",
+                        NEW_ROW_CLASS)
+
+                def _a_new_detection_is_highlighted_and_an_existing_row_is_not():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/flights")
+                        page.wait_for_load_state("networkidle")
+
+                        before_ids = _row_ids(page)
+                        if len(before_ids) < 2:
+                            return False, (
+                                "expected the seeded fixture to render several rows, got %d — "
+                                "with fewer this check measures nothing" % len(before_ids))
+                        if len(set(before_ids)) != len(before_ids):
+                            return False, (
+                                "expected every rendered row identity to be distinct, got %r"
+                                % (before_ids,))
+                        if _highlighted(page):
+                            return False, (
+                                "a freshly LOADED page already highlights %d element(s) — the "
+                                "highlight means 'this arrived while you were watching', and on "
+                                "first paint nothing did" % _highlighted(page))
+
+                        # PHASE 1 — a refresh with nothing new. The known
+                        # set was taken from the page as first rendered,
+                        # so this cycle must announce nothing. This is
+                        # the clause that reddens when the set starts
+                        # empty: every row would read as new.
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _highlighted(page):
+                            return False, (
+                                "a refresh that brought nothing new highlighted %d element(s) — "
+                                "a list that announces itself every cycle has told the reader "
+                                "nothing, and is how they learn to ignore it"
+                                % _highlighted(page))
+
+                        # PHASE 2 — a genuinely new detection, written to
+                        # the same database the page reads, between two
+                        # swaps.
+                        _record_a_new_detection(
+                            "NEWDET", "39ffff", "2026-08-01T23:30:00+00:00")
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+
+                        after_ids = _row_ids(page)
+                        if len(after_ids) != len(before_ids) + 1:
+                            return False, (
+                                "expected the swap to bring the new detection into the live "
+                                "list: %d rows before, %d after — with no new row this check "
+                                "would be asserting a highlight on nothing"
+                                % (len(before_ids), len(after_ids)))
+                        arrived = [rid for rid in after_ids if rid not in before_ids]
+                        if len(arrived) != 1:
+                            return False, (
+                                "expected exactly one identity to be new after the swap, got %r"
+                                % (arrived,))
+                        if after_ids[0] != arrived[0]:
+                            return False, (
+                                "expected the new detection at the TOP of the list, got %r at "
+                                "the top and %r as the new identity" % (after_ids[0], arrived[0]))
+
+                        # BOTH DIRECTIONS. A check that only asserted the
+                        # presence of a highlight would pass on an
+                        # implementation that highlights everything —
+                        # which is the likelier bug, and the more
+                        # damaging one.
+                        marked = page.evaluate(
+                            "([attr, cls]) => [...document.querySelectorAll("
+                            "'tr[data-flight-row].' + cls)].map(el => el.getAttribute(attr))",
+                            [FLIGHT_ID_ATTR, NEW_ROW_CLASS])
+                        if marked != arrived:
+                            return False, (
+                                "expected exactly the arrived row %r to carry the highlight, "
+                                "got %r — a highlight on a row that was already there is a "
+                                "claim that it just landed, which is false" % (arrived, marked))
+                        # And the phone card for the same event is
+                        # marked too: Flights renders every flight twice
+                        # and a reader on a phone must get the same
+                        # signal a reader on a desktop does.
+                        card_marked = page.evaluate(
+                            "([attr, cls]) => [...document.querySelectorAll("
+                            "'li.history-card.' + cls)].map(el => el.getAttribute(attr))",
+                            [FLIGHT_ID_ATTR, NEW_ROW_CLASS])
+                        if card_marked != arrived:
+                            return False, (
+                                "expected the phone card for the same event to be marked too, "
+                                "got %r" % (card_marked,))
+                        # The animation is the stylesheet's own, once,
+                        # on the phase's ambient token.
+                        animation = page.eval_on_selector(
+                            "tr[data-flight-row]." + NEW_ROW_CLASS,
+                            "el => [getComputedStyle(el).animationName,"
+                            " getComputedStyle(el).animationIterationCount,"
+                            " getComputedStyle(el).animationDuration]")
+                        if animation[0] != "skypane-row-arrive":
+                            return False, (
+                                "expected the highlight class to resolve to the stylesheet's own "
+                                "arrival block, got %r" % (animation[0],))
+                        if animation[1] != "1":
+                            return False, (
+                                "expected the highlight to run exactly once, got %r iterations"
+                                % (animation[1],))
+                        if animation[2] != "2s":
+                            return False, (
+                                "expected the highlight to spend --motion-slow (2s), got %r — a "
+                                "180ms flash on a row nobody was looking at is no signal at all"
+                                % (animation[2],))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a detection recorded while the Flights page is open arrives at the top of the "
+                    "live list on the next refresh and is the ONLY thing highlighted — in both the "
+                    "table and the phone card list — while a row that was already there is not, "
+                    "nothing at all is highlighted on first load, and a refresh that brings nothing "
+                    "new announces nothing; the class resolves to the stylesheet's own single-run "
+                    "arrival animation on --motion-slow (D7/CFG-37, 23-08-PLAN.md Task 3)",
+                    _a_new_detection_is_highlighted_and_an_existing_row_is_not)
+
+                def _a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened():
+                    # The half a swapped list gets wrong silently. The
+                    # SERVER renders every detail row VISIBLE — that is
+                    # D-15's locked no-JS floor and it carries no
+                    # open/closed state at all — so a refresh arrives
+                    # with every row expanded and every toggle reading
+                    # aria-expanded="false". Without flight-rows.js
+                    # re-deriving its own state after the swap, one
+                    # refresh unfolds the whole table; with a record
+                    # keyed to the row's POSITION instead of its event
+                    # identity, a detection arriving at the top reopens
+                    # the wrong row.
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/flights")
+                        page.wait_for_load_state("networkidle")
+
+                        toggle = page.locator("[data-row-toggle]").first
+                        toggle.wait_for(state="visible")
+                        opened_id = page.eval_on_selector(
+                            "#" + toggle.get_attribute("aria-controls"),
+                            "(el, attr) => el.getAttribute(attr)", FLIGHT_ID_ATTR)
+                        if not opened_id:
+                            return False, "expected the detail row to carry its event identity"
+                        toggle.click()
+
+                        # BLURRED ON PURPOSE. The click leaves focus on
+                        # the toggle, and freshness.js skips any region
+                        # containing the active element — so with focus
+                        # still there this check would pass against a
+                        # script that re-derives nothing at all.
+                        page.evaluate("() => document.activeElement.blur()")
+
+                        _record_a_new_detection(
+                            "OPENSRV", "39fffe", "2026-08-02T00:15:00+00:00")
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+
+                        seen = page.evaluate(
+                            "([idAttr, openId]) => {"
+                            "  const details = [...document.querySelectorAll("
+                            "    'tr.flight-detail-row')];"
+                            "  const open = details.filter(el =>"
+                            "    el.className.indexOf('flight-detail-row--collapsed') === -1);"
+                            "  return {total: details.length,"
+                            "          open: open.map(el => el.getAttribute(idAttr)),"
+                            "          expanded: [...document.querySelectorAll("
+                            "            '[data-row-toggle][aria-expanded=\\\"true\\\"]')].length,"
+                            "          stillThere: !!document.querySelector("
+                            "            'tr.flight-detail-row[' + idAttr + '=\\\"' + openId"
+                            "            + '\\\"]')};"
+                            "}", [FLIGHT_ID_ATTR, opened_id])
+                        if seen["total"] < 2:
+                            return False, (
+                                "expected the swapped list to still render its detail rows, got "
+                                "%d — with fewer this check measures nothing" % seen["total"])
+                        if not seen["stillThere"]:
+                            return False, (
+                                "the row that was opened is no longer in the list at all, so "
+                                "nothing below is a statement about it")
+                        if seen["open"] != [opened_id]:
+                            return False, (
+                                "after a refresh %d of %d detail rows are open (%r), expected "
+                                "exactly the one that was opened (%r). Every row open is the "
+                                "server's own markup arriving un-collapsed; the WRONG row open "
+                                "is a record keyed to a position that just renumbered"
+                                % (len(seen["open"]), seen["total"], seen["open"], opened_id))
+                        if seen["expanded"] != 1:
+                            return False, (
+                                "expected exactly one toggle to report aria-expanded=true after "
+                                "the refresh, got %d — the class and the announced state are "
+                                "written in one place precisely so they cannot drift"
+                                % seen["expanded"])
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a refresh neither unfolds the Flights table nor closes the row you opened: "
+                    "with focus deliberately blurred off the toggle (so the loop's focus skip "
+                    "cannot be what passes this) and a new detection renumbering every row below "
+                    "it, exactly the row that was opened is still open — by EVENT identity, not by "
+                    "position — and exactly one toggle still announces it (D7/CFG-37, "
+                    "23-08-PLAN.md Task 3)",
+                    _a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened)
+
+                def _a_refresh_never_interrupts_or_undoes_the_filter():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/flights")
+                        page.wait_for_load_state("networkidle")
+                        requests = _count_document_requests(page, base_url + "/flights")
+
+                        page.click("[data-filter-input]")
+                        page.type("[data-filter-input]", "AFR101")
+                        visible = page.evaluate(
+                            "() => [...document.querySelectorAll('tr[data-flight-row]')]"
+                            ".filter(el => !el.hidden).length")
+                        if visible != 1:
+                            return False, (
+                                "expected the query to narrow the table to one row before "
+                                "anything else is measured, got %d" % visible)
+                        count_text = page.eval_on_selector(
+                            "[data-filter-count]", "el => el.textContent")
+
+                        # PHASE 1 — with the caret still in the box, the
+                        # whole cycle stands down. Counted as REQUESTS,
+                        # not as DOM state: a page that fetched and then
+                        # declined to swap is a different behaviour.
+                        before = requests()
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if requests() != before:
+                            return False, (
+                                "the loop fetched while the caret was in the filter box — "
+                                "userIsInteracting() exists so a half-typed query is never "
+                                "swapped out from under the person typing it (%d request(s))"
+                                % (requests() - before))
+
+                        # CONTROL — the same trigger, focus moved off the
+                        # input, MUST fetch. Without this phase 1 would
+                        # pass on a page whose loop never runs at all.
+                        page.evaluate("() => document.activeElement.blur()")
+                        before = requests()
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if requests() == before:
+                            return False, (
+                                "control: the same trigger issued no request with focus off the "
+                                "input either — this page's loop is not running, so phase 1 "
+                                "proved nothing")
+
+                        # PHASE 2 — and that swap must not have undone
+                        # the query. The SERVER renders the list
+                        # unfiltered; it knows nothing about what was
+                        # typed here.
+                        visible = page.evaluate(
+                            "() => [...document.querySelectorAll('tr[data-flight-row]')]"
+                            ".filter(el => !el.hidden).length")
+                        if visible != 1:
+                            return False, (
+                                "a refresh handed back %d visible rows under a query that "
+                                "matches one — the server renders the list unfiltered, so a swap "
+                                "that is not followed by a re-filter silently undoes what the "
+                                "reader asked for" % visible)
+                        if page.eval_on_selector(
+                                "[data-filter-count]", "el => el.textContent") != count_text:
+                            return False, (
+                                "the live count reverted to the server's own unfiltered sentence "
+                                "after a refresh, expected it to still read %r" % (count_text,))
+                        if page.eval_on_selector(
+                                "[data-filter-input]", "el => el.value") != "AFR101":
+                            return False, "the typed query itself did not survive the refresh"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a refresh never interrupts the filter and never undoes it: with the caret in "
+                    "the box the loop issues ZERO requests (counted, against a control proving the "
+                    "same trigger does fetch with focus moved off), and the swap that then happens "
+                    "leaves the typed query applied — same visible rows, same live count, same "
+                    "input value — because the server renders the list unfiltered (D7/CFG-37, "
+                    "23-08-PLAN.md Task 3)",
+                    _a_refresh_never_interrupts_or_undoes_the_filter)
+
+                def _a_collapsed_detail_row_cannot_be_reached_by_keyboard():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/flights")
+                        toggle = page.locator("[data-row-toggle]").first
+                        toggle.wait_for(state="visible")
+                        detail_id = toggle.get_attribute("aria-controls")
+
+                        # Every focusable thing inside the row is asked
+                        # to take focus, one at a time, and must fail to.
+                        # This is the keyboard question asked directly
+                        # rather than through a proxy: an element that
+                        # cannot become document.activeElement is an
+                        # element Tab cannot land on, and display:none is
+                        # also what keeps it out of the accessibility
+                        # tree.
+                        probe = (
+                            "(id) => {"
+                            "  const row = document.getElementById(id);"
+                            "  const kids = [...row.querySelectorAll("
+                            "    'a[href], button, input, select, textarea, [tabindex]')];"
+                            "  const reached = [];"
+                            "  kids.forEach(el => { el.focus();"
+                            "    if (document.activeElement === el) reached.push("
+                            "      el.tagName + '.' + (el.className || ''));"
+                            "    el.blur(); });"
+                            "  return {kids: kids.length, reached: reached};"
+                            "}")
+                        seen = page.evaluate(probe, detail_id)
+                        if not seen["kids"]:
+                            return False, (
+                                "expected the seeded detail row to contain focusable controls "
+                                "(its copy buttons) — with none, this check measures nothing")
+                        if seen["reached"]:
+                            return False, (
+                                "a COLLAPSED detail row let %d of its %d controls take focus "
+                                "(%r) — a row held present at zero height is still in the tab "
+                                "order and still in the accessibility tree, so a keyboard user "
+                                "walks into a row nobody can see (T-23-32)"
+                                % (len(seen["reached"]), seen["kids"], seen["reached"]))
+
+                        # CONTROL — open the row and the SAME controls
+                        # must become reachable. Without this the check
+                        # would pass just as well on a page that renders
+                        # no detail row at all.
+                        toggle.click()
+                        seen = page.evaluate(probe, detail_id)
+                        if not seen["reached"]:
+                            return False, (
+                                "control: an OPEN detail row's %d controls were still "
+                                "unreachable — so the assertion above is about the page being "
+                                "empty, not about the row being closed" % seen["kids"])
+
+                        # And the opening really is a height animation,
+                        # on the wrapper rather than on the row box.
+                        style = page.eval_on_selector(
+                            "#" + detail_id + " .flight-detail-row__reveal",
+                            "el => [getComputedStyle(el).display,"
+                            " getComputedStyle(el).transitionProperty,"
+                            " getComputedStyle(el).transitionDuration]")
+                        if style[0] != "grid":
+                            return False, (
+                                "expected the reveal wrapper to be a grid, got %r" % (style[0],))
+                        if "grid-template-rows" not in style[1]:
+                            return False, (
+                                "expected grid-template-rows to be the transitioned property, "
+                                "got %r — a guessed max-height either clips tall content or "
+                                "animates through empty space, and interpolate-size is "
+                                "Chromium-only" % (style[1],))
+                        if style[2] != "0.18s":
+                            return False, (
+                                "expected the reveal to spend --motion-fast (180ms), got %r"
+                                % (style[2],))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a COLLAPSED Flights detail row lets none of its own controls take focus — the "
+                    "deliberate display:none end state, asked as the keyboard question directly — "
+                    "against a control phase proving the same controls ARE reachable once the row "
+                    "is open, and the opening really animates grid-template-rows on a grid wrapper "
+                    "at --motion-fast (D3/CFG-32, T-23-32, 23-08-PLAN.md Task 3)",
+                    _a_collapsed_detail_row_cannot_be_reached_by_keyboard)
+
+                def _a_phone_card_opens_from_a_tap_anywhere_with_and_without_scripts():
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/flights")
+                        card = page.locator("li.history-card").first
+                        card.wait_for(state="visible")
+                        details = card.locator("details.history-card__details")
+                        if details.evaluate("el => el.open"):
+                            return False, (
+                                "expected the card to start closed — with it open this check "
+                                "cannot tell a tap that worked from a card that was never shut")
+                        # The "anywhere" property, measured: the summary's
+                        # own box must cover the card's whole face,
+                        # padding included. A summary that stopped at the
+                        # padding's inner edge would leave a rim that
+                        # looks tappable and is not.
+                        boxes = page.evaluate(
+                            "() => {"
+                            "  const li = document.querySelector('li.history-card');"
+                            "  const s = li.querySelector('summary.history-card__summary');"
+                            "  const a = li.getBoundingClientRect();"
+                            "  const b = s.getBoundingClientRect();"
+                            "  return [a.width, b.width, a.top, b.top];"
+                            "}")
+                        if boxes[1] < boxes[0] - 2.5:
+                            return False, (
+                                "the card's summary is %spx wide inside a %spx card — a tap on "
+                                "the rim between them lands on nothing, which reads as a broken "
+                                "control rather than as a boundary" % (boxes[1], boxes[0]))
+                        # Tapped on the secondary line, which is not a
+                        # control and never was: the route and the state.
+                        card.locator(".history-card__secondary").click()
+                        if not details.evaluate("el => el.open"):
+                            return False, (
+                                "a tap on the card's own face away from every control did not "
+                                "open it — D7 asks for a card you tap anywhere, through the "
+                                "native disclosure it already contained")
+                        # Nothing nested inside the summary can steal
+                        # that activation, because nothing is nested in
+                        # it: the one-hop resolve link sits outside.
+                        nested = page.eval_on_selector(
+                            "summary.history-card__summary",
+                            "el => el.querySelectorAll('a[href], button').length")
+                        if nested:
+                            return False, (
+                                "expected no control nested inside the card's summary, found %d"
+                                % nested)
+                    finally:
+                        context.close()
+
+                    # And with no script at all, at the same 360px floor.
+                    # The disclosure is native, so this is not a fallback
+                    # path that could rot — it is the same control.
+                    with _no_js_page(browser, harness.base_url(), "/flights",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        card = page.locator("li.history-card").first
+                        card.wait_for(state="visible")
+                        details = card.locator("details.history-card__details")
+                        if details.evaluate("el => el.open"):
+                            return False, "expected the scripts-blocked card to start closed too"
+                        card.locator(".history-card__secondary").click()
+                        if not details.evaluate("el => el.open"):
+                            return False, (
+                                "the phone card did not open with scripts blocked — the whole "
+                                "point of building this on the <details> the card already had is "
+                                "that it needs no script (CFG-38)")
+                        # The detail ROW floor, in the same context: with
+                        # no script nothing is collapsed and every detail
+                        # is on screen, exactly as before this plan.
+                        collapsed = page.evaluate(
+                            "() => document.querySelectorAll("
+                            "'.flight-detail-row--collapsed').length")
+                        if collapsed:
+                            return False, (
+                                "%d detail row(s) are collapsed on a page with no script — the "
+                                "collapsing class has exactly one writer and it cannot run here "
+                                "(D-15, locked)" % collapsed)
+                        live = page.evaluate(
+                            "() => document.documentElement.className.indexOf("
+                            "'flight-rows-live') !== -1")
+                        if live:
+                            return False, (
+                                "the live-script class is on <html> with no script running — the "
+                                "height animation is keyed on it precisely so a scripts-blocked "
+                                "page animates nothing")
+                    return True, ""
+                check(
+                    "a phone card at 360px opens from a tap on its own face away from every "
+                    "control, through the native disclosure it already contained, with its summary "
+                    "box covering the whole card and no control nested inside it — and it does the "
+                    "same with SCRIPTS BLOCKED, where no detail row is collapsed and the "
+                    "live-script class the height animation is keyed on is absent (D7/CFG-37, "
+                    "CFG-38, 23-08-PLAN.md Task 3)",
+                    _a_phone_card_opens_from_a_tap_anywhere_with_and_without_scripts)
             finally:
                 browser.close()
     finally:
