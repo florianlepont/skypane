@@ -5768,11 +5768,20 @@ def main():
         # grid track, so the percentage resolved against the very content
         # it bounded) and painted the relative age outside the card at
         # every width, off the right edge of a 390px viewport. The anchor
-        # moved to "justify-self: end", verified unique in the stylesheet.
-        # It is deliberately a DIFFERENT declaration from the asserted
-        # one, so this check still fails if `white-space: nowrap` alone is
-        # ever dropped.
-        start = css_source.index("justify-self: end")
+        # moved to the grid end-alignment declaration, verified unique in
+        # the stylesheet. It is deliberately a DIFFERENT declaration from
+        # the asserted one, so this check still fails if `white-space:
+        # nowrap` alone is ever dropped.
+        #
+        # Quick task 260913-dgh: that anchor is gone in turn — the row is
+        # a wrapping flex line now, so a grid-only self-alignment would
+        # have been a dead declaration. The anchor moves to the auto
+        # inline-start margin that replaced it, re-verified as the single
+        # occurrence in the stylesheet (the only other `margin-inline-
+        # start` there carries a length, not the keyword). The
+        # different-declaration property above is preserved: the anchor
+        # is still not the assertion.
+        start = css_source.index("margin-inline-start: auto")
         block_start = css_source.rindex("{", 0, start)
         end = css_source.index("}", start)
         block = css_source[block_start:end]

@@ -2562,9 +2562,19 @@ def _battery_section(trend_rows, daily_rows=None):
         (layout.concise_timestamp_html(row.get("ts"), now, fallback=""), row.get("battery_mv"))
         for row in trend_rows
     ]
+    # Quick task 260913-cz6: `modifier="readings"` scopes the one
+    # stylesheet rule that releases THIS table from `.data-table`'s
+    # shared `min-width: max-content` no-crop floor. Measured cause: at
+    # a 390px viewport the floor sized this two-column table to 432px
+    # (FR) / 369px (EN) inside a 308px `.data-table-wrap`, because the
+    # Timestamp column's one-line form wanted 302px of ink on its own —
+    # so the wrap grew its own horizontal scrollbar while the PAGE stayed
+    # exactly 390px wide. See the rule's own comment in style.css for why
+    # releasing the floor is right for this table and was right to reject
+    # for the registry (22-12).
     table_html = layout.data_table(
         [i18n.t("Timestamp"), i18n.t("Battery (mV)")], table_rows,
-        mono_columns=(1,), raw_columns=(0,))
+        mono_columns=(1,), raw_columns=(0,), modifier="readings")
     # D-08: the raw readings table is collapsed behind a closed-by-default
     # native <details> disclosure — no custom JS toggler needed.
     disclosure_html = (

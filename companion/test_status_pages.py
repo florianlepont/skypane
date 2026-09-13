@@ -6505,7 +6505,18 @@ def main():
             rendered = health_page.render(_ctx(tmp, now=_iso(base)))
             if "dot--" not in rendered:
                 return False, "expected at least one dot-- status class to survive the reframe"
-            if '<table class="data-table">' not in rendered:
+            # Quick task 260913-cz6 retargeted this anchor IN PLACE: the
+            # battery readings table used to be the only .data-table on
+            # this page carrying a BARE class attribute (the registry's
+            # is data-table--registry, the stats table's is
+            # data-table--prose), so the bare literal identified it
+            # uniquely. It now carries its own data-table--readings
+            # modifier — the hook that scopes the one stylesheet rule
+            # releasing this table from the shared min-width: max-content
+            # no-crop floor — so the anchor moves onto that modifier
+            # rather than being loosened to a substring that would also
+            # match the other two tables.
+            if '<table class="data-table data-table--readings">' not in rendered:
                 return False, "expected the battery table to survive the reframe"
             if "<svg" not in rendered:
                 return False, "expected the battery sparkline svg to survive the reframe"

@@ -8,7 +8,7 @@ updated: 2026-09-13T08:19:00+00:00
 
 ## Current Test
 
-[awaiting human testing — the one automated failure found first (I1) is fixed]
+Tests 2, 3, 4, 7 pass. Test 1 failed — see I2. Tests 5 and 6 deferred (developer not in front of the frame).
 
 ## Automated visual sweep (done by Claude, not pending)
 
@@ -76,31 +76,31 @@ with this check the sole failure; removing it gives 23/23.
 
 ### 1. Sur un vrai téléphone, faire défiler Accueil, Vols, Affichage, Compagnies et État de haut en bas (X9, B11, rendu réel)
 expected: Aucun défilement horizontal nulle part ; la barre d'onglets du bas reste collée en bas sous le pouce, au-dessus de la barre d'adresse, et l'encoche / la zone sûre ne la coupe pas
-result: [pending]
+result: **FAIL** — défilement horizontal dans « Voir 20 relevés » sur État (2026-09-13, developer). Reproduit et diagnostiqué : voir I2.
 
 ### 2. Sur téléphone, appuyer sur « Plus » dans la barre d'onglets, puis sur chaque onglet (X9, T5)
 expected: La feuille « Plus » s'ouvre vers le haut sans pousser la page ; chaque onglet mène à la bonne page ; l'onglet actif est visiblement distinct ; le point d'alerte de santé reste visible quand la feuille est fermée
-result: [pending]
+result: **PASS** (2026-09-13, developer)
 
 ### 3. Sur la page de connexion, téléphone et PC, taper un mauvais mot de passe puis utiliser l'œil « afficher le mot de passe » (X3)
 expected: Champ et bouton font la même largeur et 44 px de haut, l'un au-dessus de l'autre sur téléphone ; l'erreur est annoncée ; l'œil révèle et masque. Avec JavaScript désactivé, l'œil n'apparaît pas du tout (il ne doit jamais être là sans rien faire)
-result: [pending]
+result: **PASS** (2026-09-13, developer)
 
 ### 4. Cliquer FR puis EN sur le sélecteur de langue et laisser le pointeur immobile (B7)
 expected: Après le rechargement, le libellé survolé reste lisible — pas de texte qui disparaît dans son propre fond
-result: [pending]
+result: **PASS** (2026-09-13, developer)
 
 ### 5. Éteindre l'écran depuis la bande Cadre sur le vrai cadre, et chronométrer (D-04, CFG-27)
 expected: Le délai annoncé par la phrase calculée correspond à ce qui se passe vraiment — c'est la seule affirmation de cette phase que seul le vrai matériel peut confirmer
-result: [pending]
+result: [deferred] — à valider quand le développeur sera devant le cadre
 
 ### 6. Laisser passer une vraie nuit avec les heures calmes actives, et regarder Accueil / État le matin (X2, CFG-26)
 expected: Aucun état « en retard » ou d'avertissement pendant la fenêtre calme ; la prochaine mise à jour annoncée correspond à la fin de la fenêtre
-result: [pending]
+result: [deferred] — à valider quand le développeur sera devant le cadre
 
 ### 7. Relire la table de mesures de 22-AUDIT.md à 1280 px et 390 px, clair et sombre, FR et EN (CFG-30)
 expected: Chaque ligne de la table correspond à ce qui est à l'écran — sauf X6, dont la cible de hauteur de page est explicitement NON atteinte (2389 px contre 2000 px ; le reste est la grille de pastilles, reportée en phase 23), et le séparateur de jour des Vols, qui affiche le mois abrégé (« 26 août ») et non le mois complet prévu par la spec
-result: [pending]
+result: **PASS** (2026-09-13, developer)
 
 ## Summary
 
@@ -119,6 +119,43 @@ Seven tests remain for the developer: the real-device and real-hardware checks
 that no harness can stand in for, plus the visual re-read of the audit's own
 measurement table.
 
+### I2 — « Voir 20 relevés » scrolls sideways on a phone (PRE-EXISTING, not caused by phase 22)
+
+**Found by:** the developer, test 1, 2026-09-13. Reproduced and measured here.
+
+**Symptom:** on État, opening the « Voir 20 relevés » disclosure gives the readings
+table its own horizontal scroll at 390 px. The page itself does not scroll —
+`documentElement.scrollWidth` stays 390 — so every page-level check in this phase
+was blind to it, including my own 24-combination sweep: **the sweep never opened the
+disclosure.**
+
+**Measured:** wrapper `.data-table-wrap` clientWidth **308 px**; table **432 px**
+(FR) / 369 px (EN) under `min-width: max-content`. Column 1 « Horodatage » is
+**302 px** holding `31 juil. 08:00 (il y a 44 j)`; column 2 « Batterie (mV) » is
+130 px. 302 + 130 = 432 against 308 — it overflows by 124 px and the wrapper
+scrolls. The cell's own `white-space` is `normal`, so it *could* wrap; the table's
+`min-width: max-content` floor is what forbids it.
+
+**Not a phase-22 regression — verified, not assumed.** I built a worktree at the
+merge base (`541d19c`) and compared `concise_timestamp_html()`'s visible output
+across the boundary with identical inputs:
+
+    PRE-22  fr '31 juil. 08:00 (il y a 44 j)'      POST-22 fr '31 juil. 08:00 (il y a 44 j)'
+    PRE-22  en '31 Jul 08:00 (44d ago)'            POST-22 en '31 Jul 08:00 (44d ago)'
+
+Byte-identical. 22-06 changed this timestamp's `title` attribute (invisible) and its
+timezone handling, never the visible string. The overflow predates the phase.
+
+**Same cause as B12, third table.** 22-12 measured exactly this
+(`min-width: max-content` sizing every column to its content) and fixed the registry
+table by stacking its merged cells. That rule's own comment says the treatment is
+"NOT license to stack any other merged cell for consistency… applied to the second
+table in this app that **demonstrably has it**". There is now a demonstration for a
+third, with its own numbers — so this is the same local fix for the same measured
+cause, not a consistency copy.
+
+**Status:** routed to a fix.
+
 ## Found during verification, deliberately NOT fixed
 
 At 320 px `.recent-flight__callsign` clips (a 19 px EN / 11 px FR box against a
@@ -129,3 +166,22 @@ shrink under pressure, which a viewport media query cannot express: the row is
 row width. The honest predictor is container width — a container query, which is
 a layout mechanism this codebase does not yet use, and so its own plan rather
 than a quick task's drive-by.
+
+## Developer decision, 2026-09-13: 360 px is the floor
+
+Two independent 320 px defects had accumulated (the readings table breaking mid-phrase,
+the recent-flight callsign starving), and they jointly raised whether 320 px is a
+supported width at all. Put to the developer with a side-by-side rendering of the same
+table at 320 px and 360 px rather than as an abstract question.
+
+**Decision: 360 px is the minimum supported width. Nothing is changed for 320 px.**
+
+Consequences, recorded in `.claude/skills/sketch-findings-skypane/SKILL.md` so future
+UI work reads them: design and measure down to 360 px; keep the existing 320 px
+assertions (they pass and cost nothing); and if 320 px is ever the sole blocker on a
+design, relax the width rather than contort the layout. The known 320 px imperfection
+— `08:00 (il y` / `a 44 j)` instead of a clean break — is accepted as cosmetic.
+
+The accessibility case is the one reason to revisit this: a 390 px phone becomes
+roughly 320 px under a large browser font-size setting. To be revisited on a real
+request, not pre-emptively.

@@ -284,6 +284,63 @@ EXPECTED_CHECK_COUNT = 22
 # against the real on-disk check(...) call count at execution time
 # (23/23 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 23
+# Quick task 260913-cz6 (B12's cause, third table): +1 — Health's tables
+# each measured against their OWN `.data-table-wrap`, at 390px, in both
+# languages, with every <details> on the page forced open first. This is
+# the first check in this file that measures a page STATE rather than a
+# page: the battery readings table sits behind a closed-by-default
+# disclosure, so it was invisible to every sweep here, and its overflow
+# was invisible even once opened because the WRAP scrolls while
+# `document.documentElement.scrollWidth` stays exactly 390. Measured
+# before the fix: a 308px wrap against a 432px (FR) / 369px (EN) table,
+# 124px over, the Timestamp column alone taking 302px. Mutation-tested by
+# reverting the stylesheet rule: 23/24, this check the only one red, and
+# it named the table class, the 308px wrap, the 432px table and the
+# per-column widths. 23 + 1 = 24, recomputed directly against the real
+# on-disk check(...) call count at execution time (24/24 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 24
+# Quick task 260913-dgh: +1 — Home's recent-flight callsign measured
+# against its OWN content, at 320, 360, 390, 768 AND 1280px, in both
+# languages. Every overflow check in this file until now measured a box
+# against a CONTAINER; this defect collapses the box itself, so the
+# element stayed inside its row and inside the viewport while its text
+# painted straight over the time beside it. Measured before the fix:
+# a callsign box of 10.9px (FR) / 18.6px (EN) for 57.8px of content at
+# 320px, and 50.9px (FR) at 360px — a common Android width, which is why
+# this check does not stop at 320. 1280px is measured because the row is
+# only 292.4px there and the callsign track had 7.5px of slack against a
+# relative-age string with no upper bound. Mutation-tested by reverting
+# the stylesheet rule: 24/25, this check the only one red, naming the
+# starved callsign, its box and its content width. 24 + 1 = 25,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (25/25 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 25
+# Quick task 260913-eab: +1 — the GENERAL form of the disclosure check.
+# Every <details> on every page (all six authenticated pages plus the
+# login page) forced open, at 360, 390 and 1280px in both languages,
+# asserting the page never scrolls sideways, nothing paints right of the
+# viewport, and no scroll container's content is wider than its own box.
+# A collapsed <details> has its contents not laid out at all, so every
+# sweep in this file before 260913-cz6 measured pages in their DEFAULT
+# state and everything inside a disclosure was invisible BY
+# CONSTRUCTION; cz6 pinned exactly one of them, by name, on one page.
+# This covers the 47 that exist today (1 Home / 3 Display / 37 Flights /
+# 1 Airlines / 4 Health / 1 Device / 0 login, re-derived by running) and
+# any added later without editing this file. Each page asserts a minimum
+# disclosure count AND that at least one was closed beforehand, so a
+# selector change fails it instead of silently measuring nothing.
+# Mutation-tested by restoring `min-width: max-content` on
+# table.data-table--readings — the exact defect cz6 fixed. With both
+# checks present: 24/26, both red. Then again with cz6's own check
+# DELETED from this file, because "both went red" does not by itself
+# prove this one did the work: 24/25, this check the only red one,
+# reporting `.data-table-wrap` at a 278px box against 369px of content
+# at 360px/en. It catches the readings-table defect unaided. Restoring
+# the rule returns 26/26. 25 + 1 = 26, recomputed directly against the
+# real on-disk check(...) call count at execution time (26/26 pass),
+# not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 26
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -2340,6 +2397,472 @@ def main():
                     "edge clears it, and no row's content escapes its own box (B11's fourth and "
                     "last surface, quick task 260913-bjy)",
                     _home_paints_nothing_outside_the_viewport_or_its_cards)
+
+                def _recent_flight_callsigns_are_never_starved():
+                    # Quick task 260913-dgh. The Home check immediately
+                    # above measures every element against the VIEWPORT
+                    # and every row descendant against its own ROW box,
+                    # and is structurally blind to this defect: the
+                    # starved element's own box stays well inside the
+                    # row — it is the box itself that collapses, and the
+                    # TEXT paints out of it, straight over the time
+                    # beside it. Nothing in this file measured a box
+                    # against its own content until now.
+                    #
+                    # Measured before the fix, callsign box against
+                    # callsign content: 10.9px for 57.8px at 320px in
+                    # French and 18.6px at 320px in English, 50.9px at
+                    # 360px in French. 360px is a common Android width
+                    # and is measured here for exactly that reason —
+                    # a 320px-only check would have called English at
+                    # 360px clean and stopped.
+                    #
+                    # 1280px is measured too, and not as ceremony: the
+                    # row is 292.4px there (the desktop sidebar and the
+                    # two-column picture row narrow it), the callsign
+                    # track had 7.5px of slack, and
+                    # layout.relative_age_text()'s day bucket has no
+                    # upper bound — so the seeded age only ever grows
+                    # and the desktop was a handful of pixels from the
+                    # same defect. This check gets stronger with
+                    # wall-clock time, never weaker.
+                    #
+                    # The 768px assertion is the other half, and it is
+                    # what stops the fix being "give the time its own
+                    # line everywhere": with 686px of row there, the
+                    # callsign and the time must still share the first
+                    # line. It is deliberately NOT asserted at 1280px,
+                    # where the growing age string will legitimately
+                    # wrap one day — that is the fix working, not
+                    # failing.
+                    probe = (
+                        "() => {"
+                        "  const rows = document.querySelectorAll('.recent-flight');"
+                        "  const starved = [];"
+                        "  let cells = 0, sameLine = 0, twoLine = 0;"
+                        "  rows.forEach(row => {"
+                        "    const cs = row.querySelector('.recent-flight__callsign');"
+                        "    const tm = row.querySelector('.recent-flight__time');"
+                        "    if (!cs) return;"
+                        "    cells += 1;"
+                        "    const box = cs.getBoundingClientRect().width;"
+                        "    const range = document.createRange();"
+                        "    range.selectNodeContents(cs);"
+                        "    const text = range.getBoundingClientRect().width;"
+                        "    if (text > box + 0.5)"
+                        "      starved.push(cs.textContent + ': box ' + box.toFixed(2)"
+                        "        + 'px for ' + text.toFixed(2) + 'px of content');"
+                        "    if (tm) {"
+                        # Two items share a flex line when their boxes
+                        # overlap VERTICALLY. Equal tops would be the
+                        # wrong test, and was measured being wrong here:
+                        # the row is baseline-aligned and the time
+                        # renders at the smaller label size, so the two
+                        # tops differ by 3px on the SAME line. The
+                        # overlap test discriminates exactly — measured
+                        # false at 320px in both languages and at 360px
+                        # in French, true at every other width/language
+                        # pair.
+                        "      const a = cs.getBoundingClientRect();"
+                        "      const b = tm.getBoundingClientRect();"
+                        "      if (a.bottom > b.top + 0.5 && b.bottom > a.top + 0.5) sameLine += 1;"
+                        "      else twoLine += 1;"
+                        "    }"
+                        "  });"
+                        "  return {rows: rows.length, cells: cells, starved: starved,"
+                        "          sameLine: sameLine, twoLine: twoLine,"
+                        "          sw: document.documentElement.scrollWidth,"
+                        "          cw: document.documentElement.clientWidth};"
+                        "}")
+                    for width in (320, 360, 390, 768, 1280):
+                        for lang in ("fr", "en"):
+                            context = browser.new_context(
+                                viewport={"width": width, "height": 844})
+                            try:
+                                page = context.new_page()
+                                base_url = harness.base_url()
+                                _login(page, base_url)
+                                context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+                                page.goto(base_url + "/")
+                                page.locator(".recent-flight").first.wait_for(state="visible")
+                                seen = page.evaluate(probe)
+                                if page.viewport_size["width"] != width:
+                                    return False, (
+                                        "expected the measurement to be taken at %dpx" % (width,))
+                                if not seen["rows"] or seen["cells"] != seen["rows"]:
+                                    return False, (
+                                        "expected every seeded recent-flight row to carry a "
+                                        "callsign at %dpx/%s, got %d callsigns in %d rows — "
+                                        "with a mismatch this check measures nothing"
+                                        % (width, lang, seen["cells"], seen["rows"]))
+                                if seen["starved"]:
+                                    return False, (
+                                        "the recent-flight callsign column is STARVED at "
+                                        "%dpx/%s — its box is narrower than its own text, so "
+                                        "the callsign paints out of it and over the time "
+                                        "beside it: %r"
+                                        % (width, lang, seen["starved"]))
+                                if seen["sw"] > width:
+                                    return False, (
+                                        "Home scrolls sideways at %dpx/%s (documentElement."
+                                        "scrollWidth %d against a client width of %d) — a "
+                                        "callsign column that refuses to yield must not buy "
+                                        "that by pushing the row past the viewport (B11)"
+                                        % (width, lang, seen["sw"], seen["cw"]))
+                                if width == 768 and (seen["twoLine"] or not seen["sameLine"]):
+                                    return False, (
+                                        "expected the callsign and the time to share the first "
+                                        "line at 768px/%s, where the row is 686px wide, but %d "
+                                        "of %d rows put the time on its own line — the fix must "
+                                        "not cost a line where there is room"
+                                        % (lang, seen["twoLine"], seen["cells"]))
+                            finally:
+                                context.close()
+                    return True, ""
+                check(
+                    "no recent-flight callsign is ever starved by the time column - its box is "
+                    "never narrower than its own text at 320, 360, 390, 768 or 1280px in EITHER "
+                    "language, Home still never scrolls sideways at any of them, and at 768px "
+                    "the callsign and the time still share one line (quick task 260913-dgh)",
+                    _recent_flight_callsigns_are_never_starved)
+
+                def _health_tables_fit_their_wraps_with_every_disclosure_open():
+                    # Quick task 260913-cz6 — the page STATE nobody
+                    # measured. Health's battery readings table sits
+                    # inside a closed-by-default
+                    # `details.readings-disclosure`, so it was invisible
+                    # to two separate classes of check at once: every
+                    # page-level sweep in this repo measures the page as
+                    # first painted (the disclosure shut, the table not
+                    # laid out at all), and every overflow assertion
+                    # measures `document.documentElement.scrollWidth`,
+                    # which stayed EXACTLY 390 open or closed because the
+                    # WRAP scrolls, not the document.
+                    #
+                    # Measured before the fix, at 390px: the readings
+                    # `.data-table-wrap` was 308px against a 432px (FR) /
+                    # 369px (EN) table — 124px of overflow, its own
+                    # horizontal scrollbar, and a completely still page.
+                    #
+                    # Written for the CLASS, not that one selector: it
+                    # opens EVERY <details> on the page and measures
+                    # EVERY `.data-table-wrap`, so any table that a
+                    # future disclosure hides — or any new column on an
+                    # existing one — is covered without editing this
+                    # check. The wrap is the right boundary to measure
+                    # because `overflow-x: auto` there is designed as a
+                    # safety net for extreme widths, not as the normal
+                    # state of a two-column table on a phone.
+                    #
+                    # Both languages, because French is the wider driver
+                    # ("(il y a 44 j)" against "(44d ago)") and the
+                    # seeded age string only grows with wall-clock time —
+                    # layout.relative_age_text()'s day bucket has no
+                    # ceiling, so this check can only get stronger.
+                    probe = (
+                        "() => {"
+                        "  document.querySelectorAll('details').forEach(d => { d.open = true; });"
+                        "  const over = [];"
+                        "  const wraps = document.querySelectorAll('.data-table-wrap');"
+                        "  let rows = 0;"
+                        "  wraps.forEach(w => {"
+                        "    const t = w.querySelector('table');"
+                        "    if (t) rows += t.querySelectorAll('tbody tr').length;"
+                        "    if (w.scrollWidth > w.clientWidth + 0.5) {"
+                        "      const cells = t ? t.querySelectorAll('tbody tr:first-child td') : [];"
+                        "      over.push({cls: (t ? t.className : w.className).toString(),"
+                        "                 wrap: w.clientWidth, table: Math.round(w.scrollWidth),"
+                        "                 cols: [...cells].map("
+                        "                   c => Math.round(c.getBoundingClientRect().width))});"
+                        "    }"
+                        "  });"
+                        "  return {wraps: wraps.length, rows: rows, over: over,"
+                        "          docSW: document.documentElement.scrollWidth,"
+                        "          docCW: document.documentElement.clientWidth};"
+                        "}")
+                    width = 390
+                    for lang in ("en", "fr"):
+                        context = browser.new_context(
+                            viewport={"width": width, "height": 844})
+                        try:
+                            page = context.new_page()
+                            base_url = harness.base_url()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/health")
+                            page.locator("details.readings-disclosure").first.wait_for(
+                                state="attached")
+                            seen = page.evaluate(probe)
+                            if page.viewport_size["width"] != width:
+                                return False, (
+                                    "expected the measurement to be taken at %dpx" % (width,))
+                            # Both guards exist so this check cannot pass
+                            # by measuring an empty page: the seeded
+                            # fixture renders the readings table, and a
+                            # render that stops emitting it must fail
+                            # here rather than quietly measure nothing.
+                            if not seen["wraps"]:
+                                return False, (
+                                    "expected at least one .data-table-wrap on Health at %dpx/%s "
+                                    "with every disclosure open — with none, this check measures "
+                                    "nothing" % (width, lang))
+                            if not seen["rows"]:
+                                return False, (
+                                    "expected the seeded tables to render body rows at %dpx/%s — "
+                                    "with none, this check measures nothing" % (width, lang))
+                            if seen["over"]:
+                                return False, (
+                                    "a table inside a disclosure overflows its own wrap at "
+                                    "%dpx/%s, giving it a horizontal scrollbar the page itself "
+                                    "never shows (documentElement.scrollWidth %d against a client "
+                                    "width of %d): %r — each entry is the table's class, its "
+                                    "wrap's clientWidth, the table's scrollWidth and the first "
+                                    "row's column widths (B12's cause, quick task 260913-cz6)"
+                                    % (width, lang, seen["docSW"], seen["docCW"], seen["over"]))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "Health's tables each fit inside their own .data-table-wrap at 390px in BOTH "
+                    "languages with EVERY <details> on the page forced open — the readings table "
+                    "is reachable only through a closed-by-default disclosure, and its wrap "
+                    "scrolls while documentElement.scrollWidth never moves, so no page-level "
+                    "assertion can see it (B12's cause on its third table, quick task 260913-cz6)",
+                    _health_tables_fit_their_wraps_with_every_disclosure_open)
+
+                def _every_disclosure_on_every_page_opens_without_overflow():
+                    # Quick task 260913-eab. The general form of the check
+                    # immediately above, and the reason it exists: a
+                    # COLLAPSED <details> has its contents not laid out at
+                    # all — no width, no position, nothing to measure — so
+                    # every sweep in this repo (including the 24-
+                    # combination visual pass) measured pages in their
+                    # DEFAULT state, and everything asleep inside a
+                    # disclosure was invisible to measurement BY
+                    # CONSTRUCTION. One disclosure was pinned before this
+                    # check: Health's readings table, by name, by the
+                    # check above. This one opens EVERY <details> on EVERY
+                    # page, so it covers the disclosures that exist today
+                    # AND any added later without editing this file —
+                    # that generality is the whole point of it.
+                    #
+                    # Surveyed on this branch, at 390px, in French, with
+                    # every disclosure forced open (counts re-derived by
+                    # running, never carried from a brief):
+                    #
+                    #   page       route       <details>  kinds
+                    #   Accueil    /            1        nav
+                    #   Affichage  /display     3        nav + 2 "how it works"
+                    #   Vols       /flights    37        nav + 36 row cards
+                    #   Compagnies /airlines    1        nav
+                    #   État       /health      4        nav + readings + 2 cards
+                    #   Appareil   /device      1        nav
+                    #   Connexion  /login       0        (no nav is rendered)
+                    #
+                    # 47 in total, not the ~83 an earlier task reported:
+                    # /preview and /settings are 303 redirects (to /flights
+                    # and /display), so the "panel-preview page" in that
+                    # figure is /flights counted a second time. The raw
+                    # number flatters the coverage either way — 36 of
+                    # Vols' 37 are one component repeated per row, so the
+                    # distinct KINDS number five.
+                    #
+                    # Two assertions, because one of them cannot see the
+                    # defect that motivated this:
+                    #   1. documentElement.scrollWidth never exceeds the
+                    #      viewport, and nothing paints right of it.
+                    #   2. No element whose computed overflow-x is auto or
+                    #      scroll has content wider than its own box. This
+                    #      is the readings-table class: the WRAP scrolls
+                    #      while the page does not, so scrollWidth stayed
+                    #      exactly 390 with the disclosure both closed AND
+                    #      open. Restricted to auto/scroll deliberately —
+                    #      overflow: hidden is excluded because
+                    #      text-overflow: ellipsis makes scrollWidth >
+                    #      clientWidth BY DESIGN, and flagging it would be
+                    #      noise, not a defect.
+                    #
+                    # Anti-rot, the reason a selector change cannot make
+                    # this pass by measuring nothing: each page asserts a
+                    # minimum disclosure count (its surveyed count above),
+                    # and asserts at least one was CLOSED before being
+                    # forced — without that second half this degenerates
+                    # into an ordinary default-state page sweep and stops
+                    # adding anything. All 47 are closed by default today.
+                    # /flights' minimum of 37 is deliberately coupled to
+                    # seed_state_dir()'s own 36 runway events: if the seed
+                    # or a row cap changes, this must be re-derived here
+                    # on purpose, not left to slide.
+                    #
+                    # 360px is measured alongside the brief's 390/1280
+                    # because 360 is the minimum supported viewport
+                    # (developer decision 2026-09-13, recorded in
+                    # .claude/skills/sketch-findings-skypane/SKILL.md) and
+                    # both fixes of that day were driven by 360px
+                    # failures a phone-sized assumption had missed. It
+                    # costs ~3s of the check's ~10s and was measured
+                    # clean before being added, never assumed.
+                    #
+                    # Known limit, stated rather than papered over: images
+                    # marked loading="lazy" below the fold are not loaded
+                    # when this measures, so a future overflow caused by
+                    # one is invisible here. This is not a consequence of
+                    # the cheap readiness wait — a networkidle wait leaves
+                    # the identical images pending, verified by measuring
+                    # both ways — it is what lazy loading means. Every
+                    # image inside a disclosure today is loaded when this
+                    # runs.
+                    #
+                    # Measuring synchronously in the same evaluate() as
+                    # the forced open is sound here: getBoundingClientRect
+                    # forces layout, and no script in companion/static
+                    # listens for `toggle` or queries `details` at all
+                    # (freshness.js's own listener was removed by D-02),
+                    # so there is no JS-driven content to wait for.
+                    probe = (
+                        "() => {"
+                        "  const all = [...document.querySelectorAll('details')];"
+                        "  const closedBefore = all.filter(d => !d.open).length;"
+                        "  all.forEach(d => { d.open = true; });"
+                        "  const vw = window.innerWidth;"
+                        "  const escaped = [], scrolled = [];"
+                        "  document.querySelectorAll('*').forEach(el => {"
+                        "    const r = el.getBoundingClientRect();"
+                        "    if (r.width > 0 && r.right > vw + 0.5)"
+                        "      escaped.push(el.className.toString() || el.tagName);"
+                        "    const ox = getComputedStyle(el).overflowX;"
+                        "    if ((ox === 'auto' || ox === 'scroll')"
+                        "        && el.scrollWidth > el.clientWidth + 0.5) {"
+                        "      const kid = el.firstElementChild;"
+                        "      scrolled.push({box: el.className.toString() || el.tagName,"
+                        "                     boxWidth: el.clientWidth,"
+                        "                     content: Math.round(el.scrollWidth),"
+                        "                     firstChild: kid ? (kid.className.toString()"
+                        "                                        || kid.tagName) : null});"
+                        "    }"
+                        "  });"
+                        "  return {n: all.length, closedBefore: closedBefore,"
+                        "          sw: document.documentElement.scrollWidth,"
+                        "          cw: document.documentElement.clientWidth,"
+                        "          escaped: [...new Set(escaped)].slice(0, 12),"
+                        "          scrolled: scrolled};"
+                        "}")
+
+                    # (route, minimum <details> the page must render). Every
+                    # authenticated page, in nav order.
+                    pages = (("/", 1), ("/display", 3), ("/flights", 37),
+                             ("/airlines", 1), ("/health", 4), ("/device", 1))
+
+                    def _assert_clean(seen, where, width):
+                        if seen["sw"] > width:
+                            return (
+                                "%s scrolls sideways with every disclosure open: "
+                                "documentElement.scrollWidth %d against a client width of %d, "
+                                "painted past the right edge by %r"
+                                % (where, seen["sw"], seen["cw"], seen["escaped"]))
+                        # The scroll-container diagnostic is reported
+                        # BEFORE the viewport one, and not by accident:
+                        # when a container overflows, every descendant's
+                        # layout rect extends past the viewport too, so
+                        # `escaped` fires as well and reports a list of
+                        # tag names. Naming the container, its box and
+                        # its content width first is what actually points
+                        # at the cause — measured on this task's own
+                        # mutation, where the generic list read
+                        # ['data-table data-table--readings', 'THEAD',
+                        # 'TR', 'TH', ...] and told you nothing.
+                        if seen["scrolled"]:
+                            return (
+                                "%s gives a scroll container its own horizontal scrollbar with "
+                                "every disclosure open, which the page itself never shows "
+                                "(documentElement.scrollWidth %d against a client width of %d): "
+                                "%r — each entry is the container's class, its clientWidth, its "
+                                "scrollWidth and its first child (the readings-table class, "
+                                "quick task 260913-eab)"
+                                % (where, seen["sw"], seen["cw"], seen["scrolled"]))
+                        if seen["escaped"]:
+                            return (
+                                "%s lays %r out right of the viewport with every disclosure "
+                                "open, while the page itself never scrolls sideways "
+                                "(documentElement.scrollWidth %d against a client width of %d) "
+                                "and no scroll container reports overflow either — so this is "
+                                "content escaping with nothing offering a way to reach it"
+                                % (where, seen["escaped"], seen["sw"], seen["cw"]))
+                        return ""
+
+                    for width in (360, 390, 1280):
+                        for lang in ("en", "fr"):
+                            context = browser.new_context(
+                                viewport={"width": width, "height": 844})
+                            try:
+                                page = context.new_page()
+                                base_url = harness.base_url()
+                                context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+
+                                # The login page is measured FIRST, in this
+                                # same context, while it is still the real
+                                # unauthenticated page — after _login()
+                                # below, /login is a 303 to /. It renders
+                                # no nav and so carries no <details> at
+                                # all: its own "this measured something"
+                                # guard is the password field, not a
+                                # disclosure count, which is why it is not
+                                # in `pages` above. Asserting a non-zero
+                                # count here would assert a falsehood.
+                                page.goto(base_url + "/login")
+                                page.locator("#password").wait_for(state="visible")
+                                seen = page.evaluate(probe)
+                                if page.viewport_size["width"] != width:
+                                    return False, (
+                                        "expected the measurement to be taken at %dpx" % (width,))
+                                bad = _assert_clean(
+                                    seen, "/login at %dpx/%s" % (width, lang), width)
+                                if bad:
+                                    return False, bad
+
+                                _login(page, base_url)
+                                for route, want in pages:
+                                    page.goto(base_url + route)
+                                    page.locator("main").first.wait_for(state="visible")
+                                    seen = page.evaluate(probe)
+                                    where = "%s at %dpx/%s" % (route, width, lang)
+                                    if seen["n"] < want:
+                                        return False, (
+                                            "expected at least %d <details> on %s, found %d — "
+                                            "with fewer, this check measures a state that is no "
+                                            "longer there, so it must fail rather than pass on an "
+                                            "empty selector (quick task 260913-eab)"
+                                            % (want, where, seen["n"]))
+                                    if not seen["closedBefore"]:
+                                        return False, (
+                                            "expected at least one of %s's %d <details> to be "
+                                            "CLOSED before being forced open on %s — with none, "
+                                            "this check measures the same state every other sweep "
+                                            "in this file already measures, and adds nothing"
+                                            % (route, seen["n"], where))
+                                    bad = _assert_clean(seen, where, width)
+                                    if bad:
+                                        return False, bad
+                            finally:
+                                context.close()
+                    return True, ""
+                check(
+                    "EVERY <details> on EVERY page opens without overflowing anything — all six "
+                    "authenticated pages plus the login page, at 360px, 390px and 1280px, in BOTH "
+                    "languages, with every disclosure on the page forced open: documentElement."
+                    "scrollWidth never exceeds the viewport, nothing paints right of it, and no "
+                    "scroll container's content is wider than its own box (the readings-table "
+                    "class, which no page-level assertion can see). Each page asserts a minimum "
+                    "disclosure count and that at least one was closed beforehand, so a selector "
+                    "change makes this fail rather than silently measure nothing (quick task "
+                    "260913-eab)",
+                    _every_disclosure_on_every_page_opens_without_overflow)
             finally:
                 browser.close()
     finally:

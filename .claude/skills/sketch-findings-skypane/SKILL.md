@@ -16,6 +16,28 @@ SkyPane's companion web app (a stdlib-only Python HTTP service under `companion/
 <design_direction>
 ## Overall Direction
 
+**Minimum supported viewport width: 360 px.** Developer decision, 2026-09-13, taken
+on a real comparison rather than in the abstract. Measure and design down to 360 px;
+**320 px is out of contract.** The two reference devices are an Android at 360 px and
+an iPhone 12-16 at 390 px; 320 px is an iPhone SE 1st gen / iPhone 5, and also what a
+390 px phone becomes under a large browser font-size setting — that accessibility case
+is the one reason this floor is worth revisiting, and it should be revisited on a real
+request, not pre-emptively.
+
+What this does and does not license:
+
+- It does **not** license shipping something broken at 360 px. That width is a real
+  contract, and both fixes of 2026-09-13 (the Home recent-flight callsign, the État
+  readings table) were driven by 360 px failures the phone-sized assumption had missed.
+- It does **not** mean deleting the 320 px assertions that already exist in
+  `companion/test_browser_ux.py`. They pass today, they cost nothing, and they catch
+  real defects. Keep them.
+- It **does** mean that if 320 px ever becomes the *only* thing blocking a design, the
+  right move is to relax that width — not to contort the layout for it. The one known
+  320 px imperfection today is cosmetic and accepted: the readings table's timestamp
+  breaks mid-phrase (`08:00 (il y` / `a 44 j)`) instead of at the clean boundary it
+  finds at 360 px (`31 juil. 08:00` / `(il y a 44 j)`).
+
 Every value below was read live from `companion/static/style.css` (and `companion/contrast_check.py`) at execution time. This section is a summary with a pointer to the reference file that carries the full detail — do not treat it as the whole contract.
 
 **Colour.**
