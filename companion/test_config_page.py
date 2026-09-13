@@ -3538,7 +3538,15 @@ def main():
         """
         fade_class = "theme-live-preview__image--swapping"
         css = _read_static("style.css")
-        js = _read_static("theme-preview.js")
+        # Comment-stripped, and this was NOT a precaution: the first
+        # version of the timer ban below was answered by this file's own
+        # new paragraph explaining that the crossfade must never use a
+        # timer. A scan over raw source is satisfied by a comment that
+        # promises a rule nobody wrote, and broken by a comment that
+        # explains one correctly - the same idiom test_companion_app.py's
+        # motion-budget guard already records for style.css.
+        js = re.sub(
+            r"/\*.*?\*/|//[^\n]*", "", _read_static("theme-preview.js"), flags=re.DOTALL)
 
         base_marker = "\n.theme-live-preview__image {"
         if base_marker not in css:
@@ -3580,6 +3588,24 @@ def main():
                     "expected theme-preview.js to listen for %s — the crossfade must be driven "
                     "by the events that actually mark the fade-out ending and the new frame "
                     "arriving, never by a timer" % (token,))
+        # The one stall an event-driven crossfade can have, pinned as a
+        # structural fact because its browser-level reproduction is
+        # probabilistic (measured 4 stalls in 14 runs before the fix, 0
+        # in 14 after). A transitionend only arrives if a transition
+        # actually RAN, and it does not run when the image is already
+        # invisible, nor when the class is removed and re-added without a
+        # style recalculation in between - an image load and a click
+        # landing in the same frame does exactly that. The preview then
+        # sits at opacity 0 on the discarded theme forever. Consulting
+        # the COMPUTED opacity is what lets the script tell "a fade is
+        # about to run" from "there is nothing left to fade", so a swap
+        # can never be waiting on an event that will not come.
+        if "getComputedStyle" not in js:
+            return False, (
+                "theme-preview.js must consult the COMPUTED opacity before waiting on "
+                "transitionend: a transition that never runs never ends, and the preview then "
+                "sits invisible on the discarded theme forever (measured: 4 stalls in 14 runs "
+                "without this)")
         for banned in ("setTimeout", "setInterval", "requestAnimationFrame"):
             if banned in js:
                 return False, (
@@ -3599,7 +3625,8 @@ def main():
         "the live theme preview CROSSFADES rather than cuts: .theme-live-preview__image declares an "
         "opacity transition at var(--motion-fast) on its own base rule, a .theme-live-preview__image--swapping "
         "class carries the opacity-0 half, theme-preview.js drives that same class literal from transitionend "
-        "and the image's own load/error (never a timer), and T8's window.SkyPaneLivePreview.refresh() survives "
+        "and the image's own load/error (never a timer) while consulting the computed opacity so a swap can "
+        "never wait on a transition that never runs, and T8's window.SkyPaneLivePreview.refresh() survives "
         "(D3/CFG-32, 23-10-PLAN.md Task 2)",
         _live_preview_crossfades_through_one_class_shared_by_css_and_js)
 

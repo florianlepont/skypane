@@ -6243,6 +6243,64 @@ a.airline-card {
   max-width: 480px;
   width: calc(100% - var(--space-lg) * 2);
   box-shadow: var(--shadow-card-hover);
+  /* 23-10-PLAN.md Task 2 (D3/CFG-32): the dialog ARRIVES — it fades and
+   * zooms in rather than appearing whole.
+   *
+   * ONE rule, TWO dialogs. History's panel lightbox and the Airlines
+   * gallery's `.lightbox--wide` variant are the same component under
+   * two classes, so the entrance is declared here and reaches both;
+   * companion/test_view_pages.py pins that count so a second, drifting
+   * copy cannot appear for the wide variant.
+   *
+   * THE CLOSE IS INSTANT, ON PURPOSE, and this is the one thing to read
+   * before "finishing" this rule with an exit animation.
+   * `transition-behavior: allow-discrete` on `display` would keep the
+   * element rendered while it faded out — and for the whole of that
+   * fade, plus permanently in every browser that has not implemented
+   * the property, a modal that has been closed would still be in the
+   * top layer, still in the tab order, still in the accessibility tree,
+   * and still hit-testable across the entire viewport. That is not a
+   * cosmetic regression: it is an invisible sheet that swallows every
+   * click on the page beneath it (T-23-36). 23-08-PLAN.md Task 2 set
+   * this app's precedent for the same trade on the Flights detail row
+   * ("a row that shuts instantly is a smaller loss than a row that is
+   * secretly still there"); a modal raises the stakes rather than
+   * lowering them. So `display` is deliberately absent from the list
+   * below, `close()` ends the dialog outright, and
+   * companion/test_browser_ux.py hit-tests the viewport centre
+   * immediately after close with no settle wait at all.
+   *
+   * `::backdrop` is deliberately NOT animated either, and that is a
+   * reduced-motion fact rather than a matter of taste: the global
+   * override near the top of this file matches
+   * `*, *::before, *::after`, which are ELEMENT selectors —
+   * `::backdrop` is none of them, exactly as this file already records
+   * for the view-transition pseudo-element tree. An animated backdrop
+   * would be motion a reduced-motion visitor has no way to switch off.
+   * The dialog itself is an element, so the global block covers this
+   * transition for free and no per-rule block is added.
+   *
+   * `@starting-style` is Baseline newly (2024-08-06: Chrome 117,
+   * Firefox 129, Safari 17.5) and verified to parse in this project's
+   * own harness Chromium. A browser without it simply has no
+   * before-change style to transition from, so the dialog opens
+   * instantly — exactly what it did before this rule existed. */
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity var(--motion-fast) ease-out,
+    transform var(--motion-fast) ease-out;
+}
+
+.lightbox[open] {
+  opacity: 1;
+  transform: none;
+}
+
+@starting-style {
+  .lightbox[open] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
 /* 14-08 on-glass fix follow-up (2026-09-06, code review CR-01): caught
@@ -8101,6 +8159,33 @@ button.calendar-disconnect-btn:focus-visible {
   height: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
+  /* 23-10-PLAN.md Task 2 (D3/CFG-32): the live preview CROSSFADES when
+   * the theme changes, rather than cutting to the new render.
+   *
+   * A single-element dissolve, not a second stacked image layer: this
+   * component is one <img> the server sizes and
+   * companion/static/theme-preview.js re-points, and a second layer
+   * would mean a second element, a second src and a z-order to keep
+   * right, for a difference nobody can see at 180ms. Fewer moving parts
+   * is the house preference and that script is deliberately small.
+   *
+   * Declared on the BASE rule so the fade runs in BOTH directions from
+   * one declaration — out on the class below, back in when it is
+   * removed. The script never sets a duration, a delay or a timer of
+   * its own; it adds and removes one class and listens for the events
+   * that say the fade ended and the new frame arrived. Under reduced
+   * motion the global override drives this to 0.01ms, which is a cut —
+   * correct, and the script still works, because `transitionend` still
+   * fires for a 0.01ms transition. */
+  transition: opacity var(--motion-fast) ease;
+}
+
+/* The opacity-0 half of the crossfade. theme-preview.js owns this class
+ * entirely and adds it at no other time; the class literal is pinned in
+ * companion/test_config_page.py against both files at once, since
+ * neither imports the other. */
+.theme-live-preview__image--swapping {
+  opacity: 0;
 }
 
 .theme-live-preview figcaption {

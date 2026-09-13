@@ -23,11 +23,22 @@
  * state, and must never use any HTML-writing DOM sink at all, matching
  * the CSP's own "no inline script, no on* attribute" rule (D-32) with
  * this file's own "no markup-building sink" rule. The only DOM writes
- * this file ever makes are one <img>'s "src" property (always assigned
- * from a server-rendered data-preview-src attribute, never a string
- * this file builds itself) and a class-list toggle on the four usage
- * panels — no markup-writing DOM sink of any kind is used anywhere in
- * this file.
+ * this file ever makes are one <img>'s "src" (always assigned from a
+ * server-rendered data-preview-src attribute, never a string this file
+ * builds itself) and a class-list toggle on the four usage panels and
+ * on that same <img> — no markup-writing DOM sink of any kind is used
+ * anywhere in this file.
+ *
+ * 23-10-PLAN.md Task 2 (D3/CFG-32) changed that src write from
+ * the .src PROPERTY to setAttribute("src", …) — the same sink, the same
+ * server-rendered value, and the change is load-bearing rather than
+ * stylistic: the crossfade below has to compare what is on screen
+ * against what was last requested, and reading .src back gives the
+ * resolved ABSOLUTE url while every value this file has to compare it
+ * with (the server-rendered attribute, and the chips' own
+ * data-preview-src) is relative. Comparing those two forms never
+ * matches, and a comparison that never matches would fade on every
+ * event including the ones that change nothing.
  *
  * This script is served to every page on the site (a single cached
  * static asset, not re-emitted per page). Most pages carry no
@@ -75,6 +86,122 @@
   if (!preview || !usageRadios.length || !panels.length) {
     return;
   }
+
+  // 23-10-PLAN.md Task 2 (D3/CFG-32): the crossfade.
+  //
+  // Every preview swap in this file now goes through applyPreviewSrc()
+  // instead of assigning preview.src directly, so the fade and the swap
+  // can never get out of step: the image fades out, the src is replaced
+  // while it is invisible, and it fades back in once the new frame has
+  // actually arrived. pendingSrc is the ONE piece of state this adds,
+  // and it is the answer to the only way a crossfade goes wrong — a
+  // second click landing mid-fade and the preview settling on the theme
+  // whose load happened to finish last. Every handler below compares
+  // against pendingSrc, so the settled frame is always the most recently
+  // requested one.
+  //
+  // NO TIMER, and that is this file's own standing rule rather than a
+  // preference: a timed crossfade guesses when the fade ended and when
+  // the image arrived, and is wrong on both counts on a slow connection.
+  // transitionend is when the fade-out is genuinely over and the
+  // image's own load/error is when the new frame genuinely is (or will
+  // never be) there. companion/test_companion_app.py bans every
+  // timer primitive in this file outright, by name.
+  //
+  // The class is declared in companion/static/style.css, which also owns
+  // the duration; this file names neither a duration nor an easing.
+  var FADE_CLASS = "theme-live-preview__image--swapping";
+  var pendingSrc = preview.getAttribute("src");
+
+  function isFading() {
+    return preview.className.indexOf(FADE_CLASS) !== -1;
+  }
+
+  function startFade() {
+    if (!isFading()) {
+      preview.className += " " + FADE_CLASS;
+    }
+  }
+
+  function endFade() {
+    if (isFading()) {
+      preview.className = preview.className.replace(
+        new RegExp("\\s*" + FADE_CLASS), "");
+    }
+  }
+
+  // Swap only while invisible, and only ever to the latest request.
+  function swapIfNeeded() {
+    if (pendingSrc && preview.getAttribute("src") !== pendingSrc) {
+      preview.setAttribute("src", pendingSrc);
+      return true;
+    }
+    return false;
+  }
+
+  function applyPreviewSrc(src) {
+    if (!src) {
+      return;
+    }
+    pendingSrc = src;
+    if (preview.getAttribute("src") === src) {
+      // Already showing it (the load-time call, and any re-selection of
+      // the theme already on screen) - nothing to cross-fade to, and
+      // fading out and back in for no change would be motion with no
+      // information in it.
+      endFade();
+      return;
+    }
+    startFade();
+    // THE ONE STALL THIS MACHINE CAN HAVE, CLOSED HERE. Everything
+    // below waits on the fade-out's own transitionend, and a
+    // transitionend only arrives if a transition actually RAN. There are
+    // two ordinary ways it does not:
+    //
+    //   1. The image is already invisible - a previous swap faded it out
+    //      and is still waiting on its load. Adding the class again
+    //      changes nothing, so nothing transitions.
+    //   2. The class was removed and re-added without the browser
+    //      running a style recalculation in between (an image load event
+    //      and a click landing inside the same frame will do it). The
+    //      computed opacity never left 0, so again nothing transitions.
+    //
+    // In both cases there is no fade-out left to wait for, so the swap
+    // happens now instead of never. This was a REAL flake, not a
+    // hypothetical: the Cancel-restore check in
+    // companion/test_browser_ux.py failed once with the preview stuck on
+    // the discarded theme, then passed on a rerun with no code change.
+    if (parseFloat(getComputedStyle(preview).opacity) === 0) {
+      swapIfNeeded();
+    }
+  }
+
+  // The fade-out has finished: the image is invisible, so this is the
+  // moment to replace it. If there is nothing left to swap to (the user
+  // came back to the frame already showing), fade straight back in.
+  preview.addEventListener("transitionend", function (evt) {
+    if (evt.propertyName !== "opacity" || !isFading()) {
+      return;
+    }
+    if (!swapIfNeeded()) {
+      endFade();
+    }
+  });
+
+  // The new frame has arrived. If a newer one was requested while this
+  // one was loading, go straight on to it rather than fading in a frame
+  // that is already stale.
+  function onSettled() {
+    if (preview.getAttribute("src") === pendingSrc) {
+      endFade();
+    } else {
+      swapIfNeeded();
+    }
+  }
+  preview.addEventListener("load", onSettled);
+  // A preview that fails to load must not leave the element stranded at
+  // opacity 0 - an invisible preview is worse than a stale one.
+  preview.addEventListener("error", onSettled);
 
   function panelForUsage(usage) {
     var i;
@@ -142,10 +269,7 @@
         panels[i].className += " " + collapsedClass;
       }
     }
-    var src = effectiveSrcForUsage(usage);
-    if (src) {
-      preview.src = src;
-    }
+    applyPreviewSrc(effectiveSrcForUsage(usage));
   }
 
   function checkedUsage() {
@@ -213,9 +337,7 @@
     if (!src && isThemeChip) {
       src = checkedChipSrc(departuresPanel());
     }
-    if (src) {
-      preview.src = src;
-    }
+    applyPreviewSrc(src);
   });
 
   // No DOMContentLoaded wrapper is needed: the <script> tag

@@ -1495,11 +1495,51 @@ def main():
                         if _guard_armed(page):
                             return False, "expected the leave-guard to start disarmed on a clean page load"
 
+                        # 23-10-PLAN.md Task 2 (D3/CFG-32), RETARGETED IN
+                        # PLACE: this used to read the src synchronously
+                        # on the line after the click and assert it had
+                        # already changed. It had, because the swap was a
+                        # bare assignment. The preview now CROSSFADES:
+                        # theme-preview.js holds the swap until the
+                        # fade-out's own transitionend, so the new src
+                        # lands ~var(--motion-fast) later. The contract
+                        # this check owns is T8 and T1 - that the preview
+                        # follows the edit and that Cancel restores it -
+                        # and neither weakens by being asserted on the
+                        # SETTLED state instead of the next statement.
+                        #
+                        # It is a bounded WAIT, never a sleep: if the
+                        # preview never changes, this fails on a real
+                        # timeout rather than passing because the pause
+                        # was long enough.
+                        def _await_preview_src(want_change_from=None, want=None):
+                            if want is None:
+                                expr = (
+                                    "expected => document.querySelector("
+                                    "'.theme-live-preview__image').getAttribute('src') "
+                                    "!== expected")
+                                arg = want_change_from
+                            else:
+                                expr = (
+                                    "expected => document.querySelector("
+                                    "'.theme-live-preview__image').getAttribute('src') "
+                                    "=== expected")
+                                arg = want
+                            try:
+                                page.wait_for_function(expr, arg=arg, timeout=3000)
+                            except Exception:
+                                return page.locator(
+                                    ".theme-live-preview__image").get_attribute("src")
+                            return None
+
                         other_theme = next(t for t in theme_ids if t != original_value)
                         _click_control(page, 'input[name="theme"][value="%s"]' % other_theme)
-                        new_src = page.locator(".theme-live-preview__image").get_attribute("src")
-                        if new_src == original_src:
-                            return False, "expected the live preview to change immediately after the edit"
+                        stuck = _await_preview_src(want_change_from=original_src)
+                        if stuck is not None:
+                            return False, (
+                                "expected the live preview to follow the edit within 3s (it "
+                                "crossfades rather than cutting, so the swap lands one "
+                                "var(--motion-fast) after the click), still reads %r" % (stuck,))
                         if not _guard_armed(page):
                             return False, "expected the leave-guard to be armed after a real edit"
 
@@ -1509,10 +1549,11 @@ def main():
                         if not page.eval_on_selector(
                                 'input[name="theme"][value="%s"]' % original_value, "el => el.checked"):
                             return False, "expected Cancel to restore the original theme chip's checked state"
-                        restored_src = page.locator(".theme-live-preview__image").get_attribute("src")
-                        if restored_src != original_src:
+                        restored_src = _await_preview_src(want=original_src)
+                        if restored_src is not None:
                             return False, (
-                                "expected Cancel to restore the live preview to its original src, got %r "
+                                "expected Cancel to restore the live preview to its original src "
+                                "within 3s, through the crossfade rather than around it, got %r "
                                 "(T8)" % (restored_src,))
                         if _guard_armed(page):
                             return False, "expected Cancel to disarm the leave-guard"
@@ -1527,7 +1568,9 @@ def main():
                         context.close()
                 check(
                     "Cancel restores the form value AND the live theme preview (T8), and a subsequent edit "
-                    "re-arms the leave-guard (T1)",
+                    "re-arms the leave-guard (T1) - both preview assertions retargeted in place by "
+                    "23-10-PLAN.md Task 2 from a synchronous read to a bounded wait, because the preview "
+                    "now crossfades and the swap lands one var(--motion-fast) after the click",
                     _cancel_restores_preview_and_rearms_guard)
 
                 def _strip_switch_applies_without_the_leave_guard_while_other_navigation_still_warns():

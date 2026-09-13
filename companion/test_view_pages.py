@@ -7225,13 +7225,22 @@ def main():
                 marker = '<dialog class="%s"' % dialog_class
                 rendered.append((label, marker))
 
-            open_rule = ".lightbox[open] {"
-            if stripped.count(open_rule) != 1:
-                return False, (
-                    "expected exactly one %r rule — one entrance serving BOTH dialogs, got %d"
-                    % (open_rule, stripped.count(open_rule)))
             entrances = re.findall(
                 r"@starting-style\s*\{\s*\.lightbox\[open\]", stripped)
+            # The open-state rule is counted with the @starting-style
+            # blocks REMOVED, because the entrance block necessarily
+            # repeats the same selector - counting the bare literal
+            # reads 2 on a correct file, which is a number that means
+            # nothing. What must be exactly one is the open-state rule
+            # itself: one entrance, two dialogs.
+            without_entrances = re.sub(
+                r"@starting-style\s*\{.*?\}\s*\}", "", stripped, flags=re.DOTALL)
+            open_rule = ".lightbox[open] {"
+            if without_entrances.count(open_rule) != 1:
+                return False, (
+                    "expected exactly one %r rule outside @starting-style — one entrance serving "
+                    "BOTH dialogs, got %d"
+                    % (open_rule, without_entrances.count(open_rule)))
             if len(entrances) != 1:
                 return False, (
                     "expected exactly ONE @starting-style entrance for .lightbox[open] (one "
@@ -7288,7 +7297,20 @@ def main():
             # rule above is keyed to.
             tmp = _mkstate("dialog-entrance")
             try:
-                history_html = history_page.render(_history_ctx(tmp))
+                # History emits its dialog only on a page that has a
+                # panel to show, so the fixture has to have one - an
+                # empty-state render carries no dialog at all, which
+                # would make the assertion below pass for the wrong
+                # reason if it were inverted, and fail for the wrong
+                # reason as written.
+                names = ["2026-08-27T10-00-00+00-00.png"]
+                _seed_gallery(tmp, names)
+                _seed_runway_events(tmp, [
+                    {"ts": "2026-08-27T10:03:00+00:00", "hex": "dlgent1",
+                     "callsign": "DLGENT"},
+                ])
+                history_html = history_page.render(
+                    _history_ctx(tmp, gallery_entries=names))
                 airlines_html = airlines_page.render({"edit_mode": True})
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
