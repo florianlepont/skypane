@@ -1066,7 +1066,7 @@ Plans:
 **Goal:** Make the existing pages feel alive without adding a single new component. D3 (a motion budget honoured under `prefers-reduced-motion`, **minus its overlay-drawer clause — struck, see below**), D10 (native multi-page View Transitions), D14 (one script ticking every `<time data-relative>`), D1 (Home and the Frame strip refreshing themselves), D22 (an honest live/paused/reconnecting indicator), D2 (real `role="switch"` controls over `fetch`, optimistic, rolling back on error, no-JS forms intact) and D7 (the live flights list). Framework-free, build-free, dependency-free, no-JS floor intact.
 **Requirements**: CFG-32 (D3 motion budget), CFG-33 (D10 view transitions), CFG-34 (D14 live counters + D22's remainder), CFG-35 (D1 self-refreshing Home and Frame strip), CFG-36 (D2 real switches), CFG-37 (D7 live flights list), CFG-38 (the phase's regression floor: the no-JS floor, the harness helpers and the design system updated in step)
 **Depends on:** Phase 22
-**Plans:** 11 plans across 9 waves
+**Plans:** 1/11 plans executed
 
 Three decisions taken before planning, on 23-RESEARCH.md's evidence (developer, 2026-09-13):
 
@@ -1077,7 +1077,7 @@ Three decisions taken before planning, on 23-RESEARCH.md's evidence (developer, 
 - **D7's sticky day headers are NOT built — option A** (developer, 2026-09-13), and the reason found by the sketch is better than the cost argument that preceded it. Both variants were rendered on the real page with seeded data and scrolled to the same offset. The current page shows no day title once scrolled — but **every row already carries its own date** (`1 août 21:41`, `1 août 21:13`, …), so a sticky title would display information that is already on every line. The sticky variant also turns the list into a ~7-row box inside a half-empty page and leaves a clipped row peeking under the pinned header. Phase 22's T4 had already deleted the app's one sticky rule as inert; this decision is not a repeat of that, it is a separate finding on the same feature. **Revisit only if the per-row date is ever removed** — for phone density, say — which would make the title non-redundant.
 
 Plans:
-- [ ] 23-01-PLAN.md — wave 1: the motion vocabulary (two duration tokens, the app's first `@keyframes`) and the executable guard every later plan is measured against
+- [x] 23-01-PLAN.md — wave 1: the motion vocabulary (two duration tokens, the app's first `@keyframes`) and the executable guard every later plan is measured against
 - [ ] 23-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — one no-JS helper, a 360 px viewport constant, and the disclosure sweep made motion-proof (zero net checks)
 - [ ] 23-03-PLAN.md — wave 1: the `<time data-relative>` server convention and the future form, wrapping the one existing ladder rather than copying it
 - [ ] 23-04-PLAN.md — wave 2: D10 native cross-document view transitions, media-wrapped for reduced motion, with per-route name-uniqueness proven in a browser

@@ -4,16 +4,15 @@ milestone: v1.0
 milestone_name: milestone
 status: verifying
 stopped_at: Completed 22-16-PLAN.md — Phase 22 closed (16/16 plans); design system updated in step, CFG-25..CFG-31 all complete
-last_updated: "2026-09-13T09:22:52.575Z"
-last_activity: 2026-09-12
+last_updated: "2026-09-13T15:04:21.048Z"
+last_activity: 2026-09-13
 progress:
   total_phases: 38
   completed_phases: 32
-  total_plans: 203
-  completed_plans: 202
-  percent: 91
+  total_plans: 214
+  completed_plans: 203
+  percent: 84
 ---
-
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
 > blocks: the current one above, and a second, stale one that sat between it
@@ -33,13 +32,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Phase 21 complete (8/8 plans, verification 10/10, review resolved); draft PR pending CI
+status: Phase complete — ready for verification
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [██████████] 100%
+  [██████████] 95%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -57,8 +56,10 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 22 (companion-audit-round-4) — COMPLETE (16/16 plans), verified
-Plan: 16 of 16
+Phase: 23 (companion-dynamism-live-updates-real-switches-motion-budge) — IN PROGRESS (1/11 plans)
+Plan: 1 of 11
+
+**23-01 executed (2026-09-13), wave 1 — the motion-budget foundation the rest of Phase 23 spends from.** Task 1 added exactly two mode-independent duration tokens to `:root` beside the radii — `--motion-fast: 180ms` (REACTION: a state change the user caused and is watching for confirmation of — 23-08's detail row and chevron, 23-09's save bar, 23-10's selection/crossfade/dialog entrances, and 23-06's self-refresh fades) and `--motion-slow: 2s` (AMBIENT: the one loop nobody is waiting on — 23-05's breathing dot) — plus `@keyframes skypane-pulse`, the app's first and only keyframes, cycling opacity 1 → 0.35 → 1 and nothing else, shared by D14's breathing dot and D22's pulse so two near-identical blocks never appear. The order-of-magnitude gap between the tokens is deliberate: the two are CATEGORIES ("is anyone waiting on this?"), not two speeds, because a refresh fade and a status-dot cycle want durations three seconds apart. A stylesheet-resident NOTE (not a rule) beside the global reduce block records the one gap `*, *::before, *::after` genuinely cannot reach — it matches ELEMENTS, and the `::view-transition` pseudo-element tree is not one — and names 23-04 as the plan that closes it with a `no-preference` wrapper rather than by zeroing the pseudo-elements' duration. 92 insertions, 0 deletions, proving the global block and `.js .mobile-nav`'s override byte-identical mechanically. Task 2 made the budget executable: one comment-stripped source scan in `test_companion_app.py` asserting every keyframes name defined once, every animation reference resolving, every animation duration coming from `var(--motion-*)`, the two reduced-motion block counts equalling named constants (`EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2`, frozen for the phase; `EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 0`, which 23-04 alone raises to 1), and `interpolate-size`/`calc-size(` absent. Comments are stripped FIRST because this stylesheet's comments quote every token the scan counts. The `@media (prefers-reduced-motion: …)` blocks are brace-matched out before the token rule runs, since their `0.01ms !important` is a bare literal ON PURPOSE — it cancels motion. Five mutations each produced exactly one additional failure naming the defect (duplicate keyframes, bare 400ms, third reduce block, `interpolate-size`, dangling reference); `@keyframes fake-name` inside a comment produced none. `EXPECTED_CHECK_COUNT` 272 → 273, re-derived by running. Two prose traps designed around rather than discovered: the gap note avoids the literals `@view-transition` and `view-transition-name` because 23-04's own criteria grep the RAW file for both and expect 1 and 3, and the keyframes comment avoids `@keyframes` because this task's own criterion expects 1.
 
 **14-06 executed (2026-09-06), wave 3, the last plan in this wave to touch `companion/pages/airlines_page.py` before Wave 4's closing verification — absorbs Phase 13's standalone "Manually resolved prefixes" table into the gallery cards themselves.** Task 1 widened `_airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None)`: `manual_info=None` is byte-identical to the pre-existing plain curated card; present as `(prefix, superseded, needs_artwork)` — the exact trailing three fields of one `_manual_resolution_rows()` row, sliced by `render()` and consumed here, never re-derived (RESEARCH.md Pitfall 6) — it derives `mode`/`manual`/`heading`/`upload-action`/`delete-action`/`manual-note`/sighting-context attributes and generalises the trigger-tag rule so any card carrying a resolve prefix is a real `<a href="/airlines?resolve={prefix}">` (a plain curated card keeps its `<button>`). A superseded card's image/mode reflect the BUILT-IN airline's own current state (D-10) via one `enrich.static_airline_name_for_prefix()` call. `render()` gained an additive grid-injection step: `manual_info_by_name` keys a superseded row by the built-in name (the card the frame actually renders under) and an active row by its own stored name, and `injected_pairs` adds exactly one card for a genuinely novel active manual name not already curated. Task 2 deleted the standalone management table and its six now-orphaned rendering functions plus nine copy/class constants (the plan's own eight, plus `SUPERSEDED_CAPTION`, a ninth genuinely-orphaned one its enumeration missed), replacing it with `_manual_summary_html(manual_rows)` — a one-line, clickable `data-filter-set="manual"` summary reusing `list-filter.js`'s plan-14-03 hook — and deleted the now-dead `.manual-resolution__status--superseded` CSS rule. Four `test_status_pages.py` checks were retargeted in place (zero net count change) plus one pre-existing 14-03 check flipped from asserting the CSS rule's survival to its absence; 5 new Task-1 checks brought `EXPECTED_CHECK_COUNT` 158 → 163. Two Rule-1 bugs were auto-fixed along the way: a missing pair of format-string placeholders that crashed every card render (caught immediately by `test_view_pages.py`'s `render({})` regression check), and a superseded card's manual-note interpolating the built-in name into its own "the name you gave it" slot instead of the operator's actual stored name (fixed with one `manual_resolutions.load_manual_resolutions()` lookup scoped to that branch, caught by a pre-existing check's assertion going red). External gap-closure per 14-05-SUMMARY.md's own documented finding: `_resolve_name_form_html()` now emits `<p class="lightbox__resolve-scope"></p>`, and `panel-lookup.js`'s previously-discarded `data-view-panel-scope` read now writes into it. `scripts/run-all-tests.sh`: `Result: PASS`, 93% coverage. `git diff --name-only` against this plan's start: `companion/pages/airlines_page.py`, `companion/static/panel-lookup.js`, `companion/static/style.css`, `companion/test_status_pages.py` — zero files under `server/`, no new dependency. Wave 3 (14-04 through 14-06) is now complete; 14-08 (Wave 4's closing verification) is next.
 
@@ -161,7 +162,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-12
+Last activity: 2026-09-13
 Last activity: 2026-09-04 - Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence. Also merged in from origin/main: quick task 260904-e92 (Airlines gallery image weight, UIR-08) and Phase 06.6.4.1.1 (settings theme picker + typography/spacing direction pass, 6/6 plans complete).
 **08-01 executed (2026-08-31), the first of Wave 1's 2 parallel-safe plans.** `server/device_config.py`'s `THEMES` grew from the single `"sky"` entry to five: `white` (new `DEFAULT_THEME_ID`), `black`, `yellow`, `red` (all single-colour — `departing_index == arriving_index` — with contrast-correct ink: black ink on white/yellow, white ink on black/red, built only from `panel_format`'s named `IDX_*` constants) and the retained `sky` (unchanged Blue/Green, relabelled `"Sky"` from `"Sky (default)"`, no longer default). The flip silently propagated to `server/plane/render.py`'s `STATE_BACKGROUND`/`STATE_INK` module constants (evaluated from `DEFAULT_THEME_ID` at import time) with zero edit to `render.py` itself, confirming the registry's own extension contract. `server/test_config_history.py` grew 21→25 checks (five stale default-comparison literals corrected `"sky"`→`"white"` — not the plan's stated three, the real on-disk count was five; four new registry-contract checks added, one demonstrated failing via a deliberate ink-index swap then reverted before commit). `server/test_render.py` grew 76→78 (two dominant-nibble checks now expect White; the Sky-equals-default check rewritten as White-matches-default AND Sky-still-differs, so it can't pass if Sky were deleted; two new checks loop `THEME_IDS` for per-theme background dominance and ink-index agreement). `companion/test_config_page.py` grew 37→39, proving the CFG-01 picker absorbed all five themes with zero edit to `companion/pages/config_page.py`/`companion/app.py` (`git diff --stat` confirmed). One Rule 1 deviation outside the plan's stated `files_modified`: `server/test_pipeline_e2e.py`'s battery-icon-region check hardcoded the active-state ink nibble as White (0x1), true only under the retired Sky default's white ink — corrected to derive the expectation from `device_config.theme_ink_index()` for the theme `run_once()` actually reported. Full suite green except `server/test_poll_loop.py`'s pinned `panel.bin` digest (already stale pre-phase from an unrelated macOS/Linux FreeType difference, now additionally invalidated for real by the White-default flip — re-pin explicitly deferred to plan 08-05, not fixed here). None of the four new hues has been seen on real Spectra 6 ink yet — screen-confirmed only, same as Sky was before Phase 7; the registry's provenance comment now records this honestly, and plan 08-06's blocking on-glass session is where that check happens. `requirements.mark-complete D-01 D-02 D-03 D-04` returned all four as `not_found`, consistent with every prior 06.x-style decimal/CONTEXT-only phase's precedent — these are `08-CONTEXT.md` Decision IDs, not formal REQUIREMENTS.md entries. `roadmap.update-plan-progress "08"` confirmed `plan_count: 6, summary_count: 1, status: "In Progress"` (plans 02-06 remain). `state.advance-plan` again could not parse this file's prose-based Current Position section (same known limitation documented throughout this file's history) — `state.update-progress` computed `percent: 93` (64/69) correctly this time, no hand-correction needed.
 
@@ -383,6 +384,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P14 | 26min | 3 tasks | 7 files |
 | Phase 22 P15 | 95min | 3 tasks | 11 files |
 | Phase 22 P16 | 35m | 4 tasks | 11 files |
+| Phase 23 P01 | 50min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -700,6 +702,9 @@ Recent decisions affecting current work:
 - [Phase ?]: 22-16: three stale load-bearing numbers corrected at source — the @supports :has() block count is ONE (verified live; the stale 'two' is what an earlier draft of this phase's own UI spec copied, causing a checker BLOCK), the floating-overlay shadow exception count is FOUR, and the compact-chip usage sentence is no longer exhaustive
 - [Phase ?]: 22-16: two §4 rows were WRONG against the shipped code and were corrected rather than applied mechanically — T6 covers three selectable surfaces plus both dashed markers and needs .theme-chip's box-shadow: inherit overlay; .dot--off has four consumers, not three
 - [Phase ?]: 22-16: CFG-28 closed by converting Health's page-header clock title from a raw UTC ISO to a Paris-local full timestamp and RETARGETING 19-09's pin in place (mutation-tested); style.css's accent arithmetic corrected at the false premise 22-15 found
+- [Phase 23]: 23-01: --motion-fast (180ms) and --motion-slow (2s) are two CATEGORIES, not two speeds — reaction (someone is waiting on it) versus ambient (nobody is) — A refresh fade and a status-dot cycle want durations three seconds apart. Filing 23-06's self-refresh fades as REACTION is what lets --motion-slow stay long enough that the live dot breathes instead of strobing.
+- [Phase 23]: 23-01: the motion guard's token rule brace-matches every @media (prefers-reduced-motion: ...) block OUT of the source it scans — Their animation-duration: 0.01ms !important is a bare literal on purpose — it exists to CANCEL motion, so binding it to a motion token would invert its purpose. Their counts are asserted separately, before the removal.
+- [Phase 23]: 23-01: the interpolate-size / calc-size() ban is measured on COMMENT-STRIPPED source, not raw — The plan's own final behaviour says comment text must not satisfy OR BREAK any check, so a later plan may document why the primitives are banned without failing the ban. The mutation that proves the check adds a real declaration.
 
 ### Pending Todos
 
@@ -801,7 +806,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T07:07:44.971Z
+Last session: 2026-09-13T15:03:51.101Z
 Stopped at: Completed 22-16-PLAN.md — Phase 22 closed (16/16 plans); design system updated in step, CFG-25..CFG-31 all complete
 
 Resume file: 
