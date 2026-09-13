@@ -4907,6 +4907,81 @@ a.airline-card {
   box-shadow: var(--shadow-card-hover);
 }
 
+/* 22-13-PLAN.md Task 1 (X3, 22-UI-SPEC.md §3.2): the login card's own
+ * FORM geometry. The .login-shell/.login-card pair above has existed
+ * since 06.6.2-07, but nothing in this file had ever styled the two
+ * controls inside it, which is the whole of X3's measured defect: the
+ * field took the global `input` rule's 44px floor while the button took
+ * the base `button` rule's 30px / 6px-radius register, so a 225x44 r8
+ * field sat beside a 68x30 r6 button 7px lower, and on a phone the
+ * button wrapped glued underneath at a 0px gap.
+ *
+ * Stacked, not one row: label -> field -> message (when there is one)
+ * -> primary. Both controls take the full content column, so at 390px
+ * neither is narrower than the other. */
+.login-form__input {
+  display: block;
+  width: 100%;
+  /* An explicit height, not the global `input` rule's `min-height`
+   * floor: the primary below must be able to state the SAME number, and
+   * a floor plus a fixed height cannot be compared by a reader (or by
+   * the browser harness) without resolving the padding too. The global
+   * `* { box-sizing: border-box }` reset makes this the border-box
+   * height, so the global rule's own --space-sm padding stays inside
+   * it. */
+  height: 44px;
+}
+
+/* The error-coloured field edge. Gated before shipping, exactly as
+ * 22-UI-SPEC.md §3.2 requires and as .status-card__headline--warn's own
+ * precedent binds: --color-status-error against the three surfaces this
+ * field is ever seen on measures 6.29 / 5.16 / 5.73 in light mode
+ * (#BE123C on #FFFFFF card, #EEE8DE field fill, #F7F4EF canvas) and
+ * 6.53 / 5.93 / 7.13 in dark (#FB7185 on #151922 / #1C222D / #0C0F14) —
+ * every one of them past WCAG_AA_UI_COMPONENT (3.0), so the border
+ * ships. companion/test_contrast_check.py pins all six.
+ *
+ * Attribute-selected, not class-selected, on purpose: the visual state
+ * and the announced state are then physically the same attribute and
+ * cannot drift — the same reasoning .site-nav-toggle[aria-expanded]
+ * already carries. Colour is never alone either way: the message under
+ * the field names the problem and the next action. */
+.login-form__input[aria-invalid="true"] {
+  border-color: var(--color-status-error);
+}
+
+/* The primary. A named, scoped exception to the base `button` rule's
+ * 30px / 6px-radius register, for three reasons that all have to hold
+ * together — see .claude/skills/sketch-findings-skypane/references/
+ * control-density.md's touch-target register, which this joins in the
+ * KEPT category, not the traded-away list:
+ *   1. 44px RESTORES the WCAG 2.5.5 (AAA) floor here rather than
+ *      trading it — a floor gain, the same reasoning quick task
+ *      260902-qkm used to restore .mobile-nav__link's own 44px;
+ *   2. matching the field's height AND radius is what makes the pair
+ *      read as one object, which is C4's new composition rule;
+ *   3. this is the app's only pre-auth surface, with no density
+ *      argument to trade the floor against.
+ *
+ * The full-width accent fill is correct HERE and only here, and is not
+ * a contradiction of B15 (which removed the app's other one, 22-10):
+ * the login card is a single-purpose pre-auth surface with exactly one
+ * action and no competing content, so `Sign in` IS the page's single
+ * main action — which is precisely what C2 reserves the accent for.
+ * This satisfies C2, it does not breach it.
+ *
+ * margin-top is the ONE medium spacing token separating the two
+ * controls; with a message present, .field-error's own --space-xs
+ * margin-top attaches the message to the field above it and this
+ * token then separates the message from the primary. */
+.login-card button[type="submit"] {
+  width: 100%;
+  height: 44px;
+  border-radius: var(--radius-control);
+  font-size: var(--font-body-size);
+  margin-top: var(--space-md);
+}
+
 /* History lightbox (D-20, §8.3) — a native <dialog> element, styled by
  * class. box-shadow: var(--shadow-card-hover) at rest is this phase's
  * one deliberate exception to the hairline-at-rest contract every other

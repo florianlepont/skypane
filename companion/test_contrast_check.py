@@ -67,6 +67,16 @@ EXPECTED_CHECK_COUNT = 39
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 41
 
+# 22-13-PLAN.md Task 1 (X3): +2 (Section 5 — the login field's
+# error-coloured border measured against BOTH colours adjacent to it,
+# one check per theme). Measured: light 5.16 against the field fill
+# (#EEE8DE) and 6.29 against the card surface (#FFFFFF); dark 5.93 and
+# 6.53 — every one past WCAG_AA_UI_COMPONENT (3.0), so the border ships
+# rather than being dropped. 41 + 2 = 43, recomputed directly against
+# the real on-disk check(...) call count at execution time (43/43 pass),
+# not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 43
+
 
 def main():
     results = []
@@ -402,6 +412,69 @@ def main():
         "the status-warn-on-card pair is present in "
         "contrast_check.STATUS_WARN_ON_CARD_PAIRS for both themes",
         _warn_on_card_pair_is_present_in_the_table)
+
+    # ==================================================================
+    # Section 5 (22-13-PLAN.md Task 1, X3 / 22-UI-SPEC.md §3.2): the
+    # login field's error BORDER.
+    #
+    # `.login-form__input[aria-invalid="true"]` paints
+    # --color-status-error as a control border — a non-text graphic, so
+    # WCAG_AA_UI_COMPONENT (3.0) is the applicable bar, not 4.5. The
+    # border must be distinguishable from the two colours physically
+    # adjacent to it: the field's own --color-secondary fill on the
+    # inside, and the login card's --color-dominant surface on the
+    # outside. (--color-canvas is NOT adjacent to this border — the
+    # login card sits between the field and the page — so it is
+    # deliberately not listed, unlike Section 3's deliberately broad
+    # every-surface sweep for the dot/rail/edge consumers.)
+    #
+    # 22-UI-SPEC.md §3.2 binds this gate to .status-card__headline--warn's
+    # own precedent: if it failed, the border would be DROPPED and the
+    # threshold left alone. It passes comfortably in both themes, so the
+    # border ships — see companion/static/style.css's own rule comment,
+    # which records the same measurements.
+    #
+    # The pairs are listed HERE rather than promoted into
+    # companion/contrast_check.py the way STATUS_WARN_ON_CARD_PAIRS was:
+    # that module is outside 22-13-PLAN.md's files_modified, and a named
+    # constant is what its own precedent uses for a pair whose measured
+    # verdict is ASYMMETRIC across themes and therefore load-bearing on
+    # the shipped CSS. This pair passes in both themes, so nothing in
+    # style.css is conditional on the numbers.
+    LOGIN_FIELD_ERROR_BORDER_PAIRS = (
+        # theme, the border colour, the colour it must be told apart from
+        ("light", "#BE123C", "#EEE8DE"),   # --color-status-error vs the field fill
+        ("light", "#BE123C", "#FFFFFF"),   # --color-status-error vs the card surface
+        ("dark", "#FB7185", "#1C222D"),
+        ("dark", "#FB7185", "#151922"),
+    )
+
+    def _make_login_border_check(theme):
+        def _check():
+            pairs = [(fg, bg) for pair_theme, fg, bg
+                     in LOGIN_FIELD_ERROR_BORDER_PAIRS if pair_theme == theme]
+            if len(pairs) != 2:
+                return False, (
+                    "expected exactly the two adjacent-colour pairs for the %s "
+                    "theme (field fill and card surface), got %d" % (theme, len(pairs)))
+            for fg, bg in pairs:
+                ratio = contrast_ratio(fg, bg)
+                if ratio < WCAG_AA_UI_COMPONENT:
+                    return False, (
+                        "%s: contrast_ratio(%r, %r) = %.2f, below "
+                        "WCAG_AA_UI_COMPONENT (%.1f) — drop the border from "
+                        ".login-form__input[aria-invalid=\"true\"] rather than "
+                        "weakening this threshold (22-UI-SPEC.md §3.2)"
+                        % (theme, fg, bg, ratio, WCAG_AA_UI_COMPONENT))
+            return True, ""
+        return _check
+
+    for _theme in ("light", "dark"):
+        check(
+            "%s: the login field's error border (--color-status-error) meets WCAG AA "
+            "UI-component contrast (>= 3:1) against BOTH colours adjacent to it — the "
+            "field's own fill and the login card's surface" % _theme,
+            _make_login_border_check(_theme))
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

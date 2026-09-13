@@ -636,6 +636,22 @@ _PAGE_TITLES = {
 # login reused.
 LOGIN_EXPLANATION_TEXT = "Sign in to manage this device's settings."
 
+# 22-13-PLAN.md Task 1 (X3, 22-UI-SPEC.md §3.2): the login card's lockout
+# sentence, promoted to a module constant beside LOGIN_EXPLANATION_TEXT
+# above — the same treatment that constant already documents for
+# user-facing copy. Unchanged wording, unchanged French catalogue key;
+# only its home moves, because _login_body() and (from Task 3) the live
+# countdown's own template must both be built from this one string rather
+# than from two literals that could drift.
+LOGIN_LOCKOUT_TEXT = "Too many attempts — try again in %ds."
+
+# The id the login card's ONE message element carries (the wrong-password
+# error and the lockout sentence share it — one error voice per
+# 22-UI-SPEC.md §3.2), and the id `aria-describedby` points at when, and
+# only when, that message is rendered. One constant, so the attribute and
+# its target can never drift apart.
+LOGIN_MESSAGE_ID = "login-error"
+
 # Quick task 260903-peo (UIR-16): the 404 page's title and one-sentence
 # purpose, promoted to module constants matching LOGIN_EXPLANATION_TEXT's
 # own precedent for user-facing copy. `layout.page_header()` escapes both
@@ -1596,33 +1612,79 @@ class Handler(BaseHTTPRequestHandler):
         opaque function-parameter boundary it has no way to follow.
         This function only escapes it; it never calls i18n.t() itself
         on `error`.
+
+        22-13-PLAN.md Task 1 (X3, 22-UI-SPEC.md §3.2/§5 contract 5)
+        restructures the card: the message — whichever of the two
+        applies — moves from a bare `<p class="text-body">` at the TOP
+        of the card into the form, directly UNDER the field, in the
+        existing `.field-error text-label` treatment (companion/static/
+        style.css:383, added 19-07 for A-25; this card is that class's
+        second consumer, and its `margin-top` exists for exactly this
+        placement). One error voice: the lockout sentence and the
+        wrong-password sentence share the treatment and the element id,
+        differing only in copy.
+
+        `aria-describedby` is emitted only when a message is actually
+        rendered, and `aria-invalid="true"` only on the wrong-password
+        branch. It is never emitted with a negative value (that would
+        announce a field as validated-and-fine before anything has been
+        validated), and never on the lockout branch, where the typed
+        value is not what is wrong — the form is locked. `role="alert"`
+        is kept on both, which is the existing, correct behaviour.
+
+        This prose deliberately avoids writing the negative attribute
+        out as a literal: 22-13-PLAN.md Task 1's own acceptance
+        criterion is a `grep -c` over this whole file, and a mention in
+        a docstring would trip it exactly as three earlier plans in this
+        phase tripped a JS harness guard with a token inside their own
+        new comment.
         """
         parts = [
             '<h1 class="page-title">SkyPane</h1>',
             '<p class="text-body">%s</p>' % layout.escape_html(i18n.t(LOGIN_EXPLANATION_TEXT)),
         ]
-        if lockout_seconds:
-            parts.append(
-                '<p class="text-body" role="alert">%s</p>'
-                % layout.escape_html(
-                    i18n.t("Too many attempts — try again in %ds.") % lockout_seconds))
+        # `if lockout_seconds:` (not `is not None`) keeps this branch
+        # byte-identical in behaviour to the one it replaces — a zero or
+        # absent figure has never rendered a lockout sentence, and
+        # companion/static/login-card.js's own `remaining > 0` guard
+        # agrees with it, exactly as poll-cooldown.js and
+        # poll_trigger_section() agree with each other.
+        locked = bool(lockout_seconds)
+        if locked:
+            message = i18n.t(LOGIN_LOCKOUT_TEXT) % lockout_seconds
         elif error:
-            parts.append(
-                '<p class="text-body" role="alert">%s</p>'
-                % layout.escape_html(error))
+            message = error
+        else:
+            message = None
+
+        field_attrs = ""
+        if message is not None:
+            field_attrs += ' aria-describedby="%s"' % LOGIN_MESSAGE_ID
+        if message is not None and not locked:
+            field_attrs += ' aria-invalid="true"'
+
+        message_html = (
+            '<p id="%s" class="field-error text-label" role="alert">%s</p>'
+            % (LOGIN_MESSAGE_ID, layout.escape_html(message))
+        ) if message is not None else ""
+
         next_field_html = (
             '<input type="hidden" name="next" value="%s">'
             % layout.escape_html(next_route)) if next_route else ""
         parts.append(
-            '<form method="post" action="%s">'
+            '<form method="post" action="%s" class="login-form">'
             "%s"
             '<label for="password">%s</label>'
             '<input type="password" id="password" name="password" '
-            'autocomplete="current-password" autofocus required>'
+            'class="login-form__input" '
+            'autocomplete="current-password" autofocus required%s>'
+            "%s"
             '<button type="submit">%s</button>'
             "</form>" % (
                 LOGIN_ROUTE, next_field_html,
                 layout.escape_html(i18n.t("Password")),
+                field_attrs,
+                message_html,
                 layout.escape_html(i18n.t("Sign in")))
         )
         return "".join(parts)

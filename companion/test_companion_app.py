@@ -508,6 +508,19 @@ EXPECTED_CHECK_COUNT = 260
 # documented WR-11 root-sandbox failures, unrelated to this plan), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 261
+# 22-13-PLAN.md Task 1 (X3): +3 (the clean login render carries neither
+# aria-invalid nor aria-describedby and style.css now carries the
+# field/primary/error-border rules it had none of; the wrong-password
+# render is programmatically associated and places its .field-error
+# message between the field and the primary; the locked-out render
+# shares that one error voice, with aria-describedby but deliberately no
+# aria-invalid, driven against its OWN isolated Harness() because
+# locking the process-global throttle cannot be undone over HTTP).
+# 261 + 3 = 264, recomputed directly against the real on-disk check(...)
+# call count at execution time (262/264 pass — the two documented WR-11
+# root-sandbox failures, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 264
 
 
 def _ago_iso(seconds):
@@ -3902,6 +3915,156 @@ def main():
             "GET /login (no session) is rendered by the dedicated login_shell(), not "
             "page_shell() — no sidebar/mobile-nav markup, autocomplete present",
             _login_page_uses_dedicated_login_shell)
+
+        # --- 22-13-PLAN.md Task 1 (X3, 22-UI-SPEC.md §3.2/§5 contract 5):
+        # the login card's stacked geometry and its programmatically
+        # associated error state ---
+
+        def _login_clean_render_carries_no_error_association():
+            status, _headers, body = http_request(base + "/login")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            # The two NEGATIVE assertions X3 turns on. `aria-invalid`
+            # must be absent entirely on a clean render — not present
+            # with a "false" value, which announces the field as
+            # validated-and-fine to a screen reader that has been given
+            # nothing to validate yet.
+            if "aria-invalid" in text:
+                return False, (
+                    "a clean login render must carry no aria-invalid at all, "
+                    "found one in the response body")
+            if "aria-describedby" in text:
+                return False, (
+                    "a clean login render must carry no aria-describedby — "
+                    "there is no message for it to point at")
+            if 'id="login-error"' in text:
+                return False, "a clean login render must render no message element"
+            # The stacked geometry's own hooks, server side.
+            for needed in ('class="login-form"', 'class="login-form__input"'):
+                if needed not in text:
+                    return False, "expected %r in the login card markup" % needed
+            # The page title IS the brand mark, in the correct role
+            # (22-UI-SPEC.md §3.2 declines the audit's "small brand
+            # mark" suggestion): a bare <h1 class="page-title">, with no
+            # glyph beside it, this app's own headings-carry-no-glyphs
+            # rule (quick task 260902-j8w).
+            if '<h1 class="page-title">SkyPane</h1>' not in text:
+                return False, "expected the bare page-title brand mark with no glyph beside it"
+            if "<svg" in text or "icon-defs" in text:
+                return False, (
+                    "the login card must add no icon/brand glyph — login_shell() "
+                    "deliberately emits no ICON_DEFS_HTML sprite")
+            # The stylesheet actually carries the geometry the markup
+            # asks for. Before this plan, style.css had NO rule for
+            # either control (X3's headline finding).
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path, encoding="utf-8") as fh:
+                css = fh.read()
+            for selector in (
+                    ".login-form__input {",
+                    '.login-form__input[aria-invalid="true"] {',
+                    '.login-card button[type="submit"] {'):
+                if selector not in css:
+                    return False, "expected the rule %r in companion/static/style.css" % selector
+            return True, ""
+        check(
+            "GET /login with no error renders the stacked card (a .login-form with a "
+            ".login-form__input and a bare page-title brand mark, no glyph, no sprite) and "
+            "carries NEITHER aria-invalid NOR aria-describedby — never aria-invalid=\"false\" "
+            "— with style.css carrying the field/primary/error-border rules it had none of "
+            "before (X3, 22-13-PLAN.md Task 1)",
+            _login_clean_render_carries_no_error_association)
+
+        def _login_error_render_is_programmatically_associated():
+            status, _headers, body = http_request(
+                base + "/login", method="POST",
+                data=urllib.parse.urlencode(
+                    {"password": "still-not-the-real-password"}).encode())
+            if status != 401:
+                return False, "expected 401 for a wrong password, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            if 'aria-invalid="false"' in text:
+                return False, "aria-invalid=\"false\" must never be emitted on this card"
+            for needed in (
+                    'aria-invalid="true"',
+                    'aria-describedby="login-error"',
+                    '<p id="login-error" class="field-error text-label" role="alert">'):
+                if needed not in text:
+                    return False, "expected %r in the error render" % needed
+            # Placement: the message sits UNDER the field and ABOVE the
+            # primary, which is the whole point of reusing .field-error
+            # (its margin-top attaches it to the control above it). Before
+            # this plan the message was a bare <p class="text-body"> at
+            # the TOP of the card, outside the form entirely.
+            field_at = text.index('class="login-form__input"')
+            message_at = text.index('id="login-error"')
+            submit_at = text.index('<button type="submit">')
+            if not field_at < message_at < submit_at:
+                return False, (
+                    "expected field -> message -> primary in document order, got "
+                    "offsets %d / %d / %d" % (field_at, message_at, submit_at))
+            if '<p class="text-body" role="alert">' in text:
+                return False, (
+                    "the old bare text-body alert paragraph must be gone — one error "
+                    "voice on this card")
+            return True, ""
+        check(
+            "a wrong-password login render carries aria-invalid=\"true\", "
+            "aria-describedby=\"login-error\" and a role=\"alert\" message in the existing "
+            ".field-error text-label treatment, rendered between the field and the primary "
+            "(X3, 22-UI-SPEC.md §5 contract 5)",
+            _login_error_render_is_programmatically_associated)
+
+        def _login_lockout_render_shares_the_one_error_voice():
+            # Its own isolated Harness(), mirroring the manual-resolution
+            # checks below: driving the process-global LOGIN_THROTTLE to
+            # its limit locks THAT subprocess out for LOGIN_LOCKOUT_S,
+            # and the lockout branch is checked before the password is,
+            # so a correct password cannot unlock it again over HTTP.
+            # Running this against the shared harness would break every
+            # later check that logs in.
+            lockout_harness = Harness()
+            try:
+                lockout_harness.start()
+                lockout_base = lockout_harness.base_url()
+                for _attempt in range(auth.LOGIN_FAILURE_LIMIT):
+                    http_request(
+                        lockout_base + "/login", method="POST",
+                        data=urllib.parse.urlencode({"password": "wrong"}).encode())
+                status, _headers, body = http_request(
+                    lockout_base + "/login", method="POST",
+                    data=urllib.parse.urlencode({"password": TEST_PASSWORD}).encode())
+                if status != 429:
+                    return False, (
+                        "expected 429 once the throttle has locked out, got %d" % status)
+                text = body.decode("utf-8", errors="replace")
+                # Same treatment, same element id, same role — only the
+                # copy differs (22-UI-SPEC.md §3.2's "one error voice").
+                if '<p id="login-error" class="field-error text-label" role="alert">' not in text:
+                    return False, (
+                        "the lockout sentence must render in the SAME .field-error "
+                        "text-label treatment as the wrong-password message")
+                if 'aria-describedby="login-error"' not in text:
+                    return False, "expected aria-describedby on the locked-out field"
+                # But NOT aria-invalid: what the user typed is not what
+                # is wrong during a lockout, and aria-invalid="false" is
+                # never emitted on this card either.
+                if "aria-invalid" in text:
+                    return False, (
+                        "the lockout branch must carry no aria-invalid — the typed "
+                        "value is not what is wrong, the form is locked")
+                if "Too many attempts" not in text:
+                    return False, "expected the server-computed lockout sentence"
+                return True, ""
+            finally:
+                lockout_harness.stop()
+                lockout_harness.cleanup()
+        check(
+            "a locked-out login render puts the server-computed lockout sentence in the SAME "
+            ".field-error text-label role=alert treatment under the field, with "
+            "aria-describedby but deliberately no aria-invalid (X3, one error voice)",
+            _login_lockout_render_shares_the_one_error_voice)
 
         def _both_shells_agree_on_document_language():
             # D-01/UXA-09: a single, cheap, permanent guard that
