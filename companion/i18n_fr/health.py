@@ -38,6 +38,42 @@ CATALOG = {
     "in a moment": "dans un instant",
     "in %s": "dans %s",
 
+    # 23-05-PLAN.md Task 1 (D14/CFG-34): the SAME ladder again, this
+    # time as nine complete wordings rather than as a connector plus a
+    # unit. companion/static/relative-time.js rewrites these elements
+    # once a second, so the wordings have to exist client-side; they are
+    # rendered onto <body> by layout.page_shell() and read back with
+    # getAttribute(), which is what lets that script carry no French at
+    # all — the four English forms above it are its no-attribute
+    # fallbacks and nothing more.
+    #
+    # "#" is where the number goes. It is NOT "%s": these strings reach
+    # the browser as attribute values on a rendered page, and this
+    # harness's own Check 3 scans every French render for a stray
+    # "%s"/"%d"/"{}". A wording with no "#" in it takes no number at all
+    # — which is how French collapsing its whole sub-minute bucket into
+    # a phrase ("à l’instant", "dans un instant", repeated here from the
+    # entries above) stays DATA rather than becoming a branch in the
+    # script.
+    #
+    # These cannot drift from layout.relative_age_text()/
+    # relative_future_text(): companion/test_companion_app.py fills each
+    # one with the quantity _age_bucket() picks and asserts equality
+    # against those functions, in both languages, for every bucket.
+    "#s ago": "à l’instant",
+    "#m ago": "il y a # min",
+    "#h ago": "il y a # h",
+    "#d ago": "il y a # j",
+    "in #s": "dans un instant",
+    "in #m": "dans # min",
+    "in #h": "dans # h",
+    "in #d": "dans # j",
+
+    # What a countdown reads once its instant has passed — neutral, and
+    # never a warning word. See layout.RELATIVE_WAITING_TEXT's own
+    # comment.
+    "waiting…": "en attente…",
+
     # --- Page header / purpose / freshness (health_page.py) -----------
     "Screen status and server data quality, in one place.":
         "L’état de l’écran et la qualité des données du serveur, au même endroit.",

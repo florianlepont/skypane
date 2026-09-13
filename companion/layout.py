@@ -210,6 +210,18 @@ LOGIN_CARD_SCRIPT_SRC = "/static/login-card.js"
 # coverage poll-cooldown.js provided.
 SUBMIT_GUARD_SCRIPT_SRC = "/static/submit-guard.js"
 
+# 23-05-PLAN.md Task 1 (D14/CFG-34): must equal companion/app.py's
+# RELATIVE_TIME_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above — the FOURTEENTH static script and the
+# THIRTEENTH emitted by page_shell(), which is what moves the deferred-tag
+# count on an authenticated page from twelve to thirteen. It ticks every
+# <time data-relative> element relative_time_html() below renders, so it
+# is registered here rather than per page for the same reason
+# submit-guard.js is: the elements come from ONE shared builder that most
+# page modules reach through concise_timestamp_html() without naming, so
+# no page module actually knows whether it has one.
+RELATIVE_TIME_SCRIPT_SRC = "/static/relative-time.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 # D-16/D-19 (20-01-PLAN.md Task 2): the quick-action form protocol,
@@ -892,6 +904,114 @@ def relative_future_text(seconds_ahead, lang=None):
     return "in %d%s" % (value, unit)
 
 
+# --- 23-05-PLAN.md Task 1 (D14/CFG-34): the ticker's copy -------------
+#
+# companion/static/relative-time.js rewrites every <time data-relative>
+# element once a second, which means the four bucket wordings have to
+# exist CLIENT-side, in the reader's own language. They are rendered
+# onto <body> by page_shell() below and read back with getAttribute(),
+# the same attribute-with-English-fallback idiom REFRESH_PAUSED_TEXT
+# already uses, and for the same reason it gives: several of these
+# elements sit inside freshness.js's swap targets, so an attribute on
+# the element itself would be replaced out from under the script on
+# every successful refresh. <body> never is.
+#
+# ONE wording per bucket per direction, complete, rather than a
+# connector plus a unit word plus a separator plus a collapse flag. The
+# script then carries no language logic at all — it substitutes a
+# quantity into a string and stops. French collapsing its whole
+# sub-minute bucket into a phrase with no number in it ("à l’instant",
+# "dans un instant") is then just a wording with no place to substitute
+# into, which is data, not a branch.
+#
+# "#" IS THE QUANTITY'S PLACE, AND IT IS NOT "%s" ON PURPOSE. These
+# strings reach the browser as attribute values on a rendered page, and
+# companion/test_i18n.py's Check 3 scans every French render for a
+# stray "%s"/"%d"/"{}" — the real failure mode of a mistyped catalogue
+# key. A "%s" here would trip that check on every page in the app, and
+# the check is right to object: a format artefact in rendered markup is
+# exactly what it is looking for. "#" is not one.
+#
+# These are NOT a second ladder. They are the same ladder's own output
+# with the number lifted out, and test_companion_app.py asserts exactly
+# that: each wording, filled with the quantity _age_bucket() picks,
+# must EQUAL relative_age_text()/relative_future_text()'s own return
+# value for a representative instant in every bucket, in both
+# languages. Change a wording here without changing the function and
+# that check names the bucket, the language and both strings.
+RELATIVE_QUANTITY_MARK = "#"
+RELATIVE_PAST_SECONDS_TEXT = "#s ago"
+RELATIVE_PAST_MINUTES_TEXT = "#m ago"
+RELATIVE_PAST_HOURS_TEXT = "#h ago"
+RELATIVE_PAST_DAYS_TEXT = "#d ago"
+RELATIVE_FUTURE_SECONDS_TEXT = "in #s"
+RELATIVE_FUTURE_MINUTES_TEXT = "in #m"
+RELATIVE_FUTURE_HOURS_TEXT = "in #h"
+RELATIVE_FUTURE_DAYS_TEXT = "in #d"
+
+# What a countdown reads once its instant has passed. NEVER a warning
+# word and never a warn colour: 22-15 made freshness.js's own failure
+# states neutral on the argued ground that a thing which has not
+# happened yet is not a fault, and the same reasoning governs here. It
+# is the app's neutral breathing treatment and nothing else.
+RELATIVE_WAITING_TEXT = "waiting…"
+
+# Must equal the attribute names companion/static/relative-time.js
+# reads, in this order — bucket order, s/m/h/d, matching _age_bucket()'s
+# own unit letters. test_companion_app.py pins every one of them present
+# in that file's source.
+RELATIVE_PAST_ATTRS = (
+    "data-relative-past-s",
+    "data-relative-past-m",
+    "data-relative-past-h",
+    "data-relative-past-d",
+)
+RELATIVE_FUTURE_ATTRS = (
+    "data-relative-future-s",
+    "data-relative-future-m",
+    "data-relative-future-h",
+    "data-relative-future-d",
+)
+RELATIVE_WAITING_ATTR = "data-relative-waiting"
+
+# The marker relative_time_html() puts on an element that is a
+# COUNTDOWN rather than an age (see its `countdown` keyword). Also read
+# by companion/static/relative-time.js.
+RELATIVE_COUNTDOWN_ATTR = "data-relative-countdown"
+
+# Ordered s/m/h/d, matching the attribute tuples above and
+# _age_bucket()'s own unit letters.
+_RELATIVE_PAST_TEXTS = (
+    RELATIVE_PAST_SECONDS_TEXT, RELATIVE_PAST_MINUTES_TEXT,
+    RELATIVE_PAST_HOURS_TEXT, RELATIVE_PAST_DAYS_TEXT,
+)
+_RELATIVE_FUTURE_TEXTS = (
+    RELATIVE_FUTURE_SECONDS_TEXT, RELATIVE_FUTURE_MINUTES_TEXT,
+    RELATIVE_FUTURE_HOURS_TEXT, RELATIVE_FUTURE_DAYS_TEXT,
+)
+
+
+def relative_copy_attrs(lang=None):
+    """The ticker's own copy as `((attribute name, translated wording),
+    ...)`, ready for page_shell() to render onto `<body>`.
+
+    Nine pairs: four past wordings, four future wordings, and the
+    waiting phrase an expired countdown reads. Every value goes through
+    `i18n.t_lang()` here, server-side, which is what lets
+    `companion/static/relative-time.js` carry no French at all.
+    """
+    if lang is None:
+        lang = prefs.current_lang()
+    pairs = []
+    for attr, text in zip(RELATIVE_PAST_ATTRS, _RELATIVE_PAST_TEXTS):
+        pairs.append((attr, i18n.t_lang(text, lang)))
+    for attr, text in zip(RELATIVE_FUTURE_ATTRS, _RELATIVE_FUTURE_TEXTS):
+        pairs.append((attr, i18n.t_lang(text, lang)))
+    pairs.append(
+        (RELATIVE_WAITING_ATTR, i18n.t_lang(RELATIVE_WAITING_TEXT, lang)))
+    return tuple(pairs)
+
+
 def _machine_instant(parsed):
     """`parsed` as a machine-readable Europe/Paris ISO-8601 instant at
     seconds precision, or "" when it cannot be produced.
@@ -917,7 +1037,8 @@ def _machine_instant(parsed):
         return ""
 
 
-def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None):
+def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
+                       countdown=False):
     """"<time datetime="<instant>" data-relative><relative age></time>" —
     the app's ONE relative-time element (23-03-PLAN.md Task 1, D14/
     CFG-34). Before this function the codebase rendered no `<time>`
@@ -960,6 +1081,19 @@ def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None):
     `lang` is the same trailing keyword every sibling here carries: its
     `None` resolves through `relative_age_text()`'s own
     `prefs.current_lang()` default.
+
+    `countdown` (23-05-PLAN.md Task 1) marks the element as a COUNTDOWN
+    rather than an age: it adds `RELATIVE_COUNTDOWN_ATTR`, and once the
+    instant has passed the element reads `RELATIVE_WAITING_TEXT` instead
+    of turning into an age. A countdown that has run out is still a
+    countdown, and silently becoming "0s ago" would change what the
+    element is about halfway through its own life.
+    `companion/static/relative-time.js` reads the same marker and makes
+    exactly the same choice client-side, so the two never disagree and
+    the no-JS rendering of an expired countdown is already correct.
+    The default is False, which produces the byte-identical element
+    23-03 shipped. No page renders a countdown yet; plan 23-06's
+    next-wake line is its first consumer.
     """
     if not ts:
         return escape_html(fallback)
@@ -970,12 +1104,17 @@ def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None):
     instant = _machine_instant(parsed)
     if not instant:
         return escape_html(ts)
-    if age < 0:
+    if countdown and age >= 0:
+        text = i18n.t_lang(
+            RELATIVE_WAITING_TEXT,
+            lang if lang is not None else prefs.current_lang())
+    elif age < 0:
         text = relative_future_text(-age, lang=lang)
     else:
         text = relative_age_text(age, lang=lang)
-    return '<time datetime="%s" data-relative>%s</time>' % (
-        escape_html(instant), escape_html(text))
+    marker = " " + RELATIVE_COUNTDOWN_ATTR if countdown else ""
+    return '<time datetime="%s" data-relative%s>%s</time>' % (
+        escape_html(instant), marker, escape_html(text))
 
 
 def absolute_and_relative(ts, now_ts, fallback="no reading yet", lang=None):
@@ -2011,6 +2150,15 @@ def page_shell(
             escape_html(i18n.t(REFRESH_PAUSED_TEXT)),
             REFRESH_RECONNECTING_ATTR,
             escape_html(i18n.t(REFRESH_RECONNECTING_TEXT))))
+    # 23-05-PLAN.md Task 1 (D14/CFG-34): relative-time.js's nine
+    # wordings, on <body> for exactly the reason the two above are —
+    # several <time data-relative> elements sit inside freshness.js's
+    # swap targets, and <body> is never swapped. Emitted
+    # unconditionally, like every deferred script below: a page with no
+    # relative time on it carries nine inert attributes, which is this
+    # file's established convention and not an oversight.
+    for _copy_attr, _copy_text in relative_copy_attrs():
+        body_class_attr += ' %s="%s"' % (_copy_attr, escape_html(_copy_text))
     flash_html = flash or ""
     banner_html = banner or ""
 
@@ -2131,6 +2279,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -2194,6 +2343,16 @@ def page_shell(
         # exactly one registration; a per-page include would be the
         # per-page handler this file exists to replace.
         SUBMIT_GUARD_SCRIPT_SRC,
+        # 23-05-PLAN.md Task 1 (D14/CFG-34): thirteenth script on this
+        # shell, same unconditional convention — and, as with
+        # submit-guard.js above, the convention is the point rather than
+        # a habit. The elements it ticks are produced by ONE builder
+        # (relative_time_html(), reached by most callers through
+        # concise_timestamp_html()), so no page module knows whether it
+        # has one; a per-page include would have to enumerate a set the
+        # pages do not own. Its own guard clause returns before
+        # registering anything on a page with no such element.
+        RELATIVE_TIME_SCRIPT_SRC,
     )
 
 
