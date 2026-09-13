@@ -181,6 +181,39 @@
   --radius-card: 10px;
   --radius-control: 8px;
 
+  /* 23-01-PLAN.md Task 1 (D3, CFG-32): the app's ENTIRE motion budget —
+   * two durations, and deliberately no third. Mode-independent, so they
+   * sit with the radii above rather than with the themed colours below.
+   * "Zero new custom properties" was a stated achievement of Phases 20
+   * and 21, so spending two here is a deliberate, bounded exception:
+   * every animated surface Phase 23 adds takes its duration from one of
+   * these two, and a plan that believes it needs a third has to say so
+   * in its own SUMMARY instead of inlining a literal. Neither token is
+   * a timing function — an easing token would be a third custom
+   * property and the budget is two, so easing is written at the call
+   * site. companion/test_companion_app.py enforces the token-only rule
+   * on every animation duration in this file.
+   *
+   * REACTION motion: a state change the user just caused and is
+   * watching for confirmation of, so it must read as the control
+   * responding rather than as an animation playing. Intended surfaces:
+   * the Flights detail row and its rotating chevron (23-08), the save
+   * bar's entrance and its counting label (23-09), selection scale, the
+   * wash fade, the preview crossfade and the dialog entrances (23-10),
+   * and the fades on a region that refreshed itself (23-06) — those are
+   * self-initiated but somebody IS waiting to read the new value, which
+   * is what puts them here and not below. 180ms is the top of the range
+   * that still feels instant on a press. */
+  --motion-fast: 180ms;
+  /* AMBIENT motion: the one loop the page runs on its own with nobody
+   * waiting on it — the live/paused indicator's breathing dot (23-05,
+   * D14 and D22), the sole consumer of the keyframes block defined
+   * further down. An order of magnitude longer than the reaction
+   * duration on purpose: a status dot cycling at reaction speed strobes,
+   * and a strobing dot in the corner of a page somebody leaves open all
+   * day is precisely the complaint a motion budget exists to prevent. */
+  --motion-slow: 2s;
+
   /* Light mode (default) */
   --color-canvas: #F7F4EF;
   --color-dominant: #FFFFFF;
@@ -313,6 +346,65 @@ html[data-ui-theme="dark"] {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* The ONE gap the block above does not reach — recorded here, because
+ * this is where the next reader will come looking for it (23-01-PLAN.md
+ * Task 1, D3/CFG-32; measured in 23-RESEARCH.md's Risk 3 and confirmed
+ * in this project's own harness Chromium). This is a NOTE, not a rule:
+ * nothing is declared here and nothing above is edited.
+ *
+ * `*, *::before, *::after` matches ELEMENTS. The view-transition
+ * pseudo-elements — the `::view-transition` root and the
+ * `::view-transition-group()` / `::view-transition-old()` /
+ * `::view-transition-new()` tree beneath it — form a separate
+ * pseudo-element tree that none of those three selectors match. A
+ * cross-document view transition is therefore NOT switched off by the
+ * override above, and shipping one without its own opt-out would hand a
+ * reduced-motion user full-page cross-fades with no way to escape them.
+ *
+ * That gap is closed by 23-04, not here. It wraps its own
+ * view-transition at-rule in a `prefers-reduced-motion: no-preference`
+ * media query rather than zeroing these pseudo-elements' duration, and
+ * the wrapper is the better shape for one reason: it prevents the
+ * transition being SET UP at all, instead of setting one up and then
+ * running it fast. A near-zero duration is not the same thing as none —
+ * the same reasoning `.js .mobile-nav`'s narrow `none` override further
+ * down this file already rests on. */
+
+/* The app's FIRST and ONLY keyframes block (23-01-PLAN.md Task 1,
+ * D3/CFG-32). This stylesheet carried zero before this plan; this one
+ * is the whole vocabulary, and companion/test_companion_app.py fails if
+ * a second one ever appears.
+ *
+ * ONE block, TWO consumers, on purpose. D14's "breathing dot" on the
+ * relative-time ticker and D22's "pulsing dot" on the live/paused
+ * indicator are the same animation described twice in 22-AUDIT.md;
+ * 23-RESEARCH.md names two near-identical keyframe blocks as the
+ * specific failure to avoid, and that failure is the entire reason this
+ * single definition exists. The name carries the app's own prefix for
+ * the same reason — a generic `pulse` is exactly the name a later plan
+ * redefines without noticing.
+ *
+ * It cycles OPACITY and nothing else. Never `transform: scale()` on a
+ * dot: these indicators are ~6px, so scaling one repaints a layout box
+ * sixty times a second for a movement nobody can see. The floor is
+ * 0.35 rather than 0 — a dot that vanishes outright reads as a
+ * rendering fault, not as a heartbeat.
+ *
+ * DEFINED here, CONSUMED by 23-05. This plan declares the animation on
+ * no selector at all, and that is safe by construction: the guard
+ * asserts every animation reference resolves to a block defined in this
+ * file, so an unused definition costs nothing and a dangling reference
+ * cannot ship. Its duration must come from `var(--motion-slow)` at the
+ * call site; the guard rejects a bare literal there. */
+@keyframes skypane-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
   }
 }
 
