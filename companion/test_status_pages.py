@@ -837,6 +837,18 @@ EXPECTED_CHECK_COUNT = 279
 # one EMPTY assertive live region in the shell. 283 + 2 = 285,
 # recomputed by RUNNING.
 EXPECTED_CHECK_COUNT = 285
+# 23-08-PLAN.md Task 1 (D7/CFG-37): +2. One pins what Flights' registry
+# entry covers (the card list, the desktop table, the live count, the
+# freshness line) and what it EXCLUDES by name (every element
+# list-filter.js captures once at load), that no entry nests inside
+# another, and that the registry's own comment states the exclusion's
+# reason. One pins the new-row highlight as a DIFF over server-rendered
+# identity: two cross-file literals equal to layout's, a known set
+# populated from the page as first rendered rather than empty, the diff
+# running from applySwap() and nowhere else, an own-property test, one
+# class added through classList and never removed, and no markup sink.
+# 285 + 2 = 287, recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 287
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -7761,8 +7773,27 @@ def main():
         # A page with no registry entry still renders a key, and the
         # script's own guard is what makes it a no-op — the key set
         # check above is what keeps the two lists honest.
-        doc = layout.page_shell(title="T", active="flights", body="<p>b</p>")
-        if ('%s="flights"' % layout.REFRESH_PAGE_ATTR) not in doc:
+        #
+        # 23-08-PLAN.md Task 1: RETARGETED IN PLACE, no count change.
+        # This clause used "flights" as its example of a page that
+        # declares no regions, and Flights now declares four — so the
+        # example stopped being an example of anything while the
+        # assertion went on passing, which is the quiet way a check
+        # stops testing what its own comment claims. "airlines" is the
+        # example now, chosen because it is the one remaining nav
+        # destination with a filter bar and no registry entry, i.e. the
+        # next page a later plan is most likely to join to the loop. The
+        # ASSERTION is unchanged and still covers Flights: the loop over
+        # every registry key above already renders it.
+        no_entry_key = layout.nav_slug(layout.AIRLINES_ROUTE)
+        if no_entry_key in layout.REFRESH_SWAP_SELECTORS_BY_PAGE:
+            return False, (
+                "this clause needs a page that declares NO swap regions, and %r now declares "
+                "some — pick another, and do not delete the clause: it is what proves the guard "
+                "lives in the script rather than in whether the attribute was rendered"
+                % (no_entry_key,))
+        doc = layout.page_shell(title="T", active=no_entry_key, body="<p>b</p>")
+        if ('%s="%s"' % (layout.REFRESH_PAGE_ATTR, no_entry_key)) not in doc:
             return False, (
                 "expected every authenticated document to carry its own page key, including the "
                 "pages that declare no swap regions — the guard is in the script, not in "
@@ -7866,6 +7897,165 @@ def main():
         "presence (B1's lesson) — with the interval, ladder, ceiling, in-flight guard and "
         "redirect:manual all untouched (D1/CFG-35, 23-06-PLAN.md Task 1)",
         _23_06_the_loop_knows_three_things_it_must_not_repaint)
+
+    # --- 23-08-PLAN.md Task 1 (D7/CFG-37): Flights joins the loop, and a
+    # genuinely new detection says so once --------------------------------
+
+    def _23_08_flights_declares_the_list_the_cards_and_the_count():
+        # What Flights' registry entry must COVER and what it must
+        # EXCLUDE, both named here rather than left implied. The
+        # exclusion is the load-bearing half: list-filter.js captures
+        # its input, its Clear control and its empty-state block once at
+        # load, so a swap that replaced any of them would leave the
+        # filter permanently dead — the identical trade Health's own
+        # entry already records for the sparkline and the registry card.
+        registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
+        if layout.REFRESH_PAGE_FLIGHTS not in registry:
+            return False, (
+                "expected Flights to declare its own swap regions — it is the page most likely "
+                "to be open when something happens and the only one of the four that could not "
+                "show it (D7/CFG-37)")
+        flights = registry[layout.REFRESH_PAGE_FLIGHTS]
+        if layout.REFRESH_PAGE_FLIGHTS != layout.nav_slug(layout.FLIGHTS_ROUTE):
+            return False, (
+                "expected the Flights key to be nav_slug()'s own value, never a second "
+                "vocabulary, got %r" % (layout.REFRESH_PAGE_FLIGHTS,))
+        # The three things that change between polls, plus the freshness
+        # line every page in this registry carries.
+        for needle in ("history-cards", "data-table-wrap", "data-filter-count"):
+            if not any(needle in selector for selector in flights):
+                return False, (
+                    "expected Flights' swap regions to cover %r — the phone card list, the "
+                    "desktop table and the live count are the three things a new detection "
+                    "changes, got %r" % (needle, flights))
+        if ".page-header__freshness" not in flights:
+            return False, (
+                "expected Flights' freshness line to be a swap target, like Home's and "
+                "Health's: it is what carries data-loaded-at and the state badge the loop "
+                "rebuilds inside it")
+        # The exclusions, by name. Each of these is an element
+        # list-filter.js resolves exactly once, at load.
+        for forbidden in ("data-filter-input", "data-filter-clear", "data-filter-empty",
+                          "data-filter-set"):
+            for selector in flights:
+                if forbidden in selector:
+                    return False, (
+                        "Flights' swap regions name %r (%r) — list-filter.js captures that "
+                        "element once at load, so replacing it leaves the filter permanently "
+                        "dead and silently discards an in-progress query"
+                        % (forbidden, selector))
+        # Not nested: no entry may contain another, or a swap could
+        # detach a node another entry is about to replace.
+        for outer in flights:
+            for inner in flights:
+                if outer is not inner and inner.startswith(outer + " "):
+                    return False, (
+                        "Flights' regions %r and %r are nested — a swap can detach a node "
+                        "another entry is about to replace" % (outer, inner))
+        # The registry comment must SAY why the input is out, rather than
+        # leaving the next reader to rediscover it.
+        layout_src_path = os.path.join(HERE, "layout.py")
+        with open(layout_src_path) as fh:
+            layout_src = fh.read()
+        flights_at = layout_src.index("FLIGHTS (23-08")
+        flights_note = layout_src[flights_at:flights_at + 1600]
+        if "list-filter.js" not in flights_note:
+            return False, (
+                "expected the registry's own Flights paragraph to name list-filter.js and the "
+                "reason its captured elements are excluded — that reasoning has one home and "
+                "this is it")
+        return True, ""
+    check(
+        "Flights' swap registry entry covers the phone card list, the desktop table, the live "
+        "count and the freshness line, EXCLUDES every element list-filter.js captures once at "
+        "load (the input, Clear, the empty state and the set hooks), nests no entry inside "
+        "another, is keyed by nav_slug()'s own value, and the registry's own comment states the "
+        "exclusion's reason (D7/CFG-37, 23-08-PLAN.md Task 1)",
+        _23_08_flights_declares_the_list_the_cards_and_the_count)
+
+    def _23_08_the_highlight_is_a_diff_and_never_a_first_paint():
+        # A highlight that fires on first load has told the user
+        # nothing, and a highlight that fires on every row when one
+        # arrives has told them something false. Both failures are the
+        # same missing thing: a set of identities known BEFORE the swap.
+        #
+        # Source scans only. The BEHAVIOUR — both directions, and the
+        # silent first refresh — is proven in a real browser by
+        # companion/test_browser_ux.py, because a source scan cannot
+        # tell a diff that works from a diff that is spelled correctly.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        code = _js_code_without_comments(js)
+        for name, value in (("ROW_ID_ATTR", layout.REFRESH_ROW_ID_ATTR),
+                            ("NEW_ROW_CLASS", layout.REFRESH_NEW_ROW_CLASS)):
+            if ('var %s = "%s";' % (name, value)) not in code:
+                return False, (
+                    "expected freshness.js to name layout.REFRESH_%s (%r) in its own %s "
+                    "constant — these are cross-file literals with one definition site on each "
+                    "side, and a rename on one alone is a highlight that silently never fires"
+                    % ("ROW_ID_ATTR" if name == "ROW_ID_ATTR" else "NEW_ROW_CLASS",
+                       value, name))
+        if "function markNewRows(" not in code:
+            return False, "expected freshness.js to carry the new-row diff as its own function"
+        # Called from the swap and from NOWHERE else: definition plus
+        # exactly one call site. A call from tick() would run the diff
+        # on a cycle that swapped nothing; a call at load would mark the
+        # first paint, which is the defect this whole rule is about.
+        if code.count("markNewRows(") != 2:
+            return False, (
+                "expected exactly one definition and one call of markNewRows(), found %d "
+                "occurrence(s) — the diff belongs to the swap and to nothing else"
+                % code.count("markNewRows("))
+        apply_at = code.index("function applySwap(")
+        apply_body = code[apply_at:code.index("\n  }", apply_at)]
+        if "markNewRows(" not in apply_body:
+            return False, (
+                "expected applySwap() to run the diff AFTER the regions are replaced — a diff "
+                "taken before the swap is a diff over the document that is about to be thrown "
+                "away")
+        init_at = code.index("var knownRowIds")
+        init_line = code[init_at:code.index("\n", init_at)]
+        if "collectRowIds()" not in init_line:
+            return False, (
+                "expected the known-identity set to be populated from the page AS FIRST "
+                "RENDERED (var knownRowIds = collectRowIds();), got %r. Starting it empty makes "
+                "the first refresh announce the whole list, which is exactly the "
+                "everything-is-new failure the diff exists to prevent" % (init_line,))
+        mark_at = code.index("function markNewRows(")
+        mark_body = code[mark_at:code.index("\n  }", mark_at)]
+        if "hasOwnProperty" not in mark_body:
+            return False, (
+                "expected the diff to test the known set with an own-property test: the "
+                "identities arrive as markup, and 'constructor' or 'toString' would otherwise "
+                "resolve to an inherited Object property and be read as already-known")
+        if "classList.add" not in mark_body:
+            return False, "expected the highlight to be applied as a class on an existing node"
+        # One-shot by construction: nothing ever removes the class, and
+        # nothing needs to. The animation runs once on a node that was
+        # itself just inserted, and the next swap replaces that node
+        # entirely. A file that removes it is a file that could re-add
+        # it, which is a row that flashes twice for one arrival.
+        if "NEW_ROW_CLASS" in code and "classList.remove(NEW_ROW_CLASS" in code:
+            return False, (
+                "expected nothing to remove the highlight class — the animation ends on its "
+                "own and the next swap replaces the node, so a removal path is only a way to "
+                "re-trigger it")
+        # And the diff writes no markup: it is a class toggle on a node
+        # the swap already inserted.
+        for sink in ("innerHTML", "insertAdjacentHTML", "document.write", "outerHTML"):
+            if sink in mark_body:
+                return False, (
+                    "expected the diff to use no markup-writing DOM sink, found %r" % (sink,))
+        return True, ""
+    check(
+        "freshness.js's new-row highlight is a DIFF over server-rendered row identity: its two "
+        "cross-file literals equal layout.REFRESH_ROW_ID_ATTR/REFRESH_NEW_ROW_CLASS, the known "
+        "set is populated from the page as first rendered rather than empty, the diff runs from "
+        "applySwap() and from nowhere else, resolves the set with an own-property test, applies "
+        "one class through classList and never removes it, and writes no markup (D7/CFG-37, "
+        "23-08-PLAN.md Task 1)",
+        _23_08_the_highlight_is_a_diff_and_never_a_first_paint)
 
     # --- 23-06-PLAN.md Task 2 (D1/CFG-35): Home and the Frame strip go
     # live, from the same builder and the same loop ------------------------

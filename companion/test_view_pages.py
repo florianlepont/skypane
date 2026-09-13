@@ -557,6 +557,16 @@ EXPECTED_CHECK_COUNT = 144
 # is what the page produced before, in both languages. Re-derived by
 # running the harness (146/146).
 EXPECTED_CHECK_COUNT = 146
+# 23-08-PLAN.md Task 1 (D7/CFG-37): +2. One pins the stable EVENT
+# identity both Flights renderings now carry — non-empty, unique, the
+# same set on both sides, and unchanged when a newer detection arrives
+# at the top, which is the one property the row's position does not
+# have and the whole basis of the new-row highlight. One pins the loop's
+# two gates on the page's own output: exactly one data-loaded-at marker,
+# a witness in the rendered markup for every registry region, and no
+# region naming the filter input list-filter.js captured at load.
+# 146 + 2 = 148, recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 148
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -5056,6 +5066,143 @@ def main():
         "paris_day() degrades to None rather than raising, and the separator's CSS rule declares "
         "no positioning (22-09-PLAN.md Task 2, X5/D-05/T4)",
         _day_label_is_the_paris_day_formatters_own_output_and_never_sticky)
+
+    # --- 23-08-PLAN.md Task 1 (D7/CFG-37): Flights joins the refresh
+    # loop, and a genuinely new detection says so once -----------------
+
+    def _every_flights_row_carries_a_stable_event_identity():
+        # D7's highlight is a DIFF over row identity, so the identity is
+        # the whole mechanism and the one thing a wrong implementation
+        # gets wrong in a way nothing else notices: `flight-detail-%d`
+        # and `data-filter-group` are both the row's POSITION in this
+        # render, and a highlight keyed to a position lights up every
+        # row below an insertion instead of the one that arrived.
+        #
+        # So this asserts the property a position does not have. The
+        # same two events are rendered twice — once alone, once with a
+        # NEWER third event prepended — and each surviving row must keep
+        # the identity it had. An index-based attribute passes every
+        # other clause here and fails this one.
+        tmp = _mkstate("h-row-identity")
+        try:
+            older = [
+                {"ts": "2026-08-27T09:00:00+00:00", "hex": "id01", "callsign": "IDONE"},
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "id02", "callsign": "IDTWO"},
+            ]
+            _seed_runway_events(tmp, older)
+            before = history_page.render(_history_ctx(tmp))
+            attr = layout.REFRESH_ROW_ID_ATTR
+
+            def _ids(rendered, tag):
+                return re.findall(
+                    r"<%s[^>]*\s%s=\"([^\"]*)\"" % (tag, re.escape(attr)), rendered)
+
+            tr_ids = _ids(before, "tr")
+            li_ids = _ids(before, "li")
+            # Two summary rows + two detail rows on the desktop side.
+            if len(tr_ids) != 4:
+                return False, (
+                    "expected both the summary row and its sibling detail row to carry %r in "
+                    "the desktop table (4 for 2 events), found %r" % (attr, tr_ids))
+            if len(li_ids) != 2:
+                return False, (
+                    "expected every phone card to carry %r, found %r" % (attr, li_ids))
+            if any(not value for value in tr_ids + li_ids):
+                return False, "expected every identity attribute to be non-empty, got %r" % (
+                    tr_ids + li_ids,)
+            if sorted(set(tr_ids)) != sorted(set(li_ids)):
+                return False, (
+                    "expected the table and the card list to name the SAME events: table %r "
+                    "against cards %r" % (sorted(set(tr_ids)), sorted(set(li_ids))))
+            if len(set(li_ids)) != len(li_ids):
+                return False, (
+                    "expected two rows never to share one identity, found %r" % (li_ids,))
+
+            # The property a position does not have.
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T11:00:00+00:00", "hex": "id03", "callsign": "IDTHREE"},
+            ])
+            after = history_page.render(_history_ctx(tmp))
+            after_ids = _ids(after, "li")
+            if len(after_ids) != 3:
+                return False, "expected three phone cards after the insertion, got %r" % (
+                    after_ids,)
+            if after_ids[1:] != li_ids:
+                return False, (
+                    "expected a newer event arriving at the TOP to leave every existing row's "
+                    "identity untouched — before %r, after %r. An identity that shifts with the "
+                    "row's position is an index, and a highlight keyed to it would light up "
+                    "every row below an insertion (D7/CFG-37)" % (li_ids, after_ids))
+            if after_ids[0] in li_ids:
+                return False, (
+                    "expected the newly-arrived event to carry an identity no existing row "
+                    "already had, got %r" % (after_ids[0],))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every rendered Flights row carries a non-empty, unique event identity in BOTH "
+        "representations, the table and the card list name the same event set, and a newer "
+        "detection arriving at the top leaves every existing row's identity unchanged — the "
+        "property the row's position does not have and the whole basis of the new-row highlight "
+        "(D7/CFG-37, 23-08-PLAN.md Task 1)",
+        _every_flights_row_carries_a_stable_event_identity)
+
+    def _flights_declares_its_refresh_regions_and_never_the_filter_input():
+        # The loop's two gates, measured on the page's own output: no
+        # [data-loaded-at] marker means freshness.js returns at its first
+        # guard, and a registry region that matches nothing is a list
+        # entry that can never fire. The exclusion is the interesting
+        # half — list-filter.js captures its input once at load, so a
+        # swap that replaced it would leave the filter permanently dead
+        # and discard an in-progress query.
+        tmp = _mkstate("h-refresh-regions")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "rr01", "callsign": "REGION"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            if rendered.count("data-loaded-at") != 1:
+                return False, (
+                    "expected exactly one data-loaded-at marker on Flights (no marker, no loop; "
+                    "two markers, two claims about when this document was generated), found %d"
+                    % rendered.count("data-loaded-at"))
+            selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_FLIGHTS]
+            # Each region, reduced to a literal the rendered markup must
+            # carry. Deliberately not a CSS engine: the point is that
+            # every declared region names something this page actually
+            # renders.
+            witnesses = {
+                ".page-header__freshness": 'class="page-header__freshness',
+                "ul.history-cards": '<ul class="history-cards"',
+                ".data-table-wrap": 'class="data-table-wrap"',
+                "[data-filter-count]": "data-filter-count ",
+            }
+            if sorted(witnesses) != sorted(selectors):
+                return False, (
+                    "Flights' registry entry is %r, and this check knows how to witness %r — a "
+                    "region added to the registry must be witnessed in the rendered page here "
+                    "too, or it is a list entry that can never fire"
+                    % (sorted(selectors), sorted(witnesses)))
+            for selector in selectors:
+                if witnesses[selector] not in rendered:
+                    return False, (
+                        "registry region %r matches nothing in the rendered Flights page "
+                        "(looked for %r)" % (selector, witnesses[selector]))
+            for selector in selectors:
+                if "data-filter-input" in selector:
+                    return False, (
+                        "the filter input is a swap target (%r) — list-filter.js captures it "
+                        "once at load, so replacing it leaves the filter permanently dead and "
+                        "silently discards an in-progress query" % (selector,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered Flights page carries exactly one data-loaded-at marker and a witness for "
+        "every one of its REFRESH_SWAP_SELECTORS_BY_PAGE regions, and no region names the filter "
+        "input list-filter.js captured at load (D7/CFG-37, 23-08-PLAN.md Task 1)",
+        _flights_declares_its_refresh_regions_and_never_the_filter_input)
 
     def _phone_card_route_and_state_carry_the_existing_middle_dot():
         tmp = _mkstate("h-card-separator")
