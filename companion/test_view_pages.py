@@ -544,6 +544,19 @@ EXPECTED_CHECK_COUNT = 143
 # one failure mode T-23-09 names. Re-derived by running the harness
 # (144/144).
 EXPECTED_CHECK_COUNT = 144
+# 23-03-PLAN.md Task 2 (D14/CFG-34): +2 — Home's two visible relative
+# ages. The recent-flight age is converted by this task and its check
+# went RED first (145/146, "expected the age half to be a <time
+# data-relative> element, got '10m ago'"). The rendered-picture caption
+# was ALREADY converted, by Task 1, because it reads through
+# concise_timestamp_html() — so its check passed the moment it was
+# written. That is the point of writing it rather than inspecting the
+# call chain: the caption reaches the page through an i18n template's
+# own "%s", and an escaping mistake THERE would paint literal markup
+# instead of removing an element. Both checks assert the rendered text
+# is what the page produced before, in both languages. Re-derived by
+# running the harness (146/146).
+EXPECTED_CHECK_COUNT = 146
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -5360,6 +5373,143 @@ def main():
         "the hero picture, the battery percentage estimate, escaped recent flights, and the "
         "Next-update headline, with .preview-frame before .recent-flight in document order (D-04)",
         _home_page_render_with_seeded_state)
+
+    # ======================================================================
+    # 23-03-PLAN.md Task 2 (D14/CFG-34): Home's two visible relative ages
+    # become <time data-relative> elements. Both checks assert that
+    # NOTHING READS DIFFERENTLY — the rendered text must equal the text
+    # the page produces today, in both languages — because this is a
+    # wrapping, and a wrapping that changes a string is a rewording.
+    # ======================================================================
+
+    _HOME_RELATIVE_ELEMENT_RE = re.compile(
+        r'<time datetime="([^"]*)" data-relative>([^<]*)</time>')
+
+    def _home_seeded_ctx(tmp, now, flight_ts):
+        from server import history_db as _hdb
+        _seed_runway_events(tmp, [
+            {"ts": flight_ts, "hex": "3c6444", "callsign": "AFR1380",
+             "airline": "Air France", "origin": "ORY", "destination": "TLS",
+             "confirmed_state": "departing"},
+        ])
+        with _hdb.open_db(tmp) as conn:
+            _hdb.record_device_health(conn, flight_ts, battery_mv=3750)
+        return {
+            "state_dir": tmp, "now": now,
+            "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+            "last_checkin_ts": flight_ts,
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "health_state": {"device_state": "ok", "pipeline_state": "ok",
+                             "battery_state": "ok",
+                             "device_detail_html": "",
+                             "pipeline_html": ""},
+            "simple_mode": False,
+        }
+
+    def _home_recent_flight_age_is_an_element_reading_exactly_as_before():
+        import companion.prefs as prefs
+        from companion.pages import home_page
+        now = "2026-08-27T12:00:00+00:00"
+        flight_ts = "2026-08-27T11:50:00+00:00"  # 10 minutes before `now`
+        for lang in ("en", "fr"):
+            tmp = _mkstate("home-relative-%s" % lang)
+            try:
+                prefs.set_request_prefs(lang=lang)
+                rendered = home_page.render(_home_seeded_ctx(tmp, now, flight_ts))
+                expected_age = layout.relative_age_text(600, lang=lang)
+                # The age still sits in its own .time-value__age role
+                # beside the .time-value clock, joined by the existing
+                # .cell-inline-sep dot — C5's split, which this wrapping
+                # must not undo.
+                cell = re.search(
+                    r'<span class="time-value">([^<]*)</span>'
+                    r'<span class="cell-inline-sep">·</span>'
+                    r'<span class="time-value__age">\((.*?)\)</span>', rendered)
+                if cell is None:
+                    return False, (
+                        "lang=%s: expected the recent-flight time cell to keep C5's clock/age "
+                        "split with the age parenthesised inside .time-value__age" % (lang,))
+                element = _HOME_RELATIVE_ELEMENT_RE.fullmatch(cell.group(2))
+                if element is None:
+                    return False, (
+                        "lang=%s: expected the age half to be a <time data-relative> element, "
+                        "got %r" % (lang, cell.group(2)))
+                if element.group(2) != expected_age:
+                    return False, (
+                        "lang=%s: expected Home's recent-flight age to read exactly what it "
+                        "reads today (%r), got %r" % (lang, expected_age, element.group(2)))
+                if not element.group(1):
+                    return False, "lang=%s: expected a non-empty datetime attribute" % (lang,)
+                if layout.age_seconds(element.group(1), now) != 600:
+                    return False, (
+                        "lang=%s: expected the element's own instant to carry the ROW's moment, "
+                        "not the page's, got %r" % (lang, element.group(1)))
+                if "&lt;time" in rendered:
+                    return False, (
+                        "lang=%s: found a double-escaped '&lt;time' — a raw-markup producer was "
+                        "escaped again by its caller" % (lang,))
+            finally:
+                prefs.set_request_prefs(lang="en")
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "Home's recent-flight relative age is a <time data-relative> element carrying the ROW's "
+        "own instant, reading exactly what it reads today in both languages, with C5's "
+        ".time-value/.cell-inline-sep/.time-value__age split and its parentheses intact "
+        "(23-03, D14/CFG-34)",
+        _home_recent_flight_age_is_an_element_reading_exactly_as_before)
+
+    def _home_rendered_caption_carries_the_element_through_the_template():
+        # The caption reaches the page through an i18n template's own
+        # "%s", so an escaping mistake THERE would show as literal
+        # markup on the page rather than as a missing element. Asserted,
+        # never inspected.
+        import companion.i18n as i18n
+        import companion.prefs as prefs
+        from companion.pages import home_page
+        now = "2026-08-27T12:00:00+00:00"
+        flight_ts = "2026-08-27T11:50:00+00:00"
+        gallery_iso = "2026-08-27T11:50:00+00:00"
+        for lang in ("en", "fr"):
+            tmp = _mkstate("home-caption-%s" % lang)
+            try:
+                prefs.set_request_prefs(lang=lang)
+                rendered = home_page.render(_home_seeded_ctx(tmp, now, flight_ts))
+                caption = re.search(
+                    r'<figcaption class="preview-frame__caption text-label">(.*?)</figcaption>',
+                    rendered, re.S)
+                if caption is None:
+                    return False, "lang=%s: expected the rendered-picture caption" % (lang,)
+                expected_caption = i18n.t_lang(
+                    home_page.RENDERED_CAPTION_TEMPLATE, lang) % layout.concise_timestamp_html(
+                        gallery_iso, now, lang=lang)
+                if not caption.group(1).startswith(expected_caption):
+                    return False, (
+                        "lang=%s: expected the caption to be its unchanged wording around "
+                        "concise_timestamp_html()'s own output %r, got %r"
+                        % (lang, expected_caption, caption.group(1)))
+                element = _HOME_RELATIVE_ELEMENT_RE.search(caption.group(1))
+                if element is None:
+                    return False, (
+                        "lang=%s: expected the caption's relative half to be a <time "
+                        "data-relative> element, got %r" % (lang, caption.group(1)))
+                if element.group(2) != layout.relative_age_text(600, lang=lang):
+                    return False, (
+                        "lang=%s: expected the caption's age to read exactly what it reads "
+                        "today, got %r" % (lang, element.group(2)))
+                if "&lt;time" in caption.group(1):
+                    return False, (
+                        "lang=%s: the caption template double-escaped the element — it would "
+                        "paint as literal markup on the page" % (lang,))
+            finally:
+                prefs.set_request_prefs(lang="en")
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "Home's rendered-picture caption carries concise_timestamp_html()'s <time data-relative> "
+        "element THROUGH its i18n template's own %s — as markup, never double-escaped — with the "
+        "caption's wording and the age's text unchanged in both languages (23-03, D14/CFG-34)",
+        _home_rendered_caption_carries_the_element_through_the_template)
 
     def _recent_flight_thumb_resolved_vs_placeholder():
         # Polish fix 1 (Home thumbnails only when artwork exists, D-17):

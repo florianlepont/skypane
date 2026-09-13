@@ -514,6 +514,20 @@ def _recent_flight_time_html(ts, now):
     Falls back to the escaped, translated "no reading yet" text — the
     same default `concise_timestamp_html()` carried at this call site
     before this task — when `ts` is falsy or fails to parse.
+
+    23-03-PLAN.md Task 2 (D14/CFG-34): the age half is now
+    `layout.relative_time_html()`'s `<time data-relative>` element
+    rather than a bare escaped string, so the ticker plan 23-05 adds can
+    find it. The split above is UNCHANGED — the clock keeps
+    `.time-value`, the age keeps `.time-value__age`, the dot keeps
+    `.cell-inline-sep`, and the reasoning for not reaching for
+    `concise_timestamp_html()` here still holds, because that function's
+    single mono span is still the shape this cell exists to avoid. The
+    element is semantic, not presentational: it sits INSIDE the role
+    span rather than replacing it. The parentheses stay outside the
+    element (they are this cell's punctuation, not part of the age), and
+    `relative_time_html()` is a raw-markup producer, so its return value
+    is interpolated verbatim and never escaped again.
     """
     if not ts:
         return escape_html(i18n.t(_TIME_CELL_FALLBACK_TEXT))
@@ -524,11 +538,10 @@ def _recent_flight_time_html(ts, now):
     cell_html = '<span class="time-value">%s</span>' % escape_html(clock_text)
     age = layout.age_seconds(ts, now)
     if age is not None:
-        age_text = "(%s)" % layout.relative_age_text(age)
         cell_html += (
             '<span class="cell-inline-sep">·</span>'
-            '<span class="time-value__age">%s</span>'
-        ) % escape_html(age_text)
+            '<span class="time-value__age">(%s)</span>'
+        ) % layout.relative_time_html(ts, now)
     return cell_html
 
 
