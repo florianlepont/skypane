@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-14-PLAN.md
-last_updated: "2026-09-13T05:38:52.836Z"
+stopped_at: Completed 22-15-PLAN.md
+last_updated: "2026-09-13T06:35:48.459Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 201
+  completed_plans: 202
   percent: 99
 ---
 
@@ -367,6 +367,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P12 | 118min | 3 tasks | 7 files |
 | Phase 22 P13 | 95min | 3 tasks | 8 files |
 | Phase 22 P14 | 26min | 3 tasks | 7 files |
+| Phase 22 P15 | 95min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -672,6 +673,13 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-13 (X3): the toggle gutter is var(--space-xl) (32px), NOT 22-UI-SPEC.md 3.2's suggested 40px — 1 of the same document forbids a new off-scale literal beyond three enumerated exceptions, and 32px clears the toggle's real 30px reach
 - [Phase 22]: 22-13 (X3): login_shell() now emits exactly ONE deferred script tag where it emitted zero, via LOGIN_CARD_SCRIPT_SRC beside its eleven siblings. Those two edits plus the docstring correction are the only changes this plan made to layout.py; page_shell() and the other eleven scripts are untouched, and an authenticated page still loads exactly eleven
 - [Phase 22]: 22-14 (2026-09-13, wave 10): X9's mechanism is a bottom tab bar and the rejected absolute-overlay verdict on the primary nav stays untouched — a third nav rendering fed by the ONE shared _nav_links() iteration, five cells with More as a native <details> that works with scripts blocked, the hamburger reduced to preferences and its push cut from ~420px to a measured 189px, B10's reminder now two nowrap segments and a non-link on Home, T5's close made deterministic without a timer, T11 collapsed to one measured max-height, and the save bar separated from the tab bar geometrically before being ordered above it (z-index 30 at both breakpoints, which is also T7's desktop fix). Rule 1 auto-fix found by measuring in a real browser: 22-10's appended comment note left a stray CSS comment terminator that had been silently dropping T10's saved-chip badge rule outright; style.css is now pinned structurally at zero stray terminators, a defect class no string-comparison harness can see. CFG-30 ticked (22-14 is the last of its nine plans; B3 landed in 22-03 and B13 in 22-04, contrary to 22-13's handover note). CFG-31 left un-ticked for 22-15/22-16; CFG-28 left un-ticked as instructed.
+- [Phase 22]: 22-15 (T6): box-sizing: border-box does NOT hold the outer box of a flex: 1 1 0 item — the selected runway card measured 98.67px against its siblings' 96.66px at 390px. Every selected-state border is now a constant 1px that only recolours, with the 2px signal on box-shadow: inset, which costs no layout at all
+- [Phase 22]: 22-15 (T6): .theme-chip additionally carries a ::before overlay with box-shadow: inherit, because an inset ring paints beneath the chip's full-bleed preview image — one unconditional rule, so every state tracks automatically and no rule is duplicated
+- [Phase 22]: 22-15 (T3): the chevron DOES reach the tab bar's More summary, but absolutely positioned out of flow so a 6px marker cannot narrow a 78x56px cell, and with an INVERTED rotation because that sheet opens upward
+- [Phase 22]: 22-15 (T4): removing the false sticky claim also makes quick task 260901-uzi's finding 5 candidate (b) MOOT, not deferred — the --color-canvas background existed only to serve a stuck header that could never exist
+- [Phase 22]: 22-15 (T13): the retry ladder starts AT the normal 45s cadence and the interval is left running as a heartbeat rather than torn down, so a failing server sees a strictly decreasing request rate and a recovered page is never left with no schedule
+- [Phase 22]: 22-15 (T14): the disable-on-submit must be DEFERRED to a zero-delay timer, never inline — a submit button's name/value joins the form data set after the listeners return, and layout.py's theme and language pickers are named submit buttons whose name/value IS the request
+- [Phase 22]: 22-15 (T14): a static script needs an explicit route in companion/app.py; registering in layout.py alone ships a 404. Four mechanical additions there were made as a Rule 3 deviation from the plan's files_owned, which excludes app.py
 
 ### Pending Todos
 
@@ -768,7 +776,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T05:38:33.706Z
+Last session: 2026-09-13T06:35:12.293Z
 Stopped at: Completed 22-14-PLAN.md
 
 Resume file: 
