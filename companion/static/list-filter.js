@@ -44,6 +44,34 @@
  * the summary row, so filtering out a row never leaves its detail row
  * visible underneath a hidden summary row. Guarded — a page with no
  * such element (Airlines, the mobile <li>) is unaffected.
+ *
+ * 23-08-PLAN.md Task 1 (D7/CFG-37): Flights joined companion/static/
+ * freshness.js's refresh loop, which replaces the row list and the
+ * count element from a second fetch of the same page. Two consequences,
+ * both handled below and neither optional:
+ *
+ * 1. THE COUNT ELEMENT IS LOOKED UP FRESH, inside applyFilter(),
+ *    instead of once at load. A reference captured at load is detached
+ *    the moment the first swap replaces that span, and every keystroke
+ *    after it would update a node no longer in the document — the count
+ *    would simply freeze, with nothing anywhere reporting it. This is
+ *    also what lets the count BE a swap region at all: the swap
+ *    registry in companion/layout.py excludes every element this file
+ *    still captures at load (the input, Clear, the empty-state block
+ *    and the set hooks) for exactly the reason this paragraph describes,
+ *    and the count is the one that stepped out of that category.
+ *
+ * 2. THE FILTER IS RE-APPLIED AFTER A SWAP. The server renders the list
+ *    UNFILTERED — it knows nothing about a query typed into this page —
+ *    so a refresh arriving while a query is in the box would hand back
+ *    every row, visible, with a count to match, silently undoing what
+ *    the reader asked for. Re-running the one existing applyFilter()
+ *    when the loop announces a swap is the whole fix; there is still
+ *    exactly one filtering implementation in this file.
+ *
+ * Neither adds a network call, a timer or any persisted state, and the
+ * count's TEXT is still built the one way it always was, from the
+ * server-rendered translated template.
  */
 (function () {
   "use strict";
@@ -53,7 +81,22 @@
     return;
   }
 
-  var countEl = document.querySelector("[data-filter-count]");
+  // 23-08-PLAN.md Task 1: deliberately NOT captured here, unlike its
+  // three siblings below — see this file's own header for why the
+  // count is the one element that had to stop being cached.
+  //
+  // The attribute name is the literal and the selector is built from
+  // it, rather than the bracketed form being written out: that is this
+  // codebase's own JS idiom (freshness.js's PENDING_ATTR/
+  // PENDING_SELECTOR pair, and FADE_IMAGE_CLASS/FADE_IMAGE_SELECTOR
+  // beside it), and companion/test_i18n.py's Check 6 reads a bracketed
+  // lowercase string in an ALL-CAPS JS constant as untranslated
+  // user-facing copy. It is a wire name, not copy, and the idiom says so.
+  var COUNT_ATTR = "data-filter-count";
+  var COUNT_SELECTOR = "[" + COUNT_ATTR + "]";
+  // companion/static/freshness.js's post-swap announcement. Listened
+  // for, never dispatched from here.
+  var SWAPPED_EVENT = "skypane-regions-swapped";
   var emptyEl = document.querySelector("[data-filter-empty]");
   var clearBtn = document.querySelector("[data-filter-clear]");
   var setButtons = document.querySelectorAll("[data-filter-set]");
@@ -118,6 +161,7 @@
         visibleCount++;
       }
     }
+    var countEl = document.querySelector(COUNT_SELECTOR);
     if (countEl) {
       var countTemplate = countEl.getAttribute("data-filter-count-template")
         || "%d of %d shown";
@@ -154,6 +198,12 @@
       });
     })(setButtons[si]);
   }
+
+  // 23-08-PLAN.md Task 1: re-apply the one existing filter after the
+  // refresh loop has swapped the list in. Registered on document, after
+  // the [data-filter-input] guard above, so a page with no filter never
+  // listens at all.
+  document.addEventListener(SWAPPED_EVENT, applyFilter);
 
   // No DOMContentLoaded wrapper is needed: the <script> tag
   // companion/layout.py's page_shell() emits carries the defer

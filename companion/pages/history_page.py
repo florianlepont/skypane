@@ -314,6 +314,35 @@ def _row_copy_name(callsign, hex_value):
 # all of these appear in all three places. A drift here means the
 # button silently does nothing with no signal from either file in
 # isolation.
+# 23-08-PLAN.md Task 1 (D7/CFG-37): the stable identity of the EVENT a
+# row describes, rendered into layout.REFRESH_ROW_ID_ATTR on all three
+# of this page's row elements (the summary <tr>, its sibling detail
+# <tr>, and the phone card <li>).
+#
+# `runway_events.id` is the table's INTEGER PRIMARY KEY — assigned once,
+# when the detection was recorded, and never reused while the row lives.
+# That is what makes it an identity rather than an index: `flight-detail-
+# {n}` and `data-filter-group={n}` are this page's own loop counter, so
+# they renumber the instant a newer detection arrives at the top, and a
+# highlight keyed to either would announce every row below the insertion.
+#
+# The `e` prefix keeps the value an opaque token rather than a bare
+# number — it is read back by companion/static/freshness.js as an object
+# key, and a token that cannot be mistaken for an index is one a later
+# reader cannot be tempted to do arithmetic on.
+#
+# DEGRADES, never raises: a row reaching here without an integer id
+# falls back to its timestamp and hex, which is stable for the same row
+# across renders. If even those are empty, several rows share one value
+# — and the consequence of a collision is a highlight SUPPRESSED, never
+# one invented, because a shared identity reads as already-known.
+def _row_identity(row):
+    event_id = row.get("event_id")
+    if isinstance(event_id, int):
+        return "e%d" % event_id
+    return "t%s-%s" % (row.get("raw_ts") or "", row.get("hex") or "")
+
+
 VIEW_PANEL_LABEL = "View panel near this time"
 LIGHTBOX_DIALOG_ID = "panel-lookup-dialog"
 LIGHTBOX_CAPTION_TEMPLATE = "Picture from %s"
@@ -650,6 +679,15 @@ def format_event_row(row, now=None):
     corroboration_label = i18n.t(corroboration_label)
 
     return {
+        # 23-08-PLAN.md Task 1 (D7/CFG-37): the runway_events row's own
+        # INTEGER PRIMARY KEY, carried through verbatim so
+        # _row_identity() above can name the EVENT rather than its
+        # position in this render. recent_runway_events() selects *, so
+        # this is already on every row dict this function ever sees;
+        # `.get()` rather than `[]` because format_event_row() never
+        # raises on a partial row, which is this function's whole
+        # contract.
+        "event_id": row.get("id"),
         # Plain-text "ISO (Nm ago)" form, kept under its own distinct key
         # for any future plain-text-only need (mirrors
         # absolute_and_relative()'s own no-markup contract). No renderer
@@ -1086,10 +1124,11 @@ def _flight_detail_row_html(row, index):
         _copy_button_html(row["callsign"], i18n.t(_COPY_CALLSIGN_LABEL) % row_name)
         if row["callsign"] else "")
     return (
-        '<tr class="flight-detail-row" id="flight-detail-%d" data-row-detail>'
+        '<tr class="flight-detail-row" id="flight-detail-%d" data-row-detail %s="%s">'
         '<td colspan="6"><dl class="flight-detail-row__grid">%s</dl>%s%s</td>'
         "</tr>"
-    ) % (index, "".join(parts), copy_name_button, row.get("view_panel_html", ""))
+    ) % (index, layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
+         "".join(parts), copy_name_button, row.get("view_panel_html", ""))
 
 
 def _day_separator_row_html(day, today):
@@ -1216,10 +1255,17 @@ def _history_table_html(formatted_rows, now=None):
         # pointer-cursor class that goes with it is added by the SCRIPT
         # at load, never here: a scripts-blocked page must never show a
         # pointer on a row that does nothing.
+        # 23-08-PLAN.md Task 1 (D7/CFG-37): data-filter-group stays the
+        # loop index — it pairs THIS render's two representations and
+        # that is all it was ever for — and the stable EVENT identity
+        # arrives beside it as its own attribute. Both are needed and
+        # they are not the same thing: one renumbers when a detection
+        # lands, the other must not.
         body_rows.append(
             '<tr class="%s" data-flight-row data-filter-text="%s" '
-            'data-filter-group="%d" title="%s">%s%s</tr>'
+            'data-filter-group="%d" %s="%s" title="%s">%s%s</tr>'
             % (row_class, _filter_text_attr(row), index,
+               layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
                escape_html(row["tracked_runway"]), "".join(cells), toggle_cell))
         body_rows.append(_flight_detail_row_html(row, index))
 
@@ -1416,8 +1462,10 @@ def _history_cards_html(formatted_rows, now=None):
         )
         items.append(
             '<li class="history-card" data-filter-text="%s" '
-            'data-filter-group="%d">%s%s%s%s</li>'
-            % (_filter_text_attr(row), index, primary, secondary, airline_line, details))
+            'data-filter-group="%d" %s="%s">%s%s%s%s</li>'
+            % (_filter_text_attr(row), index,
+               layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
+               primary, secondary, airline_line, details))
     return '<ul class="history-cards">%s</ul>' % "".join(items)
 
 
@@ -1429,8 +1477,17 @@ def render(ctx):
     # D-10: the display-window label folded into the header's purpose
     # sentence, using the real HISTORY_ROW_LIMIT constant rather than a
     # hardcoded "50".
+    # 23-08-PLAN.md Task 1 (D7/CFG-37): Flights is the fourth page on the
+    # refresh loop, and this line is what lets it be. freshness.js
+    # returns at its first guard on any page with no [data-loaded-at],
+    # so without the line here the registry entry would be a list
+    # nothing ever reads. It is also one of the swapped regions itself,
+    # which is what keeps the clock and the live/paused badge inside it
+    # honest after every cycle. One builder, one contract — the same
+    # call Health, Home and the Display scope already make.
     header = layout.page_header(
-        i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE_TEMPLATE) % HISTORY_ROW_LIMIT)
+        i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE_TEMPLATE) % HISTORY_ROW_LIMIT,
+        freshness_html=layout.freshness_line_html(now))
 
     # Quick task 260903-etm: developer redirection, superseding quick task
     # 260903-c4o's own always-visible render-gallery section on this same
@@ -1440,12 +1497,23 @@ def render(ctx):
     # this time" lightbox (D-20) below, which this task keeps intact.
     # gallery_entries_list is NOT gallery-section state — it is the input
     # to nearest_gallery_entry() below, which every per-row trigger
-    # depends on. Deliberately NOT (re)introduced: a page-level freshness
-    # apparatus (a Refresh link's data-loaded-at attribute and paired
-    # hidden data-stale-banner) — each per-row trigger's own lookup is
-    # already a sufficient staleness signal, and duplicating Health's
-    # whole-page freshness mechanism here would be scope no decision asks
-    # for. Do not "restore" it later as an oversight.
+    # depends on.
+    #
+    # SUPERSEDED by D7/CFG-37 (23-08-PLAN.md Task 1), and recorded here
+    # rather than silently overwritten. This paragraph used to say a
+    # page-level freshness apparatus was "deliberately NOT
+    # (re)introduced ... scope no decision asks for. Do not 'restore' it
+    # later as an oversight." A decision does ask for it now: D7 puts
+    # Flights on the same self-refreshing loop the other three pages
+    # run, and companion/static/freshness.js returns at its first guard
+    # on a page with no [data-loaded-at]. So the header above carries
+    # layout.freshness_line_html(now) — the ONE builder, not a second
+    # apparatus rebuilt here.
+    #
+    # What stays retired is what D-18 actually retired: the manual
+    # Refresh LINK and its paired hidden data-stale-banner. Neither
+    # returns; companion/test_view_pages.py asserts both are still
+    # absent in the same check that now requires the marker.
     gallery_entries_list = ctx.get("gallery_entries") or []
 
     if rows is _DB_UNAVAILABLE:

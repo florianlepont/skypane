@@ -1526,12 +1526,39 @@ def main():
                 {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
             ])
             rendered = history_page.render(_history_ctx(tmp, now=three_min_later))
+            # 23-08-PLAN.md Task 1: RETARGETED IN PLACE, no count change.
+            # Flights joined the refresh loop, so its header now carries
+            # layout.freshness_line_html()'s own <time data-relative>
+            # clock — and a bare re.search() over the whole page found
+            # THAT element first and measured the page's render instant
+            # instead of the row's age. The subject of this check has
+            # always been the Timestamp CELL and the raw_columns path it
+            # travels, so it measures inside the table now. The header's
+            # element is asserted present and distinct in the same
+            # breath, because "measure the table" is only honest while
+            # something proves the other element is really there to have
+            # been confused with.
+            if "data-refresh-clock" not in rendered:
+                return False, (
+                    "expected the page header's own freshness clock to be present — this check "
+                    "narrowed its search to the table precisely because that element exists, "
+                    "and with it gone the narrowing would be measuring nothing in particular")
+            cards = re.search(r'<ul class="history-cards">.*?</ul>', rendered, re.S)
+            if cards is None:
+                return False, "expected a rendered History card list"
+            body = cards.group(0)
+            if "data-refresh-clock" in body:
+                return False, (
+                    "did not expect the header's freshness clock inside the row list — the two "
+                    "elements must stay distinct or this check is back to measuring whichever "
+                    "the regex reached first")
             match = re.search(
-                r'<time datetime="([^"]*)" data-relative>([^<]*)</time>', rendered)
+                r'<time datetime="([^"]*)" data-relative>([^<]*)</time>', body)
             if match is None:
                 return False, (
-                    "expected at least one <time datetime=... data-relative> element on the "
-                    "rendered History page")
+                    "expected at least one <time datetime=... data-relative> element in the "
+                    "rendered History row list — this is the surface that reaches the page "
+                    "through concise_timestamp_html()")
             if "&lt;time" in rendered:
                 return False, (
                     "expected the element to reach the page as markup — a double-escaped "
@@ -3143,22 +3170,59 @@ def main():
         # deliberately not ported when Preview's content first moved onto
         # History (06.6.4.1-05), and quick task 260903-c4o's further
         # restructure (folding the newest render into the gallery grid,
-        # retiring the separate frame) does not change that guarantee -
-        # retained here unmodified except for this comment and the seeding
-        # below.
+        # retiring the separate frame) does not change that guarantee.
+        #
+        # 23-08-PLAN.md Task 1: RETARGETED IN PLACE, no count change, and
+        # this one is a real reversal rather than a re-scoping — so it is
+        # written down here rather than quietly dropped.
+        #
+        # D7/CFG-37 (locked on the Phase 23 ROADMAP) puts Flights on the
+        # same self-refreshing loop Home, Display and Health already run,
+        # and companion/static/freshness.js returns at its first guard on
+        # any page with no [data-loaded-at]: no marker, no loop. So the
+        # marker is now REQUIRED — exactly once, and only as
+        # layout.freshness_line_html()'s own output, which is the clause
+        # that keeps a hand-built second apparatus out.
+        #
+        # What this check still forbids is what D-18 was actually about:
+        # the RETIRED mechanism. `data-stale-banner` is gone for good
+        # (its own SUPERSEDED record is in freshness.js's header), and so
+        # is the manual Refresh LINK the marker used to hang on — the
+        # marker's home now is a hidden pill the loop reveals, not a
+        # control the reader has to press. Both are asserted.
         tmp = _mkstate("h-no-freshness")
         try:
             rendered = history_page.render(_history_ctx(tmp))
-            if "data-loaded-at" in rendered:
-                return False, "did not expect a data-loaded-at attribute on the History page"
             if "data-stale-banner" in rendered:
                 return False, "did not expect a data-stale-banner element on the History page"
+            if rendered.count("data-loaded-at") != 1:
+                return False, (
+                    "expected exactly one data-loaded-at marker on the History page — D7/CFG-37 "
+                    "puts this page on the refresh loop and freshness.js returns at its first "
+                    "guard without one, while a second would be two claims about when this "
+                    "document was generated; found %d" % rendered.count("data-loaded-at"))
+            built = layout.freshness_line_html(_history_ctx(tmp)["now"])
+            if "data-loaded-at" not in built:
+                return False, (
+                    "expected layout.freshness_line_html() to be the thing that carries the "
+                    "marker — this check reads it back from the builder rather than pinning a "
+                    "literal, so the builder stays the one definition site")
+            marker_at = rendered.index("data-loaded-at")
+            around = rendered[max(0, marker_at - 400):marker_at]
+            if "<a " in around[around.rfind("<p class=\"page-header__freshness"):]:
+                return False, (
+                    "did not expect a link inside the freshness line — D-18 retired the manual "
+                    "Refresh control outright and the marker's home is the hidden pill the loop "
+                    "reveals, never an anchor the reader has to press")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the rendered History page contains no data-loaded-at attribute and no data-stale-banner "
-        "element - Preview's page-level freshness apparatus was deliberately not ported",
+        "the rendered History page carries no data-stale-banner and no Refresh link — D-18's "
+        "retired apparatus stays retired — while carrying exactly one data-loaded-at marker, "
+        "built by layout.freshness_line_html(), because D7/CFG-37 puts this page on the refresh "
+        "loop and freshness.js returns at its first guard without one (retargeted in place by "
+        "23-08-PLAN.md Task 1)",
         _now_showing_no_preview_freshness_apparatus)
 
     def _gallery_name_to_iso_fixtures():

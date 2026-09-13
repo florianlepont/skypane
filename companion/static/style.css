@@ -525,6 +525,60 @@ html[data-ui-theme="dark"] {
   }
 }
 
+/* 23-08-PLAN.md Task 1 (D7/CFG-37, spending 23-01's D3/CFG-32 budget):
+ * the app's THIRD keyframes block, argued for rather than assumed, the
+ * way the second one was.
+ *
+ * The two existing blocks are both about OPACITY: one cycles it forever
+ * (the ambient pulse), one ramps it once from nothing (the fade). What a
+ * newly-arrived row needs is neither. Fading a table row in from zero
+ * opacity would make a line of text materialise out of the page
+ * background — the row was not absent a moment ago in any sense the
+ * reader experienced, it simply was not there yet — and running the
+ * pulse would leave it flashing forever. What says "this one just
+ * landed" is a wash of colour on the row that drains away, leaving the
+ * row exactly as every other row looks. So: a background tint, and
+ * nothing else moves.
+ *
+ * IT FADES TO A TRANSPARENT FORM OF ITS OWN COLOUR, not to `transparent`
+ * the keyword, and that is a correctness point rather than a style one.
+ * The final keyframe is the last thing painted before the animation
+ * hands the element back to its ordinary computed style; a final value
+ * of `transparent` would be the same PAINT as the row's real background
+ * only for rows whose real background is already nothing. Ending on the
+ * same colour at zero alpha means the last animated frame and the first
+ * un-animated one are the same pixels, so there is no snap at the end
+ * on a row that has a background of its own (the hover tint, a future
+ * zebra, a card surface).
+ *
+ * No new colour literal: `--color-accent` at this file's own
+ * color-mix-with-transparent idiom, the same shape every wash in this
+ * stylesheet already uses.
+ *
+ * Its duration comes from `var(--motion-slow)` at the call site below.
+ * That is 23-01's AMBIENT token and the choice is deliberate: nobody
+ * pressed anything and nobody is waiting: the page ran this on its own
+ * to report something that happened elsewhere. A 180ms flash on a row
+ * the reader was not looking at would be over before their eye reached
+ * it, which is the same as no signal at all.
+ *
+ * UNDER REDUCED MOTION THIS DOES NOT WASH, and there is no block here
+ * saying so — the global override earlier in this file already zeroes
+ * animation-duration for every element, and a per-rule block would be
+ * the dead-code-not-a-safety-net pattern accessibility-contrast.md
+ * records a verdict on. The stylesheet's live reduce-block count stays
+ * at two. The outcome under that preference is correct rather than
+ * merely acceptable: the new row is still at the top of the list, which
+ * is itself the information. */
+@keyframes skypane-row-arrive {
+  from {
+    background-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+  to {
+    background-color: color-mix(in srgb, var(--color-accent) 0%, transparent);
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1486,6 +1540,28 @@ select.visually-hidden {
  * at two. */
 .is-fading-in {
   animation: skypane-fade-in var(--motion-fast) ease-out;
+}
+
+/* 23-08-PLAN.md Task 1 (D7/CFG-37): the class companion/static/
+ * freshness.js puts on a row whose identity was NOT in the set it knew
+ * before the swap — a detection that arrived while the page was open,
+ * and only that.
+ *
+ * ONE class, both renderings. Flights renders every flight twice (a
+ * desktop `<tr>` and a phone `<li>`) and the diff marks whichever
+ * carries the identity, so a single rule serves both rather than two
+ * rules that would have to be kept in step.
+ *
+ * It names the MOTION, not the component, the same way `.is-breathing`
+ * and `.is-fading-in` above do: the next list that wants to say "this
+ * one is new" spends this rule instead of writing a fourth block.
+ *
+ * `ease-out` at the call site because easing is not a token (23-01 spent
+ * exactly two custom properties and easing was deliberately not one of
+ * them). One iteration, no fill mode: the row's own background is its
+ * ordinary one before and after, so there is nothing to hold. */
+.is-new-row {
+  animation: skypane-row-arrive var(--motion-slow) ease-out;
 }
 
 .dot-label {

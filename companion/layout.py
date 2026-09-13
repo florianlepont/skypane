@@ -1757,6 +1757,31 @@ REFRESH_PAGE_ATTR = "data-refresh-page"
 REFRESH_PAGE_HOME = nav_slug(HOME_ROUTE)
 REFRESH_PAGE_DISPLAY = nav_slug(DISPLAY_ROUTE)
 REFRESH_PAGE_HEALTH = nav_slug(HEALTH_ROUTE)
+REFRESH_PAGE_FLIGHTS = nav_slug(FLIGHTS_ROUTE)
+
+# 23-08-PLAN.md Task 1 (D7/CFG-37): the two cross-file literals the
+# new-row highlight is built on, duplicated into
+# companion/static/freshness.js rather than imported — a static asset is
+# not a Python module — and pinned equal by
+# companion/test_status_pages.py, exactly like REFRESH_PENDING_ATTR
+# above.
+#
+# REFRESH_ROW_ID_ATTR carries a stable identity for the EVENT a row
+# describes, and the word "event" is the whole of it. The Flights table
+# already numbers its detail rows `flight-detail-{n}` and groups its two
+# representations by `data-filter-group={n}`, but both of those are the
+# row's POSITION IN THIS RENDER — they pair a summary row with its own
+# detail row, which is all they were ever for. A highlight keyed to a
+# position would light up every row below an insertion the moment one
+# arrived at the top, which is the exact opposite of the signal D7 asks
+# for. companion/pages/history_page.py renders this from the
+# runway_events row's own primary key.
+REFRESH_ROW_ID_ATTR = "data-flight-id"
+# The class freshness.js adds to a row whose identity was NOT in the set
+# it knew before the swap. One-shot by construction: nothing removes it,
+# because the node it lands on was itself just inserted and the next
+# swap replaces that node entirely.
+REFRESH_NEW_ROW_CLASS = "is-new-row"
 
 # The marker a region carries while it holds an OPTIMISTIC control whose
 # server confirmation has not arrived (D1 races D2 — 23-RESEARCH.md's
@@ -1810,6 +1835,36 @@ REFRESH_PENDING_ATTR = "data-pending"
 # Deliberately NOT nested: no entry here contains another, so no swap
 # can detach a node another entry is about to replace.
 #
+# FLIGHTS (23-08-PLAN.md Task 1, D7/CFG-37): the two renderings of the
+# list — the phone `<ul class="history-cards">` and the desktop
+# `.data-table-wrap` — plus the live count and the freshness line. Both
+# renderings, not whichever the current breakpoint shows: the CSS
+# sibling toggle decides which is visible, both are always in the DOM,
+# and a swap that replaced only one would leave the other showing an
+# older list the moment a window was resized.
+#
+# WHAT IS DELIBERATELY OUT, and why it is the interesting half.
+# companion/static/list-filter.js resolves FOUR elements exactly once,
+# at load — the `[data-filter-input]` itself, `[data-filter-clear]`,
+# `[data-filter-empty]` and every `[data-filter-set]` — and holds those
+# references for the life of the page. Replacing any one of them detaches
+# the node the script is still writing to, so the filter goes silently
+# dead and an in-progress query is discarded with it. That is the same
+# trade Health's entry above records for the sparkline and the registry
+# card, and it is why `[data-filter-count]` IS here while its three
+# siblings are not: the count is the one the script now looks up fresh
+# on every keystroke, precisely so it could join this list.
+#
+# The rows themselves were never captured — list-filter.js queries
+# `[data-filter-text]` fresh on every input event, for its own
+# breakpoint reason — so swapping them costs that script nothing. What
+# a swap DOES cost is the filter's applied state, since the server
+# renders the list unfiltered: list-filter.js re-runs its one
+# applyFilter() when the loop announces a swap, which is what keeps a
+# typed query applied across a refresh.
+#
+# Deliberately NOT nested: no entry here contains another.
+#
 # DISPLAY (23-06-PLAN.md Task 2): deliberately the strip and the
 # freshness line and NOTHING ELSE — and this asymmetry with Home is a
 # decision, not an omission for a later reader to "complete".
@@ -1837,6 +1892,12 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         "section.banner",
         ".page-header__freshness",
         'a[href="/health"]',
+    ),
+    REFRESH_PAGE_FLIGHTS: (
+        ".page-header__freshness",
+        "ul.history-cards",
+        ".data-table-wrap",
+        "[data-filter-count]",
     ),
 }
 

@@ -257,6 +257,34 @@
   var FADE_IMAGE_SELECTOR = "." + FADE_IMAGE_CLASS;
   var FADE_CLASS = "is-fading-in";
 
+  // 23-08-PLAN.md Task 1 (D7/CFG-37): the new-row highlight's two
+  // literals, both companion/layout.py's
+  // (REFRESH_ROW_ID_ATTR/REFRESH_NEW_ROW_CLASS) and both pinned equal to
+  // it by companion/test_status_pages.py.
+  //
+  // The attribute carries a stable identity for the EVENT a row
+  // describes, never the row's position — that distinction is the whole
+  // mechanism and layout.py's own comment holds the argument for it.
+  var ROW_ID_ATTR = "data-flight-id";
+  var ROW_ID_SELECTOR = "[" + ROW_ID_ATTR + "]";
+  var NEW_ROW_CLASS = "is-new-row";
+
+  // The event this file dispatches on document after a successful swap.
+  // The two Flights scripts listen for it; nothing else does, and
+  // nothing has to.
+  //
+  // WHY THIS EXISTS AT ALL, stated once here. Every exclusion in the
+  // registry above is the same sentence: a script captured some DOM at
+  // load, and there is no re-init hook, so the region it captured can
+  // never be swapped. That reasoning is sound and stays — but it is an
+  // argument for a hook, not against one, and Flights is the page where
+  // the alternative ran out: its list IS the thing that must be
+  // replaced, and both list-filter.js and flight-rows.js hold state
+  // about the rows in it. So the loop now SAYS when it has swapped, and
+  // a script that cares re-derives whatever it owns. It is announced,
+  // not commanded: this file knows nothing about what any listener does.
+  var SWAPPED_EVENT = "skypane-regions-swapped";
+
   var DIRTY_READY_CLASS = "dirty-ready";
   var DIRTY_BAR_ATTR = "data-dirty-bar";
   var DIRTY_BAR_SELECTOR = "[" + DIRTY_BAR_ATTR + "]";
@@ -559,6 +587,12 @@
       "section.banner",
       ".page-header__freshness",
       'a[href="/health"]'
+    ],
+    "flights": [
+      ".page-header__freshness",
+      "ul.history-cards",
+      ".data-table-wrap",
+      "[data-filter-count]"
     ]
   };
 
@@ -699,6 +733,84 @@
     fetchedImage.classList.add(FADE_CLASS);
   }
 
+  // 23-08-PLAN.md Task 1 (D7/CFG-37): the new-row highlight — a diff
+  // over server-rendered row identity, applied after a swap and to
+  // nothing else.
+  //
+  // WHAT WOULD BE WRONG, since that is what the shape here is chosen
+  // against. Highlighting every row after a swap says "everything is
+  // new" every forty-five seconds, which is the same as saying nothing.
+  // Highlighting on first paint says the whole list just arrived, which
+  // is false — it was already there when the reader opened the page.
+  // Both failures are one missing thing: a set of identities known
+  // BEFORE. So the set is populated from the page AS FIRST RENDERED,
+  // below, and never starts empty.
+  //
+  // hasOwnProperty and not a bare lookup, for the reason the page-key
+  // guard above gives: these identities arrive as markup, and
+  // "constructor" or "toString" would otherwise resolve to an inherited
+  // Object property and read as already-known.
+  //
+  // The class is added and never removed, and nothing needs to remove
+  // it: the node it lands on was itself just inserted by the swap, so
+  // its animation starts with the element's first frame and runs once;
+  // the element's own background is its normal one before and after;
+  // and the next swap replaces the node entirely. A removal path would
+  // only be a way to re-trigger the same arrival twice.
+  function collectRowIds() {
+    var seen = {};
+    var nodes = document.querySelectorAll(ROW_ID_SELECTOR);
+    for (var i = 0; i < nodes.length; i++) {
+      var value = nodes[i].getAttribute(ROW_ID_ATTR);
+      if (value) {
+        seen[value] = true;
+      }
+    }
+    return seen;
+  }
+
+  function markNewRows() {
+    var nodes = document.querySelectorAll(ROW_ID_SELECTOR);
+    var next = {};
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      var value = node.getAttribute(ROW_ID_ATTR);
+      if (!value) {
+        continue;
+      }
+      if (!Object.prototype.hasOwnProperty.call(knownRowIds, value)
+          && node.classList) {
+        node.classList.add(NEW_ROW_CLASS);
+      }
+      next[value] = true;
+    }
+    knownRowIds = next;
+  }
+
+  // The page as first rendered. Every row visible on load is, by
+  // definition, not news.
+  var knownRowIds = collectRowIds();
+
+  // 23-08-PLAN.md Task 1: the loop says it swapped; it does not say what
+  // anyone should do about it. Dispatched on document so a listener
+  // needs no reference to any element this file touches, and built the
+  // ES3-era way (createEvent/initEvent) rather than with the Event
+  // constructor, for the same reach reason this file uses replaceChild
+  // over replaceWith.
+  //
+  // Fired once per successful swap, after every region is in place and
+  // after the diff above, so a listener always sees the finished
+  // document. Never fired for a cycle that fetched and swapped nothing
+  // — there would be nothing to re-derive.
+  function announceSwap() {
+    if (!document.createEvent) {
+      return;
+    }
+    var evt = document.createEvent("Event");
+    evt.initEvent(SWAPPED_EVENT, false, false);
+    document.dispatchEvent(evt);
+  }
+
   // 19-09-PLAN.md (D-02): battery-trend.js's own two readout spans are
   // written through textContent on the EXISTING nodes, never replaced —
   // contract 2 in this file's own SUPERSEDED section above. Skipped
@@ -748,6 +860,11 @@
     swapNodes(fromDoc);
     swapBatteryReadout(fromDoc);
     updateLoadedAt(fromDoc);
+    // AFTER the regions are in place, never before: a diff taken
+    // against the document that is about to be thrown away would
+    // compare the old page with itself.
+    markNewRows();
+    announceSwap();
   }
 
   // T13 (22-15-PLAN.md Task 2): the in-flight guard. Without it a
