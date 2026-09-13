@@ -8303,10 +8303,23 @@ def main():
     def _future_form_shares_the_past_ladders_own_buckets():
         # One ladder in two directions: the future form must agree with
         # the past form about which bucket a given number of seconds
-        # falls in, at and around every boundary. Comparing the UNIT
-        # each direction picks is what proves they share boundaries —
-        # comparing the words would only prove they were both written.
+        # falls in, at and around every boundary. The QUANTITY each
+        # direction picks — the number AND its unit — is what proves
+        # they share boundaries; asserting only that both are non-empty
+        # and differ would pass a future form carrying its own
+        # constants, which is the whole defect this check exists for.
+        #
+        # English determines the relation completely: the past form is
+        # "<N><unit> ago" and the future form "in <N><unit>" for every
+        # bucket, so one is the other rearranged. French collapses the
+        # sub-minute bucket on BOTH sides into a phrase with no number,
+        # so there the quantity is compared for the three buckets that
+        # have one, and the collapse is asserted for the one that
+        # does not.
         boundaries = (0, 1, 59, 60, 61, 3599, 3600, 3601, 86399, 86400, 86401, 900000)
+        # A real U+00A0 between the number and the unit (D-09),
+        # written as an escape so it stays visible in source.
+        quantity_re = re.compile("(\\d+)\\u00a0(\\S+)")
         try:
             for lang in ("en", "fr"):
                 prefs.set_request_prefs(lang=lang)
@@ -8324,6 +8337,37 @@ def main():
                         return False, (
                             "lang=%s seconds=%d: the future form must not be the past form — "
                             "both read %r" % (lang, seconds, future))
+                    if lang == "en":
+                        rearranged = "in " + past[:-len(" ago")]
+                        if future != rearranged:
+                            return False, (
+                                "lang=en seconds=%d: expected the future form to name the SAME "
+                                "bucket and the SAME number the past form names (%r), got %r — a "
+                                "direction that picks its own boundary is a second ladder"
+                                % (seconds, rearranged, future))
+                        continue
+                    past_quantity = quantity_re.search(past)
+                    future_quantity = quantity_re.search(future)
+                    if past_quantity is None:
+                        # The French sub-minute collapse: neither side
+                        # may carry a number there.
+                        if future_quantity is not None:
+                            return False, (
+                                "lang=fr seconds=%d: the past form collapses the sub-minute "
+                                "bucket to a phrase with no number (%r) and the future form must "
+                                "collapse the same bucket, got %r" % (seconds, past, future))
+                        continue
+                    if future_quantity is None:
+                        return False, (
+                            "lang=fr seconds=%d: expected the future form to carry a quantity "
+                            "with a real U+00A0 the way the past form %r does, got %r"
+                            % (seconds, past, future))
+                    if future_quantity.groups() != past_quantity.groups():
+                        return False, (
+                            "lang=fr seconds=%d: expected the future form to name the SAME number "
+                            "and unit the past form names %r, got %r — a direction that picks its "
+                            "own boundary is a second ladder"
+                            % (seconds, past_quantity.groups(), future_quantity.groups()))
                 # The clamp, in the direction that is easy to get wrong:
                 # an already-elapsed "future" instant resolves to the
                 # zero bucket, never to a negative and never to a
