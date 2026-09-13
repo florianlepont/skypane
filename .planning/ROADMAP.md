@@ -1096,6 +1096,49 @@ Plans:
 **Depends on:** Phase 23
 **Plans:** 0/9 plans executed
 
+Three decisions were taken at planning, on `24-RESEARCH.md`'s evidence, and are
+PROVISIONAL — the developer was unavailable and every one is collected in
+`24-RESEARCH.md`'s "Open decisions" section for confirmation:
+
+- **D20's blocker is settled by CHANGING THE METRIC, not by growing the schema.** `device_health` rows turn out to be real per-wake check-ins (`ingest_caddy_battery_log()` keeps one row per Caddy access-log entry for the device's display fetch), so observed cadence IS measurable. But the expected interval is not merely unstored: `wake.effective_wake_interval_s()` switches to `DISPLAY_OFF_SLEEP_S` whenever the screen is off and quiet hours hold the frame on top of that, and `device_config.json` is a current-state file whose no-migration/no-rewrite contract is pinned by three named checks in `server/test_config_history.py`. Decisively, **a log rotation the ingest missed leaves a hole indistinguishable from a missed wake, and no schema change recovers it** — so even a new column could not support the phrase "honoured-wake rate". The grid therefore reports **observed check-in regularity**, judged against the cadence currently in force via `wake.device_staleness_thresholds()` (the same function the Frame tile uses), with a caption carrying the cadence, that it is today's cadence, and that a gap is not proof of a missed wake.
+- **A forward-looking epoch table lands anyway, read by nothing in this phase (24-03 Task 3, droppable whole).** The project has no SQLite migration mechanism at all — `init_schema()` is `CREATE TABLE IF NOT EXISTS` only, with no `PRAGMA user_version` and no `ALTER TABLE` anywhere — but that path already covers a brand-new TABLE, created on next connect by both processes. A new COLUMN would have needed the project's first migration, in its most concurrency-sensitive file. So true interval epochs start accruing at the cost of one table and one deduped write, and a later phase can upgrade the metric honestly. No drawing in this phase reads it.
+- **The grid is named "Check-in regularity", not "wake punctuality"**, and the words "honoured"/"punctual" are asserted absent from the new code and the rendered pages. Two smaller decisions travel with it: the day timeline plots check-ins and the quiet-hours span only (two mark vocabularies in ~330 px at 360 px is unreadable — detections deferred), and D8's gradient-area geometry is resolved by a recorded experiment inside 24-05, with "keep the line, no area" an honest outcome rather than a silent omission, because the outer canvas must keep its no-`viewBox` percentage scheme or every stroke and hit target shrinks at 360 px.
+
+One structural finding shapes the whole phase: **the shared battery estimator already exists.** `companion/battery.py` was created by 19-01 for exactly this problem and is already called by both pages, so the goal's "five drawings share one battery estimator" is met by extending and enforcing it, not by creating a second shared module. Likewise `health_page.battery_sparkline_svg()` already server-renders SVG with a deliberate no-`viewBox` percentage coordinate scheme and HTML labels outside the canvas — the phase generalises that into `companion/draw.py` rather than inventing a scheme.
+
+Plans:
+
+**Wave 1** *(parallel — three plans, disjoint files)*
+- [ ] 24-01-PLAN.md — wave 1: the one battery estimator (extended) and `companion/draw.py`, plus the executable drawing contract every later plan is measured against
+- [ ] 24-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — a theme switch (this harness has never once measured dark mode), a computed-paint reader and a 360 px body-overflow assertion; zero net checks
+- [ ] 24-03-PLAN.md — wave 1: D20's data question settled in code — the check-in gap reader, verdicts from the one existing threshold function, and the migration-free epoch table nothing reads yet
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 24-04-PLAN.md — wave 2: D21 — one ring emitter, two sizes (Health's battery section and Home's tile), proven one function by mutating it and watching both pages change
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 24-05-PLAN.md — wave 3: D8 — the chart's area, marked last point and low-battery threshold, all from the one filtered pair list, with the coordinate scheme intact
+
+**Wave 4** *(blocked on Wave 2 completion)*
+- [ ] 24-06-PLAN.md — wave 4: D13 — Home's day band on a time-domain scale, the wrapping quiet-hours window as two spans, and a caption that never claims a count the band collapsed
+
+**Wave 5** *(blocked on Waves 1 and 3)*
+- [ ] 24-07-PLAN.md — wave 5: D20 — the check-in regularity grid, four states including "no observation", and a caption whose three clauses are each separately asserted
+
+**Wave 6** *(blocked on Waves 2 and 4)*
+- [ ] 24-08-PLAN.md — wave 6: D4 — the Home hero assembled from calls, with "fed by" proven behaviourally and the frame verdict still rendered exactly once
+
+**Wave 7** *(blocked on all prior waves)*
+- [ ] 24-09-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's decision list, and the phase gate including the human sweep
+
+Cross-cutting constraints (appearing in two or more plans' `must_haves`):
+- Server-rendered SVG is chosen because **D-09's no-JS floor is absolute**: the drawing arrives complete in the first response, so it paints with scripts blocked and needs no measurement pass. **This phase adds zero static scripts**, so the deferred-script pin in `companion/test_companion_app.py` must not move.
+- Every drawing takes its colour from a theme token through a CSS class (`currentColor` + token, the `.sparkline*` idiom). A colour literal, an unpainted shape, or a class that resolves to no selector each fails 24-01's guard. **A drawing correct only in light mode is a defect, not a polish item.**
+- One scale places marks, ticks and labels; every label names a value the drawing actually reaches, derived from the same single-pass filtered list as the marks.
+- Every drawing fits 360 px with no horizontal scrollbar on the page body, and stacks rather than shrinking.
+- Where a `viewBox` exists it must contain its own outermost label, proven by real browser measurement; the preferred escape is keeping labels outside the SVG entirely.
+- Every check is mutation-tested and must survive the vacuity question; `EXPECTED_CHECK_COUNT` is re-derived by RUNNING, never by arithmetic; the sandbox baseline is exactly 5 failing checks verified by NAME.
+
 ### Phase 25: Companion dynamism III — "Controls": the modern controls that replace bare fields
 
 **Goal:** Five new controls, each with a no-JS fallback and a 360 px touch obligation: D16 (runway picked on one SVG map of Orly), D17 (24 h dial for quiet hours), D18 (wake-interval slider with freshness and battery-life gauges), D5 (theme carousel over the chip grid — this is also X6's deferred half, the reason Phase 22's Display page misses its height target) and D19 (drag-and-drop artwork with client-side crop).
