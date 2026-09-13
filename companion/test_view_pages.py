@@ -576,6 +576,15 @@ EXPECTED_CHECK_COUNT = 148
 # count animating its element rather than its number.
 # 148 + 4 = 152, recomputed by RUNNING.
 EXPECTED_CHECK_COUNT = 152
+# 23-10-PLAN.md Task 2 (D3/CFG-32): +1. Both <dialog>s arrive through ONE
+# @starting-style entrance on .lightbox[open] - one rule, two dialogs -
+# fading and zooming from opacity 0 over var(--motion-fast), with
+# `display`/`allow-discrete` deliberately absent (a modal that has not
+# reached display:none is an invisible sheet over the page) and
+# ::backdrop unanimated (the global reduced-motion override matches only
+# element selectors and cannot reach it). 152 + 1 = 153, re-derived by
+# RUNNING.
+EXPECTED_CHECK_COUNT = 153
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -7173,6 +7182,132 @@ def main():
             "delete edit-only forms, against a real running service (D-19, D-22, T-19-31, "
             "19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md Task 2)",
             _airlines_edit_query_param_exact_one_membership_test)
+
+        def _both_dialogs_arrive_through_one_starting_style_entrance():
+            """23-10-PLAN.md Task 2 (D3/CFG-32): both <dialog>s fade and
+            zoom in, from ONE rule.
+
+            The two dialogs — History's panel lightbox and the Airlines
+            gallery's wide variant — are the same component under two
+            classes, so the entrance is declared once on `.lightbox` and
+            reaches both. This check asserts that count directly (one
+            entrance, two dialogs) rather than letting a second, drifting
+            copy appear for the wide variant.
+
+            It also asserts what is deliberately ABSENT. 23-08-PLAN.md
+            Task 2 already set this app's precedent for a one-directional
+            entrance — opening animates, closing is instant — and wrote
+            down the reason: an element kept in the flow through
+            `transition-behavior: allow-discrete` is still in the tab
+            order and still in the accessibility tree for the whole of
+            its exit, and for every browser that does not support the
+            property. A <dialog> raises the stakes rather than lowering
+            them, because a modal that has not reached `display: none`
+            is an invisible sheet over the page that swallows clicks
+            (T-23-36). So `display` must not appear in the lightbox
+            transition at all: `close()` must end the dialog outright.
+            """
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path, "r", encoding="utf-8") as fh:
+                css = fh.read()
+            # Comment-stripped, for the reason this file's own sibling
+            # scans already record: the paragraphs around these rules
+            # discuss @starting-style, allow-discrete and `display` by
+            # name, and a raw scan would be answered by the prose that
+            # explains the rule instead of by the rule.
+            stripped = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+
+            rendered = []
+            for label, module, dialog_class in (
+                ("history", history_page, "lightbox"),
+                ("airlines", airlines_page, "lightbox lightbox--wide"),
+            ):
+                marker = '<dialog class="%s"' % dialog_class
+                rendered.append((label, marker))
+
+            open_rule = ".lightbox[open] {"
+            if stripped.count(open_rule) != 1:
+                return False, (
+                    "expected exactly one %r rule — one entrance serving BOTH dialogs, got %d"
+                    % (open_rule, stripped.count(open_rule)))
+            entrances = re.findall(
+                r"@starting-style\s*\{\s*\.lightbox\[open\]", stripped)
+            if len(entrances) != 1:
+                return False, (
+                    "expected exactly ONE @starting-style entrance for .lightbox[open] (one "
+                    "rule, two dialogs — History's and the Airlines gallery's wide variant are "
+                    "the same component under two classes), got %d" % (len(entrances),))
+            start_body = stripped[stripped.index(entrances[0]):]
+            start_body = start_body[:start_body.index("}")]
+            if "opacity: 0" not in start_body:
+                return False, (
+                    "expected the @starting-style entrance to start from opacity 0 — an element "
+                    "going from display:none to displayed has no previous computed value to "
+                    "transition from, which is the whole job of this block")
+            if "scale(" not in start_body:
+                return False, (
+                    "expected the @starting-style entrance to start from a scale — D3's clause "
+                    "is that both dialogs FADE AND ZOOM in")
+
+            base_idx = stripped.index("\n.lightbox {")
+            base = stripped[base_idx:stripped.index("}", base_idx)]
+            if "transition:" not in base:
+                return False, "expected .lightbox to declare the entrance transition"
+            decl = base[base.index("transition:"):]
+            decl = decl[:decl.index(";") + 1]
+            for prop in ("opacity", "transform"):
+                if prop not in decl:
+                    return False, (
+                        "expected the .lightbox transition to name %r, got %r" % (prop, decl))
+            if "var(--motion-fast)" not in decl:
+                return False, (
+                    "expected the dialog entrance to spend var(--motion-fast), got %r" % (decl,))
+            if "display" in decl or "allow-discrete" in decl:
+                return False, (
+                    "the .lightbox transition must NOT carry `display`/`allow-discrete`: a modal "
+                    "that has not reached display:none is an invisible sheet over the page that "
+                    "swallows clicks (T-23-36), and it stays in the tab order and the "
+                    "accessibility tree for the whole of its exit — 23-08-PLAN.md Task 2's own "
+                    "one-directional precedent, raised in stakes by a modal. Got %r" % (decl,))
+            # ::backdrop is deliberately NOT animated, and that is a
+            # reduced-motion fact rather than a taste one: the global
+            # override matches `*, *::before, *::after`, which are
+            # ELEMENT selectors — ::backdrop is in neither, exactly as
+            # this file already records for the view-transition
+            # pseudo-element tree. An animated backdrop would be motion
+            # a reduced-motion visitor cannot switch off.
+            backdrop_idx = stripped.index(".lightbox::backdrop {")
+            backdrop = stripped[backdrop_idx:stripped.index("}", backdrop_idx)]
+            if "transition" in backdrop or "animation" in backdrop:
+                return False, (
+                    ".lightbox::backdrop must not be animated — the global reduced-motion "
+                    "override matches `*, *::before, *::after`, none of which is ::backdrop, so "
+                    "a backdrop transition is motion a reduced-motion visitor cannot escape")
+
+            # And both dialogs really do render with the class the one
+            # rule above is keyed to.
+            tmp = _mkstate("dialog-entrance")
+            try:
+                history_html = history_page.render(_history_ctx(tmp))
+                airlines_html = airlines_page.render({"edit_mode": True})
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+            for label, marker in rendered:
+                html_text = history_html if label == "history" else airlines_html
+                if marker not in html_text:
+                    return False, (
+                        "expected the %s page to render %r so the one .lightbox[open] entrance "
+                        "reaches it" % (label, marker))
+            return True, ""
+        check(
+            "both <dialog>s arrive through ONE @starting-style entrance on .lightbox[open] — "
+            "fading and zooming from opacity 0 over var(--motion-fast), reaching History's "
+            "lightbox and the Airlines gallery's wide variant from a single rule, with `display`/"
+            "`allow-discrete` deliberately absent so close() ends the dialog outright rather than "
+            "leaving an invisible click-swallowing sheet over the page (T-23-36), and with "
+            "::backdrop unanimated because the global reduced-motion override cannot reach it "
+            "(D3/CFG-32, 23-10-PLAN.md Task 2)",
+            _both_dialogs_arrive_through_one_starting_style_entrance)
 
     finally:
         harness.stop()

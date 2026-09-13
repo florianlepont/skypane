@@ -715,6 +715,19 @@ EXPECTED_CHECK_COUNT = 238
 # navigation is precisely what would have introduced the first one.
 # 238 + 1 = 239, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 239
+# 23-10-PLAN.md Task 2 (D3/CFG-32): +1 — the live theme preview
+# crossfades rather than cuts, held as the same cross-file DOM contract
+# the dirty-state.js checks above already use: one class literal written
+# out here, declared in style.css and driven from theme-preview.js, with
+# neither file importing the other. The mechanism must be event-driven
+# (transitionend plus the image's own load/error) and never timed — a
+# timed crossfade lets the swap and the fade drift apart and the preview
+# settles on whichever won, which is the spoofing disposition T-23-38
+# names. T8's window.SkyPaneLivePreview.refresh() is asserted to survive
+# in the same check, because Cancel's restore has to come through the
+# crossfade rather than around it.
+# 239 + 1 = 240, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 240
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -3503,6 +3516,92 @@ def main():
         "dirty-state.js's first dirty-ready occurrence comes after its first data-dirty-bar occurrence (D-09: set "
         "only after the bar guard passes)",
         _dirty_state_js_sets_dirty_ready_only_after_bar_guard)
+
+    def _live_preview_crossfades_through_one_class_shared_by_css_and_js():
+        """23-10-PLAN.md Task 2 (D3/CFG-32): the live theme preview
+        crossfades instead of cutting.
+
+        The same cross-file DOM-contract shape the checks above already
+        hold: one class literal, declared in style.css and driven from
+        theme-preview.js, with neither file importing the other. The
+        literal is written out here rather than imported, which is the
+        point — if either side renames it, this check is what says so.
+
+        The mechanism must be EVENT-DRIVEN, never timed. theme-preview.js
+        carries a standing no-timer rule in its own header (and
+        test_companion_app.py enforces it), and a crossfade on a timer is
+        the specific way this goes wrong: the swap and the fade drift
+        apart, and the preview settles on whichever the timer happened to
+        win. `transitionend` is when the fade-out is genuinely over, and
+        the image's own `load`/`error` is when the new frame is genuinely
+        there.
+        """
+        fade_class = "theme-live-preview__image--swapping"
+        css = _read_static("style.css")
+        js = _read_static("theme-preview.js")
+
+        base_marker = "\n.theme-live-preview__image {"
+        if base_marker not in css:
+            return False, "expected style.css to declare .theme-live-preview__image"
+        base_idx = css.index(base_marker) + len(base_marker)
+        base = css[base_idx:css.index("}", base_idx)]
+        if "transition:" not in base:
+            return False, (
+                "expected .theme-live-preview__image to declare the crossfade transition on its "
+                "own base rule, so the fade runs in BOTH directions from one declaration")
+        decl = base[base.index("transition:"):]
+        decl = decl[:decl.index(";") + 1]
+        if "opacity" not in decl:
+            return False, (
+                "expected the live preview's transition to name opacity, got %r" % (decl,))
+        if "var(--motion-fast)" not in decl:
+            return False, (
+                "expected the live preview crossfade to spend var(--motion-fast) — somebody just "
+                "clicked a chip and is watching for the preview to answer, got %r" % (decl,))
+
+        fade_marker = "\n.%s {" % fade_class
+        if fade_marker not in css:
+            return False, "expected style.css to declare .%s" % (fade_class,)
+        fade_idx = css.index(fade_marker) + len(fade_marker)
+        fade_body = css[fade_idx:css.index("}", fade_idx)]
+        if "opacity: 0" not in fade_body:
+            return False, (
+                "expected .%s to be the opacity-0 half of the crossfade, got %r"
+                % (fade_class, fade_body.strip()))
+
+        if fade_class not in js:
+            return False, (
+                "theme-preview.js must drive the crossfade through the same %r class style.css "
+                "declares — neither file imports the other, and this literal is the only thing "
+                "keeping them in step" % (fade_class,))
+        for token in ("transitionend", '"load"', '"error"'):
+            if token not in js:
+                return False, (
+                    "expected theme-preview.js to listen for %s — the crossfade must be driven "
+                    "by the events that actually mark the fade-out ending and the new frame "
+                    "arriving, never by a timer" % (token,))
+        for banned in ("setTimeout", "setInterval", "requestAnimationFrame"):
+            if banned in js:
+                return False, (
+                    "theme-preview.js must stay timer-free (%r found): a timed crossfade lets the "
+                    "swap and the fade drift apart, and the preview settles on whichever won"
+                    % (banned,))
+        # T8 survives: dirty-state.js's Cancel handler calls this, and a
+        # crossfade that bypassed refresh() would leave Cancel showing
+        # the discarded theme again — the exact defect T8 closed.
+        if "SkyPaneLivePreview" not in js or "refresh" not in js:
+            return False, (
+                "expected theme-preview.js to keep exposing window.SkyPaneLivePreview.refresh() "
+                "— dirty-state.js's Cancel handler calls it after form.reset(), and T8 exists "
+                "because reset() fires no change event")
+        return True, ""
+    check(
+        "the live theme preview CROSSFADES rather than cuts: .theme-live-preview__image declares an "
+        "opacity transition at var(--motion-fast) on its own base rule, a .theme-live-preview__image--swapping "
+        "class carries the opacity-0 half, theme-preview.js drives that same class literal from transitionend "
+        "and the image's own load/error (never a timer), and T8's window.SkyPaneLivePreview.refresh() survives "
+        "(D3/CFG-32, 23-10-PLAN.md Task 2)",
+        _live_preview_crossfades_through_one_class_shared_by_css_and_js)
 
     # ------------------------------------------------------------------
     # 19-10-PLAN.md Task 2 (D-10/A-28): a beforeunload guard, keyed on

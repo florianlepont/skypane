@@ -525,6 +525,18 @@ EXPECTED_CHECK_COUNT = 50
 # and to prove exactly one card carries the scale. 50 + 1 = 51,
 # re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 51
+# 23-10-PLAN.md Task 2 (D3/CFG-32): +2. One measures both <dialog>s
+# mid-flight two frames after their trigger (a real entrance is running,
+# not an instant open), settling opaque, and then hit-tests the viewport
+# centre immediately after close() with NO settle wait — the close path
+# is the half no source scan can see, and a modal left displayed is an
+# invisible sheet that swallows every click beneath it (T-23-36). One
+# asserts the live preview's SETTLED src after the crossfade (settling on
+# the wrong theme is T-23-38, and it looks identical to a correct
+# stylesheet and a correct script read separately) and that Cancel
+# restores the saved theme THROUGH the crossfade rather than around it
+# (T8). 51 + 2 = 53, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 53
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -1939,6 +1951,224 @@ def main():
                     "Left/Top), the grid's own box and EVERY chip's position inside it are plain-equal "
                     "before and after, so T6 cannot recur through the scale (D3/CFG-32, 23-10-PLAN.md Task 1)",
                     _selecting_a_theme_chip_answers_and_moves_no_layout_box)
+
+                def _both_dialogs_fade_in_and_leave_nothing_behind():
+                    # 23-10-PLAN.md Task 2 (D3/CFG-32, T-23-36). The
+                    # entrance is a stylesheet fact a source scan can
+                    # read; the CLOSE is not. A <dialog> that fades out
+                    # but never reaches `display: none` is an invisible
+                    # sheet in the top layer that swallows every click on
+                    # the page beneath it, and the only instrument that
+                    # can see that is a real hit test. So this check
+                    # does both: the opening is sampled mid-flight (a
+                    # real transition is running, opacity below 1 two
+                    # frames after the trigger), and the close is
+                    # hit-tested at the viewport centre.
+                    for route, trigger_sel in (
+                        ("/history", "[data-view-panel-src]"),
+                        ("/airlines", "[data-view-panel-src]"),
+                    ):
+                        context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                        try:
+                            page = context.new_page()
+                            _login(page, harness.base_url())
+                            page.goto(harness.base_url() + route)
+                            page.wait_for_load_state("networkidle")
+                            if page.query_selector(trigger_sel) is None:
+                                return False, (
+                                    "expected %s to render at least one %s dialog trigger"
+                                    % (route, trigger_sel))
+                            opening = page.evaluate(
+                                "sel => new Promise(resolve => {"
+                                "const d = document.getElementById('panel-lookup-dialog');"
+                                "if (!d) { resolve({error: 'no dialog'}); return; }"
+                                "document.querySelector(sel).click();"
+                                "requestAnimationFrame(() => requestAnimationFrame(() => {"
+                                "const s = getComputedStyle(d);"
+                                "resolve({open: d.open, opacity: parseFloat(s.opacity),"
+                                " dur: s.transitionDuration, props: s.transitionProperty,"
+                                " transform: s.transform});"
+                                "}));"
+                                "})", trigger_sel)
+                            if opening.get("error"):
+                                return False, "%s: %s" % (route, opening["error"])
+                            if not opening["open"]:
+                                return False, (
+                                    "%s: expected the trigger to open the dialog" % (route,))
+                            if not (0 <= opening["opacity"] < 1):
+                                return False, (
+                                    "%s: expected the dialog to be MID-FADE two frames after "
+                                    "opening (D3: both dialogs fade and zoom in via "
+                                    "@starting-style), got opacity %r with transition %r on %r "
+                                    "— a dialog already fully opaque two frames in is the "
+                                    "instant open this plan replaces"
+                                    % (route, opening["opacity"], opening["dur"],
+                                       opening["props"]))
+                            page.wait_for_timeout(600)
+                            settled = page.evaluate(
+                                "() => { const d ="
+                                " document.getElementById('panel-lookup-dialog');"
+                                "const s = getComputedStyle(d);"
+                                "return {opacity: parseFloat(s.opacity), transform: s.transform,"
+                                " display: s.display}; }")
+                            if settled["opacity"] != 1:
+                                return False, (
+                                    "%s: expected the dialog to SETTLE fully opaque, got %r"
+                                    % (route, settled))
+                            if settled["transform"] not in ("none", "matrix(1, 0, 0, 1, 0, 0)"):
+                                return False, (
+                                    "%s: expected the dialog to settle at its own scale, got %r"
+                                    % (route, settled["transform"]))
+
+                            page.click("[data-view-panel-close]")
+                            # Deliberately NO settle wait here: the whole
+                            # point is that the close is over the instant
+                            # it happens. A wait would hide exactly the
+                            # defect this measures.
+                            after = page.evaluate(
+                                "() => { const d ="
+                                " document.getElementById('panel-lookup-dialog');"
+                                "const r = d.getBoundingClientRect();"
+                                "const hit = document.elementFromPoint("
+                                "Math.round(innerWidth / 2), Math.round(innerHeight / 2));"
+                                "return {open: d.open, display: getComputedStyle(d).display,"
+                                " area: r.width * r.height,"
+                                " hit: !!(hit && d.contains(hit)),"
+                                " hitTag: hit ? hit.tagName + '.' + hit.className : null}; }")
+                            if after["open"]:
+                                return False, "%s: the dialog is still open after close()" % (
+                                    route,)
+                            for field, expected, why in (
+                                ("display", "none",
+                                 "a dialog left displayed after close() is an invisible sheet "
+                                 "over the page (T-23-36)"),
+                            ):
+                                if after[field] != expected:
+                                    return False, (
+                                        "%s: expected the closed dialog's %s to be %r, got %r — "
+                                        "%s (full read %r)"
+                                        % (route, field, expected, after[field], why, after))
+                            if after["area"] != 0:
+                                return False, (
+                                    "%s: the closed dialog still occupies %r px2 — %r"
+                                    % (route, after["area"], after))
+                            if after["hit"]:
+                                return False, (
+                                    "%s: a hit test at the viewport centre still lands INSIDE "
+                                    "the closed dialog (%r) — every click on the page beneath it "
+                                    "is being swallowed (T-23-36)" % (route, after["hitTag"]))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "both <dialog>s FADE AND ZOOM in — measured mid-flight, two frames after the "
+                    "trigger, on History and on the Airlines gallery — settle fully opaque at "
+                    "their own scale, and on close() reach display:none with a zero-area box and "
+                    "a viewport-centre hit test that lands OUTSIDE them, with no settle wait at "
+                    "all, so an invisible click-swallowing sheet cannot hide behind one "
+                    "(D3/CFG-32, T-23-36, 23-10-PLAN.md Task 2)",
+                    _both_dialogs_fade_in_and_leave_nothing_behind)
+
+                def _the_live_preview_crossfade_settles_correct_and_cancel_restores_it():
+                    # 23-10-PLAN.md Task 2 (D3/CFG-32, T-23-38). The
+                    # crossfade's one real failure mode is settling on
+                    # the WRONG theme, or settling invisible: both look
+                    # identical to every source-level scan, because the
+                    # stylesheet and the script are each individually
+                    # correct. So this asserts the SETTLED state after
+                    # the transition, never a frame during it.
+                    #
+                    # And it asserts T8 through the crossfade rather than
+                    # around it. T8 exists because form.reset() restores
+                    # every radio natively and fires no change event, so
+                    # theme-preview.js never heard about the discarded
+                    # value; a crossfade starting from a stale frame
+                    # would be a visible version of the same defect.
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+                        read = (
+                            "() => { const i ="
+                            " document.querySelector('.theme-live-preview__image');"
+                            "return {src: i.getAttribute('src'),"
+                            " opacity: parseFloat(getComputedStyle(i).opacity)}; }")
+                        saved = page.evaluate(read)
+                        target = page.evaluate(
+                            "() => { const panel = document.querySelector("
+                            "'[data-usage-panel-target=\"departures\"]');"
+                            "const chip = [...panel.querySelectorAll('label.theme-chip')].find("
+                            "c => c.getAttribute('data-preview-src')"
+                            " && !c.querySelector('input[type=radio]').checked);"
+                            "return chip ? {value: chip.querySelector("
+                            "'input[type=radio]').value,"
+                            " src: chip.getAttribute('data-preview-src')} : null; }")
+                        if not target:
+                            return False, "found no unchecked departures theme chip to click"
+                        # Click and sample two frames later, in one
+                        # evaluate. Without this sample the whole check
+                        # would pass on the CUT this plan replaces: a
+                        # preview that swaps instantly also settles on
+                        # the right theme at opacity 1, so "settles
+                        # correct" alone is satisfied by doing nothing.
+                        mid = page.evaluate(
+                            "sel => new Promise(resolve => {"
+                            "document.querySelector(sel).click();"
+                            "requestAnimationFrame(() => requestAnimationFrame(() => {"
+                            "const i = document.querySelector('.theme-live-preview__image');"
+                            "const s = getComputedStyle(i);"
+                            "resolve({opacity: parseFloat(s.opacity), dur: s.transitionDuration,"
+                            " props: s.transitionProperty});"
+                            "}));"
+                            "})",
+                            '[data-usage-panel-target="departures"] '
+                            'label.theme-chip input[type=radio][value="%s"]' % target["value"])
+                        if not (0 <= mid["opacity"] < 1):
+                            return False, (
+                                "expected the live preview to be MID-CROSSFADE two frames after "
+                                "the chip was selected, got opacity %r with transition %r on %r "
+                                "— a preview still fully opaque two frames in is the CUT this "
+                                "plan replaces, and every other assertion in this check is "
+                                "satisfied by that cut"
+                                % (mid["opacity"], mid["dur"], mid["props"]))
+                        page.wait_for_timeout(900)
+                        settled = page.evaluate(read)
+                        if settled["src"] != target["src"]:
+                            return False, (
+                                "the crossfade settled on the WRONG theme: the preview reads %r "
+                                "after selecting the chip whose own data-preview-src is %r "
+                                "(T-23-38)" % (settled["src"], target["src"]))
+                        if settled["opacity"] != 1:
+                            return False, (
+                                "the crossfade settled INVISIBLE (opacity %r) — a fade-out with "
+                                "no fade back in is worse than the cut it replaced"
+                                % (settled["opacity"],))
+
+                        page.click(".dirty-bar__cancel")
+                        page.wait_for_timeout(900)
+                        restored = page.evaluate(read)
+                        if restored["src"] != saved["src"]:
+                            return False, (
+                                "Cancel did not restore the SAVED theme through the crossfade: "
+                                "preview reads %r, expected %r — T8's defect, now wearing a fade"
+                                % (restored["src"], saved["src"]))
+                        if restored["opacity"] != 1:
+                            return False, (
+                                "the restore settled invisible (opacity %r)"
+                                % (restored["opacity"],))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the live theme preview CROSSFADES - sampled MID-FADE two frames after the "
+                    "chip was selected, because every other assertion here is satisfied by the "
+                    "cut this plan replaces - and settles on the theme that was actually "
+                    "selected, fully opaque rather than stuck mid-fade, and Cancel restores the "
+                    "SAVED theme through that same crossfade — T8 asserted through the fade "
+                    "rather than around it (D3/CFG-32, T-23-38, 23-10-PLAN.md Task 2)",
+                    _the_live_preview_crossfade_settles_correct_and_cancel_restores_it)
 
                 def _the_no_js_floor_holds_for_both_settings_pages():
                     # D-09's floor, asserted at THIS plan's own commit
