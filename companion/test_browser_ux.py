@@ -3345,6 +3345,29 @@ def main():
                         if "#" in second:
                             return False, (
                                 "the ticked text carries a raw quantity placeholder: %r" % (second,))
+                        # 23-06-PLAN.md: the other half of the same
+                        # contract the no-JS check below states. The
+                        # server renders a CLOCK here; with scripts on
+                        # the ticker must have replaced it with a live
+                        # age, so the settled text must NOT still be the
+                        # clock the element's own datetime resolves to.
+                        # The FIRST read is deliberately not pinned to
+                        # the clock: the ticker's first repaint lands one
+                        # second after load and this harness cannot
+                        # promise to read faster than that.
+                        instant = page.eval_on_selector(
+                            FRESHNESS_AGE, "el => el.getAttribute('datetime')")
+                        parsed = layout.parse_iso(instant or "")
+                        if parsed is None:
+                            return False, (
+                                "expected a machine-readable datetime for the ticker to read, "
+                                "got %r" % (instant,))
+                        clock = layout.local_clock_text(parsed, now_parsed=parsed)
+                        if second == clock:
+                            return False, (
+                                "expected the ticker to have replaced the server's clock %r with "
+                                "a live age within %dms — the clock is the no-JS floor, the age "
+                                "is the enhancement over it (D14/D22)" % (clock, TICK_SETTLE_MS))
                         # It rewrote ONE element's text and nothing else:
                         # the prefix and the pill beside it are untouched.
                         wrapper = page.eval_on_selector(
@@ -3359,9 +3382,11 @@ def main():
                         context.close()
                 check(
                     "the Health freshness line's <time data-relative> text ADVANCES within ~2s in "
-                    "a real visible tab, starting from text the server already rendered, carrying "
-                    "no raw quantity placeholder, and leaving the prefix and pill beside it "
-                    "untouched (D14/CFG-34, 23-05-PLAN.md Task 3)",
+                    "a real visible tab, starting from text the server already rendered, ending "
+                    "on something that is no longer the server's own clock (the enhancement "
+                    "really did take over), carrying no raw quantity placeholder, and leaving the "
+                    "prefix and pill beside it untouched (D14/CFG-34, 23-05-PLAN.md Task 3; the "
+                    "clock-to-age half added by 23-06-PLAN.md)",
                     _the_relative_age_ticks_in_a_real_tab)
 
                 def _a_hidden_tab_does_no_work_and_catches_up_on_return():
@@ -3478,13 +3503,50 @@ def main():
                                     "lang=%s: expected exactly one server-rendered <time "
                                     "data-relative> in the freshness line with scripts blocked, "
                                     "found %d" % (lang, found))
-                            first = page.eval_on_selector(FRESHNESS_AGE, "el => el.textContent")
-                            expected = layout.relative_age_text(0, lang=lang)
+                            seen = page.eval_on_selector(
+                                FRESHNESS_AGE,
+                                "el => [el.textContent, el.getAttribute('datetime')]")
+                            first, instant = seen[0], seen[1]
+                            # 23-06-PLAN.md (23-05's own finding 2, fixed
+                            # here rather than deferred to the wave-9
+                            # sweep): this assertion is REVERSED on
+                            # purpose. 23-05 required the ladder's zero
+                            # bucket here, which is what a page with no
+                            # ticker freezes on — "Updated 0s ago", true
+                            # at load and false one second later, which
+                            # is 19-09/A-20's own defect handed to the
+                            # one reader who has nothing to advance it.
+                            # The server now renders the CLOCK as this
+                            # element's text and the ticker replaces it
+                            # with the live age when it runs. The
+                            # expected value is derived from the
+                            # element's OWN datetime attribute rather
+                            # than from a wall clock read in this
+                            # process, so the assertion cannot flake
+                            # across a minute boundary.
+                            parsed = layout.parse_iso(instant or "")
+                            if parsed is None:
+                                return False, (
+                                    "lang=%s: expected a machine-readable datetime on the "
+                                    "freshness element for the ticker to read, got %r"
+                                    % (lang, instant))
+                            expected = layout.local_clock_text(parsed, now_parsed=parsed)
                             if first != expected:
                                 return False, (
                                     "lang=%s: expected the scripts-blocked page to read the "
-                                    "server's own ladder output %r, got %r"
-                                    % (lang, expected, first))
+                                    "server's own clock %r — a value that stays true with no "
+                                    "script to advance it — got %r" % (lang, expected, first))
+                            frozen_zero = layout.relative_age_text(0, lang=lang)
+                            if first == frozen_zero:
+                                return False, (
+                                    "lang=%s: the scripts-blocked page reads the ladder's zero "
+                                    "bucket %r, which nothing here can ever advance — that is "
+                                    "A-20's frozen zero, not a no-JS floor" % (lang, frozen_zero))
+                            if " ago" in first or "il y a" in first:
+                                return False, (
+                                    "lang=%s: the scripts-blocked page reads a relative age "
+                                    "(%r); an age is a claim about NOW and only the ticker can "
+                                    "keep it true" % (lang, first))
                             if "#" in first:
                                 return False, (
                                     "lang=%s: a raw quantity placeholder reached the page: %r"
@@ -3508,10 +3570,12 @@ def main():
                     return True, ""
                 check(
                     "with scripts blocked at 360px, in BOTH languages, the freshness line still "
-                    "renders exactly one <time data-relative> carrying the server's own ladder "
-                    "output — and it does NOT change over ~2s, which is what separates an intact "
-                    "no-JS floor from an enhancement that quietly took over (CFG-38, "
-                    "23-05-PLAN.md Task 3)",
+                    "renders exactly one <time data-relative> carrying the server's own CLOCK — "
+                    "derived from the element's own datetime, never the ladder's zero bucket and "
+                    "never any age, because nothing there can advance one — and it does NOT "
+                    "change over ~2s, which is what separates an intact no-JS floor from an "
+                    "enhancement that quietly took over (CFG-38, 23-05-PLAN.md Task 3; the "
+                    "frozen-zero half reversed by 23-06-PLAN.md)",
                     _the_relative_age_is_server_rendered_and_static_without_scripts)
 
                 def _an_expired_countdown_reads_waiting_and_never_a_warning():

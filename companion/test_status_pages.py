@@ -7067,6 +7067,33 @@ def main():
                 return False, (
                     "expected exactly one <time data-relative> element inside "
                     ".page-header__freshness, got %d" % wrapper_slice.count("data-relative"))
+            # 23-06-PLAN.md (23-05's finding 2, fixed rather than
+            # deferred): the ban above says where an age may live; this
+            # says what the SERVER may write there. Stripping the element
+            # out and finding no age left is a clause a page rendering no
+            # age at all satisfies for free — so the element's own text
+            # is asserted too. It must be the clock, and it must not be
+            # the ladder's zero bucket in either language: with scripts
+            # blocked nothing advances this element, and "Updated 0s ago"
+            # frozen at load is A-20's own defect read back to the one
+            # reader who cannot see the ticker.
+            inside = re.search(r"<time [^>]*data-relative[^>]*>(.*?)</time>",
+                               wrapper_slice, flags=re.S)
+            if inside is None:
+                return False, (
+                    "expected the freshness value to BE a <time data-relative> element, got %r"
+                    % (wrapper_slice,))
+            for lang in ("en", "fr"):
+                if inside.group(1) == layout.escape_html(layout.relative_age_text(0, lang=lang)):
+                    return False, (
+                        "the server renders the ladder's zero bucket %r as this element's own "
+                        "text — frozen for a scripts-blocked reader, which is exactly the defect "
+                        "A-20 removed" % (inside.group(1),))
+            if " ago" in inside.group(1) or "il y a" in inside.group(1):
+                return False, (
+                    "the server renders a relative age (%r) where the no-JS floor needs a value "
+                    "that stays true — the age is the ticker's to write, the clock is the "
+                    "server's" % (inside.group(1),))
 
             if wrapper_slice.count("data-refresh-clock") != 1:
                 return False, (
@@ -7142,7 +7169,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, the full "
+        "Health's header renders an honest 'Updated HH:MM' clock — server-rendered as the text of "
+        "a <time data-relative> element, never the ladder's zero bucket, so the value is true "
+        "with scripts blocked and live with them (23-06-PLAN.md) — (no relative-age suffix, the full "
         "Europe/Paris local timestamp — never the raw ISO — in the clock span's title, retargeted "
         "by 22-16 for D-05/CFG-28) beside the unchanged hidden refresh pill and NO Pause/Resume "
         "toggle (zero data-refresh-toggle/data-pause-text/data-resume-text, zero <button>), all "
@@ -12180,11 +12209,55 @@ def main():
             wrapper = rendered[start:rendered.index("</p>", start) + len("</p>")]
             # The element, over the SAME instant data-loaded-at carries —
             # not a second instant computed beside it.
-            expected = layout.relative_time_html(now_iso, now_iso)
+            #
+            # 23-06-PLAN.md (the no-JS remainder 23-05 recorded as
+            # finding 2): RETARGETED IN PLACE and strictly strengthened.
+            # 23-05 rendered the LADDER's own output as this element's
+            # server text, so a scripts-blocked reader saw "Updated 0s
+            # ago" frozen at load — 19-09/A-20's own frozen zero,
+            # reintroduced for the one reader who has no ticker to
+            # advance it. The server now renders the CLOCK inside the
+            # same <time data-relative> element (true forever, and the
+            # value this line carried before 23-05) and the ticker
+            # replaces it with the live age the moment it runs. Both
+            # readers get a true statement; neither gets a frozen zero.
+            clock_text = layout.local_clock_text(
+                layout.parse_iso(now_iso), now_parsed=layout.parse_iso(now_iso))
+            expected = layout.relative_time_html(
+                now_iso, now_iso, static_text=clock_text)
             if expected not in wrapper:
                 return False, (
                     "expected the freshness line's value to be layout.relative_time_html() over "
                     "the same instant data-loaded-at carries (%r), got %r" % (expected, wrapper))
+            # THE ANTI-VACUITY HALF, and the reason this check is not
+            # satisfied by "an element is present": what a WRONG
+            # implementation does here is render an age that nothing can
+            # advance. So the element's own server text is asserted to BE
+            # the clock and asserted NOT to be the ladder's zero bucket,
+            # in both languages — a relative age server-rendered into
+            # this element is the defect, not the enhancement.
+            element = re.search(r"<time ([^>]*)>(.*?)</time>", wrapper, flags=re.S)
+            if element is None:
+                return False, (
+                    "expected a <time> element in the freshness line, got %r" % (wrapper,))
+            attrs, element_text = element.group(1), element.group(2)
+            if "data-relative" not in attrs or "datetime=" not in attrs:
+                return False, (
+                    "expected the freshness element to stay a <time datetime=... data-relative> "
+                    "— the clock is the server's floor and the ticker's hook is what upgrades "
+                    "it, got %r" % (attrs,))
+            if element_text != layout.escape_html(clock_text):
+                return False, (
+                    "expected the SERVER to render the clock %r inside the <time> element — a "
+                    "scripts-blocked reader has nothing to advance an age, got %r"
+                    % (clock_text, element_text))
+            for lang in ("en", "fr"):
+                frozen_zero = layout.escape_html(layout.relative_age_text(0, lang=lang))
+                if element_text == frozen_zero:
+                    return False, (
+                        "the freshness line server-renders the ladder's ZERO bucket (%r) — that "
+                        "is A-20's own frozen zero, true at load and never again for a reader "
+                        "with no scripts" % (frozen_zero,))
             # data-loaded-at stays exactly once, page-wide: freshness.js
             # reads it with a single querySelector and a second would
             # silently win.
@@ -12217,10 +12290,12 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health's freshness line reads a LIVE relative age over the same instant data-loaded-at "
-        "carries, with the absolute timestamp still in the element's tooltip, exactly one "
-        "data-loaded-at and one data-refresh-pill page-wide, and the wrapper still a swap target "
-        "(D22's remainder, 23-05-PLAN.md Task 2)",
+        "Health's freshness line is a <time data-relative> over the same instant data-loaded-at "
+        "carries whose SERVER text is the clock — never the ladder's zero bucket, which is the "
+        "frozen age A-20 removed — with the absolute timestamp still in the element's tooltip, "
+        "exactly one data-loaded-at and one data-refresh-pill page-wide, and the wrapper still a "
+        "swap target (D22's remainder, 23-05-PLAN.md Task 2; the no-JS half retargeted in place "
+        "by 23-06-PLAN.md)",
         _health_freshness_clock_is_a_ticking_age_over_the_loaded_at_instant)
 
     def _freshness_js_breathes_only_from_the_loops_own_state():
