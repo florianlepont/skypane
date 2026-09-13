@@ -417,6 +417,14 @@ ICON_IDS = ICON_IDS + (
     "icon-upload",
 )
 
+# 22-14-PLAN.md Task 1 (X9/D-10): one more icon for the bottom tab bar's
+# "More" cell — appended, not merged into either tuple above, for the
+# same "appended, not reordered" reason those tuples' own comments
+# already state — grows the whitelist from twenty-one to twenty-two.
+ICON_IDS = ICON_IDS + (
+    "icon-more",
+)
+
 # One shared inline sprite, emitted once per document by page_shell().
 # `display: none` (companion/static/style.css's `.icon-defs` rule) still
 # lets every <use href="#icon-..."> reference below resolve correctly —
@@ -558,6 +566,16 @@ ICON_DEFS_HTML = (
     '<path d="M10 13V3"/>'
     '<path d="M6 7l4-4 4 4"/>'
     '<path d="M3.5 13v3a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5v-3"/>'
+    "</symbol>"
+    # 22-14-PLAN.md Task 1 (X9/D-10): the bottom tab bar's "More" glyph —
+    # three dots drawn as zero-length round-capped strokes rather than
+    # three <circle fill="currentColor">, so this symbol keeps the
+    # sprite's own fill="none"/stroke="currentColor" language and stays
+    # driven by a single CSS `color` property like every glyph above it.
+    '<symbol id="icon-more" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M4.5 10h.01M10 10h.01M15.5 10h.01"/>'
     "</symbol>"
     "</defs>"
     "</svg>"
@@ -1209,6 +1227,178 @@ def sidebar_nav(active, health_alert=None, device_config=None):
         "".join(parts))
 
 
+# --- 22-14-PLAN.md Task 1 (X9, D-10, 22-UI-SPEC.md §3.1) ---------------
+#
+# The bottom tab bar's "More" cell label. Sentence case, and NOT the
+# label voice — a nav destination is a destination, not a label, which
+# is why companion/static/style.css's `.tab-bar__label` declares no
+# uppercase and no tracking.
+TAB_BAR_MORE_LABEL = "More"
+
+# The glyph on that cell. A whitelist member (ICON_IDS above), so
+# icon_html()'s own fallback contract applies unchanged.
+TAB_BAR_MORE_ICON_ID = "icon-more"
+
+# The `<body>` marker page_shell() adds ONLY when the tab bar really
+# renders. companion/static/style.css scopes the sub-960px page-foot
+# clearance to it, so the 404 and the preview-image error pages — which
+# render no bar — reserve no space for one.
+TAB_BAR_BODY_CLASS = "has-tab-bar"
+
+
+def _tab_bar_html(active, health_alert=None, device_config=None):
+    """The bottom tab bar — the THIRD nav rendering (X9, locked to this
+    mechanism by D-10), shown by page_shell() below 960px only.
+
+    D-10 is locked and non-discretionary: this is a bottom tab bar, NOT
+    an overlay drawer. `.claude/skills/sketch-findings-skypane/
+    references/mobile-navigation.md` carries a locked REJECTED verdict on
+    the absolute-positioned overlay for the primary nav, established by
+    real-device testing during 06.6.1-06 — an out-of-flow panel could
+    only ever cover content, never push it, which is exactly why the
+    shipped hamburger dropdown is in-flow via `flex-basis: 100%`. That
+    verdict is untouched by this function and must stay that way.
+
+    Consumes `_nav_groups()` — and therefore `_nav_links()` — exactly
+    like `sidebar_nav()` and `_mobile_nav_html()` do. This is that
+    helper's THIRD consumer, not a hand-listed copy of the routes: the
+    structural guarantee that the three renderings can never disagree
+    about the tab set is the entire reason this module iterates NAV_TABS
+    in one place, and hand-listing "/", "/display", "/flights",
+    "/airlines" here would quietly retire it. Adding a route to
+    NAV_GROUPS changes all three renderings together or none of them.
+
+    The everyday/Advanced split is read from `_nav_groups()`'s own group
+    LABEL, not from a second list: the unlabelled group is the four
+    everyday destinations (each its own cell), and the labelled
+    ("Advanced") group is what the "More" sheet holds. That is the same
+    structure `sidebar_nav()` already renders as a `.nav-group`.
+
+    "More" is a native `<details>`/`<summary>`, deliberately: it is
+    keyboard-operable, announced by screen readers as a disclosure, and
+    FULLY FUNCTIONAL WITH SCRIPTS BLOCKED. The no-JS floor (D-09) is met
+    by construction here rather than by a fallback path that could rot —
+    this file emits no script hook for it and
+    companion/static/nav-dropdown.js never looks it up. Its open state
+    resets naturally on navigation (a page load), so there is no
+    close-on-navigate logic to write either.
+
+    The sheet's upward `position: absolute` (see the `.tab-bar__more-
+    panel` rule in companion/static/style.css) is NOT a reversal of the
+    rejected-overlay verdict above. That verdict is specifically about
+    the PRIMARY nav's push-versus-overlay behaviour on a component that
+    must be able to push page content down; this is a two-item secondary
+    sheet anchored to an already-fixed bar that pushes nothing and never
+    could. Recorded here, and in the stylesheet, so a future reader does
+    not read the one as a reversal of the other.
+
+    When the current page is one of the Advanced destinations the More
+    summary wears the active pill, so a collapsed bar never lies about
+    where you are; `aria-current="page"` stays on the one real link
+    (T-22-53), never on the summary, since a `<summary>` is a disclosure
+    control and not the current page.
+
+    `health_alert` (`None`/`"ok"`/`"warn"`/`"error"`, the same contract
+    `sidebar_nav()` and `_mobile_nav_html()` take): drawn on the More
+    SUMMARY rather than on the Health link inside the sheet. This is the
+    one deliberate divergence from the other two renderings and it is a
+    correctness point, not a style choice — the sheet is collapsed by
+    default, so a dot inside it would be invisible at exactly the moment
+    it has something to say. The summary is the visible cell that leads
+    to Health, and `_health_alert_markup()`'s own visually-hidden suffix
+    rides along with it, so the count stays exactly one per nav renderer.
+
+    Returns `""` when `device_config` is falsy — the identical "no
+    request context available" degrade contract `nav_status_html()`
+    above already documents, which is what keeps the bar off the login
+    shell, the 404 and every pre-session page: a page rendered before a
+    session exists has no destinations to offer. Nav visibility has
+    always been presentation-only in this app (T-22-52); `/health` and
+    `/device` stay session-gated on the server regardless of which
+    rendering links to them.
+    """
+    if not device_config:
+        return ""
+    cells = []
+    sheet_links = []
+    sheet_holds_active = False
+    for group_label, group_links in _nav_groups(active):
+        for is_active, route, label, slug in group_links:
+            aria_current = ' aria-current="page"' if is_active else ""
+            if group_label:
+                sheet_holds_active = sheet_holds_active or is_active
+                css_class = (
+                    "mobile-nav__link mobile-nav__link--active"
+                    if is_active else "mobile-nav__link")
+                # .mobile-nav__link is REUSED verbatim rather than
+                # re-declared: 22-UI-SPEC.md §3.1 puts the sheet's rows
+                # at "`.mobile-nav__link`'s own 44px / 16px geometry",
+                # and reusing the class is what makes that literally
+                # true instead of a second set of numbers to keep in
+                # step with quick task 260902-qkm's restored 44px floor.
+                sheet_links.append(
+                    '<a class="%s" href="%s"%s>%s</a>'
+                    % (css_class, route, aria_current, label))
+                continue
+            css_class = (
+                "tab-bar__link tab-bar__link--active"
+                if is_active else "tab-bar__link")
+            cells.append(
+                '<a class="%s" href="%s"%s>%s</a>'
+                % (css_class, route, aria_current,
+                   _tab_bar_cell_body(NAV_ICON_IDS.get(slug, ""), label)))
+    summary_class = (
+        "tab-bar__link tab-bar__link--active"
+        if sheet_holds_active else "tab-bar__link")
+    alert_html = (
+        _health_alert_markup(health_alert)
+        if health_alert in ("warn", "error") else "")
+    cells.append(
+        '<details class="tab-bar__more">'
+        '<summary class="%s">%s</summary>'
+        '<div class="tab-bar__more-panel">%s</div>'
+        "</details>"
+        % (summary_class,
+           _tab_bar_cell_body(
+               TAB_BAR_MORE_ICON_ID,
+               escape_html(i18n.t(TAB_BAR_MORE_LABEL)),
+               extra_html=alert_html),
+           "".join(sheet_links)))
+    return (
+        '<nav class="tab-bar" aria-label="%s">%s</nav>'
+    ) % (
+        # The same translated landmark name sidebar_nav() uses. Exactly
+        # one of the two is ever exposed to the accessibility tree,
+        # because companion/static/style.css's 960px rule removes the
+        # losing copy with `display: none` — which takes it out of the
+        # layout, the tab order and the accessibility tree together.
+        # This is the SAME invariant page_shell()'s own comment already
+        # states for the sidebar/dropdown pair; the tab bar replaces the
+        # dropdown as the sub-960px half of it.
+        escape_html(i18n.t("Primary navigation")),
+        "".join(cells))
+
+
+def _tab_bar_cell_body(icon_id, label, extra_html=""):
+    """One tab cell's inner icon-above-label stack, wrapped in the pill
+    span the active/hover treatments paint.
+
+    The pill is a WRAPPER inside the cell rather than the cell itself
+    (22-UI-SPEC.md §3.1): the cell keeps its full 78x56px tap area while
+    the tint is inset from the cell edge, so the active signal reads as
+    a pill and not as a full-bleed block. `label` arrives already
+    escaped from `_nav_links()` (or escaped at this function's call site
+    for the "More" cell); `extra_html` is already-built safe markup,
+    interpolated verbatim exactly like `_health_alert_markup()`'s output
+    is in `sidebar_nav()`.
+    """
+    return (
+        '<span class="tab-bar__pill">%s'
+        '<span class="tab-bar__label">%s</span>%s</span>'
+    ) % (
+        icon_html(icon_id, extra_class="tab-bar__icon"), label, extra_html)
+
+
 def _theme_form_html(resolved_theme):
     # 22-08-PLAN.md Task 2 (D-06/B16): a function-scoped lookup table,
     # not `choice.capitalize()` — companion/test_i18n.py's ast-based
@@ -1537,6 +1727,21 @@ def page_shell(
     mobile_nav_html = _mobile_nav_html(
         active, theme_form_html, health_alert=health_alert,
         lang_form_html=lang_form_html, device_config=device_config)
+    # 22-14-PLAN.md Task 1 (X9/D-10): the third nav rendering. `""` when
+    # `device_config` is falsy — the 404 and the preview-image error
+    # pages, which have no session and therefore no destinations to
+    # offer, exactly like the state reminder above them. `<body>` then
+    # carries TAB_BAR_BODY_CLASS only when the bar is really there, so
+    # companion/static/style.css can reserve the bar's own clearance at
+    # the foot of the page without reserving it on a page that has no
+    # bar (a `:has()` selector would have been the other way to do this;
+    # the file is pinned at exactly one `@supports selector(:has(*))`
+    # block by companion/test_config_page.py, and a server-rendered
+    # class costs nothing and degrades everywhere).
+    tab_bar_html = _tab_bar_html(
+        active, health_alert=health_alert, device_config=device_config)
+    body_class_attr = (
+        ' class="%s"' % TAB_BAR_BODY_CLASS if tab_bar_html else "")
     flash_html = flash or ""
     banner_html = banner or ""
 
@@ -1588,7 +1793,8 @@ def page_shell(
     # desktop width, where CSS hides the header entirely, a keyboard user
     # tabs into the visible sidebar navigation first, with no invisible
     # stops before it. Both nav copies (the sidebar and, 06.6.1-05, the
-    # hamburger dropdown) are always present in the DOM —
+    # hamburger dropdown; 22-14-PLAN.md Task 1, the bottom tab bar that
+    # takes the dropdown's landmark over) are always present in the DOM —
     # companion/static/style.css's 960px media query is the only thing
     # that decides which copy is visible, never anything in this function
     # (no inline styles, no boolean-hidden attribute, no ARIA visibility
@@ -1618,7 +1824,7 @@ def page_shell(
         '<link rel="stylesheet" href="/static/style.css">\n'
         "%s\n"
         "</head>\n"
-        "<body>\n"
+        "<body%s>\n"
         "%s\n"
         "%s\n"
         '<div class="dashboard-shell">\n'
@@ -1635,6 +1841,15 @@ def page_shell(
         "%s\n%s\n%s\n"
         "</main>\n"
         "</div>\n"
+        # 22-14-PLAN.md Task 1 (X9/D-10): the tab bar sits OUTSIDE
+        # .dashboard-shell and after it, so it is a sibling of the shell
+        # rather than a descendant of the scrolled content column — a
+        # `position: fixed` box inside .dashboard-main would still be
+        # fixed to the viewport, but nesting it there would put it
+        # inside the shell's own stacking/overflow context for no
+        # reason. `""` on a page that renders no bar, which leaves this
+        # slot emitting a bare newline exactly like the flash slot does.
+        "%s\n"
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
@@ -1653,6 +1868,7 @@ def page_shell(
         escape_html(resolved_theme),
         escape_html(title), escape_html(SITE_TITLE),
         FAVICON_LINK_HTML,
+        body_class_attr,
         skip_link_html,
         ICON_DEFS_HTML,
         escape_html(SITE_TITLE),
@@ -1662,6 +1878,7 @@ def page_shell(
         mobile_nav_html,
         SKIP_LINK_TARGET_ID,
         flash_html, banner_html, body,
+        tab_bar_html,
         NAV_DROPDOWN_SCRIPT_SRC,
         # 06.6.3: emitted unconditionally on every authenticated page,
         # matching nav-dropdown.js/battery-trend.js's own "served

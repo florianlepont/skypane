@@ -13,7 +13,11 @@
  * The full current list, kept exhaustive on purpose so a future reader
  * can tell an intended use from an accidental one: primary
  * (`type="submit"`) buttons, links, the focused-input outline, the
- * active sidebar/dropdown link indicator and its tinted pill, the
+ * active sidebar/dropdown/tab-bar link indicator and its tinted pill
+ * (22-14-PLAN.md Task 1 widens this one entry to its third rendering —
+ * the bottom tab bar reuses the identical 12% wash, accent text and
+ * semibold weight, so this is one more consumer of an already-listed
+ * use, not a new accent consumer and not a new entry), the
  * hamburger toggle's active state, a stat tile's icon tint and top
  * accent when no ok/warn/error status applies, the skip link's fill,
  * the selected runway card's border and check glyph, the native
@@ -6839,5 +6843,205 @@ input:checked + .frame-colours__row {
 @media (max-width: 359.98px) {
   .runway-card {
     flex: 1 1 100%;
+  }
+}
+
+/* ===================================================================== *
+ * The bottom tab bar (X9, 22-14-PLAN.md Task 1, 22-UI-SPEC.md §3.1)     *
+ * ===================================================================== *
+ *
+ * D-10 (22-CONTEXT.md) locks X9's mechanism to a bottom tab bar and
+ * forbids the alternative the audit's own fix column had also offered:
+ * `.claude/skills/sketch-findings-skypane/references/mobile-navigation
+ * .md` carries a locked REJECTED verdict on an absolute-positioned
+ * overlay for the PRIMARY nav, established by real-device testing during
+ * 06.6.1-06 — an out-of-flow panel can only ever cover content, never
+ * push it, which is why `.mobile-nav` above is in-flow via
+ * `flex-basis: 100%`. Nothing in this block touches that rule or that
+ * verdict. The dropdown still pushes; it just has far less to push with
+ * now that destinations live down here.
+ *
+ * The measured defect: opening the hamburger shoved a 390x844 viewport
+ * about 420px down — a near-full-screen push — to reach any page. Every
+ * everyday destination is now one tap away at ZERO page shift.
+ *
+ * `display: none` is declared here, outside the media query, and only
+ * lifted below 960px. Stated that way round on purpose: a desktop that
+ * never matches the query below can never show the bar, whatever later
+ * rules arrive. The >=960px sidebar is untouched.
+ */
+.tab-bar {
+  display: none;
+}
+
+@media (max-width: 959.98px) {
+  /* 959.98px, not 959px: the same fractional boundary the sub-960px
+   * rules above already use, so a fractional-CSS-pixel viewport cannot
+   * land in a one-device-pixel gap with neither nav visible.
+   *
+   * Surface/shadow: `--color-secondary` (the nav surface `.mobile-nav`
+   * already uses), a single TOP hairline, and `--shadow-card-hover` at
+   * REST. The resting shadow is a floating-overlay exception to the
+   * card hairline-at-rest contract, the same exception `.mobile-nav`,
+   * `.lightbox` and `.dirty-bar` already carry, for the same reason:
+   * this genuinely floats over the content it covers.
+   *
+   * NO border radius, deliberately. `--radius-card` is for floating
+   * elements that do NOT touch the viewport edge; this bar is anchored
+   * to three of them, and rounding an edge-anchored box leaves slivers
+   * of page showing through its corners. Getting that pairing backwards
+   * is the easiest mistake available here.
+   *
+   * 56px is one of the three off-scale literals 22-UI-SPEC.md §1 admits
+   * for this phase (the safe-area inset below is the second); it is the
+   * tab ROW's height, with the inset added as padding underneath so the
+   * row itself never shrinks on a device with a home indicator.
+   *
+   * `z-index: 20` puts the bar above ordinary page content and BELOW
+   * `.dirty-bar`'s 30 — see the save-bar rules and their stated reason. */
+  .tab-bar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--color-secondary);
+    border-top: 1px solid var(--color-border);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* Five equal cells: `flex: 1 1 0` (not `1 1 auto`) so the widest label
+   * cannot buy itself a wider tab. At 390px that is 78x56px per cell,
+   * which clears the WCAG 2.5.5 44px floor DIRECTLY in both axes — this
+   * is a met-directly touch target, not a traded-away one, because
+   * nothing was traded for it.
+   *
+   * `.tab-bar__link` is also the `<summary>` of the "More" `<details>`
+   * below, which is why this rule declares `color` explicitly: the
+   * global `summary` rule paints its own text with `--color-accent`
+   * (a disclosure-control affordance), and an inactive tab must read as
+   * an inactive tab, not as the current page. (0,1,0) beats (0,0,1). */
+  .tab-bar__link {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 56px;
+    display: flex;
+    color: var(--color-text);
+    text-decoration: none;
+    font-family: var(--font-ui);
+  }
+
+  /* The active/hover tint is painted on this INNER wrapper, not on the
+   * cell, so the pill is inset from the cell edge while the cell keeps
+   * its full 78x56px tap area. */
+  .tab-bar__pill {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    margin: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-control);
+    transition: background-color .15s ease, color .15s ease;
+  }
+
+  /* 11px regular, sentence case, and explicitly NOT the label voice —
+   * no `text-transform`, no `letter-spacing`. A nav destination is a
+   * destination, not a label, and shouting four of them at the foot of
+   * every phone page would make the bar the loudest thing on screen.
+   * The size joins this file's existing sub-scale exception tier beside
+   * `.sparkline-axis-label` (10px) and `.cell-secondary`; it is not a
+   * fifth entry in the four-size type scale. */
+  .tab-bar__label {
+    font-size: 11px;
+    font-weight: var(--weight-regular);
+    line-height: 1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The app's ONE active-signal idiom, verbatim: the same 12% accent
+   * wash, accent text and semibold weight `.sidebar-link--active`,
+   * `.mobile-nav__link--active` and `.theme-option--active` already
+   * share. Not a fourth treatment — a third consumer of the third. */
+  .tab-bar__link--active {
+    color: var(--color-accent);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__link--active .tab-bar__pill {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  /* :not()-scoped for exactly the reason `.mobile-nav__link`'s own hover
+   * rule above already states, and which `references/control-density.md`
+   * names as a specific failure: a bare hover selector here would be
+   * equal specificity and later in source, so it would erase the active
+   * tint the instant the pointer crossed the current tab. */
+  .tab-bar__link:not(.tab-bar__link--active):hover .tab-bar__pill {
+    background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  }
+
+  /* "More" is a native <details>. It is the cell itself, so it takes the
+   * same `flex: 1 1 0` share as the four links, and `position: relative`
+   * only to anchor its own sheet. */
+  .tab-bar__more {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    position: relative;
+  }
+
+  .tab-bar__more > .tab-bar__link {
+    flex: 1 1 auto;
+  }
+
+  /* The sheet opens UPWARD from the bar.
+   *
+   * This `position: absolute` is NOT a reversal of the rejected-overlay
+   * verdict recorded in `references/mobile-navigation.md`. That verdict
+   * is about the PRIMARY nav's push-versus-overlay behaviour on a
+   * component that must be able to push page content down; this is a
+   * two-item secondary sheet anchored to a bar that is already fixed,
+   * pushes nothing, and never could. Recorded here as well as in
+   * companion/layout.py's `_tab_bar_html()` so a future reader meets the
+   * distinction wherever they arrive first.
+   *
+   * Rows reuse `.mobile-nav__link` verbatim (44px, 16px, `--font-ui`)
+   * rather than re-declaring that geometry — see that rule and quick
+   * task 260902-qkm's note on why its 44px floor is load-bearing.
+   *
+   * Radius on the top corners only: the sheet sits flush on the bar and
+   * its right edge meets the viewport edge, so a full `--radius-card`
+   * would round two corners that touch something. */
+  .tab-bar__more-panel {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-sm);
+    background: var(--color-secondary);
+    border: 1px solid var(--color-border);
+    border-top-left-radius: var(--radius-card);
+    border-top-right-radius: var(--radius-card);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  /* The last card must never sit under the bar. Scoped to the
+   * server-rendered `.has-tab-bar` body class (companion/layout.py's
+   * TAB_BAR_BODY_CLASS), which is present only when the bar really
+   * rendered — so the 404 and the preview-image error pages, which
+   * render no bar, reserve no space for one. */
+  .has-tab-bar .page-content {
+    padding-bottom: calc(
+      var(--space-2xl) + 56px + env(safe-area-inset-bottom, 0px));
   }
 }

@@ -38,6 +38,16 @@ CATALOG = {
     "Health": "État",
     "Device": "Appareil",
 
+    # --- The bottom tab bar's "More" cell (X9/D-10, 22-14-PLAN.md
+    #     Task 1) -----------------------------------------------------
+    # The fifth tab, whose native <details> sheet holds the Advanced
+    # group's two destinations. Sentence case like every nav label
+    # above it, and deliberately NOT the label voice — a destination is
+    # a destination. "Plus" is the ordinary French word a nav uses for
+    # this and matches the existing register of "Accueil"/"Vols"/
+    # "Compagnies": one plain word, no verb.
+    "More": "Plus",
+
     # --- Nav-footer switches (20-UI-SPEC.md §F) -------------------------
     # D-17 (21-01-PLAN.md Task 1): "Simple mode"/"Simple"/"Full" are
     # deleted in this same commit as layout._mode_form_html() itself —

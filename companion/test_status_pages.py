@@ -651,6 +651,25 @@ EXPECTED_CHECK_COUNT = 257
 # documented root-sandbox anomaly_active() FAIL apart), never by
 # arithmetic.
 EXPECTED_CHECK_COUNT = 258
+# 22-14-PLAN.md Task 1 (X9/D-10): +3 — the tab bar's own stylesheet
+# contract read block by block (display:none until the same fractional
+# 959.98px boundary the sibling rules use, then fixed to the viewport
+# bottom at 56px plus the safe-area inset on the nav surface, a top
+# hairline, the resting overlay shadow and NO border radius because the
+# bar is edge-anchored; `flex: 1 1 0` cells; the app's one 12%-accent
+# pill idiom reused byte-for-byte from .sidebar-link--active with a
+# :not()-scoped hover placed after it; an 11px regular label carrying
+# neither text-transform nor letter-spacing; and the .has-tab-bar page
+# clearance whose class name is compared against layout's own constant),
+# the More sheet opening upward while .mobile-nav's in-flow flex-basis
+# push-down stays untouched and the stylesheet itself records why that
+# absolute positioning is not a reversal of the 06.6.1-06 verdict, and
+# every tab label plus the landmark name in French. 258 + 3 = 261,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (260/261 pass — the one documented anomaly_active()
+# root-sandbox failure, unrelated to this plan), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 261
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -10751,6 +10770,192 @@ def main():
         "(the Frame strip's two switch buttons are no longer accent-filled) — the arithmetic is "
         "written into the comment, not merely asserted (22-UI-SPEC.md §1)",
         _accent_reservation_header_comment_no_longer_lists_strip_buttons)
+
+    # ======================================================================
+    # 22-14-PLAN.md Task 1 (X9, D-10, 22-UI-SPEC.md §3.1): the bottom tab
+    # bar's own geometry, surface, active idiom and page clearance, read
+    # from the real stylesheet block by block — plus its French labels.
+    # ======================================================================
+
+    _TAB_BAR_BANNER = "The bottom tab bar (X9, 22-14-PLAN.md Task 1"
+
+    def _tab_bar_css_geometry_surface_and_active_idiom():
+        css_source = _css_source()
+        region = css_source[css_source.index(_TAB_BAR_BANNER):]
+
+        # The bar is OFF by default and only switched on below 960px, so
+        # a desktop that never matches the query can never show it.
+        base = _block(region, ".tab-bar {\n  display: none;")
+        if "display: none" not in base:
+            return False, "expected the base .tab-bar rule to be display: none"
+        for banned in ("position:", "z-index", "bottom:"):
+            if banned in base:
+                return False, (
+                    "expected the base .tab-bar rule to carry layout only inside the "
+                    "media query, found %r" % (banned,))
+
+        if "@media (max-width: 959.98px) {" not in region:
+            return False, (
+                "expected the tab bar to be scoped to the same fractional 959.98px "
+                "boundary the sibling sub-960px rules already use")
+
+        fixed = _block(region, ".tab-bar {\n    display: flex;")
+        for needle in (
+                "position: fixed", "left: 0", "right: 0", "bottom: 0",
+                "z-index: 20",
+                "padding-bottom: env(safe-area-inset-bottom, 0px)",
+                "background: var(--color-secondary)",
+                "border-top: 1px solid var(--color-border)",
+                "box-shadow: var(--shadow-card-hover)"):
+            if needle not in fixed:
+                return False, "expected %r in the tab bar's own rule" % (needle,)
+        # NO radius: --radius-card is for floating elements that do not
+        # touch the viewport edge, and this bar is anchored to three.
+        if "border-radius" in fixed or "radius-card" in fixed:
+            return False, (
+                "an edge-anchored bar must declare no border radius, got %r" % (fixed,))
+
+        link = _block(region, ".tab-bar__link {")
+        for needle in ("flex: 1 1 0", "height: 56px", "color: var(--color-text)"):
+            if needle not in link:
+                return False, "expected %r in .tab-bar__link" % (needle,)
+
+        # The one active-signal idiom, byte-for-byte the same wash
+        # .sidebar-link--active already declares — reused, not reinvented.
+        wash = "color-mix(in srgb, var(--color-accent) 12%, transparent)"
+        sidebar_active = _block(css_source, ".sidebar-link--active {")
+        if wash not in sidebar_active:
+            return False, (
+                "expected .sidebar-link--active to still carry the 12%% accent wash this "
+                "check compares against, got %r" % (sidebar_active,))
+        active_pill = _block(region, ".tab-bar__link--active .tab-bar__pill {")
+        if wash not in active_pill:
+            return False, (
+                "expected the active tab to reuse the app's one active-pill wash verbatim, "
+                "got %r" % (active_pill,))
+        active_text = _block(region, ".tab-bar__link--active {")
+        for needle in ("color: var(--color-accent)",
+                       "font-weight: var(--weight-semibold)"):
+            if needle not in active_text:
+                return False, "expected %r in .tab-bar__link--active" % (needle,)
+
+        # The inactive hover must be :not()-scoped. An unscoped hover at
+        # equal specificity, later in source, would erase the active tint
+        # the instant the pointer crossed it — the exact failure
+        # references/control-density.md names.
+        hover_selector = ".tab-bar__link:not(.tab-bar__link--active):hover .tab-bar__pill {"
+        if hover_selector not in region:
+            return False, (
+                "expected the inactive hover to be :not(.tab-bar__link--active)-scoped")
+        if region.index(hover_selector) < region.index(
+                ".tab-bar__link--active .tab-bar__pill {"):
+            return False, (
+                "expected the :not()-scoped hover to sit after the active rule in source "
+                "order, so the cascade cannot be read backwards")
+        for bad in (".tab-bar__link:hover {", ".tab-bar__link:hover .tab-bar__pill {"):
+            if bad in region:
+                return False, "expected no unscoped tab hover rule (%r)" % (bad,)
+
+        # 11px regular, sentence case, explicitly NOT the label voice.
+        label = _block(region, ".tab-bar__label {")
+        if "font-size: 11px" not in label:
+            return False, "expected the 11px sub-scale label size"
+        if "font-weight: var(--weight-regular)" not in label:
+            return False, "expected a regular-weight label"
+        for voice in ("text-transform", "letter-spacing"):
+            if voice in label:
+                return False, (
+                    "a nav destination is a destination, not a label — %r must not appear "
+                    "on .tab-bar__label" % (voice,))
+
+        # The last card must never sit under the bar, and the clearance
+        # is reserved only on a page that really has one.
+        clearance = _block(region, ".has-tab-bar .page-content {")
+        for needle in ("padding-bottom", "56px", "env(safe-area-inset-bottom, 0px)"):
+            if needle not in clearance:
+                return False, "expected %r in the page-foot clearance rule" % (needle,)
+        if layout.TAB_BAR_BODY_CLASS != "has-tab-bar":
+            return False, (
+                "the clearance selector and layout.TAB_BAR_BODY_CLASS must name the same "
+                "class, got %r" % (layout.TAB_BAR_BODY_CLASS,))
+        return True, ""
+    check(
+        "the tab bar is display:none until the 959.98px boundary, then fixed to the viewport bottom at "
+        "56px plus the safe-area inset on the nav surface with a top hairline, the resting overlay shadow "
+        "and NO border radius (it is edge-anchored); its cells are `flex: 1 1 0`; its active state reuses "
+        "the app's one 12%-accent-wash pill idiom byte-for-byte with a :not()-scoped hover placed after it; "
+        "its label is 11px regular with no label voice; and .has-tab-bar clears the bar at the page foot "
+        "(X9/D-10, 22-14-PLAN.md Task 1)",
+        _tab_bar_css_geometry_surface_and_active_idiom)
+
+    def _tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row():
+        css_source = _css_source()
+        region = css_source[css_source.index(_TAB_BAR_BANNER):]
+        sheet = _block(region, ".tab-bar__more-panel {")
+        for needle in ("position: absolute", "bottom: 100%", "right: 0",
+                       "background: var(--color-secondary)",
+                       "box-shadow: var(--shadow-card-hover)"):
+            if needle not in sheet:
+                return False, "expected %r in the More sheet's rule" % (needle,)
+        # The absolute positioning here is NOT a reversal of the rejected
+        # absolute-overlay verdict on the PRIMARY nav — the distinction
+        # has to be written down where a future reader meets the rule,
+        # not only in a plan document.
+        region_head = region[:region.index(".tab-bar__more-panel {")]
+        if "flex-basis: 100%" not in _block(css_source, ".mobile-nav {"):
+            return False, (
+                "the dropdown's in-flow push-down mechanism must stay exactly as it is — "
+                "this plan does not reopen the 06.6.1-06 verdict")
+        if "not a reversal" not in region_head.lower():
+            return False, (
+                "expected the stylesheet itself to record why the sheet's absolute "
+                "positioning is not a reversal of the rejected-overlay verdict")
+        # The sheet's rows reuse .mobile-nav__link rather than restating
+        # its 44px/16px geometry, so quick task 260902-qkm's restored
+        # floor cannot drift out from under them.
+        if "min-height: 44px" in sheet or "font-size:" in sheet:
+            return False, (
+                "the sheet must REUSE .mobile-nav__link's geometry, never restate it")
+        return True, ""
+    check(
+        "the More sheet opens upward from the fixed bar (absolute, bottom: 100%, right: 0) on the nav "
+        "surface with the overlay shadow, reuses .mobile-nav__link's 44px/16px geometry rather than "
+        "restating it, leaves .mobile-nav's in-flow flex-basis push-down untouched, and the stylesheet "
+        "itself records why this absolute positioning is not a reversal of the rejected-overlay verdict "
+        "(X9/D-10, 22-14-PLAN.md Task 1)",
+        _tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row)
+
+    def _french_tab_bar_labels_and_landmark():
+        device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
+        try:
+            prefs.set_request_prefs(lang="fr")
+            rendered = layout.page_shell(
+                title="T", active="flights", body="", device_config=device_cfg)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        start = rendered.index('<nav class="tab-bar"')
+        bar = rendered[start:rendered.index("</nav>", start)]
+        if 'aria-label="Navigation principale"' not in bar:
+            return False, (
+                "expected the tab bar's landmark name in French (CFG-29 must not regress), "
+                "got %r" % (bar[:120],))
+        for english, french in (
+                ("Home", "Accueil"), ("Display", "Affichage"), ("Flights", "Vols"),
+                ("Airlines", "Compagnies"), ("More", "Plus"),
+                ("Health", "\u00c9tat"), ("Device", "Appareil")):
+            if ">%s<" % french not in bar:
+                return False, (
+                    "expected the %r cell to read %r in French, got %r"
+                    % (english, french, bar))
+            if ">%s<" % english in bar:
+                return False, (
+                    "expected no leftover English %r label under a French request" % (english,))
+        return True, ""
+    check(
+        "under lang='fr' every tab-bar label reads French — Accueil / Affichage / Vols / Compagnies / "
+        "Plus, with \u00c9tat and Appareil inside the More sheet — and the landmark name is "
+        "'Navigation principale' (B16/CFG-29, 22-14-PLAN.md Task 1)",
+        _french_tab_bar_labels_and_landmark)
 
     # ======================================================================
     # 22-04-PLAN.md Task 3 (D-03/CFG-26, X2): Health's Frame tile and the

@@ -539,6 +539,22 @@ EXPECTED_CHECK_COUNT = 264
 # the two documented WR-11 root-sandbox failures, unrelated to this
 # plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 269
+# 22-14-PLAN.md Task 1 (X9/D-10): +2 — the bottom tab bar rendered from
+# the ONE shared _nav_links() iteration (its destinations compared
+# element-for-element against the sidebar's, not merely asserted
+# non-empty; the four everyday routes as tab links and the Advanced
+# group inside a native <details>; exactly one aria-current="page" and
+# never on the <summary>; the More summary wearing the active pill on an
+# Advanced page; no script hook anywhere in the bar), and the bar's
+# absence from the login shell and from a page_shell() with no device
+# config, with the <body> clearance marker present exactly when the bar
+# is. The icon-sprite integrity check and the sprite-emitted-once check
+# were EDITED IN PLACE (twenty-one -> twenty-two members, icon-more),
+# not counted as new. 269 + 2 = 271, recomputed directly against the
+# real on-disk check(...) call count at execution time (269/271 pass —
+# the two documented WR-11 root-sandbox failures, unrelated to this
+# plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 271
 
 
 def _ago_iso(seconds):
@@ -1698,17 +1714,21 @@ def main():
             # D-23/D-12/D-20) — see layout.py's own header comment on
             # ICON_IDS for the supersession note. quick task 260903-df3
             # grew it again, fourteen to fifteen (icon-upload, the
-            # Airlines lightbox replace zone's glyph).
-            if len(layout.ICON_IDS) != 21:
-                return False, "expected exactly twenty-one ICON_IDS, got %d" % len(layout.ICON_IDS)
-            if len(set(layout.ICON_IDS)) != 21:
+            # Airlines lightbox replace zone's glyph). 22-14-PLAN.md
+            # Task 1 (X9/D-10) grows it from twenty-one to twenty-two
+            # (icon-more, the bottom tab bar's "More" cell) — this check
+            # is edited IN PLACE, not added to: same three counts, one
+            # higher, no EXPECTED_CHECK_COUNT contribution.
+            if len(layout.ICON_IDS) != 22:
+                return False, "expected exactly twenty-two ICON_IDS, got %d" % len(layout.ICON_IDS)
+            if len(set(layout.ICON_IDS)) != 22:
                 return False, "expected ICON_IDS to have no duplicates"
             symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
             if sorted(symbol_ids) != sorted(layout.ICON_IDS):
                 return False, "sprite symbol ids %r do not match ICON_IDS %r" % (
                     symbol_ids, layout.ICON_IDS)
-            if layout.ICON_DEFS_HTML.count("<symbol") != 21:
-                return False, "expected exactly twenty-one <symbol occurrences, got %d" % (
+            if layout.ICON_DEFS_HTML.count("<symbol") != 22:
+                return False, "expected exactly twenty-two <symbol occurrences, got %d" % (
                     layout.ICON_DEFS_HTML.count("<symbol"))
             if 'stroke="currentColor"' not in layout.ICON_DEFS_HTML:
                 return False, "expected stroke=\"currentColor\" in the sprite"
@@ -1716,7 +1736,7 @@ def main():
                 return False, "a hard-coded hex fill would defeat the per-status tint"
             return True, ""
         check(
-            "layout.ICON_IDS has exactly twenty-one unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
+            "layout.ICON_IDS has exactly twenty-two unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
             _icon_sprite_integrity)
 
         def _icon_html_whitelist_enforcement():
@@ -1763,15 +1783,17 @@ def main():
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             if doc.count("<defs") != 1:
                 return False, "expected exactly one <defs, got %d" % doc.count("<defs")
-            if doc.count("<symbol") != 21:
-                return False, "expected exactly twenty-one <symbol, got %d" % doc.count("<symbol")
+            # 22-14-PLAN.md Task 1 (X9/D-10): twenty-one -> twenty-two
+            # (icon-more). Edited in place; no check added or removed.
+            if doc.count("<symbol") != 22:
+                return False, "expected exactly twenty-two <symbol, got %d" % doc.count("<symbol")
             if doc.index("icon-defs") >= doc.index("dashboard-shell"):
                 return False, "expected the sprite to precede the dashboard-shell div"
             if ' style="' in doc:
                 return False, "page_shell() must emit no inline styles"
             return True, ""
         check(
-            "page_shell() emits exactly one sprite (one <defs, twenty-one <symbol) before dashboard-shell, "
+            "page_shell() emits exactly one sprite (one <defs, twenty-two <symbol) before dashboard-shell, "
             "no inline styles",
             _page_shell_emits_sprite_once_no_inline_styles)
 
@@ -2269,6 +2291,155 @@ def main():
             "implements the hidden-attribute/transitionend/reduced-motion state machine, matched "
             "by style.css's .js-scoped clipping rules",
             _nav_dropdown_js_progressive_enhancement_state_machine)
+
+        # --- 22-14-PLAN.md Task 1 (X9, D-10, 22-UI-SPEC.md §3.1): ------
+        # --- the bottom tab bar, the THIRD nav rendering             ---
+
+        _TAB_BAR_DEVICE_CFG = {
+            "display_enabled": True, "quiet_hours_enabled": False}
+
+        def _tab_bar_slice(doc):
+            start = doc.index('<nav class="tab-bar"')
+            return doc[start:doc.index("</nav>", start) + len("</nav>")]
+
+        def _tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
+            # The structural guarantee this check exists to defend
+            # (references/mobile-navigation.md): all nav renderings
+            # consume one iteration, so they cannot disagree about the
+            # tab set. Asserting the rendered DESTINATIONS match — not
+            # merely that both renderings are non-empty — is what makes
+            # a hand-listed copy of the routes fail here.
+            doc = layout.page_shell(
+                title="T", active="flights", body="<p>b</p>",
+                device_config=_TAB_BAR_DEVICE_CFG)
+            bar = _tab_bar_slice(doc)
+            sidebar = layout.sidebar_nav("flights")
+            bar_routes = re.findall(r'<a class="[^"]*" href="([^"]+)"', bar)
+            sidebar_routes = re.findall(
+                r'<a class="sidebar-link[^"]*" href="([^"]+)"', sidebar)
+            if bar_routes != sidebar_routes:
+                return False, (
+                    "expected the tab bar\'s destinations to equal the sidebar\'s, in order; "
+                    "got %r vs %r" % (bar_routes, sidebar_routes))
+            if sidebar_routes != [route for route, _label in layout.NAV_TABS]:
+                return False, (
+                    "expected both renderings to follow NAV_TABS order, got %r"
+                    % (sidebar_routes,))
+
+            # Five cells: the four everyday destinations as direct tab
+            # links, then More as a native <details>.
+            everyday = [route for route, _label in layout.NAV_GROUPS[0][1]]
+            advanced = [route for route, _label in layout.NAV_GROUPS[1][1]]
+            tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
+            if tab_links != everyday:
+                return False, (
+                    "expected exactly the unlabelled everyday group as tab links, got %r"
+                    % (tab_links,))
+            if bar.count("<details class=\"tab-bar__more\">") != 1:
+                return False, "expected exactly one <details> More cell"
+            if bar.count("<summary") != 1:
+                return False, "expected the More cell to be a native <summary>"
+            sheet = bar[bar.index('<div class="tab-bar__more-panel">'):]
+            sheet_links = re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', sheet)
+            if sheet_links != advanced:
+                return False, (
+                    "expected the More sheet to hold exactly the Advanced group, got %r"
+                    % (sheet_links,))
+
+            # Exactly one aria-current, on the real link, never on the
+            # disclosure control (T-22-53).
+            if bar.count('aria-current="page"') != 1:
+                return False, (
+                    "expected exactly one aria-current=\"page\" in the tab bar, got %d"
+                    % bar.count('aria-current="page"'))
+            if bar.count("tab-bar__link--active") != 1:
+                return False, "expected exactly one active tab"
+            active_tag_start = bar.rindex("<a", 0, bar.index('aria-current="page"'))
+            if "tab-bar__link--active" not in bar[active_tag_start:bar.index(
+                    ">", active_tag_start)]:
+                return False, "expected the aria-current link to be the active tab"
+
+            # On an Advanced page the More SUMMARY wears the pill, so a
+            # collapsed bar never lies about where you are — while
+            # aria-current stays on the one real link inside the sheet.
+            advanced_doc = layout.page_shell(
+                title="T", active="health", body="<p>b</p>",
+                device_config=_TAB_BAR_DEVICE_CFG)
+            advanced_bar = _tab_bar_slice(advanced_doc)
+            summary_start = advanced_bar.index("<summary")
+            summary_tag = advanced_bar[summary_start:advanced_bar.index(
+                ">", summary_start)]
+            if "tab-bar__link--active" not in summary_tag:
+                return False, (
+                    "expected the More summary to wear the active pill on an Advanced page, "
+                    "got %r" % (summary_tag,))
+            if 'aria-current="page"' in summary_tag:
+                return False, (
+                    "a <summary> is a disclosure control, not the current page — "
+                    "aria-current must stay on the link")
+            if advanced_bar.count('aria-current="page"') != 1:
+                return False, "expected exactly one aria-current on an Advanced page too"
+            if "tab-bar__link--active" in advanced_bar[
+                    :advanced_bar.index("<details")]:
+                return False, "expected none of the four everyday tabs to be active on /health"
+
+            # The landmark name goes through i18n.t() (its French half is
+            # pinned by companion/test_status_pages.py, which owns this
+            # plan's language checks), and the bar carries no script hook
+            # at all: More is a native <details>, so the no-JS floor
+            # (D-09) is met by construction rather than by a fallback.
+            if 'aria-label="Primary navigation"' not in bar:
+                return False, "expected the landmark name on the tab bar"
+            for banned in ("onclick", "data-", "<script", "id=\"site-nav-toggle\""):
+                if banned in bar:
+                    return False, (
+                        "the tab bar must carry no script hook (%r found)" % (banned,))
+            return True, ""
+        check(
+            "the bottom tab bar renders five cells fed by the ONE shared _nav_links() iteration — its "
+            "destinations equal the sidebar\'s in NAV_TABS order, the four everyday routes are tab links "
+            "and the Advanced group is a native <details> sheet, exactly one aria-current=\"page\" sits on "
+            "the real link (never on the <summary>), the More summary wears the active pill on an Advanced "
+            "page, it carries the shared Primary-navigation landmark name, and the whole bar carries no script "
+            "hook (X9/D-10, 22-14-PLAN.md Task 1)",
+            _tab_bar_is_five_cells_from_the_one_shared_nav_iteration)
+
+        def _tab_bar_is_absent_from_the_login_shell_and_the_404():
+            # 22-UI-SPEC.md §3.1: "Where the tab bar does not render: the
+            # login shell and the 404 ... Pre-session pages have no
+            # destinations to offer." The gate is exactly the one
+            # nav_status_html() already uses — a falsy device_config —
+            # so the two can never drift apart.
+            login = layout.login_shell("<p>login</p>")
+            if "tab-bar" in login:
+                return False, "expected no tab bar on the login shell"
+            no_ctx = layout.page_shell(title="404", active="", body="<p>x</p>")
+            if "tab-bar" in no_ctx:
+                return False, (
+                    "expected no tab bar on a page_shell() render with no device config")
+            if layout.TAB_BAR_BODY_CLASS in no_ctx:
+                return False, (
+                    "a page with no bar must reserve no clearance for one — "
+                    "the body marker must be absent")
+            if layout._tab_bar_html("home", device_config=None) != "":
+                return False, "expected _tab_bar_html(device_config=None) to render nothing"
+            if layout._tab_bar_html("home", device_config={}) != "":
+                return False, "expected _tab_bar_html(device_config={}) to render nothing"
+            with_ctx = layout.page_shell(
+                title="T", active="home", body="<p>x</p>",
+                device_config=_TAB_BAR_DEVICE_CFG)
+            if ('<body class="%s">' % layout.TAB_BAR_BODY_CLASS) not in with_ctx:
+                return False, (
+                    "expected the body marker exactly when the bar renders, so the page-foot "
+                    "clearance is reserved only where there is a bar to clear")
+            if with_ctx.count('<nav class="tab-bar"') != 1:
+                return False, "expected exactly one tab bar per document"
+            return True, ""
+        check(
+            "the tab bar renders from the authenticated shell only and only with a device config — never "
+            "on the login shell, never on the 404 — and the <body> clearance marker appears exactly when "
+            "the bar does (X9/D-10, 22-14-PLAN.md Task 1)",
+            _tab_bar_is_absent_from_the_login_shell_and_the_404)
 
         # --- 260902-v26 Task 1: parse_single_uploaded_file(), stdlib-only ---
         # --- single-part multipart parser. Pure in-process checks — no   ---
