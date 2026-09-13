@@ -1066,7 +1066,7 @@ Plans:
 **Goal:** Make the existing pages feel alive without adding a single new component. D3 (a motion budget honoured under `prefers-reduced-motion`, **minus its overlay-drawer clause — struck, see below**), D10 (native multi-page View Transitions), D14 (one script ticking every `<time data-relative>`), D1 (Home and the Frame strip refreshing themselves), D22 (an honest live/paused/reconnecting indicator), D2 (real `role="switch"` controls over `fetch`, optimistic, rolling back on error, no-JS forms intact) and D7 (the live flights list). Framework-free, build-free, dependency-free, no-JS floor intact.
 **Requirements**: CFG-32 (D3 motion budget), CFG-33 (D10 view transitions), CFG-34 (D14 live counters + D22's remainder), CFG-35 (D1 self-refreshing Home and Frame strip), CFG-36 (D2 real switches), CFG-37 (D7 live flights list), CFG-38 (the phase's regression floor: the no-JS floor, the harness helpers and the design system updated in step)
 **Depends on:** Phase 22
-**Plans:** 8/11 plans executed
+**Plans:** 9/11 plans executed
 
 Three decisions taken before planning, on 23-RESEARCH.md's evidence (developer, 2026-09-13):
 
@@ -1085,7 +1085,7 @@ Plans:
 - [x] 23-06-PLAN.md — wave 4: D1 — Home and the Frame strip refresh themselves, from a per-page registry with three swap skips (focus, pending, dirty form)
 - [x] 23-07-PLAN.md — wave 5: D2 — three real `role="switch"` controls over fetch, `led_enabled`'s absent-field semantics fixed first; the fourth switch is a written finding
 - [x] 23-08-PLAN.md — wave 6: D7 — the live flights list, the detail-row height animation and the chevron; sticky day headers are a written finding
-- [ ] 23-09-PLAN.md — wave 7: D3's save bar — an entrance, an animated count and a translated in-flight label
+- [x] 23-09-PLAN.md — wave 7: D3's save bar — an entrance, an animated count and a translated in-flight label
 - [ ] 23-10-PLAN.md — wave 8: D3's remainder — selection scale and wash fade, preview crossfade, `<dialog>` entrances via `@starting-style`, and skeletons at final size
 - [ ] 23-11-PLAN.md — wave 9: the design system updated in step, the coverage ledger, and the phase gate including the human sweep
 

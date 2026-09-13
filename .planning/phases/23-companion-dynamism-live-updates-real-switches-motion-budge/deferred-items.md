@@ -157,3 +157,31 @@ near-identical fade blocks is exactly the failure that guard's own message names
 If a true crossfade (old and new visible at once) is wanted, it is a different
 mechanism from this one and needs its own argument in the stylesheet beside the
 existing paragraph.
+
+## 23-09: two shipped scripts-blocked checks fail by 30s TIMEOUT, not by a message, when the fallback Save is hidden
+
+**Discovered during:** 23-09 Task 3, mutation M8 (the `.dirty-ready.dirty-shown`
+gate on `[data-static-save-fallback]` replaced by an unconditional
+`display: none` — a faithful reproduction of B1's second half).
+
+**Symptom:** the mutation reddens four checks, and only ONE of them says what
+happened. `_the_no_js_floor_holds_for_both_settings_pages` (22-10-PLAN.md Task 3)
+and `_display_still_saves_with_scripts_blocked_at_360px` (23-06-PLAN.md Task 3)
+both call `.click()` on the hidden control and fail with a raw Playwright
+`TimeoutError`/`Element is not attached to the DOM` after 30 seconds each — one
+minute of runtime, and a message a reader has to decode. 23-09's own new check
+fails in the same run with `the fallback Save is rendered but not visible — which
+is precisely the shape B1 took, and a check that only asked whether it EXISTS
+would have passed through it`.
+
+**Why not fixed here:** both checks belong to other plans and neither is wrong —
+they DO go red, which is the property that matters, and adding an
+`is_visible()` precondition to each is a two-check edit with its own mutation
+burden inside a plan already carrying the app's most-iterated component. It is a
+diagnosability cost, not a correctness gap, and the one-sentence diagnosis now
+exists beside them.
+
+**For 23-11 (or whichever plan next edits `test_browser_ux.py`):** give both a
+cheap `is_visible()` precondition before the click, so B1's own shape produces a
+sentence rather than a minute of waiting. The message to reuse is in
+`_with_no_script_there_is_no_bar_and_the_fallback_save_is_the_only_way()`.
