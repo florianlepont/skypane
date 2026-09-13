@@ -623,6 +623,22 @@ EXPECTED_CHECK_COUNT = 250
 # RUNNING the harness, not by arithmetic.
 EXPECTED_CHECK_COUNT = 252
 
+# 22-12-PLAN.md Task 1 (X8/C1, D-06/CFG-29): +5 (252 -> 257) — every
+# .stat-tile on a rendered Health page carries the four slots in their
+# fixed order with exactly one Emphasis element (seeded and on a fresh
+# install alike); "Only one saw it" renders the neutral dot--off with a
+# still-distinct visible label in both languages; layout.empty_state()'s
+# two-argument output is byte-identical to its pre-compact form while
+# compact=True is its own block; the two IN-tile empty states are compact
+# while the two full-card ones are not; and the Resolution-rate detail
+# line has a singular form in both languages. Three further checks were
+# RETARGETED IN PLACE (the Device/Pipeline tile-anatomy check, the
+# nightly-regression clock extractor, and _tile_slice_by_caption()'s own
+# slicing) with no count change. Re-derived by RUNNING the harness
+# (256/257 pass, the one documented root-sandbox anomaly_active() FAIL
+# apart), never by arithmetic.
+EXPECTED_CHECK_COUNT = 257
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -709,6 +725,35 @@ def _seed_manual_resolutions(state_dir, entries):
 
 def _ctx(state_dir, now=None):
     return {"state_dir": state_dir, "now": now or _iso(_now())}
+
+
+# --- 22-12-PLAN.md Task 1 (X8): one tile anatomy ------------------------
+#
+# `.stat-tile` bodies hold nested <div> elements now (X8's detail slot is
+# one wrapper regardless of how many lines it carries), so the older
+# "slice from the tile's opening tag to the next </div>" idiom silently
+# stops at the FIRST nested close and reads a partial tile. This helper
+# does a real balanced scan over <div ...> / </div> instead, so a check
+# written against it cannot be fooled by a tile gaining or losing an
+# inner wrapper.
+_DIV_TOKEN_RE = re.compile(r"<div\b[^>]*>|</div>")
+
+
+def _stat_tile_slices(rendered):
+    """Every complete `<div class="stat-tile ...">...</div>` in
+    `rendered`, in document order, each sliced on BALANCED div depth."""
+    slices = []
+    for match in re.finditer(r'<div class="stat-tile[ "]', rendered):
+        start = match.start()
+        depth = 0
+        for token in _DIV_TOKEN_RE.finditer(rendered, start):
+            depth += 1 if token.group(0) != "</div>" else -1
+            if depth == 0:
+                slices.append(rendered[start:token.end()])
+                break
+        else:
+            raise AssertionError("unbalanced .stat-tile markup at offset %d" % (start,))
+    return slices
 
 
 # --- HTTP harness (Section 3 only) --------------------------------------
@@ -1072,31 +1117,65 @@ def main():
     def _health_page_device_pipeline_tiles_have_no_duplicated_label():
         # quick task 260901-tsa (finding C): pins the whole fix — the
         # tile caption still carries the freshness label exactly once,
-        # and the tile body is now a real stat-tile__value timestamp,
-        # not a second copy of the label via status_dot()'s dot-label
-        # span.
+        # and the tile body carries a real timestamp, not a second copy
+        # of the label via status_dot()'s dot-label span.
+        #
+        # RETARGETED IN PLACE, STRICTLY NARROWER (22-12-PLAN.md Task 1,
+        # X8). Two premises of the original changed and one was already
+        # weak:
+        #   1. "exactly one stat-tile__value paragraph" was this check's
+        #      proxy for "a real timestamp in the body". That class is
+        #      the EMPHASIS role, and the tile also renders its verdict
+        #      at the Emphasis role one line above — which is precisely
+        #      the "double bold verdict" X8 removes. The detail is the
+        #      muted `.widget-detail` slot now, so the proxy is replaced
+        #      by the thing it was standing in for, ASSERTED DIRECTLY:
+        #      exactly one Emphasis element in the tile, exactly one
+        #      detail slot, the timestamp inside THAT slot, and zero
+        #      `stat-tile__value` (so the old shape cannot come back).
+        #   2. the tile slice was taken as "up to the next </div>", which
+        #      was only ever correct because no tile held a nested div.
+        #      It now uses the balanced `_stat_tile_slices()` scan, so it
+        #      reads the whole tile rather than a prefix of it.
+        # Everything the original asserted is still asserted.
         tmp = _mkstate("h-no-dup-label")
         try:
             now = _now()
             _seed_device_health(tmp, [(_iso(now), 4200)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tiles = _stat_tile_slices(rendered)
             for label in (health_page.DEVICE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_LABEL):
                 label_count = rendered.count(label)
                 if label_count != 1:
                     return False, (
                         "%r must appear exactly once on the whole rendered page, got %d"
                         % (label, label_count))
-                at = rendered.index(label)
-                tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
-                tile_close = rendered.index("</div>", tile_open) + len("</div>")
-                tile_slice = rendered[tile_open:tile_close]
-                if tile_slice.count('class="stat-tile__value"') != 1:
+                matching = [tile for tile in tiles if label in tile]
+                if len(matching) != 1:
                     return False, (
-                        "%r's tile must carry exactly one stat-tile__value paragraph, got %d"
-                        % (label, tile_slice.count('class="stat-tile__value"')))
-                if 'class="mono"' not in tile_slice:
-                    return False, "%r's tile must carry a mono timestamp span" % (label,)
+                        "expected exactly one .stat-tile carrying %r, got %d"
+                        % (label, len(matching)))
+                tile_slice = matching[0]
+                verdicts = tile_slice.count('class="%s"' % health_page._TILE_VERDICT_CLASS)
+                if verdicts != 1:
+                    return False, (
+                        "%r's tile must carry exactly one Emphasis-role verdict element, got %d"
+                        % (label, verdicts))
+                if tile_slice.count('class="stat-tile__value"') != 0:
+                    return False, (
+                        "%r's tile must carry no stat-tile__value paragraph — its detail is the "
+                        "muted slot now, and a second Emphasis element is the double bold verdict "
+                        "X8 removed" % (label,))
+                details = tile_slice.count('class="%s"' % health_page._TILE_DETAIL_CLASS)
+                if details != 1:
+                    return False, (
+                        "%r's tile must carry exactly one detail slot, got %d" % (label, details))
+                detail_at = tile_slice.index('class="%s"' % health_page._TILE_DETAIL_CLASS)
+                if 'class="mono"' not in tile_slice[detail_at:]:
+                    return False, (
+                        "%r's tile must carry its mono timestamp span INSIDE the detail slot"
+                        % (label,))
                 if "dot-label" in tile_slice:
                     return False, (
                         "%r's tile must carry no dot-label — the redundant body dot was removed"
@@ -1105,8 +1184,10 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the Device and Pipeline tiles carry their freshness label exactly once (caption only) plus a real "
-        "stat-tile__value timestamp, with no leftover dot-label (quick task 260901-tsa, finding C)",
+        "the Device and Pipeline tiles carry their freshness label exactly once (caption only) plus "
+        "exactly one Emphasis-role verdict and exactly one muted detail slot holding the mono "
+        "timestamp, with zero stat-tile__value and no leftover dot-label (quick task 260901-tsa "
+        "finding C, retargeted by 22-12-PLAN.md Task 1's X8 anatomy)",
         _health_page_device_pipeline_tiles_have_no_duplicated_label)
 
     # 06.6.1-04: "no <svg" stopped being a valid proxy for "no sparkline"
@@ -2681,10 +2762,19 @@ def main():
     # Pipeline/Corroboration stat tiles (WCAG 1.4.1) --------------------------
 
     def _tile_slice_by_caption(rendered, caption):
-        at = rendered.index(caption)
-        tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
-        tile_close = rendered.index("</div>", tile_open) + len("</div>")
-        return rendered[tile_open:tile_close]
+        # 22-12-PLAN.md Task 1: this used to slice "from the tile's
+        # opening tag to the next </div>", which was only ever the whole
+        # tile because no tile held a nested <div>. X8's detail slot is
+        # one, so the old form would now return a PREFIX of the tile and
+        # every caller's negative assertion ("X is not in this tile")
+        # would silently weaken. Delegated to the balanced
+        # `_stat_tile_slices()` scan instead.
+        matching = [tile for tile in _stat_tile_slices(rendered) if caption in tile]
+        if len(matching) != 1:
+            raise AssertionError(
+                "expected exactly one .stat-tile carrying caption %r, got %d"
+                % (caption, len(matching)))
+        return matching[0]
 
     def _device_tile_verdict_matches_state_at_each_severity():
         cases = (
@@ -2794,6 +2884,298 @@ def main():
     check(
         "the Resolution-rate tile deliberately carries no widget-verdict paragraph (D-03/A-21)",
         _resolution_rate_tile_carries_no_verdict)
+
+    # --- 22-12-PLAN.md Task 1 (X8/C1): one tile anatomy ------------------
+    #
+    # The Emphasis slot is ONE element per tile, but two class names can
+    # legitimately carry it: a verdict word (three tiles) and a figure
+    # (the Resolution-rate tile, which D-03/A-21 forbids from making a
+    # judgement). The empty form is a third, and is the compact
+    # empty_state()'s own heading. The muted detail slot is the same
+    # two-way split. Enumerated here rather than at each call site so a
+    # future fourth shape has to be added deliberately.
+    _EMPHASIS_SLOT_CLASSES = (
+        'class="%s"' % health_page._TILE_VERDICT_CLASS,
+        'class="stat-tile__value"',
+        'class="empty-state__heading text-body"',
+    )
+    _DETAIL_SLOT_CLASSES = (
+        'class="%s"' % health_page._TILE_DETAIL_CLASS,
+        'class="empty-state__body text-label section-caption"',
+    )
+
+    def _one_tile_anatomy_across_every_health_tile():
+        # X8: "three server cards, three anatomies". Walks EVERY
+        # .stat-tile on a rendered page and asserts the four slots in
+        # their fixed order — label (stat_tile()'s own caption), then
+        # exactly ONE Emphasis-role element, then exactly ONE muted
+        # detail slot, then an optional link. Run against both a fully
+        # seeded page (every tile has data) and a fresh install (every
+        # tile is empty), because the empty path is where the anatomy
+        # used to break down into a 22px serif heading.
+        for name, seed in (("seeded", True), ("fresh", False)):
+            tmp = _mkstate("h-one-anatomy-%s" % name)
+            try:
+                now = _now()
+                if seed:
+                    _seed_device_health(tmp, [(_iso(now), 4200)])
+                    _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                    _seed_runway_events(tmp, [
+                        {"ts": _iso(now), "hex": "abc001", "route_source": "fresh_hit",
+                         "corroborated": True},
+                        {"ts": _iso(now), "hex": "abc002", "route_source": "manual",
+                         "corroborated": None},
+                    ])
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                tiles = _stat_tile_slices(rendered)
+                if len(tiles) != 4:
+                    return False, (
+                        "expected exactly 4 .stat-tile elements on Health (%s), got %d"
+                        % (name, len(tiles)))
+                for tile in tiles:
+                    captions = tile.count('class="text-label stat-tile__caption"')
+                    if captions != 1:
+                        return False, (
+                            "expected exactly one label slot per tile (%s), got %d in %r"
+                            % (name, captions, tile[:200]))
+                    emphasis = [
+                        tile.index(token) for token in _EMPHASIS_SLOT_CLASSES if token in tile]
+                    if len(emphasis) != 1 or sum(
+                            tile.count(token) for token in _EMPHASIS_SLOT_CLASSES) != 1:
+                        return False, (
+                            "expected exactly one Emphasis-role element per tile (%s) — the "
+                            "'double bold verdict' X8 removed is two — got %r"
+                            % (name, tile))
+                    detail = [
+                        tile.index(token) for token in _DETAIL_SLOT_CLASSES if token in tile]
+                    if len(detail) != 1 or sum(
+                            tile.count(token) for token in _DETAIL_SLOT_CLASSES) != 1:
+                        return False, (
+                            "expected exactly one muted detail slot per tile (%s), got %r"
+                            % (name, tile))
+                    caption_at = tile.index('class="text-label stat-tile__caption"')
+                    if not (caption_at < emphasis[0] < detail[0]):
+                        return False, (
+                            "expected the label/verdict/detail slots in that fixed order (%s), "
+                            "got offsets %d/%d/%d in %r"
+                            % (name, caption_at, emphasis[0], detail[0], tile))
+                    # C1/X8: never a 22px serif heading inside a tile
+                    # whose own caption is 12px.
+                    if "text-heading" in tile:
+                        return False, (
+                            "expected no serif .text-heading inside any .stat-tile (%s), got %r"
+                            % (name, tile))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "every .stat-tile on a rendered Health page — seeded and on a fresh install alike — "
+        "carries exactly one label, exactly one Emphasis-role element, exactly one muted detail "
+        "slot, in that fixed order, and no 22px serif heading anywhere inside it (X8/C1, "
+        "22-12-PLAN.md Task 1)",
+        _one_tile_anatomy_across_every_health_tile)
+
+    def _only_one_saw_it_is_neutral_and_still_distinct():
+        # X8 / 22-UI-SPEC.md §5 contract 4: "Only one saw it" used to
+        # take the same ok token — and therefore the identical green — as
+        # "Both agree". It is the neutral .dot--off now, AND its visible
+        # label text still differs, so the two states are distinguishable
+        # with colour vision entirely absent. Asserted in both languages,
+        # because the label half of the contract is copy.
+        for lang, agree_label, single_label in (
+                ("en", "Both agree", "Only one saw it"),
+                ("fr", "Les deux concordent", "Une seule l’a vu")):
+            tmp = _mkstate("h-corroboration-neutral-%s" % lang)
+            try:
+                now = _now()
+                _seed_device_health(tmp, [(_iso(now), 4200)])
+                _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+                _seed_runway_events(tmp, [
+                    {"ts": _iso(now), "hex": "abc001", "corroborated": True},
+                    {"ts": _iso(now), "hex": "abc002", "corroborated": None},
+                ])
+                try:
+                    prefs.set_request_prefs(lang=lang)
+                    rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                finally:
+                    prefs.set_request_prefs(lang="en")
+                tile = _tile_slice_by_caption(
+                    rendered,
+                    health_page.CORROBORATION_TILE_LABEL if lang == "en" else "Corroboration")
+                single_row = (
+                    '<span class="dot dot--off"></span><span class="dot-label">%s</span>'
+                    % single_label)
+                if single_row not in tile:
+                    return False, (
+                        "expected the single-source row to render the neutral dot with its own "
+                        "visible label (%s), got tile %r" % (lang, tile))
+                agree_row = (
+                    '<span class="dot dot--ok"></span><span class="dot-label">%s</span>'
+                    % agree_label)
+                if agree_row not in tile:
+                    return False, (
+                        "expected 'Both agree' to keep the ok dot (%s), got tile %r" % (lang, tile))
+                if agree_label == single_label:
+                    return False, "expected the two labels to differ (%s)" % (lang,)
+                if '<span class="dot dot--ok"></span><span class="dot-label">%s' % single_label in tile:
+                    return False, (
+                        "expected the single-source row NEVER to take the ok dot again (%s)" % (lang,))
+                if "dot--warn" in tile:
+                    return False, (
+                        "expected no warn dot in a tile with no disagreement (%s) — a neutral "
+                        "state must not be escalated instead of de-escalated" % (lang,))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "Health's 'Only one saw it' corroboration row renders the neutral dot--off with its own "
+        "distinct visible dot-label while 'Both agree' keeps dot--ok — in both languages, and "
+        "never a warn dot — so the two states are readable with colour vision entirely absent "
+        "(X8 / 22-UI-SPEC.md §5 contract 4, 22-12-PLAN.md Task 1)",
+        _only_one_saw_it_is_neutral_and_still_distinct)
+
+    def _empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
+        # T-22-44: the compact variant must not be able to change an
+        # existing caller. The default form's expected markup is written
+        # out as a LITERAL here, copied from the pre-change function, so
+        # this check fails even if layout.empty_state() and the
+        # expectation are edited together.
+        heading, body = "No data yet.", "Nothing to show here yet."
+        expected_default = (
+            '<div class="empty-state">'
+            '<p class="empty-state__heading text-heading">No data yet.</p>'
+            '<p class="empty-state__body text-body">Nothing to show here yet.</p>'
+            "</div>")
+        if layout.empty_state(heading, body) != expected_default:
+            return False, (
+                "expected the two-argument empty_state() output to be byte-identical to its "
+                "pre-compact form, got %r" % (layout.empty_state(heading, body),))
+        if layout.empty_state(heading, body, compact=False) != expected_default:
+            return False, "expected an explicit compact=False to be byte-identical too"
+        # The default form is what data_table()'s own no-rows fallback
+        # emits — an existing caller, proven rather than asserted.
+        if layout.data_table(["A"], []) != expected_default:
+            return False, (
+                "expected data_table()'s no-rows fallback (a real existing caller) to render the "
+                "unchanged default empty state, got %r" % (layout.data_table(["A"], []),))
+        compact = layout.empty_state(heading, body, compact=True)
+        if compact == expected_default:
+            return False, "expected compact=True to render a different block"
+        if "text-heading" in compact:
+            return False, (
+                "expected the compact form to carry no 22px serif .text-heading, got %r" % (compact,))
+        if 'class="empty-state empty-state--compact"' not in compact:
+            return False, "expected the compact form to carry its own modifier class"
+        if 'class="empty-state__heading text-body"' not in compact:
+            return False, "expected the compact heading on the Emphasis role's own size class"
+        if 'class="empty-state__body text-label section-caption"' not in compact:
+            return False, "expected the compact body at the label size and the 70% muted strength"
+        if "widget-verdict" in compact or "widget-detail" in compact:
+            return False, (
+                "expected the compact form to reach its treatment through its OWN class names — "
+                "borrowing .widget-verdict would break the Resolution-rate tile's D-03/A-21 "
+                "no-verdict pin on its own empty branch")
+        # Escaping is unchanged on both paths.
+        hostile = layout.empty_state("<b>h</b>", "<i>b</i>", compact=True)
+        if "<b>" in hostile or "<i>" in hostile:
+            return False, "expected the compact form to escape both arguments"
+        return True, ""
+    check(
+        "layout.empty_state()'s two-argument output is byte-identical to its pre-compact form "
+        "(proven against the literal markup AND against data_table()'s own real no-rows caller), "
+        "an explicit compact=False matches it, and compact=True renders its own modifier plus the "
+        "16px sans / 14px muted pair through the empty state's own class names, still escaped "
+        "(C1/T-22-44, 22-12-PLAN.md Task 1)",
+        _empty_state_default_form_is_byte_identical_and_compact_is_opt_in)
+
+    def _health_in_tile_empty_states_are_compact_and_card_ones_are_not():
+        # C1: the compact form belongs to the two empty states that land
+        # INSIDE a .stat-tile (Corroboration, Resolution rate). The two
+        # full-width card empty states on the same page (Battery trend,
+        # Unresolved prefixes) keep the default form — the variant is a
+        # tile fix, not a page-wide restyle.
+        tmp = _mkstate("h-empty-states-compact")
+        try:
+            now = _now()
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            tiles = _stat_tile_slices(rendered)
+            in_tile = [tile for tile in tiles if "empty-state" in tile]
+            if len(in_tile) != 2:
+                return False, (
+                    "expected exactly two in-tile empty states on a fresh install (Corroboration "
+                    "and Resolution rate), got %d" % (len(in_tile),))
+            for tile in in_tile:
+                if "empty-state--compact" not in tile:
+                    return False, "expected every in-tile empty state to use the compact form"
+            # ...and the full-card ones are untouched.
+            outside = rendered
+            for tile in tiles:
+                outside = outside.replace(tile, "")
+            default_blocks = outside.count('<div class="empty-state">')
+            if default_blocks != 2:
+                return False, (
+                    "expected the two full-width card empty states (Battery trend, Unresolved "
+                    "prefixes) to keep the default form, got %d" % (default_blocks,))
+            if "empty-state--compact" in outside:
+                return False, (
+                    "expected no compact empty state outside a .stat-tile — the variant is a tile "
+                    "fix, not a page-wide restyle")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "on a fresh install Health's two IN-TILE empty states (Corroboration, Resolution rate) use "
+        "the compact form while its two full-width card empty states (Battery trend, Unresolved "
+        "prefixes) keep the default 22px serif one (C1/X8, 22-12-PLAN.md Task 1)",
+        _health_in_tile_empty_states_are_compact_and_card_ones_are_not)
+
+    def _resolution_detail_line_has_a_singular_form():
+        # D-06/B16, CFG-29: the LAST plural on this page with no singular
+        # form — a window holding exactly one detection read "over the
+        # last 30 days, 1 events". Same shape 22-10 and 22-11 used for
+        # the Calendar and Airlines plurals: a sibling template with its
+        # own French catalogue entry.
+        cases = (
+            (1, "en", "over the last %d days, 1 event" % health_page.RESOLUTION_WINDOW_DAYS,
+             "1 events"),
+            (1, "fr", "au cours des %d derniers jours, 1 événement" % health_page.RESOLUTION_WINDOW_DAYS,
+             "1 événements"),
+            (2, "en", "over the last %d days, 2 events" % health_page.RESOLUTION_WINDOW_DAYS, None),
+            (2, "fr", "au cours des %d derniers jours, 2 événements" % health_page.RESOLUTION_WINDOW_DAYS,
+             None),
+        )
+        for total, lang, expected, forbidden in cases:
+            tmp = _mkstate("h-resolution-plural-%d-%s" % (total, lang))
+            try:
+                now = _now()
+                _seed_runway_events(tmp, [
+                    {"ts": _iso(now), "hex": "abc%03d" % index, "route_source": "fresh_hit"}
+                    for index in range(total)])
+                try:
+                    prefs.set_request_prefs(lang=lang)
+                    rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                finally:
+                    prefs.set_request_prefs(lang="en")
+                if expected not in rendered:
+                    return False, (
+                        "expected %r for total=%d in %s" % (expected, total, lang))
+                if forbidden is not None and forbidden in rendered:
+                    return False, (
+                        "expected no %r anywhere for total=%d in %s" % (forbidden, total, lang))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        # Both templates exist as separate constants with their own
+        # catalogue entries — never a runtime "add an s".
+        for template in (health_page._RESOLUTION_DETAIL_TEMPLATE,
+                         health_page._RESOLUTION_DETAIL_SINGULAR_TEMPLATE):
+            if health_page.i18n.t_lang(template, "fr") == template:
+                return False, "expected %r to have its own French catalogue entry" % (template,)
+        return True, ""
+    check(
+        "the Resolution-rate tile's detail line has a singular form, so a window holding exactly "
+        "one detection never reads '1 events' / '1 événements', in both languages, and both "
+        "templates carry their own French catalogue entry (D-06/B16/CFG-29, 22-12-PLAN.md Task 1)",
+        _resolution_detail_line_has_a_singular_form)
 
     def _state_text_dicts_have_expected_key_sets():
         # 22-04-PLAN.md Task 3 (D-03/CFG-26): retargeted in place —
@@ -10225,9 +10607,18 @@ def main():
     _PARIS_TZ = timezone(timedelta(hours=1))
 
     def _health_tile_clock_text(rendered_health):
+        # RETARGETED IN PLACE, STRICTLY NARROWER (22-12-PLAN.md Task 1,
+        # X8): the Frame tile's next-wake clock moved out of the Emphasis
+        # `.stat-tile__value` paragraph into the muted detail slot, and
+        # dropped the `time-value--primary` modifier with it — that
+        # modifier IS the Emphasis shape, and carrying it one line under
+        # a verdict already in that role was half of the double bold
+        # verdict. The extractor reads the new shape, and the caller
+        # below now ALSO asserts the modifier is absent, so the old shape
+        # cannot silently come back.
         match = re.search(
-            r'class="stat-tile__value"><span class="time-value time-value--primary">'
-            r'([^<]+)</span></p>',
+            r'class="text-label widget-detail"><span class="time-value">'
+            r'([^<]+)</span></div>',
             rendered_health)
         return match.group(1) if match else None
 
@@ -10279,6 +10670,14 @@ def main():
             tile_clock = _health_tile_clock_text(rendered_health)
             if not strip_clock or not tile_clock:
                 return False, "expected a time-value clock span in both the strip and the tile"
+            # 22-12-PLAN.md Task 1 (X8): the strip's headline keeps the
+            # Emphasis modifier; the tile's detail must not have it.
+            if "time-value--primary" not in rendered_strip:
+                return False, "expected the strip's own headline to keep time-value--primary"
+            if "time-value--primary" in rendered_health:
+                return False, (
+                    "expected zero time-value--primary on Health — the tile's clock is a muted "
+                    "detail, never a second Emphasis element under its own verdict (X8)")
             if strip_clock != tile_clock:
                 return False, (
                     "expected the strip's and the tile's clock text to be equal, got %r vs %r"

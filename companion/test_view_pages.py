@@ -1476,8 +1476,10 @@ def main():
         # that one key - health_page._CORROBORATION_ROWS still carries
         # the long form as ITS OWN visible label by design. This guard
         # is restated, not weakened, to keep asserting everything that
-        # must still agree: statuses agree key-by-key for all three
-        # states; visible labels are still identical for True/False (the
+        # must still agree: statuses agree key-by-key for True/False
+        # (22-12-PLAN.md Task 1 removed "None" from that loop and pinned
+        # each page's own value by name instead — see the loop's own
+        # comment); visible labels are still identical for True/False (the
         # two keys this task did not touch); and for None, History's
         # visible label must be the short form AND
         # history_page._CORROBORATION_TITLES["None"] (the tooltip) must
@@ -1496,8 +1498,28 @@ def main():
         if set(history_labels) != {"True", "None", "False"}:
             return False, "expected history_page._CORROBORATION_LABELS to cover exactly True/None/False"
 
-        # Statuses must agree key-by-key for all three states.
-        for key in ("True", "None", "False"):
+        # Statuses must agree key-by-key for True and False.
+        #
+        # RETARGETED IN PLACE, STRICTLY NARROWER (22-12-PLAN.md Task 1,
+        # X8 / 22-UI-SPEC.md §5 contract 4). This loop used to cover all
+        # three keys. Health's "None" row moved from the ok token to the
+        # neutral `.dot--off` one — it used to render in exactly the same
+        # green as "Both agree", so a state that only means "there was
+        # nothing to compare against" was painted as good news — while
+        # History's desktop table deliberately keeps "ok": 21-UI-SPEC/
+        # D-15 scoped the dot-only treatment to that table alone, and
+        # 22-UI-SPEC.md §5 contract 4 states in terms that Health's own
+        # table is unaffected. The two pages therefore now diverge on
+        # this key's STATUS exactly as they already diverge on its LABEL,
+        # both by design.
+        #
+        # Rather than dropping the key from the loop (which would stop
+        # asserting anything about it), each side is pinned to its own
+        # exact expected value below — strictly stronger than the
+        # equality this replaces, because a drift on EITHER side now
+        # fails, where equality would have passed if both drifted
+        # together.
+        for key in ("True", "False"):
             if history_labels[key][0] != health_rows[key][0]:
                 return False, (
                     "corroboration status drifted for %r: history_page has %r, "
@@ -1524,20 +1546,42 @@ def main():
                 % (health_rows["None"][1], history_titles.get("None")))
 
         # D-03/D-15: the single-source, uncorroborated "None" state is a
-        # genuinely unknown state, not a failure — it must stay "ok" in
-        # both tables, never a warning or an error.
+        # genuinely unknown state, NEVER a failure. That invariant is
+        # unchanged and is still asserted for both pages; what the two
+        # pages express it with now differs, deliberately, and each side
+        # is pinned by name (22-12-PLAN.md Task 1, X8).
         if history_labels["None"][0] != "ok":
             return False, "expected history_page's 'None' (single-source) status to be 'ok', not a failure"
-        if health_rows["None"][0] != "ok":
-            return False, "expected health_page's 'None' (single-source) status to be 'ok', not a failure"
+        if health_rows["None"][0] != "off":
+            return False, (
+                "expected health_page's 'None' (single-source) status to be the neutral 'off' "
+                "token (X8, 22-UI-SPEC.md §5 contract 4 — never the same green as 'Both agree'), "
+                "got %r" % (health_rows["None"][0],))
+        for page_name, status in (
+                ("history_page", history_labels["None"][0]),
+                ("health_page", health_rows["None"][0])):
+            if status in ("warn", "error"):
+                return False, (
+                    "%s's 'None' (single-source) status must never read as a failure, got %r"
+                    % (page_name, status))
+        # X8's own safety clause: colour is not the only signal. The two
+        # states a reader must be able to tell apart carry different
+        # visible label text on Health, so the page is readable with
+        # colour vision entirely absent.
+        if health_rows["None"][1] == health_rows["True"][1]:
+            return False, (
+                "expected Health's 'None' and 'True' rows to carry DIFFERENT visible labels — "
+                "colour is never the only signal (22-UI-SPEC.md §5 contract 4)")
 
         return True, ""
     check(
         "history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS on "
         "status key-by-key and on visible label for True/False; History's shortened 'None' label "
         "is the documented short form and its _CORROBORATION_TITLES tooltip equals Health's own "
-        "full label exactly; the single-source 'None' state is never labelled a failure in "
-        "either table (quick task 260902-w4t, UIR-04)",
+        "full label exactly; the single-source 'None' state is pinned by name on each side "
+        "(History 'ok', Health the neutral 'off'), is never a failure in either table, and carries "
+        "a visible label distinct from 'Both agree' (quick task 260902-w4t UIR-04, retargeted by "
+        "22-12-PLAN.md Task 1's X8)",
         _corroboration_copy_agrees_with_health_page)
 
     def _status_dot_title_backward_compatible_and_escaped():

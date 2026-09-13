@@ -186,7 +186,32 @@ _CORROBORATION_ROWS = (
     # the second (label) and fourth (explanation) slots are copy.
     ("True", "Both agree", "ok",
      "Both flight-data sources on the frame picked the same aircraft."),
-    ("None", "Only one saw it", "ok",
+    # 22-12-PLAN.md Task 1 (X8, 22-UI-SPEC.md §5 contract 4): "ok" ->
+    # "off". This row used to take the SAME ok token — and therefore the
+    # same green dot — as "Both agree" above it, so a state that simply
+    # means "there was nothing to compare against" was painted as good
+    # news. `.dot--off` is defined in companion/static/style.css as "a
+    # neutral, everyday state ... never a problem", which is exactly and
+    # only what this row means; this is its second consumer this phase
+    # (the frame's held state is the first, plan 22-04). NOT a fifth dot
+    # and NOT a third colour — the whole change is which existing token
+    # this row names.
+    #
+    # Colour is not the only signal, which is what makes the change safe
+    # for a reader with no colour perception at all: the visible
+    # `.dot-label` text stays "Only one saw it" and still differs from
+    # "Both agree", and the detail slot carries the two counts. Read with
+    # the dots removed entirely, the three rows are still three distinct
+    # sentences. Do NOT "strengthen" this into `.dot--warn` — a warn dot
+    # would light this page's own anomaly vocabulary for a non-problem.
+    #
+    # companion/pages/history_page.py's Flights table deliberately keeps
+    # "ok" for the same stored key: 21-UI-SPEC/D-15 scoped the dot-only
+    # treatment to that desktop table alone, and 22-UI-SPEC.md §5
+    # contract 4 says Health's change does not reach it. The two pages
+    # now diverge on this key's STATUS exactly as they already diverge on
+    # its LABEL, and companion/test_view_pages.py pins both sides by name.
+    ("None", "Only one saw it", "off",
      "Only one of the two sources returned an aircraft this cycle — "
      "that is not the same as a disagreement, there was simply nothing "
      "from the other source to compare it against."),
@@ -559,6 +584,24 @@ _NO_STATS_HEADING = "No flights in the last %d days"
 _NO_STATS_BODY = (
     "The frame has not recorded a detection in this window. It will "
     "appear here after the next wake.")
+
+# 22-12-PLAN.md Task 1 (D-06/B16, CFG-29): the Resolution-rate tile's
+# detail line, and the LAST plural on this page that had no singular
+# form — a window holding exactly one detection read "over the last 30
+# days, 1 events". Follows the shape 22-10 and 22-11 already established
+# for the Calendar and Airlines plurals: a `..._SINGULAR_TEMPLATE`
+# sibling constant, each with its OWN French catalogue entry, chosen at
+# the call site — never a runtime "add an s" rule, which cannot be
+# translated (French pluralises the noun AND would need the article
+# agreed, and companion/test_i18n.py's completeness scan can only see
+# whole literals).
+#
+# Only the EVENT count varies: the day count is RESOLUTION_WINDOW_DAYS,
+# a module constant of 30, so a "1 day" form would be dead copy. Both
+# templates therefore keep both placeholders in the same order, and the
+# window clause is identical between them.
+_RESOLUTION_DETAIL_TEMPLATE = "over the last %d days, %d events"
+_RESOLUTION_DETAIL_SINGULAR_TEMPLATE = "over the last %d days, %d event"
 
 RESOLUTION_WINDOW_DAYS = 30  # A month is long enough to smooth over a
 # quiet week at this single-airport traffic volume, while still reading
@@ -1456,7 +1499,14 @@ def corroboration_status(counts):
     counts = counts or {}
     return {
         "True": "ok",
-        "None": "ok",
+        # 22-12-PLAN.md Task 1 (X8): "ok" -> "off", the neutral token —
+        # see _CORROBORATION_ROWS' own comment above for the full
+        # reasoning and for why history_page.py deliberately keeps "ok".
+        # D-15's rule that the unknown state must NEVER read as a failure
+        # is unchanged and, if anything, better served: "off" is the
+        # app's own not-a-problem token, where "ok" was a verdict of
+        # health this row cannot honestly make.
+        "None": "off",
         "False": "warn" if counts.get("False") else "ok",
     }
 
@@ -1869,6 +1919,65 @@ def _unavailable_block():
     return '<p class="text-body">%s</p>' % escape_html(i18n.t(HEALTH_UNAVAILABLE_TEXT))
 
 
+# --- 22-12-PLAN.md Task 1 (X8, 22-UI-SPEC.md §2): ONE tile anatomy ------
+#
+# Every `.stat-tile` on this page renders the same four slots in the same
+# fixed order, and nothing else:
+#
+#   label    -> layout.stat_tile()'s own `.stat-tile__caption` (12px
+#               uppercase semibold, 0.06em, 70% muted) — the tile's
+#               caption argument, emitted by stat_tile() itself
+#   verdict  -> the Emphasis role (16px sans semibold), EXACTLY ONCE
+#   detail   -> the 70% muted strength, carrying DIFFERENT information
+#               from the verdict (when / how many / what value)
+#   link     -> optional
+#
+# This is not a new rule. It is `layout.status_row()`'s own documented
+# label/verdict/detail contract (D-21) applied to `.stat-tile`, and the
+# "verdict and detail must carry two DIFFERENT pieces of information"
+# clause is that primitive's own docstring, cited rather than restated.
+# 22-AUDIT.md's "double bold verdict" was a breach of it: the Device and
+# Pipeline tiles rendered the verdict paragraph at the Emphasis role AND
+# the timestamp under it at `.stat-tile__value`, which is the SAME
+# Emphasis role — two bold lines, one tile, so neither read as the
+# answer. The detail moves to `.widget-detail` (the muted half of the
+# verdict/detail pair companion/pages/home_page.py already composes), so
+# exactly one element per tile carries Emphasis.
+#
+# The Resolution-rate tile is the one deliberate exception to the WORD
+# "verdict" and not to the anatomy: D-03/A-21 established that it makes
+# no pass/fail judgement (`layout.stat_tile(..., None)`, no status
+# function exists for it), so inventing a verdict sentence for it would
+# assert something this page does not know. Its Emphasis slot carries
+# the FIGURE instead, keeping `.stat-tile__value`; the slot order, the
+# one-Emphasis-element rule and the muted detail are identical. Do not
+# "fix" that by giving it a `.widget-verdict` paragraph — that would
+# reverse D-03/A-21, and companion/test_status_pages.py pins its absence.
+_TILE_VERDICT_CLASS = "text-body widget-verdict"
+_TILE_DETAIL_CLASS = "text-label widget-detail"
+
+
+def _tile_body(verdict_html, detail_html, link_html=""):
+    """Assemble one Health tile's verdict/detail/link slots in the fixed
+    order above. Both arguments are the caller's own ALREADY-SAFE markup
+    and are interpolated verbatim, never re-escaped — the same contract
+    `layout.stat_tile()`'s own `content_html` parameter documents (a
+    second `escape_html()` here would double-encode and print the tags).
+
+    The detail is a `<div>`, not a `<p>`, on purpose: the Pipeline tile's
+    detail is two lines (a timestamp plus "Last aircraft detected"), and
+    the Corroboration tile's detail is three rows plus a `<details>`
+    disclosure. Wrapping every tile's detail in one element regardless of
+    how many lines it holds is what makes "exactly one detail slot, in
+    third position" a machine-checkable property rather than a reading.
+    """
+    html = '<p class="%s">%s</p>' % (_TILE_VERDICT_CLASS, verdict_html)
+    html += '<div class="%s">%s</div>' % (_TILE_DETAIL_CLASS, detail_html)
+    if link_html:
+        html += '<p class="stat-tile__link">%s</p>' % link_html
+    return html
+
+
 def _device_timestamp_only(device_health, now):
     """The timestamp-only half of `_device_section()`'s own return
     value — no verdict paragraph (D-17, 20-UI-SPEC.md Section Anatomy
@@ -1960,8 +2069,17 @@ def _device_section(
         state = _FRAME_STATE_TO_DEVICE_STATE[resolved_state]
         next_wake_parsed = layout.parse_iso(next_wake_iso)
         next_wake_clock = layout.local_clock_text(next_wake_parsed, now_parsed=layout.parse_iso(now))
-        detail = '<span class="time-value time-value--primary">%s</span>' % escape_html(
-            next_wake_clock)
+        # 22-12-PLAN.md Task 1 (X8): the `time-value--primary` modifier is
+        # dropped here, and only here. That modifier IS the Emphasis
+        # shape (body size, semibold) — correct on the Frame strip, where
+        # the next-wake clock is the cell's own headline (22-04-PLAN.md,
+        # C5), and wrong inside a tile that already carries a verdict in
+        # that role one line above: the two together were half of the
+        # "double bold verdict" X8 measured. The base `.time-value` role
+        # (label size, regular, tabular numerals) is the supporting-value
+        # shape its own style.css comment names, which is exactly this
+        # slot's job. The strip's own call site is untouched.
+        detail = '<span class="time-value">%s</span>' % escape_html(next_wake_clock)
     # quick task 260901-tsa (finding C): this used to be
     # `status_dot(state, DEVICE_FRESHNESS_LABEL) + detail` — but
     # stat_tile()'s own caption already renders DEVICE_FRESHNESS_LABEL,
@@ -1998,10 +2116,16 @@ def _device_section(
     # tile's own detail row and the verdict-free "device_detail_html"
     # fragment compute_health_state() publishes for Home can never
     # drift apart.
-    verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
-        i18n.t(DEVICE_STATE_TEXT.get(state, DEVICE_STATE_TEXT["warn"])))
-    row = verdict + '<p class="stat-tile__value">%s</p>' % detail
-    return row, state
+    #
+    # 22-12-PLAN.md Task 1 (X8): the verdict/detail pair is assembled by
+    # `_tile_body()` now (see its own comment block for the four-slot
+    # contract). The detail used to be a `<p class="stat-tile__value">`,
+    # i.e. the SAME Emphasis role the verdict above it already occupies —
+    # the "double bold verdict" the audit measured. It is the muted
+    # `.widget-detail` slot now; nothing about WHAT it says changed.
+    return _tile_body(
+        escape_html(i18n.t(DEVICE_STATE_TEXT.get(state, DEVICE_STATE_TEXT["warn"]))),
+        detail), state
 
 
 def _pipeline_never_ran(pipeline_ts, last_detection):
@@ -2068,17 +2192,26 @@ def _pipeline_section(pipeline_ts, last_detection, now):
         # default border, and collect_anomalies()/overall_severity()
         # below treat "off" exactly like "ok" — never a warn.
         #
-        # The dot itself is hand-built (not layout.status_dot()):
-        # status_dot()'s own state->class lookup has no "off" entry
-        # either, and its documented fallback for an unrecognised state
-        # is the WARN class — calling it here would print the literal
-        # "dot--warn" token this fix exists to remove. Reusing the
-        # already-styled `dot`/`dot--off` classes directly is the one
-        # entry point into that vocabulary this task needs.
+        # The dot itself is hand-built (not layout.status_dot()).
+        # SUPERSEDED IN ITS REASONING, NOT IN ITS OUTPUT (22-12-PLAN.md
+        # Task 1): this comment used to say "status_dot()'s own
+        # state->class lookup has no 'off' entry either, and its
+        # documented fallback for an unrecognised state is the WARN class
+        # — calling it here would print the literal 'dot--warn' token
+        # this fix exists to remove". `layout._STATUS_DOT_CLASSES` DOES
+        # carry an "off" entry now (added for this page's own
+        # "Only one saw it" row, X8), so that hazard is gone. The markup
+        # stays hand-built anyway for a different, still-current reason:
+        # status_dot() always emits a second `.dot-label` span holding
+        # the label text, and this verdict's text is the paragraph's own
+        # content, not a dot label — routing it through status_dot() here
+        # would wrap the verdict sentence in a `.dot-label` span and
+        # change this tile's markup for no gain. The Corroboration rows
+        # below genuinely ARE dot+label pairs, which is why they call
+        # status_dot() and this does not.
         state = "off"
         verdict_html = (
-            '<p class="text-body widget-verdict">'
-            '<span class="dot dot--off"></span>%s</p>'
+            '<span class="dot dot--off"></span>%s'
             % escape_html(i18n.t(PIPELINE_STATE_TEXT["off"])))
         detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
         # No second "Last aircraft detected" line here: last_detection
@@ -2088,7 +2221,7 @@ def _pipeline_section(pipeline_ts, last_detection, now):
         # PIPELINE_NEVER_RAN_DETAIL_TEXT sentence above already says so
         # honestly, without repeating it a second time in different
         # words.
-        return verdict_html + '<p class="stat-tile__value">%s</p>' % detail, state
+        return _tile_body(verdict_html, detail), state
     age = layout.age_seconds(pipeline_ts, now)
     state = staleness_status(age, STALE_PIPELINE_WARN_S, STALE_PIPELINE_ERROR_S)
     # quick task 260901-tsa (finding C): same fix, same reasoning, as
@@ -2104,7 +2237,7 @@ def _pipeline_section(pipeline_ts, last_detection, now):
     # D-09: concise_timestamp_html() already returns pre-escaped-safe
     # markup — wrapping it in escape_html() a second time would
     # double-encode it and print the raw tags as visible text.
-    verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
+    verdict = escape_html(
         i18n.t(PIPELINE_STATE_TEXT.get(state, PIPELINE_STATE_TEXT["warn"])))
     # 22-03-PLAN.md Task 1: delegated to _pipeline_timestamp_only() —
     # in this branch pipeline_ts is truthy, so it is byte-identical to
@@ -2112,7 +2245,6 @@ def _pipeline_section(pipeline_ts, last_detection, now):
     # replaces — so the two halves can never drift out of sync with
     # each other, the same reasoning _device_section() already applies.
     detail = _pipeline_timestamp_only(pipeline_ts, last_detection, now)
-    row = verdict + '<p class="stat-tile__value">%s</p>' % detail
     # Quick task 260903-peo (UIR-14): a real second content line, not
     # filler — `last_detection` is history_db.META_LAST_DETECTION, read
     # inside the same atomic _read_health_inputs() snapshot pipeline_ts
@@ -2146,7 +2278,17 @@ def _pipeline_section(pipeline_ts, last_detection, now):
     detail_row = (
         '<p class="stat-tile__meta text-label section-caption">%s %s</p>'
         % (escape_html(_label_colon(i18n.t(LAST_DETECTION_LABEL))), detection_detail))
-    return row + detail_row, state
+    # 22-12-PLAN.md Task 1 (X8): both lines live INSIDE the one detail
+    # slot now, rather than the second one trailing the tile as a fourth
+    # top-level element. They were always one thing — the evidence
+    # backing this tile's verdict — and X8's anatomy has exactly one
+    # detail slot, so "how many lines of evidence" is a question about
+    # the slot's contents, never about the tile's shape. The
+    # `.stat-tile__meta` spacing rule and the `.section-caption` muted
+    # tier are both unchanged; `.widget-detail` declares its colour from
+    # the `--color-text` token rather than from `currentColor`, so
+    # nesting the two does not compound the muting.
+    return _tile_body(verdict, detail + detail_row), state
 
 
 def _latest_numeric_battery_reading(trend_rows):
@@ -2439,6 +2581,17 @@ def _battery_section(trend_rows, daily_rows=None):
     # disagree about what is on screen.
     plot_daily = _battery_daily_series_usable(daily_rows)
     plot_rows = daily_rows if plot_daily else trend_rows
+    # 22-12-PLAN.md Task 1: the chart's OWN redesign is deliberately NOT
+    # in this plan, and the omission is not an oversight. 22-AUDIT.md's
+    # X8 row names a gradient area fill, a marked last point, a
+    # 3.3-4.2 V range and a low-battery threshold line; 22-CONTEXT.md
+    # scopes every one of those to D8, Phase 23 (the dynamism half),
+    # and 22-UI-SPEC.md §6 lists them as out of scope here. This plan
+    # therefore changes the tiles AROUND the chart and leaves the chart
+    # itself byte-for-byte alone: no area fill, no point markers, no
+    # threshold line, no axis-range change. A future reader comparing
+    # the audit row against this file should read the gap as scheduled,
+    # not missed.
     sparkline_html = (
         battery_sparkline_svg(plot_rows, now=now, daily=plot_daily)
         if len(plot_rows) >= 2 else "")
@@ -2492,19 +2645,45 @@ def _corroboration_details_html():
 
 
 def _corroboration_section(counts):
+    """`(tile_body_markup, disagreement_warn)` for the Corroboration tile.
+
+    22-12-PLAN.md Task 1 (X8): this builds the WHOLE tile body now,
+    verdict included, rather than returning only the rows and leaving
+    `render()` to prepend a verdict paragraph of its own. The verdict and
+    the three rows are one composition — the rows are the evidence the
+    verdict is drawn from — and splitting them across two modules is how
+    the three Health tiles drifted into three anatomies in the first
+    place. `render()` still derives the tile's own border colour from the
+    `disagreement_warn` flag returned here, so the word and the border
+    are still keyed on one value and cannot disagree (D-03/A-21).
+    """
     if counts is _DB_UNAVAILABLE:
         return _unavailable_block(), False
     counts = counts or {}
     if not any(counts.values()):
+        # 22-12-PLAN.md Task 1 (C1/X8): the compact variant. This empty
+        # state renders INSIDE a `.stat-tile` whose own caption is 12px,
+        # and the default form's heading is a 22px serif `.text-heading`
+        # — the inverted hierarchy 22-AUDIT.md measured. The compact form
+        # emits the same `.widget-verdict` / `.widget-detail` pair
+        # `_tile_body()` does, so an empty Corroboration tile keeps the
+        # four-slot anatomy rather than becoming a fifth shape. It is
+        # therefore NOT wrapped in `_tile_body()` — that would produce a
+        # second verdict element.
         return layout.empty_state(
             i18n.t("Nothing to compare yet."),
             i18n.t(
                 "This appears once the frame has recorded at least one "
-                "flight.")), False
+                "flight."),
+            compact=True), False
 
     statuses = corroboration_status(counts)
     rows_html = []
     for key, label, _default_state, _explanation in _CORROBORATION_ROWS:
+        # `statuses["None"]` is "off" now (X8) — layout._STATUS_DOT_CLASSES
+        # gained that entry in the same task, so status_dot() renders the
+        # neutral dot plus its normal visible `.dot-label`. All three rows
+        # keep the identical markup shape; only the token differs.
         rows_html.append(
             '<p class="text-body">%s <span class="mono">%d</span></p>'
             % (
@@ -2512,7 +2691,13 @@ def _corroboration_section(counts):
                 counts.get(key, 0) or 0,
             )
         )
-    return "".join(rows_html) + _corroboration_details_html(), bool(counts.get("False"))
+    disagreement_warn = bool(counts.get("False"))
+    verdict_state = "warn" if disagreement_warn else "ok"
+    verdict = escape_html(
+        i18n.t(CORROBORATION_STATE_TEXT.get(
+            verdict_state, CORROBORATION_STATE_TEXT["ok"])))
+    body = _tile_body(verdict, "".join(rows_html) + _corroboration_details_html())
+    return body, disagreement_warn
 
 
 def _source_fault_block(source_fault_raw):
@@ -3023,14 +3208,36 @@ def _resolution_rate_tile_html(stats):
         # already uses above — so the "%d" placeholder survives
         # translation and RESOLUTION_WINDOW_DAYS never appears as a
         # hard-coded literal in either language's catalogue entry.
+        # 22-12-PLAN.md Task 1 (C1/X8): the compact variant, for exactly
+        # the reason _corroboration_section() uses it — this block lands
+        # inside a `.stat-tile`, and the default form's 22px serif
+        # heading inside a 12px-captioned tile is the inverted hierarchy
+        # the audit measured. Not wrapped in `_tile_body()`: the compact
+        # empty state already occupies both slots itself, and this tile
+        # must carry no `.widget-verdict` at all (D-03/A-21).
         return layout.empty_state(
-            i18n.t(_NO_STATS_HEADING) % RESOLUTION_WINDOW_DAYS, i18n.t(_NO_STATS_BODY))
+            i18n.t(_NO_STATS_HEADING) % RESOLUTION_WINDOW_DAYS,
+            i18n.t(_NO_STATS_BODY), compact=True)
+    # 22-12-PLAN.md Task 1 (X8): the four-slot anatomy, with ONE
+    # deliberate difference from its three siblings — the Emphasis slot
+    # holds the FIGURE, in `.stat-tile__value`, not a verdict word.
+    # D-03/A-21 established that this tile makes no pass/fail judgement
+    # (it is the one tile passed `status=None`, and no status function
+    # for it exists anywhere in this module), so a `.widget-verdict`
+    # paragraph here would assert a judgement the page cannot make;
+    # companion/test_status_pages.py pins its absence. Slot ORDER, the
+    # one-Emphasis-element rule and the muted detail are identical to the
+    # other three, which is what "one anatomy" means here.
+    detail_template = (
+        _RESOLUTION_DETAIL_SINGULAR_TEMPLATE if stats["total"] == 1
+        else _RESOLUTION_DETAIL_TEMPLATE)
     return (
         '<p class="stat-tile__value">%s</p>'
-        '<p class="text-label">%s</p>'
+        '<div class="%s">%s</div>'
     ) % (
         escape_html(i18n.t("%.1f%% resolved") % stats["resolved_pct"]),
-        escape_html(i18n.t("over the last %d days, %d events") % (
+        _TILE_DETAIL_CLASS,
+        escape_html(i18n.t(detail_template) % (
             RESOLUTION_WINDOW_DAYS, stats["total"])),
     )
 
@@ -3227,16 +3434,18 @@ def render(ctx):
     # D-03/A-21, 19-01-PLAN.md: the Corroboration tile's verdict is keyed
     # on the identical expression already passed as this tile's own
     # `status` argument below, so the word and the border colour can
-    # never disagree.
+    # never disagree. 22-12-PLAN.md Task 1 (X8): the verdict PARAGRAPH
+    # itself moved into `_corroboration_section()` (see that function's
+    # docstring) — this expression stays here because it is what paints
+    # the tile's border, and it is still the same one `disagreement_warn`
+    # flag on both sides, so the anti-disagreement property is unchanged.
     corroboration_state = "warn" if disagreement_warn else "ok"
-    corroboration_verdict = '<p class="text-body widget-verdict">%s</p>' % escape_html(
-        i18n.t(CORROBORATION_STATE_TEXT.get(corroboration_state, CORROBORATION_STATE_TEXT["ok"])))
     server_data_tiles_html = (
         layout.stat_tile(
             i18n.t(PIPELINE_FRESHNESS_LABEL), pipeline_html, pipeline_state,
             icon=ICON_PIPELINE, caption_title=i18n.t(PIPELINE_FRESHNESS_TITLE))
         + layout.stat_tile(
-            i18n.t(CORROBORATION_TILE_LABEL), corroboration_verdict + corroboration_html,
+            i18n.t(CORROBORATION_TILE_LABEL), corroboration_html,
             corroboration_state, icon=ICON_CORROBORATION,
             caption_title=i18n.t(CORROBORATION_TILE_TITLE))
         # D-03/A-21: the Resolution-rate tile is the one deliberate

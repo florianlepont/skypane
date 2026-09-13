@@ -3259,6 +3259,47 @@ table.data-table--flights .cell-inline-sep {
   text-align: center;
 }
 
+/* 22-12-PLAN.md Task 1 (D-08's C1, 22-UI-SPEC.md §1 Typography / §2 X8):
+ * the in-tile variant of the block above, emitted only by
+ * layout.empty_state(..., compact=True). The type change itself is NOT
+ * here — the compact form composes the already-existing `.text-body
+ * .widget-verdict` and `.text-label .widget-detail` pairs, which is the
+ * whole reason no new type tier had to be invented. This rule therefore
+ * declares nothing but box: a tile already supplies its own padding, so
+ * a second 24px inset inside it read as a floating island, and the
+ * centring that is right for a full-card empty state fights the tile's
+ * own left-aligned label/verdict/detail column. Zero padding plus the
+ * inherited left alignment is what makes the empty tile occupy exactly
+ * the verdict and detail slots of X8's one-tile anatomy. */
+.empty-state--compact {
+  padding: 0;
+  text-align: left;
+}
+
+/* The two child rules the compact variant needs, and the only two rules
+ * `.empty-state__heading` / `.empty-state__body` have ever had in this
+ * file — both classes existed as bare markup hooks until now, with all
+ * of their treatment coming from the co-classed `.text-*` tier. Scoped
+ * to the compact wrapper so the full-card form stays byte-identical.
+ *
+ * The heading takes the semibold weight `.text-body` does not declare,
+ * landing it on the Emphasis role (16px sans semibold) — the same
+ * treatment a tile's verdict row wears, reached through the empty
+ * state's own class rather than by borrowing `.widget-verdict`, which
+ * would claim a judgement an empty state does not make. The margins
+ * match `.widget-verdict`'s own rhythm so a compact empty state and a
+ * filled tile sit on the same baseline grid. The body needs no rule of
+ * its own: `.text-label` sizes it and `.section-caption` supplies this
+ * file's single 70% muted strength. */
+.empty-state--compact .empty-state__heading {
+  margin: 0 0 var(--space-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.empty-state--compact .empty-state__body {
+  margin: 0;
+}
+
 /* Native <details>/<summary> disclosures (06.6.3, shared) — first use in
  * this file (grep confirms zero prior details/summary rules). Used by the
  * Battery readings table (D-08) and the History mobile per-card detail

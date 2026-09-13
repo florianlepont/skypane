@@ -285,10 +285,32 @@ _FRAME_DOT_CLASS_BY_STATE = {
     frame_state.STATE_LATE: "dot--warn",
 }
 
+# 22-12-PLAN.md Task 1 (X8, 22-UI-SPEC.md §5 contract 4): "off" is a
+# FOURTH, additive entry — never a fourth colour and never a fifth dot.
+# `.dot--off` has been in companion/static/style.css since phase 21
+# (D-03) and is defined there as "a neutral, everyday state ... never a
+# problem"; until now the only way to reach it was to hand-build the
+# span, which companion/pages/health_page.py's `_pipeline_section()`
+# does for exactly that reason (its own comment says so). Adding the
+# entry here means `status_dot("off", label)` now renders the neutral
+# dot plus its normal visible `.dot-label`, so Health's "Only one saw
+# it" row keeps the identical markup shape as its two siblings instead
+# of a hand-rolled copy of this function's output.
+#
+# Additive by construction: no pre-existing caller of `status_dot()`,
+# `status_row()` or `_health_alert_markup()` passes "off" (grep: every
+# `status_row()` call site in companion/pages/ passes "ok"/"warn"/
+# "error" only, and `severity` is never "off"), so every one of them is
+# byte-identical to before. `_DEFAULT_STATUS_DOT_CLASS` still resolves
+# an UNRECOGNISED state to the warn class, which is what
+# companion/test_companion_app.py's own "not-a-real-state" fallback
+# check exercises — that check is unaffected, "off" is now a
+# recognised state rather than an arbitrary one.
 _STATUS_DOT_CLASSES = {
     "ok": "dot--ok",
     "warn": "dot--warn",
     "error": "dot--error",
+    "off": "dot--off",
 }
 _DEFAULT_STATUS_DOT_CLASS = _STATUS_DOT_CLASSES["warn"]
 
@@ -2164,11 +2186,53 @@ def section_intro_html(section_id, heading, description):
     ) % (escape_html(section_id), escape_html(heading), escape_html(description))
 
 
-def empty_state(heading, body):
+def empty_state(heading, body, compact=False):
     """The escaped two-part empty-state block (06-UI-SPEC.md's Copywriting
     Contract) used for the flight log, the gallery, and the unresolved-
     prefix list.
+
+    `compact` (22-12-PLAN.md Task 1 — D-08's C1, 22-UI-SPEC.md §1's
+    Typography row and §2's X8) is a keyword-with-default whose falsy
+    value returns markup that is BYTE-IDENTICAL to what this function
+    returned before the parameter existed, matching `stat_tile()`'s own
+    `caption_title` and `status_dot()`'s own `visually_hide_label`
+    contract. Every full-card caller (companion/pages/home_page.py's two,
+    companion/pages/history_page.py's one, `data_table()`'s own no-rows
+    fallback below, and health_page.py's battery-card and registry-card
+    call sites) passes two positional arguments and is unaffected.
+
+    Why the variant exists: an empty state rendered INSIDE a
+    `.stat-tile` put a 22px serif `.text-heading` inside a card whose own
+    caption is 12px — the inverted hierarchy defect 06.6.4.1.1's finding
+    1.1 already closed once for nested cards, reopened here by reuse
+    (22-AUDIT.md X8). The compact form drops the heading to the Emphasis
+    role (16px sans semibold: `.text-body`'s size plus the semibold
+    weight `.empty-state--compact .empty-state__heading` supplies) and
+    the body to the label size at the file's own 70% muted strength
+    (`.text-label` composed with `.section-caption`, the established
+    "muted strength onto a sizing class" idiom — never a fourth muted
+    value). No new type tier and no 14px heading role is invented; the
+    established bottom rung is reused, which is what 22-UI-SPEC.md §1
+    asks for.
+
+    Those are the SAME two treatments a filled Health tile's verdict and
+    detail rows wear, so inside a tile the empty state occupies exactly
+    the verdict and detail slots of X8's one-tile anatomy and an empty
+    tile reads with a filled tile's rhythm. It reaches them through the
+    empty state's OWN class names rather than by borrowing
+    `.widget-verdict`/`.widget-detail`: an empty state's heading is not a
+    verdict, and companion/test_status_pages.py pins that the
+    Resolution-rate tile carries no `.widget-verdict` anywhere (D-03/
+    A-21 — that tile makes no judgement), which borrowing the class
+    would have quietly broken on its own empty branch.
     """
+    if compact:
+        return (
+            '<div class="empty-state empty-state--compact">'
+            '<p class="empty-state__heading text-body">%s</p>'
+            '<p class="empty-state__body text-label section-caption">%s</p>'
+            "</div>"
+        ) % (escape_html(heading), escape_html(body))
     return (
         '<div class="empty-state">'
         '<p class="empty-state__heading text-heading">%s</p>'

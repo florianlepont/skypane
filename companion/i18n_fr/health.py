@@ -103,6 +103,13 @@ CATALOG = {
     "Route resolution rate": "Taux de résolution des trajets",
     "%.1f%% resolved": "%.1f %% résolus",
     "over the last %d days, %d events": "au cours des %d derniers jours, %d événements",
+    # 22-12-PLAN.md Task 1 (D-06/B16, CFG-29): the singular sibling of
+    # the line above — health_page._RESOLUTION_DETAIL_SINGULAR_TEMPLATE.
+    # A window holding exactly one detection read "1 events" in English
+    # and "1 événements" here; both counts stay in the same order, and
+    # only the noun loses its "s" (the day count is a fixed 30, so it
+    # never needs a singular form of its own).
+    "over the last %d days, %d event": "au cours des %d derniers jours, %d événement",
 
     # --- Battery trend section -------------------------------------------
     "Battery trend": "Tendance de la batterie",
