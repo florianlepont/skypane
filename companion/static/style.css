@@ -2768,6 +2768,55 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* Quick task 260913-cz6 — the SECOND table released from the no-crop
+ * floor above, and (like the first) it arrived by headless measurement
+ * rather than by eye. Health's battery readings table lives inside a
+ * closed-by-default `details.readings-disclosure`, so nothing in this
+ * repo's sweeps had ever measured it: at a 390px viewport the table
+ * measured 432px (FR) / 369px (EN) inside a 308px `.data-table-wrap`,
+ * overflowing by 124px and giving that wrap its own horizontal
+ * scrollbar. The Timestamp column alone took 302px (FR), holding the
+ * one-line concise form "31 juil. 08:00 (il y a 44 j)", against 130px
+ * for the four-digit millivolt column. `document.documentElement
+ * .scrollWidth` stayed exactly 390px throughout, open or closed —
+ * the WRAPPER scrolls, not the page — which is precisely why every
+ * page-level overflow assertion in the suite was structurally blind
+ * to it.
+ *
+ * This is the same measured cause as B12 (the floor sizes every column
+ * to its widest UNWRAPPED line) but deliberately NOT the same remedy,
+ * and `references/data-density.md`'s stacked-cell warning is neither
+ * loosened nor invoked here. The registry's stacked-cell treatment was
+ * measured on THIS table first and rejected on its own numbers: stacking
+ * only lowers the floor from 432px to 297px, which clears 390px by
+ * exactly zero and still overflows at 360px (297 against 278) and at
+ * 320px (297 against 238) — a fix already broken on a common Android
+ * width. It would also force two lines at 1280px, where the wrap has
+ * 830px to spare. `table.data-table--registry`'s selector is therefore
+ * left alone rather than widened to cover both tables.
+ *
+ * Releasing the floor is right here and was right to REJECT for the
+ * registry, for a reason specific to each table's columns. The floor
+ * exists to stop short OPAQUE CODES cropping; the registry has two such
+ * columns (prefix, example callsign) with no safe internal break point.
+ * This table has exactly two columns: a four-digit integer, which is a
+ * single token with no break opportunity at all, so the floor is inert
+ * for it; and a timestamp whose every break opportunity is a real word
+ * boundary. Measured at 360px and 390px in BOTH languages, the released
+ * line breaks on the exact semantic boundary — "31 juil. 08:00" then
+ * "(il y a 44 j)" — because the space before the parenthesis is the
+ * only mid-string break opportunity and French already carries a
+ * non-breaking space inside "44 j". At 768px and 1280px the timestamp
+ * stays on ONE line, so this costs no row height where there is room.
+ * The floor protects nothing here that is not already safe, while
+ * forbidding the one break that makes the table fit.
+ *
+ * Source order matters for the same reason it does for the rule above,
+ * and the `table` qualifier additionally wins on specificity. */
+table.data-table--readings {
+  min-width: 0;
+}
+
 /* 06.6.4 (D-07): the header used to fill a solid --color-secondary
  * block; it now reads as a quiet uppercase label instead — no
  * background at all, just a bottom hairline. The 70% text color-mix is

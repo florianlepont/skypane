@@ -2688,7 +2688,8 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None):
     )
 
 
-def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), prose=False):
+def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), prose=False,
+               modifier=None):
     """A header row plus alternating body rows, every value escaped.
 
     `mono_columns` names the zero-based column indices that get the
@@ -2745,6 +2746,19 @@ def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), 
     changes no cell's content or escaping — it only adds a class the
     stylesheet uses to release that one table from the shared no-crop
     floor.
+
+    `modifier` (quick task 260913-cz6) appends one additional
+    `data-table--<modifier>` class to the emitted `<table>`, the same
+    additive per-table scoping hook `_registry_table_html()` already
+    hand-writes for `data-table--registry` — that table builds its own
+    markup (it needs a per-row attribute this function has no hook for),
+    so until now a table rendered THROUGH this function had no way to
+    carry a scoping class at all, and `prose` was the only, hard-coded
+    exception. `None`, the default, is byte-identical to this function's
+    pre-existing output, as is `prose=True`; the two are independent and
+    may be combined. Pass the bare stem ("readings"), never the full
+    class name — the `data-table--` prefix is added here so every
+    modifier in the app is spelled the same way in the stylesheet.
     """
     if not rows:
         return empty_state("No data yet.", "Nothing to show here yet.")
@@ -2772,6 +2786,8 @@ def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), 
         body_rows.append('<tr class="%s">%s</tr>' % (row_class, "".join(cells)))
 
     table_class = "data-table data-table--prose" if prose else "data-table"
+    if modifier:
+        table_class += " data-table--%s" % modifier
     return (
         '<div class="data-table-wrap">'
         '<table class="%s">'

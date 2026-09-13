@@ -284,6 +284,22 @@ EXPECTED_CHECK_COUNT = 22
 # against the real on-disk check(...) call count at execution time
 # (23/23 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 23
+# Quick task 260913-cz6 (B12's cause, third table): +1 — Health's tables
+# each measured against their OWN `.data-table-wrap`, at 390px, in both
+# languages, with every <details> on the page forced open first. This is
+# the first check in this file that measures a page STATE rather than a
+# page: the battery readings table sits behind a closed-by-default
+# disclosure, so it was invisible to every sweep here, and its overflow
+# was invisible even once opened because the WRAP scrolls while
+# `document.documentElement.scrollWidth` stays exactly 390. Measured
+# before the fix: a 308px wrap against a 432px (FR) / 369px (EN) table,
+# 124px over, the Timestamp column alone taking 302px. Mutation-tested by
+# reverting the stylesheet rule: 23/24, this check the only one red, and
+# it named the table class, the 308px wrap, the 432px table and the
+# per-column widths. 23 + 1 = 24, recomputed directly against the real
+# on-disk check(...) call count at execution time (24/24 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 24
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -2340,6 +2356,112 @@ def main():
                     "edge clears it, and no row's content escapes its own box (B11's fourth and "
                     "last surface, quick task 260913-bjy)",
                     _home_paints_nothing_outside_the_viewport_or_its_cards)
+
+                def _health_tables_fit_their_wraps_with_every_disclosure_open():
+                    # Quick task 260913-cz6 — the page STATE nobody
+                    # measured. Health's battery readings table sits
+                    # inside a closed-by-default
+                    # `details.readings-disclosure`, so it was invisible
+                    # to two separate classes of check at once: every
+                    # page-level sweep in this repo measures the page as
+                    # first painted (the disclosure shut, the table not
+                    # laid out at all), and every overflow assertion
+                    # measures `document.documentElement.scrollWidth`,
+                    # which stayed EXACTLY 390 open or closed because the
+                    # WRAP scrolls, not the document.
+                    #
+                    # Measured before the fix, at 390px: the readings
+                    # `.data-table-wrap` was 308px against a 432px (FR) /
+                    # 369px (EN) table — 124px of overflow, its own
+                    # horizontal scrollbar, and a completely still page.
+                    #
+                    # Written for the CLASS, not that one selector: it
+                    # opens EVERY <details> on the page and measures
+                    # EVERY `.data-table-wrap`, so any table that a
+                    # future disclosure hides — or any new column on an
+                    # existing one — is covered without editing this
+                    # check. The wrap is the right boundary to measure
+                    # because `overflow-x: auto` there is designed as a
+                    # safety net for extreme widths, not as the normal
+                    # state of a two-column table on a phone.
+                    #
+                    # Both languages, because French is the wider driver
+                    # ("(il y a 44 j)" against "(44d ago)") and the
+                    # seeded age string only grows with wall-clock time —
+                    # layout.relative_age_text()'s day bucket has no
+                    # ceiling, so this check can only get stronger.
+                    probe = (
+                        "() => {"
+                        "  document.querySelectorAll('details').forEach(d => { d.open = true; });"
+                        "  const over = [];"
+                        "  const wraps = document.querySelectorAll('.data-table-wrap');"
+                        "  let rows = 0;"
+                        "  wraps.forEach(w => {"
+                        "    const t = w.querySelector('table');"
+                        "    if (t) rows += t.querySelectorAll('tbody tr').length;"
+                        "    if (w.scrollWidth > w.clientWidth + 0.5) {"
+                        "      const cells = t ? t.querySelectorAll('tbody tr:first-child td') : [];"
+                        "      over.push({cls: (t ? t.className : w.className).toString(),"
+                        "                 wrap: w.clientWidth, table: Math.round(w.scrollWidth),"
+                        "                 cols: [...cells].map("
+                        "                   c => Math.round(c.getBoundingClientRect().width))});"
+                        "    }"
+                        "  });"
+                        "  return {wraps: wraps.length, rows: rows, over: over,"
+                        "          docSW: document.documentElement.scrollWidth,"
+                        "          docCW: document.documentElement.clientWidth};"
+                        "}")
+                    width = 390
+                    for lang in ("en", "fr"):
+                        context = browser.new_context(
+                            viewport={"width": width, "height": 844})
+                        try:
+                            page = context.new_page()
+                            base_url = harness.base_url()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/health")
+                            page.locator("details.readings-disclosure").first.wait_for(
+                                state="attached")
+                            seen = page.evaluate(probe)
+                            if page.viewport_size["width"] != width:
+                                return False, (
+                                    "expected the measurement to be taken at %dpx" % (width,))
+                            # Both guards exist so this check cannot pass
+                            # by measuring an empty page: the seeded
+                            # fixture renders the readings table, and a
+                            # render that stops emitting it must fail
+                            # here rather than quietly measure nothing.
+                            if not seen["wraps"]:
+                                return False, (
+                                    "expected at least one .data-table-wrap on Health at %dpx/%s "
+                                    "with every disclosure open — with none, this check measures "
+                                    "nothing" % (width, lang))
+                            if not seen["rows"]:
+                                return False, (
+                                    "expected the seeded tables to render body rows at %dpx/%s — "
+                                    "with none, this check measures nothing" % (width, lang))
+                            if seen["over"]:
+                                return False, (
+                                    "a table inside a disclosure overflows its own wrap at "
+                                    "%dpx/%s, giving it a horizontal scrollbar the page itself "
+                                    "never shows (documentElement.scrollWidth %d against a client "
+                                    "width of %d): %r — each entry is the table's class, its "
+                                    "wrap's clientWidth, the table's scrollWidth and the first "
+                                    "row's column widths (B12's cause, quick task 260913-cz6)"
+                                    % (width, lang, seen["docSW"], seen["docCW"], seen["over"]))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "Health's tables each fit inside their own .data-table-wrap at 390px in BOTH "
+                    "languages with EVERY <details> on the page forced open — the readings table "
+                    "is reachable only through a closed-by-default disclosure, and its wrap "
+                    "scrolls while documentElement.scrollWidth never moves, so no page-level "
+                    "assertion can see it (B12's cause on its third table, quick task 260913-cz6)",
+                    _health_tables_fit_their_wraps_with_every_disclosure_open)
             finally:
                 browser.close()
     finally:
