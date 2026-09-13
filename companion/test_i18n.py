@@ -154,6 +154,75 @@ _APP_PY_OWNED_STRINGS = frozenset({
     "Password", "Sign in", "Sign in to manage this device's settings.",
     "The page you requested doesn't exist or may have moved.",
     "Too many attempts — try again in %ds.",
+    # 22-08-PLAN.md Task 1 (D-06/B16): every FLASH_MESSAGES template and
+    # the 404's own <title> literal ("Not Found", distinct from
+    # NOT_FOUND_TITLE's page-heading sentence above) now route through
+    # i18n.t(), but app.py itself is not yet a scan target (that
+    # reversal is plan 22-08's own Task 3) — temporarily widened here
+    # rather than left orphaned. Task 3 removes this whole frozenset
+    # once app.py is scanned directly and these are genuinely produced.
+    "Screen switched on — the frame will wake up and show a picture "
+    "within about five minutes.",
+    "Screen switched off — the frame will blank itself within about "
+    "five minutes.",
+    "Quiet hours turned on — applies the next time the frame wakes up.",
+    "Quiet hours turned off — applies the next time the frame wakes up.",
+    "Couldn't change that — please try again.",
+    "Saved — %s",
+    "Couldn't save settings — please try again. If this keeps "
+    "happening, check the companion service logs.",
+    "Refreshing — the frame's new picture will appear on Home within a "
+    "few seconds.",
+    "Poll trigger failed — please try again. If this keeps happening, "
+    "check the companion service logs.",
+    "A poll is already in progress — try again in a moment.",
+    "Illustration replaced — the frame will use it next time it wakes and polls.",
+    "Couldn't use that image — upload a transparent PNG that's at "
+    "least 1200 pixels wide and landscape (wider than tall).",
+    "Couldn't replace the illustration — please try again. If this "
+    "keeps happening, check the companion service logs.",
+    "Airline name saved — the frame will pick it up next time it "
+    "wakes and polls.",
+    "Enter an airline name before saving.",
+    "That name's too long — airline names top out at 100 characters.",
+    "That name is reserved for the frame's own fallback artwork — "
+    "try the airline's real name instead.",
+    "That coverage gap isn't there anymore — check Health for "
+    "current gaps.",
+    "The manual-resolution list is full (200 entries) — delete an "
+    "old one before adding another.",
+    "Couldn't save that resolution — the frame's state directory "
+    "may not be writable.",
+    "Couldn't delete that entry — the frame's state directory may "
+    "not be writable.",
+    "That name can't be used for an illustration — try a different "
+    "spelling, or a name with letters and numbers.",
+    "Rule added — the frame will use it next time it wakes and polls.",
+    "Updated the rule for {key} — it replaces the one that was "
+    "there before, applied next time the frame wakes and polls.",
+    "That doesn't match the selected kind's format — a callsign "
+    "(e.g. AFR1234), an ICAO24 hex (e.g. 3944F2), or a 3-letter "
+    "prefix (e.g. AFR).",
+    "The rules list is full (200 entries) — delete an old one "
+    "before adding another.",
+    "Couldn't save that rule — the frame's state directory may not "
+    "be writable.",
+    "Rule deleted — the frame will stop using it next time it "
+    "wakes and polls.",
+    "Couldn't delete that rule — the frame's state directory may "
+    "not be writable.",
+    "Connected — {n} flight{s} from this calendar in the frame's "
+    "current window.",
+    "Saved, but couldn't sync that calendar right now — check the "
+    "URL and try again. The frame will keep retrying on its own "
+    "schedule.",
+    "Calendar disconnected — the flights it supplied have been "
+    "deleted from the server.",
+    "Saved — a poll was already running, so this calendar will "
+    "sync on the frame's next scheduled poll.",
+    "Calendar connected — {n} flights found.",
+    "Paste a valid calendar feed URL to connect one.",
+    "Not Found",
 })
 # Check 2's documented exception list, part 2: two Notifications flash
 # strings defined for a POST /settings/notifications/test outcome that

@@ -709,7 +709,18 @@ def _resolve_flash_text(
     """
     if flash_key not in FLASH_MESSAGES:
         return None
-    template = FLASH_MESSAGES[flash_key]
+    # 22-08-PLAN.md Task 1 (D-06/B16): translate the TEMPLATE first, then
+    # fill any "{n}"/"{s}"/"{key}"/"%s" placeholder afterwards, never the
+    # other way round — so the French template controls where the
+    # interpolated value lands, exactly like the FLASH_KEY_SAVED branch
+    # below already does for its own delay-sentence fill. Written as one
+    # expression (`i18n.t(FLASH_MESSAGES[flash_key])`), not a two-step
+    # `x = FLASH_MESSAGES[flash_key]; x = i18n.t(x)`, so companion/
+    # test_i18n.py's ast-based scanner (which traces a dict reached
+    # through a Name inside an i18n.t() call's own argument expression)
+    # sees FLASH_MESSAGES as a real i18n.t() consumer and scans every one
+    # of its values for a French catalogue entry.
+    template = i18n.t(FLASH_MESSAGES[flash_key])
     if flash_key == FLASH_KEY_SAVED:
         # The three retired wordings this key (and its own settings-page
         # caption siblings) used to carry — "Takes effect within about 5
@@ -760,7 +771,13 @@ def _resolve_flash_text(
     if flash_key == FLASH_KEY_RULE_REPLACED:
         normalised_key = colour_rules.normalise_rule_callsign(rule_key)
         if normalised_key is None:
-            return FLASH_MESSAGES[FLASH_KEY_RULE_ADDED]
+            # 22-08-PLAN.md Task 1 (D-06): this fallback used to return
+            # FLASH_MESSAGES[FLASH_KEY_RULE_ADDED] directly — the raw,
+            # untranslated English template, bypassing the i18n.t() call
+            # every other return path in this function now goes through
+            # (Rule 1 fix: an invalid rule_key silently produced an
+            # English banner under a French request).
+            return i18n.t(FLASH_MESSAGES[FLASH_KEY_RULE_ADDED])
         return template.format(key=normalised_key)
     return template
 
@@ -1544,7 +1561,14 @@ class Handler(BaseHTTPRequestHandler):
             % (HOME_ROUTE, layout.escape_html(i18n.t("Back to Home")))
         )
         return layout.page_shell(
-            title="Not Found", active="", body=body,
+            # 22-08-PLAN.md Task 1 (D-06/B16): the <title> tag's own short
+            # form — distinct from NOT_FOUND_TITLE above (the page
+            # heading's longer sentence) — was the literal "Not Found",
+            # rendering an English browser tab under a French "État"/etc.
+            # sidebar. i18n.t() needs a new companion/i18n_fr/common.py
+            # entry for this exact string (unrelated to NOT_FOUND_TITLE's
+            # own, already-translated one).
+            title=i18n.t("Not Found"), active="", body=body,
             ui_theme=self._resolved_ui_theme(), health_alert=health_alert)
 
     def _login_body(self, error=None, lockout_seconds=None, next_route=None):
@@ -2464,7 +2488,17 @@ class Handler(BaseHTTPRequestHandler):
             layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
             if ctx["flash"] else None)
         return layout.page_shell(
-            title=_PAGE_TITLES[route], active=layout.nav_slug(route), body=body,
+            # 22-08-PLAN.md Task 1 (D-06/B16): _PAGE_TITLES' six values are
+            # the exact same English strings as the corresponding nav
+            # labels ("Home", "Display", "Flights", "Airlines", "Health",
+            # "Device") — companion/i18n_fr/nav.py already carries their
+            # French entries, so this i18n.t() call resolves through that
+            # existing catalogue without a new entry, and companion/
+            # test_i18n.py's widened scan (Task 3) sees this dict as a
+            # real i18n.t() consumer via the same Name-in-call-argument
+            # tracing FLASH_MESSAGES above now relies on.
+            title=i18n.t(_PAGE_TITLES[route]), active=layout.nav_slug(route),
+            body=body,
             ui_theme=ctx["ui_theme"], flash=flash_html,
             health_alert=ctx["health_severity"], device_config=ctx["device_config"])
 

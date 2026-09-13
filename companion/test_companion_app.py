@@ -479,6 +479,14 @@ EXPECTED_CHECK_COUNT = 256
 # WR-11 root-sandbox failures, unrelated to this plan), not trusted
 # from arithmetic alone.
 EXPECTED_CHECK_COUNT = 258
+# 22-08-PLAN.md Task 1 (D-06/B16): +1 (Section 6: every FLASH_MESSAGES
+# template and every _PAGE_TITLES value, plus the 404's/login shell's
+# own <title> literals, round-trip to French and back via
+# i18n.t_lang()). 258 + 1 = 259, recomputed directly against the real
+# on-disk check(...) call count at execution time (257/259 pass — the
+# two documented WR-11 root-sandbox failures, unrelated to this plan),
+# not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 259
 
 
 def _ago_iso(seconds):
@@ -7412,6 +7420,57 @@ def main():
         # plan's own new checks in test_view_pages.py (Home's health
         # link, Airlines' "Change pictures" toggle) and test_config_
         # page.py (Display's two full <details> disclosures).
+
+        # ==============================================================
+        # Section 6 (22-08-PLAN.md Task 1/2, D-06/B16): round-trip
+        # checks for every flash template, every page <title> and the
+        # nav/theme labels this plan translates — i18n.t_lang(), never
+        # prefs.set_request_prefs(), which would leak its ContextVar
+        # state into every check that runs after this one in the same
+        # process (companion/test_i18n.py's own documented reason for
+        # the same choice).
+        # ==============================================================
+
+        def _flash_and_title_strings_round_trip_to_french_and_back():
+            import companion.app as app_module
+            import companion.i18n as i18n_module
+
+            def _assert_round_trips(text, label):
+                en_result = i18n_module.t_lang(text, "en")
+                if en_result != text:
+                    return (
+                        "expected t_lang(%r, 'en') to be byte-identical to "
+                        "the English source (%s), got %r" % (text, label, en_result))
+                fr_result = i18n_module.t_lang(text, "fr")
+                if fr_result == text:
+                    return (
+                        "expected t_lang(%r, 'fr') (%s) to be a real French "
+                        "translation, got the English source back unchanged"
+                        % (text, label))
+                return None
+
+            for key, template in app_module.FLASH_MESSAGES.items():
+                problem = _assert_round_trips(template, "FLASH_MESSAGES[%r]" % (key,))
+                if problem:
+                    return False, problem
+            for route, title in app_module._PAGE_TITLES.items():
+                problem = _assert_round_trips(title, "_PAGE_TITLES[%r]" % (route,))
+                if problem:
+                    return False, problem
+            # The two <title> literals with no FLASH_MESSAGES/_PAGE_TITLES
+            # home: the 404's own short-form title and the login shell's.
+            for title in ("Not Found", "Login"):
+                problem = _assert_round_trips(title, "the %r <title> literal" % (title,))
+                if problem:
+                    return False, problem
+            return True, ""
+        check(
+            "every companion.app.FLASH_MESSAGES template and every "
+            "_PAGE_TITLES value, plus the 404's and login shell's own "
+            "<title> literals, round-trip to French under "
+            "i18n.t_lang(..., 'fr') and to their original English text "
+            "under i18n.t_lang(..., 'en')",
+            _flash_and_title_strings_round_trip_to_french_and_back)
 
     finally:
         harness.stop()

@@ -1364,7 +1364,7 @@ def login_shell(body, ui_theme="auto", lang=None):
         "<head>\n"
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        "<title>Login - %s</title>\n"
+        "<title>%s - %s</title>\n"
         '<link rel="stylesheet" href="/static/style.css">\n'
         "%s\n"
         "</head>\n"
@@ -1379,6 +1379,13 @@ def login_shell(body, ui_theme="auto", lang=None):
     ) % (
         escape_html(resolved_lang),
         escape_html(resolved_theme),
+        # 22-08-PLAN.md Task 1 (D-06/B16): the login `<title>` literal
+        # lived here as "Login - %s" (hard-coded English), not in
+        # companion/app.py — only the "Login" half is translated; the
+        # product-name half (SITE_TITLE) is never translated (D-05: a
+        # brand name), keeping the same "<page> - <product>" shape a
+        # French title reads as page_shell()'s own <title> does.
+        escape_html(i18n.t("Login")),
         escape_html(SITE_TITLE),
         FAVICON_LINK_HTML,
         body,
