@@ -4379,11 +4379,182 @@ def main():
             if selector not in source:
                 return False, "expected the pre-existing fallback rule %r to survive verbatim" % (selector,)
 
+        # --- 23-10-PLAN.md Task 1 (D3/CFG-32): SELECTION ANSWERS -----
+        # D3's clause is that selecting a chip or a card answers with a
+        # small scale and a wash that fades in, rather than switching
+        # state instantly. The entire risk in that sentence is the
+        # feature-query block count above: the live treatment lives
+        # inside @supports, so the obvious way to animate it is a second
+        # @supports block, which is what Phase 15's D-05 did and had
+        # retired, and what 23-RESEARCH.md names as the single largest
+        # threat to this count in the whole phase.
+        #
+        # It is not needed, and this is the assertion that keeps the
+        # next editor from reaching for it anyway: a `transition` is a
+        # property of the ELEMENT, not of the state. Declared on the
+        # BASE rule it animates the property however the state that
+        # changes it is reached — live `:has(input:checked)` inside the
+        # query, and the server-rendered `--selected` fallback outside
+        # it, from one declaration. So this check asserts BOTH halves in
+        # one place: the transitions exist on the base rules (outside
+        # the query), AND the query itself contains no `transition` at
+        # all. Both live in this ONE check function on purpose, so that
+        # "helpfully" moving a transition inside the block fails exactly
+        # once rather than twice.
+        def _base_rule_body(selector):
+            # Newline-anchored, not a bare substring search:
+            # ".theme-chip__body {" also occurs inside
+            # ".theme-chip--selected .theme-chip__body {", which sits
+            # EARLIER in the file, so str.index() on the bare selector
+            # would silently measure the wrong rule.
+            anchored = "\n" + selector
+            if anchored not in source:
+                return None, "expected style.css to declare the base rule %r" % (selector,)
+            idx = source.index(anchored)
+            if idx > supports_idx:
+                return None, (
+                    "expected the base rule %r to be declared BEFORE (outside) the one "
+                    "@supports selector(:has(*)) block" % (selector,))
+            start = idx + len(anchored)
+            return source[start:source.index("}", start)], ""
+
+        def _carries_transition(body, label, properties):
+            if "transition:" not in body:
+                return (
+                    "%s must declare the selection transition on its OWN base rule — a "
+                    "transition declared on the base rule animates the property however the "
+                    "state is reached, which is why the live :has() treatment needs no second "
+                    "feature query (D3, 23-10-PLAN.md Task 1)" % (label,))
+            decl = body[body.index("transition:"):]
+            decl = decl[:decl.index(";") + 1] if ";" in decl else decl
+            for prop in properties:
+                if prop not in decl:
+                    return (
+                        "%s's transition must name %r — it is one of the properties that "
+                        "actually changes on selection, and a property absent from the list "
+                        "switches instantly (got %r)" % (label, prop, decl.strip()))
+            if "var(--motion-fast)" not in decl:
+                return (
+                    "%s's transition must spend var(--motion-fast), the phase's REACTION token "
+                    "— a selection is a state change the user just caused and is watching for "
+                    "confirmation of (got %r)" % (label, decl.strip()))
+            return None
+
+        for selector, properties in (
+            (".theme-chip {", ("transform", "border-color", "box-shadow")),
+            (".theme-chip__body {", ("background-color",)),
+            (".runway-card {",
+             ("transform", "border-color", "box-shadow", "background-color")),
+        ):
+            body, err = _base_rule_body(selector)
+            if body is None:
+                return False, err
+            err = _carries_transition(body, selector.rstrip(" {"), properties)
+            if err:
+                return False, err
+
+        # The scale itself, and the fallback parity that is the whole
+        # reason one transition declaration is enough: the live rule and
+        # the --selected fallback must carry the SAME transform, or a
+        # browser without :has() gets a differently-sized selected card
+        # — the identical contract T6 already holds for the border and
+        # the ring.
+        def _scale_of(selector, inside):
+            if selector not in source:
+                return None, "expected style.css to declare %r" % (selector,)
+            idx = source.index(selector)
+            if inside and idx < supports_idx:
+                return None, "expected %r to live inside the feature query" % (selector,)
+            if not inside and idx > supports_idx:
+                return None, "expected %r to live outside the feature query" % (selector,)
+            start = idx + len(selector)
+            body = source[start:source.index("}", start)]
+            match = re.search(r"transform:\s*scale\(([^)]+)\)", body)
+            if not match:
+                return None, (
+                    "expected %r to carry the selection scale (`transform: scale(...)`) — the "
+                    "wash's fade is the primary signal and the scale is its punctuation, and a "
+                    "transform changes no layout box so T6 cannot recur through it" % (selector,))
+            return match.group(1).strip(), ""
+
+        scales = {}
+        for selector, inside in (
+            (".theme-chip:has(input:checked) {", True),
+            (".theme-chip--selected {", False),
+            (".runway-card:has(input:checked) {", True),
+            (".runway-card--selected {", False),
+        ):
+            value, err = _scale_of(selector, inside)
+            if value is None:
+                return False, err
+            scales[selector] = value
+        if len(set(scales.values())) != 1:
+            return False, (
+                "the live :has(input:checked) rules and their --selected fallbacks must carry "
+                "the SAME scale, or a browser without :has() renders a different-sized selected "
+                "card — the identical parity contract T6 already holds for the border and the "
+                "ring, got %r" % (scales,))
+
+        # Saved-but-not-live must CLEAR the scale, exactly as it already
+        # clears the accent ring and the wash: a chip can be saved while
+        # its neighbour is the live choice, and two scaled chips would
+        # claim two selections.
+        for selector in (
+            ".theme-chip--selected:not(:has(input:checked)) {",
+            ".runway-card--selected:not(:has(input:checked)) {",
+        ):
+            if selector not in source:
+                return False, "expected style.css to declare %r" % (selector,)
+            start = source.index(selector) + len(selector)
+            body = source[start:source.index("}", start)]
+            if "transform: none;" not in body:
+                return False, (
+                    "%s must clear the selection scale with `transform: none;` — it already "
+                    "clears the accent ring and the wash for the same reason, and a saved-but-"
+                    "not-live chip that stays scaled claims a selection it does not have"
+                    % (selector,))
+
+        # And the block itself carries NO transition. Measured on
+        # comment-stripped source, because the paragraphs inside that
+        # block (and the one this plan adds above it) discuss the very
+        # word this scan counts — a raw scan would be tripped by the
+        # comment that explains why the rule is not there.
+        stripped = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        if stripped.count(supports_marker) != 1:
+            return False, (
+                "expected exactly one %r block in comment-stripped source, got %d"
+                % (supports_marker, stripped.count(supports_marker)))
+        open_idx = stripped.index(supports_marker) + len(supports_marker) - 1
+        depth = 0
+        close_idx = None
+        for pos in range(open_idx, len(stripped)):
+            if stripped[pos] == "{":
+                depth += 1
+            elif stripped[pos] == "}":
+                depth -= 1
+                if depth == 0:
+                    close_idx = pos
+                    break
+        if close_idx is None:
+            return False, "the @supports selector(:has(*)) block is never closed"
+        if "transition" in stripped[open_idx:close_idx]:
+            return False, (
+                "the ONE @supports selector(:has(*)) block declares a `transition` — it must "
+                "not. A transition belongs on each selectable surface's BASE rule, where it "
+                "animates the live :has() treatment and the --selected fallback identically "
+                "from one declaration; moving it inside the query is the first step toward the "
+                "second feature-query block Phase 15's D-05 already had retired (D3, "
+                "23-10-PLAN.md Task 1)")
+
         return True, ""
     check(
         "the strong selected-card treatment (border, wash, check glyph, and a D-03a hover restore) is keyed to "
         "live :has(input:checked) state inside one @supports selector(:has(*)) block, for both .theme-chip and "
-        ".runway-card, with every pre-existing --selected fallback rule surviving verbatim (quick task 260904-bbi)",
+        ".runway-card, with every pre-existing --selected fallback rule surviving verbatim (quick task 260904-bbi) "
+        "— and, since 23-10-PLAN.md Task 1 (D3/CFG-32), selection ANSWERS: a fast transition naming the transform, "
+        "the border colour, the shadow and the wash is declared on each selectable surface's BASE rule, the live "
+        "rules and their --selected fallbacks carry the SAME scale, saved-but-not-live clears it, and the ONE "
+        "feature-query block declares no transition at all — asserted together so moving one inside fails once",
         _strong_selected_treatment_is_keyed_to_the_live_checked_radio)
 
     def _destructive_disconnect_is_secondary_and_selection_is_free_and_focusable():

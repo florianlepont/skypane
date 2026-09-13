@@ -514,6 +514,17 @@ EXPECTED_CHECK_COUNT = 47
 # that plan.
 # 47 + 3 = 50, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 50
+# 23-10-PLAN.md Task 1 (D3/CFG-32): +1 — at 390px, selecting a theme chip
+# ANSWERS (a scale > 1, a wash that changes, and both transitioning over
+# var(--motion-fast)) while its own LAYOUT box and its neighbour's stay
+# plain-equal before and after. Only a real layout engine can hold those
+# two statements at once, and the offsetWidth/getBoundingClientRect
+# distinction between them is the whole reason T6 cannot recur through a
+# transform. The three-runway-card check above is extended IN PLACE (no
+# count change) to neutralise the transform for its own LAYOUT-box read
+# and to prove exactly one card carries the scale. 50 + 1 = 51,
+# re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 51
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -1631,16 +1642,53 @@ def main():
                         _login(page, harness.base_url())
                         page.goto(harness.base_url() + "/display")
                         page.wait_for_load_state("networkidle")
+                        # 23-10-PLAN.md Task 1 (D3/CFG-32): the selected
+                        # card now also carries a `transform: scale(...)`
+                        # — the "selection answers" clause. A transform
+                        # IS reflected in getBoundingClientRect(), which
+                        # reports the VISUAL box, and is NOT reflected in
+                        # the layout box. T6 and B9 are both statements
+                        # about the LAYOUT box (a border that grew a
+                        # flex item and pushed its siblings; a card that
+                        # wrapped onto its own line), so the transform is
+                        # neutralised for the duration of the
+                        # measurement — with its own transition
+                        # neutralised first, or the read below would
+                        # catch the 180ms unwind mid-flight and measure a
+                        # value that is neither the scaled nor the
+                        # unscaled box.
+                        #
+                        # Neutralising it is only honest if the scale is
+                        # really there, so the real computed transform is
+                        # captured BEFORE the override and asserted
+                        # below: exactly one of the three cards must be
+                        # scaled (the selected one), and the other two
+                        # must not be. That pairing is what keeps this
+                        # check from passing for a build that dropped the
+                        # scale entirely.
                         boxes = page.evaluate(
                             "() => [...document.querySelectorAll('.runway-card')]"
-                            ".map(e => { const b = e.getBoundingClientRect(); "
+                            ".map(e => { const live = getComputedStyle(e).transform; "
+                            "e.style.transition = 'none'; e.style.transform = 'none'; "
+                            "const b = e.getBoundingClientRect(); "
                             "const s = getComputedStyle(e); "
                             "const bw = parseFloat(s.borderLeftWidth) "
                             "+ parseFloat(s.borderRightWidth); "
+                            "e.style.removeProperty('transform'); "
+                            "e.style.removeProperty('transition'); "
                             "return {w: b.width, inner: b.width - bw, border: bw, "
-                            "h: b.height, top: b.top, left: b.left}; })")
+                            "h: b.height, top: b.top, left: b.left, live: live}; })")
                         if len(boxes) != 3:
                             return False, "expected 3 runway cards, got %d" % len(boxes)
+                        scaled = [b["live"] for b in boxes if b["live"] not in ("none", "")]
+                        if len(scaled) != 1:
+                            return False, (
+                                "expected EXACTLY ONE of the three runway cards to carry the "
+                                "selection scale (D3's 'selecting a card answers with a small "
+                                "scale'), got %r — this measurement neutralises the transform to "
+                                "read the LAYOUT box, so it is only meaningful while the "
+                                "transform genuinely exists"
+                                % ([b["live"] for b in boxes],))
 
                         tops = [b["top"] for b in boxes]
                         if max(tops) - min(tops) > 0.5:
@@ -1712,8 +1760,157 @@ def main():
                     "heights, and BOTH their border-excluded and their outer widths equal within "
                     "1px at a border total of exactly 2.0 each - 22-10's stated T6 allowance for "
                     "the selected card's 2px border is deleted, closed by 22-15-PLAN.md Task 1 - "
-                    "and each still clears 44x44 - never a 2 + 1 orphan (B9, 22-10-PLAN.md Task 2)",
+                    "and each still clears 44x44 - never a 2 + 1 orphan (B9, 22-10-PLAN.md Task 2) "
+                    "- with the transform neutralised for the read and EXACTLY ONE card proven to "
+                    "carry 23-10's selection scale",
                     _three_runway_cards_share_one_line_at_390px)
+
+                def _selecting_a_theme_chip_answers_and_moves_no_layout_box():
+                    # 23-10-PLAN.md Task 1 (D3/CFG-32). Two statements
+                    # that only a real layout engine can make together:
+                    #
+                    #   1. Selection ANSWERS - the chip scales, and its
+                    #      body's wash fades in over var(--motion-fast)
+                    #      rather than cutting.
+                    #   2. Selection moves NO layout box - T6's defect
+                    #      (a selected card a different size from its
+                    #      siblings, measured at 98.67px against 96.66px
+                    #      at 390px) cannot recur through a transform,
+                    #      and this is the measurement that says so
+                    #      rather than the reasoning that assumes it.
+                    #
+                    # The box is read through offsetWidth/offsetHeight/
+                    # offsetLeft/offsetTop, NOT getBoundingClientRect():
+                    # the offset* family reports the LAYOUT box and is
+                    # transform-independent by definition, which is
+                    # exactly the distinction this check exists to prove.
+                    # Plain equality, no tolerance - these are integers
+                    # from the same element measured twice.
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+
+                        probe = (
+                            "() => {"
+                            "const panel = document.querySelector("
+                            "'[data-usage-panel-target=\"departures\"]');"
+                            "if (!panel) return {error: 'no departures panel'};"
+                            "const chips = [...panel.querySelectorAll('label.theme-chip')]"
+                            ".filter(c => c.querySelector('input[type=radio]'));"
+                            "if (chips.length < 2) return {error: 'chips: ' + chips.length};"
+                            "const target = chips.find("
+                            "c => !c.querySelector('input[type=radio]').checked);"
+                            "if (!target) return {error: 'every chip is already checked'};"
+                            "const next = chips[chips.indexOf(target) + 1] || chips[0];"
+                            "const read = e => { const s = getComputedStyle(e);"
+                            "const body = e.querySelector('.theme-chip__body');"
+                            "const bs = body ? getComputedStyle(body) : null;"
+                            "return {w: e.offsetWidth, h: e.offsetHeight,"
+                            " left: e.offsetLeft, top: e.offsetTop,"
+                            " transform: s.transform, dur: s.transitionDuration,"
+                            " props: s.transitionProperty,"
+                            " wash: bs ? bs.backgroundColor : null,"
+                            " washDur: bs ? bs.transitionDuration : null}; };"
+                            "return {value: target.querySelector('input[type=radio]').value,"
+                            " chip: read(target), next: read(next)};"
+                            "}")
+                        before = page.evaluate(probe)
+                        if before.get("error"):
+                            return False, "could not find an unchecked theme chip: %s" % (
+                                before["error"],)
+                        value = before["value"]
+                        _click_control(
+                            page,
+                            '[data-usage-panel-target="departures"] '
+                            'label.theme-chip input[type=radio][value="%s"]' % value)
+                        # Well past var(--motion-fast) (180ms): the
+                        # settled state is what is asserted, never a
+                        # frame mid-transition.
+                        page.wait_for_timeout(600)
+                        after = page.evaluate(
+                            probe.replace(
+                                "const target = chips.find("
+                                "c => !c.querySelector('input[type=radio]').checked);",
+                                "const target = chips.find("
+                                "c => c.querySelector('input[type=radio]').value === "
+                                + repr(value).replace("'", '"') + ");"))
+                        if after.get("error"):
+                            return False, "could not re-find the clicked chip: %s" % (
+                                after["error"],)
+
+                        # --- 1. the answer is real -------------------
+                        if before["chip"]["transform"] not in ("none", ""):
+                            return False, (
+                                "expected an UNSELECTED chip to carry no transform, got %r"
+                                % (before["chip"]["transform"],))
+                        live = after["chip"]["transform"]
+                        if live in ("none", ""):
+                            return False, (
+                                "expected the newly-selected chip to carry the selection scale "
+                                "(D3: 'selecting a chip answers with a small scale'), got %r - a "
+                                "chip that switches state instantly is the behaviour this plan "
+                                "exists to replace" % (live,))
+                        try:
+                            scale = float(live[live.index("(") + 1:].split(",")[0])
+                        except (ValueError, IndexError):
+                            return False, "could not read a scale out of transform %r" % (live,)
+                        if scale <= 1.0:
+                            return False, (
+                                "expected the selection transform to SCALE UP (matrix a > 1), got "
+                                "%r" % (live,))
+                        if "0.18s" not in after["chip"]["dur"]:
+                            return False, (
+                                "expected the chip's transition to spend var(--motion-fast) "
+                                "(180ms), got duration %r on properties %r"
+                                % (after["chip"]["dur"], after["chip"]["props"]))
+                        for prop in ("transform", "box-shadow", "border-color"):
+                            if prop not in after["chip"]["props"]:
+                                return False, (
+                                    "expected the chip's transition to name %r - a property "
+                                    "absent from the list switches instantly, got %r"
+                                    % (prop, after["chip"]["props"]))
+                        # The wash FADES: it is a real transitioned
+                        # background on the body, and it actually
+                        # changed. A wash that is declared but never
+                        # applied would pass a stylesheet scan.
+                        if before["chip"]["wash"] == after["chip"]["wash"]:
+                            return False, (
+                                "expected the selected chip's .theme-chip__body wash to change on "
+                                "selection, both read %r" % (after["chip"]["wash"],))
+                        if "0.18s" not in (after["chip"]["washDur"] or ""):
+                            return False, (
+                                "expected the wash to FADE over var(--motion-fast) rather than "
+                                "cut, got .theme-chip__body transition-duration %r"
+                                % (after["chip"]["washDur"],))
+
+                        # --- 2. and nothing moved --------------------
+                        for key in ("w", "h", "left", "top"):
+                            if before["chip"][key] != after["chip"][key]:
+                                return False, (
+                                    "the chip's own LAYOUT box changed on selection: %s went from "
+                                    "%r to %r. T6's defect was exactly this (98.67px against "
+                                    "96.66px at 390px); a transform-based scale must change no "
+                                    "layout box at all"
+                                    % (key, before["chip"][key], after["chip"][key]))
+                            if before["next"][key] != after["next"][key]:
+                                return False, (
+                                    "a NEIGHBOURING chip moved when its sibling was selected: %s "
+                                    "went from %r to %r - siblings shifting is the visible half of "
+                                    "T6" % (key, before["next"][key], after["next"][key]))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "at 390px selecting a theme chip ANSWERS - the chip takes a scale > 1, its "
+                    ".theme-chip__body wash changes, and both the chip's transform/box-shadow/"
+                    "border-colour and the body's background transition over var(--motion-fast) "
+                    "(0.18s) rather than cutting - while its own LAYOUT box (offsetWidth/Height/"
+                    "Left/Top) and its neighbour's are plain-equal before and after, so T6 cannot "
+                    "recur through the scale (D3/CFG-32, 23-10-PLAN.md Task 1)",
+                    _selecting_a_theme_chip_answers_and_moves_no_layout_box)
 
                 def _the_no_js_floor_holds_for_both_settings_pages():
                     # D-09's floor, asserted at THIS plan's own commit
