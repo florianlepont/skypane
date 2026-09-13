@@ -2425,6 +2425,44 @@ button:disabled {
   flex: 1 1 0;
   min-width: 0;
   cursor: pointer;
+  /* 23-10-PLAN.md Task 1 (D3/CFG-32) — SELECTION ANSWERS, AND WHY THIS
+   * DECLARATION IS ON THE BASE RULE AND NOT IN A FEATURE QUERY.
+   *
+   * Read this before reaching for `@supports`. The strong selected
+   * treatment for this component is driven by live `:has(input:checked)`
+   * state, which lives inside the ONE feature-query block further down,
+   * and the file is pinned at exactly one such block by two checks in
+   * companion/test_config_page.py. The obvious way to animate a rule
+   * that lives inside a feature query is to write a second feature
+   * query — Phase 15's D-05 did exactly that and had it retired, and
+   * 23-RESEARCH.md names it as the single largest threat to that count
+   * in the whole of Phase 23.
+   *
+   * It is not needed, and the reason is one sentence: a transition is a
+   * property of the ELEMENT, not of the state. Declared here, on the
+   * base rule, it animates each property however the state that changes
+   * it is reached — through `:has(input:checked)` inside the query on a
+   * browser that supports `:has()`, and through the server-rendered
+   * `--selected` fallback outside it on a browser that does not. One
+   * declaration, both mechanisms, identical result. The same reason
+   * covers the hover/focus-within reveal above for free.
+   *
+   * The four properties named are the four that actually change on
+   * selection (the scale, the accent edge, the inset ring and the 12%
+   * wash); `transition: all` is deliberately not used, since it would
+   * also animate the layout properties this component's own geometry
+   * contract depends on. `var(--motion-fast)` is the phase's REACTION
+   * token: a selection is a state change the user just caused and is
+   * watching for confirmation of. No per-rule reduced-motion block is
+   * added — the single global `@media (prefers-reduced-motion: reduce)`
+   * override near the top of this file already zeroes every transition
+   * duration in it, and a second one here is the dead code
+   * `references/accessibility-contrast.md` records rather than a safety
+   * net. */
+  transition: transform var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
 }
 
 /* Scoped with :not(.runway-card--selected) so this rule is structurally
@@ -2495,10 +2533,28 @@ button:disabled {
  * still cannot reach a selected card after this addition, since it adds
  * a new property to this same already-excluded selector rather than
  * touching the hover rule itself. */
+/* 23-10-PLAN.md Task 1 (D3/CFG-32): the scale is declared on BOTH the
+ * `--selected` fallback here and the live `:has(input:checked)` rule
+ * inside the feature query, at the SAME value — the identical parity
+ * contract T6 already holds for the border and the ring, and for the
+ * identical reason: a browser without `:has()` must render a
+ * selected card the same size as a browser with it.
+ *
+ * A `transform` and not a width, a padding or a border, and that is the
+ * whole point: a transform paints at a different size without
+ * participating in layout at all, so T6's defect (a selected card 2px
+ * wider than its siblings, measured at 98.67px against 96.66px at
+ * 390px, pushing them along the row) is structurally incapable of
+ * recurring through it. companion/test_browser_ux.py measures the
+ * layout box through offsetWidth rather than
+ * getBoundingClientRect() precisely because that distinction is the
+ * thing being asserted. 1.02 is punctuation, not a bounce: the wash's
+ * fade is the primary signal. */
 .runway-card--selected {
   border-color: var(--color-accent);
   box-shadow: inset 0 0 0 2px var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  transform: scale(1.02);
 }
 
 .runway-card__number {
@@ -2583,6 +2639,17 @@ button:disabled {
   /* Clips the preview <img> to the chip's own rounded corners. */
   overflow: hidden;
   cursor: pointer;
+  /* 23-10-PLAN.md Task 1 (D3/CFG-32): the same base-rule transition
+   * `.runway-card` above carries, for the same reason — see that rule's
+   * own comment for why this is NOT wrapped in a second
+   * `@supports selector(:has(*))` block and must never be. The wash
+   * itself is scoped to `.theme-chip__body` on this component (the
+   * preview band must never be tinted), so its own fade is declared
+   * there rather than here; this rule animates the three properties
+   * that change on the chip itself. */
+  transition: transform var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
 }
 
 /* T6's one chip-specific addition (22-15-PLAN.md Task 1). An inset
@@ -2644,6 +2711,16 @@ button:disabled {
 .theme-chip--selected {
   border-color: var(--color-accent);
   box-shadow: inset 0 0 0 2px var(--color-accent);
+  /* 23-10-PLAN.md Task 1 (D3/CFG-32): the fallback half of the scale
+   * parity pair — see `.runway-card--selected`'s comment above for the
+   * full reasoning, and note this component's OWN T6 history: the chip
+   * is a fixed `width: 160px`, so its outer box never grew; what the
+   * 2px border did instead was eat 1px of that 160px on each side, so
+   * the selected chip's preview band and body were 2px narrower than
+   * its neighbours' and the swatch row reflowed. A transform cannot do
+   * that either — it scales the painted result and leaves every box,
+   * inner and outer, exactly where it was. */
+  transform: scale(1.02);
 }
 
 /* 06.6.4.1.1-06 (developer checkpoint follow-up): same background-wash
@@ -2677,6 +2754,18 @@ button:disabled {
 .theme-chip__body {
   display: block;
   padding: var(--space-sm);
+  /* 23-10-PLAN.md Task 1 (D3/CFG-32): the wash FADES rather than cuts.
+   * It is declared here and not on `.theme-chip` because the wash
+   * itself is scoped here — the preview band above it is the theme's
+   * own real, undithered render and a wash across it would tint the one
+   * thing the chip exists to show. Base rule, one declaration, both the
+   * live `:has(input:checked)` treatment and the `--selected` fallback:
+   * see `.runway-card`'s own transition comment for why that removes
+   * any need for a second feature query. The colour is unchanged — this
+   * animates the existing
+   * `color-mix(in srgb, var(--color-accent) 12%, transparent)` in, it
+   * introduces no new colour and no new accent consumer. */
+  transition: background-color var(--motion-fast) ease;
 }
 
 .theme-chip__name {
@@ -2799,6 +2888,13 @@ button:disabled {
   .theme-chip:has(input:checked) {
     border-color: var(--color-accent);
     box-shadow: inset 0 0 0 2px var(--color-accent);
+    /* 23-10-PLAN.md Task 1 (D3/CFG-32): the live half of the scale
+     * parity pair, matching `.theme-chip--selected`'s own value exactly.
+     * NOTHING ELSE about this plan's change lives inside this block —
+     * the property that animates it is declared on `.theme-chip`'s base
+     * rule, outside this query, which is what keeps the file's
+     * feature-query count at one. */
+    transform: scale(1.02);
   }
 
   .theme-chip:has(input:checked) .theme-chip__body {
@@ -2845,6 +2941,12 @@ button:disabled {
   .theme-chip--selected:not(:has(input:checked)) {
     border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
     box-shadow: none;
+    /* 23-10-PLAN.md Task 1 (D3/CFG-32): clears the selection scale for
+     * the same reason the two declarations above clear the ring and the
+     * next rule clears the wash — a chip can be SAVED at the very
+     * moment its neighbour is the LIVE choice, and two scaled chips
+     * would claim two selections. */
+    transform: none;
   }
 
   .theme-chip--selected:not(:has(input:checked)) .theme-chip__body {
@@ -2911,6 +3013,11 @@ button:disabled {
     border-color: var(--color-accent);
     box-shadow: inset 0 0 0 2px var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    /* 23-10-PLAN.md Task 1 (D3/CFG-32): the live half of this
+     * component's scale parity pair — see `.runway-card--selected` for
+     * the reasoning, and `.runway-card`'s base rule for the property
+     * that animates it, which is deliberately NOT in here. */
+    transform: scale(1.02);
   }
 
   .runway-card:has(input:checked) .runway-card__check {
@@ -2934,6 +3041,9 @@ button:disabled {
     border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
     box-shadow: none;
     background: transparent;
+    /* 23-10-PLAN.md Task 1 (D3/CFG-32): clears the selection scale — see
+     * the chip's own saved-state rule above. */
+    transform: none;
   }
 
   .runway-card--selected:not(:has(input:checked)) .runway-card__check {

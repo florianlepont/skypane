@@ -1786,6 +1786,21 @@ def main():
                     # exactly the distinction this check exists to prove.
                     # Plain equality, no tolerance - these are integers
                     # from the same element measured twice.
+                    #
+                    # POSITIONS ARE MEASURED RELATIVE TO THE CHIP GRID,
+                    # not to the page, and that is a correction this
+                    # check needed rather than a convenience: selecting a
+                    # chip makes the form dirty, and 23-09's save bar
+                    # replaces the section's own inline fallback Save
+                    # button when it arrives, which removes a real 36px
+                    # from the page ABOVE this card (measured: every chip
+                    # moved from y=1608 to y=1572). That is another
+                    # plan's intended behaviour, it happens whichever
+                    # chip is clicked, and a page-absolute assertion
+                    # would report it as this plan's layout shift. The
+                    # statement that belongs here is that nothing inside
+                    # the grid moved, and every chip in the grid is
+                    # measured, not just the clicked one.
                     context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
@@ -1804,18 +1819,23 @@ def main():
                             "const target = chips.find("
                             "c => !c.querySelector('input[type=radio]').checked);"
                             "if (!target) return {error: 'every chip is already checked'};"
-                            "const next = chips[chips.indexOf(target) + 1] || chips[0];"
+                            "const grid = target.closest('.theme-chip-grid');"
+                            "if (!grid) return {error: 'no .theme-chip-grid'};"
                             "const read = e => { const s = getComputedStyle(e);"
                             "const body = e.querySelector('.theme-chip__body');"
                             "const bs = body ? getComputedStyle(body) : null;"
                             "return {w: e.offsetWidth, h: e.offsetHeight,"
-                            " left: e.offsetLeft, top: e.offsetTop,"
+                            " left: e.offsetLeft - grid.offsetLeft,"
+                            " top: e.offsetTop - grid.offsetTop,"
                             " transform: s.transform, dur: s.transitionDuration,"
                             " props: s.transitionProperty,"
                             " wash: bs ? bs.backgroundColor : null,"
                             " washDur: bs ? bs.transitionDuration : null}; };"
                             "return {value: target.querySelector('input[type=radio]').value,"
-                            " chip: read(target), next: read(next)};"
+                            " chip: read(target),"
+                            " grid: {w: grid.offsetWidth, h: grid.offsetHeight},"
+                            " all: chips.map(c => { const r = read(c);"
+                            " return [r.w, r.h, r.left, r.top]; })};"
                             "}")
                         before = page.evaluate(probe)
                         if before.get("error"):
@@ -1895,11 +1915,19 @@ def main():
                                     "96.66px at 390px); a transform-based scale must change no "
                                     "layout box at all"
                                     % (key, before["chip"][key], after["chip"][key]))
-                            if before["next"][key] != after["next"][key]:
-                                return False, (
-                                    "a NEIGHBOURING chip moved when its sibling was selected: %s "
-                                    "went from %r to %r - siblings shifting is the visible half of "
-                                    "T6" % (key, before["next"][key], after["next"][key]))
+                        if before["grid"] != after["grid"]:
+                            return False, (
+                                "the chip grid's own layout box changed on selection: %r -> %r"
+                                % (before["grid"], after["grid"]))
+                        if before["all"] != after["all"]:
+                            moved = [
+                                (i, b, a) for i, (b, a)
+                                in enumerate(zip(before["all"], after["all"])) if b != a]
+                            return False, (
+                                "chips MOVED inside the grid when one of them was selected - "
+                                "siblings shifting is the visible half of T6, and it is exactly "
+                                "what a border-width or padding-based selection signal does. "
+                                "[index, before [w,h,left,top], after]: %r" % (moved,))
                         return True, ""
                     finally:
                         context.close()
@@ -1908,8 +1936,8 @@ def main():
                     ".theme-chip__body wash changes, and both the chip's transform/box-shadow/"
                     "border-colour and the body's background transition over var(--motion-fast) "
                     "(0.18s) rather than cutting - while its own LAYOUT box (offsetWidth/Height/"
-                    "Left/Top) and its neighbour's are plain-equal before and after, so T6 cannot "
-                    "recur through the scale (D3/CFG-32, 23-10-PLAN.md Task 1)",
+                    "Left/Top), the grid's own box and EVERY chip's position inside it are plain-equal "
+                    "before and after, so T6 cannot recur through the scale (D3/CFG-32, 23-10-PLAN.md Task 1)",
                     _selecting_a_theme_chip_answers_and_moves_no_layout_box)
 
                 def _the_no_js_floor_holds_for_both_settings_pages():
