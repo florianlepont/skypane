@@ -482,6 +482,38 @@ EXPECTED_CHECK_COUNT = 42
 # with focus blurred so the loop's focus skip cannot be what passes it.
 # 42 + 5 = 47, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 47
+# 23-09-PLAN.md Task 3 (D3/CFG-32 + T14's deferred label): +3 on the
+# app's most-iterated component, which carried B1.
+#  (1) the bar ARRIVES: its entrance resolves to the stylesheet's own
+#      block rather than merely being declared in a file, a hidden bar
+#      still computes display:none with that entrance on it (B1's own
+#      collision class, which no source scan can see), and the count —
+#      recorded by a MutationObserver installed BEFORE the first edit,
+#      so what is measured is the sequence a screen reader would hear —
+#      is written once per genuinely different number, never empty,
+#      never tweened, and not at all by a real edit that leaves the
+#      sentence the same. That last clause has its own control: the
+#      trigger is a third theme value, and its landing is asserted, so
+#      the clause cannot pass by nothing having happened.
+#  (2) the in-flight label, proven not to change the payload: the same
+#      edit posted twice, once via requestSubmit() with no submitter (so
+#      the relabel stands down by its own first clause) and once via the
+#      bar's Save, the two bodies captured ON THE WIRE and compared byte
+#      for byte, in both languages, against a control asserting the
+#      relabel really ran — plus the completed state read off the page
+#      the POST actually lands on.
+#  (3) B1's floor with scripts blocked at 360px in both languages,
+#      asserting what 23-06's sibling check does not: neither hiding
+#      marker on <html>, the bar computing display:none with the
+#      entrance declared, and the fallback Save VISIBLE with a real box
+#      rather than merely rendered — which is precisely the shape B1
+#      took.
+# One PRE-EXISTING clause was retargeted in place, contributing nothing
+# to this count: T14's "the guard changes no label" assertion, whose own
+# message named D3 Phase 23 as the plan that would change it. This is
+# that plan.
+# 47 + 3 = 50, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 50
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -2546,12 +2578,36 @@ def main():
                             return False, (
                                 "expected a repeat click to produce NO second POST, got %d total "
                                 "(T14)" % posts["n"])
+                        # 23-09-PLAN.md Task 3 (D3/CFG-32): RETARGETED IN
+                        # PLACE, because this plan is the deferral's own
+                        # due date. This clause used to assert the label
+                        # carried NO progress word, with the message "a
+                        # progress word is D3, Phase 23". D3 has now
+                        # landed and the label does change — so asserted
+                        # literally the old clause would have been
+                        # testing for the absence of the feature the
+                        # phase exists to ship.
+                        #
+                        # What it was actually about survives and is now
+                        # asserted from the other side: the SHARED GUARD
+                        # still writes no label. That is not something a
+                        # browser can see (both files' effects land on
+                        # the same control), so it is asserted where it
+                        # can be — companion/test_companion_app.py's
+                        # served-body check on submit-guard.js, which
+                        # fails that file for containing the word at all.
+                        # Here the two are asserted to COEXIST rather
+                        # than fight: the control is disabled AND wears
+                        # the in-flight word, which is the property T14's
+                        # own deferral was protecting.
                         label = page.eval_on_selector(save, "el => el.textContent.trim()")
-                        for progress_word in ("Saving", "Enregistrement", "…"):
-                            if progress_word in label:
-                                return False, (
-                                    "the guard must not change any button's label - a progress "
-                                    "word is D3, Phase 23 - got %r" % (label,))
+                        if label != config_page.DIRTY_SAVING_TEXT:
+                            return False, (
+                                "expected the Save control to read the in-flight word %r after "
+                                "its POST went out, got %r — the label change T14 deferred to D3 "
+                                "is dirty-state.js's, and it must survive the shared guard "
+                                "disabling the same control a task later"
+                                % (config_page.DIRTY_SAVING_TEXT, label))
 
                         # And the two flows the guard must not fight
                         # still work, with the route removed: a real save
@@ -2601,10 +2657,12 @@ def main():
                     "a second click on the save bar's Save produces NO second POST - the shared guard "
                     "disables the submitting control from a zero-delay timer, so the browser has already "
                     "built the form data set (which is what keeps the named theme/language submit buttons "
-                    "working) - and it changes no label, while a real save still persists and a Frame "
-                    "strip switch still APPLIES with the guard installed, without navigating and "
+                    "working) - and the disabled control also wears D3's in-flight word, the two "
+                    "mechanisms coexisting rather than fighting, while a real save still persists and a "
+                    "Frame strip switch still APPLIES with the guard installed, without navigating and "
                     "without being left disabled (T14, 22-15-PLAN.md Task 3; retargeted in place by "
-                    "23-07-PLAN.md Task 1)",
+                    "23-07-PLAN.md Task 1 and again by 23-09-PLAN.md Task 3, which is the deferral's "
+                    "own due date)",
                     _a_second_click_on_save_produces_no_second_post)
 
                 def _home_paints_nothing_outside_the_viewport_or_its_cards():
@@ -5221,6 +5279,400 @@ def main():
                     "live-script class the height animation is keyed on is absent (D7/CFG-37, "
                     "CFG-38, 23-08-PLAN.md Task 3)",
                     _a_phone_card_opens_from_a_tap_anywhere_with_and_without_scripts)
+
+                # --- 23-09-PLAN.md Task 3 (D3/CFG-32): the save bar,
+                # the app's most-iterated component and the one that
+                # carried B1, gaining motion and a label. Everything
+                # below is a regression surface before it is a feature:
+                # the bar's own checks above (reveal-and-persist on both
+                # scopes, the fallback's visibility contract, Cancel and
+                # the leave-guard, the tab-bar geometry, the
+                # double-submit guard) were run and recorded GREEN
+                # before a line of this plan's CSS or JS was written.
+
+                COUNT_SEL = "[data-dirty-count]"
+
+                def _the_bar_arrives_and_the_count_moves_only_when_the_number_does():
+                    # Three properties no string-comparison harness can
+                    # see, and the middle one is the whole reason this
+                    # check exists: the bar is role="status", so what a
+                    # screen reader announces is precisely the sequence
+                    # of text values its content ever holds. A
+                    # MutationObserver installed BEFORE the first edit
+                    # records that sequence directly, rather than
+                    # sampling the end state and hoping nothing else
+                    # happened in between.
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        # Both targets are chosen against what the page
+                        # is ACTUALLY showing, never a fixed index: the
+                        # save-bar checks above persist their own edits,
+                        # so a hardcoded index can be the value already
+                        # stored by the time this check runs — and
+                        # clicking the chip that is already selected is
+                        # not an edit, which would make every assertion
+                        # below vacuous rather than red.
+                        current_theme = page.eval_on_selector(
+                            'input[name="theme"]:checked', "el => el.value")
+                        theme_target = next(
+                            t for t in device_config.THEME_IDS if t != current_theme)
+                        current_runway = page.eval_on_selector(
+                            'input[name="tracked_runway"]:checked', "el => el.value")
+                        runway_target = next(
+                            r for r in device_config.RUNWAY_IDS if r != current_runway)
+
+                        # B1's OWN COLLISION CLASS, asserted rather than
+                        # reasoned about. The bar's base rule declares
+                        # display, and an author display always beats the
+                        # user-agent [hidden] rule regardless of source
+                        # order — so the entrance this plan adds must not
+                        # have made a permanently visible bar. Phase 22
+                        # found exactly this on the login card, where the
+                        # declaration was present and correct in the file
+                        # and no source scan could see the defect.
+                        shown = page.evaluate(
+                            "() => getComputedStyle("
+                            "document.querySelector('[data-dirty-bar]')).display")
+                        if shown != "none":
+                            return False, (
+                                "a hidden save bar computes display %r — the [hidden] override "
+                                "has stopped winning, and a bar that is visible before any edit "
+                                "is the same class of defect as one that never appears (B1)"
+                                % (shown,))
+
+                        page.evaluate(
+                            "() => {"
+                            " window.__counts = [];"
+                            " var el = document.querySelector('%s');"
+                            " new MutationObserver(function () {"
+                            "   window.__counts.push(el.textContent);"
+                            " }).observe(el, {childList: true, characterData: true,"
+                            "                 subtree: true});"
+                            "}" % COUNT_SEL)
+
+                        # 1. The first edit reveals the bar, and it
+                        # ARRIVES: the entrance resolves to the
+                        # stylesheet's own block rather than merely
+                        # having been declared in a file.
+                        _click_control(page, 'input[name="theme"][value="%s"]' % theme_target)
+                        if page.locator("[data-dirty-bar]").is_hidden():
+                            return False, "expected the save bar to become visible after the edit"
+                        arrival = page.evaluate(
+                            "() => getComputedStyle("
+                            "document.querySelector('[data-dirty-bar]')).animationName")
+                        if arrival != "skypane-bar-arrive":
+                            return False, (
+                                "the revealed bar's animation resolves to %r — an entrance that "
+                                "names a block the stylesheet does not define renders as no "
+                                "entrance at all, and no browser reports it" % (arrival,))
+                        if "is-fading-in" not in (page.locator(COUNT_SEL).get_attribute("class") or ""):
+                            return False, (
+                                "expected the count's own element to carry the changed-value "
+                                "class after a real change")
+
+                        # 2. A second, DIFFERENT edit moves the count
+                        # again — the number is genuinely different, so
+                        # this must produce exactly one more announcement.
+                        _click_control(
+                            page, 'input[name="tracked_runway"][value="%s"]' % runway_target)
+                        page.wait_for_timeout(120)
+                        after_real_edits = page.evaluate("() => window.__counts.slice()")
+                        if len(after_real_edits) != 2:
+                            return False, (
+                                "expected exactly TWO text writes from two genuinely different "
+                                "counts, got %d: %r — the bar is role=\"status\", so an extra "
+                                "write is an extra announcement of a number that did not change"
+                                % (len(after_real_edits), after_real_edits))
+                        if after_real_edits[0] == after_real_edits[1]:
+                            return False, (
+                                "expected the two announcements to differ, got %r twice — a "
+                                "control that proves the observer is watching a real change"
+                                % (after_real_edits[0],))
+                        for seen in after_real_edits:
+                            if not seen.strip():
+                                return False, (
+                                    "the count held the empty string at some point (%r) — a "
+                                    "partially-written live region is exactly what an animated "
+                                    "number produces and what this check exists to forbid"
+                                    % (after_real_edits,))
+                        if page.locator(COUNT_SEL).inner_text().strip() != after_real_edits[-1]:
+                            return False, (
+                                "the displayed count is not the last value announced — the "
+                                "number must never be tweened, only its element animated")
+
+                        # 3. THE CONTROL PHASE, without which clause 2
+                        # proves nothing about the gate: a re-render that
+                        # leaves the SENTENCE the same must write
+                        # NOTHING. This is what a wrong implementation
+                        # gets wrong — it rewrites identical text on
+                        # every keystroke, and the live region says the
+                        # same number again.
+                        #
+                        # The trigger is a REAL edit, not a synthesised
+                        # event, and that is the point: a third theme
+                        # value inside the already-dirty Frame colours
+                        # section changes the form and runs the same
+                        # delegated listener clause 1 proved works, while
+                        # leaving the set of dirty sections — and so the
+                        # rendered sentence — identical. A synthesised
+                        # event that silently failed to reach the script
+                        # would have made this clause pass by doing
+                        # nothing at all.
+                        third_theme = next(
+                            t for t in device_config.THEME_IDS
+                            if t not in (current_theme, theme_target))
+                        _click_control(page, 'input[name="theme"][value="%s"]' % third_theme)
+                        page.wait_for_timeout(120)
+                        if not page.eval_on_selector(
+                                'input[name="theme"][value="%s"]' % third_theme,
+                                "el => el.checked"):
+                            return False, (
+                                "the control edit did not land, so the clause below would prove "
+                                "nothing about the gate")
+                        after_noop = page.evaluate("() => window.__counts.slice()")
+                        if after_noop != after_real_edits:
+                            return False, (
+                                "a re-render that changed no number still wrote to the count: "
+                                "%r became %r. Re-writing identical text into a role=\"status\" "
+                                "region is how the same number gets announced twice"
+                                % (after_real_edits, after_noop))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the save bar ARRIVES rather than appearing — its entrance resolves to the "
+                    "stylesheet's own skypane-bar-arrive block, and a hidden bar still computes "
+                    "display:none with that entrance declared (B1's own collision class) — while "
+                    "its count, recorded by a MutationObserver installed before the first edit, "
+                    "is written exactly once per genuinely different number, never empty, never "
+                    "tweened, and NOT AT ALL by a re-render that changed nothing (D3/CFG-32, "
+                    "23-09-PLAN.md Task 3)",
+                    _the_bar_arrives_and_the_count_moves_only_when_the_number_does)
+
+                def _saving_says_so_without_changing_a_byte_of_what_it_posts():
+                    # T14 (22-15-PLAN.md Task 3) deferred this label to
+                    # D3 and left behind the reason it was worth
+                    # deferring: a submit button's name/value joins the
+                    # form data set AFTER the listeners return, so
+                    # anything that touches the submitting control can
+                    # change what is posted. dirty-state.js's answer is
+                    # a property of the control rather than of the
+                    # timing; this check is that answer measured on the
+                    # wire, in both languages.
+                    #
+                    # The POST is intercepted and answered 204 in the
+                    # first two phases — the one response to a form POST
+                    # that commits no new document, so the page stays
+                    # put, the control is still there to read, and every
+                    # body that reaches the wire is captured exactly
+                    # once. Same technique, and same reason, as the
+                    # double-submit check above.
+                    base_url = harness.base_url()
+                    for lang, expected_word, expected_flash in (
+                            ("en", config_page.DIRTY_SAVING_TEXT, "Saved —"),
+                            ("fr", i18n.t_lang(config_page.DIRTY_SAVING_TEXT, "fr"),
+                             i18n.t_lang("Saved — %s", "fr").split("%s")[0].strip())):
+                        context = browser.new_context()
+                        try:
+                            page = context.new_page()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            theme_ids = device_config.THEME_IDS
+                            current = device_config.load_device_config(harness.tmpdir)["theme"]
+                            target = next(t for t in theme_ids if t != current)
+                            theme_sel = 'input[name="theme"][value="%s"]' % target
+                            bodies = []
+
+                            def _capture(route, request):
+                                if request.method == "POST":
+                                    bodies.append(request.post_data)
+                                    route.fulfill(status=204, body="")
+                                else:
+                                    route.continue_()
+
+                            # PHASE A — the control body. requestSubmit()
+                            # with no submitter fires a real submit event
+                            # with evt.submitter null, so the relabel
+                            # stands down by its own first clause and
+                            # this is genuinely the payload as it was
+                            # before this plan.
+                            page.goto(base_url + "/display")
+                            _click_control(page, theme_sel)
+                            page.route("**/*", _capture)
+                            page.eval_on_selector(
+                                "form[data-dirty-form]", "el => el.requestSubmit()")
+                            page.wait_for_timeout(300)
+                            page.unroute("**/*")
+                            if len(bodies) != 1:
+                                return False, (
+                                    "lang=%s: expected exactly one control POST, got %d"
+                                    % (lang, len(bodies)))
+
+                            # PHASE B — the same edit, posted by the
+                            # bar's own Save, whose label the relabel
+                            # does reach.
+                            page.goto(base_url + "/display")
+                            _click_control(page, theme_sel)
+                            page.route("**/*", _capture)
+                            page.eval_on_selector(".dirty-bar__save", "el => el.click()")
+                            page.wait_for_timeout(300)
+                            page.unroute("**/*")
+                            if len(bodies) != 2:
+                                return False, (
+                                    "lang=%s: expected a second POST from the bar's Save, got %d"
+                                    % (lang, len(bodies)))
+
+                            # THE CONTROL THAT MAKES THE COMPARISON MEAN
+                            # SOMETHING. Without it, two identical bodies
+                            # would also be what a script that never
+                            # relabels anything produces, and this check
+                            # would pass against the absence of the
+                            # feature it exists to test.
+                            label = page.eval_on_selector(
+                                ".dirty-bar__save", "el => el.textContent.trim()")
+                            if label != expected_word:
+                                return False, (
+                                    "lang=%s: expected the Save control to read %r while its "
+                                    "POST is in flight, got %r — and without that the payload "
+                                    "comparison below would prove nothing"
+                                    % (lang, expected_word, label))
+                            if bodies[0] != bodies[1]:
+                                return False, (
+                                    "lang=%s: the relabel changed what the form posts.\n"
+                                    "  without it: %r\n  with it:    %r\n"
+                                    "A submitter's name/value joins the form data set after the "
+                                    "listeners return — this is the assertion submit-guard.js's "
+                                    "own header argues for" % (lang, bodies[0], bodies[1]))
+
+                            # PHASE C — the completed state, where the
+                            # document actually is. There is no "Saved"
+                            # on the bar and there must not be: the POST
+                            # replaces the document, so the bar that said
+                            # the in-flight word is gone. The existing
+                            # confirmation flash is the completed state,
+                            # on the page the browser lands on.
+                            page.goto(base_url + "/display")
+                            _click_control(page, theme_sel)
+                            with page.expect_navigation():
+                                page.eval_on_selector(".dirty-bar__save", "el => el.click()")
+                            body_text = page.locator("body").inner_text()
+                            if expected_flash not in body_text:
+                                return False, (
+                                    "lang=%s: expected the landing page to carry the save "
+                                    "confirmation %r — the completed state is delivered where "
+                                    "the document actually is, never persisted onto a bar that "
+                                    "no longer exists" % (lang, expected_flash))
+                            saved = device_config.load_device_config(harness.tmpdir)["theme"]
+                            if saved != target:
+                                return False, (
+                                    "lang=%s: the save did not persist — expected theme %r, got "
+                                    "%r" % (lang, target, saved))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "the Save control reads a TRANSLATED in-flight word once its POST is away and "
+                    "the posted body is byte-identical to the same edit posted without the "
+                    "relabel (captured on the wire, in both languages, against a control phase "
+                    "proving the relabel really ran), and the completed state arrives as the "
+                    "existing confirmation flash on the page the POST lands on — never persisted "
+                    "onto a bar the navigation destroyed (D3/CFG-32, T14's deferred label, "
+                    "23-09-PLAN.md Task 3)",
+                    _saving_says_so_without_changing_a_byte_of_what_it_posts)
+
+                def _with_no_script_there_is_no_bar_and_the_fallback_save_is_the_only_way():
+                    # THE FLOOR THIS COMPONENT BROKE ONCE. B1 was two
+                    # dead paths at the same time: the save bar never
+                    # appeared, and `.dirty-ready [data-static-save-
+                    # fallback]` had already hidden the only other Save
+                    # on the page. With scripts blocked neither marker
+                    # class can be written at all, so this is the
+                    # configuration in which the fallback is not a
+                    # fallback but THE control — and this plan animates
+                    # the component that sits on top of it, so the floor
+                    # is re-asserted at this plan's own commit rather
+                    # than trusted.
+                    #
+                    # It asserts what the sibling scripts-blocked save
+                    # check (23-06's) does not: that the fallback is
+                    # VISIBLE rather than merely rendered, that the bar
+                    # computes display:none with the entrance declared
+                    # on it, and that neither hiding marker is on <html>.
+                    base_url = harness.base_url()
+                    for lang in ("en", "fr"):
+                        with _no_js_page(browser, base_url, "/display",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                            page.context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/display")
+                            if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
+                                return False, "expected the measurement at the 360px contract floor"
+                            markers = page.evaluate(
+                                "() => document.documentElement.className")
+                            for marker in ("dirty-ready", "dirty-shown"):
+                                if marker in markers:
+                                    return False, (
+                                        "lang=%s: <html> carries %r with scripts blocked (%r) — "
+                                        "both markers have exactly one writer and it cannot run "
+                                        "here, and the fallback-hide rule keys on both"
+                                        % (lang, marker, markers))
+                            bar_display = page.evaluate(
+                                "() => { var b = document.querySelector('[data-dirty-bar]');"
+                                " return b ? getComputedStyle(b).display : 'absent'; }")
+                            if bar_display not in ("none", "absent"):
+                                return False, (
+                                    "lang=%s: the save bar computes display %r on a page with no "
+                                    "script — nothing can ever reveal it here, so a visible bar "
+                                    "would be a Save button that does nothing"
+                                    % (lang, bar_display))
+                            fallback = page.locator(
+                                "[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
+                            if fallback.count() != 1:
+                                return False, (
+                                    "lang=%s: expected exactly one fallback Save, got %d — with "
+                                    "no script it is the ONLY way to save this page"
+                                    % (lang, fallback.count()))
+                            if not fallback.is_visible():
+                                return False, (
+                                    "lang=%s: the fallback Save is rendered but not visible — "
+                                    "which is precisely the shape B1 took, and a check that only "
+                                    "asked whether it EXISTS would have passed through it"
+                                    % (lang,))
+                            box = fallback.bounding_box()
+                            if not box or box["width"] <= 0 or box["height"] <= 0:
+                                return False, (
+                                    "lang=%s: the fallback Save has no box at 360px (%r)"
+                                    % (lang, box))
+                            current = device_config.load_device_config(harness.tmpdir)["theme"]
+                            target = next(
+                                t for t in device_config.THEME_IDS if t != current)
+                            page.eval_on_selector(
+                                'input[name="theme"][value="%s"]' % target,
+                                "el => el.checked = true")
+                            with page.expect_navigation():
+                                fallback.click()
+                            saved = device_config.load_device_config(harness.tmpdir)["theme"]
+                            if saved != target:
+                                return False, (
+                                    "lang=%s: a Display save did not persist through the "
+                                    "fallback Save with scripts blocked at 360px — expected "
+                                    "theme %r, got %r. This is the P0 Phase 22 existed to fix"
+                                    % (lang, target, saved))
+                    return True, ""
+                check(
+                    "with scripts blocked at 360px, in BOTH languages, neither hiding marker is "
+                    "on <html>, the save bar computes display:none with this plan's entrance "
+                    "declared on it, and the fallback Save is VISIBLE with a real box and still "
+                    "saves to disk — B1's floor re-asserted in the plan that animates the "
+                    "component sitting on top of it (B1/CFG-38, 23-09-PLAN.md Task 3)",
+                    _with_no_script_there_is_no_bar_and_the_fallback_save_is_the_only_way)
             finally:
                 browser.close()
     finally:
