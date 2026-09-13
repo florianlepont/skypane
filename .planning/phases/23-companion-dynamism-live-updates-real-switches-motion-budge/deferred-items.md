@@ -64,3 +64,52 @@ landmark would still be announced). The live count is **two**:
 (`.dashboard-sidebar`, never a shared class) is unchanged. 23-04 corrected the
 claim in the two files it owns. Any later plan quoting the research on this
 should quote two.
+
+## 23-05: `test_i18n.py`'s Check 6 excludes "a bare selector" in prose but not in code
+
+**Discovered during:** 23-05 Task 1, twice — once for `relative-time.js`'s own
+`[data-relative]` hook and once for `freshness.js`'s new `[data-refresh-live-dot]`
+one.
+
+**Symptom:** Check 6's module comment states its allowlist keeps it "from
+demanding a translation for a CSS class, a selector, an attribute name or an
+event name". `_container_exclusion_reason()` implements the class/attribute/event
+half (`_HYPHENATED_IDENTIFIER_RE` plus a required `-`), but a BRACKETED attribute
+selector — `"[data-relative]"` — matches none of the exclusion rules, so an
+upper-case constant holding one is demanded as translatable prose. No script
+carried such a constant before this plan, which is why it had never surfaced.
+
+**Why not fixed here:** widening an exclusion list is weakening a check, and the
+standing constraint for this phase is that the suite carries no test exception.
+23-05 sidestepped it instead, in both files, by giving the attribute NAME its own
+constant and building the selector from it (`"[" + RELATIVE_ATTR + "]"`) — which
+is independently better (the name then has exactly one site) and leaves the
+harness untouched. Each site says so in its own comment.
+
+**For 23-11 (or whichever plan next edits `test_i18n.py`):** either tighten the
+allowlist to match its own stated boundary with an exact `^\[[a-z0-9_-]+\]$`
+shape, or amend the comment so it stops promising an exclusion that does not
+exist. The second is cheaper and arguably more honest; the first needs a mutation
+proving it does not over-exclude.
+
+## 23-05: 23-03-SUMMARY.md assigns `health_page.py`'s freshness line to 23-06, but 23-05 owns it
+
+**Discovered during:** 23-05 Task 2, while reading the inventory 23-03 built.
+
+**Symptom:** `23-03-SUMMARY.md`'s "CONVERTED BY A LATER PLAN" table routes
+`health_page.py:3009` — the freshness line's own `relative_age_text()` — to
+**23-06**, on the stated ground that "`health_page.py` is not in this plan's
+`files_modified`; 23-06 owns it". `23-05-PLAN.md` names
+`companion/pages/health_page.py` in its own `files_modified` and its Task 2 is
+precisely that conversion, so the routing is one plan out.
+
+**Consequence:** none — 23-05 executed alone in its wave, did the conversion, and
+`health_page.py` is not touched by any other plan in flight. The line noted there
+as 23-06's is now live.
+
+**For 23-06:** its own plan text may still say it promotes the freshness line into
+`layout.py` as one builder. That work is now a REFACTOR of something that already
+renders a `<time data-relative>` element, not a conversion. `health_page.py:1150`
+— the `when` text `battery-trend.js` copies into a `title` attribute — is
+untouched and still cannot become an element without changing that script's
+transport first, exactly as 23-03 recorded.
