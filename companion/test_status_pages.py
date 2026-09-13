@@ -694,6 +694,21 @@ EXPECTED_CHECK_COUNT = 261
 # anomaly_active() root-sandbox failure, unrelated to this plan), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 265
+# 22-14-PLAN.md Task 3 (D-10, T7): +1 — the save bar's sub-960px bottom
+# offset gaining the tab bar's 56px plus the safe-area inset (geometric
+# separation FIRST, so in the normal case the two never overlap at all),
+# ONE stacking value across both breakpoints at 30 above the tab bar's
+# 20 (which is also T7's desktop fix, where the rule carried none at
+# all), the superseded "No z-index, and why" paragraph amended in place
+# with the stated reason its own escape clause asks for rather than
+# deleted, and the .dirty-ready-scoped content clearance at both
+# breakpoints at its MEASURED value (88px desktop, 144px phone) declared
+# after the tab bar's own clearance so source order cannot silently
+# override it. 265 + 1 = 266, recomputed directly against the real
+# on-disk check(...) call count at execution time (265/266 pass — the
+# one documented anomaly_active() root-sandbox failure, unrelated to
+# this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 266
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -11209,6 +11224,89 @@ def main():
         "(\"Account and preferences\" / \"Compte et préférences\"), and the retired \"Open menu\" "
         "translation is deleted rather than orphaned (X9/D-10/B16, 22-14-PLAN.md Task 2)",
         _nav_toggle_label_now_describes_the_preferences_panel)
+
+    # ======================================================================
+    # 22-14-PLAN.md Task 3 (D-10, T7): the save bar and the tab bar,
+    # geometrically apart first and unambiguously ordered second.
+    # ======================================================================
+
+    def _save_bar_clears_the_tab_bar_and_declares_one_stacking_value():
+        css_source = _css_source()
+        phone = _block(
+            css_source,
+            ".dirty-bar {\n    position: fixed;\n    left: var(--space-md);")
+        # GEOMETRY FIRST: the offset gains the tab bar's own height, so
+        # in the normal case the two never overlap at all.
+        if "bottom: calc(var(--space-md) + 56px + env(safe-area-inset-bottom, 0px))" not in phone:
+            return False, (
+                "expected the sub-960px save bar's bottom offset to gain the tab bar's 56px "
+                "plus the safe-area inset, got %r" % (phone,))
+        if "z-index: 30" not in phone:
+            return False, "expected the phone save bar at the one stacking value (30)"
+        desktop = _block(
+            css_source,
+            ".dirty-bar {\n    position: fixed;\n    bottom: var(--space-lg);")
+        if "z-index: 30" not in desktop:
+            return False, (
+                "T7: the desktop save bar had no stacking value at all; expected the SAME one "
+                "the phone rule declares, got %r" % (desktop,))
+        # One value for the component, not one per width.
+        if len(re.findall(r"\n\s*z-index: \d+;", phone + desktop)) != 2:
+            return False, "expected exactly one z-index declaration in each save-bar rule"
+        tab_bar = _block(
+            css_source[css_source.index(_TAB_BAR_BANNER):],
+            ".tab-bar {\n    display: flex;")
+        tab_z = re.search(r"z-index: (\d+);", tab_bar)
+        if tab_z is None:
+            return False, "expected the tab bar to declare its own stacking value"
+        if int(tab_z.group(1)) >= 30:
+            return False, (
+                "the save bar is the active task and the tab bar is ambient chrome — a blocked "
+                "save is this phase's P0, so the tab bar must sit BELOW it, got %r"
+                % (tab_z.group(1),))
+
+        # The superseded paragraph is amended in place with the stated
+        # reason its own escape clause demands, never deleted.
+        if "if a future overlap appears, add one then with a" not in css_source:
+            return False, (
+                "expected the original 'No z-index, and why' paragraph to survive — its escape "
+                "clause is what this change is exercising")
+        if "STATED REASON" not in css_source:
+            return False, (
+                "expected the stated reason to be recorded where the z-index is declared, not "
+                "merely asserted elsewhere")
+
+        # T7's content clearance, at both breakpoints, scoped to the
+        # class dirty-state.js only adds once its own bar is live.
+        for selector, needle in (
+                (".dirty-ready .dashboard-main {", "var(--space-2xl) + 88px"),
+                (".dirty-ready .page-content {", "var(--space-2xl) + 56px + 144px")):
+            if selector not in css_source:
+                return False, "expected a .dirty-ready-scoped content clearance (%r)" % (selector,)
+            body = _block(css_source, selector)
+            if "padding-bottom" not in body:
+                return False, "expected %r to declare padding-bottom" % (selector,)
+            if needle not in body.replace("\n", " ").replace("      ", ""):
+                return False, (
+                    "expected the MEASURED clearance value in %r, got %r" % (selector, body))
+        # The phone clearance must be declared AFTER the tab bar's own,
+        # which targets the same element at the same specificity — source
+        # order is the only thing deciding between them.
+        if css_source.index(".dirty-ready .page-content {") < css_source.index(
+                ".has-tab-bar .page-content {"):
+            return False, (
+                "the save-bar clearance must follow the tab bar's own clearance in source "
+                "order, or the tab bar's shorter value silently wins")
+        return True, ""
+    check(
+        "below 960px the save bar's bottom offset clears the tab bar's 56px plus the safe-area inset "
+        "(geometry first), it declares ONE stacking value at both breakpoints — 30, above the tab bar's "
+        "20, which is also T7's desktop fix — with the reason stated where it is declared and the "
+        "superseded 'No z-index, and why' paragraph amended rather than deleted, and a "
+        ".dirty-ready-scoped content clearance exists at both breakpoints at its measured value, "
+        "declared after the tab bar's own so it cannot be silently overridden (D-10/T7, 22-14-PLAN.md "
+        "Task 3)",
+        _save_bar_clears_the_tab_bar_and_declares_one_stacking_value)
 
     # ======================================================================
     # 22-04-PLAN.md Task 3 (D-03/CFG-26, X2): Health's Frame tile and the

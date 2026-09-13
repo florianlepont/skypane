@@ -222,6 +222,19 @@ EXPECTED_CHECK_COUNT = 17
 # directly against the real on-disk check(...) call count at execution
 # time (19/19 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 19
+# 22-14-PLAN.md Task 3 (D-10, T7): +1 — at 390x844 on Display with a
+# real unsaved edit, the save bar and the bottom tab bar both visible,
+# their bounding boxes NOT intersecting, both hit-testable at their own
+# centre points via elementFromPoint, and the save bar above the tab bar
+# on stacking order at the one value it declares at both breakpoints;
+# repeated at 1280x900, where the tab bar must be absent and the same
+# stacking value must still be there (T7's desktop half); and at both
+# widths the page scrolled to its own foot with the last section ending
+# above the bar, which is the only way to prove the .dirty-ready
+# clearance is big enough rather than merely present. 19 + 1 = 20,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (20/20 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 20
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -1797,6 +1810,151 @@ def main():
                     "and a close with no transition applies hidden synchronously rather than waiting for "
                     "an event that never arrives (T5/D-02, 22-14-PLAN.md Task 2)",
                     _mobile_nav_close_leaves_hidden_and_aria_expanded_consistent)
+
+                def _save_bar_and_tab_bar_never_overlap_at_390x844():
+                    # D-10's "must not cover the pinned save bar", and
+                    # 22-UI-SPEC.md §3.1's own acceptance sentence,
+                    # verified rather than asserted. Both elements are
+                    # `position: fixed` at the same corner of a 390x844
+                    # viewport, so nothing short of a real layout engine
+                    # can answer whether they intersect.
+                    #
+                    # Geometric separation is checked FIRST, because that
+                    # is the order the fix is built in: the save bar's
+                    # own bottom offset gains the tab bar's height, so in
+                    # the normal case the two never overlap at all. The
+                    # stacking order is the belt-and-braces half and is
+                    # checked second.
+                    def centre_owner(page, selector):
+                        return page.evaluate(
+                            "(sel) => {"
+                            " var el = document.querySelector(sel);"
+                            " var r = el.getBoundingClientRect();"
+                            " var hit = document.elementFromPoint("
+                            "   Math.round(r.left + r.width / 2),"
+                            "   Math.round(r.top + r.height / 2));"
+                            " return hit ? (hit === el || el.contains(hit)) : false;}",
+                            selector)
+
+                    for width, height, label in ((390, 844, "390x844"), (1280, 900, "1280x900")):
+                        context = browser.new_context(
+                            viewport={"width": width, "height": height})
+                        try:
+                            page = context.new_page()
+                            _login(page, harness.base_url())
+                            page.goto(harness.base_url() + "/display")
+                            page.wait_for_load_state("networkidle")
+                            current = page.eval_on_selector(
+                                'input[name="theme"]:checked', "el => el.value")
+                            other = next(
+                                t for t in device_config.THEME_IDS if t != current)
+                            _click_control(
+                                page, 'input[name="theme"][value="%s"]' % other)
+                            page.wait_for_timeout(300)
+
+                            if not page.locator("[data-dirty-bar]").is_visible():
+                                return False, (
+                                    "expected the save bar to be visible after an unsaved edit "
+                                    "at %s" % label)
+                            geom = page.evaluate(
+                                "() => {"
+                                " var bar = document.querySelector('[data-dirty-bar]');"
+                                " var tabs = document.querySelector('.tab-bar');"
+                                " var b = bar.getBoundingClientRect();"
+                                " var out = {bar: {top: b.top, bottom: b.bottom,"
+                                "                  left: b.left, right: b.right},"
+                                "            barZ: getComputedStyle(bar).zIndex,"
+                                "            tabsPresent: !!tabs};"
+                                " if (tabs) {"
+                                "   var t = tabs.getBoundingClientRect();"
+                                "   out.tabs = {top: t.top, bottom: t.bottom,"
+                                "               left: t.left, right: t.right};"
+                                "   out.tabsDisplay = getComputedStyle(tabs).display;"
+                                "   out.tabsZ = getComputedStyle(tabs).zIndex;"
+                                " }"
+                                " return out;}")
+                            if geom["barZ"] != "30":
+                                return False, (
+                                    "expected ONE save-bar stacking value across both "
+                                    "breakpoints (30), got %r at %s" % (geom["barZ"], label))
+                            if not centre_owner(page, "[data-dirty-bar]"):
+                                return False, (
+                                    "the save bar must be hit-testable at its own centre at %s"
+                                    % label)
+
+                            if width >= 960:
+                                # T7's desktop half: no tab bar here, so
+                                # the only thing to prove is that the
+                                # stacking value is the same one.
+                                if geom.get("tabsDisplay") not in (None, "none"):
+                                    return False, (
+                                        "the tab bar must not render at %s, got display %r"
+                                        % (label, geom.get("tabsDisplay")))
+                            else:
+                                if geom.get("tabsDisplay") != "flex":
+                                    return False, (
+                                        "expected the tab bar visible at %s, got display %r"
+                                        % (label, geom.get("tabsDisplay")))
+                                bar, tabs = geom["bar"], geom["tabs"]
+                                overlaps = (
+                                    bar["left"] < tabs["right"]
+                                    and tabs["left"] < bar["right"]
+                                    and bar["top"] < tabs["bottom"]
+                                    and tabs["top"] < bar["bottom"])
+                                if overlaps:
+                                    return False, (
+                                        "the save bar and the tab bar must not intersect at %s; "
+                                        "save %r vs tabs %r" % (label, bar, tabs))
+                                if bar["bottom"] > tabs["top"]:
+                                    return False, (
+                                        "the save bar must float ABOVE the tab bar, got "
+                                        "bar bottom %r against tab top %r"
+                                        % (bar["bottom"], tabs["top"]))
+                                if int(geom["tabsZ"]) >= int(geom["barZ"]):
+                                    return False, (
+                                        "the save bar is the active task and the tab bar is "
+                                        "ambient chrome — the save bar must win on stacking "
+                                        "order too, got %r vs %r"
+                                        % (geom["barZ"], geom["tabsZ"]))
+                                if not centre_owner(page, ".tab-bar"):
+                                    return False, (
+                                        "the tab bar must stay hit-testable at its own centre "
+                                        "at %s" % label)
+
+                            # T7: the fixed bar must cover no content.
+                            page.evaluate(
+                                "() => window.scrollTo(0, document.body.scrollHeight)")
+                            page.wait_for_timeout(200)
+                            covered = page.evaluate(
+                                "() => {"
+                                " var bar = document.querySelector('[data-dirty-bar]');"
+                                " var barTop = bar.getBoundingClientRect().top;"
+                                " var sections = document.querySelectorAll("
+                                "   '.page-content .page-section');"
+                                " var last = sections[sections.length - 1];"
+                                " return {contentBottom: last.getBoundingClientRect().bottom,"
+                                "         barTop: barTop,"
+                                "         atBottom: (window.innerHeight + window.scrollY) >="
+                                "                   (document.documentElement.scrollHeight - 2)};}")
+                            if not covered["atBottom"]:
+                                return False, (
+                                    "expected the page to be scrolled to its own foot at %s"
+                                    % label)
+                            if covered["contentBottom"] > covered["barTop"]:
+                                return False, (
+                                    "the fixed save bar must cover no page content at %s: the "
+                                    "last section ends at %r, the bar starts at %r"
+                                    % (label, covered["contentBottom"], covered["barTop"]))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "at 390x844 on Display with an unsaved edit the save bar and the bottom tab bar are "
+                    "both visible, their bounding boxes do not intersect, both are hit-testable at their "
+                    "centre points and the save bar wins on stacking order at the ONE value it declares "
+                    "at both breakpoints — and at neither breakpoint does the fixed bar cover the last "
+                    "section once the page is scrolled to its foot (D-10/T7, 22-14-PLAN.md Task 3)",
+                    _save_bar_and_tab_bar_never_overlap_at_390x844)
             finally:
                 browser.close()
     finally:

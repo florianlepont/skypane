@@ -4791,7 +4791,27 @@ a.airline-card {
    * element in document order and nothing it overlaps creates a
    * competing stacking context, so a z-index here would be an unearned
    * magic number — if a future overlap appears, add one then with a
-   * stated reason. */
+   * stated reason.
+   *
+   * 22-14-PLAN.md Task 3 (T7, D-10): that future overlap has appeared,
+   * and the escape clause above is being used exactly as it was
+   * written, so the STATED REASON is recorded here rather than the
+   * paragraph deleted. The bottom tab bar (at the foot of this file) is
+   * a new `position: fixed` element that genuinely competes for the
+   * same corner of a phone viewport, so "nothing it overlaps creates a
+   * competing stacking context" has stopped being true. `z-index: 30`
+   * is declared at BOTH breakpoints — one value for the component, not
+   * one per width — and sits above the tab bar's 20.
+   *
+   * Why the save bar wins rather than the tab bar: the save bar is the
+   * user's ACTIVE TASK and the tab bar is ambient chrome, and a blocked
+   * save is the P0 (B1/CFG-25) this entire phase exists to fix. A
+   * wrapped, taller save bar covering a tab is acceptable; a tab bar
+   * covering the Save button is not. Geometric separation comes first
+   * (see the sub-960px rule, where the bar's own bottom offset gains
+   * the tab bar's height so the two never overlap at all); this
+   * stacking order is belt-and-braces for the cases geometry cannot
+   * cover, such as a save bar that wraps taller than its own gap. */
   .dirty-bar {
     position: fixed;
     bottom: var(--space-lg);
@@ -4800,6 +4820,24 @@ a.airline-card {
     width: fit-content;
     max-width: calc(min(1440px, 100%) - var(--space-md) * 2);
     margin: 0 auto;
+    z-index: 30;
+  }
+
+  /* T7: the fixed bar covers page content at the foot of a scrolled
+   * page. Scoped to `.dirty-ready` — the class companion/static/
+   * dirty-state.js adds to <html> once it has confirmed its own bar
+   * exists — so a page with no save bar reserves nothing.
+   *
+   * 88px, MEASURED not guessed: the bar renders 64px tall at 1280px and
+   * sits `var(--space-lg)` (24px) above the viewport foot, so its whole
+   * footprint is 88px — already on the 8px spacing grid. Measured in
+   * BOTH languages: at this width the bar is `width: fit-content` and
+   * does not wrap, so English and French render the same 64px and there
+   * is no longer-copy case to budget for. The phone figure differs and
+   * is larger; see the tab bar's own block at the foot of this file for
+   * it and for why it is declared there. */
+  .dirty-ready .dashboard-main {
+    padding-bottom: calc(var(--space-2xl) + 88px);
   }
 
   /* History's mobile/desktop toggle (06.6.3 D-07), inverted at this
@@ -6179,16 +6217,36 @@ a.airline-card__zoom {
   /* The save bar used to sit in normal flow at the very bottom of the
    * page on phones — below every group, the rules table and the
    * refresh section — so a change made near the top had no visible way
-   * to be saved. Pin it like the desktop rule already does. */
+   * to be saved. Pin it like the desktop rule already does.
+   *
+   * 22-14-PLAN.md Task 3 (D-10, T7): GEOMETRIC SEPARATION FIRST. The
+   * bottom tab bar lands at exactly this corner — `bottom: 0`, 56px of
+   * row plus the same safe-area inset — so the bar's own offset gains
+   * that 56px and the two never overlap at all in the normal case.
+   * D-10's "must not cover the pinned save bar" is then satisfied by
+   * arithmetic rather than by a stacking assurance.
+   *
+   * The stacking order is the belt-and-braces half, for the cases
+   * geometry cannot cover (a save bar wrapped taller than its own gap):
+   * `z-index: 30`, raised from 20 so the component declares ONE value
+   * across both breakpoints, above the tab bar's 20. The desktop rule
+   * above carries the full stated reason, as that block's own escape
+   * clause requires. */
   .dirty-bar {
     position: fixed;
     left: var(--space-md);
     right: var(--space-md);
-    bottom: calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--space-md) + 56px + env(safe-area-inset-bottom, 0px));
     margin: 0;
-    z-index: 20;
+    z-index: 30;
     flex-wrap: wrap;
   }
+
+  /* T7's phone-side content clearance is NOT declared here. It has to
+   * beat `.has-tab-bar .page-content`, which targets the same element at
+   * the same (0,2,0) specificity, so it is declared AFTER it — in the
+   * tab bar's own block at the foot of this file, next to the rule it
+   * supersedes rather than 900 lines away from it. */
 
   /* 22-04-PLAN.md Task 2: `.quick-action` no longer establishes its own
    * flex row (that layout moved onto `.frame-strip__row--state`, one
@@ -7104,5 +7162,25 @@ input:checked + .frame-colours__row {
   .has-tab-bar .page-content {
     padding-bottom: calc(
       var(--space-2xl) + 56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* T7, phone side (22-14-PLAN.md Task 3). When the save bar is live the
+   * page must clear BOTH fixed elements: the tab bar's 56px row and the
+   * save bar floating above it. Declared here, immediately after the
+   * rule it supersedes, because the two target the same element at the
+   * same (0,2,0) specificity and source order is what decides between
+   * them — writing this beside the sub-960px `.dirty-bar` block instead
+   * would have let the tab bar's own clearance silently win.
+   *
+   * 144px, MEASURED not guessed, and measured in BOTH languages rather
+   * than assumed: at 390px the bar is full-width and wraps, and it is
+   * ENGLISH that wraps taller here (122px against French's 110px) —
+   * the opposite of this file's usual longer-copy-is-French case, and
+   * exactly why the figure was measured instead of reasoned about. 122px
+   * of bar plus its own `var(--space-md)` offset above the tab bar is
+   * 138px, rounded up to 144px on the 8px spacing grid. */
+  .dirty-ready .page-content {
+    padding-bottom: calc(
+      var(--space-2xl) + 56px + 144px + env(safe-area-inset-bottom, 0px));
   }
 }
