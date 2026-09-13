@@ -5886,15 +5886,24 @@ img.recent-flight__thumb,
  * wrapped in one `.filter-bar__meta` group below instead, which is a
  * single flex item and therefore moves whole or not at all.
  *
- * `.filter-bar__count`'s own `margin-left: auto` is kept, not moved:
- * Airlines and Health still render a bare count with no wrapper (plans
- * 22-11 and 22-12 adopt the same group element on their own filter
- * bars), and removing it here would un-right-align both of them. Inside
- * `.filter-bar__meta` it is inert — that group is sized to its content,
- * so there is no free space for an auto margin to absorb. */
-.filter-bar__count {
-  margin-left: auto;
-}
+ * `.filter-bar__count`'s own `margin-left: auto` was KEPT here by
+ * 22-09-PLAN.md Task 3, with a stated expiry: "Airlines and Health still
+ * render a bare count with no wrapper (plans 22-11 and 22-12 adopt the
+ * same group element on their own filter bars), and removing it here
+ * would un-right-align both of them."
+ *
+ * RETIRED by 22-12-PLAN.md Task 3, which is the plan that landed the
+ * third and last of those three adoptions. All three filtered pages now
+ * render their count inside `.filter-bar__meta` (grep: exactly three
+ * `.filter-bar__count` call sites, in history_page.py, airlines_page.py
+ * and health_page.py, each one a child of that group), and that group
+ * carries the auto margin itself. Inside a content-sized flex item there
+ * is no free space for a second auto margin to absorb, so the
+ * declaration had become genuinely inert rather than merely redundant —
+ * this removal changes no rendered pixel, and 22-11-SUMMARY.md's own
+ * note named this plan as the one that could honestly make it. If a
+ * fourth filter bar is ever added, wrap its pair in the group; do not
+ * reinstate this rule. */
 
 .filter-bar [data-filter-clear] {
   white-space: nowrap;

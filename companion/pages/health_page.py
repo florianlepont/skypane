@@ -2845,6 +2845,19 @@ def _registry_filter_bar_html(total):
     rendered when there is data to filter (matches `_registry_section()`'s
     own "no chrome with no data" rule, same as History's precedent).
 
+    22-12-PLAN.md Task 3 (B11): the count and the Clear control sit
+    inside ONE `.filter-bar__meta` group — the SHARED wrapper plan 22-09
+    added for Flights and plan 22-11 adopted verbatim for Airlines,
+    adopted here verbatim too. Health is the third and LAST of the three
+    filtered pages the audit measured, and this is Phase 18's A-18
+    regressing a second time: two `nowrap` siblings in a `flex-wrap:
+    wrap` container do not wrap as a unit — `nowrap` stops a break inside
+    each one, and nothing stopped the container breaking BETWEEN them, so
+    at 390px Clear dropped alone onto its own line. One group is a single
+    flex item and moves whole or not at all. No per-page variant is
+    added, and this page's Clear stays converged on the existing
+    `.filter-bar [data-filter-clear]` rule.
+
     D-16 forbids a `<button>` element anywhere on the page this content
     originated from — the clear control is therefore a plain link
     element pointing at the filter input's own id rather than a
@@ -2866,8 +2879,10 @@ def _registry_filter_bar_html(total):
         "%s"
         '<input type="search" id="%s" data-filter-input>'
         "</div>"
+        '<div class="filter-bar__meta">'
         '<span class="filter-bar__count" data-filter-count>%s</span>'
         '<a href="#%s" data-filter-clear>%s</a>'
+        "</div>"
         "</div>"
         '<div class="empty-state" data-filter-empty hidden>'
         '<p class="empty-state__heading text-heading">%s</p>'
@@ -3594,8 +3609,23 @@ def render(ctx):
     _clock_text = (
         layout.local_clock_text(_now_parsed, now_parsed=_now_parsed)
         if _now_parsed is not None else now)
+    # 22-12-PLAN.md Task 3 (C5): `mono` -> `time-value`. This page's own
+    # "Updated HH:MM" was the last of the four treatments C5 replaces
+    # here, and it was the one that most plainly broke the rule:
+    # monospace is reserved for IDENTIFIERS — the callsign, the ICAO24
+    # hex, the masked calendar URL — and a wall-clock time is not one.
+    # `.time-value` is the single time-value role (sans, tabular
+    # numerals, so the digits still hold their column as the clock
+    # ticks), which is exactly what the monospace family was being used
+    # for here. The base shape, not `--primary`: this is a caption under
+    # the page title, not a headline.
+    #
+    # The `title` deliberately keeps the full ISO instant, unchanged:
+    # 19-09-PLAN.md (D-02/A-20) put it there on purpose and
+    # companion/test_status_pages.py pins it by name. See this plan's
+    # SUMMARY for why that is left standing rather than converted.
     clock_html = (
-        '<span class="mono" data-refresh-clock title="%s">%s</span>'
+        '<span class="time-value" data-refresh-clock title="%s">%s</span>'
         % (escape_html(now), escape_html(_clock_text)))
     # 21-02-PLAN.md (D-18): the Pause/Resume button that used to sit here
     # is deleted outright — no replacement control, no placeholder. The

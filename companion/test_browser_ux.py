@@ -173,6 +173,19 @@ EXPECTED_CHECK_COUNT = 11
 # directly against the real on-disk check(...) call count at execution
 # time (12/12 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 12
+# 22-12-PLAN.md Task 3 (B11/C5 and D-09): +2 — at 390px Health's filter
+# count and Clear report the same bounding-box top inside the one shared
+# .filter-bar__meta group (the THIRD and last of the three filtered
+# pages the audit measured, Phase 18's A-18 closed for the third time by
+# measurement rather than by inspection) and the page header's Updated
+# clock carries .time-value and not .mono; and the no-JS floor holds for
+# Health at this plan's own commit, with all four tiles rendering their
+# label/verdict/detail slots exactly once each, the filter bar, the
+# unresolved-prefix rows and a Resolve action that actually navigates.
+# 12 + 2 = 14, recomputed directly against the real on-disk check(...)
+# call count at execution time (14/14 pass), not trusted from arithmetic
+# alone.
+EXPECTED_CHECK_COUNT = 14
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -702,6 +715,146 @@ def main():
                     "header is clipped — the French table measured 1026px against an 830px wrap "
                     "before the stacked cells and the shortened headers (B12, 22-12-PLAN.md Task 2)",
                     _health_registry_table_fits_1280px_in_both_languages)
+
+                def _health_filter_count_and_clear_share_one_line_at_390px():
+                    # B11 (22-12-PLAN.md Task 3): the THIRD and last of
+                    # the three filtered pages. Same defect, same shared
+                    # `.filter-bar__meta` group plan 22-09 added and plan
+                    # 22-11 adopted — taken verbatim again, never forked
+                    # into a per-page variant, which is how Phase 18's
+                    # A-18 came back the first time. Measured, like both
+                    # its siblings: equal getBoundingClientRect().top is
+                    # the contract, so a third regression fails here
+                    # instead of being noticed by eye.
+                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/health")
+                        count = page.locator("[data-filter-count]").first
+                        clear = page.locator("[data-filter-clear]").first
+                        count.wait_for(state="visible")
+                        clear.wait_for(state="visible")
+                        count_box = count.bounding_box()
+                        clear_box = clear.bounding_box()
+                        if count_box is None or clear_box is None:
+                            return False, "expected both the count and Clear to have a box at 390px"
+                        if round(count_box["y"]) != round(clear_box["y"]):
+                            return False, (
+                                "expected the Health filter count and Clear to report the same "
+                                "top at 390px (A-18 regressing a third time), got %r and %r"
+                                % (count_box["y"], clear_box["y"]))
+                        in_group = page.eval_on_selector_all(
+                            ".filter-bar__meta",
+                            "els => els.map(el => [!!el.querySelector('[data-filter-count]'),"
+                            " !!el.querySelector('[data-filter-clear]')])")
+                        if in_group != [[True, True]]:
+                            return False, (
+                                "expected exactly one .filter-bar__meta group on Health holding "
+                                "both controls, got %r" % (in_group,))
+                        # C5: the page header's own clock left the
+                        # monospace family for the one time-value role.
+                        clock_class = page.eval_on_selector(
+                            "[data-refresh-clock]", "el => el.className")
+                        if "mono" in clock_class.split() or "time-value" not in clock_class.split():
+                            return False, (
+                                "expected the page header's Updated clock on .time-value and not "
+                                "on .mono, got %r" % (clock_class,))
+                        if page.viewport_size["width"] != 390:
+                            return False, "expected the measurement to be taken at 390px"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "at 390px on Health the filter count and the Clear control report the same "
+                    "bounding-box top, both inside the one shared .filter-bar__meta group — the "
+                    "third and last of the three filtered pages — and the page header's Updated "
+                    "clock carries .time-value, never .mono (B11/C5, 22-12-PLAN.md Task 3)",
+                    _health_filter_count_and_clear_share_one_line_at_390px)
+
+                def _the_no_js_floor_holds_for_health():
+                    # D-09 asks the floor to hold THROUGHOUT the phase,
+                    # so it is asserted at THIS plan's own commit rather
+                    # than deferred to the phase-closing sweep. This plan
+                    # rebuilds every tile body, restructures a table's
+                    # cells and re-wraps a filter bar — all server-
+                    # rendered, and all of it must therefore be complete
+                    # with scripts blocked.
+                    context = browser.new_context(java_script_enabled=False)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        page.goto(base_url + "/login")
+                        page.fill("#password", TEST_PASSWORD)
+                        page.click('button[type="submit"]')
+                        page.wait_for_load_state("load")
+                        page.goto(base_url + "/health")
+
+                        tiles = page.eval_on_selector_all(".stat-tile", "els => els.length")
+                        if tiles != 4:
+                            return False, (
+                                "expected all four Health tiles to render with scripts blocked, "
+                                "got %d" % (tiles,))
+                        # Every tile is complete, not merely present.
+                        slots = page.eval_on_selector_all(
+                            ".stat-tile",
+                            "els => els.map(el => ["
+                            "  el.querySelectorAll(':scope > .stat-tile__caption').length,"
+                            "  el.querySelectorAll("
+                            "    ':scope > .widget-verdict, :scope > .stat-tile__value,"
+                            "     :scope > .empty-state > .empty-state__heading').length,"
+                            "  el.querySelectorAll("
+                            "    ':scope > .widget-detail, :scope > .empty-state >"
+                            "     .empty-state__body').length])")
+                        for index, slot in enumerate(slots):
+                            if slot != [1, 1, 1]:
+                                return False, (
+                                    "expected tile %d to render its label/verdict/detail slots "
+                                    "exactly once each with scripts blocked, got %r"
+                                    % (index, slot))
+                        if not page.query_selector(".filter-bar [data-filter-input]"):
+                            return False, "expected the registry filter bar with scripts blocked"
+                        if not page.query_selector("[data-filter-clear]"):
+                            return False, "expected the Clear control with scripts blocked"
+                        # The table OR its card fallback — whichever the
+                        # viewport resolves to — must be present, and the
+                        # Resolve action reachable from it.
+                        rows = page.eval_on_selector_all(
+                            "table.data-table--registry tbody tr, ul.data-cards > li", "els => els.length")
+                        if rows < 1:
+                            return False, (
+                                "expected the unresolved-prefix rows (table or card fallback) with "
+                                "scripts blocked, got %d" % (rows,))
+                        # `:visible` matters: this card list and this
+                        # table are BOTH in the DOM at every width (the
+                        # `.data-cards ~ .data-table-wrap` toggle is
+                        # CSS-only, by design, so the no-JS path has
+                        # both), and the card list renders first. The
+                        # reachable one is whichever the viewport
+                        # actually shows — which is the thing "reachable
+                        # without scripts" means.
+                        resolve = page.locator('a[href^="/airlines?resolve="]:visible').first
+                        if resolve.count() == 0:
+                            return False, (
+                                "expected the per-row Resolve action to be reachable with scripts "
+                                "blocked")
+                        href = resolve.get_attribute("href")
+                        with page.expect_navigation():
+                            resolve.click()
+                        if "/airlines" not in page.url or "resolve=" not in page.url:
+                            return False, (
+                                "expected the Resolve link (%r) to navigate to the Airlines "
+                                "resolve surface with scripts blocked, got %r" % (href, page.url))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "with scripts blocked Health renders in full — all four tiles with their "
+                    "label/verdict/detail slots each exactly once, the registry filter bar and "
+                    "Clear, the unresolved-prefix rows, and a per-row Resolve action that actually "
+                    "navigates to the Airlines resolve surface (D-09's floor asserted at this "
+                    "plan's own commit, 22-12-PLAN.md Task 3)",
+                    _the_no_js_floor_holds_for_health)
 
                 # ----------------------------------------------------------------
                 # 22-01-PLAN.md Task 3 (D-01/D-02, B1/T1/T8): the four checks
