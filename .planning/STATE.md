@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 23-03-PLAN.md (wave 1) — the <time data-relative> convention and the future form
-last_updated: "2026-09-13T16:05:24.673Z"
+last_updated: "2026-09-13T17:08:23.786Z"
 last_activity: 2026-09-13
 progress:
   total_phases: 38
   completed_phases: 32
   total_plans: 214
-  completed_plans: 206
+  completed_plans: 207
   percent: 84
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [██████████] 96%
+  [██████████] 97%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -56,8 +56,10 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 23 (companion-dynamism-live-updates-real-switches-motion-budge) — IN PROGRESS (4/11 plans)
-Plan: 3 of 11
+Phase: 23 (companion-dynamism-live-updates-real-switches-motion-budge) — IN PROGRESS (5/11 plans)
+Plan: 5 of 11
+
+**23-05 executed (2026-09-13), wave 3 (depends on 23-01, 23-02, 23-03) — D14 in full and D22's remaining ~20%: every relative age in the app now moves, and Health's live indicator stopped claiming a moment and started reporting now.** Task 1 added `companion/static/relative-time.js`, the THIRTEENTH deferred script on the authenticated shell and the FOURTEENTH static route (the two numbers differ because `battery-trend.js` and `login-card.js` have routes but are not on this shell; both are stated where they belong). It rewrites every `<time data-relative>` once a second with `textContent` and returns before registering anything on a page with none. The s/m/h/d ladder is MIRRORED from `layout._age_bucket()` — `var BUCKET_BOUNDARIES = [60, 3600, 86400]`, the only place those numbers appear in the file — with Python still the definition site and a cross-file check reading `inspect.getsource(_age_bucket)` (23-03's own note followed: NOT `relative_age_text()`, which no longer holds them). That check was vacuous as first drafted and was repaired before shipping: it now also demands each boundary appear EXACTLY ONCE in the comment-stripped code and that the array be consumed, which M2/M6/M7 prove load-bearing. The wording carries NO language logic: nine complete wordings (four past buckets, four future, one waiting phrase) rendered onto `<body>` by `relative_copy_attrs()` and read with `getAttribute()`, so French collapsing its sub-minute bucket into a numberless phrase is DATA rather than a branch. The quantity mark is `#`, not `%s`, because `test_i18n.py`'s Check 3 scans every French render for a stray format artefact and would have failed six routes; `{n}` was rejected as evasion. A harness check fills each wording with the quantity `_age_bucket()` picks and asserts equality against `relative_age_text()`/`relative_future_text()` in both languages, so the copy cannot become a second ladder. `relative_time_html(countdown=True)` adds a SERVER-rendered `data-relative-countdown` marker and renders a neutral translated `waiting…` once the instant passes — chosen over a client-side memory precisely so the no-JS rendering of an expired countdown is already correct; default is byte-identical to 23-03's element. The three taxes paid in one commit: route in `app.py` (constant, path, serve method, branch — there is no catch-all handler), registration in `layout.py`, the twelve-script check retargeted IN PLACE to THIRTEEN with its reason, nine French entries, and the served-route + banned-token scan. Task 2 added `.is-breathing`, the first and only consumer of 23-01's one keyframes at `var(--motion-slow)` — `.dot--off`'s neutral treatment plus motion, no new dot class, no per-rule reduce block (count still 2). `freshness.js` gained **59 lines and lost none**, proving 22-15's ladder, `RETRY_CEILING_MS`, in-flight guard, targeted swap and badge copy byte-identical: the whole change is one `syncLiveDot()` DERIVING the class from `intervalHandle !== null && currentState === null` plus four calls from `setState`/`clearState`/`startLoop`/`stopLoop` (four, not the plan's three — `tick()`'s belt-and-braces `stopLoop()` would otherwise leave a stopped loop breathing; M9 proves it). Health's freshness line is now a live age over the same instant `data-loaded-at` carries, with the absolute timestamp still on the `title`, beside a neutral `aria-hidden` dot the server renders STILL. A-20's "no relative age here" ban was retargeted IN PLACE to "every age must be inside a live `<time data-relative>`" — strictly stronger, and M11 reddens two checks. Task 3 added four browser checks (`EXPECTED_CHECK_COUNT` 28 → 32, re-derived by RUNNING): the age advances in a real tab; a page reporting itself hidden does no work, against a CONTROL proving it moves while visible (that control was the second vacuity caught, before disk), and is repainted immediately on return; the no-JS floor at 360px in both languages asserts presence AND non-change; an expired countdown reads the translated waiting wording, breathes, and carries no warn class. **Neither real way to hide a page works in this harness** — `bring_to_front()` leaves `visibilityState` "visible" in headless Chromium and CDP's `Emulation.setPageVisibilityOverride` is not implemented — so the page's own visibility state is overridden in-page and a real `visibilitychange` Event dispatched; the mechanism's limits are written into the check's own comment. Sixteen mutations, every message quoted, M15/M16 isolated so both Python harnesses stayed at baseline. Counts: `companion-app` 271/273 → 279/281, `status-pages` 272/273 → 275/276, `browser-ux` 28/28 → 32/32, `i18n` 24/24 (net 0, recorded in place). **D22's ORANGE reconnecting clause is deliberately NOT implemented** — 22-15 shipped that state neutral on an argued ground the design system records, and this plan extends it; the audit row is superseded by a shipped decision, not dropped. **Finding that outlives the plan: the plan's no-JS claim does not hold for the one element Task 2 converts.** A scripts-blocked reader of `/health` now sees a frozen `Updated 0s ago` where they saw `Updated 18:46`; the instant survives on the `title`, but 23-11's human sweep should decide whether the visible half should read `Updated 18:46 (3m ago)`. Also: `grep -cE 'warn|late|held|overdue' = 0` bans `template`, `translated`, `later` and `related` in prose, which shaped the new file's whole vocabulary. `CFG-32`/`CFG-34` deliberately NOT ticked; two findings logged to the phase's `deferred-items.md`.
 
 **23-04 executed (2026-09-13), wave 2 (depends on 23-01, 23-02) — D10 in full, the cheapest item in the phase and the only one a scripts-blocked visitor gets whole.** Task 1 added ONE `@view-transition { navigation: auto; }` at-rule nested in `@media (prefers-reduced-motion: no-preference)` — the form CSS View Transitions 2 §8.3.1 permits and the harness Chromium 151 was re-verified this session to parse AND retain in the CSSOM — plus three names in three rules of their own: `skypane-sidebar` on `.dashboard-sidebar`, `skypane-title` on `.page-title`, `skypane-picture` on `.preview-frame__image`. Each renders at most once per document; none is on a shared class, and none is on the four-selector rule `.preview-frame__image` shares with `img.recent-flight__thumb`/`img.history-card__thumb`, which render once PER ROW (36 on /flights). The wrapper prevents the transition being SET UP rather than running it at a zeroed duration, and no `animation: none` second belt was added. 23-01's gap comment was updated IN PLACE to record the closure, the global reduce block is byte-identical, its count still 2, and `EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS` moved 0 → 1 — the single anticipated line, with the guard's assertions and messages untouched. No markup, no script, no Python module: `grep -c startViewTransition` across style.css and every static script is 0. Task 2 added two browser checks, `EXPECTED_CHECK_COUNT` 26 → 28 re-derived by RUNNING: per-route uniqueness counted from the COMPUTED `view-transition-name` on every element of all six authenticated routes (a source scan proves a declaration appears once; only a browser proves a selector MATCHES once), and the opt-out read from the at-rule's own `parentRule.conditionText` and evaluated — never from a bare `matchMedia()` literal, which is false under a reduce context regardless of the stylesheet and so would pass with the at-rule unwrapped. That vacuous draft was caught before it reached disk. Five mutations, each exactly one additional failure: the wrapper deleted (270/273 on the source guard), `.dashboard-sidebar` "simplified" to bare `nav`, the at-rule moved out of its wrapper while LEAVING a wrapper in the file, the wrapper narrowed so it can never match, and a name declaration deleted — the last four all at 27/28 with the source guard green at 271/273 throughout, so each browser check is proven to do the work unaided. **Finding that outlives the plan: there are TWO navigation landmarks per authenticated document, not the three 23-RESEARCH.md's Risk 3 and every Phase 23 plan state — 22-14 Task 2 REMOVED `<nav class="mobile-nav__nav">` rather than emptying it.** A bare `nav` selector was measured resolving to `nav.sidebar-nav` and `nav.tab-bar`; the hazard and the prescription are unchanged, and both comments that repeated "three" were corrected in place. `CFG-32`/`CFG-33` deliberately NOT ticked (23-11 closes them); `REQUIREMENTS.md` untouched, its stale rows logged to the phase's `deferred-items.md`.
 
@@ -390,6 +392,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 23 P02 | ~55min | 2 tasks | 1 files |
 | Phase 23 P03 | 2h | 2 tasks | 5 files |
 | Phase 23 P04 | 70min | 2 tasks | 3 files |
+| Phase 23 P05 | 3h | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -716,6 +719,10 @@ Recent decisions affecting current work:
 - [Phase ?]: 23-04 (D10/CFG-33): cross-document view transitions ship as ONE @media (prefers-reduced-motion: no-preference)-wrapped at-rule plus three names on .dashboard-sidebar, .page-title and .preview-frame__image — each in a rule of its own, never on the four-selector rule .preview-frame__image shares with two per-row thumbnail classes. No script, no markup change, no feature detection; an unsupported engine (no Firefox) simply navigates.
 - [Phase ?]: 23-04: the reduced-motion opt-out is asserted by reading the media condition OFF THE AT-RULE'S OWN parentRule in the CSSOM and evaluating that string, never by calling matchMedia() with a literal — the literal form is false under a reduce context no matter what the stylesheet says, so it would pass with the at-rule unwrapped, which is the entire defect. That draft was caught and replaced before shipping.
 - [Phase ?]: 23-04 finding: layout.py renders TWO navigation landmarks per authenticated document (nav.sidebar-nav, nav.tab-bar), not the three 23-RESEARCH.md's Risk 3 and every Phase 23 plan state — 22-14 Task 2 REMOVED the preferences panel's <nav> rather than emptying it. Measured via mutation, not reasoned about; the collision hazard and the .dashboard-sidebar prescription are unchanged.
+- [Phase ?]: 23-05: the ticker's copy is nine complete wordings per bucket per direction, so the script carries no language logic at all — a language that collapses a bucket into a numberless phrase is data, not a branch
+- [Phase ?]: 23-05: the client-side quantity placeholder is '#', never '%s' — test_i18n.py Check 3 scans every French render for a stray format artefact, and '{n}' would have been evasion rather than compliance
+- [Phase ?]: 23-05: a countdown is marked SERVER-side (relative_time_html(countdown=True)), not remembered client-side, so the no-JS rendering of an expired countdown is already correct
+- [Phase ?]: 23-05: D22's orange reconnecting clause stays superseded by 22-15's shipped neutral decision — the breathing dot is the neutral off dot in every state, and the loop never paints its own failure as a device fault
 
 ### Pending Todos
 
@@ -817,7 +824,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T16:05:16.787Z
+Last session: 2026-09-13T17:08:01.260Z
 Stopped at: Completed 23-03-PLAN.md (wave 1) — the <time data-relative> convention and the future form
 
 Resume file: 
