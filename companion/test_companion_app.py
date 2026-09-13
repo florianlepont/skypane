@@ -634,6 +634,16 @@ EXPECTED_CHECK_COUNT = 273
 # back to /device by MEMBERSHIP, and no write reachable by GET) and its
 # unauthenticated-POST gate. 288 + 2 = 290, recomputed by RUNNING.
 EXPECTED_CHECK_COUNT = 290
+# 23-09-PLAN.md Task 1 (D3/CFG-32): +1 — the save bar's change count
+# animates its ELEMENT and never its number. The bar is role="status"
+# and the count is its content, so the check pins exactly ONE text write
+# site (there were four, one per branch of updateBar()), gated on the
+# text having genuinely changed, written BEFORE the class is added, and
+# spending the stylesheet's existing .is-fading-in rule through a
+# remove/reflow/re-add — with no timer, which is this file's own
+# standing constraint rather than a property of one version.
+# 290 + 1 = 291, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 291
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -3836,6 +3846,91 @@ def main():
             "from the dirty-bar element's own data-dirty-* attributes, and each removed "
             "hardcoded literal survives only as its own documented fallback (D-06)",
             _dirty_state_script_es5_safe_reads_five_connector_attributes)
+
+        def _dirty_state_animates_the_counts_element_and_never_its_number():
+            # 23-09-PLAN.md Task 1 (D3/CFG-32). The save bar is
+            # role="status" and the count is its content, so an
+            # animation that rewrote the text more than once per change
+            # would make a screen reader announce the same number twice
+            # — or announce a partial one. The rule this check enforces
+            # is the one 23-08 established on the filter count: animate
+            # the ELEMENT, write the number exactly once, and only when
+            # it genuinely differs.
+            js_path = os.path.join(HERE, "static", "dirty-state.js")
+            with open(js_path) as fh:
+                src = fh.read()
+
+            # ONE write site. Before this plan the count's text was
+            # assigned in four branches of updateBar(); four write sites
+            # is four places a later plan can forget the gate below.
+            writes = src.count("countEl.textContent =")
+            if writes != 1:
+                return False, (
+                    "expected exactly ONE countEl.textContent assignment in dirty-state.js, got "
+                    "%d — the count lives in a role=\"status\" region, so every extra write site "
+                    "is another way for the same number to be announced twice" % (writes,))
+
+            # THE GATE. Without it the text is rewritten on every
+            # keystroke — the live region re-announces a number that did
+            # not change, and the animation fires carrying no
+            # information, which is the one thing a motion budget exists
+            # to stop.
+            if "countEl.textContent === text" not in src:
+                return False, (
+                    "expected the count's write to be gated on the text having actually changed "
+                    "— an unrelated re-render must write nothing at all, not the same string "
+                    "again")
+
+            # TEXT FIRST, CLASS SECOND. The displayed value has to be
+            # correct at every instant, including the animation's first
+            # frame: what animates is the element's presentation, never
+            # the number itself.
+            if "is-fading-in" not in src:
+                return False, (
+                    "expected the count to spend the stylesheet's EXISTING changed-value "
+                    "animation (.is-fading-in), whose own rule comment says it names the motion "
+                    "rather than the component so the next thing that changes under the reader "
+                    "spends it — not a fourth keyframes block")
+            write_at = src.index("countEl.textContent =")
+            add_at = src.index("classList.add(")
+            if add_at < write_at:
+                return False, (
+                    "expected the count's text to be written BEFORE the animation class is "
+                    "added, so the displayed number is the real one from the first frame")
+            # Removed, reflowed, re-added — or a second change in a row
+            # runs nothing at all, because the browser coalesces a
+            # remove and an add in one frame into no change.
+            for token in ("classList.remove(", "offsetWidth"):
+                if token not in src:
+                    return False, (
+                        "expected %r — a class that is already present animates nothing on the "
+                        "next change unless it is removed, a layout property is read, and it is "
+                        "re-added" % (token,))
+            remove_at = src.index("classList.remove(")
+            if not (write_at < remove_at < add_at):
+                return False, (
+                    "expected the order write-text, remove-class, re-add-class, got offsets "
+                    "%d/%d/%d" % (write_at, remove_at, add_at))
+
+            # And the reflow is NOT a timer. This file's standing
+            # constraint (its own header, and a live check in
+            # companion/test_config_page.py) is that it introduces no
+            # network call, no timer and no persistent state, ever.
+            for forbidden in ("setTimeout", "setInterval", "requestAnimationFrame"):
+                if forbidden in src:
+                    return False, (
+                        "dirty-state.js must not contain %r — its own header makes "
+                        "no-timer a standing constraint, not a description of one version"
+                        % (forbidden,))
+            return True, ""
+        check(
+            "dirty-state.js animates the change count's ELEMENT and never its number: exactly one "
+            "text write site, gated on the text having genuinely changed, written before the "
+            "class is added, spending the stylesheet's existing .is-fading-in rule through a "
+            "remove/reflow/re-add with no timer anywhere — so the role=\"status\" region "
+            "announces each change once and never a partial number (D3/CFG-32, 23-09-PLAN.md "
+            "Task 1)",
+            _dirty_state_animates_the_counts_element_and_never_its_number)
 
         # --- 19-09-PLAN.md Task 3: freshness.js's own named guard (D-02) ---
 

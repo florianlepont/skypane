@@ -687,6 +687,19 @@ EXPECTED_CHECK_COUNT = 233
 # guard was EXTENDED in place rather than duplicated, so it contributes
 # nothing to this count. 235 + 2 = 237, recomputed by RUNNING.
 EXPECTED_CHECK_COUNT = 237
+# 23-09-PLAN.md Task 1 (D3/CFG-32): +1 — the save bar's entrance, and
+# every decision that made the bar what it is asserted to have survived
+# it in the same check: an animation (not a transition out of display:
+# none, which would animate only where @starting-style is supported)
+# built from transform and opacity on var(--motion-fast) with no fill
+# mode, declaring no size, box or display value anywhere in its
+# keyframes; the [hidden] override still hiding by display: none, after
+# the base rule, on a base rule that still declares display — B1's own
+# collision class, asserted rather than reasoned about; and the z-index
+# declared at both breakpoints, the fit-content width, the resting
+# shadow and BOTH of T7's MEASURED clearance figures unchanged.
+# 237 + 1 = 238, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 238
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -4562,6 +4575,144 @@ def main():
     check(
         "style.css declares .section-caption (70% muted color-mix), the restyled base .dirty-bar as a floating rounded card (full border, radius token, surrounding token-based shadow, no --color-secondary), and the fixed-not-sticky >=960px .dirty-bar rule: inset by var(--space-md)/var(--space-lg) with a correspondingly reduced max-width, no corner-squaring, and width: fit-content so it sizes to its own content instead of stretching the full column (quick task 260901-re6, quick task 260901-s5o, 260901-s5o direct follow-up)",
         _style_css_carries_section_caption_and_restyled_fixed_dirty_bar)
+
+    def _style_css_gives_the_dirty_bar_an_entrance_and_keeps_every_decision_that_made_it():
+        # 23-09-PLAN.md Task 1 (D3/CFG-32). The save bar is this app's
+        # most-iterated component: four recorded design iterations, a P0
+        # (B1) when its hiding gate was keyed to a proxy, a z-index
+        # reversal argued through its own escape clause and a content
+        # clearance MEASURED at both breakpoints in both languages. This
+        # plan adds motion to that shape; this check is the machine that
+        # says the shape survived.
+        #
+        # Same index-plus-window / anchored-regex technique the
+        # neighbouring guard above uses, never a regex CSS parser.
+        source = _read_static("style.css")
+
+        # (a) THE ENTRANCE EXISTS, and it is an animation rather than a
+        # transition: an animation runs for every visitor, whereas a
+        # transition out of `display: none` needs an @starting-style
+        # entry value and therefore animates only where that at-rule is
+        # supported. "It moves for some visitors and silently does
+        # nothing for the rest" is the exact failure 23-01's
+        # interpolate-size ban exists to stop, and it is not less of a
+        # failure when the property involved is Baseline-newer rather
+        # than Chromium-only.
+        keyframes_marker = "@keyframes skypane-bar-arrive {"
+        if source.count(keyframes_marker) != 1:
+            return False, (
+                "expected exactly one %s block, got %d — 23-01's guard fails a second "
+                "definition of any name" % (keyframes_marker, source.count(keyframes_marker)))
+        kf_start = source.index(keyframes_marker)
+        kf_body = source[kf_start:source.index("\n}", kf_start)]
+        for prop in ("opacity", "transform"):
+            if prop + ":" not in kf_body:
+                return False, (
+                    "expected the save bar's entrance to be built from %r — transform and "
+                    "opacity are the two properties the global reduced-motion override handles "
+                    "cleanly and the only two that cost no layout" % (prop,))
+        # THE BAN, stated on the entrance itself rather than only on the
+        # component: a bar stranded at an intermediate SIZE is a blocked
+        # save, and this app has shipped a blocked save once already.
+        for banned in ("height:", "max-height:", "grid-template-rows:", "width:",
+                       "display:", "visibility:", "padding:", "margin:"):
+            if banned in kf_body:
+                return False, (
+                    "the save bar's entrance keyframes declare %r — an entrance that "
+                    "interpolates a size, a box or a display value can strand the bar at an "
+                    "intermediate value, and a stranded save bar is a blocked save "
+                    "(style.css's own `.js .mobile-nav` transition:none precedent)" % (banned,))
+
+        # (b) IT IS DECLARED ON THE BAR, spending the phase's fast token
+        # and no third duration. A user caused this and is watching for
+        # the confirmation, which is 23-01's REACTION category by its own
+        # definition.
+        base_match = re.search(r'^\.dirty-bar \{(.*?)^\}', source, re.MULTILINE | re.DOTALL)
+        if not base_match:
+            return False, "expected a top-level (non-media-query) .dirty-bar rule"
+        base_body = base_match.group(1)
+        if "animation: skypane-bar-arrive var(--motion-fast)" not in base_body:
+            return False, (
+                "expected the base .dirty-bar rule to declare its entrance from "
+                "var(--motion-fast) — a save bar's arrival is something the user is waiting on, "
+                "and a bare duration literal fails 23-01's motion guard outright")
+        if "animation-fill-mode" in base_body or "forwards" in base_body:
+            return False, (
+                "expected NO fill mode on the save bar's entrance: an animation that holds its "
+                "final frame keeps overriding the element's own computed style, which is how a "
+                "bar gets stranded. With no fill the element is handed back to its own style the "
+                "instant the animation ends, which is the whole reason an animation was chosen "
+                "over a size interpolation")
+
+        # (c) THE [hidden] OVERRIDE STILL WINS. The base rule declares
+        # `display`, and an author `display` beats the user-agent
+        # `[hidden] { display: none }` regardless of source order — the
+        # collision this file's own comment documents and that Phase 22
+        # found on the login card, where it produced a visible control
+        # that did nothing. The entrance must not have quietly
+        # reintroduced it.
+        if "display:" not in base_body:
+            return False, (
+                "expected the base .dirty-bar rule to still declare a display value — if it ever "
+                "stops, the [hidden] override below becomes the dead code this check would then "
+                "be guarding")
+        hidden_marker = ".dirty-bar[hidden] {"
+        if source.count(hidden_marker) != 1:
+            return False, (
+                "expected exactly one %s rule, got %d" % (hidden_marker, source.count(hidden_marker)))
+        hidden_start = source.index(hidden_marker)
+        hidden_body = source[hidden_start:source.index("}", hidden_start)]
+        if "display: none" not in hidden_body:
+            return False, (
+                "expected .dirty-bar[hidden] to hide by display: none — without it the base "
+                "rule's own display beats the user-agent [hidden] rule and the save bar renders "
+                "permanently visible on every page load, including a scripts-blocked one. This "
+                "is B1's own collision class")
+        if hidden_start < base_match.start():
+            return False, (
+                "expected .dirty-bar[hidden] to stay AFTER the base .dirty-bar rule in source "
+                "order, the placement its own comment relies on")
+
+        # (d) NOTHING ELSE MOVED. The bar's geometry, stacking, width,
+        # clearance and resting shadow are Phase 22's, argued through
+        # four design iterations and an escape clause, and this plan
+        # reopens none of them.
+        media_match = re.search(r'^  \.dirty-bar \{(.*?)^  \}', source, re.MULTILINE | re.DOTALL)
+        if not media_match:
+            return False, "expected an indented (media-query) .dirty-bar rule"
+        for body, where in ((base_body, "the base .dirty-bar rule"),
+                            (media_match.group(1), "the >=960px .dirty-bar rule")):
+            for banned in ("height:", "max-height:", "grid-template-rows:"):
+                if banned in body:
+                    return False, (
+                        "%s declares %r — no size-interpolating property belongs on this "
+                        "component at all" % (where, banned))
+        if source.count("z-index: 30") < 2:
+            return False, (
+                "expected the save bar to still declare z-index: 30 at BOTH breakpoints — one "
+                "value for the component, argued through 22-14's own escape clause")
+        if "width: fit-content" not in source:
+            return False, "expected the >=960px bar to still size itself to its own content"
+        if "box-shadow: var(--shadow-card-hover)" not in base_body:
+            return False, "expected the bar's resting shadow to be untouched"
+        if ".dirty-ready .dashboard-main {" not in source or ".dirty-ready .page-content {" not in source:
+            return False, (
+                "expected BOTH of T7's measured content-clearance rules to survive — the desktop "
+                "one scoped to .dirty-ready .dashboard-main and the phone one to "
+                ".dirty-ready .page-content, declared next to the rule it supersedes")
+        for measured in ("var(--space-2xl) + 88px", "56px + 144px"):
+            if measured not in source:
+                return False, (
+                    "expected T7's MEASURED clearance figure %r to be unchanged — both were "
+                    "measured on a real render in both languages, not reasoned about" % (measured,))
+        return True, ""
+    check(
+        "style.css gives the save bar an entrance built from transform and opacity on "
+        "var(--motion-fast) with no fill mode and no size, box or display interpolation anywhere "
+        "in it, while its [hidden] override still declares display: none after the base rule and "
+        "its z-index, fit-content width, resting shadow and BOTH measured clearance figures are "
+        "untouched (D3/CFG-32, 23-09-PLAN.md Task 1)",
+        _style_css_gives_the_dirty_bar_an_entrance_and_keeps_every_decision_that_made_it)
 
     def _dirty_state_js_has_no_hardcoded_section_names():
         source = _read_static("dirty-state.js")
