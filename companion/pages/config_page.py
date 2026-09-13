@@ -3937,18 +3937,21 @@ def handle_post(form, ctx, errors=None):
 
     Three properties are load-bearing here, not incidental:
 
-    First (rewritten by 22-05-PLAN.md Task 1, X1/D-04/D-12.1, T-22-16):
-    `led_enabled` keeps its historical absent-means-False semantics —
-    its checkbox is still rendered on the Device page, so an *unchecked*
-    box genuinely means the user unticked it, and an absent field means
-    the same thing an unchecked checkbox always has: `False`, never
-    "leave unchanged". `display_enabled` and `quiet_hours_enabled` are
-    DIFFERENT as of this plan: NEITHER settings page renders a checkbox
-    for either field any more (the Frame strip's own quick-toggle route,
-    `companion/app.py`'s `_handle_quick_toggle()`, is the sole normal
-    writer of both now), so this field's absence from a `/settings` POST
-    body no longer means "the user unticked a box that was on the
-    page" — it means "this form never had a control for it at all".
+    First (rewritten by 22-05-PLAN.md Task 1, X1/D-04/D-12.1, T-22-16;
+    EXTENDED to the third flag by 23-07-PLAN.md Task 2, D2/CFG-36,
+    T-23-25): all three checkbox flags now resolve absent -> `None`
+    (leave unchanged), and the asymmetry this paragraph used to describe
+    is GONE. `led_enabled` was the last field still resolving absent to
+    `False`, which was correct only while its checkbox was still
+    rendered on the Device page; that checkbox is replaced by a
+    `role="switch"` posting to `/quick/led`, so no settings page renders
+    a control for any of the three. `display_enabled` and
+    `quiet_hours_enabled` reached the same place first (the Frame
+    strip's own quick-toggle route, `companion/app.py`'s
+    `_handle_quick_toggle()`, is the sole normal writer of both), so a
+    field's absence from a `/settings` POST body no longer means "the
+    user unticked a box that was on the page" — it means "this form
+    never had a control for it at all".
     Resolving that to `False` (the pre-22-05 behaviour) was a real,
     severe bug hiding behind a since-retired UI affordance: it silently
     switched the physical screen and quiet hours OFF on every settings
@@ -3964,12 +3967,14 @@ def handle_post(form, ctx, errors=None):
     submission that still names the field) is still validated by exact
     equality against `DISPLAY_CHECKBOX_VALUE`/`QUIET_HOURS_CHECKBOX_VALUE`
     and still honoured when it matches, and an unexpected value still
-    rejects the whole submission exactly as `led_enabled`'s own third
-    shape always has. So, for all three checkboxes: `led_enabled`
-    resolves absent -> `False`, equal to `LED_CHECKBOX_VALUE` -> `True`,
-    anything else -> reject; `display_enabled`/`quiet_hours_enabled`
-    resolve absent -> `None` (unchanged), equal to their own
-    `*_CHECKBOX_VALUE` -> `True`, anything else -> reject.
+    rejects the whole submission exactly as the third shape always has.
+    So, for all three checkboxes, now symmetrically: absent -> `None`
+    (unchanged), equal to the field's own `*_CHECKBOX_VALUE` -> `True`,
+    anything else -> reject. The two notification checkboxes below are
+    the only fields left with the in-scope-absent-means-False
+    resolution, and they keep it because their checkboxes are still
+    rendered — which is exactly the condition that made it correct for
+    `led_enabled` until now.
 
     Second, an explicit `quiet_hours_start`/`quiet_hours_end` value still
     persists even when `quiet_hours_enabled` itself is absent or resolves
@@ -4107,13 +4112,17 @@ def handle_post(form, ctx, errors=None):
     20-11-PLAN.md Task 1 (D-26/D-28) adds a fourth group,
     `screens.GROUP_NOTIFICATIONS`, and three more form fields:
     `notifications_topic_url`, `notifications_battery`,
-    `notifications_silent`. The two checkboxes follow the identical
-    in-scope-absent-means-False resolution `led_enabled` above already
-    uses (22-05-PLAN.md Task 1 narrows this to `led_enabled` alone —
-    `display_enabled`/`quiet_hours_enabled` resolve absent to `None`,
-    unconditionally, per this docstring's own First paragraph above) — a
-    crafted value rejects the whole save, same as every sibling checkbox
-    gate. The
+    `notifications_silent`. The two checkboxes keep the
+    in-scope-absent-means-False resolution `led_enabled` used to share
+    (23-07-PLAN.md Task 2 narrows it to these two alone: all three of
+    `display_enabled`/`quiet_hours_enabled`/`led_enabled` now resolve
+    absent to `None` unconditionally, per this docstring's own First
+    paragraph above). They keep it because their checkboxes are STILL
+    RENDERED — 23-07 deliberately did not convert them, since they share
+    a card with a Save-governed topic-URL field and no locked decision
+    covers a card where some controls apply instantly and one waits for
+    Save. A crafted value rejects the whole save, same as every sibling
+    checkbox gate. The
     topic URL is genuinely different from every scalar field above: an
     empty (stripped) submission means "leave the stored URL unchanged"
     (this codebase's established empty-numeric-input convention,
@@ -4247,10 +4256,34 @@ def handle_post(form, ctx, errors=None):
         theme_arriving = device_config.CLEAR_THEME_ARRIVING
     else:
         theme_arriving = submitted_theme_arriving
-    if screens.GROUP_LED not in in_scope:
+    # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1, T-23-25): led_enabled now
+    # resolves absent -> None (leave unchanged) UNCONDITIONALLY, the
+    # identical shape quiet_hours_enabled below already has, and for the
+    # identical reason. The Diagnostic LED's control is about to become
+    # the Frame-strip-style switch on its own /quick/led route, so no
+    # settings form renders a checkbox for this field any more —
+    # absence from THIS body therefore means "this form never had a
+    # control for it", not "the user unticked a box".
+    #
+    # THIS COMMIT LANDS BEFORE THE CONTROL MOVES, deliberately, so that
+    # no commit in this repository's history has an LED checkbox absent
+    # from the form while an absent field still means False. The reverse
+    # order is not untidy, it is the live defect: every unrelated
+    # settings save — a theme change, a wake-interval edit — would carry
+    # no led_enabled and would silently switch the LED off. That is the
+    # regression D-12.1 records and 22-05 already fixed twice, and the
+    # eight-combination guard in companion/test_config_page.py now
+    # covers all three flags rather than two.
+    #
+    # The scope test is gone with it: it was load-bearing only while the
+    # absent branch resolved to False (it stopped a Display-scope save,
+    # which never rendered the LED checkbox, from switching the LED off).
+    # With absent meaning "unchanged" the scope makes no difference to
+    # the outcome, so keeping the branch would be a condition that can
+    # never change an answer — exactly the shape a later reader mistakes
+    # for a live rule.
+    if submitted_led is None:
         led_enabled = None
-    elif submitted_led is None:
-        led_enabled = False
     elif submitted_led == LED_CHECKBOX_VALUE:
         led_enabled = True
     else:

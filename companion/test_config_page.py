@@ -2285,7 +2285,13 @@ def main():
             # reason now: its own absence also means "leave unchanged",
             # and DEFAULT_QUIET_HOURS_ENABLED already IS False, so the
             # value is coincidentally unchanged from the pre-22-05 fixture.
-            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": True, "wake_interval_s": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}:
+            # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1): led_enabled is
+            # True here, not the pre-23-07 False, for exactly the reason
+            # display_enabled already was — this posted form omits it and
+            # that absence now means "leave unchanged" unconditionally,
+            # so on a fresh state directory it falls through to
+            # DEFAULT_LED_ENABLED rather than to a hard-coded False.
+            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": True, "wake_interval_s": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -2437,24 +2443,40 @@ def main():
     # re-covering is already exercised by the bullet-per-behaviour checks
     # below (_handle_post_empty_form_persists_led_false and its
     # siblings), so no coverage gap is left behind.
-    def _handle_post_empty_form_persists_led_false():
+    def _handle_post_empty_form_leaves_led_unchanged():
         # Bullet 1: the shape a browser sends when nothing is checked and
         # nothing is selected.
-        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
-        try:
-            ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_post({}, ctx)
-            if flash_key != config_page.FLASH_SAVED:
-                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
-            on_disk = device_config.load_device_config(tmpdir)
-            if on_disk["led_enabled"] is not False:
-                return False, "expected led_enabled False on disk, got %r" % (on_disk["led_enabled"],)
-            return True, ""
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+        #
+        # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1, T-23-25): RETARGETED IN
+        # PLACE, and made two-directional. It used to assert this empty
+        # body persists led_enabled False, which was the correct reading
+        # while the LED checkbox was still rendered in this form. It is
+        # not any more: absence now means "leave unchanged", so the honest
+        # assertion is that BOTH a stored True and a stored False survive.
+        # Asserting only the False direction would pass on a handler that
+        # hard-codes False, which is the very behaviour this change
+        # removes.
+        for stored in (True, False):
+            tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+            try:
+                device_config.save_device_config(tmpdir, led_enabled=stored)
+                ctx = {"state_dir": tmpdir}
+                flash_key = config_page.handle_post({}, ctx)
+                if flash_key != config_page.FLASH_SAVED:
+                    return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+                on_disk = device_config.load_device_config(tmpdir)
+                if on_disk["led_enabled"] is not stored:
+                    return False, (
+                        "expected an empty body to LEAVE the stored led_enabled %r unchanged, "
+                        "got %r" % (stored, on_disk["led_enabled"]))
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        return True, ""
     check(
-        "handle_post({}, ctx) - the shape a browser sends when nothing is checked and nothing is selected - persists led_enabled False and returns the saved flash key",
-        _handle_post_empty_form_persists_led_false)
+        "handle_post({}, ctx) - the shape a browser sends when nothing is checked and nothing is "
+        "selected - LEAVES the stored led_enabled unchanged in both directions and returns the "
+        "saved flash key (retargeted in place from absent-means-False by 23-07-PLAN.md Task 2)",
+        _handle_post_empty_form_leaves_led_unchanged)
 
     def _handle_post_led_checkbox_value_persists_led_true():
         # Bullet 2.
@@ -6756,8 +6778,18 @@ def main():
             cfg = device_config.load_device_config(tmp)
             if cfg["led_enabled"] is not True or cfg["theme"] != "black":
                 return False, "expected led_enabled carried forward and theme persisted, got %r" % (cfg,)
-            # Device-page save: no display/quiet fields -> both stay True;
-            # its own absent LED box -> False.
+            # Device-page save: no display/quiet fields -> both stay True.
+            # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1, T-23-25):
+            # RETARGETED IN PLACE. This clause used to read "its own
+            # absent LED box -> False", which was the correct reading
+            # while the Device page still rendered an led_enabled
+            # checkbox. It does not any more — the LED's control is a
+            # role="switch" posting to /quick/led — so an absent
+            # led_enabled here means the same thing display_enabled's
+            # absence has meant since 22-05: leave it alone. The LED is
+            # seeded True above and must still be True after a Device
+            # save that never mentions it; the pre-23-07 handler would
+            # have switched the physical LED off on this exact call.
             key = config_page.handle_post(
                 {"scope": "device", "tracked_runway": "06-24"}, {"state_dir": tmp})
             if key != config_page.FLASH_SAVED:
@@ -6765,8 +6797,19 @@ def main():
             cfg = device_config.load_device_config(tmp)
             if cfg["display_enabled"] is not True or cfg["quiet_hours_enabled"] is not True:
                 return False, "expected display/quiet-hours carried forward on a device-page save, got %r" % (cfg,)
-            if cfg["led_enabled"] is not False or cfg["tracked_runway"] != "06-24":
-                return False, "expected the device-page save's own fields to persist, got %r" % (cfg,)
+            if cfg["led_enabled"] is not True or cfg["tracked_runway"] != "06-24":
+                return False, (
+                    "expected a Device save that names no led_enabled to LEAVE it True and to "
+                    "persist its own runway, got %r" % (cfg,))
+            # And the explicit value is still honoured, which is what
+            # makes the clause above a statement about ABSENCE rather
+            # than about led_enabled having stopped being writable here.
+            key = config_page.handle_post(
+                {"scope": "device", "led_enabled": config_page.LED_CHECKBOX_VALUE},
+                {"state_dir": tmp})
+            if key != config_page.FLASH_SAVED or device_config.load_device_config(
+                    tmp)["led_enabled"] is not True:
+                return False, "expected an explicit led_enabled value to still be honoured"
             # 20-07-PLAN.md Task 1 (D-11): Calendar moved from Device to
             # Display's everyday_groups this phase — a device-page
             # submission now ignores even a stray calendar_disconnect
@@ -6801,10 +6844,11 @@ def main():
     check(
         "handle_post() treats a checkbox absent from an out-of-scope group as 'leave unchanged' (a "
         "Display save never flips the LED, a Device save never flips the screen or quiet hours), "
-        "keeps absent-means-False for led_enabled whenever it IS in scope, leaves display_enabled/"
-        "quiet_hours_enabled unchanged even in-scope and on the legacy unscoped form (D-12.1, "
-        "22-05-PLAN.md Task 1), and a scoped submission without the Calendar group always carries "
-        "the calendar forward",
+        "leaves display_enabled/quiet_hours_enabled/led_enabled unchanged even in-scope and on the "
+        "legacy unscoped form while still honouring an explicit value, and a scoped submission "
+        "without the Calendar group always carries the calendar forward (D-12.1, 22-05-PLAN.md "
+        "Task 1; the led_enabled half retargeted in place from absent-means-False by "
+        "23-07-PLAN.md Task 2)",
         _handle_post_scope_carries_out_of_scope_checkboxes_forward)
 
     # --- 19-12-PLAN.md Task 2 (D-23/D-22): the conditional screen selector
@@ -7263,6 +7307,12 @@ def main():
             # SETTINGS_ROUTE with nothing submitted at all (the shape a
             # browser sends when nothing is checked/selected). Same
             # persisted outcome, same redirect-with-flash shape.
+            # Seeded rather than assumed: this check is about an empty
+            # body LEAVING the stored value alone, so it needs a known
+            # starting value it can then read back, and the follow-up GET
+            # below asserts the rendered control agrees with it.
+            device_config.save_device_config(harness.tmpdir, led_enabled=False)
+            led_before = False
             status, headers, _ = http_request(
                 base + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
                 data=b"")
@@ -7271,9 +7321,16 @@ def main():
             location = headers.get("Location", "")
             if "flash=saved" not in location:
                 return False, "expected the saved flash key in the redirect, got %r" % location
+            # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1, T-23-25):
+            # RETARGETED IN PLACE from "persists led_enabled False". The
+            # field's absence now means "leave unchanged", so what this
+            # live round trip must show is that whatever was stored
+            # BEFORE the empty POST is still stored after it.
             on_disk = device_config.load_device_config(harness.tmpdir)
-            if on_disk["led_enabled"] is not False:
-                return False, "expected on-disk led_enabled False after an empty-body POST, got %r" % (on_disk["led_enabled"],)
+            if on_disk["led_enabled"] is not led_before:
+                return False, (
+                    "expected an empty-body POST to LEAVE the stored led_enabled %r unchanged, "
+                    "got %r" % (led_before, on_disk["led_enabled"]))
             get_status, _get_headers, body = http_request(
                 base + companion_app.DEVICE_ROUTE, cookie=session_cookie)
             if get_status != 200:
@@ -7284,7 +7341,9 @@ def main():
             return True, ""
         check(
             "a live authenticated POST %s with an empty body 303-redirects to %s?flash=saved, "
-            "persists led_enabled False, and a follow-up GET renders the control unchecked"
+            "LEAVES the stored led_enabled exactly as it was, and a follow-up GET renders the "
+            "control in that same off state (retargeted in place from absent-means-False by "
+            "23-07-PLAN.md Task 2)"
             % (config_page.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE),
             _settings_post_empty_body_persists_led_false_and_renders_unchecked)
 

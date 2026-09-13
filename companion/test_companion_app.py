@@ -5938,7 +5938,16 @@ def main():
             if on_disk["led_enabled"] is not True:
                 return False, "expected a Display-page save to leave led_enabled True (out of scope), got %r" % (on_disk["led_enabled"],)
             # A Device-page save carries no display_enabled field — the
-            # screen must stay ON; its own absent LED box means off.
+            # screen must stay ON.
+            # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1, T-23-25): the LED
+            # clause below is RETARGETED IN PLACE. It used to read "its
+            # own absent LED box means off", which was true only while
+            # the Device page rendered an led_enabled checkbox; that
+            # checkbox is now a role="switch" on its own /quick/led
+            # route, so an absent led_enabled means "this form never had
+            # a control for it" — the same reading display_enabled has
+            # had since 22-05, and the reason a Device save can no longer
+            # switch the physical LED off behind the user.
             status, headers, _ = http_request(
                 base + "/settings", method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode({
@@ -5952,8 +5961,11 @@ def main():
                 return False, "expected the Device-page save to persist tracked_runway=06-24"
             if on_disk["display_enabled"] is not True:
                 return False, "expected a Device-page save to leave display_enabled True (out of scope)"
-            if on_disk["led_enabled"] is not False:
-                return False, "expected the Device-page save's absent LED box to persist led_enabled False"
+            if on_disk["led_enabled"] is not True:
+                return False, (
+                    "expected a Device-page save that names no led_enabled to LEAVE it True, got "
+                    "%r — an unrelated save must never switch the diagnostic LED off (D-12.1, "
+                    "T-23-25)" % (on_disk["led_enabled"],))
             if on_disk["theme"] != "black":
                 return False, "expected the Device-page save to leave the theme untouched"
             # A crafted return_to never becomes the redirect target.
