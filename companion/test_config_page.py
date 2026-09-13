@@ -1389,17 +1389,31 @@ def main():
         "and leaves a pre-existing device_config.json byte-identical",
         _handle_post_display_enabled_three_shapes)
 
-    def _handle_post_theme_only_save_never_flips_display_or_quiet_hours_off():
+    def _handle_post_theme_only_save_never_flips_display_quiet_hours_or_led_off():
         # T-22-16 / 22-RESEARCH.md Pitfall 1: THE named regression this
-        # plan exists to prevent — a settings save that touches only an
-        # unrelated field (theme) must never silently switch the screen
-        # or quiet hours off, in ANY of their four starting combinations.
-        for start_display, start_quiet in (
-                (True, True), (True, False), (False, True), (False, False)):
+        # check exists to prevent — a settings save that touches only an
+        # unrelated field (theme) must never silently switch the screen,
+        # quiet hours or the diagnostic LED off, in ANY of their starting
+        # combinations.
+        #
+        # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1) EXTENDS this check
+        # rather than adding a sibling beside it. led_enabled is the
+        # third flag whose control leaves the settings form, and the
+        # asymmetry that made its absence mean False was correct only
+        # while its checkbox was still rendered. One check, one place,
+        # three flags: a fourth flag joining them later has exactly one
+        # obvious place to go, and the three can never drift into
+        # disagreeing about what an absent field means.
+        for start_display, start_quiet, start_led in (
+                (True, True, True), (True, True, False),
+                (True, False, True), (True, False, False),
+                (False, True, True), (False, True, False),
+                (False, False, True), (False, False, False)):
             tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-regression-")
             try:
                 device_config.save_device_config(
-                    tmpdir, display_enabled=start_display, quiet_hours_enabled=start_quiet)
+                    tmpdir, display_enabled=start_display, quiet_hours_enabled=start_quiet,
+                    led_enabled=start_led)
                 ctx = {"state_dir": tmpdir}
                 flash_key = config_page.handle_post({"theme": "white"}, ctx)
                 if flash_key != config_page.FLASH_SAVED:
@@ -1413,16 +1427,24 @@ def main():
                     return False, (
                         "REGRESSION (T-22-16): a theme-only save flipped quiet_hours_enabled from "
                         "%r to %r" % (start_quiet, on_disk["quiet_hours_enabled"]))
+                if on_disk["led_enabled"] is not start_led:
+                    return False, (
+                        "REGRESSION (T-22-16/T-23-25): a theme-only save flipped led_enabled from "
+                        "%r to %r — the LED's control is a /quick/led switch now, so its absence "
+                        "from a settings body means 'this form never had a way to change it', not "
+                        "'the user unticked a box' (D-12.1, 23-07-PLAN.md Task 2)"
+                        % (start_led, on_disk["led_enabled"]))
                 if on_disk["theme"] != "white":
                     return False, "expected the theme change itself to still persist, got %r" % (on_disk["theme"],)
             finally:
                 shutil.rmtree(tmpdir, ignore_errors=True)
         return True, ""
     check(
-        "REGRESSION GUARD (T-22-16, 22-RESEARCH.md Pitfall 1): a settings save that only changes the "
-        "theme leaves display_enabled and quiet_hours_enabled EXACTLY as they were, across all four "
-        "starting True/False combinations — the frame can never go dark after an unrelated save",
-        _handle_post_theme_only_save_never_flips_display_or_quiet_hours_off)
+        "REGRESSION GUARD (T-22-16/T-23-25, 22-RESEARCH.md Pitfall 1): a settings save that only "
+        "changes the theme leaves display_enabled, quiet_hours_enabled AND led_enabled EXACTLY as "
+        "they were, across all eight starting True/False combinations — extended in place from the "
+        "two-flag/four-combination version 22-05 landed, never duplicated beside it",
+        _handle_post_theme_only_save_never_flips_display_quiet_hours_or_led_off)
 
     def _every_settings_group_is_named_exactly_once():
         # heading-color-consistency debug session, extended by 06.6.4.1
