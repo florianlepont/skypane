@@ -3988,6 +3988,20 @@ a.airline-card {
  * so grid rows stay aligned whether a card holds art or a gap. No new
  * token, no accent use. aria-hidden="true" and empty in the markup —
  * the card's own visible, announced callsign text is the real content. */
+/* 22-07-PLAN.md Task 2 (B18) note: home_page.py's own recent-flight
+ * thumbnail placeholder (`.recent-flight__thumb--placeholder`, defined
+ * further down this file) deliberately does NOT join this selector as
+ * a shared list — companion/test_status_pages.py (owned by a sibling
+ * plan this wave, not editable here) pins the literal standalone
+ * selector text ".airline-card__placeholder {" as its own complete
+ * rule body carrying all five of this rule's declarations. Its dashed
+ * border/radius/canvas-fill values are instead reused BY VALUE (the
+ * exact same var() tokens, no new literal) on that rule's own
+ * definition, matching this rule's own comment below ("copied verbatim
+ * rather than inventing a second 'no image' treatment") — the real fix
+ * for the B18 weight mismatch is giving the REAL thumbnail this same
+ * treatment (see img.recent-flight__thumb below), not touching this
+ * rule. */
 .airline-card__placeholder {
   aspect-ratio: 450 / 132;
   border: 1px dashed var(--color-border);
@@ -5076,8 +5090,18 @@ a.airline-card {
   margin-top: 0;
 }
 
+/* B2 (22-07-PLAN.md Task 2): explicit, greppable align-items: stretch —
+ * already the inherited value from the shared .dashboard-grid rule
+ * above (a class this element also carries), but restated here rather
+ * than left implicit, matching that rule's own "kept explicit" idiom.
+ * The audit's measured 112/112/131px on a phone was primarily this
+ * grid's single column stacking three unequal-content rows (the
+ * Flight-data tile's own extra re-embedded-verdict line, B2's other
+ * half, fixed in Task 1) — this declaration is the belt to that
+ * fix's own suspenders. */
 .home-status-grid {
   margin-bottom: var(--space-sm);
+  align-items: stretch;
 }
 
 .widget-verdict {
@@ -5270,9 +5294,26 @@ a.airline-card {
  * second rule introduces no new colour literal. .now-showing__image's
  * own extra sizing (the 360px cap, the auto margin) moves to its own
  * rule immediately below so .preview-frame__image is never affected by
- * it. */
+ * it.
+ *
+ * 22-07-PLAN.md Task 2 (B18): `img.recent-flight__thumb` (the REAL
+ * thumbnail <img> only — the tag qualifier is deliberate, not
+ * decorative: the dashed placeholder variant is a <span> that ALSO
+ * carries the bare .recent-flight__thumb class for its shared 40x40
+ * sizing below, and without the `img` qualifier this selector would
+ * tie with `.airline-card__placeholder, .recent-flight__thumb--
+ * placeholder`'s own dashed-border rule at equal specificity, letting
+ * source order — not intent — decide which border/background wins on
+ * the placeholder span) joins here too — one more selector, no new
+ * colour literal, no new radius — so a real illustration carries the
+ * SAME white-backing/hairline/radius weight as the frame picture and
+ * the theme preview. Its own width:40px/height:40px/object-fit:cover/
+ * border-radius further down this file (declared AFTER this rule,
+ * higher specificity via the same `img.` qualifier) still wins for
+ * sizing; only the border/background/display are new here. */
 .now-showing__image,
-.preview-frame__image {
+.preview-frame__image,
+img.recent-flight__thumb {
   display: block;
   width: 100%;
   height: auto;
@@ -5327,26 +5368,47 @@ a.airline-card {
 .recent-flight__detail,
 .recent-flight__time {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  overflow-wrap: anywhere;
-}
-
-.recent-flight__time {
-  text-align: right;
-  max-width: 60%;
-  justify-self: end;
 }
 
 .recent-flight__detail {
+  overflow-wrap: anywhere;
   grid-column: 2 / -1;
   grid-row: 2;
 }
 
-/* 20-04-PLAN.md Task 1 (D-17.2): the thumbnail itself. object-fit: cover
- * absorbs the artwork's own aspect ratio; the placeholder variant reuses
- * the exact dashed no-artwork treatment already shipped for a manually-
- * resolved airline with no artwork (Phase 13/14), copied verbatim rather
- * than inventing a second "no image" treatment. */
-.recent-flight__thumb {
+/* B18 (22-07-PLAN.md Task 2): the recent-flight time is one line — the
+ * clock and the relative age (joined by .cell-inline-sep) can never
+ * wrap onto a second line. `overflow-wrap: anywhere` used to be
+ * shared with .recent-flight__detail above (written for that column's
+ * own long airline/route text, not this short clock+age pair) and is
+ * dropped here rather than merely overridden, since the two mechanisms
+ * fight: overflow-wrap can still force a mid-word break to avoid
+ * overflowing max-width even under white-space: nowrap. */
+.recent-flight__time {
+  text-align: right;
+  max-width: 60%;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+/* 20-04-PLAN.md Task 1 (D-17.2): the thumbnail's own 40x40 box.
+ * object-fit: cover absorbs the artwork's own aspect ratio. The shared
+ * white-backing/hairline declarations now live on the `img.recent-
+ * flight__thumb` rule above (22-07-PLAN.md Task 2, B18); this rule's
+ * OWN selector is tag-qualified the same way (`img.`, specificity
+ * 0-1-1, matching that rule's) so it still overrides that rule's
+ * width:100%/height:auto for the real thumbnail by source order alone
+ * — a bare `.recent-flight__thumb` selector here would be a LOWER
+ * specificity than the shared rule's `img.` qualifier and would lose
+ * regardless of being declared later. `.recent-flight__thumb--
+ * placeholder` (the dashed <span> variant) joins this same rule for
+ * its own matching 40x40/radius/flex box; its own dashed border/
+ * canvas-fill live on the separate rule immediately below, reusing
+ * `.airline-card__placeholder`'s exact values (never a new literal) —
+ * which is what makes a missing thumbnail match the real ones in
+ * weight (B18). */
+img.recent-flight__thumb,
+.recent-flight__thumb--placeholder {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-control);
@@ -5356,7 +5418,6 @@ a.airline-card {
 
 .recent-flight__thumb--placeholder {
   border: 1px dashed var(--color-border);
-  border-radius: var(--radius-control);
   background: var(--color-canvas);
 }
 

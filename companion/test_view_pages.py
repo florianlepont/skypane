@@ -467,6 +467,13 @@ EXPECTED_CHECK_COUNT = 116
 # airline names route through display_airline_name(), matching Flights (X4); and exactly one
 # element on the page is named "Frame" (X4). Re-derived by running the harness (121/121).
 EXPECTED_CHECK_COUNT = 121
+# 22-07-PLAN.md Task 2: +5 (121 -> 126) — the recent-flight time cell carries no monospace
+# class and reads on one line (.time-value clock, .cell-inline-sep, .time-value__age);
+# .home-status-grid declares align-items: stretch and .recent-flight__time declares
+# white-space: nowrap in the stylesheet; the real thumbnail and its placeholder each join
+# their respective shipped CSS treatment; and the single @supports selector(:has(*)) block
+# stays pinned at exactly one. Re-derived by running the harness (126/126).
+EXPECTED_CHECK_COUNT = 126
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -4391,6 +4398,136 @@ def main():
         "exactly one element on a rendered Home page is named 'Frame' (the shared strip's own "
         "heading) — Home's tile caption is renamed to resolve the X4 collision",
         _home_exactly_one_element_named_frame)
+
+    # --- 22-07-PLAN.md Task 2 (B18/B2): one line for the time, one height
+    # for the tiles, one weight for the thumbnails -----------------------
+
+    def _home_recent_flight_time_one_line_no_mono_class():
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        tmp = _mkstate("home-time-one-line")
+        try:
+            with _hdb.open_db(tmp) as conn:
+                _hdb.record_runway_event(
+                    conn, ts="2026-08-27T11:35:00+00:00", hex="3c6444", callsign="AFR1380",
+                    airline="Air France", origin="ORY", destination="TLS",
+                    confirmed_state="departing")
+            ctx = {
+                "state_dir": tmp, "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
+                "health_state": {}, "device_config": {},
+            }
+            rendered = home_page.render(ctx)
+            start = rendered.index('class="recent-flight__time')
+            end = rendered.index("</li>", start)
+            time_cell = rendered[start:end]
+            if "mono" in time_cell:
+                return False, "expected no monospace class in the recent-flight time cell"
+            if 'class="time-value"' not in time_cell:
+                return False, "expected the clock to carry the .time-value role"
+            if 'class="cell-inline-sep"' not in time_cell:
+                return False, "expected the existing .cell-inline-sep middle dot"
+            if 'class="time-value__age"' not in time_cell:
+                return False, "expected the relative age in the .time-value__age muted role"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the recent-flight time cell markup carries no monospace class, and reads the clock "
+        "(.time-value), the existing .cell-inline-sep middle dot and the relative age "
+        "(.time-value__age) as one line (B18)",
+        _home_recent_flight_time_one_line_no_mono_class)
+
+    def _home_status_grid_declares_align_items_stretch_in_css():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path, "r", encoding="utf-8") as fh:
+            css_source = fh.read()
+        start = css_source.index(".home-status-grid {")
+        end = css_source.index("}", start)
+        block = css_source[start:end]
+        if "align-items: stretch" not in block:
+            return False, "expected .home-status-grid to declare align-items: stretch (B2)"
+        return True, ""
+    check(
+        ".home-status-grid's own CSS rule declares align-items: stretch (B2)",
+        _home_status_grid_declares_align_items_stretch_in_css)
+
+    def _recent_flight_time_nowrap_in_css():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path, "r", encoding="utf-8") as fh:
+            css_source = fh.read()
+        # .recent-flight__time appears in TWO rules — a shared colour-only
+        # rule with .recent-flight__detail, and its own dedicated rule
+        # (text-align/max-width/justify-self/white-space). "max-width: 60%"
+        # is unique to the latter, so anchor on it rather than the bare
+        # selector text (which would find the shared rule first).
+        start = css_source.index("max-width: 60%")
+        block_start = css_source.rindex("{", 0, start)
+        end = css_source.index("}", start)
+        block = css_source[block_start:end]
+        if "white-space: nowrap" not in block:
+            return False, "expected .recent-flight__time to declare white-space: nowrap (B18)"
+        return True, ""
+    check(
+        ".recent-flight__time's own CSS rule declares white-space: nowrap so the clock/age "
+        "pair can never wrap onto a second line (B18)",
+        _recent_flight_time_nowrap_in_css)
+
+    def _recent_flight_thumbnails_share_the_shipped_treatments_in_css():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path, "r", encoding="utf-8") as fh:
+            css_source = fh.read()
+        # The real thumbnail joins the shared white-backing/hairline/
+        # radius rule .now-showing__image/.preview-frame__image already
+        # carry — tag-qualified (img.recent-flight__thumb) so it can
+        # never accidentally match the placeholder <span>, which shares
+        # the bare .recent-flight__thumb class for its own 40x40 sizing.
+        shared_start = css_source.index(".now-showing__image,")
+        shared_end = css_source.index("}", shared_start)
+        shared_block = css_source[shared_start:shared_end]
+        if "img.recent-flight__thumb" not in shared_block:
+            return False, (
+                "expected img.recent-flight__thumb to join the shared white-backing/hairline/"
+                "radius rule (B18)")
+        # The placeholder's own dashed/canvas-fill values string-equal
+        # .airline-card__placeholder's (reused BY VALUE, never a new
+        # literal) — NOT selector-shared with it, since companion/
+        # test_status_pages.py (a sibling plan's file this plan may not
+        # edit) pins ".airline-card__placeholder {" as a standalone
+        # selector whose own rule body alone carries all five of its
+        # declarations.
+        if ".airline-card__placeholder,\n.recent-flight__thumb--placeholder" in css_source:
+            return False, (
+                "expected .airline-card__placeholder's OWN selector to stay standalone — "
+                "companion/test_status_pages.py pins it as such")
+        placeholder_start = css_source.index(".recent-flight__thumb--placeholder {\n  border:")
+        placeholder_end = css_source.index("}", placeholder_start)
+        placeholder_block = css_source[placeholder_start:placeholder_end]
+        for expected in (
+                "border: 1px dashed var(--color-border)", "background: var(--color-canvas)"):
+            if expected not in placeholder_block:
+                return False, (
+                    "expected .recent-flight__thumb--placeholder's own rule to reuse %r "
+                    "(the exact value .airline-card__placeholder declares) (B18)" % (expected,))
+        return True, ""
+    check(
+        "the real recent-flight thumbnail joins the shared white-backing/hairline/radius rule "
+        "and the placeholder's own rule reuses .airline-card__placeholder's exact dashed/"
+        "canvas-fill values (never a new literal, never sharing that pinned selector), so a "
+        "missing thumbnail matches the real ones in weight (B18)",
+        _recent_flight_thumbnails_share_the_shipped_treatments_in_css)
+
+    def _single_has_supports_block_unmoved():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path, "r", encoding="utf-8") as fh:
+            css_source = fh.read()
+        count = css_source.count("@supports selector(:has(*)) {")
+        if count != 1:
+            return False, "expected exactly one @supports selector(:has(*)) block, got %d" % count
+        return True, ""
+    check(
+        "companion/static/style.css still carries exactly one @supports selector(:has(*)) "
+        "block — this plan opens no second one",
+        _single_has_supports_block_unmoved)
 
     def _home_catalog_keys_all_present_in_merged_catalog():
         import companion.i18n_fr as i18n_fr

@@ -487,6 +487,51 @@ def _recent_flight_thumb_html(row, state_dir):
     return '<span class="recent-flight__thumb recent-flight__thumb--placeholder"></span>'
 
 
+_TIME_CELL_FALLBACK_TEXT = "no reading yet"
+
+
+def _recent_flight_time_html(ts, now):
+    """B18 (22-07-PLAN.md Task 2): the recent-flight time, ONE line —
+    the clock takes the `.time-value` role (22-04-PLAN.md, C5: sans,
+    tabular numerals, never `--font-mono` — monospace stays reserved
+    for identifiers, callsign/ICAO24/the masked calendar URL, never a
+    clock), the relative age sits beside it as a `.time-value__age`
+    sibling (the muted label voice C5 also defined), joined by the
+    existing `.cell-inline-sep` middle dot (history_page.py's own
+    `_merged_cell()` "Inline compact" convention, reused here rather
+    than inventing a second home-page-only separator — a page module
+    may never import another, so the dot itself is a local literal,
+    not an imported constant).
+
+    Deliberately does NOT reach for `layout.concise_timestamp_html()`
+    here (mirroring history_page._when_cell_html()'s own documented
+    reasoning for its own two-line shape): that function bundles the
+    clock and the relative age into ONE already-escaped `<span
+    class="mono">` — exactly the mono-family, single-element shape
+    this fix removes. The clock and the age are built and escaped
+    separately instead, each in its own role.
+
+    Falls back to the escaped, translated "no reading yet" text — the
+    same default `concise_timestamp_html()` carried at this call site
+    before this task — when `ts` is falsy or fails to parse.
+    """
+    if not ts:
+        return escape_html(i18n.t(_TIME_CELL_FALLBACK_TEXT))
+    parsed = layout.parse_iso(ts)
+    if parsed is None:
+        return '<span class="time-value">%s</span>' % escape_html(ts)
+    clock_text = layout.local_clock_text(parsed, now_parsed=layout.parse_iso(now))
+    cell_html = '<span class="time-value">%s</span>' % escape_html(clock_text)
+    age = layout.age_seconds(ts, now)
+    if age is not None:
+        age_text = "(%s)" % layout.relative_age_text(age)
+        cell_html += (
+            '<span class="cell-inline-sep">·</span>'
+            '<span class="time-value__age">%s</span>'
+        ) % escape_html(age_text)
+    return cell_html
+
+
 def _recent_flights_html(rows, now, state_dir):
     if not rows:
         body = layout.empty_state(i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY))
@@ -502,7 +547,7 @@ def _recent_flights_html(rows, now, state_dir):
                 '<span class="recent-flight__time text-label">%s</span>'
                 "</li>"
                 % (_recent_flight_thumb_html(row, state_dir), escape_html(callsign),
-                   escape_html(secondary), layout.concise_timestamp_html(row.get("ts"), now)))
+                   escape_html(secondary), _recent_flight_time_html(row.get("ts"), now)))
         body = '<ul class="recent-flights">%s</ul>' % "".join(items)
     return (
         '<section class="page-section home-section" aria-labelledby="home-flights">'
