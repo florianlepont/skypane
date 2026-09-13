@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: verifying
 stopped_at: Completed 22-12-PLAN.md
-last_updated: "2026-09-13T04:07:38.568Z"
+last_updated: "2026-09-13T04:43:59.911Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 198
+  completed_plans: 199
   percent: 89
 ---
 
@@ -365,6 +365,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P10 | ~135min | 3 tasks | 9 files |
 | Phase 22 P11 | ~96min | 3 tasks | 7 files |
 | Phase 22 P12 | 118min | 3 tasks | 7 files |
+| Phase 22 P13 | 95min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -664,6 +665,11 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-12 (C1): the compact empty_state() variant reaches its 16px-sans-semibold / 14px-muted treatment through .empty-state__heading/.empty-state__body's OWN new rules, not by borrowing .widget-verdict/.widget-detail — borrowing broke the Resolution-rate tile's pinned no-verdict contract on its own empty branch, which is how the decision was found
 - [Phase 22]: 22-12 (B12): lever order was decided by headless measurement, and the CHEAPEST lever was measured incapable — the two French timestamp columns were cell-driven at 251px of ink each, 564px of an 830px budget, so the Flights stacked-cell precedent was applied first and shorter French headers closed the last 70px. The card fallback was not needed; the base min-width: max-content no-crop floor is kept
 - [Phase 22]: 22-12 (B11): .filter-bar__count's margin-left: auto is retired with Health's adoption of .filter-bar__meta — 22-09 kept it with a stated expiry, all three filtered pages now wrap their pair, and inside a content-sized flex item there is no free space for a second auto margin to absorb
+- [Phase 22]: 22-13 (X3): the login error border SHIPPED — measured 5.16/6.29 light and 5.93/6.53 dark against the two colours adjacent to it (the field's own --color-secondary fill and the card's --color-dominant surface), every one past WCAG_AA_UI_COMPONENT (3.0). The 20-UI-SPEC precedent that would have DROPPED it was not needed and the threshold was not touched
+- [Phase 22]: 22-13 (X3): aria-invalid is emitted on the wrong-password branch ONLY, never on the lockout branch — during a lockout the typed value is not what is wrong, the form is locked. aria-describedby is emitted on both, because the message describes the field either way; the negative aria-invalid value is emitted nowhere
+- [Phase 22]: 22-13 (X3): the show-password toggle's glyph is a TEXT character, not an SVG — login_shell() emits no ICON_DEFS_HTML sprite and emitting one would be a third edit to a function this plan scopes to exactly two. .copy-btn's geometry (22x22 box, ::before 44x44 hit area, 14px glyph box) is reused verbatim, so no second icon-button size exists in style.css
+- [Phase 22]: 22-13 (X3): the toggle gutter is var(--space-xl) (32px), NOT 22-UI-SPEC.md 3.2's suggested 40px — 1 of the same document forbids a new off-scale literal beyond three enumerated exceptions, and 32px clears the toggle's real 30px reach
+- [Phase 22]: 22-13 (X3): login_shell() now emits exactly ONE deferred script tag where it emitted zero, via LOGIN_CARD_SCRIPT_SRC beside its eleven siblings. Those two edits plus the docstring correction are the only changes this plan made to layout.py; page_shell() and the other eleven scripts are untouched, and an authenticated page still loads exactly eleven
 
 ### Pending Todos
 
@@ -689,6 +695,9 @@ None yet.
 - state.advance-plan cannot parse Current Plan/Total Plans in Phase from STATE.md (known recurring limitation, documented repeatedly in this file's own history since Phase 10/11) - Current Position section is stale (references Phase 21) and was not hand-corrected here, out of scope for a single-plan executor
 - CFG-29 COMPLETE as of 22-12: all three plural fixes deferred by 22-08-SUMMARY.md have landed (upcoming flights/22-10, manual resolutions/22-11, the days-events caption in health_page.py/22-12), and every other clause B16 enumerates was re-checked item by item before ticking. Only 22-08's own frontmatter names CFG-29, so the traceability row is what tracked the remainder
 - OPEN, flagged by 22-12 for the phase-closing sweep (22-16), NOT a blocker for any plan: Health's page-header clock span carries the raw ISO instant in its `title`, which 19-09-PLAN.md (D-02/A-20) put there deliberately and companion/test_status_pages.py pins by name. CFG-28 ("raw ISO appears only behind a copy control") is ticked complete, so either that clause has a documented exception here or 19-09's pin needs revisiting. 22-12 fixed the C5 half (the span left the monospace family for .time-value) and left the title untouched rather than edit another plan's deliberate pin
+- OPEN, flagged by 22-13 for 22-16, NOT a blocker for any plan: three design-system rows from 22-UI-SPEC.md 4 are now owed by landed code — `.login-card button[type="submit"]` joining references/control-density.md's touch-target register in the KEPT category with its three-point justification, `.field-error` gaining its SECOND consumer in references/settings-page-patterns.md with the under-the-control placement rule stated, and C4's composition rule itself, whose worked example (the login card's field + Sign in, both 44px, both 8px radius) now exists in code
+- NOTED by 22-13, for whoever records the collision: a component whose base rule sets `display` needs its own higher-specificity `[hidden]` selector or the server-rendered hidden attribute is silently defeated by the author stylesheet. style.css now has THREE such rules — `.dirty-bar[hidden]`, `.refresh-pill[hidden]` and `.login-reveal[hidden]`. The third was found by companion/test_browser_ux.py's scripts-blocked pass, not by inspection: `.copy-btn`'s `display: inline-flex` was rendering a dead show-password button on a page with JavaScript off
+- NOTED by 22-13, a plan-frontmatter inaccuracy 22-16 may want to correct rather than inherit: 22-13-PLAN.md's own must_haves claim style.css had no `.login-card` rule, and derive an acceptance grep from it. `.login-shell`/`.login-card` have existed since 06.6.2-07, so that grep was already non-zero before the plan ran and cannot discriminate. What genuinely did not exist is any rule for the two CONTROLS inside the card, which is what the audit row actually said (`.login-form`)
 
 ### Quick Tasks Completed
 
@@ -757,7 +766,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T04:07:38.517Z
+Last session: 2026-09-13T04:43:15.850Z
 Stopped at: Completed 22-12-PLAN.md
 
 Resume file: 
