@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 22-11-PLAN.md
-last_updated: "2026-09-13T03:23:26.590Z"
+stopped_at: Completed 22-12-PLAN.md
+last_updated: "2026-09-13T04:07:38.568Z"
 last_activity: 2026-09-12
 progress:
   total_phases: 35
   completed_phases: 31
   total_plans: 203
-  completed_plans: 197
+  completed_plans: 198
   percent: 89
 ---
 
@@ -26,7 +26,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [██████████] 97%
+  [██████████] 98%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -364,6 +364,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P09 | ~120min | 3 tasks | 7 files |
 | Phase 22 P10 | ~135min | 3 tasks | 9 files |
 | Phase 22 P11 | ~96min | 3 tasks | 7 files |
+| Phase 22 P12 | 118min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -658,6 +659,11 @@ Recent decisions affecting current work:
 - [Phase 22]: 22-11 (X7): the per-card Replace picture control is .calendar-disconnect-btn's SECOND consumer, reused verbatim with a placement-only card-scoped rule — one base rule block still serves every consumer, and no .btn family exists
 - [Phase 22]: 22-11 (B5): the dialog's Save is lifted out of its form into one .lightbox__actions row and re-attached by the native form= attribute; the no-JS fallback keeps its own in-form submit, so the scriptless floor is untouched
 - [Phase 22]: 22-11 (X7): .manual-summary's copied [data-filter-clear] property list is DELETED, not forked — the control moved into the filter bar wearing .airline-card__chip verbatim, leaving only a hover rule
+- [Phase 22]: 22-12 (X8): every Health tile is label / one Emphasis-role element / one muted detail slot, built by one _tile_body() helper. The Emphasis slot legitimately carries TWO class names — .widget-verdict for a state word, .stat-tile__value for the Resolution-rate FIGURE — because D-03/A-21 forbids that tile from making a judgement; the asserted invariant is one Emphasis ELEMENT per tile, never one class name
+- [Phase 22]: 22-12 (X8): layout._STATUS_DOT_CLASSES gains an additive "off" entry so status_dot("off", label) renders the neutral dot with its normal visible label; no current caller passes "off", so every pre-existing call site is byte-identical and the warn fallback for a genuinely unrecognised state is unchanged
+- [Phase 22]: 22-12 (C1): the compact empty_state() variant reaches its 16px-sans-semibold / 14px-muted treatment through .empty-state__heading/.empty-state__body's OWN new rules, not by borrowing .widget-verdict/.widget-detail — borrowing broke the Resolution-rate tile's pinned no-verdict contract on its own empty branch, which is how the decision was found
+- [Phase 22]: 22-12 (B12): lever order was decided by headless measurement, and the CHEAPEST lever was measured incapable — the two French timestamp columns were cell-driven at 251px of ink each, 564px of an 830px budget, so the Flights stacked-cell precedent was applied first and shorter French headers closed the last 70px. The card fallback was not needed; the base min-width: max-content no-crop floor is kept
+- [Phase 22]: 22-12 (B11): .filter-bar__count's margin-left: auto is retired with Health's adoption of .filter-bar__meta — 22-09 kept it with a stated expiry, all three filtered pages now wrap their pair, and inside a content-sized flex item there is no free space for a second auto margin to absorb
 
 ### Pending Todos
 
@@ -681,7 +687,8 @@ None yet.
 - 06.3-05 Task 1 done (VALIDATION.md reconciled, commit 9bc163e). scripts/run-all-tests.sh exits 1: pre-existing, out-of-scope server/test_poll_loop.py digest-pin failure unrelated to this phase (needs unmerged upstream commit aeac512 merged). Per T-06.3-13, nyquist_compliant stays false while suite is red -- pending human/orchestrator decision. Task 2 (browser visual sign-off) is a human-check step, not yet performed; plan not complete.
 - Phase 06.6.4.1.1 plan 06 stopped at Task 2's blocking developer checkpoint after Task 1's full-suite/coverage/live-route gates passed; see 06.6.4.1.1-06-SUMMARY.md
 - state.advance-plan cannot parse Current Plan/Total Plans in Phase from STATE.md (known recurring limitation, documented repeatedly in this file's own history since Phase 10/11) - Current Position section is stale (references Phase 21) and was not hand-corrected here, out of scope for a single-plan executor
-- CFG-29 not yet complete: of the three plural fixes deferred by 22-08-SUMMARY.md, upcoming flights (22-10) and manual resolutions (22-11) have landed; only the days-events caption in health_page.py remains, and it is 22-12's. CFG-29 stays unchecked until then
+- CFG-29 COMPLETE as of 22-12: all three plural fixes deferred by 22-08-SUMMARY.md have landed (upcoming flights/22-10, manual resolutions/22-11, the days-events caption in health_page.py/22-12), and every other clause B16 enumerates was re-checked item by item before ticking. Only 22-08's own frontmatter names CFG-29, so the traceability row is what tracked the remainder
+- OPEN, flagged by 22-12 for the phase-closing sweep (22-16), NOT a blocker for any plan: Health's page-header clock span carries the raw ISO instant in its `title`, which 19-09-PLAN.md (D-02/A-20) put there deliberately and companion/test_status_pages.py pins by name. CFG-28 ("raw ISO appears only behind a copy control") is ticked complete, so either that clause has a documented exception here or 19-09's pin needs revisiting. 22-12 fixed the C5 half (the span left the monospace family for .time-value) and left the title untouched rather than edit another plan's deliberate pin
 
 ### Quick Tasks Completed
 
@@ -750,8 +757,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T03:22:56.947Z
-Stopped at: Completed 22-10-PLAN.md
+Last session: 2026-09-13T04:07:38.517Z
+Stopped at: Completed 22-12-PLAN.md
 
 Resume file: 
 
