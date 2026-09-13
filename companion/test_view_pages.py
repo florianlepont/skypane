@@ -45,6 +45,7 @@ python3. No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_view_pages.py
 """
+import html
 import os
 import re
 import shutil
@@ -508,6 +509,17 @@ EXPECTED_CHECK_COUNT = 135
 # can adopt it verbatim, with no page-scoped fork of the converged [data-filter-clear] rule and
 # no per-page variant of the group itself. Re-derived by running the harness (136/136).
 EXPECTED_CHECK_COUNT = 136
+# 22-11-PLAN.md Task 1 (B5/D-05): +3 (136 -> 139) — the resolve dialog's first-seen/last-seen
+# attributes proven to carry FORMATTED Europe/Paris text byte-identical to the no-JS path's own
+# rendered <dd> text for the same row (a 15:49 UTC sighting reading 17:49, so an unconverted
+# value cannot pass on shape alone), with zero ISO-8601 timestamps anywhere in either render;
+# panel-lookup.js proven to contain no date-parsing or date-formatting API at all and to assign
+# both values straight to textContent; and Save and Close proven to share one .lightbox__actions
+# row (quiet Close first, primary re-attached by the native form= attribute) while the no-JS
+# fallback keeps its own submit inside its own form, with the row's rule declaring
+# flex/centre/space-between, no shared height (C4) and no .btn-- family.
+# Re-derived by running the harness (139/139).
+EXPECTED_CHECK_COUNT = 139
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -4026,6 +4038,233 @@ def main():
         "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up "
         "(20-10-PLAN.md Task 2)",
         _airlines_catalog_keys_all_present_in_merged_catalog)
+
+    # ======================================================================
+    # 22-11-PLAN.md Task 1 (D-05, B5): the resolve dialog reads in Paris
+    # local time, and its Save and Close sit on one action row.
+    # ======================================================================
+
+    # An ISO-8601 instant as the unresolved-prefix registry writes it
+    # (server/plane/enrich.py's note_unresolved_prefix()) — the exact
+    # shape B5 found leaking into the dialog.
+    _ISO_INSTANT_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}")
+
+    def _resolve_dialog_seen_attributes_carry_formatted_paris_local_text():
+        # B5: `data-view-panel-first-seen`/`-last-seen` used to carry the
+        # raw registry ISO, which panel-lookup.js textContent-copies
+        # straight into the dialog — so the dialog read
+        # "2026-09-09T15:49:27+00:00" while the no-JS path beside it
+        # already rendered the identical value as Paris local time. The
+        # two are halves of one contract, so this asserts EQUALITY
+        # between them, not merely that each looks plausible.
+        tmp = _mkstate("a-seen-local")
+        now = "2026-09-13T09:00:00+00:00"
+        first_seen = "2026-09-09T15:49:27+00:00"
+        last_seen = "2026-09-11T06:05:00+00:00"
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 7, "first_seen": first_seen, "last_seen": last_seen,
+                    "example_callsign": "XYZ123",
+                },
+            })
+            rendered = airlines_page.render({"state_dir": tmp, "now": now})
+            fallback = airlines_page.render(
+                {"state_dir": tmp, "now": now, "resolve_prefix": "XYZ"})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        attrs = {}
+        for name, attr in (("first", airlines_page._VIEW_PANEL_FIRST_SEEN_ATTR),
+                           ("last", airlines_page._VIEW_PANEL_LAST_SEEN_ATTR)):
+            values = [v for v in re.findall(r'%s="([^"]*)"' % re.escape(attr), rendered) if v]
+            if len(values) != 1:
+                return False, (
+                    "expected exactly one non-empty %s attribute for the one seeded gap, found %r"
+                    % (attr, values))
+            attrs[name] = html.unescape(values[0])
+
+        # The no-JS path's rendered TEXT for the same row: the <dd>'s
+        # content with concise_timestamp_html()'s own <span> wrapper
+        # stripped, which is exactly what a browser paints there.
+        texts = {}
+        for name, dd_class in (("first", "resolve-context__first-seen"),
+                               ("last", "resolve-context__last-seen")):
+            bodies = [b for b in re.findall(
+                r'<dd class="%s[^"]*"[^>]*>(.*?)</dd>' % dd_class, fallback, re.S) if b.strip()]
+            if len(bodies) != 1:
+                return False, (
+                    "expected exactly one populated %s <dd> in the no-JS fallback, found %r"
+                    % (dd_class, bodies))
+            texts[name] = html.unescape(re.sub(r"<[^>]*>", "", bodies[0]))
+
+        for name in ("first", "last"):
+            if attrs[name] != texts[name]:
+                return False, (
+                    "expected the JS path's %s-seen attribute to equal the no-JS path's rendered "
+                    "text byte for byte, got %r and %r" % (name, attrs[name], texts[name]))
+            if _ISO_INSTANT_RE.search(attrs[name]):
+                return False, (
+                    "expected no raw ISO-8601 in the %s-seen attribute, got %r"
+                    % (name, attrs[name]))
+        # D-05's "Paris local time everywhere": 15:49 UTC is 17:49 in
+        # Paris on that date, so an unconverted value would still read
+        # "15:49" here and pass every shape check above.
+        if "17:49" not in attrs["first"]:
+            return False, (
+                "expected the 15:49 UTC sighting to render as 17:49 Europe/Paris, got %r"
+                % (attrs["first"],))
+        # And nothing anywhere in either render carries the ISO shape —
+        # the dialog's own static markup included.
+        for label, page in (("gallery", rendered), ("resolve fallback", fallback)):
+            leaks = _ISO_INSTANT_RE.findall(page)
+            if leaks:
+                return False, (
+                    "expected zero ISO-8601 timestamps in the %s render, found %r"
+                    % (label, leaks))
+        return True, ""
+    check(
+        "the resolve dialog's data-view-panel-first-seen/-last-seen carry FORMATTED Europe/Paris "
+        "text byte-identical to the no-JS path's own rendered <dd> text for the same row (15:49 UTC "
+        "reading 17:49), and neither render carries a single ISO-8601 timestamp anywhere (B5/D-05, "
+        "22-11-PLAN.md Task 1)",
+        _resolve_dialog_seen_attributes_carry_formatted_paris_local_text)
+
+    def _panel_lookup_js_does_no_date_math_of_any_kind():
+        # D-05's enforceability rests on this: the Paris-local rule is
+        # kept in ONE place (layout.local_clock_text()) only for as long
+        # as the client never formats a date itself. panel-lookup.js
+        # copies server-rendered text verbatim; the moment it parses a
+        # date, a second, untranslatable formatter exists.
+        path = os.path.join(HERE, "static", "panel-lookup.js")
+        with open(path) as fh:
+            source = fh.read()
+        forbidden = (
+            "new Date(", "Date.now", "toISOString", "toLocaleDateString",
+            "toLocaleTimeString", "toLocaleString", "getHours", "getMinutes",
+            "getTime", "Intl.DateTimeFormat",
+        )
+        found = [token for token in forbidden if token in source]
+        if found:
+            return False, (
+                "expected panel-lookup.js to do no date parsing or formatting, found %r" % (found,))
+        # The positive half: it still writes the two values it is given,
+        # straight into textContent, with no transformation between.
+        for attr in (airlines_page._VIEW_PANEL_FIRST_SEEN_ATTR,
+                     airlines_page._VIEW_PANEL_LAST_SEEN_ATTR):
+            if ('getAttribute("%s")' % attr) not in source:
+                return False, "expected panel-lookup.js to read %s off the trigger" % (attr,)
+        for var in ("firstSeen", "lastSeen"):
+            if ("textContent = %s;" % var) not in source:
+                return False, (
+                    "expected panel-lookup.js to assign %s straight to textContent, unmodified"
+                    % (var,))
+        return True, ""
+    check(
+        "companion/static/panel-lookup.js contains no date-parsing or date-formatting API at all "
+        "(new Date/Date.now/toISOString/toLocale*/getHours/getMinutes/getTime/Intl.DateTimeFormat) "
+        "and assigns the first-seen/last-seen attribute values straight to textContent — the "
+        "property that keeps D-05's Paris-local rule enforceable server-side (B5, 22-11-PLAN.md "
+        "Task 1)",
+        _panel_lookup_js_does_no_date_math_of_any_kind)
+
+    def _resolve_dialog_save_and_close_share_one_action_row():
+        # B5: Save sat inside .lightbox__resolve-name and Close was the
+        # dialog's bare last child, so the two stacked as two block rows.
+        rendered = airlines_page.render({})
+        row = re.search(
+            r'<div class="%s">(.*?)</div>' % re.escape(airlines_page.LIGHTBOX_ACTIONS_CLASS),
+            rendered, re.S)
+        if row is None:
+            return False, "expected one .lightbox__actions row in the rendered dialog"
+        if rendered.count('class="%s"' % airlines_page.LIGHTBOX_ACTIONS_CLASS) != 1:
+            return False, "expected exactly one action row on the page"
+        body = row.group(1)
+        if airlines_page._VIEW_PANEL_CLOSE_ATTR not in body:
+            return False, "expected the Close control inside the action row"
+        dialog_form_id = airlines_page.MANUAL_RESOLVE_FORM_ID + "-dialog"
+        if ('<button type="submit" form="%s">' % dialog_form_id) not in body:
+            return False, (
+                "expected the primary Save inside the same row, re-attached to its form by the "
+                "native form= attribute")
+        # Quiet Close FIRST (left), primary SECOND (right) — read from
+        # source order, which is what the flex row lays out.
+        close_at = body.index(airlines_page._VIEW_PANEL_CLOSE_ATTR)
+        submit_at = body.index('type="submit"')
+        if close_at > submit_at:
+            return False, "expected the quiet Close to precede the primary in the action row"
+        # The form it names actually exists, and no longer encloses a
+        # submit of its own in the dialog copy.
+        if ('id="%s"' % dialog_form_id) not in rendered:
+            return False, "expected the dialog's resolve form to carry the id the button names"
+        dialog_form = re.search(
+            r'<form class="%s" id="%s".*?</form>'
+            % (re.escape(airlines_page.LIGHTBOX_RESOLVE_NAME_CLASS), re.escape(dialog_form_id)),
+            rendered, re.S)
+        if dialog_form is None:
+            return False, "expected to locate the dialog's resolve form"
+        if 'type="submit"' in dialog_form.group(0):
+            return False, "expected the dialog form's own submit to have moved into the action row"
+
+        # The no-JS floor: the fallback section's form keeps its submit
+        # INSIDE itself and renders no action row at all.
+        tmp = _mkstate("a-actions-nojs")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 4, "first_seen": "2026-09-09T15:49:27+00:00",
+                    "last_seen": "2026-09-11T06:05:00+00:00", "example_callsign": "XYZ123",
+                },
+            })
+            fallback = airlines_page.render(
+                {"state_dir": tmp, "now": "2026-09-13T09:00:00+00:00", "resolve_prefix": "XYZ"})
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        nojs_form = re.search(
+            r'<form class="%s" id="%s" .*?</form>'
+            % (re.escape(airlines_page.LIGHTBOX_RESOLVE_NAME_CLASS),
+               re.escape(airlines_page.MANUAL_RESOLVE_FORM_ID)),
+            fallback, re.S)
+        if nojs_form is None:
+            return False, "expected the no-JS fallback's resolve form with its own unsuffixed id"
+        if 'type="submit"' not in nojs_form.group(0):
+            return False, (
+                "expected the no-JS fallback's submit to stay inside its own form — the scriptless "
+                "floor must not depend on a form= re-attachment")
+
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        rule = re.search(
+            r"^\.%s\s*\{([^}]*)\}" % re.escape(airlines_page.LIGHTBOX_ACTIONS_CLASS),
+            css, re.S | re.M)
+        if rule is None:
+            return False, "expected a .lightbox__actions rule block in style.css"
+        for declaration in ("display: flex", "align-items: center",
+                            "justify-content: space-between"):
+            if declaration not in rule.group(1):
+                return False, (
+                    "expected the action row to declare %r so the pair shares one line, quiet left "
+                    "and primary right" % declaration)
+        # C4 as 22-UI-SPEC.md §4 states it: two SEPARATE objects on a
+        # shared row are centre-aligned and keep their own registered
+        # geometry — so this row must force no shared height.
+        for forbidden in ("height", "min-height", "border-radius"):
+            if forbidden in rule.group(1):
+                return False, (
+                    "expected the action row to declare no %r — these two controls read as "
+                    "separate objects and keep their own registered geometry (C4)" % forbidden)
+        # No new button family rides in on this row.
+        if ".btn--" in re.sub(r"/\*.*?\*/", "", css, flags=re.S):
+            return False, "expected no .btn-- family anywhere in style.css"
+        return True, ""
+    check(
+        "the resolve dialog's Save and Close share ONE .lightbox__actions row — quiet Close first, "
+        "primary Save second and re-attached to its form by the native form= attribute — while the "
+        "no-JS fallback keeps its own submit inside its own form, and the row's rule declares "
+        "flex/centre/space-between with no shared height (C4) and no .btn-- family (B5, "
+        "22-11-PLAN.md Task 1)",
+        _resolve_dialog_save_and_close_share_one_action_row)
 
     # ======================================================================
     # Section 1d: the unresolved-airline link. 06.6.4.1-05 Task 3 (D-21)

@@ -3049,14 +3049,35 @@ table.data-table--flights .cell-inline-sep {
 }
 
 /* Phase 13 (13-04-PLAN.md Task 1, D-12): the resolve section's own
- * sighting-context definition list on Airlines. This file declares no
- * `dl`/`dt`/`dd` rule of its own anywhere — Health's own registry
- * disclosure (`.data-card__details dl`, immediately above) already
- * renders its definition list on browser defaults, so matching that
- * treatment here means adding nothing but this block's own bottom
- * margin, from the existing `md` token. */
+ * sighting-context definition list on Airlines. The original rule
+ * declared nothing but this block's own bottom margin, leaving the list
+ * on browser defaults to match Health's registry disclosure.
+ *
+ * B5 (22-11-PLAN.md Task 1): SUPERSEDED in that one respect — the audit
+ * recorded the `<dl>` as "hand-indented", which is what the UA default
+ * `dd { margin-inline-start: 40px }` paints: five labels at the left
+ * edge with five values stranded 40px in, on their own lines. The five
+ * pairs become two real columns instead, label then value, so a
+ * household member reads "Last seen  15:49 (2d ago)" on one line. This
+ * is a layout correction to an existing rule, not a new class family
+ * and not a new token: both gaps come from the existing xs/sm scale,
+ * and the `dt`/`dd` children keep every type declaration their own
+ * `text-label`/`text-body` classes already give them. `auto 1fr` sizes
+ * the label column to the longest label ("Example callsign") once, so
+ * the values share one left edge. The `dt`/`dd` selector is scoped
+ * inside `.resolve-context`, so this file still declares no bare
+ * `dl`/`dt`/`dd` rule and Health's list is untouched. */
 .resolve-context {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-xs) var(--space-sm);
+  align-items: baseline;
   margin: 0 0 var(--space-md);
+}
+
+.resolve-context dt,
+.resolve-context dd {
+  margin: 0;
 }
 
 /* Phase 13 (13-04-PLAN.md Task 1, D-13): the resolve section's Step A
@@ -4867,6 +4888,30 @@ a.airline-card {
  * is not a new token. */
 .lightbox::backdrop {
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* B5 (22-11-PLAN.md Task 1, 22-UI-SPEC.md §2): the dialog's ONE action
+ * row. Before this, Close was the dialog's bare last child and the
+ * resolve form's Save sat inside the form above it, so the two painted
+ * as two stacked block rows — the audit's own "Save/Close buttons
+ * stacked on two lines". `justify-content: space-between` is what puts
+ * the quiet Close at the left edge and the primary Save at the right;
+ * when the Save is hidden (every non-gap mode, panel-lookup.js mirrors
+ * the form's own state) Close simply stays where it already was.
+ *
+ * C4, as §4 states it: these two read as SEPARATE OBJECTS on a shared
+ * row, not as one object, so they are centre-aligned and each keeps its
+ * own registered geometry. No height, no min-height and no radius is
+ * declared here on purpose — forcing a shared height would be the
+ * one-object rule applied to the wrong composition. This is a layout
+ * row, not a button family: both children keep the element selectors
+ * (`button`, `button[type="submit"]`) they already matched. */
+.lightbox__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
 }
 
 /* quick task 260902-tli: the Airlines gallery's wide lightbox variant.
