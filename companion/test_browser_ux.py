@@ -186,6 +186,23 @@ EXPECTED_CHECK_COUNT = 12
 # call count at execution time (14/14 pass), not trusted from arithmetic
 # alone.
 EXPECTED_CHECK_COUNT = 14
+# 22-13-PLAN.md Task 3 (X3): +3 — the login card's field and primary
+# measured at 390px AND 1280px (same width, filling the card's content
+# column, both 44px tall, one shared radius, a 16px gap, against the
+# audit's own 225x44-beside-68x30 and 0px-gap measurements); the
+# show-password toggle revealing ITSELF at load, swapping aria-pressed
+# and its translated name, keeping .copy-btn's synthesized 44x44 hit
+# area, and staying absent with scripts blocked while the form still
+# signs in; and the lockout countdown ticking from the server's own seed
+# and re-enabling both controls at zero, driven by Playwright's clock
+# rather than by sleeping through a real five-minute window. The second
+# of the three found a real defect no string-comparison harness could
+# see: `.copy-btn`'s `display: inline-flex` beat the user-agent
+# `[hidden] { display: none }`, so the scripts-blocked page rendered a
+# dead toggle until `.login-reveal[hidden]` was added. 14 + 3 = 17,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (17/17 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 17
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -1289,6 +1306,242 @@ def main():
                     "resolves its own form= attachment and submits (D-09 floor asserted at this "
                     "plan's own commit, 22-10-PLAN.md Task 3)",
                     _the_no_js_floor_holds_for_both_settings_pages)
+
+                # --- 22-13-PLAN.md Task 3 (X3): the login card ---
+
+                def _login_card_stacks_at_both_widths():
+                    # X3's measurement, re-taken by a real layout engine
+                    # at both ends of the range the audit measured:
+                    # desktop was a 225x44 r8 field beside a 68x30 r6
+                    # button sitting 7px lower, and at 390px the field
+                    # kept 225 of 278px with the button glued underneath
+                    # at a 0px gap.
+                    for width in (390, 1280):
+                        context = browser.new_context(
+                            viewport={"width": width, "height": 844})
+                        try:
+                            page = context.new_page()
+                            page.goto(harness.base_url() + "/login")
+                            field = page.locator(".login-form__input").bounding_box()
+                            primary = page.locator(
+                                '.login-card button[type="submit"]').bounding_box()
+                            form = page.locator(".login-form").bounding_box()
+                            if not field or not primary or not form:
+                                return False, "%dpx: expected both controls to be laid out" % width
+                            if abs(field["width"] - primary["width"]) > 1:
+                                return False, (
+                                    "%dpx: the field and the primary must be the same width, "
+                                    "measured %.1f vs %.1f"
+                                    % (width, field["width"], primary["width"]))
+                            if abs(field["width"] - form["width"]) > 1:
+                                return False, (
+                                    "%dpx: both controls must fill the card's content column "
+                                    "(%.1f), the field measured %.1f"
+                                    % (width, form["width"], field["width"]))
+                            for name, box in (("field", field), ("primary", primary)):
+                                if abs(box["height"] - 44) > 0.5:
+                                    return False, (
+                                        "%dpx: the %s must be 44px tall, measured %.1f"
+                                        % (width, name, box["height"]))
+                            gap = primary["y"] - (field["y"] + field["height"])
+                            if gap <= 0:
+                                return False, (
+                                    "%dpx: the two controls must be separated, measured a "
+                                    "%.1fpx gap" % (width, gap))
+                            if abs(gap - 16) > 1:
+                                return False, (
+                                    "%dpx: the gap must be the one medium spacing token "
+                                    "(16px), measured %.1f" % (width, gap))
+                            # Same radius as well as same height — the
+                            # other half of C4's composition rule, which
+                            # a bounding box cannot see.
+                            radii = page.evaluate(
+                                "() => [getComputedStyle(document.querySelector("
+                                "'.login-form__input')).borderTopLeftRadius,"
+                                " getComputedStyle(document.querySelector("
+                                "'.login-card button[type=\\\"submit\\\"]'))"
+                                ".borderTopLeftRadius]")
+                            if radii[0] != radii[1]:
+                                return False, (
+                                    "%dpx: the field and the primary must share a radius, "
+                                    "measured %r" % (width, radii))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "at 390px and at 1280px the login card's field and primary are stacked, the "
+                    "same width, filling the card's content column, both 44px tall, sharing one "
+                    "radius and separated by the one 16px token — never a 225x44 field beside a "
+                    "68x30 button, and never glued at a 0px gap (X3, 22-13-PLAN.md Task 3)",
+                    _login_card_stacks_at_both_widths)
+
+                def _show_password_toggle_reveals_itself_and_swaps_its_name():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        page.goto(harness.base_url() + "/login")
+                        toggle = page.locator("[data-login-reveal]")
+                        toggle.wait_for(state="visible")
+                        if toggle.get_attribute("hidden") is not None:
+                            return False, (
+                                "login-card.js must remove the server-rendered hidden "
+                                "attribute, not merely override it in CSS — a visible "
+                                "control that is still hidden from assistive tech is worse "
+                                "than the defect")
+                        show_name = toggle.get_attribute("aria-label")
+                        if not show_name:
+                            return False, "expected the icon-only toggle to carry an aria-label"
+                        if toggle.get_attribute("aria-pressed") != "false":
+                            return False, "expected the toggle to start unpressed"
+                        if page.locator("#password").get_attribute("type") != "password":
+                            return False, "expected the field to start masked"
+                        # The class-at-load idiom: the gutter is
+                        # reserved only now that the toggle is there.
+                        wrapper_class = page.locator(".login-form__field").get_attribute("class")
+                        if "login-form__field--with-toggle" not in (wrapper_class or ""):
+                            return False, (
+                                "expected login-card.js to append the padding modifier at "
+                                "load, got %r" % (wrapper_class,))
+                        # .copy-btn reused verbatim: a 22x22 visual box
+                        # with the ::before inset synthesizing 44x44.
+                        hit = toggle.evaluate(
+                            "el => { var r = el.getBoundingClientRect();"
+                            " var s = getComputedStyle(el, '::before');"
+                            " return [r.width - parseFloat(s.left) - parseFloat(s.right),"
+                            " r.height - parseFloat(s.top) - parseFloat(s.bottom)]; }")
+                        if not hit or hit[0] < 44 or hit[1] < 44:
+                            return False, (
+                                "expected the toggle's hit area to measure at least 44x44 in "
+                                "both axes, measured %r" % (hit,))
+                        toggle.click()
+                        hide_name = toggle.get_attribute("aria-label")
+                        if hide_name == show_name or not hide_name:
+                            return False, (
+                                "the accessible name must swap with the state, still %r"
+                                % (hide_name,))
+                        if toggle.get_attribute("aria-pressed") != "true":
+                            return False, "expected aria-pressed to flip to true"
+                        if page.locator("#password").get_attribute("type") != "text":
+                            return False, "expected the field to reveal its value"
+                        toggle.click()
+                        if toggle.get_attribute("aria-label") != show_name:
+                            return False, "expected the accessible name to swap back"
+                        if page.locator("#password").get_attribute("type") != "password":
+                            return False, "expected the field to mask again"
+                    finally:
+                        context.close()
+
+                    # D-09's floor, asserted at this plan's own commit:
+                    # with scripts blocked the toggle is not there at all
+                    # (never a dead control), no gutter is reserved for
+                    # it, and the form still signs in.
+                    context = browser.new_context(java_script_enabled=False)
+                    try:
+                        page = context.new_page()
+                        page.goto(harness.base_url() + "/login")
+                        if page.locator("[data-login-reveal]").is_visible():
+                            return False, (
+                                "with scripts blocked the toggle must stay hidden — a "
+                                "control that silently does nothing is worse than no "
+                                "control")
+                        wrapper_class = page.locator(".login-form__field").get_attribute("class")
+                        if "login-form__field--with-toggle" in (wrapper_class or ""):
+                            return False, (
+                                "with scripts blocked the field must reserve no gutter for "
+                                "a toggle that is not shown")
+                        page.fill("#password", TEST_PASSWORD)
+                        with page.expect_navigation():
+                            page.click('button[type="submit"]')
+                        if "/login" in page.url:
+                            return False, (
+                                "expected a scripts-blocked sign-in to succeed, landed on %r"
+                                % page.url)
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the show-password toggle reveals ITSELF at load (the hidden attribute is "
+                    "removed, not overridden), swaps aria-pressed and its translated accessible "
+                    "name with the state, keeps .copy-btn's synthesized 44x44 hit area — and "
+                    "with scripts blocked it never appears, reserves no gutter, and the form "
+                    "still signs in (X3/D-09, 22-13-PLAN.md Task 3)",
+                    _show_password_toggle_reveals_itself_and_swaps_its_name)
+
+                def _lockout_countdown_ticks_and_re_enables_the_form():
+                    # Its own isolated Harness(): driving the
+                    # process-global LoginThrottle to its limit locks
+                    # THAT subprocess out for the whole window, and the
+                    # lockout branch is checked before the password is,
+                    # so a correct password cannot unlock it over HTTP.
+                    #
+                    # Playwright's clock API drives the countdown to zero
+                    # instead of this check sleeping for the real
+                    # five-minute window. The timer under test is the
+                    # page's own; only its clock is faked.
+                    lockout_harness = Harness()
+                    context = None
+                    try:
+                        lockout_harness.start()
+                        base_url = lockout_harness.base_url()
+                        context = browser.new_context()
+                        page = context.new_page()
+                        page.clock.install()
+                        page.goto(base_url + "/login")
+                        for _attempt in range(auth.LOGIN_FAILURE_LIMIT + 1):
+                            page.fill("#password", "not-the-password")
+                            with page.expect_navigation():
+                                page.click('button[type="submit"]')
+                        seed = page.locator(".login-form").get_attribute(
+                            "data-lockout-seconds")
+                        if not seed:
+                            return False, (
+                                "expected the locked-out form to carry the server's own "
+                                "remaining-seconds seed")
+                        remaining = int(seed)
+                        if remaining <= 0:
+                            return False, "expected a positive seed, got %r" % (seed,)
+                        if not page.locator("#password").is_disabled():
+                            return False, "expected the password field to be disabled"
+                        if not page.locator('button[type="submit"]').is_disabled():
+                            return False, "expected the primary to be disabled"
+                        first_text = page.locator("#login-error").inner_text()
+                        page.clock.run_for(2000)
+                        ticked_text = page.locator("#login-error").inner_text()
+                        if ticked_text == first_text:
+                            return False, (
+                                "the countdown must tick — the sentence was still %r after "
+                                "two seconds" % (first_text,))
+                        if str(remaining - 2) not in ticked_text:
+                            return False, (
+                                "expected the sentence to count down from the server's own "
+                                "seed, got %r" % (ticked_text,))
+                        # All the way to zero: the form re-enables itself
+                        # with no reload.
+                        page.clock.run_for((remaining + 2) * 1000)
+                        if page.locator("#password").is_disabled():
+                            return False, (
+                                "expected the password field to re-enable itself at zero")
+                        if page.locator('button[type="submit"]').is_disabled():
+                            return False, "expected the primary to re-enable itself at zero"
+                        if page.locator("#login-error").inner_text().strip():
+                            return False, (
+                                "expected the expired lockout sentence to be cleared")
+                        if page.locator("#password").get_attribute("aria-describedby"):
+                            return False, (
+                                "expected the field to stop pointing at a message that is "
+                                "no longer there")
+                        return True, ""
+                    finally:
+                        if context is not None:
+                            context.close()
+                        lockout_harness.stop()
+                        lockout_harness.cleanup()
+                check(
+                    "a locked-out login page ticks down from the server's own seed, with both "
+                    "controls natively disabled, and re-enables them by itself at zero with no "
+                    "reload — the message cleared and its aria-describedby dropped with it "
+                    "(X3, 22-13-PLAN.md Task 3)",
+                    _lockout_countdown_ticks_and_re_enables_the_form)
             finally:
                 browser.close()
     finally:

@@ -4225,6 +4225,41 @@ def main():
                         "value is not what is wrong, the form is locked")
                 if "Too many attempts" not in text:
                     return False, "expected the server-computed lockout sentence"
+                # 22-13-PLAN.md Task 3 (X3): both controls are natively
+                # disabled, and the live countdown is seeded from the
+                # server's OWN remaining figure — appearing exactly once
+                # in the page, on the form, in the same
+                # server-computes/data-attribute/script-reads shape
+                # poll-cooldown.js already uses. No throttling constant
+                # crosses with it (T-22-46/T-22-48).
+                if text.count("data-lockout-seconds=") != 1:
+                    return False, (
+                        "expected exactly one server-produced countdown seed in the "
+                        "rendered page, got %d" % text.count("data-lockout-seconds="))
+                seed = re.search(r'data-lockout-seconds="(\d+)"', text)
+                if not seed or int(seed.group(1)) <= 0:
+                    return False, (
+                        "expected a positive server-computed seed, got %r"
+                        % (seed.group(1) if seed else None))
+                if int(seed.group(1)) > auth.LOGIN_LOCKOUT_S:
+                    return False, (
+                        "the seed must be the server's own seconds_remaining() "
+                        "figure, never longer than the window itself")
+                for needed in ('data-lockout-template="', 'data-lockout-token="'):
+                    if needed not in text:
+                        return False, "expected %r on the locked-out form" % needed
+                if "LOGIN_FAILURE_LIMIT" in text or str(auth.LOGIN_FAILURE_LIMIT) + '"' in text:
+                    return False, "no throttling constant may be rendered into the page"
+                field_tag = text[text.index("<input type=\"password\""):]
+                field_tag = field_tag[:field_tag.index(">") + 1]
+                if " disabled" not in field_tag:
+                    return False, (
+                        "the password field must be natively disabled during a "
+                        "lockout, got %r" % field_tag)
+                if '<button type="submit" disabled>' not in text:
+                    return False, (
+                        "the primary must be natively disabled during a lockout, in "
+                        "the existing button:disabled treatment")
                 return True, ""
             finally:
                 lockout_harness.stop()

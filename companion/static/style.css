@@ -5005,6 +5005,21 @@ a.airline-card {
   margin-block: auto;
 }
 
+/* Without this, the server-rendered `hidden` attribute has no effect and
+ * the whole no-JS floor collapses: `.copy-btn`'s own `display:
+ * inline-flex` is an author-stylesheet declaration and beats the
+ * user-agent `[hidden] { display: none }` regardless of source order, so
+ * a browser with scripts blocked would render a show-password button
+ * that does nothing at all — the exact defect this control was built to
+ * avoid. Same collision class, and the same fix, as `.dirty-bar[hidden]`
+ * and `.refresh-pill[hidden]` above: a component whose base rule sets
+ * `display` always needs its own higher-specificity `[hidden]` selector.
+ * Found by companion/test_browser_ux.py's own scripts-blocked pass, not
+ * by inspection. */
+.login-reveal[hidden] {
+  display: none;
+}
+
 /* The pressed state, in the file's own quiet color-mix wash idiom at
  * `.copy-btn:hover`'s own 7% strength — no new colour, no accent (this
  * is not a main action). Attribute-selected so the visual state and the

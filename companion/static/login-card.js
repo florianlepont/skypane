@@ -93,6 +93,58 @@
     });
   }
 
+  // --- the live lockout countdown --------------------------------------
+  //
+  // Presentational ONLY, over server state that already exists. A
+  // reviewer will reasonably ask whether re-enabling the form here is a
+  // way past the lockout: it is not. companion/auth.py's LoginThrottle
+  // is consulted on every POST /login before the submitted password is
+  // even looked at, so an attempt made inside the window is rejected
+  // whether this file ran or not, and a visitor who deletes the two
+  // disabled attributes by hand gains exactly nothing. No throttling
+  // constant is duplicated here either — the remaining figure is the
+  // server's own seconds_remaining() output, read off the form, never
+  // derived from a client clock or a duration constant.
+  //
+  // parseInt()+isNaN(), not truthy, so this file's own "greater than
+  // zero" gate agrees with _login_body()'s: a negative or non-numeric
+  // value must not leave the form natively disabled while this script
+  // inertly no-ops, which would be the one state with no way back.
+  var rawRemaining = form.getAttribute("data-lockout-seconds");
+  var remaining = parseInt(rawRemaining, 10);
+  var message = document.getElementById("login-error");
+  var template = form.getAttribute("data-lockout-template");
+  var token = form.getAttribute("data-lockout-token");
+  var submit = form.querySelector("button[type=\"submit\"]");
+
+  if (rawRemaining !== null && !isNaN(remaining) && remaining > 0
+      && message && template && token && field && submit) {
+    // The message keeps its role="alert" — that is the contract, and it
+    // is what announces the lockout when the page loads. But an alert is
+    // an assertive live region, and rewriting its text once a second
+    // would interrupt a screen-reader user every second for the whole
+    // window. An explicit aria-live overrides the role's implicit
+    // politeness while leaving the role itself in the accessibility
+    // tree, so the sentence is announced once and then ticks silently.
+    message.setAttribute("aria-live", "off");
+    var timer = window.setInterval(function () {
+      remaining -= 1;
+      if (remaining > 0) {
+        message.textContent = template.replace(token, String(remaining));
+        return;
+      }
+      window.clearInterval(timer);
+      message.textContent = "";
+      field.removeAttribute("disabled");
+      submit.removeAttribute("disabled");
+      // The message is gone, so nothing is left for the field to be
+      // described by; leaving the association pointing at an empty
+      // paragraph would announce the field as having a description it
+      // no longer has.
+      field.removeAttribute("aria-describedby");
+    }, 1000);
+  }
+
   // No DOMContentLoaded wrapper is needed: the <script> tag
   // companion/layout.py's login_shell() emits carries the defer
   // attribute, so this file only ever runs after parsing. Do not add
