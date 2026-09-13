@@ -586,6 +586,31 @@ EXPECTED_CHECK_COUNT = 272
 # time (271/273 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 273
+# 23-05-PLAN.md Task 1 (D14/CFG-34): +8 — relative-time.js, the
+# thirteenth deferred script on the authenticated shell. Five of the
+# eight are the registration block every static script here carries
+# (public-route smoke, ES5-safety/required-token scan, route==src
+# agreement, exactly-one-script-tag, a real GET proving the served
+# body), mirroring flight-rows.js's and submit-guard.js's own. The
+# other three are this plan's specific risks: the ladder pin (the
+# script's three bucket boundaries must equal layout._age_bucket()'s
+# own, each appearing exactly once in the script's code, with the array
+# proven consumed — 23-RESEARCH.md's Pitfall 4, which is a promise
+# without it); the wording pin (each of the nine <body> copy attributes,
+# filled with the quantity _age_bucket() picks, must EQUAL
+# relative_age_text()/relative_future_text()'s own output in both
+# languages, so the ticker's copy can never become a second wording);
+# and the countdown pin (relative_time_html(countdown=True) marks the
+# element and reads a neutral, translated waiting phrase once its
+# instant has passed, never an age and never a warn/error/alert token).
+# ONE pre-existing check was retargeted in place with no count
+# contribution: the deferred-script count, twelve -> THIRTEEN, forced by
+# this plan's own registration, and now also pinning that the login
+# shell still emits exactly one. 273 + 8 = 281, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (279/281 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 281
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -4242,7 +4267,7 @@ def main():
             "=>/ let / const  (21-03-PLAN.md Task 2)",
             _real_get_flight_rows_route_serves_expected_body)
 
-        def _twelve_deferred_scripts_before_closing_body():
+        def _thirteen_deferred_scripts_before_closing_body():
             # Retargeted in place from _ten_deferred_scripts_before_
             # closing_body() (21-03-PLAN.md Task 2, D-15/R-12):
             # flight-rows.js was the eleventh unconditional script.
@@ -4253,22 +4278,30 @@ def main():
             # which is why a single shell registration covers the lot and
             # why a per-page include would be the per-page handler it
             # exists to replace.
+            # Retargeted a THIRD time, in place, by 23-05-PLAN.md Task 1
+            # (D14/CFG-34): relative-time.js is the thirteenth, and it is
+            # served everywhere for the same shape of reason rather than
+            # per page — the <time data-relative> elements it ticks come
+            # from ONE shared builder (layout.relative_time_html(),
+            # reached by most callers through concise_timestamp_html()),
+            # so no page module knows whether it has one and a per-page
+            # include would have to enumerate a set the pages do not own.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 12:
-                return False, "expected exactly 12 deferred <script src= tags before </body>, got %d" % count
+            if count != 13:
+                return False, "expected exactly 13 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
                     layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
                     layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC,
-                    layout.SUBMIT_GUARD_SCRIPT_SRC):
+                    layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
-            # 22-13-PLAN.md Task 2 (X3): the app has THIRTEEN static
-            # scripts as of 22-15, but an authenticated page still loads
-            # exactly the twelve above — login-card.js is emitted by
+            # 22-13-PLAN.md Task 2 (X3): the app has FOURTEEN static
+            # scripts as of 23-05, but an authenticated page still loads
+            # exactly the thirteen above — login-card.js is emitted by
             # login_shell() alone. Asserted here, in the check that
             # already owns this count, so "the authenticated page's
             # script count is unchanged" is pinned by the same machine
@@ -4282,18 +4315,26 @@ def main():
             # plan deliberately registers on the authenticated shell
             # only, so the login form keeps exactly today's behaviour.
             login = layout.login_shell("<p>login</p>")
-            if layout.SUBMIT_GUARD_SCRIPT_SRC in login:
+            for shell_only in (layout.SUBMIT_GUARD_SCRIPT_SRC,
+                               layout.RELATIVE_TIME_SCRIPT_SRC):
+                if shell_only in login:
+                    return False, (
+                        "%s is registered on the authenticated shell only — the login shell "
+                        "keeps emitting exactly one deferred script (22-15-PLAN.md Task 3, "
+                        "23-05-PLAN.md Task 1)" % shell_only)
+            if login.count('<script src=') != 1:
                 return False, (
-                    "submit-guard.js is registered on the authenticated shell only — the login "
-                    "shell keeps emitting exactly one deferred script (22-15-PLAN.md Task 3)")
+                    "expected the login shell to keep emitting exactly one deferred script, "
+                    "got %d" % login.count('<script src='))
             return True, ""
         check(
-            "a rendered authenticated page contains exactly twelve deferred <script src= tags "
+            "a rendered authenticated page contains exactly thirteen deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
-            "poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js and "
-            "submit-guard.js — and NOT login-card.js, which login_shell() alone emits, nor "
-            "submit-guard.js on that login shell (retargeted in place by 22-15-PLAN.md Task 3)",
-            _twelve_deferred_scripts_before_closing_body)
+            "poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js, "
+            "submit-guard.js and relative-time.js — and NOT login-card.js, which login_shell() "
+            "alone emits, nor submit-guard.js/relative-time.js on that login shell, which still "
+            "emits exactly one (retargeted in place by 23-05-PLAN.md Task 1)",
+            _thirteen_deferred_scripts_before_closing_body)
 
         def _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard():
             # T14 (22-AUDIT.md, 22-15-PLAN.md Task 3). One shared guard
@@ -4379,6 +4420,307 @@ def main():
             "the ONE existing button:disabled rule still ordered after button:active, and changes no CSP "
             "(T14, 22-15-PLAN.md Task 3)",
             _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard)
+
+        # --- 23-05-PLAN.md Task 1 (D14/CFG-34): relative-time.js, the
+        # thirteenth deferred script on this shell. The same registration
+        # block theme-preview.js and flight-rows.js already carry, plus
+        # the two cross-file pins that stop the ladder and its wording
+        # drifting away from the Python that defines them
+        # (23-RESEARCH.md's Pitfall 4).
+
+        check(
+            "GET /static/relative-time.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/relative-time.js"))
+
+        def _relative_time_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "relative-time.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest", "setTimeout(")
+            for token in banned:
+                if token in src:
+                    return False, "relative-time.js must not contain %r" % token
+            # setInterval IS permitted here and is this file's whole
+            # point. freshness.js is the only other script in the tree
+            # with a timer; this is a second, deliberate, reviewed
+            # instance of the same exception, not a precedent anyone may
+            # copy without a new argument.
+            required = (
+                "setInterval", "clearInterval", "visibilitychange",
+                "document.hidden", "textContent", "data-relative",
+                "querySelectorAll", "getAttribute")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in relative-time.js" % token
+            # This file FORMATS. It must never acquire a verdict
+            # vocabulary — those words are frame_state's and stay
+            # server-rendered, which is the rule
+            # companion/static/freshness.js states for the whole app.
+            for verdict in ("warn", "late", "held", "overdue"):
+                if verdict in src:
+                    return False, (
+                        "relative-time.js must carry no verdict vocabulary, found %r — this "
+                        "file measures a distance and picks a wording for it; it never decides "
+                        "that anything is at fault" % verdict)
+            return True, ""
+        check(
+            "relative-time.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/setTimeout), "
+            "carries the ticker contract (setInterval+clearInterval, visibilitychange+"
+            "document.hidden, textContent, data-relative, querySelectorAll, getAttribute) and "
+            "no verdict vocabulary at all (D14/CFG-34, 23-05-PLAN.md Task 1)",
+            _relative_time_script_es5_safe_and_no_html_write)
+
+        def _relative_time_script_route_src_agree():
+            import companion.app as app_module
+            if layout.RELATIVE_TIME_SCRIPT_SRC != app_module.RELATIVE_TIME_SCRIPT_ROUTE:
+                return False, "relative-time script route drift: %r vs %r" % (
+                    layout.RELATIVE_TIME_SCRIPT_SRC, app_module.RELATIVE_TIME_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.RELATIVE_TIME_SCRIPT_SRC equals companion.app.RELATIVE_TIME_SCRIPT_ROUTE",
+            _relative_time_script_route_src_agree)
+
+        def _relative_time_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.RELATIVE_TIME_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one relative-time.js <script> tag "
+            "and no inline <script> without a src (D-32)",
+            _relative_time_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _real_get_relative_time_route_serves_the_ticker():
+            # Served over real HTTP, because a registration whose route
+            # 404s is a feature that does not exist — and the deferred-
+            # script count check above would still pass. There is no
+            # catch-all /static/ handler in companion/app.py; each of the
+            # fourteen static scripts needs its own branch and its own
+            # serve method.
+            status, headers, body = http_request(base + "/static/relative-time.js")
+            if status != 200:
+                return False, "expected 200 from GET /static/relative-time.js, got %d" % status
+            text = body.decode("utf-8")
+            for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
+                           "=>", " let ", " const ", "`"):
+                if banned in text:
+                    return False, "did not expect %r in the served relative-time.js body" % banned
+            if "data-relative" not in text or "querySelectorAll" not in text:
+                return False, (
+                    "expected the served body to query the data-relative hook "
+                    "layout.relative_time_html() renders")
+            if "document.hidden" not in text or "visibilitychange" not in text:
+                return False, (
+                    "expected the served body to gate its timer on page visibility — a "
+                    "once-a-second interval running in every background tab forever is the one "
+                    "real cost this file carries (T-23-14)")
+            return True, ""
+        check(
+            "a real GET of /static/relative-time.js returns 200 with the served ticker body — "
+            "the data-relative hook present, the visibility gate present, and none of "
+            "innerHTML/document.write/=>/ let / const  (23-05-PLAN.md Task 1)",
+            _real_get_relative_time_route_serves_the_ticker)
+
+        def _relative_time_ladder_mirrors_layouts_own_boundaries():
+            # 23-RESEARCH.md's Pitfall 4, mitigated rather than promised.
+            # companion/layout.py's _age_bucket() owns the s/m/h/d ladder
+            # and its three boundaries have exactly one site there. The
+            # script is a SECOND implementation of that arithmetic — the
+            # only way to tick a counter in a browser — so this check
+            # reads both and fails if they disagree.
+            #
+            # 23-03-SUMMARY.md's own note, followed: read _age_bucket(),
+            # NOT relative_age_text(), which no longer holds the numbers.
+            import inspect
+            py_source = inspect.getsource(layout._age_bucket)
+            py_bounds = [int(n) for n in re.findall(r"age_seconds < (\d+)", py_source)]
+            if len(py_bounds) != 3:
+                return False, (
+                    "expected three boundaries in layout._age_bucket()'s own source, found %r "
+                    "— this check reads the Python as the definition site and cannot work if "
+                    "the ladder moved out of it" % (py_bounds,))
+            js_path = os.path.join(HERE, "static", "relative-time.js")
+            with open(js_path) as fh:
+                js = fh.read()
+            m = re.search(r"var BUCKET_BOUNDARIES = \[([^\]]*)\];", js)
+            if not m:
+                return False, (
+                    "expected a var BUCKET_BOUNDARIES = [...] array in relative-time.js — the "
+                    "mirror of layout._age_bucket()'s three boundaries")
+            js_bounds = [int(n.strip()) for n in m.group(1).split(",") if n.strip()]
+            if js_bounds != py_bounds:
+                return False, (
+                    "relative-time.js's ladder is %r but layout._age_bucket()'s is %r — the "
+                    "script mirrors the Python and must never lead it; a boundary added, "
+                    "removed or reordered in one is a deliberate edit in both"
+                    % (js_bounds, py_bounds))
+            # Each boundary must appear EXACTLY ONCE in the script's own
+            # code. Without this the check is vacuous in the way that
+            # matters: an array agreeing with the Python while a second,
+            # hard-coded ladder elsewhere in the file does the real work
+            # would satisfy every assertion above. Comments are stripped
+            # first, for the reason 23-01's motion guard strips them —
+            # this file's own header explains the ladder in prose.
+            stripped = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+            stripped = re.sub(r"//[^\n]*", " ", stripped)
+            for bound in py_bounds:
+                hits = len(re.findall(r"\b%d\b" % bound, stripped))
+                if hits != 1:
+                    return False, (
+                        "the boundary %d appears %d time(s) in relative-time.js's own code "
+                        "(comments stripped), expected exactly 1 — the array is the single "
+                        "site, and a second occurrence is a second ladder" % (bound, hits))
+            if stripped.count("BUCKET_BOUNDARIES") < 2:
+                return False, (
+                    "BUCKET_BOUNDARIES is declared in relative-time.js but never read — an "
+                    "array that agrees with the Python and is not consumed proves nothing")
+            return True, ""
+        check(
+            "relative-time.js's BUCKET_BOUNDARIES equals layout._age_bucket()'s own three "
+            "boundaries, in order, with each number appearing exactly once in the script's code "
+            "and the array actually read (23-RESEARCH.md Pitfall 4, 23-05-PLAN.md Task 1)",
+            _relative_time_ladder_mirrors_layouts_own_boundaries)
+
+        def _relative_time_wordings_equal_the_ladders_own_output():
+            # The nine wordings layout.relative_copy_attrs() renders onto
+            # <body> are NOT a second ladder: they are the same ladder's
+            # own output with the number lifted out. Filled with the
+            # quantity _age_bucket() picks, each must EQUAL
+            # relative_age_text()/relative_future_text() for a
+            # representative instant in every bucket, in BOTH languages.
+            #
+            # One sample per bucket, each well inside it, so French's
+            # sub-minute collapse — a wording with no place to substitute
+            # into — is exercised in both directions.
+            samples = (
+                (0, "seconds"), (240, "minutes"), (7200, "hours"), (172800, "days"))
+            mark = layout.RELATIVE_QUANTITY_MARK
+            for lang in ("en", "fr"):
+                pairs = dict(layout.relative_copy_attrs(lang=lang))
+                for index, (seconds, bucket_name) in enumerate(samples):
+                    quantity, _unit = layout._age_bucket(seconds)
+                    for attrs, filler, direction in (
+                            (layout.RELATIVE_PAST_ATTRS, layout.relative_age_text, "past"),
+                            (layout.RELATIVE_FUTURE_ATTRS, layout.relative_future_text,
+                             "future")):
+                        attr = attrs[index]
+                        if attr not in pairs:
+                            return False, (
+                                "lang=%s: relative_copy_attrs() renders no %r attribute"
+                                % (lang, attr))
+                        wording = pairs[attr]
+                        filled = (wording.replace(mark, str(quantity), 1)
+                                  if mark in wording else wording)
+                        expected = filler(seconds, lang=lang)
+                        if filled != expected:
+                            return False, (
+                                "lang=%s %s %s bucket: the wording on %s fills to %r but "
+                                "layout.%s() renders %r — the ticker's copy is the ladder's own "
+                                "output with the number lifted out, never a second wording"
+                                % (lang, direction, bucket_name, attr, filled,
+                                   filler.__name__, expected))
+            # The waiting phrase is the one string here that is NOT the
+            # ladder's output. It must still be translated.
+            for lang in ("en", "fr"):
+                pairs = dict(layout.relative_copy_attrs(lang=lang))
+                waiting = pairs.get(layout.RELATIVE_WAITING_ATTR)
+                if not waiting:
+                    return False, "lang=%s: relative_copy_attrs() renders no waiting wording" % lang
+                if lang == "fr" and waiting == layout.RELATIVE_WAITING_TEXT:
+                    return False, (
+                        "the waiting wording is untranslated under lang=fr — it reads %r in "
+                        "both languages" % (waiting,))
+            # Every attribute name the Python renders must appear as a
+            # literal in the script that reads it. A rename on one side
+            # alone is silent: the script falls back to its English
+            # constant and the page quietly stops speaking French.
+            js_path = os.path.join(HERE, "static", "relative-time.js")
+            with open(js_path) as fh:
+                js = fh.read()
+            for attr, _text in layout.relative_copy_attrs(lang="en"):
+                if ('"%s"' % attr) not in js:
+                    return False, (
+                        "layout.py renders the %r attribute but relative-time.js never names "
+                        "it — a rename on one side alone degrades the page to English with no "
+                        "error anywhere" % attr)
+            if ('"%s"' % layout.RELATIVE_COUNTDOWN_ATTR) not in js:
+                return False, (
+                    "relative-time.js never names %r — the marker relative_time_html() puts on "
+                    "a countdown, and the only way the script can tell one from an age"
+                    % layout.RELATIVE_COUNTDOWN_ATTR)
+            # Rendered onto <body> by page_shell(), escaped, and present
+            # on a real page rather than merely returned by a helper.
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            body_tag = doc[doc.index("<body"):doc.index(">", doc.index("<body")) + 1]
+            for attr, text in layout.relative_copy_attrs():
+                if ('%s="%s"' % (attr, layout.escape_html(text))) not in body_tag:
+                    return False, (
+                        "expected %s on the rendered <body> tag, got %r" % (attr, body_tag))
+            return True, ""
+        check(
+            "every one of relative-time.js's nine wordings, filled with the quantity "
+            "layout._age_bucket() picks, EQUALS relative_age_text()/relative_future_text()'s own "
+            "output for every bucket in both languages; the waiting phrase is translated; and "
+            "every attribute name reaches both the rendered <body> and the script that reads it "
+            "(D14/CFG-34, 23-05-PLAN.md Task 1)",
+            _relative_time_wordings_equal_the_ladders_own_output)
+
+        def _relative_time_html_countdown_keyword_is_marked_and_neutral():
+            # A countdown that has run out is still a countdown. Without
+            # the marker the element would silently become "0s ago" —
+            # changing what it is about halfway through its own life —
+            # and the script would have no way to tell one from an age.
+            now = "2026-08-01T12:00:00+00:00"
+            soon = "2026-08-01T12:04:00+00:00"
+            gone = "2026-08-01T11:58:00+00:00"
+            plain = layout.relative_time_html(soon, now, lang="en")
+            if layout.RELATIVE_COUNTDOWN_ATTR in plain:
+                return False, (
+                    "the default rendering must be byte-identical to the element 23-03 shipped "
+                    "— no marker unless countdown=True, got %r" % plain)
+            ahead = layout.relative_time_html(soon, now, lang="en", countdown=True)
+            if layout.RELATIVE_COUNTDOWN_ATTR not in ahead:
+                return False, "expected the countdown marker on a countdown element, got %r" % ahead
+            if ">in 4m<" not in ahead:
+                return False, (
+                    "a countdown that has NOT run out still reads the future form, got %r" % ahead)
+            for lang, expected in (("en", layout.RELATIVE_WAITING_TEXT),
+                                   ("fr", "en attente…")):
+                expired = layout.relative_time_html(gone, now, lang=lang, countdown=True)
+                if (">%s<" % layout.escape_html(expected)) not in expired:
+                    return False, (
+                        "lang=%s: an expired countdown must read the waiting wording %r, got %r"
+                        % (lang, expected, expired))
+                if " ago" in expired or "il y a" in expired:
+                    return False, (
+                        "lang=%s: an expired countdown must not turn itself into an age, got %r"
+                        % (lang, expired))
+                for verdict in ("warn", "error", "alert"):
+                    if verdict in expired:
+                        return False, (
+                            "lang=%s: an expired countdown carries no status vocabulary and no "
+                            "warn class — a wake that has not happened yet is not a fault (the "
+                            "false alarm X2 removed), got %r" % (lang, expired))
+            return True, ""
+        check(
+            "layout.relative_time_html(countdown=True) marks the element, keeps the future form "
+            "while the instant is ahead, reads the translated waiting wording once it has passed "
+            "— never an age and never a warn/error/alert token — and the default rendering is "
+            "byte-identical to the element 23-03 shipped (D14/CFG-34, 23-05-PLAN.md Task 1)",
+            _relative_time_html_countdown_keyword_is_marked_and_neutral)
 
         # --- 23-01-PLAN.md Task 2 (D3/CFG-32): the motion budget, made
         # executable. A budget that is only a document is a budget a

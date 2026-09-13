@@ -71,6 +71,18 @@ EXPECTED_CHECK_COUNT = 22
 # the two that already existed. 22 + 2 = 24, recomputed directly
 # against the real on-disk check(...) call count at execution time
 # (24/24 pass), not trusted from arithmetic alone.
+# 23-05-PLAN.md Task 1 (D14/CFG-34): net 0, and deliberately so. The
+# thirteenth static script, companion/static/relative-time.js, adds NINE
+# English fallback literals (four past bucket wordings, four future
+# ones, and the phrase an expired countdown reads) and nine matching
+# companion/i18n_fr/health.py entries — all of which Check 6 and Check 2
+# already cover, inside the two check(...) calls that already exist. Not
+# one call site was added, removed or retargeted. The count is recorded
+# IN PLACE rather than as a new assignment below, following 23-02's own
+# precedent in test_browser_ux.py: a new assignment here would claim a
+# change this plan did not make. Still 24, recomputed directly against
+# the real on-disk check(...) call count at execution time (24/24 pass),
+# not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 24
 
 
