@@ -26,6 +26,29 @@
  * established convention (nav-dropdown.js/battery-trend.js's own early
  * returns).
  *
+ * 22-09-PLAN.md Task 1 (X5): two changes, both of which keep every
+ * standing constraint above intact.
+ *
+ * 1. The toggle is icon-only, so this file no longer writes a visible
+ *    label. It swaps the button's ACCESSIBLE NAME instead — reading the
+ *    two translated, server-escaped strings out of data-show-label/
+ *    data-hide-label and writing them into aria-label. Still an
+ *    attribute write and a class toggle, still no markup-writing sink.
+ * 2. The whole row is clickable as an enhancement: one delegated
+ *    listener per summary row forwards a click to that row's own toggle
+ *    button, UNLESS the click landed on something interactive in its
+ *    own right (a link, a button, an input, a select, a textarea, a
+ *    label or a summary). That early return is what stops this handler
+ *    ever swallowing or redirecting a real control's activation
+ *    (T-22-32) — including the row's own toggle button, whose own
+ *    listener handles it.
+ *
+ *    The pointer cursor that advertises the clickable row is applied by
+ *    THIS file, via the same class-at-load idiom the collapse below
+ *    already uses (ROW_CLICKABLE_CLASS), never server-side: with
+ *    scripts blocked a row does nothing, and a page that showed a
+ *    pointer over it would be lying.
+ *
  * No-JS floor (D-15, locked): every .flight-detail-row is rendered
  * VISIBLE by companion/pages/history_page.py, with no hidden
  * attribute and no inline style. This file is the ONLY thing that ever
@@ -40,6 +63,19 @@
  */
 (function () {
   "use strict";
+
+  // The class this file itself adds to every summary row at load — the
+  // ONLY thing style.css's own `cursor: pointer` rule is keyed on.
+  var ROW_CLICKABLE_CLASS = "flight-row--clickable";
+
+  // Tag names that are interactive in their own right. A click that
+  // landed on one of these (or inside one, e.g. the <span> inside the
+  // toggle button) is that control's own activation and must never be
+  // re-routed into a row expand/collapse.
+  var INTERACTIVE_TAGS = {
+    A: true, BUTTON: true, INPUT: true, SELECT: true,
+    TEXTAREA: true, LABEL: true, SUMMARY: true
+  };
 
   var detailRows = document.querySelectorAll(".flight-detail-row");
   var toggles = document.querySelectorAll("[data-row-toggle]");
@@ -59,15 +95,19 @@
       return;
     }
     var collapsed = target.className.indexOf("flight-detail-row--collapsed") !== -1;
+    var name;
     if (collapsed) {
       target.className = target.className.replace(
         /\s*flight-detail-row--collapsed/, "");
       toggle.setAttribute("aria-expanded", "true");
-      toggle.textContent = toggle.getAttribute("data-less-text") || toggle.textContent;
+      name = toggle.getAttribute("data-hide-label");
     } else {
       target.className += " flight-detail-row--collapsed";
       toggle.setAttribute("aria-expanded", "false");
-      toggle.textContent = toggle.getAttribute("data-more-text") || toggle.textContent;
+      name = toggle.getAttribute("data-show-label");
+    }
+    if (name) {
+      toggle.setAttribute("aria-label", name);
     }
   }
 
@@ -77,6 +117,35 @@
         handleClick(toggle);
       });
     })(toggles[i]);
+  }
+
+  // Returns true when `node`, or any ancestor of it up to (but not
+  // including) `row`, is itself an interactive element.
+  function isInteractiveTarget(node, row) {
+    while (node && node !== row) {
+      if (node.tagName && INTERACTIVE_TAGS[node.tagName]) {
+        return true;
+      }
+      node = node.parentNode;
+    }
+    return false;
+  }
+
+  var rows = document.querySelectorAll("[data-flight-row]");
+  for (i = 0; i < rows.length; i++) {
+    (function (row) {
+      var toggle = row.querySelector("[data-row-toggle]");
+      if (!toggle) {
+        return;
+      }
+      row.className += " " + ROW_CLICKABLE_CLASS;
+      row.addEventListener("click", function (event) {
+        if (isInteractiveTarget(event.target, row)) {
+          return;
+        }
+        handleClick(toggle);
+      });
+    })(rows[i]);
   }
 
   // No DOMContentLoaded wrapper is needed: the <script> tag

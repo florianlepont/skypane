@@ -474,6 +474,17 @@ EXPECTED_CHECK_COUNT = 121
 # their respective shipped CSS treatment; and the single @supports selector(:has(*)) block
 # stays pinned at exactly one. Re-derived by running the harness (126/126).
 EXPECTED_CHECK_COUNT = 126
+# 22-09-PLAN.md Task 1 (X5): +4 (126 -> 130) — the rendered table carries zero visible
+# More/Plus/Less/Moins button labels and exactly one icon-only toggle per row, each with a
+# translated aria-label that swaps with its state and names the picture inside; no <tr> in the
+# RENDERED page carries aria-expanded and every occurrence sits on a <button> (a source-level
+# count cannot gate this — history_page.py's own source carries the string more than once);
+# style.css's new .row-toggle block reuses .copy-btn's 22x22/-11px inset/14px glyph pattern with
+# no new size literal, and the pointer cursor is keyed only on the class flight-rows.js adds at
+# load; and flight-rows.js reads every attribute name the page renders, swaps aria-label rather
+# than a visible label, guards interactive click targets and uses no markup-writing sink, while
+# the server still renders every detail row visible. Re-derived by running the harness (130/130).
+EXPECTED_CHECK_COUNT = 130
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -647,6 +658,18 @@ def _history_ctx(state_dir, now=None, gallery_entries=None):
         "now": now or history_db.utc_now_iso(),
         "gallery_entries": gallery_entries or [],
     }
+
+
+def _table_markup(rendered):
+    """The `<table>...</table>` slice of a rendered Flights page, or
+    None (22-09-PLAN.md Task 1). Several X5 assertions are about the
+    TABLE specifically and would false-positive against the mobile card
+    list rendered beside it — the cards' own `<summary>More details</
+    summary>` disclosure, for instance, legitimately carries the word
+    "More" and is not a per-row text button.
+    """
+    match = re.search(r"<table[^>]*>.*?</table>", rendered, re.S)
+    return match.group(0) if match else None
 
 
 # --- HTTP harness (Section 3 only) ----------------------------------------
@@ -1869,6 +1892,264 @@ def main():
         "with no hidden attribute and no inline style (the no-JS floor), and every row-toggle "
         "starts aria-expanded=\"false\" (21-03-PLAN.md Task 2, D-15/R-12)",
         _detail_row_pairs_with_summary_row_by_aria_controls_and_id)
+
+    # ======================================================================
+    # Section 1b-X5: 22-09-PLAN.md Task 1 — the icon-only row toggle.
+    # ======================================================================
+
+    def _row_toggle_is_icon_only_and_named_in_both_languages():
+        # 22-09-PLAN.md Task 1 (X5): zero visible per-row text buttons.
+        # The toggle renders a decorative aria-hidden glyph and NO text,
+        # and carries a translated aria-label that swaps with the state
+        # AND names the picture reachable inside the detail row.
+        import companion.i18n as _i18n
+        import companion.prefs as _prefs
+        tmp = _mkstate("h-toggle-icon-only")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "tg01", "callsign": "TOGGLE1"},
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "tg02", "callsign": "TOGGLE2"},
+            ])
+            rendered_en = history_page.render(_history_ctx(tmp))
+            _prefs.set_request_prefs(lang="fr")
+            try:
+                rendered_fr = history_page.render(_history_ctx(tmp))
+            finally:
+                _prefs.set_request_prefs(lang="en")
+
+            for lang, rendered in (("en", rendered_en), ("fr", rendered_fr)):
+                table = _table_markup(rendered)
+                if table is None:
+                    return False, "could not locate the rendered table (%s)" % lang
+                # The retired visible labels are gone from the table —
+                # both language forms, checked as a rendered STRING, not
+                # as a source-level constant.
+                for retired in ("More", "Plus", "Less", "Moins"):
+                    if (">%s<" % retired) in table:
+                        return False, (
+                            "expected zero visible %r button labels in the rendered table "
+                            "(%s), found one" % (retired, lang))
+                toggles = re.findall(r"<button[^>]*data-row-toggle[^>]*>(.*?)</button>",
+                                     table, re.S)
+                if len(toggles) != 2:
+                    return False, (
+                        "expected exactly one toggle button per summary row (2), got %d (%s)"
+                        % (len(toggles), lang))
+                for inner in toggles:
+                    if re.sub(r"<[^>]*>", "", inner).strip() != history_page._TOGGLE_GLYPH:
+                        return False, (
+                            "expected the toggle's only content to be the decorative glyph, "
+                            "got %r (%s)" % (inner, lang))
+                    if 'aria-hidden="true"' not in inner:
+                        return False, "expected the glyph span to be aria-hidden (%s)" % lang
+
+                show = _i18n.t_lang(history_page._TOGGLE_SHOW_LABEL, lang)
+                hide = _i18n.t_lang(history_page._TOGGLE_HIDE_LABEL, lang)
+                if lang == "fr" and (show == history_page._TOGGLE_SHOW_LABEL
+                                     or hide == history_page._TOGGLE_HIDE_LABEL):
+                    return False, "expected both toggle labels to have French catalogue entries"
+                for needle in (
+                        'aria-label="%s"' % layout.escape_html(show),
+                        '%s="%s"' % (history_page._TOGGLE_SHOW_LABEL_ATTR,
+                                     layout.escape_html(show)),
+                        '%s="%s"' % (history_page._TOGGLE_HIDE_LABEL_ATTR,
+                                     layout.escape_html(hide)),
+                ):
+                    if table.count(needle) != 2:
+                        return False, (
+                            "expected %r exactly once per row (2) in the %s table, found %d"
+                            % (needle, lang, table.count(needle)))
+                # The name advertises the picture, not only the details
+                # (the picture control moves into the detail row in
+                # Task 2 — a name saying only "details" would hide it).
+                for label in (history_page._TOGGLE_SHOW_LABEL, history_page._TOGGLE_HIDE_LABEL):
+                    if "picture" not in label:
+                        return False, (
+                            "expected the toggle's English accessible name to name the picture "
+                            "reachable inside the detail row, got %r" % (label,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered Flights table carries zero visible More/Plus/Less/Moins button labels and "
+        "exactly one icon-only toggle button per row, each carrying a translated aria-label that "
+        "swaps with its state and names the picture reachable inside (22-09-PLAN.md Task 1, X5)",
+        _row_toggle_is_icon_only_and_named_in_both_languages)
+
+    def _aria_expanded_sits_only_on_buttons_never_on_a_tr():
+        # 22-09-PLAN.md Task 1 (X5, 22-UI-SPEC.md §2): "the toggle stays
+        # a real <button>" — a <tr> is not focusable and cannot carry
+        # the state. Asserted against the RENDERED table, never a
+        # source-level count: history_page.py's own source legitimately
+        # contains the string "aria-expanded" more than once across its
+        # table and card builders, so a grep of the module cannot gate
+        # this.
+        tmp = _mkstate("h-aria-expanded-placement")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "ae01", "callsign": "ARIAEXP"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_with_state = re.findall(r"<tr[^>]*aria-expanded", rendered)
+            if tr_with_state:
+                return False, (
+                    "expected zero <tr ... aria-expanded> in the rendered page, found %d"
+                    % len(tr_with_state))
+            for match in re.finditer(r"<([a-z]+)[^>]*\baria-expanded=", rendered):
+                if match.group(1) != "button":
+                    return False, (
+                        "expected every aria-expanded to sit on a <button>, found one on <%s>"
+                        % match.group(1))
+            if not re.search(r"<button[^>]*\baria-expanded=", rendered):
+                return False, "expected at least one <button ... aria-expanded>"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "in the RENDERED Flights page no <tr> carries aria-expanded and every aria-expanded "
+        "occurrence sits on a <button> (22-09-PLAN.md Task 1, X5 — the state never moves onto "
+        "the row element)",
+        _aria_expanded_sits_only_on_buttons_never_on_a_tr)
+
+    def _row_toggle_css_reuses_the_copy_btn_icon_only_pattern():
+        # 22-09-PLAN.md Task 1 (X5): .row-toggle had NO CSS rule at all
+        # before this plan, so this is a new rule block — and every size
+        # in it must be one .copy-btn already ships (22x22 visual box,
+        # 6px radius, the ::before -11px inset synthesizing a real 44x44
+        # hit area, the 14px glyph), never a newly-invented icon-button
+        # size.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+
+        def _rule_body(selector):
+            match = re.search(
+                r"^" + re.escape(selector) + r"\s*\{([^}]*)\}", css, re.S | re.M)
+            return match.group(1) if match else None
+
+        bodies = {}
+        for selector in (".copy-btn", ".copy-btn::before", ".copy-btn .icon",
+                         ".row-toggle", ".row-toggle::before", ".row-toggle__glyph"):
+            body = _rule_body(selector)
+            if body is None:
+                return False, "expected a %s rule block in style.css" % selector
+            bodies[selector] = body
+
+        for prop in ("width", "height", "border-radius"):
+            copy_value = re.search(prop + r":\s*([^;]+);", bodies[".copy-btn"])
+            toggle_value = re.search(prop + r":\s*([^;]+);", bodies[".row-toggle"])
+            if copy_value is None or toggle_value is None:
+                return False, "expected both .copy-btn and .row-toggle to declare %s" % prop
+            if copy_value.group(1).strip() != toggle_value.group(1).strip():
+                return False, (
+                    "expected .row-toggle's %s (%r) to equal .copy-btn's (%r)"
+                    % (prop, toggle_value.group(1).strip(), copy_value.group(1).strip()))
+        if "inset:" not in bodies[".row-toggle::before"]:
+            return False, "expected .row-toggle::before to synthesize the hit area with inset"
+        copy_inset = re.search(r"inset:\s*([^;]+);", bodies[".copy-btn::before"]).group(1).strip()
+        toggle_inset = re.search(
+            r"inset:\s*([^;]+);", bodies[".row-toggle::before"]).group(1).strip()
+        if copy_inset != toggle_inset:
+            return False, (
+                "expected .row-toggle::before's inset (%r) to equal .copy-btn::before's (%r) — "
+                "22 + 11 + 11 = 44 in both axes" % (toggle_inset, copy_inset))
+
+        copy_sizes = set(re.findall(r"\d+px", " ".join(
+            bodies[s] for s in (".copy-btn", ".copy-btn::before", ".copy-btn .icon"))))
+        toggle_sizes = set(re.findall(r"\d+px", " ".join(
+            bodies[s] for s in (".row-toggle", ".row-toggle::before", ".row-toggle__glyph"))))
+        new_sizes = toggle_sizes - copy_sizes
+        if new_sizes:
+            return False, (
+                "expected .row-toggle to introduce no new size literal, found %s"
+                % sorted(new_sizes))
+        if "14px" not in toggle_sizes:
+            return False, "expected the .row-toggle glyph to be sized at .copy-btn's own 14px"
+
+        # The pointer cursor is keyed ONLY on the class flight-rows.js
+        # adds at load — never rendered server-side (the no-JS floor).
+        clickable = _rule_body(".flight-row--clickable")
+        if clickable is None or "cursor: pointer" not in clickable:
+            return False, "expected a .flight-row--clickable rule declaring cursor: pointer"
+        page_source = open(
+            os.path.join(HERE, "pages", "history_page.py")).read()
+        if "flight-row--clickable" in page_source:
+            return False, (
+                "did not expect history_page.py to render the script's own clickable marker "
+                "class — a scripts-blocked page must show no pointer cursor on a row")
+        return True, ""
+    check(
+        "style.css's new .row-toggle rule block reuses .copy-btn's icon-only pattern verbatim "
+        "(same 22x22 box, same radius, the same ::before inset synthesizing 44x44, the same 14px "
+        "glyph) and introduces no new size literal; the pointer cursor is keyed only on the class "
+        "flight-rows.js adds at load (22-09-PLAN.md Task 1, X5)",
+        _row_toggle_css_reuses_the_copy_btn_icon_only_pattern)
+
+    def _flight_rows_js_swaps_the_name_and_delegates_the_row_click():
+        # 22-09-PLAN.md Task 1 (X5): the three-file contract — the two
+        # data-*-label attribute names and the row hook this page
+        # renders must all appear in flight-rows.js's own source, the
+        # script must swap aria-label (not a text label) and must return
+        # early for an interactive click target (T-22-32), and the no-JS
+        # floor stays exactly where Phase 21's R-11 contract put it.
+        js_path = os.path.join(HERE, "static", "flight-rows.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        for token in (history_page._TOGGLE_SHOW_LABEL_ATTR,
+                      history_page._TOGGLE_HIDE_LABEL_ATTR,
+                      "data-flight-row", "data-row-toggle",
+                      "flight-detail-row--collapsed", "flight-row--clickable"):
+            if token not in js:
+                return False, "expected flight-rows.js to read/write %r" % (token,)
+        if 'setAttribute("aria-label"' not in js:
+            return False, "expected flight-rows.js to swap the button's aria-label"
+        for retired in ("data-more-text", "data-less-text", "textContent"):
+            if retired in js:
+                return False, (
+                    "expected flight-rows.js to stop writing the retired visible label (%r)"
+                    % (retired,))
+        for tag in ("A:", "BUTTON:", "INPUT:", "SELECT:", "TEXTAREA:", "LABEL:", "SUMMARY:"):
+            if tag not in js:
+                return False, (
+                    "expected flight-rows.js's interactive-target guard to name %s" % tag)
+        if "innerHTML" in js or "insertAdjacentHTML" in js:
+            return False, "expected flight-rows.js to use no markup-writing DOM sink"
+
+        # The no-JS floor, asserted on the server's own output: the
+        # collapsing class exists ONLY in the script.
+        tmp = _mkstate("h-no-js-floor")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "nj01", "callsign": "NOJSFLR"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            if "flight-detail-row--collapsed" in rendered:
+                return False, (
+                    "expected the server-rendered detail row to carry no collapsing class "
+                    "(the no-JS floor is a fully visible detail row)")
+            detail = re.search(r'<tr class="flight-detail-row"[^>]*>', rendered)
+            if detail is None:
+                return False, "expected a server-rendered detail row"
+            if "hidden" in detail.group(0) or "style=" in detail.group(0):
+                return False, (
+                    "expected the detail row to carry neither a hidden attribute nor an "
+                    "inline style")
+            if "cursor" in rendered:
+                return False, "did not expect any cursor declaration in the server's own output"
+            if rendered.count("data-flight-row") != 1:
+                return False, (
+                    "expected exactly one data-flight-row hook per summary row, found %d"
+                    % rendered.count("data-flight-row"))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "companion/static/flight-rows.js reads every attribute name history_page.py renders, "
+        "swaps aria-label instead of a visible label, returns early for an interactive click "
+        "target (T-22-32) and uses no markup-writing sink; the server still renders every detail "
+        "row visible with no collapsing class, no hidden and no inline style (22-09-PLAN.md "
+        "Task 1, X5/D-09)",
+        _flight_rows_js_swaps_the_name_and_delegates_the_row_click)
 
     def _detail_row_carries_hex_iso_runway_not_in_summary_row():
         # 21-03-PLAN.md Task 2 (D-15): the hex, the raw ISO timestamp

@@ -105,6 +105,16 @@ EXPECTED_CHECK_COUNT = 6  # 22-01-PLAN.md Task 1: one check (the Flights
 # count change from that edit. 5 + 1 = 6, recomputed directly against
 # the real on-disk check(...) call count at execution time (6/6 pass),
 # not trusted from arithmetic alone.
+# 22-09-PLAN.md Task 1 (X5): net 0 — the Flights detail-row scenario is
+# RETARGETED in place onto the icon-only toggle and extended inside the
+# same check(...) call site (no visible text label, a >=44x44 hit area
+# measured from the ::before's own computed inset, an accessible name
+# that swaps with the state, the script's own clickable marker class,
+# the delegated whole-row click, and the interactive-target early return
+# proven by the toggle toggling exactly once rather than twice). 6 + 0 =
+# 6, recomputed directly against the real on-disk check(...) call count
+# at execution time (6/6 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 6
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -288,6 +298,14 @@ def main():
             browser = p.chromium.launch()
             try:
                 def _flights_detail_row_expands_and_collapses():
+                    # 22-09-PLAN.md Task 1 (X5) retargets this scenario
+                    # onto the icon-only toggle: the same expand/collapse
+                    # contract, plus the three properties only a real
+                    # browser can measure — the synthesized 44x44 hit
+                    # area, the accessible NAME swapping with the state
+                    # (there is no visible label left to read), and the
+                    # delegated whole-row click, including its early
+                    # return for an interactive target (T-22-32).
                     context = browser.new_context()
                     try:
                         page = context.new_page()
@@ -304,23 +322,76 @@ def main():
                         if "flight-detail-row--collapsed" not in (detail_row.get_attribute("class") or ""):
                             return False, "expected the detail row to start collapsed"
 
+                        # Icon-only: no visible text, a real accessible name.
+                        label_text = toggle.inner_text().strip()
+                        if any(ch.isalnum() for ch in label_text):
+                            # The decorative chevron glyph is the icon,
+                            # not a label; any alphanumeric character
+                            # here would be a visible text label.
+                            return False, (
+                                "expected the toggle to render no visible text label, got %r"
+                                % (label_text,))
+                        collapsed_name = toggle.get_attribute("aria-label")
+                        if not collapsed_name:
+                            return False, "expected the icon-only toggle to carry an aria-label"
+
+                        # The real hit area: a 22x22 visual box plus the
+                        # ::before's negative 11px inset on every side.
+                        hit = toggle.evaluate(
+                            "el => { var r = el.getBoundingClientRect();"
+                            " var s = getComputedStyle(el, '::before');"
+                            " return [r.width - parseFloat(s.left) - parseFloat(s.right),"
+                            " r.height - parseFloat(s.top) - parseFloat(s.bottom)]; }")
+                        if not hit or hit[0] < 44 or hit[1] < 44:
+                            return False, (
+                                "expected the toggle's hit area to measure at least 44x44 in "
+                                "both axes, measured %r" % (hit,))
+
                         toggle.click()
                         if toggle.get_attribute("aria-expanded") != "true":
                             return False, "expected aria-expanded to flip to true after a click"
                         if "flight-detail-row--collapsed" in (detail_row.get_attribute("class") or ""):
                             return False, "expected the detail row's collapsed class to be removed after expanding"
+                        expanded_name = toggle.get_attribute("aria-label")
+                        if expanded_name == collapsed_name:
+                            return False, (
+                                "expected the accessible name to change with the state, it stayed %r"
+                                % (collapsed_name,))
+                        # A click ON the toggle must toggle exactly ONCE:
+                        # the row's own delegated handler returns early
+                        # for an interactive target, so an unguarded
+                        # handler would double-toggle back to collapsed.
+                        if not expanded_name:
+                            return False, "expected an aria-label in the expanded state too"
 
                         toggle.click()
                         if toggle.get_attribute("aria-expanded") != "false":
                             return False, "expected aria-expanded to flip back to false after a second click"
                         if "flight-detail-row--collapsed" not in (detail_row.get_attribute("class") or ""):
                             return False, "expected the detail row's collapsed class to return after collapsing"
+                        if toggle.get_attribute("aria-label") != collapsed_name:
+                            return False, "expected the collapsed accessible name to return"
+
+                        # The whole row is clickable: a click on a plain,
+                        # non-interactive cell expands the same row.
+                        row = page.locator("[data-flight-row]").first
+                        if "flight-row--clickable" not in (row.get_attribute("class") or ""):
+                            return False, (
+                                "expected flight-rows.js to add its own clickable marker class "
+                                "to each summary row at load")
+                        row.locator("td").nth(2).click()
+                        if toggle.get_attribute("aria-expanded") != "true":
+                            return False, (
+                                "expected a click on a non-interactive cell to expand the row")
                         return True, ""
                     finally:
                         context.close()
                 check(
-                    "a Flights detail row expands and collapses, flipping aria-expanded and toggling the "
-                    "row aria-controls resolves to",
+                    "a Flights detail row expands and collapses from an icon-only toggle with no visible "
+                    "text, a >=44x44 synthesized hit area and an accessible name that swaps with the "
+                    "state, flipping aria-expanded and toggling the row aria-controls resolves to; and a "
+                    "click on a non-interactive cell of the same row expands it, while a click on the "
+                    "toggle itself toggles exactly once (22-09-PLAN.md Task 1, X5/T-22-32)",
                     _flights_detail_row_expands_and_collapses)
 
                 # ----------------------------------------------------------------

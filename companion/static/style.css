@@ -2616,6 +2616,72 @@ table.data-table--flights .cell-inline-sep {
   display: none;
 }
 
+/* 22-09-PLAN.md Task 1 (X5, 22-UI-SPEC.md §2): the row-toggle's FIRST
+ * rule block — the control shipped in Phase 21 with markup only and no
+ * CSS of its own, riding the base `button` rule's 30px geometry with a
+ * visible "More"/"Plus" label. X5 removes that label (fifty text
+ * buttons leaving the scan path is the whole point of the fix), which
+ * is exactly what dissolves `references/control-density.md`'s recorded
+ * rejection of the icon-only pattern for this control ("unlike
+ * .copy-btn, the row-toggle carries visible text"). `.row-toggle`
+ * therefore moves from the touch-target register's TRADED-AWAY category
+ * to its RELOCATED category, and plan 22-16 marks that rejection
+ * SUPERSEDED in place with this reasoning.
+ *
+ * Every value below is `.copy-btn`'s own, reused verbatim rather than
+ * re-chosen: the 22x22 visual box, the 6px radius, the `::before`
+ * negative 11px inset that synthesizes a real 44x44 pointer/touch hit
+ * area (22 + 11 + 11 = 44), the 7% hover wash, and the 14px glyph size
+ * `.copy-btn .icon` already scopes its SVG down to. The control is
+ * BIGGER than the 30px text button it replaces, not smaller.
+ *
+ * The glyph rotates with the state and takes no transition of its own:
+ * a rotating-chevron transition is D3/Phase 23's motion budget, not
+ * this phase's. The global prefers-reduced-motion block at the top of
+ * this file already covers a plain transform for free. */
+.row-toggle {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.row-toggle::before {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+
+.row-toggle:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.row-toggle__glyph {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.row-toggle[aria-expanded="true"] .row-toggle__glyph {
+  transform: rotate(180deg);
+}
+
+/* The pointer cursor for the whole-row click, keyed ONLY on the class
+ * companion/static/flight-rows.js adds to each summary row at load —
+ * the same component-scoped class-at-load idiom
+ * .flight-detail-row--collapsed above uses, and for the same reason: a
+ * scripts-blocked page must never show a pointer over a row that does
+ * nothing. This is the file's only `cursor: pointer` on a table row. */
+.flight-row--clickable {
+  cursor: pointer;
+}
+
 /* quick task 260902-bl2 (bug 1): the Resolution-statistics table's
  * Description column measured full-strength --color-text with an empty
  * classList — not a rule written wrong, a missing hook: before this,

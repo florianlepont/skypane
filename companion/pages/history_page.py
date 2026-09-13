@@ -163,13 +163,42 @@ _HEADERS = (
 # has no column of formatted data behind it).
 _DETAILS_HEADER_TEXT = "Details"
 
-# 21-03-PLAN.md Task 2 (D-15): the row-toggle button's own two label
-# strings — both escaped server-side through i18n.t() at the button's
-# one render site, then handed to companion/static/flight-rows.js as
-# data-more-text/data-less-text attribute values the script only ever
-# writes back via textContent, never builds itself.
-_MORE_TOGGLE_TEXT = "More"
-_LESS_TOGGLE_TEXT = "Less"
+# 22-09-PLAN.md Task 1 (X5, 22-UI-SPEC.md §2): the row toggle is
+# ICON-ONLY now — the fifty visible "More"/"Plus" text labels that used
+# to sit one per row (and made the table's scan path fifty buttons
+# wide) are gone, and with them the retired _MORE_TOGGLE_TEXT/
+# _LESS_TOGGLE_TEXT pair. What replaces them is an accessible NAME, not
+# a visible label: an icon-only control with no accessible name is the
+# same defect class as T15/B10, so each button carries a translated
+# `aria-label` that swaps with its state, exactly as the login card's
+# show-password toggle does.
+#
+# The copy is deliberately WIDER than 22-UI-SPEC.md §1's base wording
+# ("Show flight details" / "Hide flight details"): Task 2 moves the
+# panel-picture control INTO that detail row, and a name that says only
+# "details" would hide the picture from precisely the user who has to be
+# told it is there. Both forms ship with their French entries in
+# companion/i18n_fr/flights.py in the same commit.
+_TOGGLE_SHOW_LABEL = "Show flight details and picture"
+_TOGGLE_HIDE_LABEL = "Hide flight details and picture"
+
+# The chevron itself: a decorative glyph inside an aria-hidden span, so
+# the button's accessible name is the aria-label above and nothing else.
+# Rendered server-side rather than through a CSS `content:` string (T10's
+# own rule — a pseudo-element string is not server-rendered and cannot be
+# translated) and rather than through layout.icon_html() (the sprite
+# carries no chevron symbol, and companion/layout.py belongs to plan
+# 22-08 in this same wave). It carries no letters, so it is language-
+# neutral and needs no catalogue entry.
+_TOGGLE_GLYPH = "▾"
+
+# The two attribute names companion/static/flight-rows.js reads the
+# swapped accessible name from — duplicated here, not imported (a page
+# module has no import path to a static script), exactly like the
+# data-view-panel-* attribute names above, and pinned against that
+# file's own source by companion/test_view_pages.py.
+_TOGGLE_SHOW_LABEL_ATTR = "data-show-label"
+_TOGGLE_HIDE_LABEL_ATTR = "data-hide-label"
 
 # A-36/D-19: names the .data-table-wrap scroller for keyboard users — at
 # 1,305px inside an 880px column the table scrolled behind a 12px
@@ -916,30 +945,47 @@ def _history_table_html(formatted_rows, now=None):
         # detail row; this title attribute is unchanged.
         #
         # 21-03-PLAN.md Task 2 (D-15/R-12): the sixth cell is the
-        # "More"/"Plus" row-toggle button matching the visually-hidden
-        # "Details" header Task 1 already added. data-row-toggle/
-        # aria-controls/aria-expanded are companion/static/
-        # flight-rows.js's own contract (a click flips aria-expanded and
-        # toggles the matching flight-detail-{n} row's collapsed class);
-        # both label strings are escaped server-side through i18n.t()
-        # so the script only ever writes back a value it already
-        # escaped. The button renders "More" by default — the no-JS
-        # floor means the sibling detail row is ALREADY fully visible
-        # without any script running, so this button is inert chrome in
-        # that case, never a broken affordance.
+        # row-toggle button matching the visually-hidden "Details"
+        # header Task 1 already added. data-row-toggle/aria-controls/
+        # aria-expanded are companion/static/flight-rows.js's own
+        # contract (a click flips aria-expanded and toggles the matching
+        # flight-detail-{n} row's collapsed class). The no-JS floor
+        # means the sibling detail row is ALREADY fully visible without
+        # any script running, so this button is inert chrome in that
+        # case, never a broken affordance.
+        #
+        # 22-09-PLAN.md Task 1 (X5): icon-only. The visible "More"/
+        # "Plus" text is gone; the button's own accessible NAME carries
+        # the meaning instead, escaped server-side through i18n.t() at
+        # this one render site and handed to flight-rows.js as the two
+        # data-*-label attribute values it only ever writes back into
+        # aria-label, never builds itself. aria-expanded stays HERE, on
+        # a real <button> — a <tr> is not focusable and cannot carry the
+        # state (22-UI-SPEC.md §2's X5 contract, stated as a
+        # prohibition).
         toggle_cell = (
             '<td><button type="button" class="row-toggle" data-row-toggle '
             'aria-expanded="false" aria-controls="flight-detail-%d" '
-            'data-more-text="%s" data-less-text="%s">%s</button></td>'
+            'aria-label="%s" %s="%s" %s="%s">'
+            '<span class="row-toggle__glyph" aria-hidden="true">%s</span>'
+            "</button></td>"
         ) % (
             index,
-            escape_html(i18n.t(_MORE_TOGGLE_TEXT)),
-            escape_html(i18n.t(_LESS_TOGGLE_TEXT)),
-            escape_html(i18n.t(_MORE_TOGGLE_TEXT)),
+            escape_html(i18n.t(_TOGGLE_SHOW_LABEL)),
+            _TOGGLE_SHOW_LABEL_ATTR, escape_html(i18n.t(_TOGGLE_SHOW_LABEL)),
+            _TOGGLE_HIDE_LABEL_ATTR, escape_html(i18n.t(_TOGGLE_HIDE_LABEL)),
+            escape_html(_TOGGLE_GLYPH),
         )
+        # 22-09-PLAN.md Task 1 (X5): data-flight-row is the hook
+        # flight-rows.js's delegated whole-row click reads — a plain
+        # marker attribute, never a class, so the alternating row/row-alt
+        # class values stay this function's own business. The
+        # pointer-cursor class that goes with it is added by the SCRIPT
+        # at load, never here: a scripts-blocked page must never show a
+        # pointer on a row that does nothing.
         body_rows.append(
-            '<tr class="%s" data-filter-text="%s" data-filter-group="%d" '
-            'title="%s">%s%s</tr>'
+            '<tr class="%s" data-flight-row data-filter-text="%s" '
+            'data-filter-group="%d" title="%s">%s%s</tr>'
             % (row_class, _filter_text_attr(row), index,
                escape_html(row["tracked_runway"]), "".join(cells), toggle_cell))
         body_rows.append(_flight_detail_row_html(row, index))
