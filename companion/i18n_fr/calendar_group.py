@@ -45,6 +45,10 @@ CATALOG = {
     # --- The status row (D-14b) ------------------------------------------
     "Connected": "Connecté",
     "Not connected": "Non connecté",
+    # 22-10-PLAN.md Task 3 (D-06/B16/CFG-29): the singular form, added
+    # alongside the plural rather than replacing it — the call site picks
+    # between them on entry_count == 1.
+    "1 upcoming flight · checked %s": "1 vol à venir · vérifié %s",
     "%d upcoming flights · checked %s": "%d vols à venir · vérifié %s",
     "The feed could not be read": "Impossible de lire le flux",
 

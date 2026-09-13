@@ -792,6 +792,13 @@ CALENDAR_HOW_IT_WORKS_BODY = (
 # drifted stored link is not usably connected either (D-02).
 CALENDAR_STATUS_CONNECTED_VERDICT = "Connected"
 CALENDAR_STATUS_NOT_CONNECTED_VERDICT = "Not connected"
+# 22-10-PLAN.md Task 3 (D-06/B16/CFG-29): the singular form. This string
+# used to read "1 upcoming flights" whenever the feed held exactly one.
+# 22-08-PLAN.md found it and deliberately left it because that plan does
+# not own this file; this plan does, so it lands here. Selection follows
+# this file's own established shape (FRAME_COLOURS_RULES_COUNT_SINGULAR /
+# _PLURAL_TEMPLATE): singular at exactly 1, plural otherwise.
+CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE = "1 upcoming flight · checked %s"
 CALENDAR_STATUS_DETAIL_TEMPLATE = "%d upcoming flights · checked %s"
 # D-14b/T-20-30: a fixed dict keyed on a category DERIVED from existing
 # fields (last_attempt_at newer than any usable last_synced_at) — never
@@ -2522,8 +2529,12 @@ def calendar_group(
         verdict = i18n.t(CALENDAR_STATUS_CONNECTED_VERDICT)
         if usable:
             age = layout.age_seconds(last_synced_at, now)
-            detail = i18n.t(CALENDAR_STATUS_DETAIL_TEMPLATE) % (
-                entry_count, layout.relative_age_text(age))
+            if entry_count == 1:
+                detail = i18n.t(CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE) % (
+                    layout.relative_age_text(age),)
+            else:
+                detail = i18n.t(CALENDAR_STATUS_DETAIL_TEMPLATE) % (
+                    entry_count, layout.relative_age_text(age))
             state = "ok"
         elif last_attempt_at is not None:
             detail = i18n.t(CALENDAR_STATUS_FETCH_FAILED_DETAIL)

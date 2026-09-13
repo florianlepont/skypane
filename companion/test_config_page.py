@@ -639,6 +639,14 @@ EXPECTED_CHECK_COUNT = 229
 # on-disk check(...) call count at execution time (231/231 pass), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 231
+# 22-10-PLAN.md Task 3 (D-06/B16/CFG-29): +1 — the Calendar status
+# detail gains a singular form, so a feed holding exactly one flight
+# never reads "1 upcoming flights". 22-08-PLAN.md found this string and
+# deliberately left it because that plan does not own config_page.py;
+# this plan does. 231 + 1 = 232, recomputed directly against the real
+# on-disk check(...) call count at execution time (232/232 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 232
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -8000,6 +8008,46 @@ def main():
         "with a 96px minimum, no height declared so the 44px touch-target floor is untouched) with "
         "the unit as a sibling label (B17, 22-10-PLAN.md Task 3)",
         _the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input)
+
+    def _the_calendar_status_detail_has_a_singular_form():
+        # D-06/B16/CFG-29: this string read "1 upcoming flights" whenever
+        # the feed held exactly one. 22-08-PLAN.md found it and left it
+        # because that plan does not own this file.
+        synced = "2026-09-13T09:00:00+00:00"
+        now = "2026-09-13T09:05:00+00:00"
+
+        def detail_for(count):
+            return config_page.calendar_group(
+                True, False, synced, None, now, count)
+
+        one = detail_for(1)
+        if "1 upcoming flights" in one:
+            return False, "expected a singular form for exactly one upcoming flight"
+        if escape_html(config_page.CALENDAR_STATUS_DETAIL_SINGULAR_TEMPLATE.split(" ·")[0]) not in one:
+            return False, "expected the singular template's own text at a count of 1"
+        for count in (0, 2, 7):
+            many = detail_for(count)
+            if "%d upcoming flights" % count not in many:
+                return False, "expected the plural form at a count of %d" % count
+        # Both forms must be translatable, and both must be real
+        # catalogue keys (test_i18n.py's own completeness scan proves the
+        # second half; this proves the call site reaches both).
+        prefs.set_request_prefs(lang="fr")
+        try:
+            fr_one = detail_for(1)
+            fr_many = detail_for(3)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        if "1 vol à venir" not in fr_one:
+            return False, "expected the French singular form"
+        if "3 vols à venir" not in fr_many:
+            return False, "expected the French plural form"
+        return True, ""
+    check(
+        "the Calendar status detail has a singular form, so a feed holding exactly one flight "
+        "never reads '1 upcoming flights', in both languages (D-06/B16/CFG-29, 22-10-PLAN.md "
+        "Task 3 — found by 22-08, landed here because this plan owns config_page.py)",
+        _the_calendar_status_detail_has_a_singular_form)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
