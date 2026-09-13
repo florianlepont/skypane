@@ -1061,12 +1061,48 @@ Plans:
 - [x] 22-15-PLAN.md — The verified CSS/JS defects: T2, T3, T4, T6, T13, T14, T15 (wave 11)
 - [x] 22-16-PLAN.md — sketch-findings-skypane updated in step (UI-SPEC §4's 20 rows) and the phase-closing sweep (wave 12)
 
-### Phase 23: Companion dynamism: live updates, real switches, motion budget and modern controls
+### Phase 23: Companion dynamism I — "Alive": the pages you already have, moving
 
-**Goal:** Make the companion feel alive, using the dynamism suggestions the developer validated in 22-AUDIT.md (D1–D24) — a `/events` SSE stream from the stdlib server feeding a self-refreshing Home and Frame strip with a live countdown (D9, D1, D14, D22), real `role="switch"` controls over `fetch` with optimistic state and toasts, no-JS forms intact (D2), native multi-page View Transitions and a motion budget under `prefers-reduced-motion` (D10, D3), a Home hero built around the frame picture with a day timeline (D4, D13), and the modern controls that replace bare fields: runway map, 24 h quiet-hours dial, wake-interval slider with a battery-life readout, theme carousel, battery ring and wake-punctuality grid (D16, D17, D18, D5, D21, D20), plus the app finishes — prefetch and gzip, offline shell and manifest, share, drag-and-drop artwork, command palette, guided first run (D11, D12, D6, D15, D19, D23, D24). Framework-free, build-free, no external dependency, no-JS fallback intact.
-**Requirements**: TBD (assign at planning; audit handles D1–D24)
+**Goal:** Make the existing pages feel alive without adding a single new component. D3 (a motion budget honoured under `prefers-reduced-motion`, **minus its overlay-drawer clause — struck, see below**), D10 (native multi-page View Transitions), D14 (one script ticking every `<time data-relative>`), D1 (Home and the Frame strip refreshing themselves), D22 (an honest live/paused/reconnecting indicator), D2 (real `role="switch"` controls over `fetch`, optimistic, rolling back on error, no-JS forms intact) and D7 (the live flights list). Framework-free, build-free, dependency-free, no-JS floor intact.
+**Requirements**: TBD (assign at planning)
 **Depends on:** Phase 22
 **Plans:** 0 plans
 
+Three decisions taken before planning, on 23-RESEARCH.md's evidence (developer, 2026-09-13):
+
+- **D9 (SSE) is REJECTED, not deferred.** The events it would emit originate in `server/poll_loop.py`, which runs `Type=oneshot` under a 30 s timer (`deploy/skypane-poll.service:12`, `deploy/skypane-poll.timer:6-8`) — a process that exits each cycle, so there is no hook to register and an SSE endpoint would have to poll the DB itself. The thread cost was measured (0/5/20/50/200 held connections: ~29–46 KB RSS each, returning to baseline on disconnect) and is NOT the reason; the ~1 s burst-latency tail is the `request_queue_size = 5` accept backlog and is present at N=0. Note also that the research corrected a premise of the brief: the device's poll is served by a **separate** unit (`stub-server/byos_server.py`, port 8642, its own Caddy block), so companion streaming could never starve the frame. `freshness.js` already implements a better polling client (retry ladder, in-flight guard, visibility gate, focus-preserving targeted swaps) and is extended instead.
+- **D12 (service worker / offline shell) is OUT OF SCOPE.** Verified in the project's own harness Chromium: `cache.put()` stores a `Cache-Control: no-store` body verbatim. Every HTML response here is `no-store` by a deliberate Phase 18 decision because every page is session-gated (`companion/app.py:1197-1200`), so a service worker would persist authenticated content past sign-out. Retirement is also not deletion — a 404 leaves the registration live. If it is ever revisited, two things must land first: a **tested** de-registration path (the harness can do this; `127.0.0.1` is a secure context) and an explicit answer on authenticated content.
+- **D3's overlay-drawer clause is STRUCK.** It contradicts `22-CONTEXT.md` D-10 and three recorded rejections in `sketch-findings-skypane`, one established by real-device testing; `references/mobile-navigation.md:126` already warns that this exact reopening happened once before. It also targets a component Phase 22 retired — `.mobile-nav` is now a preferences panel and the tab bar is the navigation. The rest of D3 lands unchanged.
+
 Plans:
 - [ ] TBD (run /gsd-plan-phase 23 to break down)
+
+### Phase 24: Companion dynamism II — "Drawn": server-rendered SVG from the history
+
+**Goal:** The charts and pictures the data already supports, rendered server-side as SVG from `history.db`, sharing one battery estimator: D21 (battery ring gauge, reused small in Home's tile), D8 (battery chart with gradient area, marked last point, low-battery threshold), D13 (Home's day timeline), D20 (wake-punctuality grid) and D4 (the Home hero the others feed). **D20 carries a known blocker to settle at planning:** `device_health` records observed check-ins only, so "honoured-wake rate" needs historical expected intervals that are nowhere stored — either the schema grows or the metric changes.
+**Requirements**: TBD (assign at planning)
+**Depends on:** Phase 23
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 24 to break down)
+
+### Phase 25: Companion dynamism III — "Controls": the modern controls that replace bare fields
+
+**Goal:** Five new controls, each with a no-JS fallback and a 360 px touch obligation: D16 (runway picked on one SVG map of Orly), D17 (24 h dial for quiet hours), D18 (wake-interval slider with freshness and battery-life gauges), D5 (theme carousel over the chip grid — this is also X6's deferred half, the reason Phase 22's Display page misses its height target) and D19 (drag-and-drop artwork with client-side crop).
+**Requirements**: TBD (assign at planning)
+**Depends on:** Phase 23
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 25 to break down)
+
+### Phase 26: Companion dynamism IV — "App": the finishes
+
+**Goal:** D23 (keyboard shortcuts and a ⌘K command palette), D24 (guided first run and drawn empty states) and D15 (share the picture of the day). **D6 is already shipped** — its bottom tab bar landed in 22-14 — so only its manifest/theme-color half remains, if wanted. **D11 is partly excluded**: hashed filenames imply a build step, which this milestone's framework-free/build-free constraint forbids; prefetch-on-hover and gzip are still open. **D12 is excluded entirely** (see Phase 23).
+**Requirements**: TBD (assign at planning)
+**Depends on:** Phase 23
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 26 to break down)
