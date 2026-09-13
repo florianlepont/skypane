@@ -1038,7 +1038,7 @@ def _machine_instant(parsed):
 
 
 def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
-                       countdown=False):
+                       countdown=False, static_text=None):
     """"<time datetime="<instant>" data-relative><relative age></time>" —
     the app's ONE relative-time element (23-03-PLAN.md Task 1, D14/
     CFG-34). Before this function the codebase rendered no `<time>`
@@ -1094,6 +1094,21 @@ def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
     The default is False, which produces the byte-identical element
     23-03 shipped. No page renders a countdown yet; plan 23-06's
     next-wake line is its first consumer.
+
+    `static_text` (23-06-PLAN.md) renders THAT text instead of the
+    ladder's output, leaving the `datetime` attribute and the
+    `data-relative` hook exactly as they are — the element is still the
+    ticker's, and `companion/static/relative-time.js` replaces the text
+    with the live age on its first pass. It exists for one situation and
+    should be used in no other: a line whose SERVER rendering has to
+    stay true for a reader with no ticker to advance it. Health's
+    freshness line is that line — "Updated 0s ago" is true at load and
+    false a second later, which is 19-09/A-20's own frozen zero, while
+    "Updated 14:32" is true forever and becomes "Updated 3m ago" the
+    moment a script runs. THE CALLER IS ASSERTING THAT ITS TEXT IS TRUE
+    INDEPENDENT OF NOW: pass a clock or an absolute date, never a
+    duration. `None` is the default and produces the byte-identical
+    element 23-03 shipped.
     """
     if not ts:
         return escape_html(fallback)
@@ -1104,7 +1119,9 @@ def relative_time_html(ts, now_ts, fallback="no reading yet", lang=None,
     instant = _machine_instant(parsed)
     if not instant:
         return escape_html(ts)
-    if countdown and age >= 0:
+    if static_text is not None:
+        text = static_text
+    elif countdown and age >= 0:
         text = i18n.t_lang(
             RELATIVE_WAITING_TEXT,
             lang if lang is not None else prefs.current_lang())

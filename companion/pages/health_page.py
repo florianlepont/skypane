@@ -3632,22 +3632,43 @@ def render(ctx):
     #
     # 23-05-PLAN.md Task 2 (D14/D22/CFG-34) removes the freeze rather
     # than the age. This is layout.relative_time_html() over the same
-    # instant `data-loaded-at` already carries, so the element renders
-    # "0s ago" server-side and companion/static/relative-time.js advances
-    # it once a second from there — "Updated 3m ago" on a page that has
-    # been open three minutes, which is a claim about NOW rather than
-    # about a moment. A page saying "Updated 14:32" tells the truth about
-    # an instant and says nothing at all about whether it is still
-    # current; announcing its own staleness is the whole point of D22.
+    # instant `data-loaded-at` already carries, and
+    # companion/static/relative-time.js rewrites it once a second —
+    # "Updated 3m ago" on a page that has been open three minutes, which
+    # is a claim about NOW rather than about a moment. A page saying
+    # "Updated 14:32" tells the truth about an instant and says nothing
+    # at all about whether it is still current; announcing its own
+    # staleness is the whole point of D22.
+    #
+    # 23-06-PLAN.md: WHAT THE SERVER WRITES INTO THAT ELEMENT IS THE
+    # CLOCK, not the ladder's zero bucket. 23-05 rendered "0s ago" here
+    # and recorded the cost in its own SUMMARY (finding 2): with scripts
+    # blocked nothing ever advances it, so that reader got a permanently
+    # frozen "Updated 0s ago" — 19-09/A-20's own defect ("(0s ago)" was
+    # structurally always zero) handed back to the one reader who cannot
+    # see the ticker. The fix is the ordinary progressive-enhancement
+    # shape the rest of this app already uses: the SERVER renders the
+    # honest static thing and the SCRIPT upgrades it. The element, its
+    # machine-readable `datetime` and its `data-relative` hook are
+    # unchanged — only the text the server puts inside it — so with
+    # scripts on the first repaint (one second after load, and after
+    # every swap) turns "Updated 14:32" into "Updated 3m ago", and with
+    # scripts blocked the line reads a clock that stays true forever.
+    # Both readers get a true statement, which is the whole of the
+    # no-JS floor's claim.
+    #
+    # The clock is `local_clock_text()` with `now_parsed` set to the same
+    # instant — its same-day branch, i.e. a bare "HH:MM", identical in
+    # both languages and identical to what this line rendered from
+    # 19-09 until 23-05.
     #
     # Nothing is lost: the full Europe/Paris local timestamp stays on the
-    # span's `title` (22-16's own D-05/CFG-28 conversion, unchanged), and
-    # layout.local_clock_text() is no longer called here because the
-    # visible half is no longer a clock. `data-refresh-clock` is kept as
-    # this span's own hook for companion/static/freshness.js — that file
-    # reads nothing from the span itself (the whole wrapper is swapped
-    # instead), but the attribute keeps the element easy to find from a
-    # future edit or a live DOM inspection.
+    # span's `title` (22-16's own D-05/CFG-28 conversion, unchanged).
+    # `data-refresh-clock` is kept as this span's own hook for
+    # companion/static/freshness.js — that file reads nothing from the
+    # span itself (the whole wrapper is swapped instead), but the
+    # attribute keeps the element easy to find from a future edit or a
+    # live DOM inspection.
     #
     # Consequence worth stating: the freshness wrapper now differs from
     # its freshly-fetched counterpart on every cycle, because the live
@@ -3693,10 +3714,14 @@ def render(ctx):
     # pill still carries the real machine-readable instant, which is
     # what companion/static/freshness.js actually reads. The `title` was
     # only ever a human-facing tooltip.
+    _now_parsed = layout.parse_iso(now)
+    _clock_text = (
+        layout.local_clock_text(_now_parsed, now_parsed=_now_parsed)
+        if _now_parsed is not None else now)
     clock_html = (
         '<span class="time-value" data-refresh-clock title="%s">%s</span>'
         % (escape_html(_full_local_timestamp_text(now)),
-           layout.relative_time_html(now, now)))
+           layout.relative_time_html(now, now, static_text=_clock_text)))
     # 21-02-PLAN.md (D-18): the Pause/Resume button that used to sit here
     # is deleted outright — no replacement control, no placeholder. The
     # freshness line is now just the prefix, the clock and the pill.
