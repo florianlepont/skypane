@@ -1588,6 +1588,14 @@ class Handler(BaseHTTPRequestHandler):
         unconditionally — this is the one page in the app with a
         single, always-relevant focus target, so no error-conditional
         branching is needed.
+
+        `error`, when truthy (22-08-PLAN.md Task 3, D-06/B16), is
+        ALREADY translated — the caller runs it through i18n.t() before
+        passing it in, so companion/test_i18n.py's scanner can trace
+        the literal at its one real call site instead of across an
+        opaque function-parameter boundary it has no way to follow.
+        This function only escapes it; it never calls i18n.t() itself
+        on `error`.
         """
         parts = [
             '<h1 class="page-title">SkyPane</h1>',
@@ -1601,7 +1609,7 @@ class Handler(BaseHTTPRequestHandler):
         elif error:
             parts.append(
                 '<p class="text-body" role="alert">%s</p>'
-                % layout.escape_html(i18n.t(error)))
+                % layout.escape_html(error))
         next_field_html = (
             '<input type="hidden" name="next" value="%s">'
             % layout.escape_html(next_route)) if next_route else ""
@@ -2674,7 +2682,14 @@ class Handler(BaseHTTPRequestHandler):
                 set_cookie=auth.session_set_cookie_header(token))
         LOGIN_THROTTLE.record_failure()
         return self.send_html(401, self._render_login_page(
-            error="Incorrect password. Try again.", next_route=next_route))
+            # 22-08-PLAN.md Task 3 (D-06/B16): translated HERE, at the
+            # literal call site — see _login_body()'s own docstring for
+            # why (`error` is an opaque parameter by the time it
+            # reaches that function, invisible to the ast-based scanner
+            # rule (c) traces i18n.t() call arguments with — this only
+            # became a live gap once app.py joined the scan in this
+            # same task).
+            error=i18n.t("Incorrect password. Try again."), next_route=next_route))
 
     def _handle_settings_post(self):
         """POST /settings — an app.py-owned handler (D-06/D-09), a
