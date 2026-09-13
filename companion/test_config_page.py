@@ -626,6 +626,19 @@ EXPECTED_CHECK_COUNT = 227
 # real on-disk check(...) call count at execution time (229/229 pass),
 # not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 229
+# 22-10-PLAN.md Task 3 (B8/B17): +2. One check pins "Send a test" inside
+# the Notifications card, attached to an EMPTY sibling <form> by the
+# cross-DOM form= idiom's fifth consumer, with no control left between
+# two cards and the form's own action untouched; one pins the
+# wake-interval field's label-above-control shape, its sibling unit, and
+# the content-fit 8ch/96px rule that declares no height (so the 44px
+# touch-target floor is untouched) and is placed to actually beat the
+# phase-18 `width: 100%` rule rather than merely follow it. Two existing
+# markup assertions are RETARGETED in place for the input's new id=, no
+# net count change. 229 + 2 = 231, recomputed directly against the real
+# on-disk check(...) call count at execution time (231/231 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 231
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1111,8 +1124,16 @@ def main():
                 escape_html(config_page.WAKE_INTERVAL_SECTION_CAPTION)))
         if rendered.count(expected_caption) != 1:
             return False, "expected exactly one caption %r" % (expected_caption,)
-        if rendered.count('<input type="number" name="wake_interval_s"') != 1:
-            return False, "expected exactly one <input type=\"number\" name=\"wake_interval_s\">"
+        # 22-10-PLAN.md Task 3 (B17): retargeted in place - the input now
+        # carries its own id= (the label above it points at that id
+        # instead of wrapping the control), which sits between `number`
+        # and `name`. The one-input contract this line exists for is
+        # unchanged; only the literal it greps had to absorb the id.
+        expected_input = (
+            '<input type="number" id="%s" name="wake_interval_s"'
+            % config_page.WAKE_INTERVAL_INPUT_ID)
+        if rendered.count(expected_input) != 1:
+            return False, "expected exactly one %r" % (expected_input,)
         if 'min="%d"' % device_config.WAKE_INTERVAL_MIN_S not in rendered:
             return False, "expected min to equal device_config.WAKE_INTERVAL_MIN_S"
         if 'max="%d"' % device_config.WAKE_INTERVAL_MAX_S not in rendered:
@@ -2822,7 +2843,9 @@ def main():
             return False, "expected the error message to render exactly once, got %d" % rendered.count("msg")
         if 'value="7"' not in rendered:
             return False, "expected the submitted value 7 to be echoed back into the input"
-        input_match = re.search(r'<input type="number" name="wake_interval_s"[^>]*>', rendered)
+        # 22-10-PLAN.md Task 3 (B17): retargeted in place for the new id=.
+        input_match = re.search(
+            r'<input type="number" id="[^"]*" name="wake_interval_s"[^>]*>', rendered)
         if not input_match:
             return False, "expected the wake_interval_s input to still be present"
         if 'aria-invalid="true"' not in input_match.group(0):
@@ -7870,6 +7893,113 @@ def main():
         "and B7/C3's active-segment hover restore at the register's own 12% accent wash "
         "(22-10-PLAN.md Task 2)",
         _style_css_carries_the_b9_b15_and_b7_geometry_rules)
+
+    # --- 22-10-PLAN.md Task 3 (B8, B17) -------------------------------
+
+    def _send_a_test_lives_inside_the_notifications_card_via_the_form_idiom():
+        # B8: the button used to render after </form> closed, as an
+        # orphan floating between the Notifications card and the next
+        # card. It now renders inside the card and reaches its own empty
+        # <form> across the DOM.
+        card = config_page.notifications_group(True, False, False)
+        button = '<button type="submit" form="notifications-test">%s</button>' % escape_html(
+            config_page.NOTIFICATIONS_TEST_BUTTON_TEXT)
+        if button not in card:
+            return False, "expected the test button INSIDE the Notifications card (B8)"
+        if not card.rstrip().endswith("</div>"):
+            return False, "expected the card to still close its own wrapper last"
+
+        section = config_page.notifications_test_section()
+        expected_form = (
+            '<form method="post" action="/settings/notifications/test" '
+            'id="notifications-test" class="notifications-test-form"></form>')
+        if section != expected_form:
+            return False, (
+                "expected notifications_test_section() to render an EMPTY form carrying the id "
+                "the button's form= names, got %r" % (section,))
+        if "<button" in section:
+            return False, "the sibling form must hold no control of its own (B8)"
+
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DEVICE)
+        if rendered.count('form="notifications-test"') != 1:
+            return False, "expected exactly one cross-DOM attachment to the test form"
+        if rendered.count('id="notifications-test"') != 1:
+            return False, "expected exactly one element carrying that id"
+        # Nothing renders between the settings form's own close and the
+        # empty form: the two are adjacent, with no control in between.
+        if "</form><form" not in rendered.replace("\n", ""):
+            return False, (
+                "expected the empty test form to render immediately after the settings form, "
+                "with no orphaned control between the two cards (B8)")
+        # And the button is inside the card, not after it.
+        card_end = rendered.index('id="notifications-test"')
+        if rendered.index('form="notifications-test"') > card_end:
+            return False, "expected the button to render BEFORE the empty form, inside its card"
+        # The action and its handler are untouched by the move - form
+        # ownership comes from the attribute, not from proximity (T-22-34).
+        if config_page.NOTIFICATIONS_TEST_ROUTE not in rendered:
+            return False, "expected the test form to keep its own action route"
+        return True, ""
+    check(
+        "'Send a test' renders inside the Notifications card and reaches its own EMPTY sibling "
+        "<form> through the cross-DOM form= idiom's fifth consumer - no control renders between "
+        "two cards, and the form keeps its own action (B8, 22-10-PLAN.md Task 3)",
+        _send_a_test_lives_inside_the_notifications_card_via_the_form_idiom)
+
+    def _the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input():
+        # B17: the label used to WRAP the input, which put both on one
+        # line and started the control at x=515 while every other Device
+        # field started at x=361.
+        rendered = config_page.wake_interval_group(300)
+        label = '<label for="%s">%s</label>' % (
+            config_page.WAKE_INTERVAL_INPUT_ID,
+            escape_html(config_page.i18n.t("Wake interval (seconds)")))
+        if label not in rendered:
+            return False, "expected the label to be its own element above the control (B17)"
+        if "</label><input" not in rendered:
+            return False, "expected the input to be the label's SIBLING, not its child (B17)"
+        unit = (
+            '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
+            % config_page.WAKE_INTERVAL_UNIT_LABEL)
+        if unit not in rendered:
+            return False, "expected the unit as a sibling label, not a placeholder (B17)"
+        input_tag = rendered[rendered.index('<input type="number"'):]
+        input_tag = input_tag[:input_tag.index(">") + 1]
+        # The unit must be a SIBLING, never the control's own placeholder
+        # or title - both are what B17's fix column rules out, and the
+        # placeholder slot is already spoken for by the locked
+        # "Uses server default" empty-state text.
+        if 'placeholder="%s"' % config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT not in input_tag:
+            return False, "expected the locked placeholder text to survive untouched"
+        if "title=" in input_tag:
+            return False, "the unit must not be carried as a title on the control (B17)"
+
+        source = _read_static("style.css")
+        selector = '.config-form input[name="wake_interval_s"] {'
+        if selector not in source:
+            return False, "expected style.css to declare %r (B17)" % (selector,)
+        body = source[source.index(selector) + len(selector):source.index("}", source.index(selector))]
+        if "width: 8ch" not in body:
+            return False, "%r must declare a character-based width (B17)" % (selector,)
+        if "min-width: 96px" not in body:
+            return False, "%r must declare a pixel minimum (B17)" % (selector,)
+        if "height" in body:
+            return False, (
+                "%r must declare NO height - the global input/select 44px min-height is the touch-"
+                "target register's 'kept' entry for <input type=\"number\"> and stays untouched"
+                % (selector,))
+        # It must beat, not merely follow, the phase-18 width rule.
+        competitor = '.config-form input[type="number"],'
+        if source.index(competitor) > source.index(selector):
+            return False, (
+                "the content-fit rule must come AFTER .config-form input[type=\"number\"]'s own "
+                "width: 100% at equal specificity, or it silently loses")
+        return True, ""
+    check(
+        "the wake-interval field puts its label on its own line above a content-sized input (8ch "
+        "with a 96px minimum, no height declared so the 44px touch-target floor is untouched) with "
+        "the unit as a sibling label (B17, 22-10-PLAN.md Task 3)",
+        _the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

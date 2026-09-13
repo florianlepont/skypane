@@ -455,6 +455,25 @@ WAKE_INTERVAL_SECTION_CAPTION = (
     "life and staler info at a glance. Applies on the next scheduled "
     "poll.")
 WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
+# 22-10-PLAN.md Task 3 (B17): the unit, rendered as a SIBLING beside the
+# number input — never a placeholder (the field already has one, and a
+# placeholder vanishes the moment a value is typed) and never text inside
+# the control (a number input has no such affordance).
+#
+# NOT routed through i18n.t(), and the reason is stated rather than
+# assumed: "s" is the SI symbol for a second, which is the same symbol in
+# French. It is a unit symbol, not prose — the same "data, not
+# translated" call RULE_SUGGESTIONS_LABEL's neighbouring separator
+# already makes (20-UI-SPEC.md Copywriting Contract §A). Routing it
+# through the catalogue would need a FR entry whose value equalled its
+# key, which companion/test_i18n.py rejects outright, by design. The
+# unit's meaning is carried for assistive technology by the field's own
+# label ("Wake interval (seconds)"), which IS translated; this span is
+# aria-hidden precisely because that label already says it.
+WAKE_INTERVAL_UNIT_LABEL = "s"
+# The id the wake-interval label points at, now that the label is its own
+# element above the control rather than a wrapper around it (B17).
+WAKE_INTERVAL_INPUT_ID = "wake-interval-s"
 # 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
 # comment above.
 WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
@@ -2099,9 +2118,23 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        "<label>%s "
-        '<input type="number" name="wake_interval_s" min="%d" max="%d"'
-        ' placeholder="%s"%s%s></label>'
+        # 22-10-PLAN.md Task 3 (B17): the label is its own element ABOVE
+        # the control, pointing at it by `for=`, instead of wrapping it.
+        # A wrapping <label> put its text and the input on ONE line, which
+        # is why this field's input started at x=515 while every other
+        # Device field's started at x=361. This is the shape the
+        # Notifications topic-URL field (and every other field on this
+        # page) already uses.
+        '<label for="%s">%s</label>'
+        '<input type="number" id="%s" name="wake_interval_s" min="%d" max="%d"'
+        ' placeholder="%s"%s%s>'
+        # The unit as a SIBLING. aria-hidden because the label above
+        # already names the unit ("... (seconds)") - repeating it in the
+        # accessibility tree would announce the same fact twice, while the
+        # visible duplication is exactly the point for a sighted user
+        # reading a 96px-wide box. Same reasoning as
+        # _normalised_time_html()'s own sibling (B14).
+        '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
         "%s"
         "</div>"
     ) % (
@@ -2109,10 +2142,12 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
         escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID),
         escape_html(_with_next_wake(i18n.t(WAKE_INTERVAL_SECTION_CAPTION), next_wake_clock)),
-        escape_html(i18n.t("Wake interval (seconds)")),
+        escape_html(WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t("Wake interval (seconds)")),
+        escape_html(WAKE_INTERVAL_INPUT_ID),
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
         escape_html(i18n.t(WAKE_INTERVAL_PLACEHOLDER_TEXT)),
         value_attr, error_attrs,
+        escape_html(WAKE_INTERVAL_UNIT_LABEL),
         error_html,
     )
 
@@ -2225,6 +2260,21 @@ def notifications_group(
         '<input type="checkbox" name="notifications_silent" value="%s"%s%s> %s'
         "</label>"
         "%s"
+        # 22-10-PLAN.md Task 3 (B8): "Send a test" renders HERE, inside
+        # the card whose setting it tests, instead of as an orphan button
+        # floating between this card and the next. It is attached to its
+        # own empty <form> — rendered as a sibling of #settings-form by
+        # notifications_test_section() below — through the cross-DOM
+        # `form=` attribute, which is the FIFTH consumer of that idiom on
+        # this page (the theme/runway/quiet-hours radios and inputs, the
+        # calendar disconnect button, and now this). Deliberate pattern
+        # reuse, not a workaround: an immediate-action form can never
+        # nest inside the page-wide settings form (see render()'s own
+        # docstring), and form ownership is decided by the browser from
+        # this attribute rather than from DOM proximity (T-22-34), so the
+        # button's action and its server-side handler are untouched by
+        # the move.
+        '<button type="submit" form="notifications-test">%s</button>'
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(NOTIFICATIONS_SECTION_HEADING)),
@@ -2238,6 +2288,7 @@ def notifications_group(
         escape_html(NOTIFICATIONS_SILENT_CHECKBOX_VALUE), " checked" if silent_checked else "",
         silent_error_attrs, escape_html(i18n.t(NOTIFICATIONS_SILENT_LABEL)),
         silent_error_html,
+        escape_html(i18n.t(NOTIFICATIONS_TEST_BUTTON_TEXT)),
     )
 
 
@@ -2265,12 +2316,23 @@ def notifications_test_section():
     stored URL from disk and never trusts the request body (T-20-13),
     which is the real mitigation, not a confirmation dialog.
     """
+    # 22-10-PLAN.md Task 3 (B8): the <form> is now EMPTY. Its button moved
+    # into the Notifications card (notifications_group() above) and
+    # reaches this element across the DOM through
+    # `form="notifications-test"`. The id below is written as literal
+    # text for the same reason the action is — this module's acceptance
+    # gate greps the literal attribute text.
+    #
+    # The form itself must stay a sibling of #settings-form rather than
+    # move into the card: the card is rendered inside `<form
+    # id="settings-form">`, and a <form> can never nest inside another
+    # <form> (see render()'s own docstring on this exact constraint).
+    # The empty form keeps its own action, its own handler and its own
+    # server-side validation; only the button's DOM position changed.
     return (
         '<form method="post" action="/settings/notifications/test" '
-        'class="notifications-test-form">'
-        '<button type="submit">%s</button>'
-        "</form>"
-    ) % escape_html(i18n.t(NOTIFICATIONS_TEST_BUTTON_TEXT))
+        'id="notifications-test" class="notifications-test-form"></form>'
+    )
 
 
 # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): display_group() is retired

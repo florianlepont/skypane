@@ -5237,6 +5237,7 @@ a.airline-card {
   white-space: nowrap;
 }
 
+
 /* =====================================================================
  * Phase 18 — companion audit / UX refactor.
  *
@@ -5674,6 +5675,43 @@ img.recent-flight__thumb,
 
 .config-form input[type="time"] {
   min-width: 9rem;
+}
+
+/* B17 (22-AUDIT.md, 22-10-PLAN.md Task 3): the wake-interval field held
+ * a 448px-wide box for a 3-4 digit number, inherited from the global
+ * `input, select` rule's own sizing on this page. `8ch` is a CONTENT-FIT
+ * width in character units — the correct unit for "sized for its
+ * content", and one of the exactly three off-scale literals
+ * 22-UI-SPEC.md §1 permits, alongside the safe-area inset and the tab
+ * bar's 56px. The 96px minimum keeps the box usable in a narrow or
+ * condensed font where 8ch would collapse.
+ *
+ * DELIBERATELY NO HEIGHT. The global `input, select` rule's 44px
+ * `min-height` is the touch-target register's "kept" entry for
+ * `<input type="number">` (11-03-PLAN.md), and `width` does not touch
+ * `min-height`, so that entry still holds verbatim after this rule. Do
+ * not add a height here.
+ *
+ * Selected by `name`, not by id: this file carries no id selector at all
+ * and should not gain its first one here. `.config-form input[name=
+ * "..."]` is (0,2,1) — EQUAL to the `.config-form input[type="number"]`
+ * rule directly above, and placed immediately after it, which is this
+ * file's own documented equal-specificity-plus-source-order mechanism
+ * (`.logout-form button`, `.dirty-bar__cancel`). Raising specificity
+ * instead would start beating rules this one has no business beating.
+ *
+ * It must live HERE, beside that rule, rather than up with the other
+ * field-layout rules: the phase-18 `width: 100%` above is what it
+ * narrows, and splitting the two apart is how the next reader ends up
+ * re-deriving why a `width` declaration two thousand lines earlier has
+ * no effect. NOTE for the phase-closing sweep: that phase-18 rule exists
+ * so "Uses server default" is not truncated to "Uses se"; in a 96px box
+ * this field's placeholder truncates again whenever no interval is
+ * stored. B17's "sized for its content" is the later, narrower decision
+ * and wins for this one field, but the interaction is real. */
+.config-form input[name="wake_interval_s"] {
+  width: 8ch;
+  min-width: 96px;
 }
 
 /* Theme-chip names must never wrap and stagger the row. */

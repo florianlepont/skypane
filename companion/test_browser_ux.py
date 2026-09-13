@@ -131,6 +131,14 @@ EXPECTED_CHECK_COUNT = 7
 # on-disk check(...) call count at execution time (8/8 pass), not trusted
 # from arithmetic alone.
 EXPECTED_CHECK_COUNT = 8
+# 22-10-PLAN.md Task 3 (D-09, B8/T10): +1 — the no-JS floor asserted at
+# this plan's own commit rather than deferred to wave 12, because this
+# plan re-homes a control through the cross-DOM form= idiom and converts
+# a CSS `content` literal to an attribute read: both can look fine with
+# scripts running and be dead without them. 8 + 1 = 9, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (9/9 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 9
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -800,6 +808,88 @@ def main():
                     "by the selected card's own 2px border - T6, 22-15-PLAN.md), and each still "
                     "clears 44x44 - never a 2 + 1 orphan (B9, 22-10-PLAN.md Task 2)",
                     _three_runway_cards_share_one_line_at_390px)
+
+                def _the_no_js_floor_holds_for_both_settings_pages():
+                    # D-09's floor, asserted at THIS plan's own commit
+                    # rather than deferred to the phase's end: this plan
+                    # re-homes a control through the cross-DOM `form=`
+                    # idiom (B8) and converts a CSS `content` literal to
+                    # an attribute read (T10). Both are exactly the kind
+                    # of change that can look fine with scripts running
+                    # and be dead without them, so a break must fail here.
+                    context = browser.new_context(java_script_enabled=False)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        page.goto(base_url + "/login")
+                        page.fill("#password", TEST_PASSWORD)
+                        page.click('button[type="submit"]')
+                        page.wait_for_load_state("load")
+
+                        page.goto(base_url + "/display")
+                        if not page.query_selector(".theme-chip"):
+                            return False, "Display must render its chips with scripts blocked"
+                        # T10: the badge's text is an ATTRIBUTE now, so it
+                        # has to be in the server's own HTML.
+                        badge = page.eval_on_selector_all(
+                            "[data-current-label]", "els => els.map(e => e.dataset.currentLabel)")
+                        if not badge or not all(badge):
+                            return False, (
+                                "expected the 'Current' badge's text to be server-rendered into "
+                                "data-current-label, got %r" % (badge,))
+                        # D-08's no-JS floor: the server never emits
+                        # `hidden` on a usage panel, so every control is
+                        # reachable without theme-preview.js.
+                        hidden_panels = page.eval_on_selector_all(
+                            ".frame-colours__usage-panel",
+                            "els => els.filter(e => e.hidden "
+                            "|| e.classList.contains('frame-colours__usage-panel--collapsed')).length")
+                        if hidden_panels:
+                            return False, (
+                                "expected no collapsed usage panel with scripts blocked, got %d"
+                                % hidden_panels)
+                        # A settings save still round-trips.
+                        theme_ids = device_config.THEME_IDS
+                        current = device_config.load_device_config(harness.tmpdir)["theme"]
+                        other = next(t for t in theme_ids if t != current)
+                        page.eval_on_selector(
+                            'input[name="theme"][value="%s"]' % other, "el => el.checked = true")
+                        with page.expect_navigation():
+                            page.click('#settings-form button[type="submit"]')
+                        if device_config.load_device_config(harness.tmpdir)["theme"] != other:
+                            return False, "expected a settings save to persist with scripts blocked"
+
+                        page.goto(base_url + "/device")
+                        # B8: the re-homed button must be inside the card
+                        # AND still own its form, which with scripts
+                        # blocked is entirely the browser's own `form=`
+                        # resolution - nothing else can supply it.
+                        btn = page.query_selector('button[form="notifications-test"]')
+                        if btn is None:
+                            return False, "expected the re-homed 'Send a test' button on Device"
+                        owned = page.eval_on_selector(
+                            'button[form="notifications-test"]',
+                            "el => el.form && el.form.getAttribute('action')")
+                        if owned != "/settings/notifications/test":
+                            return False, (
+                                "expected the button's form= attachment to resolve to the test "
+                                "form's own action with scripts blocked, got %r" % (owned,))
+                        with page.expect_navigation():
+                            btn.click()
+                        if "/device" not in page.url:
+                            return False, (
+                                "expected the test submission to redirect back to Device, got %r"
+                                % page.url)
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "with scripts blocked both settings pages render and stay usable: the 'Current' "
+                    "badge's text is server-rendered into data-current-label, no usage panel is "
+                    "collapsed, a Display save round-trips, and the re-homed 'Send a test' button "
+                    "resolves its own form= attachment and submits (D-09 floor asserted at this "
+                    "plan's own commit, 22-10-PLAN.md Task 3)",
+                    _the_no_js_floor_holds_for_both_settings_pages)
             finally:
                 browser.close()
     finally:
