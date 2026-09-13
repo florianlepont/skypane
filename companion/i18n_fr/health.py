@@ -159,8 +159,26 @@ CATALOG = {
     "Clear": "Effacer",
     "Prefix": "Préfixe",
     "Count": "Nombre",
-    "First seen": "Vu pour la première fois",
-    "Last seen": "Vu pour la dernière fois",
+    # 22-12-PLAN.md Task 2 (B12): shortened from "Vu pour la première
+    # fois" / "Vu pour la dernière fois". The unresolved-prefix table
+    # measured 1026px in French inside an 830px wrap at a 1280px
+    # viewport; stacking the two timestamp cells (the Flights precedent)
+    # brought it to 900px and left these two HEADERS as the widest thing
+    # in their own columns, at 189px of ink each. At 102px each the
+    # table measures 790px and fits, with the Resolve column reachable
+    # without horizontal scrolling — both numbers taken from a headless
+    # Chromium probe, not by eye.
+    #
+    # The English sources are deliberately unchanged: English measured
+    # 830/830 after stacking alone, so there was nothing to fix there,
+    # and rewording a column that fits would be a copy change with no
+    # cause. These two keys are ALSO read by companion/pages/
+    # airlines_page.py's RESOLVE_CONTEXT_LABELS (the resolve dialog's
+    # <dt> labels) — one catalogue entry, several readers, which is this
+    # module's own stated contract; the shorter, parallel pair reads
+    # correctly in that definition list too.
+    "First seen": "Première fois",
+    "Last seen": "Dernière fois",
     "Example callsign": "Exemple d’indicatif",
     "Resolve": "Résoudre",
     "Resolve prefix %s": "Résoudre le préfixe %s",

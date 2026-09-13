@@ -82,6 +82,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+from companion import auth  # noqa: E402
 from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
@@ -158,6 +159,20 @@ EXPECTED_CHECK_COUNT = 10
 # count at execution time (11/11 pass), not trusted from arithmetic
 # alone.
 EXPECTED_CHECK_COUNT = 11
+# 22-12-PLAN.md Task 2 (B12): +1 — at a 1280px viewport, in BOTH
+# languages, Health's unresolved-prefix table reports scrollWidth ===
+# clientWidth on its .data-table-wrap, the Resolve column sits inside
+# that wrap's own box, and no header is clipped. This is the measurement
+# that CHOSE the fix rather than one that confirmed it: only a real
+# layout engine resolves .data-table's `min-width: max-content` floor
+# against six columns of real content, and the numbers it returned
+# (wrap 830px; EN 886 / FR 1026 before, EN 830 / FR 900 after stacking
+# the timestamp cells, EN 830 / FR 830 after also shortening the two
+# French headers) are what proved the shorter-headers lever alone could
+# not fit and the card fallback was not needed. 11 + 1 = 12, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (12/12 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 12
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -605,6 +620,88 @@ def main():
                     "22-09 introduced — adopted verbatim, no per-page variant (B11, 22-11-PLAN.md "
                     "Task 3, the second of the three filtered pages)",
                     _airlines_filter_count_and_clear_share_one_line_at_390px)
+
+                def _health_registry_table_fits_1280px_in_both_languages():
+                    # B12 (22-12-PLAN.md Task 2): the audit measured the
+                    # unresolved-prefix table overflowing a 1280px
+                    # desktop in French — "EXEMPLE D'INDIC" clipped, and
+                    # the Resolve column only reachable by scrolling a
+                    # container whose one affordance is a 12px shadow.
+                    # The lever choice was made BY THIS MEASUREMENT, not
+                    # by eye (the same discipline that settled the
+                    # Flights table): only a real layout engine resolves
+                    # `.data-table`'s `min-width: max-content` floor
+                    # against six columns of real content in two
+                    # languages.
+                    #
+                    # Measured here at every step, wrap clientWidth 830px:
+                    #   before          EN  886   FR 1026
+                    #   stacked cells   EN  830   FR  900
+                    #   + short FR hdrs EN  830   FR  830
+                    for lang in ("en", "fr"):
+                        context = browser.new_context(viewport={"width": 1280, "height": 900})
+                        try:
+                            page = context.new_page()
+                            base_url = harness.base_url()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+                            page.goto(base_url + "/health")
+                            page.locator("table.data-table--registry").first.wait_for(
+                                state="visible")
+                            box = page.eval_on_selector(
+                                "table.data-table--registry",
+                                "table => {"
+                                "  const wrap = table.closest('.data-table-wrap');"
+                                "  const heads = Array.from(table.querySelectorAll('th'));"
+                                "  const resolve = heads[heads.length - 1];"
+                                "  const cells = Array.from("
+                                "    table.querySelectorAll('tbody tr'))"
+                                "    .map(tr => tr.children[tr.children.length - 1]);"
+                                "  return {"
+                                "    sw: wrap.scrollWidth, cw: wrap.clientWidth,"
+                                "    wrapRight: wrap.getBoundingClientRect().right,"
+                                "    resolveRight: Math.max(resolve.getBoundingClientRect().right,"
+                                "      ...cells.map(td => td.getBoundingClientRect().right)),"
+                                "    headClipped: heads.filter("
+                                "      h => h.scrollWidth > h.clientWidth + 1).map(h => h.textContent),"
+                                "    rowCount: table.querySelectorAll('tbody tr').length,"
+                                "  };"
+                                "}")
+                            if box["rowCount"] < 1:
+                                return False, (
+                                    "expected the seeded registry to render at least one row (%s)"
+                                    % (lang,))
+                            if box["sw"] != box["cw"]:
+                                return False, (
+                                    "expected .data-table-wrap scrollWidth === clientWidth at "
+                                    "1280px in %s, got %r vs %r (B12)"
+                                    % (lang, box["sw"], box["cw"]))
+                            # "Reachable without horizontal scrolling" is
+                            # the audit's own wording — asserted as a
+                            # geometric fact, not inferred from the
+                            # scrollWidth equality above.
+                            if box["resolveRight"] > box["wrapRight"] + 1:
+                                return False, (
+                                    "expected the Resolve column to sit inside the wrap's own box "
+                                    "at 1280px in %s, got right edge %r vs %r"
+                                    % (lang, box["resolveRight"], box["wrapRight"]))
+                            if box["headClipped"]:
+                                return False, (
+                                    "expected no clipped header at 1280px in %s, got %r"
+                                    % (lang, box["headClipped"]))
+                            if page.viewport_size["width"] != 1280:
+                                return False, "expected the measurement to be taken at 1280px"
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "at 1280px in BOTH languages Health's unresolved-prefix table reports "
+                    "scrollWidth === clientWidth on its .data-table-wrap, the Resolve column sits "
+                    "inside that wrap's own box (reachable with no horizontal scrolling) and no "
+                    "header is clipped — the French table measured 1026px against an 830px wrap "
+                    "before the stacked cells and the shortened headers (B12, 22-12-PLAN.md Task 2)",
+                    _health_registry_table_fits_1280px_in_both_languages)
 
                 # ----------------------------------------------------------------
                 # 22-01-PLAN.md Task 3 (D-01/D-02, B1/T1/T8): the four checks

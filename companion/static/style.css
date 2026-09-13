@@ -2641,6 +2641,33 @@ table.data-table--flights .cell-inline-sep {
   display: none;
 }
 
+/* 22-12-PLAN.md Task 2 (B12) — the SECOND consumer of the stacked-cell
+ * exception above, and it arrived the same way the first one did: by
+ * headless measurement, not by eye. Health's unresolved-prefix table
+ * measured 886px (EN) / 1026px (FR) inside an 830px `.data-table-wrap`
+ * at a 1280px viewport, because `.data-table`'s `min-width: max-content`
+ * no-crop floor sizes each column to its widest UNWRAPPED line and the
+ * First seen / Last seen cells' one-line form ("1 août 08:00 (il y a
+ * 42 j)") wanted 251px of ink EACH — 564px of the budget for two of six
+ * columns. Shortening the French headers alone was measured to be
+ * incapable of closing that gap; stacking is what makes each column's
+ * max-content width the wider of its two lines instead of their
+ * concatenation.
+ *
+ * `references/data-density.md`'s warning still stands and is not being
+ * loosened here: this is NOT license to stack any other merged cell
+ * "for consistency". It is the same local fix for the same measured
+ * cause, applied to the second table in this app that demonstrably has
+ * it, and it stays scoped to that table by its own modifier class. */
+table.data-table--registry .cell-primary,
+table.data-table--registry .cell-secondary {
+  display: block;
+}
+
+table.data-table--registry .cell-inline-sep {
+  display: none;
+}
+
 /* 21-03-PLAN.md Task 2 (D-15/R-12, 21-UI-SPEC.md §F): the expandable
  * detail row's own styling — tokens only, no new colour literal. The
  * no-JS floor (D-15, locked) is a VISIBLE detail row by default; the

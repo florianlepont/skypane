@@ -2920,6 +2920,71 @@ def _registry_filter_text(prefix):
     return escape_html(prefix.lower() if isinstance(prefix, str) else str(prefix).lower())
 
 
+# 22-12-PLAN.md Task 2 (B12): the inline separator between a stacked
+# cell's two lines. `companion/pages/history_page.py` owns the same
+# constant for the Flights table, and `companion/pages/__init__.py`
+# forbids one page module importing another, so it is restated here
+# rather than imported. It is `display: none` inside this table (see the
+# `table.data-table--registry` rule in companion/static/style.css) for
+# the identical reason it is inside Flights': the two parts sit on
+# separate lines, so an inline middle dot has no role — but the markup
+# stays in the DOM so a future change that un-scopes the stacking rule
+# finds the separator still there.
+_REGISTRY_CELL_SEPARATOR_TEXT = "·"
+
+
+def _registry_seen_cell_html(raw_ts, now):
+    """The First seen / Last seen cell's two STACKED lines — a
+    Europe/Paris local clock primary line and a relative-age secondary
+    line — built exactly the way `history_page._when_cell_html()` builds
+    the Flights table's own When column (21-03-PLAN.md Task 1, D-15):
+    `layout.local_clock_text()` plus `layout.relative_age_text()` over
+    `layout.age_seconds()`, never `layout.concise_timestamp_html()`.
+
+    Why this exists at all (22-12-PLAN.md Task 2, B12), decided by
+    HEADLESS MEASUREMENT rather than by eye, the same discipline that
+    settled the Flights table (`references/data-density.md`): at a
+    1280px viewport this table's `.data-table-wrap` has a clientWidth of
+    830px, and the table wanted 886px in English and 1026px in French.
+    `.data-table`'s `min-width: max-content` floor sizes every column to
+    its widest UNWRAPPED line, and these two columns' one-line form
+    ("1 août 08:00 (il y a 42 j)") measured 251px of ink each — 564px of
+    the 830px budget for two of six columns, which is why shortening the
+    French headers alone was measured to be arithmetically incapable of
+    fitting and the Flights stacked-cell precedent was needed here too.
+    Stacking makes each column's max-content width the WIDER of its two
+    lines instead of their concatenation.
+
+    Degrades exactly as `_when_cell_html()` does, and as this cell's own
+    previous `concise_timestamp_html(..., fallback="")` call did: a falsy
+    timestamp renders an empty cell, and an unparseable one renders the
+    raw value as a bare primary line with no secondary (a relative age is
+    undefined for a value that never parsed). Never raises.
+
+    The full day-qualified local timestamp the previous call site
+    demoted to a `title` is KEPT, on the primary span — Flights could
+    drop its own because D-15 moved the full timestamp into that table's
+    detail row, and this table has no detail row to move it to.
+    """
+    if not raw_ts:
+        return ""
+    parsed = layout.parse_iso(raw_ts)
+    if parsed is None:
+        return '<span class="cell-primary">%s</span>' % escape_html(raw_ts)
+    clock_text = layout.local_clock_text(parsed, layout.parse_iso(now))
+    age = layout.age_seconds(raw_ts, now)
+    html = '<span class="cell-primary" title="%s">%s</span>' % (
+        escape_html(_full_local_timestamp_text(raw_ts)), escape_html(clock_text))
+    if age is not None:
+        html += (
+            '<span class="cell-inline-sep">%s</span>'
+            '<span class="cell-secondary">%s</span>'
+        ) % (
+            escape_html(_REGISTRY_CELL_SEPARATOR_TEXT),
+            escape_html(layout.relative_age_text(age)))
+    return html
+
+
 def _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now):
     """One `<tr>` for the unresolved-prefix registry table. First seen/
     Last seen switch to `layout.concise_timestamp_html()` (D-09) — its
@@ -2941,8 +3006,21 @@ def _registry_row_html(index, prefix, count, first_seen, last_seen, example_call
     (`RESOLVE_LINK_TEXT` here, `RESOLVE_CARD_LINK_TEXT` there).
     """
     row_class = "row-alt" if index % 2 else "row"
-    first_seen_html = layout.concise_timestamp_html(first_seen, now, fallback="")
-    last_seen_html = layout.concise_timestamp_html(last_seen, now, fallback="")
+    # 22-12-PLAN.md Task 2 (B12): the desktop table's two timestamp cells
+    # are stacked now (see `_registry_seen_cell_html()` for the
+    # measurements that forced it). `_registry_cards_html()` below keeps
+    # calling `layout.concise_timestamp_html()` unchanged: the mobile
+    # card is a single-column layout with no width budget to protect, and
+    # its secondary line reads better as one sentence. The two
+    # representations therefore no longer share byte-identical markup for
+    # these two values, but they are still built from the SAME two
+    # formatters over the same `now` — `concise_timestamp_html()` is
+    # literally `local_clock_text()` plus `relative_age_text()` — so they
+    # cannot disagree about what either value IS, which is what that
+    # byte-identity was ever standing in for. companion/
+    # test_status_pages.py asserts the shared-formatter property directly.
+    first_seen_html = _registry_seen_cell_html(first_seen, now)
+    last_seen_html = _registry_seen_cell_html(last_seen, now)
     escaped_prefix = escape_html(prefix)
     resolve_href = RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix
     resolve_aria = escape_html(i18n.t(RESOLVE_LINK_ARIA_TEMPLATE)) % escaped_prefix
@@ -2982,9 +3060,15 @@ def _registry_table_html(rows, now):
         _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now)
         for index, (prefix, count, first_seen, last_seen, example_callsign) in enumerate(rows)
     ]
+    # 22-12-PLAN.md Task 2 (B12): `data-table--registry` scopes the
+    # stacked-cell rule in companion/static/style.css to this one table,
+    # exactly as `data-table--flights` scopes Flights' own. It is an
+    # ADDITIVE modifier — the base `data-table` class and every rule
+    # keyed on it (including the `min-width: max-content` no-crop floor,
+    # which this table keeps) are unchanged.
     return (
         '<div class="data-table-wrap">'
-        '<table class="data-table">'
+        '<table class="data-table data-table--registry">'
         "<thead><tr>%s</tr></thead>"
         "<tbody>%s</tbody>"
         "</table>"

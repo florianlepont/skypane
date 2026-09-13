@@ -639,6 +639,19 @@ EXPECTED_CHECK_COUNT = 252
 # apart), never by arithmetic.
 EXPECTED_CHECK_COUNT = 257
 
+# 22-12-PLAN.md Task 2 (B12): +1 (257 -> 258) — the unresolved-prefix
+# table fits by the two levers headless measurement actually selected
+# (the Flights stacked-cell precedent scoped to its own
+# data-table--registry modifier with the base no-crop floor kept, plus
+# two shortened French headers with the retired long forms gone and the
+# English sources untouched), and never by a 1100px card fallback. The
+# registry card/table parity check was RETARGETED IN PLACE (byte-identity
+# -> the same-formatters property, asserted on both sides) with no count
+# change. Re-derived by RUNNING the harness (257/258 pass, the one
+# documented root-sandbox anomaly_active() FAIL apart), never by
+# arithmetic.
+EXPECTED_CHECK_COUNT = 258
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -5931,17 +5944,60 @@ def main():
             cards_end = rendered.index("</ul>", cards_at) + len("</ul>")
             card_slice = rendered[cards_at:cards_end]
 
+            table_wrap_slice = rendered[table_wrap_at:]
             for prefix, count, first_seen, last_seen, example_callsign in rows:
                 first_html = layout.concise_timestamp_html(first_seen, now_iso, fallback="")
                 last_html = layout.concise_timestamp_html(last_seen, now_iso, fallback="")
-                if rendered.count(first_html) != 2:
+                # RETARGETED IN PLACE, STRICTLY NARROWER (22-12-PLAN.md
+                # Task 2, B12). This used to require each timestamp's
+                # markup to appear exactly TWICE — once in the <tr>, once
+                # in the paired .data-card — because both representations
+                # called concise_timestamp_html(). The desktop cell is
+                # two STACKED lines now (measured: the one-line form cost
+                # 251px of ink each and put the French table 196px over
+                # its 830px budget), so the two shapes deliberately
+                # differ.
+                #
+                # Byte-identity was only ever a proxy for "the two
+                # representations cannot disagree about what this value
+                # IS". That is now asserted DIRECTLY, and on both sides:
+                # the card slice carries concise_timestamp_html()'s exact
+                # output exactly once, and the table slice carries the
+                # exact `local_clock_text()` and `relative_age_text()`
+                # outputs that that same function composes — so a drift
+                # in either formatter, or a second `now`, still fails
+                # here. Stronger than the old count: the old form could
+                # not tell a row whose card and <tr> disagreed from one
+                # where the same wrong value appeared twice.
+                if rendered.count(first_html) != 1 or first_html not in card_slice:
                     return False, (
-                        "expected First seen markup %r byte-identical in both representations (found "
-                        "%d occurrences, want 2)" % (first_html, rendered.count(first_html)))
-                if rendered.count(last_html) != 2:
+                        "expected First seen markup %r exactly once, in the card slice (found %d "
+                        "occurrences)" % (first_html, rendered.count(first_html)))
+                if rendered.count(last_html) != 1 or last_html not in card_slice:
                     return False, (
-                        "expected Last seen markup %r byte-identical in both representations (found "
-                        "%d occurrences, want 2)" % (last_html, rendered.count(last_html)))
+                        "expected Last seen markup %r exactly once, in the card slice (found %d "
+                        "occurrences)" % (last_html, rendered.count(last_html)))
+                for name, raw_ts in (("First seen", first_seen), ("Last seen", last_seen)):
+                    clock = layout.escape_html(
+                        layout.local_clock_text(layout.parse_iso(raw_ts), layout.parse_iso(now_iso)))
+                    age = layout.escape_html(
+                        layout.relative_age_text(layout.age_seconds(raw_ts, now_iso)))
+                    expected_cell = (
+                        '<span class="cell-primary" title="%s">%s</span>'
+                        '<span class="cell-inline-sep">%s</span>'
+                        '<span class="cell-secondary">%s</span>'
+                    ) % (
+                        layout.escape_html(health_page._full_local_timestamp_text(raw_ts)),
+                        clock, health_page._REGISTRY_CELL_SEPARATOR_TEXT, age)
+                    if expected_cell not in table_wrap_slice:
+                        return False, (
+                            "expected the table's %s cell to be the two stacked lines built from "
+                            "the SAME formatters concise_timestamp_html() composes, got neither "
+                            "%r in the table slice" % (name, expected_cell))
+                    if clock not in first_html and clock not in last_html:
+                        return False, (
+                            "expected the stacked clock line %r to be the same text the card's own "
+                            "concise_timestamp_html() output carries" % (clock,))
                 if layout.escape_html(prefix) not in card_slice:
                     return False, "expected prefix %r inside the card-list slice" % (prefix,)
                 if str(count) not in card_slice:
@@ -5957,11 +6013,109 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the registry's mobile .data-cards representation is exactly paired with its table by "
-        "(data-filter-text, data-filter-group), byte-identical on First/Last seen timestamp markup, "
+        "(data-filter-text, data-filter-group), carries concise_timestamp_html()'s own First/Last "
+        "seen markup exactly once each while the desktop table carries the stacked cell built from "
+        "the same two formatters over the same now (retargeted by 22-12-PLAN.md Task 2's B12), "
         "positioned between the filter bar and the table wrap, and every column (prefix, count, both "
         "timestamps, example callsign) is reachable in the card slice (quick task 260903-ghy Task 2, "
         "Check C / UIR-11)",
         _registry_mobile_cards_paired_with_table)
+
+    def _registry_table_fits_by_stacked_cells_and_short_french_headers():
+        # B12 (22-12-PLAN.md Task 2): pins the two levers the headless
+        # measurement actually selected, so neither can be quietly undone
+        # and reopen the overflow. The measurement itself lives in
+        # companion/test_browser_ux.py (scrollWidth === clientWidth at
+        # 1280px in both languages); this check pins the MECHANISM.
+        #
+        # Lever order was the plan's: shorter French headers first, then
+        # the Flights stacked-cell precedent, then the card fallback
+        # below 1100px. Measured at a 1280px viewport, wrap clientWidth
+        # 830px: EN 886px / FR 1026px before. The two timestamp columns
+        # alone wanted 251px of INK each in French, i.e. 564px of the
+        # 830px budget for two of six columns, leaving 266px for four
+        # columns whose own cells need 166px of ink plus 124px of
+        # padding — so lever 1 alone could not fit, arithmetically, and
+        # lever 2 was required. After stacking: EN 830, FR 900. After
+        # also shortening the two French headers (which stacking had left
+        # as the widest thing in their own columns): FR 830. The card
+        # fallback (lever 3) was NOT needed and was not applied.
+        tmp = _mkstate("h-registry-fits")
+        try:
+            now = _now()
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {"count": 12, "first_seen": _iso(now - timedelta(days=6)),
+                        "last_seen": _iso(now - timedelta(hours=1)),
+                        "example_callsign": "ABC123"},
+            })
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            # Lever 2, the mechanism: the scoping modifier, the stacked
+            # spans, and the one-line form gone from the table.
+            if '<table class="data-table data-table--registry">' not in rendered:
+                return False, (
+                    "expected the registry table to carry the additive data-table--registry "
+                    "modifier that scopes the stacked-cell rule to it")
+            table_at = rendered.index('<div class="data-table-wrap">')
+            table_slice = rendered[table_at:]
+            if table_slice.count('<span class="cell-primary" title=') != 2:
+                return False, (
+                    "expected both timestamp cells to render a stacked primary line, got %d"
+                    % table_slice.count('<span class="cell-primary" title='))
+            if table_slice.count('<span class="cell-secondary">') != 2:
+                return False, "expected both timestamp cells to render a stacked secondary line"
+            if '<span class="mono" title=' in table_slice:
+                return False, (
+                    "expected the one-line concise_timestamp_html() cell to be gone from the "
+                    "table — it is the 251px-of-ink form the overflow came from")
+            with open(os.path.join(HERE, "static", "style.css"), encoding="utf-8") as fh:
+                css = fh.read()
+            for selector in ("table.data-table--registry .cell-primary,",
+                             "table.data-table--registry .cell-secondary {",
+                             "table.data-table--registry .cell-inline-sep {"):
+                if selector not in css:
+                    return False, "expected style.css to carry %r" % (selector,)
+            # The no-crop floor is KEPT for this table — the fix is the
+            # cells' own shape, never releasing min-width: max-content
+            # (which .data-table--prose does, for a different table).
+            if ".data-table--registry {" in css:
+                return False, (
+                    "expected no bare .data-table--registry rule — this table keeps the base "
+                    "min-width: max-content no-crop floor, unlike .data-table--prose")
+            # Lever 1: the two shortened French headers, and the retired
+            # long forms gone from the catalogue entirely.
+            if i18n_fr_health.CATALOG.get("First seen") != "Première fois":
+                return False, (
+                    "expected the shortened French 'First seen' header, got %r"
+                    % (i18n_fr_health.CATALOG.get("First seen"),))
+            if i18n_fr_health.CATALOG.get("Last seen") != "Dernière fois":
+                return False, (
+                    "expected the shortened French 'Last seen' header, got %r"
+                    % (i18n_fr_health.CATALOG.get("Last seen"),))
+            for retired in ("Vu pour la première fois", "Vu pour la dernière fois"):
+                if retired in i18n_fr_health.CATALOG.values():
+                    return False, "expected the retired long French header %r to be gone" % (retired,)
+            # The English sources are untouched: English measured 830/830
+            # after lever 2 alone, so there was nothing to reword.
+            if health_page._REGISTRY_HEADERS[2:4] != ("First seen", "Last seen"):
+                return False, (
+                    "expected the English header sources to be unchanged, got %r"
+                    % (health_page._REGISTRY_HEADERS,))
+            # Lever 3 was not needed: the card fallback keeps its own
+            # existing breakpoint and no 1100px rule was introduced.
+            if "1100px" in css:
+                return False, (
+                    "expected no 1100px card-fallback breakpoint — measurement showed levers 1 "
+                    "and 2 fit the table in both languages, so lever 3 was not applied")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the unresolved-prefix table fits by the two levers headless measurement selected — the "
+        "Flights stacked-cell precedent scoped to its own data-table--registry modifier (the base "
+        "no-crop floor kept), plus two shortened French headers with the retired long forms gone "
+        "and the English sources untouched — and never by a 1100px card fallback (B12, "
+        "22-12-PLAN.md Task 2)",
+        _registry_table_fits_by_stacked_cells_and_short_french_headers)
 
     def _no_chrome_with_no_data_and_no_cross_page_leak():
         # quick task 260903-ghy Task 2, Check D: the standing no-chrome-
