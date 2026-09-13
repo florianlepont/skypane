@@ -825,7 +825,18 @@ EXPECTED_CHECK_COUNT = 279
 # freshness.js compares the image's own src, and never server-rendered.
 # 279 + 4 = 283, recomputed directly against the real on-disk check(...)
 # call count at execution time, not trusted from arithmetic alone.
-EXPECTED_CHECK_COUNT = 283
+#
+# 23-07-PLAN.md Task 1 (D2/CFG-36): +2. One pins the Frame strip's two
+# SERVER-rendered role=switch controls — aria-checked from the saved
+# value in both directions, named by the setting rather than by the
+# action, over the unchanged form/state/return_to/data-quick-switch the
+# server already acts on, with the retired action wording gone and one
+# pending-marker region per switch. One pins the failure announcement:
+# the app's own generic flash sentence, translated on <body> in both
+# languages, carrying no status code/URL/server internal, and exactly
+# one EMPTY assertive live region in the shell. 283 + 2 = 285,
+# recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 285
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -12789,6 +12800,180 @@ def main():
         "companion/static/style.css's own dot--* class-name occurrence count is unchanged by this "
         "plan (9 before, 9 after) — this plan adds no dot class",
         _health_render_no_new_dot_class_count_unchanged)
+
+    # --- 23-07-PLAN.md Task 1 (D2/CFG-36): the Frame strip's two
+    # switches become real role="switch" controls, SERVER-rendered from
+    # the saved value. The role is not a promise the script keeps — it
+    # is a description of what the button does with scripts blocked too,
+    # which is the whole reason the accessible state can be asserted
+    # here, in a harness that runs no JavaScript at all.
+
+    def _the_strip_renders_two_server_rendered_switches():
+        now_iso = "2026-08-27T10:00:00+00:00"
+        checkin_iso = "2026-08-27T09:55:00+00:00"
+        # BOTH states, never one: an aria-checked hard-coded to "true"
+        # satisfies a single-state assertion perfectly, and is exactly
+        # the switch that lies.
+        for display_on, quiet_on in ((True, False), (False, True)):
+            device_cfg = {
+                "display_enabled": display_on, "quiet_hours_enabled": quiet_on,
+                "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+                "wake_interval_s": 900,
+            }
+            rendered = layout.frame_strip_html(
+                _frame_strip_ctx(checkin_iso, device_cfg, now_iso),
+                return_to=layout.HOME_ROUTE)
+            if rendered.count('role="switch"') != 2:
+                return False, (
+                    "expected exactly two role=switch controls in the strip, got %d — one "
+                    "control per setting is X1/D-04 and a switch beside a surviving button is "
+                    "the defect that decision exists to prevent"
+                    % rendered.count('role="switch"'))
+            for label_id, state_id, is_on, action in (
+                    (layout.QUICK_SWITCH_SCREEN_LABEL_ID, layout.QUICK_SWITCH_SCREEN_STATE_ID,
+                     display_on, "/quick/display"),
+                    (layout.QUICK_SWITCH_QUIET_LABEL_ID, layout.QUICK_SWITCH_QUIET_STATE_ID,
+                     quiet_on, "/quick/quiet-hours")):
+                expected = (
+                    '<button type="submit" class="switch" role="switch" aria-checked="%s"'
+                    ' aria-labelledby="%s" aria-describedby="%s" %s>'
+                    % ("true" if is_on else "false", label_id, state_id,
+                       layout.QUICK_SWITCH_CONTROL_ATTR))
+                if expected not in rendered:
+                    return False, (
+                        "%s: expected the server to render %r — the accessible STATE comes from "
+                        "the saved value, and the accessible NAME from the setting rather than "
+                        "the action (a French action reads 'Éteindre', which cannot double as a "
+                        "state)" % (action, expected))
+                if ('id="%s"' % label_id) not in rendered:
+                    return False, (
+                        "%s: aria-labelledby points at %r but nothing on the page carries that "
+                        "id — a dangling reference is an unnamed control, and no browser reports "
+                        "it" % (action, label_id))
+                if ('id="%s"' % state_id) not in rendered:
+                    return False, (
+                        "%s: aria-describedby points at %r but nothing carries that id"
+                        % (action, state_id))
+            # The no-JS floor is STRUCTURAL: the switch IS the form that
+            # already ships. Every one of these is what the server acts
+            # on when the script is not there.
+            for token in ('<form method="post" action="/quick/display"',
+                          '<form method="post" action="/quick/quiet-hours"',
+                          "data-quick-switch",
+                          '<input type="hidden" name="state"',
+                          '<input type="hidden" name="return_to" value="/"'):
+                if token not in rendered:
+                    return False, (
+                        "expected %r to survive the conversion — the script upgrades a control "
+                        "that already works, it never replaces one" % token)
+            # The next-state the form posts must be the OPPOSITE of the
+            # rendered state, or pressing the switch with scripts blocked
+            # re-asserts the state it is already in.
+            display_form = rendered[rendered.index('action="/quick/display"'):]
+            display_form = display_form[:display_form.index("</form>")]
+            wanted = layout.QUICK_STATE_OFF if display_on else layout.QUICK_STATE_ON
+            if ('name="state" value="%s"' % wanted) not in display_form:
+                return False, (
+                    "the Screen form posts the wrong next state for display_enabled=%r — "
+                    "expected %r" % (display_on, wanted))
+            # The retired ACTION wording must be gone from the markup.
+            # It is the string the accessible name would otherwise have
+            # been, and leaving it beside a role=switch is two claims
+            # about one control.
+            for retired in (layout.QUICK_ACTION_SWITCH_ON_BUTTON,
+                            layout.QUICK_ACTION_SWITCH_OFF_BUTTON,
+                            layout.QUICK_ACTION_QUIET_TURN_ON_BUTTON,
+                            layout.QUICK_ACTION_QUIET_TURN_OFF_BUTTON):
+                if (">%s<" % retired) in rendered:
+                    return False, (
+                        "the action wording %r is still rendered as the switch's own text — a "
+                        "role=switch names the SETTING and states itself with aria-checked; an "
+                        "action label beside it is the second, contradicting claim" % retired)
+            # The visible state survives as BOTH wordings, one hidden,
+            # so the script never has to carry a word of user-facing
+            # copy and the rollback is a pure attribute flip.
+            if rendered.count(layout.QUICK_STATE_ON_ATTR) != 2:
+                return False, (
+                    "expected one %s span per switch, got %d"
+                    % (layout.QUICK_STATE_ON_ATTR, rendered.count(layout.QUICK_STATE_ON_ATTR)))
+            if rendered.count(layout.QUICK_STATE_OFF_ATTR) != 2:
+                return False, (
+                    "expected one %s span per switch, got %d"
+                    % (layout.QUICK_STATE_OFF_ATTR, rendered.count(layout.QUICK_STATE_OFF_ATTR)))
+            if rendered.count(" hidden>") != 2:
+                return False, (
+                    "expected exactly one of each switch's two state wordings to be hidden, "
+                    "got %d hidden spans" % rendered.count(" hidden>"))
+            # The pending marker's own host. freshness.js skips a region
+            # carrying it OR containing it; this is the region.
+            if rendered.count(layout.QUICK_SWITCH_REGION_ATTR) != 2:
+                return False, (
+                    "expected one %s region per switch — the element the script marks pending "
+                    "and plan 23-06's swap already skips, got %d"
+                    % (layout.QUICK_SWITCH_REGION_ATTR,
+                       rendered.count(layout.QUICK_SWITCH_REGION_ATTR)))
+        return True, ""
+    check(
+        "layout.frame_strip_html() renders exactly two role=switch controls whose aria-checked is "
+        "the SAVED value in both directions, named by the setting through aria-labelledby and "
+        "described by the state span, over the unchanged <form>/state/return_to/data-quick-switch "
+        "the server already acts on — with the retired action wording gone, both state wordings "
+        "present with exactly one hidden, and one pending-marker region per switch (D2/CFG-36, "
+        "X1/D-04, 23-07-PLAN.md Task 1)",
+        _the_strip_renders_two_server_rendered_switches)
+
+    def _the_failure_toast_is_transient_translated_and_carries_no_internal():
+        try:
+            return _failure_toast_body()
+        finally:
+            prefs.set_request_prefs(lang="en")
+
+    def _failure_toast_body():
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            expected = layout.i18n.t(layout.QUICK_SWITCH_FAILED_TEXT)
+            doc = layout.page_shell(title="T", active="home", body="<p>b</p>", lang=lang)
+            body_tag = doc[doc.index("<body"):doc.index(">", doc.index("<body")) + 1]
+            marker = '%s="%s"' % (layout.QUICK_SWITCH_FAILED_ATTR, layout.escape_html(expected))
+            if marker not in body_tag:
+                return False, (
+                    "lang=%s: expected the translated failure copy on the rendered <body> tag "
+                    "(%r), got %r" % (lang, marker, body_tag))
+            if lang == "fr" and expected == layout.QUICK_SWITCH_FAILED_TEXT:
+                return False, (
+                    "the failure copy is untranslated — it reads %r in both languages"
+                    % (expected,))
+            # V7: an error message is an information-disclosure surface.
+            # The copy is the app's own existing generic flash sentence
+            # and must never acquire a status code, a URL or a route.
+            for internal in ("500", "http", "/quick/", "Traceback", "Error:"):
+                if internal in expected:
+                    return False, (
+                        "lang=%s: the failure copy carries %r — a user-facing failure message "
+                        "names no status code, no URL and no server internal (V7, T-23-27)"
+                        % (lang, internal))
+            # A transient toast, never a permanent banner. The live
+            # region is rendered EMPTY and stays in the accessibility
+            # tree, because a region added to the tree at announce time
+            # is a region screen readers routinely miss.
+            toast = '<div class="quick-toast" %s role="alert"></div>' % layout.QUICK_TOAST_ATTR
+            if toast not in doc:
+                return False, (
+                    "lang=%s: expected exactly the empty assertive live region %r in the shell — "
+                    "D2 asks for a transient toast rather than the permanent banner this app "
+                    "uses for a flash" % (lang, toast))
+            if doc.count(layout.QUICK_TOAST_ATTR) != 1:
+                return False, (
+                    "lang=%s: expected exactly one toast region per document, got %d — a second "
+                    "one is a second place a failure could be announced"
+                    % (lang, doc.count(layout.QUICK_TOAST_ATTR)))
+        return True, ""
+    check(
+        "the optimistic switch's failure copy is the app's own generic flash sentence, translated "
+        "on <body> in both languages and carrying no status code, URL or server internal, and the "
+        "shell renders exactly one EMPTY assertive live region for it — a transient toast, never "
+        "a permanent banner (D2/CFG-36, V7/T-23-27, 23-07-PLAN.md Task 1)",
+        _the_failure_toast_is_transient_translated_and_carries_no_internal)
 
     # --- 23-05-PLAN.md Task 2 (D22's remainder, D14/CFG-34): the live
     # indicator tells the truth. Three checks: the dot's server-rendered

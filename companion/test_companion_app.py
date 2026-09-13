@@ -610,7 +610,24 @@ EXPECTED_CHECK_COUNT = 273
 # against the real on-disk check(...) call count at execution time
 # (279/281 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
-EXPECTED_CHECK_COUNT = 281
+# 23-07-PLAN.md Task 1 (D2/CFG-36): +7 — quick-switch.js, the fourteenth
+# deferred script, gains the five-check registration block every static
+# script here carries (public route, ES5/sink scan + the rollback's own
+# shape, route==src, exactly one tag and no bare inline script, and a
+# REAL GET of the served body); plus the cross-file pin that
+# quick-switch.js's PENDING_ATTR, freshness.js's PENDING_ATTR and
+# layout.REFRESH_PENDING_ATTR are one name (23-06's contract, asserted
+# from the setter's side too); plus the content-negotiation check (a
+# form post still gets today's 303-and-flash, a request carrying the
+# fetch header gets a 204 with an empty body and no Location, the write
+# happens either way, and a crafted state value is never a 204).
+# ONE pre-existing check was retargeted in place with no count
+# contribution: the deferred-script count, thirteen -> FOURTEEN, forced
+# by this plan's own registration. 281 + 7 = 288, recomputed directly
+# against the real on-disk check(...) call count at execution time (the
+# two documented WR-11 root-sandbox failures are unrelated to this
+# plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 288
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -4267,7 +4284,7 @@ def main():
             "=>/ let / const  (21-03-PLAN.md Task 2)",
             _real_get_flight_rows_route_serves_expected_body)
 
-        def _thirteen_deferred_scripts_before_closing_body():
+        def _fourteen_deferred_scripts_before_closing_body():
             # Retargeted in place from _ten_deferred_scripts_before_
             # closing_body() (21-03-PLAN.md Task 2, D-15/R-12):
             # flight-rows.js was the eleventh unconditional script.
@@ -4286,22 +4303,32 @@ def main():
             # reached by most callers through concise_timestamp_html()),
             # so no page module knows whether it has one and a per-page
             # include would have to enumerate a set the pages do not own.
+            # Retargeted a FOURTH time, in place, by 23-07-PLAN.md Task 1
+            # (D2/CFG-36): quick-switch.js is the fourteenth. It is
+            # served everywhere for the third distinct shape of the same
+            # reason — its listener is DELEGATED at document level over
+            # every [data-quick-switch] form in the app, and those forms
+            # live on three different pages (Home and Display carry the
+            # Frame strip's two; Device carries the LED switch's own
+            # sibling form), so a per-page include would enumerate a set
+            # that is already going to grow.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 13:
-                return False, "expected exactly 13 deferred <script src= tags before </body>, got %d" % count
+            if count != 14:
+                return False, "expected exactly 14 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
                     layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
                     layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC,
-                    layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC):
+                    layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
+                    layout.QUICK_SWITCH_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
-            # 22-13-PLAN.md Task 2 (X3): the app has FOURTEEN static
-            # scripts as of 23-05, but an authenticated page still loads
-            # exactly the thirteen above — login-card.js is emitted by
+            # 22-13-PLAN.md Task 2 (X3): the app has FIFTEEN static
+            # scripts as of 23-07, but an authenticated page still loads
+            # exactly the fourteen above — login-card.js is emitted by
             # login_shell() alone. Asserted here, in the check that
             # already owns this count, so "the authenticated page's
             # script count is unchanged" is pinned by the same machine
@@ -4316,25 +4343,27 @@ def main():
             # only, so the login form keeps exactly today's behaviour.
             login = layout.login_shell("<p>login</p>")
             for shell_only in (layout.SUBMIT_GUARD_SCRIPT_SRC,
-                               layout.RELATIVE_TIME_SCRIPT_SRC):
+                               layout.RELATIVE_TIME_SCRIPT_SRC,
+                               layout.QUICK_SWITCH_SCRIPT_SRC):
                 if shell_only in login:
                     return False, (
                         "%s is registered on the authenticated shell only — the login shell "
                         "keeps emitting exactly one deferred script (22-15-PLAN.md Task 3, "
-                        "23-05-PLAN.md Task 1)" % shell_only)
+                        "23-05-PLAN.md Task 1, 23-07-PLAN.md Task 1)" % shell_only)
             if login.count('<script src=') != 1:
                 return False, (
                     "expected the login shell to keep emitting exactly one deferred script, "
                     "got %d" % login.count('<script src='))
             return True, ""
         check(
-            "a rendered authenticated page contains exactly thirteen deferred <script src= tags "
+            "a rendered authenticated page contains exactly fourteen deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
             "poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js, "
-            "submit-guard.js and relative-time.js — and NOT login-card.js, which login_shell() "
-            "alone emits, nor submit-guard.js/relative-time.js on that login shell, which still "
-            "emits exactly one (retargeted in place by 23-05-PLAN.md Task 1)",
-            _thirteen_deferred_scripts_before_closing_body)
+            "submit-guard.js, relative-time.js and quick-switch.js — and NOT login-card.js, which "
+            "login_shell() alone emits, nor submit-guard.js/relative-time.js/quick-switch.js on "
+            "that login shell, which still emits exactly one (retargeted in place by "
+            "23-07-PLAN.md Task 1)",
+            _fourteen_deferred_scripts_before_closing_body)
 
         def _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard():
             # T14 (22-AUDIT.md, 22-15-PLAN.md Task 3). One shared guard
@@ -4721,6 +4750,170 @@ def main():
             "— never an age and never a warn/error/alert token — and the default rendering is "
             "byte-identical to the element 23-03 shipped (D14/CFG-34, 23-05-PLAN.md Task 1)",
             _relative_time_html_countdown_keyword_is_marked_and_neutral)
+
+        # --- 23-07-PLAN.md Task 1 (D2/CFG-36): quick-switch.js, the
+        # fourteenth deferred script on this shell and the fifteenth
+        # static script in the tree. The same registration block
+        # relative-time.js already carries, plus the two pins that make
+        # this file's contract with the SERVER and with plan 23-06's
+        # refresh loop machine-checked rather than promised.
+
+        check(
+            "GET /static/quick-switch.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/quick-switch.js"))
+
+        def _quick_switch_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "quick-switch.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            # fetch( is NOT banned here — it is this file's whole point,
+            # and the third reviewed exception in the tree after
+            # freshness.js's loop and relative-time.js's timer. Every
+            # other sink stays banned exactly as it is everywhere else.
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(",
+                "XMLHttpRequest", "setInterval", "location.href", "location.assign",
+                "location.replace")
+            for token in banned:
+                if token in src:
+                    return False, "quick-switch.js must not contain %r" % token
+            required = (
+                "aria-checked", "preventDefault", "stopPropagation", "textContent",
+                "credentials", "same-origin", "redirect", "manual",
+                "X-Requested-With", "encodeURIComponent")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in quick-switch.js" % token
+            # THE ROLLBACK, pinned by shape rather than by hope.
+            # 23-RESEARCH.md's Pitfall 5 names a .then() with no .catch()
+            # as the warning sign, and `catch` is a reserved word in ES3,
+            # so the bracket form is the one that is safe to ship.
+            if '["catch"]' not in src:
+                return False, (
+                    "quick-switch.js must reach its network-failure branch through the bracket "
+                    "form promise[\"catch\"](...) — a .then() with no catch at all is "
+                    "23-RESEARCH.md's Pitfall 5 by shape, and the dotted form is a reserved "
+                    "word in ES3")
+            # Two terminal branches, two rollbacks. A file that restores
+            # the previous state in the network branch only still lies
+            # on every 500 the server returns.
+            if src.count("rollBack(") < 3:
+                return False, (
+                    "expected quick-switch.js to define one rollback and CALL it from BOTH "
+                    "terminal branches (a non-OK/opaque-redirect response AND a network "
+                    "failure), found %d references to rollBack( in total — a rollback wired to "
+                    "only one of the two is the optimistic switch that lies"
+                    % src.count("rollBack("))
+            return True, ""
+        check(
+            "quick-switch.js stays ES5-safe and sink-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/XHR/setInterval and no "
+            "URL-taking navigation), carries the optimistic-switch contract (aria-checked, "
+            "preventDefault, stopPropagation, textContent, credentials same-origin, "
+            "redirect manual, X-Requested-With, encodeURIComponent) and reaches its rollback "
+            "from BOTH terminal branches through the ES3-safe bracket form (D2/CFG-36, "
+            "23-07-PLAN.md Task 1)",
+            _quick_switch_script_es5_safe_and_no_html_write)
+
+        def _quick_switch_script_route_src_agree():
+            import companion.app as app_module
+            if layout.QUICK_SWITCH_SCRIPT_SRC != app_module.QUICK_SWITCH_SCRIPT_ROUTE:
+                return False, "quick-switch script route drift: %r vs %r" % (
+                    layout.QUICK_SWITCH_SCRIPT_SRC, app_module.QUICK_SWITCH_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.QUICK_SWITCH_SCRIPT_SRC equals companion.app.QUICK_SWITCH_SCRIPT_ROUTE",
+            _quick_switch_script_route_src_agree)
+
+        def _quick_switch_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.QUICK_SWITCH_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one quick-switch.js <script> tag "
+            "and no inline <script> without a src (D-32)",
+            _quick_switch_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _real_get_quick_switch_route_serves_the_optimistic_switch():
+            # Served over real HTTP, because a registration whose route
+            # 404s is a control that renders and does nothing — the exact
+            # defect Phase 22 found on the login page — and the
+            # deferred-script count check above would still pass.
+            status, headers, body = http_request(base + "/static/quick-switch.js")
+            if status != 200:
+                return False, "expected 200 from GET /static/quick-switch.js, got %d" % status
+            text = body.decode("utf-8")
+            for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
+                           "=>", " let ", " const ", "`"):
+                if banned in text:
+                    return False, "did not expect %r in the served quick-switch.js body" % banned
+            if '"%s"' % layout.REFRESH_PENDING_ATTR not in text:
+                return False, (
+                    "expected the served body to name layout.REFRESH_PENDING_ATTR (%r) — the "
+                    "marker plan 23-06's swap already skips, and the ONE thing this file has to "
+                    "set for the D1-races-D2 rule to hold"
+                    % layout.REFRESH_PENDING_ATTR)
+            if '"%s"' % layout.QUICK_SWITCH_FAILED_ATTR not in text:
+                return False, (
+                    "expected the served body to read the translated failure copy off <body> "
+                    "(%r) rather than carrying a user-facing sentence of its own"
+                    % layout.QUICK_SWITCH_FAILED_ATTR)
+            return True, ""
+        check(
+            "a real GET of /static/quick-switch.js returns 200 with the served optimistic-switch "
+            "body — layout.REFRESH_PENDING_ATTR and layout.QUICK_SWITCH_FAILED_ATTR both named, "
+            "and none of innerHTML/document.write/=>/ let / const  (23-07-PLAN.md Task 1)",
+            _real_get_quick_switch_route_serves_the_optimistic_switch)
+
+        def _quick_switch_pending_marker_is_layouts_own_name():
+            # 23-06-SUMMARY.md's one-line contract: "set
+            # layout.REFRESH_PENDING_ATTR on the region (or anything
+            # inside it) and nothing else". A rename on one side alone is
+            # a skip that silently never fires and an optimistic control
+            # that bounces back under the user's finger — with no error
+            # anywhere. Pinned from THIS side too, which is what makes
+            # the two plans' agreement machine-checked rather than
+            # documented twice.
+            js_path = os.path.join(HERE, "static", "quick-switch.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            match = re.search(r'var PENDING_ATTR = "([^"]+)";', src)
+            if not match:
+                return False, (
+                    "expected quick-switch.js to declare `var PENDING_ATTR = \"...\";` — the "
+                    "same shape freshness.js's own constant is pinned by")
+            if match.group(1) != layout.REFRESH_PENDING_ATTR:
+                return False, (
+                    "quick-switch.js's PENDING_ATTR is %r but layout.REFRESH_PENDING_ATTR is %r "
+                    "— the setter and the skip must name the same attribute"
+                    % (match.group(1), layout.REFRESH_PENDING_ATTR))
+            fresh_path = os.path.join(HERE, "static", "freshness.js")
+            with open(fresh_path) as fh:
+                fresh = fh.read()
+            if ('var PENDING_ATTR = "%s";' % layout.REFRESH_PENDING_ATTR) not in fresh:
+                return False, (
+                    "freshness.js no longer names %r as its own PENDING_ATTR — the skip this "
+                    "file sets its marker for is gone or renamed"
+                    % layout.REFRESH_PENDING_ATTR)
+            return True, ""
+        check(
+            "quick-switch.js's PENDING_ATTR, freshness.js's PENDING_ATTR and "
+            "layout.REFRESH_PENDING_ATTR are the same attribute name — the setter, the skip and "
+            "the Python that defines it, pinned in one place so a rename on any one side fails "
+            "rather than silently disabling the D1-races-D2 rule (T-23-26, 23-07-PLAN.md Task 1)",
+            _quick_switch_pending_marker_is_layouts_own_name)
+
 
         # --- 23-01-PLAN.md Task 2 (D3/CFG-32): the motion budget, made
         # executable. A budget that is only a document is a budget a
@@ -5649,6 +5842,70 @@ def main():
             "hostile value (https://evil.example/, //evil.example, /flights) or an absent field, and "
             "the invalid-state early return honours return_to too (D-01/R-02)",
             _make_quick_toggle_return_to_check(app_module.QUICK_QUIET_HOURS_ROUTE, app_module.FLASH_KEY_QUIET_ON))
+
+        def _quick_routes_answer_204_for_a_fetch_and_303_for_a_form():
+            # D2's "JSON/204" clause, honoured as 204 because there is
+            # nothing to send. CONTENT-NEGOTIATED on the request's own
+            # header, so the no-JS redirect is byte-identical to today's
+            # — a browser form post never sends X-Requested-With, so the
+            # floor cannot be taken away by this branch existing.
+            for route, state, field, expected_value, flash_key in (
+                    (app_module.QUICK_DISPLAY_ROUTE, "off", "display_enabled", False,
+                     app_module.FLASH_KEY_DISPLAY_OFF),
+                    (app_module.QUICK_QUIET_HOURS_ROUTE, "on", "quiet_hours_enabled", True,
+                     app_module.FLASH_KEY_QUIET_ON)):
+                # 1. the form shape, unchanged
+                status, headers, body = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": state, "return_to": "/"}).encode())
+                if status != 303 or headers.get("Location") != "/?flash=%s" % flash_key:
+                    return False, (
+                        "%s: a form POST must still answer 303 to /?flash=%s, got %d/%r"
+                        % (route, flash_key, status, headers.get("Location")))
+                if device_config.load_device_config(harness.tmpdir)[field] is not expected_value:
+                    return False, "%s: expected %s %r on disk after the form post" % (
+                        route, field, expected_value)
+                # 2. the fetch shape: 204, empty body, NO Location
+                status, headers, body = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode(
+                        {"state": "on" if state == "off" else "off", "return_to": "/"}).encode(),
+                    extra_headers={
+                        app_module.QUICK_FETCH_HEADER: app_module.QUICK_FETCH_HEADER_VALUE})
+                if status != 204:
+                    return False, (
+                        "%s: a POST identifying itself as a fetch must answer 204, got %d"
+                        % (route, status))
+                if body:
+                    return False, "%s: expected an empty 204 body, got %r" % (route, body[:120])
+                if headers.get("Location"):
+                    return False, (
+                        "%s: a 204 must carry no Location — fetch() follows a same-origin "
+                        "redirect silently by default, and a redirect read as success is the "
+                        "expired-session hole freshness.js already documents" % route)
+                if device_config.load_device_config(harness.tmpdir)[field] is expected_value:
+                    return False, (
+                        "%s: the 204 branch must still SAVE — content negotiation picks the "
+                        "response shape, never whether the write happens" % route)
+                # 3. an invalid state under the fetch header is still a
+                # failure the client can SEE. It must not be a 204.
+                status, headers, _ = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": "toggle", "return_to": "/"}).encode(),
+                    extra_headers={
+                        app_module.QUICK_FETCH_HEADER: app_module.QUICK_FETCH_HEADER_VALUE})
+                if status == 204:
+                    return False, (
+                        "%s: a crafted state value must never answer 204 — the client reads 204 "
+                        "as confirmation and would leave the switch showing a state the frame is "
+                        "not in" % route)
+            return True, ""
+        check(
+            "POST /quick/display and POST /quick/quiet-hours answer a form post with exactly "
+            "today's 303-and-flash and a request carrying the fetch header with a 204, empty "
+            "body and no Location — the same write either way, and a crafted state value is "
+            "never a 204 (D2/CFG-36, T-23-26, 23-07-PLAN.md Task 1)",
+            _quick_routes_answer_204_for_a_fetch_and_303_for_a_form)
 
         check(
             "unauthenticated POST /quick/display redirects to /login without page content",
