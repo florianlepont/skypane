@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 22-16-PLAN.md — Phase 22 closed (16/16 plans); design system updated in step, CFG-25..CFG-31 all complete
-last_updated: "2026-09-13T15:04:21.048Z"
+status: executing
+stopped_at: Completed 23-02-PLAN.md (wave 1) — browser-harness helpers landed, 26/26, zero net checks
+last_updated: "2026-09-13T15:28:59.718Z"
 last_activity: 2026-09-13
 progress:
   total_phases: 38
   completed_phases: 32
   total_plans: 214
-  completed_plans: 203
+  completed_plans: 204
   percent: 84
 ---
 
@@ -32,7 +32,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Phase complete — ready for verification
+status: Ready to execute
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -57,7 +57,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 23 (companion-dynamism-live-updates-real-switches-motion-budge) — IN PROGRESS (1/11 plans)
-Plan: 1 of 11
+Plan: 2 of 11
 
 **23-01 executed (2026-09-13), wave 1 — the motion-budget foundation the rest of Phase 23 spends from.** Task 1 added exactly two mode-independent duration tokens to `:root` beside the radii — `--motion-fast: 180ms` (REACTION: a state change the user caused and is watching for confirmation of — 23-08's detail row and chevron, 23-09's save bar, 23-10's selection/crossfade/dialog entrances, and 23-06's self-refresh fades) and `--motion-slow: 2s` (AMBIENT: the one loop nobody is waiting on — 23-05's breathing dot) — plus `@keyframes skypane-pulse`, the app's first and only keyframes, cycling opacity 1 → 0.35 → 1 and nothing else, shared by D14's breathing dot and D22's pulse so two near-identical blocks never appear. The order-of-magnitude gap between the tokens is deliberate: the two are CATEGORIES ("is anyone waiting on this?"), not two speeds, because a refresh fade and a status-dot cycle want durations three seconds apart. A stylesheet-resident NOTE (not a rule) beside the global reduce block records the one gap `*, *::before, *::after` genuinely cannot reach — it matches ELEMENTS, and the `::view-transition` pseudo-element tree is not one — and names 23-04 as the plan that closes it with a `no-preference` wrapper rather than by zeroing the pseudo-elements' duration. 92 insertions, 0 deletions, proving the global block and `.js .mobile-nav`'s override byte-identical mechanically. Task 2 made the budget executable: one comment-stripped source scan in `test_companion_app.py` asserting every keyframes name defined once, every animation reference resolving, every animation duration coming from `var(--motion-*)`, the two reduced-motion block counts equalling named constants (`EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2`, frozen for the phase; `EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 0`, which 23-04 alone raises to 1), and `interpolate-size`/`calc-size(` absent. Comments are stripped FIRST because this stylesheet's comments quote every token the scan counts. The `@media (prefers-reduced-motion: …)` blocks are brace-matched out before the token rule runs, since their `0.01ms !important` is a bare literal ON PURPOSE — it cancels motion. Five mutations each produced exactly one additional failure naming the defect (duplicate keyframes, bare 400ms, third reduce block, `interpolate-size`, dangling reference); `@keyframes fake-name` inside a comment produced none. `EXPECTED_CHECK_COUNT` 272 → 273, re-derived by running. Two prose traps designed around rather than discovered: the gap note avoids the literals `@view-transition` and `view-transition-name` because 23-04's own criteria grep the RAW file for both and expect 1 and 3, and the keyframes comment avoids `@keyframes` because this task's own criterion expects 1.
 
@@ -385,6 +385,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 22 P15 | 95min | 3 tasks | 11 files |
 | Phase 22 P16 | 35m | 4 tasks | 11 files |
 | Phase 23 P01 | 50min | 2 tasks | 2 files |
+| Phase 23 P02 | ~55min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -705,6 +706,7 @@ Recent decisions affecting current work:
 - [Phase 23]: 23-01: --motion-fast (180ms) and --motion-slow (2s) are two CATEGORIES, not two speeds — reaction (someone is waiting on it) versus ambient (nobody is) — A refresh fade and a status-dot cycle want durations three seconds apart. Filing 23-06's self-refresh fades as REACTION is what lets --motion-slow stay long enough that the live dot breathes instead of strobing.
 - [Phase 23]: 23-01: the motion guard's token rule brace-matches every @media (prefers-reduced-motion: ...) block OUT of the source it scans — Their animation-duration: 0.01ms !important is a bare literal on purpose — it exists to CANCEL motion, so binding it to a motion token would invert its purpose. Their counts are asserted separately, before the removal.
 - [Phase 23]: 23-01: the interpolate-size / calc-size() ban is measured on COMMENT-STRIPPED source, not raw — The plan's own final behaviour says comment text must not satisfy OR BREAK any check, so a later plan may document why the primitives are banned without failing the ban. The mutation that proves the check adds a real declaration.
+- [Phase 23]: 23-02: companion/test_browser_ux.py gets one no-JS helper (java_script_enabled=False now appears exactly once), one named viewport set including the 360px contract floor, and a disclosure sweep that runs under reduced motion — Zero net checks (26 -> 26, re-derived by running). The sweep sets details.open = true and measures in the same task, which is correct only while nothing animates; 23-08 and 23-10 animate disclosures on purpose. Reduced motion makes final geometry the immediate geometry through the app's own 0.01ms override rather than through a wait. 260913-eab's own mutation still caught, at the same numbers: .data-table-wrap 278px box against 369px content at 360px/en.
 
 ### Pending Todos
 
@@ -806,8 +808,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T15:03:51.101Z
-Stopped at: Completed 22-16-PLAN.md — Phase 22 closed (16/16 plans); design system updated in step, CFG-25..CFG-31 all complete
+Last session: 2026-09-13T15:28:59.670Z
+Stopped at: Completed 23-02-PLAN.md (wave 1) — browser-harness helpers landed, 26/26, zero net checks
 
 Resume file: 
 

@@ -1066,7 +1066,7 @@ Plans:
 **Goal:** Make the existing pages feel alive without adding a single new component. D3 (a motion budget honoured under `prefers-reduced-motion`, **minus its overlay-drawer clause — struck, see below**), D10 (native multi-page View Transitions), D14 (one script ticking every `<time data-relative>`), D1 (Home and the Frame strip refreshing themselves), D22 (an honest live/paused/reconnecting indicator), D2 (real `role="switch"` controls over `fetch`, optimistic, rolling back on error, no-JS forms intact) and D7 (the live flights list). Framework-free, build-free, dependency-free, no-JS floor intact.
 **Requirements**: CFG-32 (D3 motion budget), CFG-33 (D10 view transitions), CFG-34 (D14 live counters + D22's remainder), CFG-35 (D1 self-refreshing Home and Frame strip), CFG-36 (D2 real switches), CFG-37 (D7 live flights list), CFG-38 (the phase's regression floor: the no-JS floor, the harness helpers and the design system updated in step)
 **Depends on:** Phase 22
-**Plans:** 1/11 plans executed
+**Plans:** 2/11 plans executed
 
 Three decisions taken before planning, on 23-RESEARCH.md's evidence (developer, 2026-09-13):
 
@@ -1078,7 +1078,7 @@ Three decisions taken before planning, on 23-RESEARCH.md's evidence (developer, 
 
 Plans:
 - [x] 23-01-PLAN.md — wave 1: the motion vocabulary (two duration tokens, the app's first `@keyframes`) and the executable guard every later plan is measured against
-- [ ] 23-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — one no-JS helper, a 360 px viewport constant, and the disclosure sweep made motion-proof (zero net checks)
+- [x] 23-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — one no-JS helper, a 360 px viewport constant, and the disclosure sweep made motion-proof (zero net checks)
 - [ ] 23-03-PLAN.md — wave 1: the `<time data-relative>` server convention and the future form, wrapping the one existing ladder rather than copying it
 - [ ] 23-04-PLAN.md — wave 2: D10 native cross-document view transitions, media-wrapped for reduced motion, with per-route name-uniqueness proven in a browser
 - [ ] 23-05-PLAN.md — wave 3: the thirteenth script — the one-second ticker — plus the breathing dot and D22's remaining 20%
