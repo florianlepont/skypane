@@ -5935,6 +5935,206 @@ def main():
             "waking the save bar silently loses the user's edit (CFG-46, 25-01-PLAN.md Task 1)",
             _value_controls_wakes_the_save_bar_through_dirty_states_own_listener)
 
+        # --- 25-01-PLAN.md Task 2 (CFG-46): the .js gate and the shared
+        # control vocabulary, asserted at the RULE level. Every check
+        # below reads COMMENT-STRIPPED source, because this stylesheet's
+        # comments quote the very selectors and values being measured —
+        # a raw scan would be satisfied, or broken, by a paragraph of
+        # prose. 25-02's helpers re-assert the gate's effect in a real
+        # browser once a control exists to point them at.
+
+        def _stripped_style_css():
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                return re.sub(r"/\*.*?\*/", " ", fh.read(), flags=re.DOTALL)
+
+        def _css_rule_body(css, selector):
+            """The declaration block for an EXACT selector, or None.
+
+            Boundary-guarded on both sides: `.drawing-axis` is a
+            substring of `.drawing-axis-label`, and the same trap is
+            live here — `.value-control` is a substring of
+            `.value-control__track`. The selector must be followed by
+            optional whitespace and then the opening brace, and preceded
+            by something that is not a class/identifier character.
+            """
+            match = re.search(
+                r"(?<![-\w.#:])" + re.escape(selector) + r"\s*\{([^}]*)\}", css)
+            return match.group(1) if match else None
+
+        def _css_declaration(body, prop):
+            if body is None:
+                return None
+            match = re.search(
+                r"(?<![-\w])" + re.escape(prop) + r"\s*:\s*([^;]+);", body)
+            return match.group(1).strip() if match else None
+
+        def _js_gate_hides_by_default_and_reveals_under_js():
+            # D-09'S DIRECTION, MADE A PROPERTY OF THE STYLESHEET. An
+            # affordance that cannot work without script must not render
+            # without script — and the gate has to run in THIS
+            # direction. The reverse (render by default, hide under
+            # `.js`) flashes a dead control on every single load and,
+            # worse, leaves it showing permanently whenever a script
+            # fails to run at all. `display: none` specifically, not
+            # visibility or opacity: those two leave a focusable ghost a
+            # keyboard user can tab into with scripts blocked.
+            css = _stripped_style_css()
+            base = _css_rule_body(css, ".js-gate")
+            if base is None:
+                return False, (
+                    "expected a bare `.js-gate` rule in companion/static/style.css — the "
+                    "hide-by-default half of the gate")
+            display = _css_declaration(base, "display")
+            if display != "none":
+                return False, (
+                    "the default `.js-gate` rule declares display: %r — it must be `none`, so "
+                    "the gated content is out of the LAYOUT and out of the TAB ORDER with "
+                    "scripts blocked. visibility/opacity leave a focusable ghost."
+                    % (display,))
+            revealed = _css_rule_body(css, ".js .js-gate")
+            if revealed is None:
+                return False, (
+                    "expected a `.js .js-gate` rule — without it the gate is a permanent hide "
+                    "rather than a gate")
+            revealed_display = _css_declaration(revealed, "display")
+            if revealed_display is None or revealed_display == "none":
+                return False, (
+                    "the `.js .js-gate` rule declares display: %r — the reveal half must set a "
+                    "rendering display value" % (revealed_display,))
+            # THE REVERSE DIRECTION, CAUGHT EXPLICITLY. A later plan
+            # writing `.js .something-gate { display: none; }` would be
+            # re-introducing the flash this class exists to remove, and
+            # every other check here would still pass.
+            for match in re.finditer(r"\.js\s+([-\w.]*gate[-\w.]*)\s*\{([^}]*)\}", css):
+                if _css_declaration(match.group(2), "display") == "none":
+                    return False, (
+                        "`.js %s` hides its gated content under the `.js` class — the gate runs "
+                        "the other way round: hidden by default, revealed under `.js`, because "
+                        "the reverse flashes a dead control on every load and shows it "
+                        "permanently when a script fails" % match.group(1))
+            return True, ""
+        check(
+            "companion/static/style.css's `.js` gate hides by default (`.js-gate { display: "
+            "none }` — out of the layout AND out of the tab order, never visibility or opacity) "
+            "and reveals under `.js`, and no gate rule anywhere runs the reverse direction, "
+            "which flashes a dead control on every load and shows it permanently when a script "
+            "fails (D-09/CFG-46, 25-01-PLAN.md Task 2)",
+            _js_gate_hides_by_default_and_reveals_under_js)
+
+        def _control_vocabulary_reuses_the_registered_hit_area_verbatim():
+            # references/control-density.md's RELOCATED touch-target
+            # category: a 22x22 visual box with a ::before at inset
+            # -11px synthesizing a real 44x44 pointer target. Two
+            # controls already carry those numbers (.copy-btn and
+            # .row-toggle, whose own comment says every value is
+            # .copy-btn's "reused verbatim rather than re-chosen"), and
+            # this phase's shared class is the third. The check is NOT
+            # "the file says 22px" — it is that the shared class's
+            # numbers EQUAL .copy-btn's own, and that the arithmetic
+            # they produce is exactly 44. A future density pass that
+            # shrinks .copy-btn and forgets this class fails here.
+            css = _stripped_style_css()
+            source_body = _css_rule_body(css, ".copy-btn")
+            shared_body = _css_rule_body(css, ".control-hit-area")
+            if source_body is None or shared_body is None:
+                return False, (
+                    "expected both a `.copy-btn` rule and a `.control-hit-area` rule in "
+                    "companion/static/style.css (found %r / %r)"
+                    % (source_body is not None, shared_body is not None))
+            for prop in ("width", "height", "border-radius", "padding", "position", "display"):
+                source_value = _css_declaration(source_body, prop)
+                shared_value = _css_declaration(shared_body, prop)
+                if source_value != shared_value:
+                    return False, (
+                        "`.control-hit-area` declares %s: %r but `.copy-btn` declares %r — the "
+                        "shared class reuses the registered values VERBATIM rather than "
+                        "re-choosing them" % (prop, shared_value, source_value))
+            source_before = _css_rule_body(css, ".copy-btn::before")
+            shared_before = _css_rule_body(css, ".control-hit-area::before")
+            if source_before is None or shared_before is None:
+                return False, (
+                    "expected both `.copy-btn::before` and `.control-hit-area::before` — the "
+                    "::before IS the relocated hit area; without it the control is a 22px "
+                    "target")
+            inset = _css_declaration(shared_before, "inset")
+            if inset != _css_declaration(source_before, "inset"):
+                return False, (
+                    "`.control-hit-area::before` declares inset: %r but `.copy-btn::before` "
+                    "declares %r" % (inset, _css_declaration(source_before, "inset")))
+            # The arithmetic, RECOMPUTED from the declared values rather
+            # than restated: box + |inset| on each side must land on 44.
+            box = _css_declaration(shared_body, "width")
+            box_px = float(re.sub(r"[^\d.]", "", box or "0"))
+            inset_px = abs(float(re.sub(r"[^-\d.]", "", inset or "0")))
+            if box_px + inset_px * 2 != 44.0:
+                return False, (
+                    "`.control-hit-area` synthesizes a %.1fpx hit area (%.1fpx box + %.1fpx on "
+                    "each side), not 44 — WCAG 2.5.5's AAA floor and the value the register's "
+                    "relocated category is defined by" % (box_px + inset_px * 2, box_px, inset_px))
+            # THE DRAG THAT SCROLLS THE PAGE INSTEAD. Without
+            # `touch-action: none` a pointerdown-and-drag on a touch
+            # device is claimed by the browser's own panning gesture, so
+            # value-controls.js's pointermove never fires and the
+            # control is simply immovable on a phone — with no error
+            # anywhere and every other check still green.
+            for selector in (".value-control", ".value-control__handle"):
+                body = _css_rule_body(css, selector)
+                if body is None:
+                    return False, "expected a `%s` rule in companion/static/style.css" % selector
+                if _css_declaration(body, "touch-action") != "none":
+                    return False, (
+                        "`%s` declares touch-action: %r — it must be `none`, or the browser's "
+                        "own panning gesture claims the drag and the control is immovable on "
+                        "every touch device" % (selector, _css_declaration(body, "touch-action")))
+            if _css_declaration(_css_rule_body(css, ".value-control"), "position") != "relative":
+                return False, (
+                    "`.value-control` must be `position: relative` — it is the positioning "
+                    "context an absolutely-placed handle is measured against")
+            # NO NEW COLOUR. Every declaration this task adds either
+            # names no colour at all or takes one from a token.
+            for selector in (".control-hit-area", ".control-hit-area::before", ".value-control",
+                             ".value-control__track", ".value-control__handle", ".js-gate",
+                             ".js .js-gate"):
+                body = _css_rule_body(css, selector) or ""
+                for literal in re.finditer(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", body):
+                    return False, (
+                        "`%s` introduces the colour literal %r — every colour in this file comes "
+                        "from a theme token or currentColor, or a control is correct in exactly "
+                        "one theme" % (selector, literal.group(0)))
+            return True, ""
+        check(
+            "the shared control vocabulary reuses references/control-density.md's RELOCATED "
+            "hit-area values VERBATIM from `.copy-btn` (every geometry declaration equal, the "
+            "same ::before inset, and 44px recomputed from the declared box plus inset rather "
+            "than restated), `.value-control`/`.value-control__handle` both carry `touch-action: "
+            "none` so a touch drag is not claimed by the browser's own panning gesture, and not "
+            "one added rule introduces a colour literal (CFG-46, 25-01-PLAN.md Task 2)",
+            _control_vocabulary_reuses_the_registered_hit_area_verbatim)
+
+        def _exactly_one_has_feature_query_block_survives():
+            # The file carries ONE `@supports selector(:has(*))` block
+            # and the comment above it says so. Measured on
+            # COMMENT-STRIPPED source and on the OPENING BRACE, because
+            # the raw grep the plan proposed returns five — four of them
+            # are the paragraphs that explain the rule, which is the
+            # substring trap in its other direction: prose satisfying a
+            # prose-blind scan.
+            css = _stripped_style_css()
+            blocks = re.findall(r"@supports\s+selector\(:has\(\*\)\)\s*\{", css)
+            if len(blocks) != 1:
+                return False, (
+                    "expected exactly ONE @supports selector(:has(*)) block in comment-stripped "
+                    "companion/static/style.css, found %d — a second feature query is a second "
+                    "place the no-:has() fallback story has to be reasoned about" % len(blocks))
+            return True, ""
+        check(
+            "companion/static/style.css still carries exactly ONE @supports selector(:has(*)) "
+            "block, counted on COMMENT-STRIPPED source and on the opening brace — the raw "
+            "five-line grep counts the four paragraphs that explain the rule (CFG-46, "
+            "25-01-PLAN.md Task 2)",
+            _exactly_one_has_feature_query_block_survives)
+
 
         # --- 23-01-PLAN.md Task 2 (D3/CFG-32): the motion budget, made
         # executable. A budget that is only a document is a budget a
