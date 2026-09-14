@@ -67,6 +67,281 @@ One further site is **not** a visible age and is listed only so the count reconc
 
 **The detail row's own no-JS floor.** The `<tr class="flight-detail-row">` server-renders with no `hidden` attribute and no inline style — fully visible by default. A new script, `companion/static/flight-rows.js` (ES5, registered through the same six-touch-point static-script contract `theme-preview.js` already established), adds a `flight-detail-row--collapsed` class to every detail row at load and toggles it on click of the row's own `[data-row-toggle]` button (which also flips `aria-expanded` and swaps its own text between `data-more-text`/`data-less-text`). This is the same per-script class-at-load pattern `theme-preview.js`'s own usage-panel collapse uses (see `references/control-density.md`), not a page-wide `.js` class — chosen specifically so a page where only this one script is blocked by a stricter CSP still shows every detail row, rather than a page-wide gate silently hiding data no script actually collapsed.
 
+### The drawing contract (new, Phase 24, D21/D8/D13/D20/D4, CFG-39..CFG-45)
+
+Phase 24 gave this app its first **shared drawing module**, and this entry is that
+module's contract — a fourth standing contract beside the motion budget, the
+colour-separation contract and the spacing tokens. Every value below was read live
+out of `companion/draw.py`, `companion/battery.py` and `companion/static/style.css`
+at the phase's close, not recalled from a plan.
+
+**One geometry vocabulary: `companion/draw.py`.** Stdlib-only, imports nothing from
+`companion/pages/` and nothing from `server/` (both pinned by an **AST** scan, not a
+token scan — an AST carries no comment and no docstring by construction, which is a
+stronger statement of the comment-strip claim than stripping them). It exposes the
+scales (`percent_x`, `percent_y`, `percent_time`), the canvases (`percent_canvas`,
+`unit_canvas`, `label_grid`), the shape emitters (`rect`, `line`, `circle`, `path`,
+`title`, `label_span`), the four composed drawings (`ring_gauge`, `day_band`,
+`regularity_grid`, plus `unit_circle_dash_array`/`unit_point_on_circle` beneath the
+first), the filters (`usable_pairs`, `is_number`) and the two class mappings
+(`status_class`, `cell_class`). It does **not** import `companion/battery.py` even
+though it may: **geometry must not know what it is plotting.** A drawing takes a
+fraction, an instant or a verdict — never a millivolt value.
+
+**Two coordinate schemes, and the rule for choosing between them.** They are two
+separately-named helper families (`percent_*` / `unit_*`), never one helper with a
+`use_viewbox=` flag — a flag is how the two get mixed inside one drawing — and they
+have one canvas class each.
+
+| | **Percentage scheme** (`percent_canvas`, `.drawing__canvas`) | **viewBox scheme** (`unit_canvas`, `.drawing__figure`) |
+|---|---|---|
+| Use it for | a card-filling time series that must stretch to whatever width its card gets | an intrinsically aspect-locked mark (a ring, a grid of squares) |
+| The SVG carries | **no `viewBox` at all** | `viewBox` **plus** intrinsic `width`/`height` attributes in CSS pixels |
+| Labels | HTML `<span>`s **outside** the canvas, placed by `label_grid()`'s two-track CSS grid | same — see below |
+| Sized by | CSS: `width: 100%` and `height: var(--drawing-canvas-height, 160px)` | its own intrinsic attributes; the class deliberately declares **no** size |
+| Consumers | Health's battery chart, Home's day band | Health's battery ring (72px), Home's battery ring (36px), Health's regularity grid |
+
+The percentage scheme is the older of the two — it is `battery_sparkline_svg()`'s own,
+generalised rather than invented — and the reason it is kept is measured: **give that
+chart a `viewBox` and every stroke width, marker radius and hit target scales with the
+box**, so at the 360px floor the tap targets shrink below the size they were chosen
+for. The reason the viewBox scheme exists at all is the mirror: a ring drawn in
+percentages is an ellipse the moment its box is not square.
+
+**Labels are HTML, outside the canvas, in both schemes — and that is what makes
+`viewBox` overflow unreachable rather than merely avoided for text.** A label placed
+this way also keeps one constant CSS size instead of shrinking with its box.
+`.drawing-axis-label` is 10px / line-height 1.2 — not a new type tier, exactly
+`.sparkline-axis-label`'s own values, which already sit in `SKILL.md`'s sub-scale
+exception tier. When 24-07 needed a scale under its grid it used spans too, so **this
+phase emitted no SVG `<text>` node anywhere**; the containment obligation is still
+discharged, on the cells' own ink (`getBBox()` expanded by half the *resolved* stroke
+width, in the open, rather than inside a `getBBox({stroke: true})` option dictionary
+whose support would have to be assumed).
+
+**The nested-viewBox escape hatch** (24-05). A percentage-scheme canvas can host a
+user-unit sub-drawing without either scheme leaking into the other: a nested
+`<svg viewBox="0 0 100 100" preserveAspectRatio="none">` establishes its own viewport
+in which user unit N maps to exactly N% of the same box **in each axis
+independently**, so a plain user-unit `<polygon>` lands on the coordinates the outer
+scheme's percentages already produce. This is what made the battery chart's area
+possible at all: **percentages are not legal in a `points` list or a `d` string**
+(the same rule that already made the trend line `n-1` `<line>` segments rather than
+one polyline), and nothing but `<rect>` takes percentage geometry, so a per-segment
+trapezoid was not available either. The nested layer deliberately gets **no CSS rule
+of its own** — its box comes from the single `.battery-trend-section svg:not(.icon)`
+declaration, and a check asserts no `.sparkline__area` rule exists.
+
+**Paint is a class and a token, never a literal, and never a reference.** Four
+anti-patterns are enforced by a machine (`companion/test_companion_app.py` Section
+2.8), each mutation-proven:
+
+1. **No colour literal in emitted SVG.** A colour decided in Python is correct in one
+   theme. Every shape takes its colour from a class bound to a theme token, which the
+   dark-theme block redefines, so the shape follows for free — and a literal is also
+   invisible to `companion/contrast_check.py`.
+2. **No unpainted shape.** A `<rect>`/`<circle>`/`<path>` with neither a class nor an
+   explicit `fill`/`stroke` takes the SVG default fill, which is **black**: correct
+   against a light card, invisible against a dark one, and invisible to the contrast
+   harness too. `fill: none` counts as an explicit route and is declared on purpose,
+   not as tidy-up.
+3. **Every emitted class resolves to a real selector in `style.css`.** A class that
+   exists in Python and nowhere in CSS paints *nothing at all*, and nothing else in
+   this codebase would notice. The check matches on a **selector boundary**
+   (`\.<class>(?![-\w])`), because `.drawing-axis` is a substring of
+   `.drawing-axis-label` and a plain `in css` test reports both resolved on the
+   strength of one unrelated selector.
+4. **No loaded or externally-painted attribute.** `REFUSED_ATTRIBUTES` is `href`,
+   `xlink:href`, `src`, `style`, `filter`, `mask`, `clip-path` (plus anything starting
+   `on`), refused by name whatever they carry; `PAINT_ATTRIBUTES` (`fill`, `stroke`,
+   `stop-color`) may carry only a keyword from `PAINT_KEYWORDS`
+   (`none`/`currentColor`/`transparent`/`inherit`). **Everything else is text, which
+   is escaped, never refused** — a refusal would turn a page render into an exception
+   for a value the app does not control (an airline name out of `history.db` carrying
+   an angle bracket).
+
+**`url(` is banned outright, and that is why this phase ships no gradient.**
+`battery_sparkline_svg()` carries a standing, directly-asserted guarantee that its
+return value contains no `url(`, `<image` or `<script` — a literal substring scan with
+no scheme analysis to appeal to. A `<linearGradient>` is only referenceable as
+`fill="url(#id)"`, so CFG-41's "gradient area" could only have shipped by relaxing a
+security-shaped assertion for decoration. **It did not.** The area is a flat
+`fill: currentColor` + `fill-opacity: 0.14`, which delivers the property that clause
+actually names — *derived from the line's own colour, so it is correct in dark mode by
+the same mechanism the line already is* — and the three shapes are measured resolving
+to one identical ink in each theme. Recorded as a **deliberate non-build with its
+ground**, not as a gradient that is coming later.
+
+**A drawing and any number printed beside it must come from the SAME value — one
+call, two renderings, never two calls that agree today.** This is the phase's
+sharpest rule and it was settled by mutation rather than by argument. Health's and
+Home's battery rings draw `battery_percent(mv) / 100` — the printed integer over a
+hundred — and **not** `battery_fraction(mv)`, even though 24-01 added
+`battery_fraction()` for exactly this. Sourcing the ring from the fraction instead
+makes the arc and the text disagree by **0.0033** on a seeded 3690 mV reading, and the
+check (tolerance 0.0005) fails naming both: *the ring draws 0.4333 of its
+circumference while the readout beside it prints '≈ 43% · 3690 mV'*. The cost is real
+and worth stating: the ring quantises to 1% steps, which at 72px is 3.6° of arc, about
+0.6px of ink. The benefit is that the whole class of defect becomes unreachable rather
+than unlikely. The same rule shapes the day band from the other direction: the emitter
+returns the number of marks it **collapsed**, so the caption cannot print a total the
+drawing does not show.
+
+**One battery estimator, with exactly TWO allow-listed homes.** `companion/battery.py`
+holds `BATTERY_FULL_MV` (4200), `BATTERY_EMPTY_MV` (3300), `battery_percent()`,
+`battery_fraction()`, `LOW_BATTERY_DISPLAY_PERCENT` (20) and `LOW_BATTERY_DISPLAY_MV`
+— the last **derived** (3480, and `battery_percent(3480) == 20`), never typed, so the
+line a chart draws and the percentage printed beside it cannot tell two stories. The
+second allow-listed home is **`server/poll_loop.py`'s deliberate private copy**
+(`_NOTIFY_BATTERY_FULL_MV` / `_NOTIFY_BATTERY_EMPTY_MV` /
+`_battery_percent_estimate()`), and it is allow-listed **by name with a written
+justification** rather than scoped away: the server package may never import the
+web-app package (D-27), so the poll oneshot genuinely cannot call the shared module.
+A **third** definition anywhere under `companion/` or `server/` fails the check. The
+scan has three nets, because the first two can be evaded by renaming: the constant
+names, a second `battery_percent`/`battery_fraction` definition, and — the one that
+catches a copy whatever it calls itself — **`4200` and `3300` appearing together in
+one module**. (`4200` alone is innocent: `health_page.SPARKLINE_Y_MAX_MV` is
+legitimately the same number.) A page that calls the estimator must call it
+**qualified** (`battery.battery_percent(...)`), because a bare
+`from companion.battery import battery_percent` makes it read as the page's own.
+
+**Phase 24's drawings carry no motion, deliberately.** The `.drawing*` block declares
+no `transition` and no `animation`; the stylesheet's `@keyframes` count is still
+**4** and the reduce-block count still **2**, exactly where Phase 23 left them. A
+drawing that animates on every refresh swap would be ambient motion nobody asked for
+on the app's busiest page.
+
+**The three drawings' own numbers, read live.**
+
+- **Ring gauge** — one emitter, `ring_gauge(fraction, size, status_class=None)`, with
+  **no `variant` parameter and the docstring saying why one must never be added**.
+  The geometry is **ratios of the box side**, which is the mechanism that makes a
+  CSS-only "small variant" impossible: `RING_STROKE_RATIO` 0.12, `RING_CLEARANCE_RATIO`
+  0.02, `RING_MIN_SIZE` 8 (clamped, never refused). At 72px: r 30.24, stroke 8.64,
+  outer ink edge 70.56 inside a 72 viewBox. At 36px: r 15.12, stroke 4.32, edge 35.28.
+  Both ratios identical by construction (0.42 and 0.12), and that equality is what the
+  cross-page check measures. **`stroke-width` is a presentation ATTRIBUTE, never a
+  stylesheet declaration** — CSS of any specificity beats a presentation attribute, so
+  a `stroke-width` in `.drawing-ring-*` would flatten both sizes to one thickness and
+  hand the size parameter back to CSS. **Both degenerate fractions are handled where
+  both arc mechanisms fail:** at 0 no value arc is emitted at all (a zero-length dash
+  renders as a *dot* under a round cap), and at 1 a complete circle is emitted with no
+  dash pattern (an arc `<path>` whose sweep is the whole circle is degenerate in SVG
+  and draws *nothing* — so full would read as empty, the worst possible value to be
+  wrong at). `stroke-linecap: butt` is declared explicitly even though it is the
+  initial value, because a round cap adds half a stroke width at *each* end and a 5%
+  reading would draw ~12% of the circle. The track is `--color-border` and
+  deliberately **not** `currentColor`, so it stays structural when the status modifier
+  turns the value arc amber or rose.
+- **Day band** — `day_band()` on `percent_time()`, the phase's only TIME-domain scale,
+  which **rejects** an out-of-day instant rather than clamping it (clamping invents a
+  check-in at an edge of the band). `DAY_BAND_MARK_WIDTH_PX` 2 and
+  `DAY_BAND_MIN_MARK_SPACING_PERCENT` **1.5** — re-derived from the band's **measured**
+  278px canvas (4 / 278 = 1.4388%, rounded **up**, because this is a floor on
+  legibility and rounding down permits exactly what the constant prevents). At 278px
+  that is 4.17px centre to centre; the element-count ceiling is **67** marks and the
+  finest resolvable interval on a 24-hour day is ~22 minutes. The quiet-hours window
+  crossing midnight is **two** spans, never one — one span from 22:00 back to 07:00
+  has a negative width, and the obvious repair (swap them) shades the whole day and
+  leaves the night clear, which looks entirely plausible.
+- **Regularity grid** — `regularity_grid()`, bounded by its own geometry rather than
+  by its caller's window: `CARD_DRAWING_WIDTH_PX` 278, `CELL_MIN_SIZE_PX` 24 (WCAG
+  2.5.8), `CELL_GAP_PX` 3, so `grid_columns()` **computes** ten columns at 25.10px
+  (eleven would give 22.55px, under the floor) and `GRID_MAX_ROWS` 6 caps it at
+  **60 cells**. The bucket count comes down, never the cell size. It keeps the
+  **newest** buckets and reports how many it dropped. **Four** states, not three:
+  `drawing-cell--on-cadence` / `--late` / `--missing` / `--none`, and the fourth is
+  produced by the classifier itself (`wake.classify_check_in_gap(None, cadence)`
+  already answers `unknown`) so **no branch on the page decides any cell's colour**.
+  `cell_class()` falls to the no-observation class for anything unrecognised — not to
+  on-cadence (which would report health from a value nobody recognised) and not to
+  missing (which would accuse the device on the same).
+
+**What the grid does NOT claim, and this is a contract clause rather than copy.** It
+reports **observed check-in regularity**, judged against the cadence currently in
+force. It is not a rate of wakes the device kept, and it must never be renamed into
+one: a log rotation the ingest missed leaves a hole indistinguishable from a missed
+wake, and no schema change recovers it. The caption carries three clauses, each
+separately asserted and each separately mutation-proven, and the two words the
+roadmap's own draft name for this drawing used are asserted **absent** from the
+rendered page in both languages.
+
+### Measurement conventions this phase paid for (Phase 24)
+
+Three of these cost a real defect each. They belong here rather than in a SUMMARY
+nobody re-reads.
+
+**1. Assert the FLOOR, not only the ceiling.** Three consecutive plans shipped
+ceiling-only assertions and each let a real defect through with every check green:
+
+- **24-06.** All four of the day band's checks were ceilings ("no more than N marks").
+  A collapse rule comparing each position against its *immediate predecessor* instead
+  of the *last kept* mark passes every one of them — and at a cadence finer than the
+  minimum spacing it keeps the first position and never another. Measured on the
+  mutant: a day of **1 440 check-ins drew one mark at 0.00%** and an empty band after
+  it, the frame rendering as dead since midnight, while `collapsed` dutifully reported
+  1 439. The correct rule draws 66 marks from 0.00% to 99.31%. *(The docstring's own
+  recorded reason for the last-kept rule was also wrong — it claimed a ceiling
+  argument, and the ceiling holds under either rule. The reason is the floor.)*
+- **24-07.** The grid's containment assertion was `x + w <= box_w`. A whole-pixel cell
+  size (25 instead of 25.10) puts ten cells and nine gaps at **277px inside a 278px
+  canvas** — inside the box, so green — and the HTML label row beneath, which sizes
+  itself from the *card* rather than from the emitter's arithmetic, then names a column
+  one pixel off. One scale places the cells and the labels, and a ceiling cannot see
+  that. Fixed by asserting the last column's right edge **equals** the canvas width.
+- **24-08.** `.home-overview > *` is **(0,1,0)** — the universal selector contributes
+  nothing — which *ties* `.frame-strip`'s own (0,1,0) `margin-bottom` and loses on
+  source order. Measured: the hero's first two parts sat **40.00px** apart where 16 was
+  declared, while the other gap was correct, because `.home-section` and
+  `.page-section` are declared above the new rule and lost while `.frame-strip` did
+  not. **Two thirds of the composition were right and one third was not** — precisely
+  the shape a ceiling ("at most 40px") or an eyeball passes. Fixed with the doubled
+  selector `.home-overview.home-overview > *` (0,2,0), the same hazard and the same fix
+  `.page-section.banner--anomaly` already documents.
+
+**2. Mutate every property you add.** Six-plus CSS declarations shipped in this phase
+with confident load-bearing comments and measured either **inert** or
+**load-bearing-but-invisible**. Both outcomes are defects, and only a per-declaration
+mutation finds either:
+
+| Declaration | Verdict | What the mutation showed |
+|---|---|---|
+| `.battery-readout-row` `min-width: 0` ×2, `.stat-tile__gauge` `flex: none` (24-04) | **inert** | `documentElement.scrollWidth` identical with and without, at 360px with a 60-char unbreakable run; a replaced element's automatic minimum size already floors the ring |
+| `.sparkline-swatch` `flex: none` (24-05) | **inert** | the legend's line is 161px inside a 278px row — there is no overflow to shrink against |
+| `.sparkline__legend` `grid-column: 1 / -1` (24-05) | **load-bearing, invisible** | with `auto` the legend claims the auto-sized Y-label column and the canvas drops **229.97px → 109.00px** inside the same 278px grid. It overflows nothing, so every assertion stayed green |
+| `.day-band` `--drawing-canvas-height: 24px` (24-06) | **load-bearing, invisible** | removing it silently takes `.drawing__canvas`'s 160px default — a **6.7× taller** block. Overflows nothing, moves no mark, changes no colour |
+| `.check-in-key__swatch` `flex: none` (24-07) | **inert** | *because of a sibling*: `flex-wrap: wrap` means no line ever takes width from a swatch. Remove the wrap and a French swatch is squeezed 12.00 → 9.03px |
+| `.check-in-key__item` `align-items: center` (24-07) | **inert by coincidence** | the swatch is 12px tall and the label's line box is 10 × 1.2 = 12px, so cross-start and centre are the same place |
+
+Every inert declaration was **deleted and the measurement written where it stood** —
+a dead declaration with confident prose is worse than none, because it is what the
+next reader trusts *instead of* measuring. Every load-bearing-but-invisible one got
+the assertion that can see it (the canvas's share of its grid; the canvas's rendered
+height). **The backlog this implies:** this discipline only ever ran over declarations
+*this phase added*. The rest of `style.css` has never been swept, and the two classes
+above are both silent by construction, so there is no reason to believe the ratio is
+different there. A sweep is worth a plan of its own.
+
+**3. Clear `__pycache__` after any sub-second mutate/revert cycle.** 24-08 lost a
+browser run to this and the failure looked exactly like a defect in its own work.
+`git checkout-index -f --` restored `companion/draw.py`, `git status` was clean — and
+the next run reported two failures in another plan's checks, with the **mutated class
+string still being served**. CPython validates a cached `.pyc` by comparing the source
+mtime for **equality at one-second granularity**; the restored source's mtime was the
+same second the `.pyc` had recorded, so the stale bytecode was considered valid and
+the corrected source was never recompiled. The mutation and its revert had both
+happened inside one second because the renders between them took milliseconds.
+Verified against a pristine `git archive` of the same commit: clean. **Clear every
+`__pycache__` outside `.venv` after reverting**, or the next harness run measures a
+module that no longer exists on disk.
+
+**4. Stage before you mutate, and revert with `git checkout-index -f --`.** Not
+`git checkout --`, which restores from **HEAD** and will delete an unstaged
+implementation outright — 24-04 lost a whole mutation round to exactly that, with all
+four "failures" turning out to be one `AttributeError` for a function the revert had
+just removed.
+
 ### Airlines gallery illustration frame (quick task 260904-e92, UIR-08)
 
 **Current contract.** Every companion-served Airlines illustration
