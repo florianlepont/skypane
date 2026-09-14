@@ -892,6 +892,20 @@ EXPECTED_CHECK_COUNT = 289
 # 289 + 2 = 291, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 291
 
+# 24-07-PLAN.md Task 1 (CFG-43): +4 — the check-in regularity grid's own
+# emitter, checked here rather than in companion/test_companion_app.py
+# because this plan owns this harness and not that one (the section's own
+# header comment says so at the call sites). The four: the four cell
+# states with the no-observation one asserted never to borrow either of
+# the two verdicts a reader would act on; the cell size derived DOWN from
+# the measured 278px card width with one more column proven to be under
+# the floor; the element bound, asserted at BOTH ends (the count AND that
+# the cells kept are the newest); and the one coupling a stdlib-only
+# geometry module cannot express as an import — draw.py's cell vocabulary
+# against wake.classify_check_in_gap()'s own.
+# 291 + 4 = 295, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 295
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -3155,6 +3169,249 @@ def main():
         "the legend's own swatch shares, and absent entirely — line and label — when the value falls "
         "outside the chart's fixed range (CFG-41, T-24-05-A/B, 24-05-PLAN.md Task 2)",
         _sparkline_low_battery_threshold_is_read_from_battery_py_and_labelled)
+
+    # --- 24-07-PLAN.md Task 1 (CFG-43): the check-in regularity grid ---
+    #
+    # THESE FOUR CHECKS TEST companion/draw.py, NOT A PAGE, and they live
+    # here rather than in companion/test_companion_app.py (which owns
+    # 24-01's drawing CONTRACT checks) for one reason: 24-07-PLAN.md's
+    # files_modified names test_status_pages.py and test_browser_ux.py as
+    # the two harnesses this plan owns, and a plan writing a harness it
+    # does not own is how two plans in one wave come to edit one file.
+    # The same misfiling question 24-03 answered the same way, and for
+    # the same reason — see server/test_config_history.py's own header
+    # comment on its wake.py section. 24-01's contract checks still cover
+    # the new classes automatically from the other file: a class emitted
+    # from draw.py with no selector in style.css fails there, unchanged.
+
+    def _regularity_grid_has_four_states_and_never_conflates_them():
+        # THE DEFECT THIS CHECK EXISTS FOR: "no observation" rendered as
+        # "on cadence" makes a freshly-provisioned device look healthy,
+        # and rendered as "missing" makes it look like a failing one.
+        # 24-RESEARCH.md Risk 1 is that the record cannot tell a missed
+        # wake from a log range the ingest lost, so the fourth state is
+        # the honest one and is asserted separately from the other three.
+        states = (wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
+                  wake.CHECK_IN_MISSING, wake.CHECK_IN_UNKNOWN)
+        classes = [draw.cell_class(state) for state in states]
+        if len(set(classes)) != 4:
+            return False, (
+                "expected four DISTINCT cell classes for the four states, got %r — "
+                "two states painted by one class cannot be told apart" % (classes,))
+        for state, class_name in zip(states, classes):
+            if class_name not in draw.DRAWING_CLASSES:
+                return False, (
+                    "cell_class(%r) returned %r, which is not in draw.DRAWING_CLASSES — "
+                    "24-01's own style.css resolution check cannot see it"
+                    % (state, class_name))
+        none_class = draw.cell_class(wake.CHECK_IN_UNKNOWN)
+        for bogus in (None, "", "ok", "honoured", 0, True, "on-cadence"):
+            got = draw.cell_class(bogus)
+            if got != none_class:
+                return False, (
+                    "cell_class(%r) returned %r — an unrecognised verdict must fall to "
+                    "the no-observation class %r, never to a verdict the data does not "
+                    "support" % (bogus, got, none_class))
+        markup, dropped = draw.regularity_grid(
+            [(state, "cell %d" % i) for i, state in enumerate(states)])
+        if dropped:
+            return False, "four cells dropped %d — nothing should be bounded out" % (dropped,)
+        for state, class_name in zip(states, classes):
+            if markup.count('class="%s %s"' % (draw.DRAWING_CELL_CLASS, class_name)) != 1:
+                return False, (
+                    "expected exactly one cell carrying %r for state %r in %r"
+                    % (class_name, state, markup))
+        # The no-observation cell, isolated: it must carry neither of the
+        # two classes a reader would act on.
+        alone, _ = draw.regularity_grid([(wake.CHECK_IN_UNKNOWN, "no record")])
+        for forbidden in (draw.cell_class(wake.CHECK_IN_ON_CADENCE),
+                          draw.cell_class(wake.CHECK_IN_MISSING)):
+            if re.search(r'(?<![-\w])%s(?![-\w])' % re.escape(forbidden), alone):
+                return False, (
+                    "a bucket with no observation emitted %r: %r" % (forbidden, alone))
+        if alone.count("<title>") != 1 or "no record" not in alone:
+            return False, "expected the lone cell to carry its caller's <title>: %r" % (alone,)
+        # A cell with no title RAISES rather than emitting a silent one.
+        for empty in (None, "", "   "):
+            try:
+                draw.regularity_grid([(wake.CHECK_IN_LATE, empty)])
+            except ValueError:
+                continue
+            return False, (
+                "expected a ValueError for a cell built with title %r — a silent cell is "
+                "a coloured verdict with nothing naming what it judged" % (empty,))
+        return True, ""
+    check(
+        "draw.cell_class() maps the classifier's four verdicts to four DISTINCT classes, all of "
+        "them in DRAWING_CLASSES, and falls to the no-observation class for anything else — so a "
+        "bucket with no observation can never emit the on-cadence or the missing class — and "
+        "regularity_grid() raises rather than emitting a cell with no <title> "
+        "(CFG-43, T-24-07-A, 24-07-PLAN.md Task 1)",
+        _regularity_grid_has_four_states_and_never_conflates_them)
+
+    def _regularity_grid_cells_are_sized_from_the_360px_floor():
+        # THE ARITHMETIC, re-derived here rather than copied: the
+        # constants must PRODUCE the shipped layout, or the derivation
+        # recorded beside them in draw.py is decoration.
+        width = draw.CARD_DRAWING_WIDTH_PX
+        columns = draw.grid_columns(width)
+        size = draw.grid_cell_size(width, columns)
+        if size < draw.CELL_MIN_SIZE_PX:
+            return False, (
+                "at the measured %spx card width, %d columns give a %.2fpx cell — under the "
+                "%spx minimum. The bucket count must come DOWN, never the cell size"
+                % (width, columns, size, draw.CELL_MIN_SIZE_PX))
+        # One more column must be under the floor, or `columns` is not
+        # the most that fits and the grid is wasting width it has.
+        over = draw.grid_cell_size(width, columns + 1)
+        if over >= draw.CELL_MIN_SIZE_PX:
+            return False, (
+                "%d columns would still give a %.2fpx cell at %spx, so grid_columns() is not "
+                "returning the most that fit — the floor is not what is deciding"
+                % (columns + 1, over, width))
+        # A narrow card reduces the COLUMNS, and never below one.
+        for narrow in (10, 24, 27, 40, 100):
+            few = draw.grid_columns(narrow)
+            if few < 1:
+                return False, "grid_columns(%d) returned %d — a grid needs a column" % (narrow, few)
+            if few > 1 and draw.grid_cell_size(narrow, few) < draw.CELL_MIN_SIZE_PX:
+                return False, (
+                    "grid_columns(%d) returned %d, whose cells are %.2fpx — under the floor"
+                    % (narrow, few, draw.grid_cell_size(narrow, few)))
+        # Geometry: every cell inside the canvas, at the declared size.
+        cells = [(wake.CHECK_IN_ON_CADENCE, "c%d" % i) for i in range(columns * 3)]
+        markup, dropped = draw.regularity_grid(cells, width=width)
+        if dropped:
+            return False, "three full rows dropped %d cells" % (dropped,)
+        view = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', markup)
+        if not view:
+            return False, "expected a viewBox on the grid canvas: %r" % (markup[:200],)
+        box_w, box_h = float(view.group(1)), float(view.group(2))
+        if abs(box_w - width) > 0.01:
+            return False, (
+                "the canvas is %.2fpx wide against the %spx it was given — a grid that does "
+                "not fill the width it was handed has an unexplained margin"
+                % (box_w, width))
+        rects = re.findall(
+            r'<rect class="[^"]*" x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)" '
+            r'height="([\d.]+)"', markup)
+        if len(rects) != len(cells):
+            return False, (
+                "expected %d cell rects, got %d" % (len(cells), len(rects)))
+        for x, y, w, h in ((float(a), float(b), float(c), float(d)) for a, b, c, d in rects):
+            if abs(w - size) > 0.01 or abs(h - size) > 0.01:
+                return False, (
+                    "a cell measures %.2fx%.2f against the %.2fpx square the constants "
+                    "derive" % (w, h, size))
+            if x < -0.01 or y < -0.01 or x + w > box_w + 0.01 or y + h > box_h + 0.01:
+                return False, (
+                    "a cell at (%.2f, %.2f) is outside the %.2fx%.2f viewBox — a mark "
+                    "painted outside its own box is clipped in one browser and not in "
+                    "another" % (x, y, box_w, box_h))
+        # THE FLOOR, not only the ceiling: the columns really are used.
+        # A grid that stacked every cell in column 0 would satisfy every
+        # containment assertion above and be a vertical line.
+        xs = sorted({round(float(r[0]), 2) for r in rects})
+        if len(xs) != columns:
+            return False, (
+                "expected %d distinct cell x positions, got %d (%r) — the cells are not "
+                "spread across the row" % (columns, len(xs), xs))
+        ys = sorted({round(float(r[1]), 2) for r in rects})
+        if len(ys) != 3:
+            return False, "expected 3 rows of cells, got %d (%r)" % (len(ys), ys)
+        gaps = {round(b - a - size, 2) for a, b in zip(xs, xs[1:])}
+        if gaps != {float(draw.CELL_GAP_PX)}:
+            return False, (
+                "the clear ground between columns is %r, not the %spx CELL_GAP_PX declares"
+                % (gaps, draw.CELL_GAP_PX))
+        if re.search(r"#[0-9A-Fa-f]{3,8}\b|rgb\(|hsl\(", markup):
+            return False, "the grid emitted a colour literal: %r" % (markup,)
+        return True, ""
+    check(
+        "the regularity grid sizes its cells DOWN from the measured 278px card width at the "
+        "360px floor: grid_columns() returns the most columns whose cells still clear the "
+        "24px minimum and one more column would not, a narrower card reduces the columns "
+        "rather than the cells, every cell is square, inside the viewBox, spread across every "
+        "column and row with exactly CELL_GAP_PX of clear ground, and no colour literal is "
+        "emitted (CFG-43, CFG-45, T-24-07-D, 24-07-PLAN.md Task 1)",
+        _regularity_grid_cells_are_sized_from_the_360px_floor)
+
+    def _regularity_grid_is_bounded_and_keeps_the_NEWEST_buckets():
+        # T-24-07-D: the element count is bounded by the drawing, never
+        # by the caller's window. AND — the half a ceiling assertion
+        # cannot see — the cells kept must be the NEWEST ones. Keeping
+        # the oldest is the same shape of defect 24-06 found in the day
+        # band: every count is right, every cell is inside the box, and
+        # the picture is of a month that has already ended.
+        columns = draw.grid_columns(draw.CARD_DRAWING_WIDTH_PX)
+        capacity = columns * draw.GRID_MAX_ROWS
+        cells = [(wake.CHECK_IN_ON_CADENCE, "day %03d" % i) for i in range(capacity + 17)]
+        cells[0] = (wake.CHECK_IN_MISSING, cells[0][1])
+        markup, dropped = draw.regularity_grid(cells, width=draw.CARD_DRAWING_WIDTH_PX)
+        if dropped != 17:
+            return False, (
+                "expected the 17 buckets over capacity to be reported dropped, got %d — a "
+                "caption cannot be honest about a window the drawing silently truncated"
+                % (dropped,))
+        titles = re.findall(r"<title>([^<]*)</title>", markup)
+        if len(titles) != capacity:
+            return False, (
+                "expected the grid bounded at %d cells (%d columns x %d rows), got %d"
+                % (capacity, columns, draw.GRID_MAX_ROWS, len(titles)))
+        if titles[-1] != "day %03d" % (capacity + 16):
+            return False, (
+                "the last cell is %r, not the newest bucket supplied — a bounded grid that "
+                "keeps the OLDEST cells draws a window that has already ended"
+                % (titles[-1],))
+        if titles[0] != "day 017":
+            return False, (
+                "the first cell is %r, not the oldest bucket that still fits" % (titles[0],))
+        # And the dropped oldest cell's own verdict left with it.
+        if re.search(r'(?<![-\w])%s(?![-\w])'
+                     % re.escape(draw.cell_class(wake.CHECK_IN_MISSING)), markup):
+            return False, "the dropped oldest bucket's verdict is still painted in the grid"
+        # A single cell is a real grid, not a degenerate one.
+        one, _ = draw.regularity_grid([(wake.CHECK_IN_LATE, "only")],
+                                      width=draw.CARD_DRAWING_WIDTH_PX)
+        size = draw.grid_cell_size(draw.CARD_DRAWING_WIDTH_PX, columns)
+        if 'height="%s"' % draw._number(size) not in one:
+            return False, (
+                "a one-cell grid is %r — it must still be one full-size cell tall" % (one,))
+        empty, empty_dropped = draw.regularity_grid([])
+        if empty != "" or empty_dropped:
+            return False, (
+                "no cells at all must draw nothing and drop nothing (the caller owns the "
+                "empty state), got %r/%r" % (empty, empty_dropped))
+        return True, ""
+    check(
+        "the regularity grid's element count is bounded by its own geometry and never by the "
+        "caller's window — at capacity it keeps the NEWEST buckets, reports exactly how many "
+        "it dropped, and paints none of the dropped verdicts — while one cell still draws one "
+        "full-size cell and no cells draw nothing (CFG-43, T-24-07-D, 24-07-PLAN.md Task 1)",
+        _regularity_grid_is_bounded_and_keeps_the_NEWEST_buckets)
+
+    def _draw_cell_vocabulary_is_the_classifiers_own():
+        # draw.py is stdlib-only and may not import the server package,
+        # so the four verdict strings are re-typed there by necessity.
+        # This is what stops that necessity becoming a drift: rename a
+        # CHECK_IN_* value in server/wake.py and the grid would paint
+        # every cell in the no-observation colour with nothing else
+        # failing — a device that had checked in perfectly, drawn as a
+        # month of silence.
+        vocabulary = {wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
+                      wake.CHECK_IN_MISSING, wake.CHECK_IN_UNKNOWN}
+        if set(draw.CELL_STATE_CLASSES) != vocabulary:
+            return False, (
+                "draw.CELL_STATE_CLASSES is keyed on %r, the classifier's vocabulary is %r — "
+                "a verdict wake.classify_check_in_gap() returns that this table does not "
+                "carry paints as no observation at all"
+                % (sorted(draw.CELL_STATE_CLASSES), sorted(vocabulary)))
+        return True, ""
+    check(
+        "draw.CELL_STATE_CLASSES is keyed on EXACTLY wake.classify_check_in_gap()'s own four "
+        "CHECK_IN_* values — the one coupling a stdlib-only geometry module cannot express as "
+        "an import (CFG-43, 24-07-PLAN.md Task 1)",
+        _draw_cell_vocabulary_is_the_classifiers_own)
 
     def _sparkline_axis_chrome_present():
         # quick task 260902-ep7 (BUG 4): the new check for the drawn axis
