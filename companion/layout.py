@@ -280,6 +280,20 @@ VALUE_CONTROL_TEXT_TOKEN = "{}"
 # difference between 25-04's dial and 25-05's slider.
 VALUE_CONTROL_GEOMETRY_ATTR = "data-value-geometry"
 
+# 25-01-PLAN.md Task 4 (CFG-46/D-09): the class companion/static/
+# style.css hides by default and reveals under `.js`. Defined here so a
+# page module never types it, and pinned by a harness against both a
+# real selector in the stylesheet and the no-JS control contract's own
+# registry.
+#
+# THE CLASS GOES ON THE GATED ELEMENT ITSELF, never on an ancestor.
+# That is a contract, not a convenience: "this wrapper is somewhere
+# inside a gated ancestor" cannot be checked from rendered markup
+# without parsing the whole tree, whereas "this wrapper carries the
+# class" is exact — and making them one element removes the nesting
+# mistake entirely rather than detecting it.
+JS_GATE_CLASS = "js-gate"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 # D-16/D-19 (20-01-PLAN.md Task 2): the quick-action form protocol,

@@ -61,7 +61,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import auth, draw, layout, theme_preview  # noqa: E402
-from companion.pages import health_page  # noqa: E402
+from companion.pages import config_page, health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import calendar_rules  # noqa: E402
 from server.plane import colour_rules  # noqa: E402
@@ -763,6 +763,84 @@ EXPECTED_CHECK_COUNT = 309
 # 309 + 2 = 311, re-derived by RUNNING the harness (309/311 pass here —
 # the two documented WR-11 root-sandbox failures), never by arithmetic.
 EXPECTED_CHECK_COUNT = 311
+# 25-01-PLAN.md Task 4 (CFG-46/D-09): +2 — the no-JS control contract,
+# made executable. The first check runs _NO_JS_CONTROL_REGISTRY (empty
+# today, one row per control plan from 25-03 on) through a machine that
+# asserts the value is held by a NATIVE <input>/<select> the server
+# renders unconditionally, that the field is really associated with the
+# form that posts it (the cross-DOM form= idiom and the enclosing-form
+# idiom are both legitimate here and which one a control uses is
+# DECLARED, never guessed — the enclosing case is verified against a
+# real authenticated render, not against the builder's own string), and
+# that EVERY element carrying the control's wrapper attribute also
+# carries the .js-gate class. That last one is the converse, and it is
+# the defect that actually ships: a wrapper rendered outside the gate is
+# visible and inert with scripts blocked, competing with the native
+# input that works.
+# An empty registry passing would prove nothing, so the machine is run
+# against four fixtures built from REAL group-builder output — one
+# correct control it must accept and three it must reject. The guard is
+# therefore non-vacuous on the day it lands, with no control built.
+# The second check pins layout.JS_GATE_CLASS to a real selector in
+# style.css on a SELECTOR BOUNDARY: a rename on either side alone
+# renders a script-only affordance permanently with scripts blocked.
+# This task adds only measurement — there is no production behaviour
+# here and so no RED phase, which is stated rather than manufactured.
+# 311 + 2 = 313, re-derived by RUNNING the harness (311/313 pass here —
+# the two documented WR-11 root-sandbox failures), never by arithmetic.
+EXPECTED_CHECK_COUNT = 313
+
+# ==========================================================================
+# 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
+# REGISTRY A LATER PLAN APPENDS ONE ROW TO.
+#
+# D-09 (22-CONTEXT.md:133-135) is a locked developer decision, and Phase
+# 25 is the phase most at risk from it: every control it replaces is a
+# real input somebody has to be able to SAVE with scripts blocked. Phase
+# 23's own P0 is the shape to guard against — a fallback Save that was
+# RENDERED and had a zero-size box. "Rendered" is not "usable".
+#
+# The four points this registry makes executable (25-RESEARCH.md's
+# seven-point contract, points 1, 2, 3 and 7; points 4, 5 and 6 are
+# browser measurements and belong to 25-02's helpers):
+#
+#   1. The server renders the submitting control UNCONDITIONALLY. The
+#      named field must be present in the group builder's own returned
+#      string, with scripts irrelevant because no script has run.
+#   2. The enhancement writes into that control and never holds the
+#      value. The field must be a NATIVE <input>/<select>, never a
+#      <div>/<span>/<button> wearing a name, and never a value living
+#      only in a data attribute.
+#   3. An affordance that cannot work without script does not render
+#      without script. The wrapper must carry layout.JS_GATE_CLASS ON
+#      ITSELF — see that constant's own comment for why it is the
+#      element and not an ancestor.
+#   7. Colour comes from a theme token through a class, which is the
+#      stylesheet guard in Task 2 and 25-02's both-themes measurement,
+#      not a string assertion here.
+#
+# ZERO CONTROLS ARE REGISTERED TODAY, and that is correct: 25-01 builds
+# no control, and a guard that required a subject to exist would have
+# forced it to build one. The guard is NOT vacuous even so — it runs its
+# whole checker against four fixtures below, one correct and three
+# deliberately wrong, so an empty registry still proves the machine
+# works. Each of 25-03..25-07 appends exactly one row here.
+#
+# Row shape:
+#   control      what it is, for the failure message
+#   plan         the plan that registered it
+#   wrapper_attr the attribute the gated wrapper carries
+#   field        the `name` of the native input the form posts
+#   form         the id of the form that input belongs to
+#   form_assoc   "attribute" when the input carries form="{form}"
+#                itself (this app's cross-DOM idiom), or "enclosing"
+#                when it is rendered inside that form on a page
+#   page_route   required for "enclosing": the authenticated route
+#                whose rendered document must show the input inside
+#                that form
+#   render       a zero-argument callable returning the group builder's
+#                own output
+_NO_JS_CONTROL_REGISTRY = ()
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -6527,6 +6605,202 @@ def main():
             "server package — an ast scan of the real module, not its docstring's claim "
             "(D-27/CFG-49, 25-01-PLAN.md Task 3)",
             _battery_module_imports_neither_a_page_module_nor_the_server_package)
+
+        # --- 25-01-PLAN.md Task 4 (CFG-46/D-09): the no-JS control
+        # contract, made EXECUTABLE. See _NO_JS_CONTROL_REGISTRY at
+        # module level for the four points it enforces and the row
+        # shape each of 25-03..25-07 appends one of.
+
+        _NAMED_ELEMENT_RE = r'<(?P<tag>[a-zA-Z][-\w]*)\b[^>]*\bname="%s"'
+
+        def _no_js_control_violation(row, fetch_page):
+            """None when `row` honours the contract, else the reason.
+
+            Split out from the check so the four fixtures below can run
+            the IDENTICAL machine over a deliberately wrong control —
+            an empty registry that merely returns True would be a guard
+            nobody has ever seen fail.
+            """
+            label = "%s (%s)" % (row["control"], row["plan"])
+            markup = row["render"]()
+            if not isinstance(markup, str):
+                return "%s: its group builder returned %r, not markup" % (label, type(markup))
+
+            # POINT 1 + POINT 2: the value is held by a NATIVE control
+            # the server emitted, not by a div wearing a name and not by
+            # a data attribute the script reads.
+            matches = list(re.finditer(_NAMED_ELEMENT_RE % re.escape(row["field"]), markup))
+            if not matches:
+                return (
+                    "%s: no element named %r appears in its group builder's own output — the "
+                    "control's value must be held by an input the SERVER renders on every "
+                    "render, or there is no way to save it with scripts blocked"
+                    % (label, row["field"]))
+            native = [m for m in matches if m.group("tag").lower() in ("input", "select")]
+            if not native:
+                return (
+                    "%s: %r is carried by <%s>, not a native <input>/<select> — a value held "
+                    "anywhere but a native form control is a value the form cannot post"
+                    % (label, row["field"], matches[0].group("tag")))
+            element = markup[native[0].start():markup.index(">", native[0].start()) + 1]
+
+            # The form association, which is what actually makes the
+            # field submit. This app's settings groups deliberately
+            # attach ACROSS the DOM via form= (a <form> cannot nest
+            # inside another <form>), so both shapes are legitimate —
+            # but which one a control uses is declared, never guessed.
+            if row["form_assoc"] == "attribute":
+                if ('form="%s"' % row["form"]) not in element:
+                    return (
+                        "%s: %r carries no form=%r — declared as a cross-DOM attachment, so "
+                        "without that attribute the field is outside every form and posts "
+                        "nowhere. Element: %s" % (label, row["field"], row["form"], element))
+            elif row["form_assoc"] == "enclosing":
+                page = fetch_page(row["page_route"])
+                if page is None:
+                    return "%s: could not fetch %r to check the enclosing form" % (
+                        label, row["page_route"])
+                open_tag = re.search(r'<form\b[^>]*\bid="%s"[^>]*>' % re.escape(row["form"]), page)
+                if not open_tag:
+                    return "%s: %s renders no <form id=%r>" % (
+                        label, row["page_route"], row["form"])
+                close_at = page.find("</form>", open_tag.end())
+                field_at = page.find('name="%s"' % row["field"], open_tag.end())
+                if field_at == -1 or close_at == -1 or field_at > close_at:
+                    return (
+                        "%s: %r is not rendered INSIDE <form id=%r> on %s — declared as an "
+                        "enclosing association, so outside that form it posts nothing"
+                        % (label, row["field"], row["form"], row["page_route"]))
+            else:
+                return "%s: unknown form_assoc %r" % (label, row["form_assoc"])
+
+            # POINT 3, AND ITS CONVERSE — WHICH IS THE DEFECT THAT
+            # ACTUALLY SHIPS. It is not enough that the gated wrapper
+            # exists somewhere inside a gate; EVERY element carrying the
+            # wrapper attribute must carry the gate class itself.
+            # A wrapper rendered outside the gate is the "renders but
+            # does nothing" control: visible with scripts blocked,
+            # inert, and competing for the user's attention with the
+            # native input that actually works.
+            gated = 0
+            for tag in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", markup):
+                text = tag.group(0)
+                if not re.search(r"(?<![-\w])%s(?![-\w])" % re.escape(row["wrapper_attr"]), text):
+                    continue
+                class_match = re.search(r'\bclass="([^"]*)"', text)
+                classes = class_match.group(1).split() if class_match else []
+                if layout.JS_GATE_CLASS not in classes:
+                    return (
+                        "%s: an element carries %s OUTSIDE the %r gate — %s. A script-only "
+                        "affordance rendered without the gate shows permanently whenever the "
+                        "script does not run, which is the control that renders and does nothing"
+                        % (label, row["wrapper_attr"], layout.JS_GATE_CLASS, text))
+                gated += 1
+            if gated == 0:
+                return (
+                    "%s: its group builder emits no element carrying %s at all — the control is "
+                    "registered but never rendered" % (label, row["wrapper_attr"]))
+            return None
+
+        def _no_js_control_contract_holds_for_every_registered_control():
+            session = _login(harness)
+            page_cache = {}
+
+            def fetch_page(route):
+                if route not in page_cache:
+                    status, _headers, body = http_request(base + route, cookie=session)
+                    page_cache[route] = body.decode("utf-8") if status == 200 else None
+                return page_cache[route]
+
+            # THE FIXTURES. Zero controls are registered today, so
+            # without these the check would pass an empty loop and prove
+            # nothing. Each fixture is built on a REAL group builder's
+            # real output, so the machine is exercised against the
+            # markup this app actually emits rather than a hand-written
+            # imitation of it.
+            gate_attr = layout.VALUE_CONTROL_ATTR
+            wrapper_ok = (
+                '<div class="value-control %s" %s %s="wake_interval_s"></div>'
+                % (layout.JS_GATE_CLASS, gate_attr, layout.VALUE_CONTROL_FIELD_ATTR))
+            wrapper_ungated = (
+                '<div class="value-control" %s %s="wake_interval_s"></div>'
+                % (gate_attr, layout.VALUE_CONTROL_FIELD_ATTR))
+            real_group = config_page.wake_interval_group(900)
+            div_instead_of_input = re.sub(
+                r'<input\b([^>]*\bname="wake_interval_s"[^>]*)>',
+                r'<div\1></div>', real_group)
+
+            def fixture(render, field="wake_interval_s"):
+                return {
+                    "control": "fixture", "plan": "25-01-PLAN.md Task 4",
+                    "wrapper_attr": gate_attr, "field": field,
+                    "form": config_page.SETTINGS_FORM_ID, "form_assoc": "enclosing",
+                    "page_route": "/device", "render": render,
+                }
+
+            good = fixture(lambda: real_group + wrapper_ok)
+            if _no_js_control_violation(good, fetch_page) is not None:
+                return False, (
+                    "the contract rejected a CORRECT control — a real server-rendered native "
+                    "input inside the settings form, with its gated wrapper carrying the gate "
+                    "class: %s" % _no_js_control_violation(good, fetch_page))
+            wrong = {
+                "a field name nothing renders":
+                    fixture(lambda: real_group + wrapper_ok, field="wake_interval_seconds"),
+                "a wrapper rendered outside the gate":
+                    fixture(lambda: real_group + wrapper_ungated),
+                "a value held by a div instead of a native input":
+                    fixture(lambda: div_instead_of_input + wrapper_ok),
+            }
+            for name, bad_row in wrong.items():
+                if _no_js_control_violation(bad_row, fetch_page) is None:
+                    return False, (
+                        "the contract ACCEPTED %s — the guard is vacuous and every control this "
+                        "phase registers would pass it" % name)
+
+            # And now the real registry, which is empty today and which
+            # each of 25-03..25-07 appends exactly one row to.
+            for row in _NO_JS_CONTROL_REGISTRY:
+                violation = _no_js_control_violation(row, fetch_page)
+                if violation is not None:
+                    return False, violation
+            return True, ""
+        check(
+            "every control in _NO_JS_CONTROL_REGISTRY holds its value in a native <input>/"
+            "<select> the server renders unconditionally, associated with the form that posts "
+            "it, with EVERY element carrying its wrapper attribute also carrying the .js-gate "
+            "class — and the machine that judges that is proven non-vacuous against four "
+            "fixtures built from real group-builder output: one correct control it must accept, "
+            "and three it must reject (a field name nothing renders, a wrapper rendered outside "
+            "the gate, and a value held by a div instead of a native input) (CFG-46/D-09, "
+            "25-01-PLAN.md Task 4)",
+            _no_js_control_contract_holds_for_every_registered_control)
+
+        def _js_gate_class_is_one_name_in_python_and_in_the_stylesheet():
+            # layout.JS_GATE_CLASS is what a page module writes; the
+            # rule that hides it lives in companion/static/style.css.
+            # A rename on either side alone is an affordance that
+            # renders permanently with scripts blocked — and nothing
+            # else in this tree would notice. Matched on a SELECTOR
+            # BOUNDARY, because a plain substring test would report
+            # `.js-gate` as resolved by a future `.js-gate-inner`.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = re.sub(r"/\*.*?\*/", " ", fh.read(), flags=re.DOTALL)
+            selector = re.compile(r"\.%s(?![-\w])" % re.escape(layout.JS_GATE_CLASS))
+            if not selector.search(css):
+                return False, (
+                    "layout.JS_GATE_CLASS is %r but companion/static/style.css declares no "
+                    "`.%s` selector on a boundary — the class a page module writes and the rule "
+                    "that hides it are two halves of one contract"
+                    % (layout.JS_GATE_CLASS, layout.JS_GATE_CLASS))
+            return True, ""
+        check(
+            "layout.JS_GATE_CLASS resolves to a real selector in companion/static/style.css on "
+            "a SELECTOR BOUNDARY — the class a page module writes and the rule that hides it "
+            "pinned as one name, because a rename on either side alone renders a script-only "
+            "affordance permanently with scripts blocked (CFG-46/D-09, 25-01-PLAN.md Task 4)",
+            _js_gate_class_is_one_name_in_python_and_in_the_stylesheet)
 
 
         # --- 23-01-PLAN.md Task 2 (D3/CFG-32): the motion budget, made
