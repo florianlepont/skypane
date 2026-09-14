@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import sys
 import tempfile
 
@@ -113,6 +114,19 @@ EXPECTED_CHECK_COUNT = 78
 # vocabulary with "honoured"/"punctual" absent from both modules -
 # re-derived by running the harness, not by arithmetic)
 EXPECTED_CHECK_COUNT = 83
+# 24-03-PLAN.md Task 3 (CFG-43, PROVISIONAL): 83 -> 87, +4 (wake_epochs,
+# the forward-looking interval table nothing in this phase reads - a NEW
+# table needs no migration because init_schema() runs CREATE TABLE IF NOT
+# EXISTS on every connection from both processes, where a new COLUMN would
+# have needed this project's first migration mechanism: every CREATE TABLE
+# proven guarded and now exactly four; a hand-seeded pre-Task-3 history.db
+# opening cleanly, gaining the table and keeping every pre-existing
+# device_health/meta row intact with no epoch row written merely by
+# opening; record_wake_epoch() inserting only on a change and treating an
+# undeterminable cadence as a distinct value rather than a continuation of
+# the last one; and no file under companion/ so much as mentioning the
+# table - re-derived by running the harness, not by arithmetic)
+EXPECTED_CHECK_COUNT = 87
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -2302,6 +2316,163 @@ def main():
         "the verdict vocabulary is four distinct observed terms and neither history_db.py nor wake.py "
         "uses the words 'honoured' or 'punctual' anywhere (24-RESEARCH.md Risk 1)",
         _the_verdict_vocabulary_is_observed_never_honoured,
+    )
+
+    # --- 24-03-PLAN.md Task 3 (CFG-43, PROVISIONAL per 24-RESEARCH.md open
+    # decision 2): `wake_epochs`, the forward-looking interval table.
+    #
+    # A NEW TABLE needs no migration: init_schema() runs CREATE TABLE IF
+    # NOT EXISTS on every connection from BOTH processes (the Type=oneshot
+    # poll unit and the long-lived companion), so it simply exists on the
+    # next connect. A new COLUMN on an existing table would have needed
+    # this project's first migration mechanism, in its most
+    # concurrency-sensitive file. NOTHING IN PHASE 24 READS THIS TABLE.
+
+    def _every_create_table_is_guarded_and_there_are_exactly_four():
+        src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
+        with open(src_path) as fh:
+            src = fh.read()
+        guarded = len(re.findall(r"CREATE TABLE IF NOT EXISTS", src))
+        total = len(re.findall(r"CREATE TABLE", src))
+        if guarded != total:
+            return False, (
+                "%d of history_db.py's %d CREATE TABLE statements are not guarded by IF NOT EXISTS - "
+                "an unguarded one raises on the second connection" % (total - guarded, total)
+            )
+        if total != 4:
+            return False, (
+                "expected exactly four CREATE TABLE IF NOT EXISTS statements (runway_events, "
+                "device_health, meta, wake_epochs), found %d" % (total,)
+            )
+        return True, ""
+    check(
+        "every CREATE TABLE in history_db.py is guarded by IF NOT EXISTS and there are exactly four - "
+        "the fourth (wake_epochs) is the whole migration story for this phase",
+        _every_create_table_is_guarded_and_there_are_exactly_four,
+    )
+
+    def _an_old_schema_database_gains_wake_epochs_without_losing_a_row():
+        # Hand-seed a database in the PRE-Task-3 shape, bypassing
+        # init_schema() entirely so this genuinely models a history.db the
+        # old code created and left behind, then open it with the current
+        # code.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            db_path = history_db.history_db_path(tmpdir)
+            old = sqlite3.connect(db_path)
+            try:
+                old.execute(
+                    "CREATE TABLE device_health (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, "
+                    "battery_mv INTEGER, fw_version TEXT, boot_reason TEXT, rssi TEXT, "
+                    "UNIQUE(ts, battery_mv))"
+                )
+                old.execute(
+                    "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL)"
+                )
+                old.execute(
+                    "INSERT INTO device_health (ts, battery_mv, fw_version) VALUES (?, ?, ?)",
+                    ("2026-09-02T10:00:00+00:00", 4200, "1.2.3"),
+                )
+                old.execute(
+                    "INSERT INTO meta (key, value, updated_at) VALUES (?, ?, ?)",
+                    (history_db.META_CADDY_LOG_OFFSET, "4096", "2026-09-02T10:00:01+00:00"),
+                )
+                old.commit()
+            finally:
+                old.close()
+
+            with history_db.open_db(tmpdir) as conn:
+                tables = {
+                    row[0] for row in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type = 'table'"
+                    ).fetchall()
+                }
+                if "wake_epochs" not in tables:
+                    return False, "opening a pre-Task-3 database did not create wake_epochs: %r" % (sorted(tables),)
+                rows = history_db.recent_device_health(conn)
+                if len(rows) != 1 or rows[0]["battery_mv"] != 4200 or rows[0]["fw_version"] != "1.2.3":
+                    return False, "the pre-existing device_health row did not survive intact: %r" % (rows,)
+                if history_db.get_meta(conn, history_db.META_CADDY_LOG_OFFSET) != "4096":
+                    return False, "the pre-existing meta row did not survive intact"
+                if conn.execute("SELECT COUNT(*) FROM wake_epochs").fetchone()[0] != 0:
+                    return False, "merely opening a database must not write a wake_epochs row"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "a history.db created BEFORE wake_epochs existed opens cleanly, gains the table from the existing "
+        "CREATE TABLE IF NOT EXISTS bootstrap, and keeps every pre-existing row intact (no migration needed)",
+        _an_old_schema_database_gains_wake_epochs_without_losing_a_row,
+    )
+
+    def _record_wake_epoch_writes_only_when_the_interval_changes():
+        # The poll unit is Type=oneshot under a 30 s timer - ~2,880 cycles
+        # a day. An unconditional write would add 2,880 rows a day carrying
+        # no information at all (Pitfall 1's rule, applied to a fourth
+        # table).
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                wrote = [
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:00:00+00:00", 300),
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:00:30+00:00", 300),
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:01:00+00:00", 300),
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:01:30+00:00", 600),
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:02:00+00:00", 600),
+                    # The cadence became undeterminable - a DISTINCT value,
+                    # not a continuation of 600. Recording it is the honest
+                    # reading: a later phase must not be told the frame was
+                    # still on a 600 s cadence when nothing said so.
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:02:30+00:00", None),
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:03:00+00:00", None),
+                ]
+                if wrote != [1, 0, 0, 1, 0, 1, 0]:
+                    return False, "expected inserts only on a change, got %r" % (wrote,)
+                rows = conn.execute(
+                    "SELECT ts, wake_interval_s FROM wake_epochs ORDER BY id ASC"
+                ).fetchall()
+            values = [row["wake_interval_s"] for row in rows]
+            if values != [300, 600, None]:
+                return False, "expected one row per change in order, got %r" % (values,)
+            if rows[0]["ts"] != "2026-09-02T10:00:00+00:00" or rows[1]["ts"] != "2026-09-02T10:01:30+00:00":
+                return False, "each epoch must carry the instant the new interval took effect, got %r" % ([dict(r) for r in rows],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "record_wake_epoch() inserts only when the effective interval differs from the newest stored row, "
+        "treating an undeterminable cadence as a distinct value rather than a continuation",
+        _record_wake_epoch_writes_only_when_the_interval_changes,
+    )
+
+    def _nothing_under_companion_reads_the_epoch_table():
+        # 24-RESEARCH.md Risk 1, Option C: if any plan lets a DRAWING read
+        # this table, the drawing goes back to being blank until the
+        # epochs accrue. No plan in phase 24 may read it.
+        offenders = []
+        companion_root = os.path.join(REPO_ROOT, "companion")
+        for dirpath, dirnames, filenames in os.walk(companion_root):
+            dirnames[:] = [d for d in dirnames if d not in ("__pycache__", ".venv")]
+            for filename in filenames:
+                if not filename.endswith((".py", ".html", ".css", ".js")):
+                    continue
+                full = os.path.join(dirpath, filename)
+                try:
+                    with open(full) as fh:
+                        if "wake_epochs" in fh.read():
+                            offenders.append(os.path.relpath(full, REPO_ROOT))
+                except OSError:
+                    continue
+        if offenders:
+            return False, (
+                "wake_epochs is read by %r - it accrues data for a FUTURE phase and nothing in this one "
+                "may draw from it" % (offenders,)
+            )
+        return True, ""
+    check(
+        "no file under companion/ so much as mentions wake_epochs - the table accrues data for a later "
+        "phase and nothing in phase 24 reads it (24-RESEARCH.md Risk 1, Option C)",
+        _nothing_under_companion_reads_the_epoch_table,
     )
 
     def _all_sql_uses_placeholders_not_string_formatting():
