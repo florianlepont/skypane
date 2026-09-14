@@ -46,6 +46,7 @@ Usage:
     server/.venv/bin/python3 companion/test_view_pages.py
 """
 import html
+import math
 import os
 import re
 import shutil
@@ -65,6 +66,7 @@ if REPO_ROOT not in sys.path:
 
 from companion import auth  # noqa: E402
 import companion.battery as battery  # noqa: E402
+import companion.draw as draw  # noqa: E402
 import companion.layout as layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 from server import device_config  # noqa: E402
@@ -585,6 +587,20 @@ EXPECTED_CHECK_COUNT = 152
 # element selectors and cannot reach it). 152 + 1 = 153, re-derived by
 # RUNNING.
 EXPECTED_CHECK_COUNT = 153
+# 24-04-PLAN.md Task 3 (CFG-40): +1 — Home's small battery ring. The
+# check deliberately does NOT grep for `draw.` in two page modules: both
+# files could import the emitter and still draw two different pictures.
+# It renders BOTH pages and compares the two rings' PROPORTIONS —
+# radius-over-box and stroke-over-box identical while the boxes
+# themselves differ — which is exactly "one drawing at two sizes" and is
+# the property a drifting copy destroys first. It also pins the ring as
+# an ADDITION (the verdict, the "≈ NN%" and the millivolt detail all
+# still printed, which is what keeps the drawing's aria-hidden honest),
+# the ring's placement inside the Battery tile rather than merely on the
+# page, the frame verdict still appearing exactly once (a recorded fixed
+# bug here), and no ring at all for a device with no reading.
+# 153 + 1 = 154, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 154
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -5886,6 +5902,165 @@ def main():
         "the hero picture, the battery percentage estimate, escaped recent flights, and the "
         "Next-update headline, with .preview-frame before .recent-flight in document order (D-04)",
         _home_page_render_with_seeded_state)
+
+    def _home_battery_ring_is_the_same_drawing_at_a_smaller_size():
+        """CFG-40 (24-04-PLAN.md Task 3): Home's small battery ring.
+
+        WHAT THIS CHECK IS FOR, and what it deliberately does NOT do. A
+        check that greps for `draw.` in two page modules proves nothing
+        about whether the two rings share behaviour — both files could
+        import the module and then draw two different pictures. So this
+        one renders BOTH pages and compares the two rings' PROPORTIONS:
+        radius-over-side and stroke-over-side must be identical while the
+        sides themselves differ. That is precisely "one drawing, two
+        sizes", and it is the property a second copy destroys first — a
+        copy that drifts to a fixed 2px stroke keeps the same radius
+        ratio and fails on the stroke one.
+
+        The tile must also still print everything it printed before. The
+        ring is an ADDITION: removing the printed percentage in favour of
+        the picture would break the aria-hidden justification the emitter
+        relies on AND would remove the only exact value on the tile.
+        """
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        tmp = _mkstate("home-ring")
+        blank = _mkstate("home-ring-none")
+        try:
+            now = "2026-08-27T12:00:00+00:00"
+            # 3690 mV lands on 43% of the 3300-4200 estimate span — a
+            # fraction no plausible constant (empty, half, full)
+            # coincides with.
+            with _hdb.open_db(tmp) as conn:
+                _hdb.record_device_health(conn, "2026-08-27T11:55:00+00:00", battery_mv=3690)
+            health_state = {"device_state": "ok", "pipeline_state": "ok",
+                            "battery_state": "ok",
+                            "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
+                            "pipeline_html": "<p>Fresh</p>"}
+            ctx = {"state_dir": tmp, "now": now, "gallery_entries": [],
+                   "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+                   "device_config": {"wake_interval_s": 900, "display_enabled": True},
+                   "health_state": health_state, "simple_mode": False}
+            rendered = home_page.render(ctx)
+
+            def _rings(markup):
+                return (re.findall(r'<circle class="%s"[^>]*/>'
+                                   % re.escape(draw.DRAWING_RING_TRACK_CLASS), markup),
+                        re.findall(r'<circle class="%s"[^>]*/>'
+                                   % re.escape(draw.DRAWING_RING_VALUE_CLASS), markup))
+
+            tracks, values = _rings(rendered)
+            if len(tracks) != 1 or len(values) != 1:
+                return False, (
+                    "expected exactly one ring on Home (one track, one value arc), got %d "
+                    "track(s) and %d value arc(s)" % (len(tracks), len(values)))
+
+            # It is inside the BATTERY tile: between that tile's own
+            # caption and the next tile's.
+            battery_at = rendered.index(home_page.BATTERY_ROW_LABEL)
+            data_at = rendered.index(home_page.DATA_ROW_LABEL)
+            ring_at = rendered.index(draw.DRAWING_RING_TRACK_CLASS)
+            if not battery_at < ring_at < data_at:
+                return False, (
+                    "the ring is not inside the Battery tile — battery caption at %d, ring at "
+                    "%d, next tile's caption at %d" % (battery_at, ring_at, data_at))
+
+            # The tile still prints all three of its own texts.
+            tile = rendered[battery_at:data_at]
+            for needle in ("≈ 43%", "3690 mV"):
+                if needle not in tile:
+                    return False, (
+                        "expected the Battery tile to still print %r — the ring is an "
+                        "ADDITION to the verdict, the percentage and the millivolt detail, "
+                        "never a replacement for them" % (needle,))
+            if 'class="text-body widget-verdict"' not in tile:
+                return False, "expected the Battery tile to still print its verdict"
+
+            # The drawn fraction equals the percentage printed beside it.
+            radius = float(re.search(r' r="([0-9.]+)"', values[0]).group(1))
+            dash = re.search(r'stroke-dasharray="([0-9.]+) ', values[0])
+            drawn = float(dash.group(1)) if dash else 2 * math.pi * radius
+            drawn_fraction = drawn / (2 * math.pi * radius)
+            if abs(drawn_fraction - 0.43) > 0.0005:
+                return False, (
+                    "Home's ring draws %.4f of its circumference while the tile prints "
+                    "'≈ 43%%' beside it (CFG-40)" % (drawn_fraction,))
+
+            # ONE EMITTER, TWO SIZES — measured across both pages.
+            health_tmp = _mkstate("home-ring-health")
+            try:
+                with _hdb.open_db(health_tmp) as conn:
+                    for minute, mv in ((50, 3600), (55, 3690)):
+                        _hdb.record_device_health(
+                            conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
+                health_rendered = health_page.render(
+                    {"state_dir": health_tmp, "now": now})
+            finally:
+                shutil.rmtree(health_tmp, ignore_errors=True)
+
+            def _geometry(markup, where):
+                svg = re.search(
+                    r'<svg class="%s[^"]*" viewBox="0 0 ([0-9.]+) [0-9.]+"'
+                    % re.escape(draw.DRAWING_FIGURE_CLASS), markup)
+                if svg is None:
+                    return None, "found no ring figure on %s" % where
+                side = float(svg.group(1))
+                arc = _rings(markup)[1][0]
+                return (side,
+                        float(re.search(r' r="([0-9.]+)"', arc).group(1)),
+                        float(re.search(r'stroke-width="([0-9.]+)"', arc).group(1))), ""
+
+            home_geom, err = _geometry(rendered, "Home")
+            if err:
+                return False, err
+            health_geom, err = _geometry(health_rendered, "Health")
+            if err:
+                return False, err
+            if home_geom[0] >= health_geom[0]:
+                return False, (
+                    "Home's ring is not SMALLER than Health's — %r against %r; two sizes is "
+                    "half of what CFG-40 asks for" % (home_geom[0], health_geom[0]))
+            for index, label in ((1, "radius"), (2, "stroke width")):
+                home_ratio = home_geom[index] / home_geom[0]
+                health_ratio = health_geom[index] / health_geom[0]
+                if abs(home_ratio - health_ratio) > 0.001:
+                    return False, (
+                        "the two rings disagree about %s as a proportion of their own box: "
+                        "Home %.4f, Health %.4f. They are not one drawing at two sizes — they "
+                        "are two components, which is exactly the drift CFG-40 forbids"
+                        % (label, home_ratio, health_ratio))
+
+            # The frame verdict still appears exactly once (a recorded
+            # fixed bug on this page, B2).
+            verdicts = [text for text in home_page.FRAME_STATE_TEXT.values()
+                        if rendered.count(text)]
+            for text in verdicts:
+                if rendered.count(text) != 1:
+                    return False, (
+                        "expected the frame verdict %r exactly once on Home, got %d"
+                        % (text, rendered.count(text)))
+
+            # No reading: no ring, and no empty one either.
+            blank_ctx = dict(ctx, state_dir=blank)
+            blank_rendered = home_page.render(blank_ctx)
+            for class_name in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
+                if class_name in blank_rendered:
+                    return False, (
+                        "a device with no battery reading rendered %r on Home — an empty ring "
+                        "reads as 0%%, which is a false statement about a device that has "
+                        "simply not checked in" % (class_name,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            shutil.rmtree(blank, ignore_errors=True)
+    check(
+        "Home's Battery tile draws exactly one ring, inside that tile, whose drawn fraction "
+        "equals the '≈ NN%' it still prints beside its own millivolt detail and verdict; the "
+        "ring is SMALLER than Health's yet identical to it in radius-over-box and "
+        "stroke-over-box, proving one emitter at two sizes rather than two components; the "
+        "frame verdict still appears exactly once; and a device with no reading draws no ring "
+        "at all (CFG-40)",
+        _home_battery_ring_is_the_same_drawing_at_a_smaller_size)
 
     # ======================================================================
     # 23-03-PLAN.md Task 2 (D14/CFG-34): Home's two visible relative ages
