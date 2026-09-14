@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 23-10-PLAN.md
-last_updated: "2026-09-13T23:37:23.991Z"
-last_activity: 2026-09-13
+status: verifying
+stopped_at: Completed 23-11-PLAN.md — Phase 23 executed 11/11; awaiting the developer's visual review (the six checklists in 23-11-SUMMARY.md). PR not marked ready, not merged.
+last_updated: "2026-09-14T00:05:36.802Z"
+last_activity: 2026-09-14
 progress:
   total_phases: 38
-  completed_phases: 32
-  total_plans: 233
-  completed_plans: 212
-  percent: 84
+  completed_phases: 33
+  total_plans: 240
+  completed_plans: 213
+  percent: 87
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 91%
+  [█████████░] 89%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -176,7 +176,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-13
+Last activity: 2026-09-14
 Last activity: 2026-09-04 - Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence. Also merged in from origin/main: quick task 260904-e92 (Airlines gallery image weight, UIR-08) and Phase 06.6.4.1.1 (settings theme picker + typography/spacing direction pass, 6/6 plans complete).
 **08-01 executed (2026-08-31), the first of Wave 1's 2 parallel-safe plans.** `server/device_config.py`'s `THEMES` grew from the single `"sky"` entry to five: `white` (new `DEFAULT_THEME_ID`), `black`, `yellow`, `red` (all single-colour — `departing_index == arriving_index` — with contrast-correct ink: black ink on white/yellow, white ink on black/red, built only from `panel_format`'s named `IDX_*` constants) and the retained `sky` (unchanged Blue/Green, relabelled `"Sky"` from `"Sky (default)"`, no longer default). The flip silently propagated to `server/plane/render.py`'s `STATE_BACKGROUND`/`STATE_INK` module constants (evaluated from `DEFAULT_THEME_ID` at import time) with zero edit to `render.py` itself, confirming the registry's own extension contract. `server/test_config_history.py` grew 21→25 checks (five stale default-comparison literals corrected `"sky"`→`"white"` — not the plan's stated three, the real on-disk count was five; four new registry-contract checks added, one demonstrated failing via a deliberate ink-index swap then reverted before commit). `server/test_render.py` grew 76→78 (two dominant-nibble checks now expect White; the Sky-equals-default check rewritten as White-matches-default AND Sky-still-differs, so it can't pass if Sky were deleted; two new checks loop `THEME_IDS` for per-theme background dominance and ink-index agreement). `companion/test_config_page.py` grew 37→39, proving the CFG-01 picker absorbed all five themes with zero edit to `companion/pages/config_page.py`/`companion/app.py` (`git diff --stat` confirmed). One Rule 1 deviation outside the plan's stated `files_modified`: `server/test_pipeline_e2e.py`'s battery-icon-region check hardcoded the active-state ink nibble as White (0x1), true only under the retired Sky default's white ink — corrected to derive the expectation from `device_config.theme_ink_index()` for the theme `run_once()` actually reported. Full suite green except `server/test_poll_loop.py`'s pinned `panel.bin` digest (already stale pre-phase from an unrelated macOS/Linux FreeType difference, now additionally invalidated for real by the White-default flip — re-pin explicitly deferred to plan 08-05, not fixed here). None of the four new hues has been seen on real Spectra 6 ink yet — screen-confirmed only, same as Sky was before Phase 7; the registry's provenance comment now records this honestly, and plan 08-06's blocking on-glass session is where that check happens. `requirements.mark-complete D-01 D-02 D-03 D-04` returned all four as `not_found`, consistent with every prior 06.x-style decimal/CONTEXT-only phase's precedent — these are `08-CONTEXT.md` Decision IDs, not formal REQUIREMENTS.md entries. `roadmap.update-plan-progress "08"` confirmed `plan_count: 6, summary_count: 1, status: "In Progress"` (plans 02-06 remain). `state.advance-plan` again could not parse this file's prose-based Current Position section (same known limitation documented throughout this file's history) — `state.update-progress` computed `percent: 93` (64/69) correctly this time, no hand-correction needed.
 
@@ -408,6 +408,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 23 P08 | ~2h | 3 tasks | 9 files |
 | Phase 23 P09 | 2h15m | 3 tasks | 8 files |
 | Phase 23 P10 | 3h30m | 3 tasks | 6 files |
+| Phase 23 P11 | 3h | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -754,6 +755,10 @@ Recent decisions affecting current work:
 - [Phase 23]: 23-09: the save bar's entrance is an ANIMATION, not a transition with an @starting-style entry — the transition form would move for some visitors and silently do nothing for the rest, the failure shape 23-01's interpolate-size ban exists to stop
 - [Phase 23]: 23-09: NO client-persisted 'Saved' state on the save bar — the POST replaces the document, so carrying a flag across that navigation would mean browser storage; the completed state is the existing save-confirmation flash on the page the browser lands on
 - [Phase 23]: 23-09: relabelling a submitting control is made safe by the CONTROL'S SHAPE rather than by timing — a button with no name contributes no entry to the form data set, and an input type=submit's label IS its submitted value
+- [Phase 23]: 23-11: Phase 23 closes with CFG-34 and CFG-37 deliberately UNTICKED: each has one clause the shipped code knowingly contradicts (four visible relative ages do not tick; the Flights detail row closes instantly, because allow-discrete would keep a closed row focusable and in the accessibility tree). Phase 22's CFG-28 error, caught before the tick rather than a plan after it.
+- [Phase 23]: 23-11: the design system records a motion contract for the first time — two duration tokens (180ms REACTION / 2s AMBIENT, sorted by 'is anyone waiting on this?'), four keyframes blocks whose classes name the MOTION rather than the component, and the reduced-motion floor's FIRST named exception: the ::view-transition pseudo-element tree, which the global *, *::before, *::after override structurally cannot reach, closed by preventing SETUP rather than by zeroing a duration
+- [Phase 23]: 23-11: 'zero new custom properties' held for Phases 20, 21 and 22 and is broken by Phase 23, by exactly two, deliberately — a motion budget with no named durations is a budget in prose. Said in the paragraph that carries the claim, not only in a changelog
+- [Phase 23]: 23-11: style.css's accent-reservation list stopped being exhaustive (the switch's on-state track fill and the new-row arrival wash landed without an entry) and the gap is RECORDED as a finding rather than repaired from a documentation plan — the discipline that the list lives in exactly one place is worth more than closing one gap in the wrong file
 
 ### Pending Todos
 
@@ -855,8 +860,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T23:37:19.752Z
-Stopped at: Completed 23-08-PLAN.md
+Last session: 2026-09-14T00:05:36.759Z
+Stopped at: Completed 23-11-PLAN.md — Phase 23 executed 11/11; awaiting the developer's visual review (the six checklists in 23-11-SUMMARY.md). PR not marked ready, not merged.
 
 Resume file: 
 
