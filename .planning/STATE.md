@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 24-09-PLAN.md — Phase 24 executed 9/9 (Phase 23 executed 11/11 before it). CFG-40/41/43/44/45 ticked with per-clause evidence; CFG-39 and CFG-42 deliberately left unticked, and CFG-34/CFG-37 from Phase 23 likewise — each names the unmet clause and the decision it needs. Awaiting the developer's visual review for both phases. Phases 25 and 26 are planned and NOT executed, by the developer's instruction. PR #67 not marked ready, not merged.
-last_updated: "2026-09-14T07:55:00.000Z"
+stopped_at: "Completed 25-08-PLAN.md — Phase 25 executed 8/8 (Controls). CFG-46/47/48/49/51 ticked with per-clause evidence; CFG-50 and CFG-52 deliberately left unticked, each naming the unmet clause and the decision it needs. Display measures 3743px at 390px against X6's 2600px target — reported, not rounded up. The design system carries the controls contract; the coverage ledger walks every clause of all five D-items; the developer has one eight-decision list with each decision's reversal cost as it now stands. Gate: exactly the 5 sandbox baseline failures by NAME, browser harness 81/81 with 0 SKIP in 270s. Awaiting the developer's visual review of all five controls on a real phone — the phase's real gate. PR not marked ready, not merged."
+last_updated: "2026-09-14T19:34:27.585Z"
 last_activity: 2026-09-14
 progress:
   total_phases: 38
-  completed_phases: 34
+  completed_phases: 35
   total_plans: 240
-  completed_plans: 222
+  completed_plans: 230
   percent: 92
 ---
 
@@ -38,7 +38,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [█████████░] 89%
+  [██████████] 96%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -409,6 +409,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 23 P09 | 2h15m | 3 tasks | 8 files |
 | Phase 23 P10 | 3h30m | 3 tasks | 6 files |
 | Phase 23 P11 | 3h | 3 tasks | 7 files |
+| Phase 25 P08 | ~3h | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -759,6 +760,8 @@ Recent decisions affecting current work:
 - [Phase 23]: 23-11: the design system records a motion contract for the first time — two duration tokens (180ms REACTION / 2s AMBIENT, sorted by 'is anyone waiting on this?'), four keyframes blocks whose classes name the MOTION rather than the component, and the reduced-motion floor's FIRST named exception: the ::view-transition pseudo-element tree, which the global *, *::before, *::after override structurally cannot reach, closed by preventing SETUP rather than by zeroing a duration
 - [Phase 23]: 23-11: 'zero new custom properties' held for Phases 20, 21 and 22 and is broken by Phase 23, by exactly two, deliberately — a motion budget with no named durations is a budget in prose. Said in the paragraph that carries the claim, not only in a changelog
 - [Phase 23]: 23-11: style.css's accent-reservation list stopped being exhaustive (the switch's on-state track fill and the new-row arrival wash landed without an entry) and the gap is RECORDED as a finding rather than repaired from a documentation plan — the discipline that the list lives in exactly one place is worth more than closing one gap in the wrong file
+- [Phase 25]: Phase 25 closes with CFG-46/47/48/49/51 ticked on per-clause evidence and CFG-50 and CFG-52 deliberately left unticked: CFG-50 because nothing is behind the theme disclosure (a closed <details> hides its own children) and because Display measures 3743px at 390px against X6's 2600px target, 1143px over; CFG-52 because 'operable from the keyboard with no pointer event at all' is measured for four of the five controls and unmeasured for D19's native file input
+- [Phase 25]: The controls contract is the design system's fifth standing contract beside motion, colour-separation, spacing and drawings: one new script for five controls with three named taxes, the no-JS control contract proven by reading the value back from disk rather than by rendering, the continuous-value keyboard model recorded once (native Page = 10 percent of the band), hit targets measured in each control's own container, and the CSP recorded as shaping what a control may do
 
 ### Pending Todos
 
@@ -860,8 +863,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-14T00:05:36.759Z
-Stopped at: Completed 23-11-PLAN.md — Phase 23 executed 11/11; awaiting the developer's visual review (the six checklists in 23-11-SUMMARY.md). PR not marked ready, not merged.
+Last session: 2026-09-14T19:34:27.539Z
+Stopped at: Completed 25-08-PLAN.md — Phase 25 executed 8/8 (Controls). CFG-46/47/48/49/51 ticked with per-clause evidence; CFG-50 and CFG-52 deliberately left unticked, each naming the unmet clause and the decision it needs. Display measures 3743px at 390px against X6's 2600px target — reported, not rounded up. The design system carries the controls contract; the coverage ledger walks every clause of all five D-items; the developer has one eight-decision list with each decision's reversal cost as it now stands. Gate: exactly the 5 sandbox baseline failures by NAME, browser harness 81/81 with 0 SKIP in 270s. Awaiting the developer's visual review of all five controls on a real phone — the phase's real gate. PR not marked ready, not merged.
 
 Resume file: 
 
