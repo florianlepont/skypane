@@ -20,6 +20,7 @@ urllib). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_config_page.py
 """
+import datetime
 import html
 import json
 import os
@@ -759,6 +760,22 @@ EXPECTED_CHECK_COUNT = 244
 # baselines this plan measured before touching the file.
 # 244 + 1 = 245, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 245
+# 25-04-PLAN.md Task 1 (CFG-48): +1 — the wrapping-midnight arithmetic,
+# settled before anything is drawn. 23:00→07:00 is 480 minutes and
+# 07:00→23:00 its 960-minute complement (the pair, because 480 alone
+# passes against an implementation that always returns the shorter arc);
+# 00:00→00:01 and 23:59→00:00 are both 1; the drawn sweep is the returned
+# minute count over a lattice of pairs rather than a second computation;
+# the span's LENGTH is reconstructed from what
+# server.device_config.seconds_until_quiet_hours_end() has left at a
+# shared instant, so the dial and the server cannot drift into two
+# wrapping-window arithmetics; equal ends is the zero-width window that
+# function's own docstring calls never-active, asserted against it at
+# five instants; and every unparseable input — including "99:99", which
+# the shape regex alone accepts — returns the render-nothing signal
+# rather than raising (T-25-04-C) or fabricating a zero.
+# 245 + 1 = 246, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 246
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2419,6 +2436,175 @@ def main():
         "no-:has() fallback outside it declaring the identical paint — with no accent anywhere "
         "in the component and the keyframe/reduced-motion counts unmoved (CFG-47/CFG-52)",
         _runway_map_paint_resolves_and_joins_the_one_feature_query)
+
+    # ------------------------------------------------------------------
+    # 25-04-PLAN.md Task 1 (CFG-48): the wrapping-midnight arithmetic,
+    # settled before anything is drawn.
+    # ------------------------------------------------------------------
+
+    def _the_quiet_window_wraps_midnight_the_short_way_round():
+        """CFG-48 (25-04-PLAN.md Task 1): `quiet_window_span()` goes
+        FORWARD from start to end through midnight.
+
+        Asserted AT the boundary rather than near it, because the values
+        an `end - start` implementation gets wrong are precisely the ones
+        the device ships with: 23:00 to 07:00 is the factory default.
+        """
+        span_of = config_page.quiet_window_span
+        day = config_page.QUIET_WINDOW_MINUTES_PER_DAY
+        if day != 1440:
+            return False, "expected a 1440-minute day, got %r" % (day,)
+
+        # THE DEFAULT WINDOW, AND THE COMPLEMENT THAT PROVES DIRECTION.
+        # Asserting 480 alone passes against an implementation that
+        # returns the SHORTER of the two arcs whichever way round it was
+        # asked; the complement is what refuses that.
+        for start, end, expected in (
+                ("23:00", "07:00", 480),
+                ("07:00", "23:00", 960),
+                ("00:00", "00:01", 1),
+                ("23:59", "00:00", 1),
+                ("00:00", "23:59", 1439),
+                ("12:00", "12:00", 0)):
+            span = span_of(start, end)
+            if span is None:
+                return False, "expected %s→%s to produce a span, got None" % (start, end)
+            if span.minutes != expected:
+                return False, (
+                    "%s→%s is %d minutes forward through midnight, and quiet_window_span() "
+                    "returns %d — an `end - start` implementation returns %d here, which is the "
+                    "single most likely arithmetic defect in this control"
+                    % (start, end, expected, span.minutes,
+                       config_page.quiet_window_minute_of_day(end)
+                       - config_page.quiet_window_minute_of_day(start)))
+
+        # THE SWEEP IS THE MINUTES, NOT A SECOND COMPUTATION. Asserted
+        # over every pair above and a lattice besides, because the defect
+        # is a card that prints "8 h" beside an arc covering two thirds
+        # of the day, and two agreeing numbers for one case could be a
+        # coincidence.
+        for start_minute in range(0, 1440, 37):
+            for end_minute in range(0, 1440, 53):
+                start = "%02d:%02d" % divmod(start_minute, 60)
+                end = "%02d:%02d" % divmod(end_minute, 60)
+                span = span_of(start, end)
+                if span is None:
+                    return False, "expected %s→%s to parse" % (start, end)
+                if abs(span.sweep_fraction - span.minutes / 1440.0) > 1e-12:
+                    return False, (
+                        "%s→%s: sweep_fraction %r is not minutes/%d (%r) — the drawn arc and the "
+                        "printed duration are two computations and can disagree"
+                        % (start, end, span.sweep_fraction, day, span.minutes / 1440.0))
+                if abs(span.start_fraction - start_minute / 1440.0) > 1e-12:
+                    return False, (
+                        "%s→%s: start_fraction %r is not %r"
+                        % (start, end, span.start_fraction, start_minute / 1440.0))
+                if not (0.0 <= span.sweep_fraction < 1.0):
+                    return False, (
+                        "%s→%s: sweep_fraction %r left [0, 1)" % (start, end, span.sweep_fraction))
+        default_span = span_of("23:00", "07:00")
+        if abs(default_span.sweep_fraction - 1 / 3.0) > 1e-9:
+            return False, (
+                "the default window's sweep is %r turns, not the third of the ring 480 of 1440 "
+                "minutes is" % (default_span.sweep_fraction,))
+
+        # AGREEMENT WITH THE SERVER'S OWN AUTHORITY, ON A SHARED CASE.
+        # server.device_config.seconds_until_quiet_hours_end() is what
+        # actually decides whether the device is inside a wrapping
+        # window; this function only draws one. Pinning 480 here and
+        # trusting them to stay in step is how two wrapping-window
+        # arithmetics drift. So the span's own LENGTH is reconstructed
+        # from what the server says is left at a shared instant.
+        #
+        # BOTH SIDES OF MIDNIGHT, AND THAT IS NOT BELT-AND-BRACES.
+        # seconds_until_quiet_hours_end() answers a wrapping window
+        # through TWO different branches — one for an instant after the
+        # start and before midnight, one for an instant after midnight
+        # and before the end — and a probe taken only after midnight
+        # leaves the first branch unexercised. Measured: mutating that
+        # branch's `timedelta(days=1)` to `days=2` changed nothing here
+        # until this clause grew its before-midnight probes.
+        #
+        # Times are Europe/Paris in mid-January, which is UTC+1.
+        for start, end, utc_hm, local_minute in (
+                ("23:00", "07:00", (1, 0), 2 * 60),
+                ("23:00", "07:00", (22, 30), 23 * 60 + 30),
+                ("22:30", "06:15", (23, 0), 0),
+                ("22:30", "06:15", (21, 45), 22 * 60 + 45),
+                ("01:00", "03:00", (1, 0), 2 * 60)):
+            now_utc = datetime.datetime(
+                2026, 1, 15, utc_hm[0], utc_hm[1], tzinfo=datetime.timezone.utc)
+            span = span_of(start, end)
+            remaining = device_config.seconds_until_quiet_hours_end(now_utc, start, end)
+            if remaining is None:
+                return False, (
+                    "expected server.device_config to place local %02d:%02d inside %s→%s"
+                    % (local_minute // 60, local_minute % 60, start, end))
+            elapsed = (local_minute - config_page.quiet_window_minute_of_day(start)) % 1440
+            if remaining != (span.minutes - elapsed) * 60:
+                return False, (
+                    "the dial and server.device_config disagree about %s→%s: the server has %d "
+                    "seconds left at local %02d:%02d, and the dial's %d-minute span with %d "
+                    "minutes elapsed implies %d"
+                    % (start, end, remaining, local_minute // 60, local_minute % 60,
+                       span.minutes, elapsed, (span.minutes - elapsed) * 60))
+
+        # EQUAL ENDS IS ZERO, AND THE SERVER SAYS SO TOO. Its own
+        # docstring calls a zero-width window "never active, and that is
+        # intentional rather than a bug to 'fix' into an always-active
+        # window" — so this is agreement, not a number chosen here.
+        zero = span_of("23:00", "23:00")
+        if zero.minutes != 0 or zero.sweep_fraction != 0.0:
+            return False, (
+                "expected equal ends to be a ZERO-length window (the reading "
+                "seconds_until_quiet_hours_end() implies), got %r" % (zero,))
+        for instant_hour in (0, 2, 12, 22, 23):
+            probe = datetime.datetime(
+                2026, 1, 15, (instant_hour - 1) % 24, 0, tzinfo=datetime.timezone.utc)
+            if device_config.seconds_until_quiet_hours_end(probe, "23:00", "23:00") is not None:
+                return False, (
+                    "server.device_config reports 23:00→23:00 ACTIVE at local %02d:00, so the "
+                    "zero reading above no longer agrees with it — one of the two has changed "
+                    "its mind about a zero-width window" % instant_hour)
+
+        # THE RENDER-NOTHING SIGNAL. None, never an exception (T-25-04-C:
+        # the Display page renders this) and never a zero, which would
+        # draw a real, empty window and claim one is configured.
+        for hostile in ("", None, "7:00", "0700", "99:99", "24:00", "23:60", "ab:cd",
+                        "23:00 ", 5, True, object(), "<b>23:00</b>"):
+            if span_of(hostile, "07:00") is not None:
+                return False, (
+                    "expected quiet_window_span(%r, '07:00') to be None — the render-nothing "
+                    "signal, not a fabricated window" % (hostile,))
+            if span_of("23:00", hostile) is not None:
+                return False, (
+                    "expected quiet_window_span('23:00', %r) to be None" % (hostile,))
+            if config_page.quiet_window_minute_of_day(hostile) is not None:
+                return False, (
+                    "expected quiet_window_minute_of_day(%r) to be None" % (hostile,))
+
+        # ONE PARSE DISCIPLINE. Anything the dial is willing to DRAW, the
+        # B14 24h sibling must be willing to PRINT — a value that reaches
+        # the arc but not the text is a card whose picture and whose
+        # words disagree about what is stored.
+        for value in ("00:00", "07:00", "23:59", "12:34", "99:99", "7:00", "", "24:00"):
+            if config_page.quiet_window_minute_of_day(value) is not None \
+                    and config_page._normalised_time_html(value) == "":
+                return False, (
+                    "quiet_window_minute_of_day(%r) parses but _normalised_time_html(%r) renders "
+                    "nothing — the arc and B14's visible 24h sibling have drifted into two parse "
+                    "disciplines" % (value, value))
+        return True, ""
+    check(
+        "the quiet window's span goes FORWARD through midnight — 23:00→07:00 is 480 minutes and "
+        "07:00→23:00 its 960-minute complement, 00:00→00:01 and 23:59→00:00 are both 1, the "
+        "drawn sweep is the returned minute count and never a second computation, the span's "
+        "length is reconstructed from what server.device_config.seconds_until_quiet_hours_end() "
+        "has left at a shared instant rather than pinned, equal ends is the zero-width window "
+        "that server's own docstring calls never-active, and every unparseable input returns the "
+        "render-nothing signal rather than raising or fabricating a zero "
+        "(CFG-48, 25-04-PLAN.md Task 1)",
+        _the_quiet_window_wraps_midnight_the_short_way_round)
 
     # ------------------------------------------------------------------
     # 06.6.4.1 Task 1 (D-01, D-02, D-05 form half, D-26): the new

@@ -11,6 +11,9 @@ control below is unrelated plumbing owned by companion/app.py (plan
 server.poll_loop.run_once() call all live there, not here — this module
 only renders the button/copy for it.
 """
+import collections  # 25-04-PLAN.md Task 1 (CFG-48): QuietWindowSpan, the
+# named triple the quiet dial's duration text and its drawn sweep are
+# BOTH read off, so the words and the picture cannot disagree.
 import re
 from urllib.parse import urlsplit
 
@@ -2151,6 +2154,110 @@ def quick_led_form_html(current_led_enabled):
     )
 
 
+# --- 25-04-PLAN.md Task 1 (CFG-48): the wrapping-midnight arithmetic ---
+#
+# Settled BEFORE anything is drawn, because the defect it exists to
+# prevent is a picture that is confidently wrong: 23:00 to 07:00 is eight
+# hours going forward through midnight and sixteen going the other way,
+# and an `end - start` implementation draws the sixteen while the card
+# says eight. The shipped default window is exactly that case, so this is
+# not a boundary somebody might one day reach — it is the value the
+# device leaves the factory with.
+#
+# ONE PARSE DISCIPLINE, NOT TWO. `_normalised_time_html()` below already
+# owned an inline `^\d{2}:\d{2}$`; it is lifted to the constant here and
+# both read it, so a future loosening cannot apply to the text and not to
+# the geometry (or the reverse) — which would be a card whose printed 24h
+# sibling and whose drawn arc disagree about what a stored value means.
+_HHMM_RE = re.compile(r"^\d{2}:\d{2}$")
+
+QUIET_WINDOW_MINUTES_PER_DAY = 24 * 60
+
+# `start_fraction` and `sweep_fraction` are turns of the ring, in the
+# convention companion/draw.py's `unit_point_on_circle()` and
+# `unit_circle_dash_array()` already share: 0 at twelve o'clock, growing
+# CLOCKWISE. `minutes` is the same span in whole minutes.
+#
+# The sweep is DERIVED FROM `minutes` inside the one function below and
+# nowhere else. That is the whole reason this is a named triple rather
+# than two separate helpers: a duration computed here and a sweep
+# computed at the drawing site is exactly how a card comes to print
+# "8h" beside an arc covering two thirds of the day.
+QuietWindowSpan = collections.namedtuple(
+    "QuietWindowSpan", "start_fraction sweep_fraction minutes")
+
+
+def quiet_window_minute_of_day(value):
+    """`value` ("HH:MM") as whole minutes since local midnight, or `None`
+    when it is not a real time of day. Never raises.
+
+    `None` IS THE "RENDER NOTHING" SIGNAL, matching
+    `_normalised_time_html()`'s own omit-don't-fabricate convention
+    directly below — an unset or unparseable stored window must draw no
+    arc at all rather than a plausible-looking one starting at midnight.
+    The values reaching here are already server-validated HH:MM by
+    `handle_post()`; this is the second gate, not the first.
+
+    The shape regex alone is not enough and the range check is not
+    decoration: `^\\d{2}:\\d{2}$` accepts "99:99", which would become
+    minute 5,999 of a 1,440-minute day and send every fraction below off
+    the ring.
+    """
+    if not value or not _HHMM_RE.match(str(value)):
+        return None
+    hours, minutes = (int(part) for part in str(value).split(":"))
+    if hours > 23 or minutes > 59:
+        return None
+    return hours * 60 + minutes
+
+
+def quiet_window_span(start_hm, end_hm):
+    """The quiet window as a `QuietWindowSpan`, or `None` when either end
+    does not parse. Never raises (T-25-04-C: an unparseable stored window
+    must not take the whole Display page down).
+
+    ALWAYS FORWARD FROM `start_hm`, THROUGH MIDNIGHT IF NECESSARY, which
+    is a modulo and not a subtraction. 23:00 to 07:00 is 480 minutes;
+    07:00 to 23:00 is its complement, 960. Both are legitimate windows
+    and the pair is what proves direction is honoured rather than
+    accidentally symmetric.
+
+    THE THREE DEGENERATE CASES, STATED RATHER THAN DISCOVERED:
+
+      EQUAL START AND END IS A ZERO-LENGTH WINDOW, NOT A WHOLE DAY.
+      `server.device_config.seconds_until_quiet_hours_end()` is the
+      authority here and its docstring already settles it out loud: "when
+      `start_hm == end_hm` the window is zero-width and this always
+      returns `None` for every instant - a zero-width window is never
+      active, and that is intentional rather than a bug to 'fix' into an
+      always-active window." `(end - start) % 1440` returns 0 for that
+      input, so this function agrees with the server by construction
+      rather than by coincidence, and a check asserts the two agree on a
+      shared instant instead of pinning a number in isolation.
+
+      A 24-HOUR WINDOW IS UNREACHABLE THROUGH TWO HH:MM VALUES, and that
+      follows from the paragraph above rather than being a separate rule:
+      the only pair whose forward distance could be 1440 is a pair with
+      equal ends, and that pair is already spoken for as zero. The
+      largest window this control can express is therefore 1439 minutes
+      (23:59), which is what the dial's own `aria-valuemax` says too.
+
+      AN UNPARSEABLE END RENDERS NOTHING. `None` propagates out of
+      `quiet_window_minute_of_day()` and out of here; it is never a zero
+      span, because a zero span draws a real (empty) window and would
+      claim the device has one configured.
+    """
+    start = quiet_window_minute_of_day(start_hm)
+    end = quiet_window_minute_of_day(end_hm)
+    if start is None or end is None:
+        return None
+    minutes = (end - start) % QUIET_WINDOW_MINUTES_PER_DAY
+    return QuietWindowSpan(
+        start / float(QUIET_WINDOW_MINUTES_PER_DAY),
+        minutes / float(QUIET_WINDOW_MINUTES_PER_DAY),
+        minutes)
+
+
 def _normalised_time_html(value):
     """B14 (22-AUDIT.md, 22-10-PLAN.md Task 2): the normalised 24h value
     rendered as a VISIBLE sibling beside a native `<input type="time">`.
@@ -2177,7 +2284,7 @@ def _normalised_time_html(value):
     convention. The value is already server-validated HH:MM by
     `handle_post()`; this only ever echoes it back.
     """
-    if not value or not re.match(r"^\d{2}:\d{2}$", str(value)):
+    if not value or not _HHMM_RE.match(str(value)):
         return ""
     return ' <span class="text-label field-inline-value" aria-hidden="true">%s</span>' % escape_html(
         value)
