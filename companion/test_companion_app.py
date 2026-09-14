@@ -738,6 +738,31 @@ EXPECTED_CHECK_COUNT = 306
 # 306 + 3 = 309, re-derived by RUNNING the harness (307/309 pass here —
 # the two documented WR-11 root-sandbox failures), never by arithmetic.
 EXPECTED_CHECK_COUNT = 309
+# 25-01-PLAN.md Task 3 (CFG-49): +2 — the battery-LIFE estimate, in the
+# ONE module that already owns the battery estimate. The first check is
+# the estimate's totality AND its honesty in one place, because the two
+# are the same property here: six series shapes (empty, one row, two
+# flat rows, falling, RISING, and a newest row whose reading is None)
+# each produce a defined result and raise nothing, the two unknowns are
+# DIFFERENT named values rather than an overloaded None, a charged
+# device's rising slope returns no number at all (a naive divide yields
+# a negative or infinite lifetime, and both are numbers a user would act
+# on), an already-empty series floors at zero rather than going
+# negative, the one figure that IS emitted is recomputed from the
+# observed slope rather than restated, and the relative cadence factor —
+# arithmetic on two cadences, never on the battery — is available in all
+# six shapes and doubles EXACTLY when the proposed cadence doubles.
+# The second is the module's import rules, asserted by ast scan rather
+# than by its docstring's claim: nothing from companion.pages, nothing
+# from server (D-27). It has no RED phase and that is recorded rather
+# than manufactured — it guards an invariant that already held.
+# ONE pre-existing check was retargeted in place with no count
+# contribution: the battery estimate's one-home guard now also catches a
+# second battery-LIFE computation anywhere under companion/ or server/,
+# on the same terms as the percentage's.
+# 309 + 2 = 311, re-derived by RUNNING the harness (309/311 pass here —
+# the two documented WR-11 root-sandbox failures), never by arithmetic.
+EXPECTED_CHECK_COUNT = 311
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -6366,6 +6391,49 @@ def main():
                     "slope (%.1f mV/day over %.0f days, %d mV above empty) it is %d"
                     % (falling_result["days_remaining"], slope, span_days,
                        3900 - battery_module.BATTERY_EMPTY_MV, expected_days))
+
+            # THE OTHER EXTREME OF THE SAME BOUND. The falling case
+            # above measures a six-day span; this one measures ONE day,
+            # with a drop large enough that a span-blind implementation
+            # would happily divide it into a confident figure. A single
+            # day's difference between two daily AVERAGES is well inside
+            # this series' noise — a LiPo's terminal voltage moves with
+            # temperature and load independently of state of charge — so
+            # the honest answer is the named state, not a number.
+            # Without this the span floor is load-bearing and unchecked:
+            # lowering LIFE_MIN_OBSERVED_SPAN_DAYS to 1 would fail
+            # nothing at all.
+            one_day = est([
+                {"ts": "2026-09-10", "battery_mv": 3800, "reading_count": 96},
+                {"ts": "2026-09-09", "battery_mv": 3950, "reading_count": 96},
+            ])
+            if one_day["trend"] != battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY:
+                return False, (
+                    "a 150 mV fall measured across a ONE-day span reported %r (days_remaining "
+                    "%r) — below LIFE_MIN_OBSERVED_SPAN_DAYS the answer is the named state, "
+                    "because a single day's delta between two daily averages is inside this "
+                    "series' own noise" % (one_day["trend"], one_day["days_remaining"]))
+            if one_day["days_remaining"] is not None:
+                return False, (
+                    "a one-day span produced days_remaining=%r — no figure may be emitted below "
+                    "the observed-span floor" % (one_day["days_remaining"],))
+            # And the drop floor, from the same direction: a 1 mV fall
+            # over three days divides out to roughly five years, which a
+            # reader takes as a promise. Reported FLAT, with no figure.
+            barely = est([
+                {"ts": "2026-09-10", "battery_mv": 3899, "reading_count": 96},
+                {"ts": "2026-09-07", "battery_mv": 3900, "reading_count": 96},
+            ])
+            if barely["trend"] != battery_module.LIFE_TREND_FLAT:
+                return False, (
+                    "a 1 mV fall over three days reported %r (days_remaining %r) — below "
+                    "LIFE_MIN_OBSERVED_DROP_MV nothing measurable has drained, and dividing it "
+                    "out yields a multi-year promise"
+                    % (barely["trend"], barely["days_remaining"]))
+            if barely["days_remaining"] is not None:
+                return False, (
+                    "a 1 mV fall over three days produced days_remaining=%r"
+                    % (barely["days_remaining"],))
 
             # THE FLOOR, not only the ceiling: a series already at or
             # below the empty endpoint has zero days left, not a
