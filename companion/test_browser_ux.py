@@ -84,7 +84,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth, i18n, layout  # noqa: E402
+from companion import auth, draw, i18n, layout  # noqa: E402
 # 24-05-PLAN.md Task 3: the app's OWN contrast formula, so the chart
 # area's composite-over-the-card measurement is judged by the same
 # arithmetic every other colour pair this project pins is judged by —
@@ -600,6 +600,18 @@ EXPECTED_CHECK_COUNT = 57
 # blocked.
 # 57 + 2 = 59, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 59
+# 24-06-PLAN.md Task 3 (CFG-42): +2 - the day band. One reads the
+# resolved paint of its frame, shaded span and marks in both themes and
+# asserts the three are distinguishable from each other and from the
+# card (the frame and the span are ONE token at two strengths, so "not
+# the SVG default" says nothing about whether they can be told apart).
+# One measures the band at the 360px floor in both languages: the mark's
+# real rendered width, the canvas's real width with draw.py's spacing
+# constant re-derived from it, the hour labels' placement, and the whole
+# band again with scripts blocked. Both own an isolated Harness, because
+# the shared fixture seeds no check-in on the band's own Paris day.
+# 59 + 2 = 61, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 61
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -7284,6 +7296,422 @@ def main():
                     "and legend all still render — and still paint dark-mode tokens — with scripts "
                     "blocked (CFG-45, D-09, 24-05-PLAN.md Task 3)",
                     _the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script)
+                # --- 24-06-PLAN.md Task 3 (CFG-42): the day band -------
+                #
+                # THIS CHECK OWNS ITS OWN HARNESS, and that is the only
+                # reason it costs a second subprocess. The shared fixture
+                # seeds device_health once per day for the 40 days BEFORE
+                # SEED_BASE_TS, so on any real wall clock the band's own
+                # Paris day holds nothing and there is not one mark to
+                # measure. Adding today's rows to seed_state_dir() would
+                # hand 24-05's battery chart a 41st day bucket it does
+                # not expect; an isolated harness changes no other check
+                # at all.
+                #
+                # The seeded hours are FIXED Paris clock positions and
+                # some of them are in the future relative to the wall
+                # clock when this runs. That is deliberate: the band is a
+                # picture of a DAY, midnight to midnight, and seeding by
+                # "hours before now" would make the mark count depend on
+                # what time the suite happened to run. No production path
+                # writes a future check-in.
+                BAND_SEED_PARIS_HOURS = (2, 8, 12, 18, 22)
+                BAND_MARK = ".drawing-band-mark"
+                BAND_FRAME = ".drawing-band"
+                BAND_SPAN = ".drawing-band-span"
+                BAND_SECTION = ".day-band"
+                # The shaded span has to be tellable from the band's own
+                # surface, and both are the SAME token at two strengths —
+                # so this is the one number that says the 40% share in
+                # style.css is doing something. Shipped: 1.246 light,
+                # 1.208 dark. The floor bites at roughly a 25% share
+                # (measured: 1.15 is first missed between 40% and 25%),
+                # so it separates the shipped value from a decorative one
+                # rather than sitting under everything.
+                BAND_SPAN_MIN_CONTRAST = 1.15
+                # The band's own frame against the card behind it. Faint
+                # by design — it is the day, not the data — but a frame
+                # nobody can see is a band with no extent, and the empty
+                # day would then render as literally nothing. Shipped:
+                # 1.148 light, 1.106 dark.
+                BAND_FRAME_MIN_CONTRAST = 1.05
+                # A mark crossing the shaded span is where most of a
+                # night's check-ins land, and currentColor is what is
+                # meant to keep it readable there. Shipped: 12.29 light,
+                # 11.84 dark, so the ordinary text floor is a long way
+                # below and this asserts a property rather than a
+                # coincidence.
+                BAND_MARK_MIN_CONTRAST = 4.5
+                # The height .day-band declares, and the reason this
+                # number is asserted at all: it is a CSS-only value with
+                # no Python constant behind it, which made it invisible
+                # to every check this plan wrote until a mutation found
+                # it. Removing `--drawing-canvas-height: 24px` does not
+                # overflow, does not move a mark, does not change a
+                # colour and does not fail anything — the canvas simply
+                # takes .drawing__canvas's 160px default and the day
+                # renders as a 6.7x taller BLOCK. That is the same shape
+                # of gap 24-05 found in its own `grid-column: 1 / -1`,
+                # and this is its assertion.
+                BAND_CANVAS_HEIGHT_PX = 24.0
+
+                def _band_rgba(text):
+                    """(r, g, b) 0-255 and alpha, from either of the two
+                    forms Chromium answers with.
+
+                    `color-mix()` resolves to `color(srgb 0.87 0.84 0.78
+                    / 0.4)` — components 0-1 — while a plain token
+                    resolves to `rgb(223, 215, 200)`. A single
+                    `[\\d.]+` scrape treats 0.87 as 0.87/255 of red and
+                    silently composites near-black; the prefix is the
+                    only thing that says which scale the numbers are on.
+                    """
+                    numbers = [float(v) for v in re.findall(r"[\d.]+", text)]
+                    if len(numbers) < 3:
+                        raise AssertionError("not a colour: %r" % (text,))
+                    if text.strip().startswith("color("):
+                        rgb = [v * 255 for v in numbers[:3]]
+                    else:
+                        rgb = numbers[:3]
+                    return rgb, (numbers[3] if len(numbers) > 3 else 1.0)
+
+                def _band_over(fg_text, bg_text):
+                    fg, alpha = _band_rgba(fg_text)
+                    bg, _ = _band_rgba(bg_text)
+                    return "#%02X%02X%02X" % tuple(
+                        int(round(alpha * f + (1 - alpha) * b)) for f, b in zip(fg, bg))
+
+                def _band_harness():
+                    band_harness = Harness()
+                    seed_state_dir(band_harness.tmpdir)
+                    today = datetime.now(layout.LOCAL_TZ).date()
+                    midnight = datetime.combine(
+                        today, datetime.min.time(), tzinfo=layout.LOCAL_TZ)
+                    with history_db.open_db(band_harness.tmpdir) as conn:
+                        for hour in BAND_SEED_PARIS_HOURS:
+                            history_db.record_device_health(
+                                conn, (midnight + timedelta(hours=hour)).isoformat(),
+                                battery_mv=3800)
+                    band_harness.start()
+                    return band_harness
+
+                def _the_day_bands_frame_span_and_marks_paint_real_tokens_in_both_themes():
+                    band_harness = _band_harness()
+                    try:
+                        context = browser.new_context()
+                        try:
+                            page = context.new_page()
+                            _login(page, band_harness.base_url())
+                            page.goto(band_harness.base_url() + layout.HOME_ROUTE)
+                            page.wait_for_selector(BAND_SECTION)
+                            if page.locator(BAND_MARK).count() != len(BAND_SEED_PARIS_HOURS):
+                                return False, (
+                                    "expected %d marks from the seeded day, got %d — with a "
+                                    "different number every paint read below is measuring "
+                                    "something other than what was seeded"
+                                    % (len(BAND_SEED_PARIS_HOURS),
+                                       page.locator(BAND_MARK).count()))
+                            if page.locator(BAND_SPAN).count() != 2:
+                                return False, (
+                                    "expected the fixture's 23:00-07:00 quiet hours as TWO spans, "
+                                    "got %d" % (page.locator(BAND_SPAN).count(),))
+                            seen = {}
+                            for theme in UI_THEMES_EXPLICIT:
+                                _set_ui_theme(page, theme)
+                                frame = _computed_paint(page, BAND_FRAME, ("fill",))
+                                span = _computed_paint(page, BAND_SPAN, ("fill",))
+                                mark = _computed_paint(page, BAND_MARK, ("fill",))
+                                card = page.evaluate(
+                                    "s => getComputedStyle(document.querySelector(s))"
+                                    ".backgroundColor", BAND_SECTION)
+                                for name, paint in (("frame", frame), ("span", span),
+                                                    ("mark", mark)):
+                                    if paint["svg_default"]:
+                                        return False, (
+                                            "in %s the band's %s resolves %r to the SVG default "
+                                            "(%r) — it inherited no colour at all and is black in "
+                                            "both themes" % (theme, name, paint["svg_default"],
+                                                             paint["fill"]))
+                                frame_hex = _band_over(frame["fill"], card)
+                                span_hex = _band_over(span["fill"], card)
+                                mark_hex = _band_over(mark["fill"], card)
+                                card_hex = _band_over(card, card)
+                                # THE THREE STATEMENTS MUST BE THREE. The
+                                # frame is the day, the span is a window
+                                # the device honours, a mark is something
+                                # that happened — and the first two are
+                                # the same token at two strengths, so
+                                # "not the default" says nothing at all
+                                # about whether they are distinguishable.
+                                frame_ratio = contrast_ratio(frame_hex, card_hex)
+                                if frame_ratio < BAND_FRAME_MIN_CONTRAST:
+                                    return False, (
+                                        "in %s the band's frame composites to %s over the card's "
+                                        "%s for %.3f:1, under this check's %.2f:1 floor — a frame "
+                                        "nobody can see gives the band no extent, and an empty "
+                                        "day would render as literally nothing"
+                                        % (theme, frame_hex, card_hex, frame_ratio,
+                                           BAND_FRAME_MIN_CONTRAST))
+                                span_ratio = contrast_ratio(span_hex, frame_hex)
+                                if span_ratio < BAND_SPAN_MIN_CONTRAST:
+                                    return False, (
+                                        "in %s the shaded span (%s) and the band's own surface "
+                                        "(%s) differ by only %.3f:1, under this check's %.2f:1 "
+                                        "floor — quiet hours would be shaded and invisible, which "
+                                        "is the whole of what the span is for"
+                                        % (theme, span_hex, frame_hex, span_ratio,
+                                           BAND_SPAN_MIN_CONTRAST))
+                                mark_ratio = contrast_ratio(mark_hex, span_hex)
+                                if mark_ratio < BAND_MARK_MIN_CONTRAST:
+                                    return False, (
+                                        "in %s a mark (%s) over the shaded span (%s) is %.3f:1, "
+                                        "under this check's %.2f:1 floor — most of a night's "
+                                        "check-ins land inside that span, and currentColor is "
+                                        "what is meant to keep them readable there"
+                                        % (theme, mark_hex, span_hex, mark_ratio,
+                                           BAND_MARK_MIN_CONTRAST))
+                                seen[theme] = {"frame": frame["fill"], "span": span["fill"],
+                                               "mark": mark["fill"], "card": card,
+                                               "frame_ratio": frame_ratio,
+                                               "span_ratio": span_ratio,
+                                               "mark_ratio": mark_ratio}
+                            first, second = UI_THEMES_EXPLICIT
+                            for name in ("frame", "span", "mark", "card"):
+                                if seen[first][name] == seen[second][name]:
+                                    return False, (
+                                        "the band's %s resolves to %r in BOTH %s and %s — the "
+                                        "theme token is not reaching it, and every assertion "
+                                        "above has been comparing a value to itself"
+                                        % (name, seen[first][name], first, second))
+                            # A mark really does cross a span in this
+                            # fixture, so the contrast assertion above is
+                            # about a case that occurs rather than a
+                            # hypothetical one.
+                            crossing = page.evaluate(
+                                "() => { const r = el => el.getBoundingClientRect();"
+                                "  const spans = [...document.querySelectorAll('%s')].map(r);"
+                                "  return [...document.querySelectorAll('%s')].map(r).filter("
+                                "    m => spans.some(s => m.left >= s.left && m.right <= s.right)"
+                                "  ).length; }" % (BAND_SPAN, BAND_MARK))
+                            if not crossing:
+                                return False, (
+                                    "no seeded mark falls inside a shaded span, so the "
+                                    "mark-over-span contrast assertion above measured a case "
+                                    "this fixture never produces — seed a check-in inside the "
+                                    "23:00-07:00 window")
+                            return True, ""
+                        finally:
+                            context.close()
+                    finally:
+                        band_harness.stop()
+                        band_harness.cleanup()
+                check(
+                    "the day band's frame, shaded span and check-in marks each resolve to a real "
+                    "theme token in BOTH themes and never the SVG default, all three move when "
+                    "the theme does, the span clears a 1.15:1 floor against the band's own "
+                    "surface (they are one token at two strengths, so 'not the default' says "
+                    "nothing about whether they can be told apart), the frame clears 1.05:1 "
+                    "against its card so an empty day is not literally nothing, and a mark "
+                    "crossing the span — which is where a night's check-ins land, and the "
+                    "fixture is asserted to produce one — clears 4.5:1 over it "
+                    "(CFG-42, 24-06-PLAN.md Task 3)",
+                    _the_day_bands_frame_span_and_marks_paint_real_tokens_in_both_themes)
+
+                def _the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_script():
+                    band_harness = _band_harness()
+                    try:
+                        base_url = band_harness.base_url()
+                        widths = {}
+                        for lang in ("en", "fr"):
+                            context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                            try:
+                                page = context.new_page()
+                                _login(page, base_url)
+                                context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+                                page.goto(base_url + layout.HOME_ROUTE)
+                                page.wait_for_selector(BAND_SECTION)
+                                message = _assert_no_page_overflow(
+                                    page, "%s in %s" % (layout.HOME_ROUTE, lang),
+                                    VIEWPORT_MIN_SUPPORTED["width"])
+                                if message:
+                                    return False, message
+                                boxes = page.evaluate(
+                                    "() => { const r = el => { const b ="
+                                    " el.getBoundingClientRect(); return {l: b.left, t: b.top,"
+                                    " r: b.right, b: b.bottom, w: b.width, h: b.height}; };"
+                                    "  return {canvas: r(document.querySelector("
+                                    "'%s .drawing__canvas')),"
+                                    "          section: r(document.querySelector('%s')),"
+                                    "          hours: [...document.querySelectorAll("
+                                    "'.day-band__hours span')].map(r),"
+                                    "          marks: [...document.querySelectorAll('%s')].map(r),"
+                                    "          spans: [...document.querySelectorAll('%s')].map(r)"
+                                    "  }; }" % (BAND_SECTION, BAND_SECTION, BAND_MARK, BAND_SPAN))
+                                canvas = boxes["canvas"]
+                                widths[lang] = canvas["w"]
+                                if abs(canvas["h"] - BAND_CANVAS_HEIGHT_PX) > 0.5:
+                                    return False, (
+                                        "in %s the band's canvas is %.2fpx tall, not the %.2fpx "
+                                        ".day-band declares — at .drawing__canvas's own 160px "
+                                        "default the day renders as a block rather than a band, "
+                                        "which overflows nothing and shows up nowhere else"
+                                        % (lang, canvas["h"], BAND_CANVAS_HEIGHT_PX))
+
+                                # THE MEASUREMENT UNIQUE TO THIS DRAWING,
+                                # and the one that catches a band which is
+                                # structurally perfect and visually empty.
+                                # A mark is emitted with an ABSOLUTE pixel
+                                # width into a canvas sized by CSS, so
+                                # nothing in the markup guarantees it
+                                # survives to paint; a sub-pixel mark is
+                                # not a mark.
+                                if len(boxes["marks"]) != len(BAND_SEED_PARIS_HOURS):
+                                    return False, (
+                                        "in %s expected %d marks, got %d"
+                                        % (lang, len(BAND_SEED_PARIS_HOURS),
+                                           len(boxes["marks"])))
+                                for index, mark in enumerate(boxes["marks"]):
+                                    if mark["w"] < draw.DAY_BAND_MARK_WIDTH_PX - 0.01:
+                                        return False, (
+                                            "in %s at 360px mark %d renders %.2fpx wide, under "
+                                            "the %dpx draw.py declares — a mark thinner than the "
+                                            "ink it asks for is a mark the reader cannot see"
+                                            % (lang, index, mark["w"],
+                                               draw.DAY_BAND_MARK_WIDTH_PX))
+                                    if mark["h"] < 1:
+                                        return False, (
+                                            "in %s at 360px mark %d is %.2fpx tall"
+                                            % (lang, index, mark["h"]))
+                                    if (mark["l"] < canvas["l"] - 0.01
+                                            or mark["r"] > canvas["r"] + 0.01):
+                                        return False, (
+                                            "in %s at 360px mark %d (%.2f..%.2f) escapes the "
+                                            "canvas (%.2f..%.2f) — the marks are centred on "
+                                            "their instants precisely so a 23:5x check-in's ink "
+                                            "stays on the band"
+                                            % (lang, index, mark["l"], mark["r"],
+                                               canvas["l"], canvas["r"]))
+                                for index, span in enumerate(boxes["spans"]):
+                                    if (span["l"] < canvas["l"] - 0.01
+                                            or span["r"] > canvas["r"] + 0.01):
+                                        return False, (
+                                            "in %s at 360px shaded span %d (%.2f..%.2f) escapes "
+                                            "the canvas (%.2f..%.2f)"
+                                            % (lang, index, span["l"], span["r"],
+                                               canvas["l"], canvas["r"]))
+
+                                # THE SPACING CONSTANT, RE-DERIVED FROM
+                                # THE REAL WIDTH. draw.py's own comment
+                                # records an arithmetic — 4px centre to
+                                # centre, so two 2px marks keep clear
+                                # ground between them — and its FIRST
+                                # draft did that arithmetic against an
+                                # estimated 330px band when the real one
+                                # is 278px, which made every figure in it
+                                # wrong. This is the assertion that stops
+                                # the estimate and the layout drifting
+                                # apart again: whatever the canvas
+                                # measures, the minimum spacing must
+                                # still buy the 4px.
+                                spacing_px = (draw.DAY_BAND_MIN_MARK_SPACING_PERCENT / 100.0
+                                              * canvas["w"])
+                                if spacing_px < 2 * draw.DAY_BAND_MARK_WIDTH_PX:
+                                    return False, (
+                                        "in %s the canvas measures %.2fpx, so draw.py's %.2f%% "
+                                        "minimum spacing is %.2fpx centre to centre — under the "
+                                        "%dpx two %dpx marks need to keep a clear pixel between "
+                                        "them. The constant's derivation and this layout have "
+                                        "drifted apart"
+                                        % (lang, canvas["w"],
+                                           draw.DAY_BAND_MIN_MARK_SPACING_PERCENT, spacing_px,
+                                           2 * draw.DAY_BAND_MARK_WIDTH_PX,
+                                           draw.DAY_BAND_MARK_WIDTH_PX))
+
+                                # The hour labels are placed by the same
+                                # scale the marks are: first flush left,
+                                # last flush right, middle centred. A row
+                                # that lost its flex context would stack
+                                # them at the left and silently mislabel
+                                # the whole band.
+                                hours = boxes["hours"]
+                                if len(hours) != 3:
+                                    return False, (
+                                        "in %s expected three hour labels, got %d"
+                                        % (lang, len(hours)))
+                                if abs(hours[0]["l"] - canvas["l"]) > 1.5:
+                                    return False, (
+                                        "in %s the 00:00 label starts at %.2f, not the canvas's "
+                                        "own left edge %.2f"
+                                        % (lang, hours[0]["l"], canvas["l"]))
+                                if abs(hours[2]["r"] - canvas["r"]) > 1.5:
+                                    return False, (
+                                        "in %s the 24:00 label ends at %.2f, not the canvas's "
+                                        "own right edge %.2f"
+                                        % (lang, hours[2]["r"], canvas["r"]))
+                                middle = (hours[1]["l"] + hours[1]["r"]) / 2
+                                centre = (canvas["l"] + canvas["r"]) / 2
+                                if abs(middle - centre) > 2.0:
+                                    return False, (
+                                        "in %s the 12:00 label centres at %.2f, not the band's "
+                                        "own midpoint %.2f — the labels and the marks are placed "
+                                        "by two different scales" % (lang, middle, centre))
+                                if hours[0]["l"] < boxes["section"]["l"] or (
+                                        hours[2]["r"] > boxes["section"]["r"]):
+                                    return False, (
+                                        "in %s the hour labels escape their own section"
+                                        % (lang,))
+                            finally:
+                                context.close()
+                        if abs(widths["en"] - widths["fr"]) > 0.01:
+                            return False, (
+                                "the band's canvas measures %.2fpx in English and %.2fpx in "
+                                "French — the drawing's width must not depend on the copy beside "
+                                "it" % (widths["en"], widths["fr"]))
+
+                        # D-09: server-rendered SVG owes nothing to a
+                        # script, measured in the theme+no-JS combination
+                        # most likely to be wrong.
+                        with _no_js_page(browser, base_url, layout.HOME_ROUTE,
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+                            for label, selector, expected in (
+                                    ("frame", BAND_FRAME, 1),
+                                    ("shaded span", BAND_SPAN, 2),
+                                    ("mark", BAND_MARK, len(BAND_SEED_PARIS_HOURS))):
+                                if blocked.locator(selector).count() != expected:
+                                    return False, (
+                                        "with scripts blocked: expected %d %s, got %d"
+                                        % (expected, label,
+                                           blocked.locator(selector).count()))
+                            _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
+                            for label, selector in (("frame", BAND_FRAME),
+                                                    ("span", BAND_SPAN),
+                                                    ("mark", BAND_MARK)):
+                                paint = _computed_paint(blocked, selector, ("fill",))
+                                if paint["svg_default"]:
+                                    return False, (
+                                        "with scripts blocked, in %s: the band's %s resolves %r "
+                                        "to the SVG default"
+                                        % (UI_THEMES_EXPLICIT[1], label,
+                                           paint["svg_default"]))
+                        return True, ""
+                    finally:
+                        band_harness.stop()
+                        band_harness.cleanup()
+                check(
+                    "at the 360px floor the day band is a real drawing in BOTH languages: the "
+                    "page body does not scroll sideways, every mark renders at least the 2px "
+                    "draw.py declares (a mark emitted in absolute pixels into a CSS-sized canvas "
+                    "has nothing in the markup guaranteeing it survives to paint), every mark "
+                    "and span stays inside the canvas, the minimum mark spacing re-derived from "
+                    "the canvas's MEASURED width still buys the 4px its comment claims, the "
+                    "three hour labels sit at the band's own left edge, midpoint and right edge, "
+                    "the canvas is the same width in both languages, and the whole band plus its "
+                    "two shaded spans still render and still paint dark-mode tokens with scripts "
+                    "blocked (CFG-42, D-09, 24-06-PLAN.md Task 3)",
+                    _the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_script)
+
             finally:
                 browser.close()
     finally:

@@ -848,21 +848,31 @@ DAY_BAND_MARK_WIDTH_PX = 2
 # a spacing constant with no derivation is a number the next reader
 # tunes:
 #
-#   at the 360px contract floor the band measures about 330px (the
-#   viewport less the page gutters and the card's own padding), so 1% of
-#   the band is ~3.3px. Two DAY_BAND_MARK_WIDTH_PX marks need their 2px
-#   of ink each plus a clear pixel between them to be two things rather
-#   than one smear: 4px centre to centre, and 4 / 330 = 1.21%.
+#   at the 360px contract floor the band's canvas MEASURES 278.00px.
+#   That is a real number read off a real browser by
+#   companion/test_browser_ux.py, not an estimate: this constant's first
+#   draft assumed "about 330px" (viewport less gutters less card
+#   padding) and was wrong by 52px, which made every figure below wrong
+#   with it. The check now reads the width back and re-derives this
+#   constant from it, so the estimate cannot drift from the layout
+#   again.
 #
-# 1.2 is that figure rounded DOWN, so the constant is the honest floor
-# rather than a hair above it. Two consequences a caller captions from:
-# the band can hold at most int(100 / 1.2) + 1 = 84 marks whatever the
-# row count (T-24-06-C), and the finest interval it can resolve on a
-# 24-hour day is 1.2% of it, about 17 minutes. A 30-minute cadence is
-# comfortably above that; a 60-second cadence is 1 440 instants and most
-# of them WILL be collapsed, which is what `day_band()` reports rather
-# than hides.
-DAY_BAND_MIN_MARK_SPACING_PERCENT = 1.2
+#   1% of 278px is 2.78px. Two DAY_BAND_MARK_WIDTH_PX marks need their
+#   2px of ink each plus a clear pixel between them to be two things
+#   rather than one smear: 4px centre to centre, and 4 / 278 = 1.4388%.
+#
+# 1.5 is that figure rounded UP, and UP rather than down because this is
+# a floor on legibility: rounding down would let two marks sit closer
+# than the 4px the derivation just established, which is the one thing
+# the constant exists to prevent. Three consequences a caller captions
+# from: two marks at the minimum sit 4.17px apart with 2.17px of clear
+# ground between them, the band can hold at most int(100 / 1.5) + 1 = 67
+# marks whatever the row count (T-24-06-C), and the finest interval it
+# can resolve on a 24-hour day is 1.5% of it, about 22 minutes. A
+# 30-minute cadence is above that; a 60-second cadence is 1 440 instants
+# and most of them WILL be collapsed, which is what `day_band()` reports
+# rather than hides.
+DAY_BAND_MIN_MARK_SPACING_PERCENT = 1.5
 
 
 def day_band(day_start, day_seconds, instants, window=None, label=None):
@@ -887,12 +897,12 @@ def day_band(day_start, day_seconds, instants, window=None, label=None):
     true instead.
 
     THE ELEMENT COUNT IS BOUNDED BY THE BAND'S WIDTH, NEVER BY THE ROW
-    COUNT (T-24-06-C): at most 84 marks leave this function however many
+    COUNT (T-24-06-C): at most 67 marks leave this function however many
     thousand rows a day holds, because the minimum spacing is what
     decides, and the frame and the spans are at most three more.
 
     Marks are CENTRED on their instants — see the transform below — and
-    carry no <title> each. A per-mark tooltip on up to 84 elements would
+    carry no <title> each. A per-mark tooltip on up to 67 elements would
     be 84 accessible names for one statement; the canvas takes a single
     `label` instead, and a band with no `label` is aria-hidden because
     the only honest reason to have none is that the page already states
@@ -984,7 +994,7 @@ def _day_band_mark_percents(day_start, day_seconds, instants):
     reported 1 439 and every ceiling stayed satisfied. Re-basing on each
     kept mark instead makes the run walk the band at the minimum
     spacing, so a busy day reads as busy: the same 1 440 check-ins draw
-    80 marks spread from 0.00% to 98.75%.
+    66 marks spread from 0.00% to 99.31%.
 
     That failure passed all four of this band's original checks, which
     were ceilings to a one. `companion/test_view_pages.py` now asserts
