@@ -7466,6 +7466,54 @@ a.airline-card {
   margin-bottom: var(--space-lg);
 }
 
+/* D4's HERO (CFG-44, 24-08-PLAN.md Task 1): Home's top read as ONE thing
+ * — the shared Frame strip, the three status tiles with their battery
+ * ring, and the day band — instead of three stacked blocks.
+ *
+ * THE COMPOSITION IS PROXIMITY, AND IT IS A MEASUREMENT. The three parts
+ * sit one --space-md (16px) apart inside this container and the
+ * container sits one --space-lg (24px) above the picture row beneath it:
+ * bound tighter than they are separated, which is the whole of the
+ * claim and is asserted in companion/test_browser_ux.py as two numbers
+ * rather than left to the eye. `display: grid` is what makes `gap` mean
+ * anything here — under `display: block` the gap is inert and, with the
+ * children's own margins zeroed below, the three parts would touch.
+ *
+ * NO SURFACE OF ITS OWN, deliberately. Two of the three parts are
+ * already cards (.frame-strip is an accent .stat-tile, .day-band is a
+ * .page-section) and the third is a grid of three more, so a background
+ * and a border here would be a card holding cards. The alternative —
+ * taking .day-band's own card away so the hero could carry one — was
+ * rejected on a measured ground and not a stylistic one: the band's
+ * canvas measures 278px at the 360px floor precisely because that card
+ * pads it, and draw.py's DAY_BAND_MIN_MARK_SPACING_PERCENT is derived
+ * from that number. Widening the canvas would silently invalidate the
+ * spacing constant that keeps two check-in marks readable as two.
+ *
+ * ONE COLUMN AT EVERY WIDTH, and the multi-column behaviour belongs to
+ * the parts (the tiles go one-across to three-across, the strip's cells
+ * column to row). A hero that split into columns of its own would have
+ * to put the band in one of them: measured at 1280px, a one-third
+ * column leaves the band's canvas NARROWER than the 278px it gets at the
+ * 360px floor, which is the "fits by shrinking its parts" failure this
+ * requirement exists to refuse. */
+.home-overview {
+  display: grid;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+/* The parts' own bottom margins, surrendered to the container. Each of
+ * .frame-strip, .home-section and .page-section carries
+ * `margin-bottom: var(--space-lg)` of its own, and a grid item's margin
+ * does not collapse into the gap — it ADDS to it, so without this rule
+ * the hero's internal rhythm would be 40px and its own bottom margin
+ * 48px. One owner of the spacing, which is what "one composition"
+ * means in CSS. */
+.home-overview > * {
+  margin-bottom: 0;
+}
+
 .home-section > .text-heading {
   margin-top: 0;
 }
@@ -8382,7 +8430,9 @@ a.airline-card__zoom {
  * a two-column picture/status-card grid) is deleted outright —
  * replaced by the strip -> three tiles -> .home-columns.home-picture-
  * row shape below. .preview-frame and its own children (Home's
- * picture figure, `_hero_figure_html()`, unchanged) survive; only the
+ * picture figure — the builder 24-08-PLAN.md Task 1 renamed to
+ * `_current_picture_html()`, body unchanged, so that D4's hero above is
+ * the only thing on that page meaning "hero") survive; only the
  * two-column wrapper around it is gone.
  *
  * Naming caution (20-UI-SPEC.md §B): companion/test_view_pages.py's own

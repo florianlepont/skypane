@@ -22,9 +22,14 @@ Like every page module this one imports nothing from a sibling page
 module (companion/pages/__init__.py's boundary). The status verdicts it
 renders come straight from `ctx["health_state"]` (already computed once
 per request by companion/app.py) and the recent-flight rows from one
-`history_db` read of its own — the SAME read now feeds both the hero
-row's flight one-liner and the recent-flights list, so the hero's own
-"current flight" costs no second query (D-20).
+`history_db` read of its own — the SAME read now feeds both the
+current picture's flight one-liner and the recent-flights list, so the
+picture's own "current flight" costs no second query (D-20).
+
+24-08-PLAN.md Task 1 (CFG-44) groups the first three of those — the
+strip, the tiles and the day band — into ONE composition, `_hero_html()`
+below. That function is the only thing on this page that means "hero";
+the current-picture figure was renamed out of the word to keep it so.
 
 Everything dynamic passes through `layout.escape_html()`.
 """
@@ -289,8 +294,8 @@ def _route_text(row):
 
 def _flight_secondary_text(row):
     """"<airline> · <route> · <direction>", skipping any empty part —
-    the shared join-and-skip-empty convention both the hero's flight
-    one-liner and the recent-flights list compose (20-UI-SPEC.md
+    the shared join-and-skip-empty convention both the current
+    picture's flight one-liner and the recent-flights list compose (20-UI-SPEC.md
     Section Anatomy B). `direction` is translated at this call site;
     `airline`/`route` are data (an ADS-B/adsbdb-sourced airline name
     and ICAO airport codes) and are never translated (D-05).
@@ -502,11 +507,18 @@ def _status_tiles_html(ctx):
     ) % (escape_html(i18n.t(STATUS_HEADING)), tiles, health_link_html)
 
 
-def _hero_figure_html(ctx, current_flight_row):
-    """The hero row's left half: the current picture, its "Rendered
-    HH:MM" caption and, when the current flight is known, a one-line
+def _current_picture_html(ctx, current_flight_row):
+    """The picture column: the current picture, its "Rendered HH:MM"
+    caption and, when the current flight is known, a one-line
     "AFR1380 · Air France · ORY → TLS" reusing the SAME recent-flights
     query result (D-20 — no second query for the "current flight").
+
+    24-08-PLAN.md Task 1 (CFG-44): renamed from `_hero_figure_html()`.
+    The body is unchanged. D4's hero is the composition at the top of
+    this page (`_hero_html()` below), and this function was the second
+    thing on Home called hero — exactly the collision 22-07 had to fix
+    for "Frame", resolved the same way: the loser is renamed, so the
+    word keeps one meaning on this page.
     """
     entries = ctx.get("gallery_entries") or []
     now = ctx.get("now")
@@ -828,12 +840,66 @@ def _day_band_html(ctx, rows):
     ) % (escape_html(i18n.t(DAY_BAND_HEADING)), canvas, hours, " ".join(sentences))
 
 
+# --- D4's hero (CFG-44, 24-08-PLAN.md Task 1) --------------------------
+#
+# The class is `home-overview` and deliberately NOT `home-hero`: that
+# name belonged to the phase-20 hero row 21-04-PLAN.md Task 3 deleted,
+# and two standing checks (companion/test_view_pages.py and
+# companion/test_companion_app.py) assert that markup never comes back to
+# this page. Reusing the retired name would either fail them or, worse,
+# invite the next reader to relax them.
+HERO_CLASS = "home-overview"
+
+
+def _hero_html(*parts):
+    """Home's top as ONE composition — the shared Frame strip, the three
+    status tiles carrying the battery ring, and the day band — wrapped in
+    a single container that owns the rhythm between them.
+
+    ASSEMBLED FROM CALLS, AND THAT IS ALL IT DOES. Every part arrives
+    already built by the function that owns it; this one concatenates and
+    wraps. The requirement is structural rather than decorative: a hero
+    that re-emitted the ring or the band for itself would look identical
+    on the day it shipped and drift from the originals the first time
+    either was fixed. Nothing here can drift, because there is nothing
+    here — no geometry, no estimate, no second rendering of the shared
+    strip, which this function receives rather than builds.
+
+    A <div>, WITH NO ROLE AND NO NAME OF ITS OWN. The three parts keep
+    their own <h2>s, so a screen reader reads this page exactly as it did
+    before the container existed. The composition is a visual statement —
+    the group is bound tighter (one --space-md gap inside) than it is
+    separated from what follows (--space-lg below it) — and a landmark
+    with no accessible name would be a second, weaker claim about the
+    same grouping.
+
+    THE WRAPPER IS UNCONDITIONAL, and the degenerate cases are why that
+    is stated. `_day_band_html()` returns "" for an unreadable
+    history.db, and the battery tile omits its ring entirely for a device
+    with no reading, so the hero's CONTENTS already vary with the data.
+    A container that also came and went would additionally move
+    everything below it depending on whether a query happened to
+    succeed — the one thing a composition must not do.
+    """
+    return '<div class="%s">%s</div>' % (HERO_CLASS, "".join(parts))
+
+
 def render(ctx):
     """D-04 (21-CONTEXT.md, 21-04-PLAN.md Task 3): strip -> three tiles
-    -> a two-column picture/recent-flights row. `_hero_figure_html()`/
+    -> a two-column picture/recent-flights row. `_current_picture_html()`/
     `_recent_flights_html()` bodies are unchanged — only render()'s own
     assembly order changes; the phase-20 hero row and its status-card
     builder are both gone.
+
+    24-08-PLAN.md Task 1 (CFG-44): the first three of those are now
+    handed to `_hero_html()` as one composition. The DOM order is
+    unchanged and so is every region
+    `layout.REFRESH_SWAP_SELECTORS_BY_PAGE` declares for this page — the
+    registry's five Home selectors match descendants, and wrapping three
+    of them in a container matches none of them differently. That is
+    checked in a browser rather than asserted here, because a swap
+    selector that stopped matching would fail silently: the page would
+    simply stop refreshing.
     """
     now = ctx.get("now")
     # D-20: one read, reused for both the hero's flight one-liner (its
@@ -872,11 +938,13 @@ def render(ctx):
         ctx.get("last_checkin_ts"), ctx.get("device_config"))[0]
     return (
         header
-        + layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE, next_wake_iso=next_wake_iso)
-        + _status_tiles_html(ctx)
-        + _day_band_html(ctx, checkin_rows)
+        + _hero_html(
+            layout.frame_strip_html(
+                ctx, return_to=layout.HOME_ROUTE, next_wake_iso=next_wake_iso),
+            _status_tiles_html(ctx),
+            _day_band_html(ctx, checkin_rows))
         + '<div class="home-columns home-picture-row">'
-        + _hero_figure_html(ctx, current_flight_row)
+        + _current_picture_html(ctx, current_flight_row)
         + _recent_flights_html(rows, now, ctx.get("state_dir"))
         + "</div>"
     )
