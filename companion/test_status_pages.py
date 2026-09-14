@@ -54,7 +54,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import companion.app as app  # noqa: E402
-from companion import auth, draw, illustration_normalize, layout, prefs  # noqa: E402
+from companion import auth, battery, draw, illustration_normalize, layout, prefs  # noqa: E402
 import companion.i18n_fr.health as i18n_fr_health  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 import companion.wake as wake  # noqa: E402
@@ -878,6 +878,19 @@ EXPECTED_CHECK_COUNT = 288
 # its own for the layer.
 # 288 + 1 = 289, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 289
+# 24-05-PLAN.md Task 2 (CFG-41): +2 — the marked current reading and the
+# drawn low-battery threshold. The mark's check is built on a fixture
+# whose NEWEST row carries no battery_mv, because that is the one input
+# that tells a mark derived from the filtered pair list apart from a mark
+# derived from the raw rows, and every other assertion about a mark
+# passes either way. The threshold's check computes the expected y from
+# the same sparkline_point_y() the readings use rather than a number,
+# scans health_page.py's own source for the re-typed millivolt literal,
+# and drives three out-of-range values through a patched constant to pin
+# that an unplottable threshold draws NOTHING rather than pinning itself
+# to the axis edge.
+# 289 + 2 = 291, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 291
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -2398,8 +2411,20 @@ def main():
         svg = health_page.battery_sparkline_svg(rows)
         if svg.count(health_page.SPARKLINE_HIT_CLASS) != 3:
             return False, "expected exactly 3 hit-target circles, got %d" % svg.count(health_page.SPARKLINE_HIT_CLASS)
-        if svg.count(health_page.SPARKLINE_DOT_CLASS) != 3:
-            return False, "expected exactly 3 cosmetic dot circles, got %d" % svg.count(health_page.SPARKLINE_DOT_CLASS)
+        # 24-05-PLAN.md Task 2 (CFG-41): RETARGETED IN PLACE, no count
+        # contribution. The newest plotted point is now marked, and the
+        # mark is deliberately NOT a cosmetic dot (the density rule
+        # suppresses cosmetic dots; the mark must survive it), so "3
+        # dots" stopped being the way to say "every point is drawn".
+        # Restated as what it always meant — one drawn marker per point,
+        # the last of them the mark — which is strictly sharper: the old
+        # count would also have been satisfied by three dots and no mark.
+        dot_count = svg.count(health_page.SPARKLINE_DOT_CLASS)
+        mark_count = svg.count(health_page.SPARKLINE_MARK_CLASS)
+        if (dot_count, mark_count) != (2, 1):
+            return False, (
+                "expected 3 drawn markers for 3 points — 2 cosmetic dots plus 1 mark on the newest — got "
+                "%d dots / %d marks" % (dot_count, mark_count))
         if svg.count("data-mv=") != 3:
             return False, "expected exactly 3 data-mv attributes, got %d" % svg.count("data-mv=")
         if svg.count("data-ts=") != 3:
@@ -2688,11 +2713,24 @@ def main():
         if marker_xs != sorted(marker_xs) or len(set(marker_xs)) != len(marker_xs):
             return False, "expected strictly increasing, distinct marker x-positions (chronological order), got %r" % marker_xs
 
-        if svg.count('r="3"') != 5 or svg.count('r="8"') != 5:
-            return False, (
-                "expected the unchanged absolute marker radius (r=\"3\", x5) and hit-target "
-                "radius (r=\"8\", x5) — got r=\"3\" x%d, r=\"8\" x%d"
-                % (svg.count('r="3"'), svg.count('r="8"')))
+        # 24-05-PLAN.md Task 2 (CFG-41): RETARGETED IN PLACE, no count
+        # contribution. The property this line pins is unchanged — every
+        # radius is an ABSOLUTE pixel value that no container width can
+        # scale — but the newest point is now a mark rather than a
+        # cosmetic dot, so the 5-point fixture draws 4 dots at r=3, 1
+        # mark at its own named radius, and 5 unchanged r=8 hit targets.
+        # The hit-target radius in particular is asserted unchanged here:
+        # nothing this plan adds may shrink a tap target.
+        expected_radii = (
+            ('r="%d"' % health_page._SPARKLINE_DOT_RADIUS_PX, 4),
+            ('r="%d"' % health_page._SPARKLINE_MARK_RADIUS_PX, 1),
+            ('r="%d"' % health_page._SPARKLINE_HIT_RADIUS_PX, 5),
+        )
+        for radius_text, expected_count in expected_radii:
+            if svg.count(radius_text) != expected_count:
+                return False, (
+                    "expected the unchanged absolute radii (4 dots, 1 mark, 5 hit targets) — %s appeared "
+                    "%d times, expected %d" % (radius_text, svg.count(radius_text), expected_count))
 
         css = open(os.path.join(HERE, "static", "style.css")).read()
         rule_match = re.search(
@@ -2890,6 +2928,233 @@ def main():
         "viewBox, no url(/image/script reference, no colour literal, no rule of its own for the layer, and "
         "nothing at all below two points (CFG-41/CFG-45, 24-05-PLAN.md Task 1)",
         _sparkline_area_sits_under_the_line_in_its_own_nested_viewbox)
+
+    def _sparkline_marks_the_newest_PLOTTED_point_not_the_newest_row():
+        # 24-05-PLAN.md Task 2 (CFG-41): the chart marks the current
+        # reading. The fixture's newest row deliberately carries NO
+        # battery_mv, which is the whole point of this check: a mark
+        # derived from the raw rows marks a row the chart never plotted
+        # (or, with a None value, nothing at all), and every other
+        # assertion about the mark would still pass. The mark must come
+        # from the SAME single-pass filtered pair list the points do.
+        rows = [
+            {"ts": "2024-01-05T05:00:00"},
+            {"ts": "2024-01-04T04:00:00", "battery_mv": 3900},
+            {"ts": "2024-01-03T03:00:00", "battery_mv": 4000},
+            {"ts": "2024-01-02T02:00:00", "battery_mv": 4100},
+        ]
+        svg = health_page.battery_sparkline_svg(rows, now="2024-01-05T06:00:00")
+
+        marks = re.findall(
+            r'<circle class="%s"[^>]*cx="([\d.]+)%%" cy="([\d.]+)%%" r="(\d+)"[^>]*/>'
+            % health_page.SPARKLINE_MARK_CLASS, svg)
+        if len(marks) != 1:
+            return False, "expected exactly one marked point, got %d" % len(marks)
+        mark_x, mark_y, mark_r = float(marks[0][0]), float(marks[0][1]), int(marks[0][2])
+        if abs(mark_x - 100.0) > 0.005:
+            return False, "expected the mark at the rightmost (newest) x=100%%, got %.2f%%" % mark_x
+        expected_y = health_page.sparkline_point_y(3900)
+        if abs(mark_y - expected_y) > 0.005:
+            return False, (
+                "expected the mark at the newest PLOTTED reading's own level (%.2f%%, for 3900 mV), got "
+                "%.2f%% — a mark derived from the raw rows lands on the newest row instead, which has no "
+                "battery_mv at all" % (expected_y, mark_y))
+        if "2024-01-05" in svg:
+            return False, "the row with no battery_mv reached the chart — it must be dropped, mark included"
+
+        # The mark is NOT a cosmetic dot, and that is the density rule's
+        # written-down exception rather than an accident of naming: dots
+        # are suppressed above the threshold, the mark is not.
+        if health_page.SPARKLINE_MARK_CLASS in health_page.SPARKLINE_DOT_CLASS or (
+                health_page.SPARKLINE_DOT_CLASS in health_page.SPARKLINE_MARK_CLASS):
+            return False, "expected the mark and dot class names to be distinct, neither a substring of the other"
+        dots = [m.start() for m in re.finditer(
+            r'<circle class="%s"' % health_page.SPARKLINE_DOT_CLASS, svg)]
+        if len(dots) != 2:
+            return False, "expected 2 cosmetic dots (3 plotted points, the last one marked instead), got %d" % len(dots)
+        mark_at = svg.index('<circle class="%s"' % health_page.SPARKLINE_MARK_CLASS)
+        if any(dot_at > mark_at for dot_at in dots):
+            return False, "expected the mark to be the LAST plotted marker in document order"
+
+        # The mark reads as the current value only if the hit target at
+        # the same place carries that reading's own timestamp — the
+        # keyboard/hover path is what actually speaks the value.
+        hits = re.findall(
+            r'<circle class="%s"[^>]*data-ts="([^"]*)"[^>]*>(?:<title>([^<]*)</title>)?'
+            % health_page.SPARKLINE_HIT_CLASS, svg)
+        if len(hits) != 3:
+            return False, "expected 3 hit targets, got %d" % len(hits)
+        if hits[-1][0] != "2024-01-04T04:00:00":
+            return False, (
+                "expected the last hit target to carry the newest PLOTTED row's timestamp, got %r"
+                % hits[-1][0])
+        if not hits[-1][1]:
+            return False, "expected the marked point's hit target to keep its own <title>"
+
+        # The keyboard path is untouched: one Tab stop, on the last
+        # point, and one tabindex per point.
+        if svg.count("tabindex=") != 3 or svg.count('tabindex="0"') != 1:
+            return False, (
+                "expected one tabindex per point with exactly one Tab stop, got %d tabindex / %d zero"
+                % (svg.count("tabindex="), svg.count('tabindex="0"')))
+        if svg.index('tabindex="0"') < mark_at:
+            return False, "expected the single Tab stop to be the marked (latest) point's own hit target"
+
+        # The mark's radius is a named constant and fits inside the
+        # vertical inset the canvas reserves, or an extreme reading's
+        # mark would be clipped at the canvas edge.
+        if mark_r != health_page._SPARKLINE_MARK_RADIUS_PX:
+            return False, "expected the mark's radius to come from _SPARKLINE_MARK_RADIUS_PX, got %d" % mark_r
+        inset_px = health_page._SPARKLINE_VERTICAL_INSET_PERCENT / 100.0 * health_page._SPARKLINE_CANVAS_HEIGHT_PX
+        if mark_r > inset_px:
+            return False, (
+                "expected the mark's %dpx radius to fit inside the canvas's %.2fpx vertical inset"
+                % (mark_r, inset_px))
+        if mark_r <= health_page._SPARKLINE_DOT_RADIUS_PX:
+            return False, "expected the mark to be visibly larger than a cosmetic dot"
+
+        # The density rule's exception, asserted rather than commented:
+        # above the threshold the cosmetic dots go and the mark stays.
+        dense_rows = [
+            {"ts": "2026-06-%02d" % ((i % 28) + 1), "battery_mv": 4000 + i}
+            for i in range(health_page._SPARKLINE_DENSE_POINT_THRESHOLD + 5)]
+        dense_svg = health_page.battery_sparkline_svg(
+            dense_rows, now="2026-09-02T12:00:00+00:00", daily=True)
+        if health_page.SPARKLINE_DOT_CLASS in dense_svg:
+            return False, "expected no cosmetic dots above the density threshold"
+        if dense_svg.count('<circle class="%s"' % health_page.SPARKLINE_MARK_CLASS) != 1:
+            return False, (
+                "expected the marked point to SURVIVE the density rule — it is not a cosmetic dot, and "
+                "marking the current reading is the whole reason it is drawn")
+        return True, ""
+    check(
+        "the battery chart marks the newest PLOTTED point (never the newest raw row, which may carry no "
+        "battery_mv at all) with its own non-dot class at a named radius that fits the canvas's vertical "
+        "inset, last in document order, carrying the same timestamp its hit target does, leaving the "
+        "roving-tabindex path byte-identical, and surviving the density rule that suppresses cosmetic dots "
+        "(CFG-41, 24-05-PLAN.md Task 2)",
+        _sparkline_marks_the_newest_PLOTTED_point_not_the_newest_row)
+
+    def _sparkline_low_battery_threshold_is_read_from_battery_py_and_labelled():
+        # 24-05-PLAN.md Task 2 (CFG-41, T-24-05-A/T-24-05-B): the drawn
+        # low-battery line. Three properties, each of which is a way this
+        # could be wrong while looking right: it must be placed by the
+        # SAME sparkline_point_y() the readings are (or it sits at a
+        # different level from the readings it judges), its value must
+        # come from companion/battery.py rather than be re-typed here
+        # (the companion's DISPLAY threshold is a different number from
+        # server/poll_loop.py's device-side warning, for a different
+        # job), and it must not be drawn at all when it would fall
+        # outside the chart's fixed range — a threshold pinned to the
+        # axis edge by the clamp reads as a threshold AT the chart floor,
+        # which is a false statement.
+        rows = [
+            {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
+            for i in range(5)]
+        svg = health_page.battery_sparkline_svg(rows)
+
+        rects = re.findall(
+            r'<rect class="%s"([^>]*)/>' % health_page.SPARKLINE_THRESHOLD_CLASS, svg)
+        if len(rects) != 1:
+            return False, "expected exactly one drawn low-battery threshold, got %d" % len(rects)
+        attrs = rects[0]
+        expected_y = 'y="%.2f%%"' % health_page.sparkline_point_y(battery.LOW_BATTERY_DISPLAY_MV)
+        if expected_y not in attrs:
+            return False, (
+                "expected the threshold at sparkline_point_y(battery.LOW_BATTERY_DISPLAY_MV) = %s, got %r "
+                "— a threshold with its own arithmetic drifts from the readings by the vertical inset"
+                % (expected_y, attrs))
+        for needed in ('x="0"', 'width="100%"', 'height="1"', 'aria-hidden="true"'):
+            if needed not in attrs:
+                return False, "expected the threshold rect to carry %s, got %r" % (needed, attrs)
+
+        # Never re-typed: the millivolt value appears nowhere in this
+        # page module's own source.
+        page_source = open(health_page.__file__, encoding="utf-8").read()
+        if str(battery.LOW_BATTERY_DISPLAY_MV) in page_source:
+            return False, (
+                "found the literal %d in health_page.py — the threshold's value must be READ from "
+                "companion/battery.py, never re-typed beside the chart that draws it"
+                % battery.LOW_BATTERY_DISPLAY_MV)
+
+        # The label names what the line MEANS, is outside the SVG as a
+        # <span> in the chart's own grid, and is NOT aria-hidden: unlike
+        # the axis labels (whose values every point already announces),
+        # nothing else on this page says where "low" starts.
+        legend = re.search(
+            r'<div class="%s">\s*<span class="%s"([^>]*)>(.*?)</span>\s*</div>'
+            % (health_page.SPARKLINE_LEGEND_ROW_CLASS, health_page.SPARKLINE_LEGEND_CLASS),
+            svg, re.S)
+        if legend is None:
+            return False, "expected a threshold legend <span> inside the chart's own label grid"
+        if "aria-hidden" in legend.group(1):
+            return False, (
+                "expected the threshold legend NOT to be aria-hidden — the axis labels are hidden "
+                "because every point already announces its value, and nothing announces this one")
+        legend_text = re.sub(r"<[^>]*>", "", legend.group(2))
+        if str(battery.LOW_BATTERY_DISPLAY_MV) not in legend_text:
+            return False, "expected the legend to name the threshold's level, got %r" % legend_text
+        if str(battery.LOW_BATTERY_DISPLAY_PERCENT) not in legend_text:
+            return False, (
+                "expected the legend to name the percentage the level corresponds to, tying the line to "
+                "the estimate printed beside the chart, got %r" % legend_text)
+        if legend_text.strip() == "%d mV" % battery.LOW_BATTERY_DISPLAY_MV:
+            return False, "expected the legend to say what the line MEANS, not a bare number on a chart"
+        if svg.index('<div class="%s">' % health_page.SPARKLINE_LEGEND_ROW_CLASS) < svg.index("</svg>"):
+            return False, "expected the legend OUTSIDE the canvas, after it in the grid"
+
+        # Both languages.
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_svg = health_page.battery_sparkline_svg(rows)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        fr_legend = re.search(
+            r'<span class="%s"[^>]*>(.*?)</span>' % health_page.SPARKLINE_LEGEND_CLASS, fr_svg, re.S)
+        if fr_legend is None:
+            return False, "expected the threshold legend to render in French too"
+        fr_text = re.sub(r"<[^>]*>", "", fr_legend.group(1))
+        if fr_text == legend_text:
+            return False, "expected a French translation of the threshold legend, got the English string %r" % fr_text
+
+        # Out of range: no line, and no label for a line that is not
+        # there. Asserted with a patched constant, because 24-01 chose a
+        # value strictly inside the range on purpose — this guards a
+        # later change, not today's value.
+        original = battery.LOW_BATTERY_DISPLAY_MV
+        try:
+            for bad in (health_page.SPARKLINE_Y_MIN_MV - 100, health_page.SPARKLINE_Y_MIN_MV,
+                        health_page.SPARKLINE_Y_MAX_MV + 100):
+                battery.LOW_BATTERY_DISPLAY_MV = bad
+                out = health_page.battery_sparkline_svg(rows)
+                if health_page.SPARKLINE_THRESHOLD_CLASS in out:
+                    return False, (
+                        "expected NO threshold drawn for an out-of-range value (%d) — the clamp would pin "
+                        "it to the axis edge, where it reads as a threshold AT the chart floor" % bad)
+                if health_page.SPARKLINE_LEGEND_CLASS in out:
+                    return False, "expected no threshold legend when no threshold is drawn (%d)" % bad
+        finally:
+            battery.LOW_BATTERY_DISPLAY_MV = original
+
+        css = _css_without_comments()
+        rect_rule = re.search(r'\.sparkline-threshold(?![-\w])\s*\{([^}]*)\}', css)
+        if rect_rule is None or "var(--color-status-warn)" not in rect_rule.group(1):
+            return False, (
+                "expected `.sparkline-threshold` to be filled with the app's existing status-warn token — "
+                "the threshold is a judgement, not axis chrome, and accent is reserved")
+        swatch_rule = re.search(r'\.sparkline-swatch(?![-\w])\s*\{([^}]*)\}', css)
+        if swatch_rule is None or "var(--color-status-warn)" not in swatch_rule.group(1):
+            return False, (
+                "expected the legend's swatch to be painted with the SAME token as the drawn line, so the "
+                "legend cannot come to describe a colour the chart does not use")
+        return True, ""
+    check(
+        "the chart's low-battery threshold is a full-width rect placed by the same sparkline_point_y() the "
+        "readings are, its value READ from companion/battery.py and never re-typed, labelled by meaning in "
+        "a non-aria-hidden <span> outside the canvas in both languages, painted with the status-warn token "
+        "the legend's own swatch shares, and absent entirely — line and label — when the value falls "
+        "outside the chart's fixed range (CFG-41, T-24-05-A/B, 24-05-PLAN.md Task 2)",
+        _sparkline_low_battery_threshold_is_read_from_battery_py_and_labelled)
 
     def _sparkline_axis_chrome_present():
         # quick task 260902-ep7 (BUG 4): the new check for the drawn axis
