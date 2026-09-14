@@ -7493,10 +7493,14 @@ a.airline-card {
  * ONE COLUMN AT EVERY WIDTH, and the multi-column behaviour belongs to
  * the parts (the tiles go one-across to three-across, the strip's cells
  * column to row). A hero that split into columns of its own would have
- * to put the band in one of them: measured at 1280px, a one-third
- * column leaves the band's canvas NARROWER than the 278px it gets at the
- * 360px floor, which is the "fits by shrinking its parts" failure this
- * requirement exists to refuse. */
+ * to put the band in one of them, and the numbers refuse it: this
+ * container measures 928px at a 1280px viewport (read off Chromium
+ * while a `2fr 1fr` mutation of this very rule was in place), so a
+ * one-third column is 304px — against the 310px a band CARD needs to
+ * keep its canvas at 278 (278 plus .page-section's own 2 x --space-md
+ * of padding). The band would come out NARROWER inside a wide desktop
+ * hero than it is at the 360px floor, which is the "fits by shrinking
+ * its parts" failure this requirement exists to refuse. */
 .home-overview {
   display: grid;
   gap: var(--space-md);
