@@ -82,6 +82,21 @@ EXPECTED_CHECK_COUNT = 69
 # CET-to-CEST jump and the repeated hour at the October CEST-to-CET
 # fallback - re-derived by running the harness, not by arithmetic)
 EXPECTED_CHECK_COUNT = 72
+# 24-03-PLAN.md Task 1 (CFG-43): 72 -> 78, +6 (check_in_gaps(), the
+# OBSERVED check-in gap reader D20's grid draws from - 24-RESEARCH.md
+# Risk 1 settles that the expected interval is unrecoverable, so the
+# metric changed rather than the schema: three check-ins 30 minutes apart
+# yield two 1800 s intervals oldest-first carrying both timestamps and
+# their Paris day; a NULL-battery_mv row is still a real check-in (the
+# `battery_mv IS NOT NULL` filter the chart uses would invent a missed
+# wake out of a missing HTTP header); an undatable ts reports the spans it
+# bounds as unknown rather than merging them into one false long interval;
+# an empty table, a single row and an empty window each return [] without
+# raising; the docstring carries both "cannot know" caveats plus the
+# 60-second bound; and history_db.py still has no ALTER TABLE and no
+# PRAGMA user_version - re-derived by running the harness, not by
+# arithmetic)
+EXPECTED_CHECK_COUNT = 78
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -1947,6 +1962,172 @@ def main():
         "daily_battery_averages() buckets correctly across the CEST-to-CET October transition "
         "(the repeated hour), counting each instant once on the correct Paris day (D-12.3)",
         _daily_battery_averages_crosses_the_october_dst_back_transition,
+    )
+
+    # --- 24-03-PLAN.md Task 1 (CFG-43): check_in_gaps(), the OBSERVED
+    # check-in gap reader behind D20's grid.
+    #
+    # The metric is observed check-in regularity, never an "honoured-wake
+    # rate" (24-RESEARCH.md Risk 1): `wake.effective_wake_interval_s()`
+    # switches to DISPLAY_OFF_SLEEP_S whenever the screen is off,
+    # device_config.json is a current-state file with a pinned
+    # no-migration/no-rewrite contract (the three checks above), and a log
+    # rotation the ingest missed leaves a hole indistinguishable from a
+    # missed wake. No schema change recovers any of that, which is why the
+    # metric changed instead of the schema. -------------------------------
+
+    _GAP_T0 = "2026-09-02T10:00:00+00:00"
+    _GAP_T1 = "2026-09-02T10:30:00+00:00"
+    _GAP_T2 = "2026-09-02T11:00:00+00:00"
+
+    def _check_in_gaps_returns_consecutive_intervals_oldest_first():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_device_health(conn, _GAP_T0, battery_mv=4200)
+                history_db.record_device_health(conn, _GAP_T1, battery_mv=4190)
+                history_db.record_device_health(conn, _GAP_T2, battery_mv=4180)
+                gaps = history_db.check_in_gaps(conn)
+            if len(gaps) != 2:
+                return False, "expected exactly two intervals across three check-ins, got %r" % (gaps,)
+            if [gap["gap_s"] for gap in gaps] != [1800, 1800]:
+                return False, "expected two 1800 s intervals, got %r" % (gaps,)
+            if gaps[0]["from_ts"] != _GAP_T0 or gaps[0]["ts"] != _GAP_T1:
+                return False, "the first interval must span t0 -> t1 oldest-first, got %r" % (gaps[0],)
+            if gaps[1]["from_ts"] != _GAP_T1 or gaps[1]["ts"] != _GAP_T2:
+                return False, "the second interval must span t1 -> t2, got %r" % (gaps[1],)
+            if [gap["day"] for gap in gaps] != ["2026-09-02", "2026-09-02"]:
+                return False, "each interval must carry its Europe/Paris day, got %r" % (gaps,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "check_in_gaps() returns the observed intervals between consecutive device_health check-ins, "
+        "oldest-first, each carrying both timestamps, its length in seconds and its Paris day",
+        _check_in_gaps_returns_consecutive_intervals_oldest_first,
+    )
+
+    def _check_in_gaps_counts_a_null_battery_row_as_a_real_check_in():
+        # A device_health row with battery_mv NULL is a REAL check-in whose
+        # X-Battery-Mv header was absent or unparseable. Applying the
+        # `battery_mv IS NOT NULL` filter daily_battery_averages()
+        # legitimately uses would invent a missed wake out of a missing
+        # HTTP header - the specific defect this check exists to prevent.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_device_health(conn, _GAP_T0, battery_mv=4200)
+                history_db.record_device_health(conn, _GAP_T1)  # no X-Battery-Mv header
+                history_db.record_device_health(conn, _GAP_T2, battery_mv=4180)
+                gaps = history_db.check_in_gaps(conn)
+            if any(gap["gap_s"] == 3600 for gap in gaps):
+                return False, (
+                    "the NULL-battery check-in was filtered out of the series, merging the two "
+                    "30-minute intervals into one 3600 s gap that would render as a missed wake "
+                    "the device never missed: %r" % (gaps,)
+                )
+            if len(gaps) != 2:
+                return False, "expected two intervals across three check-ins, got %r" % (gaps,)
+            if [gap["gap_s"] for gap in gaps] != [1800, 1800]:
+                return False, "expected two 1800 s intervals, got %r" % (gaps,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "check_in_gaps() reads EVERY device_health row, including one whose battery_mv is NULL - a "
+        "missing X-Battery-Mv header is not a missed wake (CFG-43)",
+        _check_in_gaps_counts_a_null_battery_row_as_a_real_check_in,
+    )
+
+    def _check_in_gaps_reports_an_undatable_span_as_unknown_not_merged():
+        # `ts` is TEXT NOT NULL but otherwise unvalidated, and
+        # tail_caddy_battery_log() stores whatever string sits in a Caddy
+        # access-log entry's own `ts` field - so an unparseable value can
+        # reach this column. Dropping such a row and moving on would merge
+        # the two intervals either side into one long, false interval.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_device_health(conn, _GAP_T0, battery_mv=4200)
+                history_db.record_device_health(conn, "not-a-timestamp", battery_mv=4190)
+                history_db.record_device_health(conn, _GAP_T2, battery_mv=4180)
+                gaps = history_db.check_in_gaps(conn)
+            if any(gap["gap_s"] == 3600 for gap in gaps):
+                return False, (
+                    "the undatable check-in was dropped and the spans either side of it silently "
+                    "merged into one 3600 s interval - a missed wake that never happened: %r" % (gaps,)
+                )
+            if len(gaps) != 2:
+                return False, "expected two spans around the undatable check-in, got %r" % (gaps,)
+            if [gap["gap_s"] for gap in gaps] != [None, None]:
+                return False, "both spans bounded by an undatable check-in must be unknown, got %r" % (gaps,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "check_in_gaps() reports the spans an undatable ts bounds as UNKNOWN rather than merging them "
+        "into one false long interval",
+        _check_in_gaps_reports_an_undatable_span_as_unknown_not_merged,
+    )
+
+    def _check_in_gaps_degenerate_windows_return_empty_without_raising():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                if history_db.check_in_gaps(conn) != []:
+                    return False, "an empty device_health table must yield no intervals"
+                history_db.record_device_health(conn, _GAP_T0, battery_mv=4200)
+                if history_db.check_in_gaps(conn) != []:
+                    return False, "a single check-in bounds no interval and must yield none"
+                history_db.record_device_health(conn, _GAP_T1, battery_mv=4190)
+                if history_db.check_in_gaps(conn, since="2099-01-01T00:00:00+00:00") != []:
+                    return False, "a window containing no rows must yield no intervals"
+                if len(history_db.check_in_gaps(conn, since=_GAP_T0)) != 1:
+                    return False, "a window containing both rows must yield their one interval"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "check_in_gaps() returns an empty list - never raising - for an empty table, a single check-in, "
+        "and a window containing no rows, while an inclusive window still yields its interval",
+        _check_in_gaps_degenerate_windows_return_empty_without_raising,
+    )
+
+    def _check_in_gaps_docstring_states_what_it_cannot_know():
+        # A future reader who finds this function and not the plan must
+        # learn the same limits the plan's caption carries.
+        doc = (history_db.check_in_gaps.__doc__ or "")
+        low = doc.lower()
+        if "cannot know" not in low:
+            return False, "the docstring never says what this reader cannot know"
+        if "rotat" not in low:
+            return False, "the docstring omits the rotation hole (an ingest-missed log range reads as a missed wake)"
+        if "unique(ts, battery_mv)" not in low:
+            return False, "the docstring omits the UNIQUE(ts, battery_mv) collapse caveat"
+        if "60" not in doc:
+            return False, "the docstring omits the provable WAKE_INTERVAL_MIN_S = 60 bound on that collapse"
+        if "x-battery-mv" not in low:
+            return False, "the docstring never says WHY battery_mv is not filtered (the missing-header failure)"
+        return True, ""
+    check(
+        "check_in_gaps()'s docstring carries both 'cannot know' caveats - the ingest-missed log range and "
+        "the UNIQUE(ts, battery_mv) collapse with its 60-second bound - plus why battery_mv is unfiltered",
+        _check_in_gaps_docstring_states_what_it_cannot_know,
+    )
+
+    def _history_db_introduces_no_migration_mechanism():
+        src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
+        with open(src_path) as fh:
+            src = fh.read()
+        if re.search(r"ALTER\s+TABLE", src, re.IGNORECASE):
+            return False, "history_db.py grew an ALTER TABLE - this project has no migration mechanism"
+        if re.search(r"PRAGMA\s+user_version", src, re.IGNORECASE):
+            return False, "history_db.py grew a PRAGMA user_version - this project has no schema version stamp"
+        return True, ""
+    check(
+        "server/history_db.py still contains no ALTER TABLE and no PRAGMA user_version - the whole "
+        "migration story remains CREATE TABLE IF NOT EXISTS on every connection (CFG-43)",
+        _history_db_introduces_no_migration_mechanism,
     )
 
     def _all_sql_uses_placeholders_not_string_formatting():
