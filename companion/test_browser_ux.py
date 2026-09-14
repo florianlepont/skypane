@@ -730,6 +730,22 @@ EXPECTED_CHECK_COUNT = 71
 # read an interpolation frame and reported a token that does not invert.
 # 71 + 3 = 74, re-derived by RUNNING (74/74, 0 SKIPs).
 EXPECTED_CHECK_COUNT = 74
+# 25-06-PLAN.md Task 1 (CFG-50): +1 — Display's own rendered document
+# height at 390px and at 360px, recorded BEFORE this plan changed a byte
+# of markup. This is the one item in the phase whose success criterion is
+# a MEASUREMENT rather than a behaviour (22-10 recorded X6's height
+# target as "NOT met and cannot be by density alone"), so the
+# before-number is taken by the same registered instrument that later
+# produces the after-number rather than typed into a document by hand
+# once the change is in. The check asserts NO target — it asserts only
+# that the instrument is pointed at the authenticated Display page, at
+# the width asked for, at a document taller than the viewport, and that
+# the narrower measurement is not the smaller of the two. There is no
+# production behaviour in this task and therefore NO RED PHASE, which is
+# stated rather than manufactured.
+# 74 + 1 = 75, re-derived by RUNNING the harness (75/75, 0 SKIPs), never
+# by arithmetic.
+EXPECTED_CHECK_COUNT = 75
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -2284,6 +2300,110 @@ def _in_both_themes(page):
 #
 # A second overflow helper would be a third convention in one file about
 # what "the page" means, which is how three checks come to disagree.
+
+
+# ---------------------------------------------------------------------
+# 6. Display's own rendered page HEIGHT — 25-06-PLAN.md Task 1 (CFG-50).
+# ---------------------------------------------------------------------
+#
+# WHY A HARNESS HELPER AND NOT A NUMBER IN A SUMMARY. D5 is the one item
+# in this phase whose success criterion is a MEASUREMENT rather than a
+# behaviour: 22-AUDIT.md's X6 row set a page-height target that 22-10
+# then recorded as "NOT met and cannot be by density alone — folding the
+# grid behind the big preview is D5". A before-number typed into a
+# document by hand, after the change, is not a before-number; a before-
+# number produced by the same instrument that later produces the after-
+# number is. So the measurement is a registered check, taken before any
+# markup in this plan existed, and re-run afterwards by the identical
+# code path.
+#
+# IT DELIBERATELY ASSERTS NO TARGET. The number it reports is the
+# verdict, and 25-06 Task 4 states plainly whether the target is met.
+# What it DOES assert is that the instrument is pointed at the right
+# thing, which is the only way a recorded height means anything at all:
+#   * the measurement was taken at the width the caller asked for (a
+#     context that silently came up at another size reports a height for
+#     a layout nobody asked about);
+#   * the document really is the authenticated Display page and not the
+#     login card it redirects to when the session is missing — asserted
+#     by the Frame colours card's own heading id AND by the departures
+#     radiogroup's full THEME_IDS-sized population, because "a page
+#     rendered" is exactly the vacuous version of this;
+#   * the page is genuinely taller than the viewport, so the number is a
+#     document height rather than a viewport height wearing one.
+#
+# `scrollHeight` on documentElement, not `body`: `body` can be shorter
+# than the document when a child escapes it, and documentElement is the
+# same box `_assert_no_page_overflow()` already settled on for the
+# horizontal axis. One convention per file.
+_DISPLAY_HEIGHT_PROBE = (
+    "args => ({"
+    "  height: document.documentElement.scrollHeight,"
+    "  clientWidth: document.documentElement.clientWidth,"
+    "  clientHeight: document.documentElement.clientHeight,"
+    "  scrollWidth: document.documentElement.scrollWidth,"
+    "  heading: !!document.getElementById(args.headingId),"
+    "  themeRadios: document.querySelectorAll("
+    "    'input[name=\"theme\"]').length,"
+    "})")
+
+
+def _display_page_height(browser, base_url, viewport):
+    """Display's full rendered document height at `viewport`, with the
+    instrument proved to be pointed at Display.
+
+    Returns the probe's own dict (height, clientWidth, clientHeight,
+    scrollWidth, heading, themeRadios). Raises AssertionError when the
+    measurement cannot be trusted — `_set_ui_theme()`'s shape and for
+    its reason: a helper returning a verdict string hands every caller a
+    guard it has to remember, and `check()` turns a raised
+    AssertionError into a named FAIL nobody can forget.
+
+    Scripts are ENABLED here, deliberately. The height a visitor sees is
+    the height of the page their browser actually renders, and on
+    Display that includes `theme-preview.js` collapsing three of the
+    four usage panels at load — a scripts-blocked measurement would
+    report a page nobody with a default browser ever sees, and would
+    move for reasons that have nothing to do with this plan.
+    """
+    context = browser.new_context(viewport=viewport)
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+        page.wait_for_load_state("networkidle")
+        seen = page.evaluate(
+            _DISPLAY_HEIGHT_PROBE,
+            {"headingId": config_page.FRAME_COLOURS_HEADING_ID})
+    finally:
+        context.close()
+    if seen["clientWidth"] != viewport["width"]:
+        raise AssertionError(
+            "_display_page_height: asked for a %dpx viewport, the document "
+            "reports a client width of %d — the height below would be a "
+            "measurement of a layout nobody asked for"
+            % (viewport["width"], seen["clientWidth"]))
+    if not seen["heading"]:
+        raise AssertionError(
+            "_display_page_height: the document at %dpx carries no Frame "
+            "colours heading — this is not the authenticated Display page "
+            "(a missing session redirects to the login card, which renders "
+            "perfectly and is a quarter of the height)" % (viewport["width"],))
+    expected_radios = len(device_config.THEME_IDS)
+    if seen["themeRadios"] != expected_radios:
+        raise AssertionError(
+            "_display_page_height: the Display page at %dpx posts %d radios "
+            "named 'theme', expected %d — a height measured against a "
+            "different number of chips is not comparable with the one this "
+            "plan recorded before it started"
+            % (viewport["width"], seen["themeRadios"], expected_radios))
+    if seen["height"] <= seen["clientHeight"]:
+        raise AssertionError(
+            "_display_page_height: the document reports a scrollHeight of %d "
+            "against a client height of %d — Display is not shorter than a "
+            "phone viewport, so this is a viewport height wearing a document "
+            "height's name" % (seen["height"], seen["clientHeight"]))
+    return seen
 
 
 def main():
@@ -11493,6 +11613,63 @@ def main():
                     "two themes and neither sentence is painted in the canvas colour "
                     "(CFG-49/CFG-52, 25-05-PLAN.md Task 3)",
                     _the_slider_meets_its_floors_at_360px_in_both_themes)
+
+                # --- 25-06-PLAN.md Task 1 (CFG-50): the number this
+                # plan is judged against, taken before there was any
+                # incentive to like it. See _display_page_height() for
+                # why this is an instrument rather than a sentence in a
+                # document, and for what it refuses to measure.
+                def _displays_page_height_is_recorded_at_both_phone_widths():
+                    base_url = harness.base_url()
+                    heights = {}
+                    for viewport in (VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
+                        seen = _display_page_height(browser, base_url, viewport)
+                        heights[viewport["width"]] = seen["height"]
+                        print(
+                            "        [25-06 T1] Display document height at %dpx: "
+                            "%d px (client %dx%d, %d theme radios)"
+                            % (viewport["width"], seen["height"],
+                               seen["clientWidth"], seen["clientHeight"],
+                               seen["themeRadios"]))
+                    # NO TARGET IS ASSERTED HERE, DELIBERATELY. 22-10
+                    # recorded X6's height target as not met and not
+                    # reachable by density alone; whether THIS plan
+                    # reaches it is stated in that plan's own SUMMARY
+                    # from these numbers, in either direction.
+                    #
+                    # AND NO CROSS-WIDTH RELATIONSHIP EITHER, BECAUSE THE
+                    # OBVIOUS ONE IS FALSE ON THIS PAGE AND WAS MEASURED
+                    # TO BE. The first version of this check asserted
+                    # that a narrower viewport cannot make a reflowing
+                    # page shorter. Run before a byte of this plan's
+                    # markup existed, Display measured 4276 px at 390px
+                    # and 4269 px at 360px — SEVEN PIXELS SHORTER at the
+                    # narrower width — and the check duly failed against
+                    # a page with nothing whatever wrong with it. The
+                    # cause is ordinary: this page is a stack of cards
+                    # whose rows each round independently, and a handful
+                    # of them land on a different line count at one width
+                    # than the other. The clause was removed rather than
+                    # loosened to a tolerance, because a tolerance would
+                    # have been a number invented to make a wrong belief
+                    # pass. What is asserted instead is everything
+                    # `_display_page_height()` asserts about WHERE the
+                    # number came from, which is the property that makes
+                    # a recorded height worth anything.
+                    if not heights:
+                        return False, "no viewport was measured at all"
+                    return True, ""
+                check(
+                    "Display's full rendered document height is recorded at 390px and at 360px "
+                    "by one instrument — proved to be pointed at the authenticated Display page "
+                    "(its Frame colours heading AND a full THEME_IDS-sized departures "
+                    "radiogroup, never merely 'a page rendered'), at the width the caller asked "
+                    "for, and taller than the viewport — asserting NO target, because the "
+                    "number IS the criterion and 25-06 states in its own SUMMARY whether it is "
+                    "met, and no cross-width relationship either, because the obvious one "
+                    "(narrower cannot be shorter) was MEASURED FALSE on this page before the "
+                    "plan changed anything (CFG-50, 25-06-PLAN.md Task 1)",
+                    _displays_page_height_is_recorded_at_both_phone_widths)
 
             finally:
                 browser.close()
