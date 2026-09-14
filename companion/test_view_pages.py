@@ -601,6 +601,16 @@ EXPECTED_CHECK_COUNT = 153
 # bug here), and no ring at all for a device with no reading.
 # 153 + 1 = 154, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 154
+# 24-06-PLAN.md Task 1 (CFG-42): +4 - the time domain. One proves the
+# new scale is a TIME scale and not the index scale beside it (the two
+# are indistinguishable on an evenly-spaced fixture, so it is written
+# around the case they disagree about: two instants an hour apart stay
+# 1/24 of the band apart however many others are on it). One renders a
+# wrapping night window as two spans rather than one inverted one. One
+# pins the collapse and its exact reported count. One pins the emitted
+# class vocabulary and the absence of any colour literal.
+# 154 + 4 = 158, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 158
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -6935,6 +6945,335 @@ def main():
     check(
         "battery_percent() no longer exists on home_page after moving to companion/battery.py (D-01)",
         _battery_percent_moved_out_of_home_page)
+
+    # --- 24-06-PLAN.md Task 1 (CFG-42): the time domain -----------------
+    #
+    # THE ONE THING THESE FOUR CHECKS ARE FOR. Every other drawing in
+    # this phase maps an INDEX to an x position, and an index scale is
+    # indistinguishable from a time scale on any series that arrived on
+    # a perfectly even cadence — which is exactly what a seeded fixture
+    # tends to be. So the checks below are written around the case the
+    # two scales DISAGREE about: a gap. Under an index scale a six-hour
+    # outage is one step, the same width as the fifteen minutes either
+    # side of it; under a time scale it is a quarter of the band with
+    # nothing in it. The mutation recorded in the summary substitutes
+    # draw.percent_x() for draw.percent_time() and _day_band_time_scale_
+    # places_by_when_not_by_index() is the check that goes red.
+
+    # An arbitrary, fixed epoch second standing in for a Paris midnight.
+    # The scale is pure arithmetic on two numbers in the same unit, so
+    # nothing here needs a real timezone — which is the point of the
+    # helper taking numbers rather than datetimes (companion/draw.py may
+    # not import the server package, where the one Paris-day conversion
+    # lives).
+    _BAND_DAY_START = 1756000000
+
+    def _band_hour(n):
+        return _BAND_DAY_START + int(n * 3600)
+
+    def _band_shapes(markup, class_name):
+        """Every <rect> in `markup` carrying exactly `class_name`.
+
+        The closing quote in the pattern is load-bearing: `drawing-band`
+        is a strict prefix of both `drawing-band-span` and
+        `drawing-band-mark`, so a `'class="drawing-band"' in element`
+        test would report all three as the frame. This file has been bitten
+        by that collision before (companion/test_companion_app.py:4134's
+        own `(?<![-\\w])fill="none"` records the mirror case).
+        """
+        return re.findall(
+            r'<rect class="%s"[^>]*/>' % re.escape(class_name), markup)
+
+    def _band_attr(element, name):
+        found = re.search(r'\s%s="([^"]*)"' % re.escape(name), element)
+        return found.group(1) if found else None
+
+    def _band_percent(element, name):
+        raw = _band_attr(element, name)
+        if raw is None or not raw.endswith("%"):
+            return None
+        return float(raw[:-1])
+
+    def _day_band_time_scale_places_by_when_not_by_index():
+        day = draw.SECONDS_PER_DAY
+        # Midnight, midday, and the day's own final instant.
+        for offset, expected in ((0, 0.0), (day / 2.0, 50.0), (day, 100.0)):
+            got = draw.percent_time(_BAND_DAY_START + offset, _BAND_DAY_START)
+            if got is None or abs(got - expected) > 1e-9:
+                return False, (
+                    "expected %+.1fs into the day at %.1f%%, got %r — the three positions a "
+                    "reader checks a time axis against first" % (offset, expected, got))
+        # Outside the day is REJECTED, never positioned. A clamped
+        # instant would put yesterday's check-in at this band's midnight
+        # and make today's drawing claim a check-in that never happened
+        # (T-24-06-A).
+        for outside in (_BAND_DAY_START - 1, _BAND_DAY_START + day + 1):
+            if draw.percent_time(outside, _BAND_DAY_START) is not None:
+                return False, (
+                    "expected an instant outside the day to be rejected, got %r for %r — "
+                    "clamping it would invent a check-in at an edge of the band"
+                    % (draw.percent_time(outside, _BAND_DAY_START), outside))
+        # Totality, because these numbers arrive from stored text.
+        for hostile in (None, True, float("nan"), float("inf"), "12:00", [], {}):
+            if draw.percent_time(hostile, _BAND_DAY_START) is not None:
+                return False, "expected %r as an instant to be rejected" % (hostile,)
+            if draw.percent_time(_BAND_DAY_START, hostile) is not None:
+                return False, "expected %r as a day start to be rejected" % (hostile,)
+        if draw.percent_time(_BAND_DAY_START, _BAND_DAY_START, 0) is not None:
+            return False, "expected a zero-length day to be rejected rather than divided by"
+
+        # A Europe/Paris day is 23 or 25 hours twice a year, so the
+        # day's length is a parameter and an hour is a share of THAT
+        # day, not of a hardcoded 86400.
+        short = draw.percent_time(_BAND_DAY_START + 3600, _BAND_DAY_START, 23 * 3600)
+        if short is None or abs(short - 100.0 / 23) > 1e-9:
+            return False, (
+                "on a 23-hour DST day an hour should be %.4f%% of the band, got %r"
+                % (100.0 / 23, short))
+
+        # THE PROPERTY AN INDEX SCALE DOES NOT HAVE: the distance between
+        # two instants an hour apart is the same 1/24 of the band however
+        # many other instants are on it. Measured off the drawn band, not
+        # off the helper, because the band is what a reader sees.
+        hour_percent = 100.0 / 24
+        seen = []
+        for fillers in ([], [_band_hour(h) for h in (0, 2, 4, 6, 20, 22)]):
+            instants = fillers + [_band_hour(8), _band_hour(9)]
+            markup, collapsed = draw.day_band(_BAND_DAY_START, day, instants)
+            if collapsed:
+                return False, (
+                    "expected no collapsing in a %d-instant series spaced two hours apart, "
+                    "got %d collapsed" % (len(instants), collapsed))
+            marks = [_band_percent(el, "x") for el in _band_shapes(markup, "drawing-band-mark")]
+            if len(marks) != len(instants):
+                return False, (
+                    "expected one mark per instant (%d), got %d" % (len(instants), len(marks)))
+            eight = min(marks, key=lambda p: abs(p - 8 * hour_percent))
+            nine = min(marks, key=lambda p: abs(p - 9 * hour_percent))
+            seen.append((len(instants), eight, nine))
+            if abs(eight - 8 * hour_percent) > 0.02:
+                return False, (
+                    "with %d instants on the band, the 08:00 check-in is drawn at %.2f%% "
+                    "instead of %.2f%% — that is an INDEX position, not a time position "
+                    "(under draw.percent_x() it would sit at %.2f%%)"
+                    % (len(instants), eight, 8 * hour_percent,
+                       draw.percent_x(sorted(instants).index(_band_hour(8)), len(instants))))
+            if abs((nine - eight) - hour_percent) > 0.02:
+                return False, (
+                    "with %d instants on the band, an hour measures %.2f%% of it instead of "
+                    "%.2f%% — an index scale distributes points evenly whenever they happened, "
+                    "so a six-hour outage would draw as one ordinary step"
+                    % (len(instants), nine - eight, hour_percent))
+        if abs(seen[0][1] - seen[1][1]) > 0.02 or abs(seen[0][2] - seen[1][2]) > 0.02:
+            return False, (
+                "the same two instants landed at different positions on a 2-instant band %r "
+                "and an 8-instant band %r — a time scale places an instant by WHEN it "
+                "happened and nothing else" % (seen[0][1:], seen[1][1:]))
+        return True, ""
+    check(
+        "draw.percent_time() is a TIME scale and not the index scale beside it: midnight/"
+        "midday/the day's final instant land at 0/50/100%, an hour is 1/24 of the band however "
+        "many other instants are on it (so an outage draws as an outage), a DST day's own "
+        "length is a parameter rather than a hardcoded 86400, and an instant outside the day is "
+        "REJECTED rather than clamped onto an edge where it would invent a check-in "
+        "(CFG-42, T-24-06-A, 24-06-PLAN.md Task 1)",
+        _day_band_time_scale_places_by_when_not_by_index)
+
+    def _day_band_night_window_shades_the_night_as_two_spans():
+        day = draw.SECONDS_PER_DAY
+        hour_percent = 100.0 / 24
+
+        # 22:00-07:00 — a NIGHT window, which is what quiet hours
+        # normally is, not an edge case.
+        markup, _ = draw.day_band(
+            _BAND_DAY_START, day, [], window=(_band_hour(22), _band_hour(7)))
+        spans = _band_shapes(markup, "drawing-band-span")
+        if len(spans) != 2:
+            return False, (
+                "expected a 22:00-07:00 window to shade TWO spans on a one-day band, got %d — "
+                "one span from 22:00 back to 07:00 has a negative width, and the obvious "
+                "repair (swap them) shades the whole DAY and leaves the night clear, which "
+                "looks entirely plausible" % (len(spans),))
+        widths = [_band_percent(el, "width") for el in spans]
+        starts = [_band_percent(el, "x") for el in spans]
+        if None in widths or None in starts:
+            return False, "expected every span to carry percentage x/width, got %r" % (spans,)
+        if abs(sum(widths) - 9 * hour_percent) > 0.02:
+            return False, (
+                "expected the two spans to cover nine hours (%.2f%%), got %.2f%% — %r"
+                % (9 * hour_percent, sum(widths), list(zip(starts, widths))))
+        if abs(min(starts)) > 1e-9:
+            return False, (
+                "expected the leading span to start at the band's own 00:00, got %r" % (starts,))
+        ends = [s + w for s, w in zip(starts, widths)]
+        if abs(max(ends) - 100.0) > 0.02:
+            return False, (
+                "expected the trailing span to reach the band's own 24:00, got %r" % (ends,))
+        # And the middle of the day is NOT shaded: the failure this
+        # check exists for is a band that shades 07:00-22:00.
+        for start, width in zip(starts, widths):
+            if start < 12 * hour_percent < start + width:
+                return False, (
+                    "midday falls inside a shaded span (%.2f%%..%.2f%%) — the night window has "
+                    "been rendered inverted" % (start, start + width))
+
+        # A daytime window is ONE span, so "always two" is not the fix.
+        markup, _ = draw.day_band(
+            _BAND_DAY_START, day, [], window=(_band_hour(9), _band_hour(17)))
+        spans = _band_shapes(markup, "drawing-band-span")
+        if len(spans) != 1:
+            return False, "expected a 09:00-17:00 window to shade exactly one span, got %d" % (
+                len(spans),)
+        if abs(_band_percent(spans[0], "x") - 9 * hour_percent) > 0.02:
+            return False, "expected the span to start at 09:00, got %r" % (spans[0],)
+        if abs(_band_percent(spans[0], "width") - 8 * hour_percent) > 0.02:
+            return False, "expected the span to be eight hours wide, got %r" % (spans[0],)
+
+        # No window, a zero-width window and a window outside the day
+        # all shade nothing. A zero-width window is never ACTIVE
+        # (server/device_config.py's seconds_until_quiet_hours_end()
+        # says so in as many words), so a hairline of shade would claim
+        # a window the device does not honour.
+        for label, window in (
+                ("absent", None),
+                ("zero-width", (_band_hour(9), _band_hour(9))),
+                ("outside the day", (_BAND_DAY_START - 7200, _band_hour(7))),
+                ("malformed", ("23:00", "07:00")),
+                ("not a pair", 3)):
+            markup, _ = draw.day_band(_BAND_DAY_START, day, [], window=window)
+            spans = _band_shapes(markup, "drawing-band-span")
+            if spans:
+                return False, "expected a %s window to shade nothing, got %r" % (label, spans)
+            if len(_band_shapes(markup, "drawing-band")) != 1:
+                return False, "expected the band's own frame to survive a %s window" % (label,)
+        return True, ""
+    check(
+        "the day band renders a wrapping night window (22:00-07:00) as TWO shaded spans "
+        "covering nine hours, one flush to 00:00 and one flush to 24:00 with midday left "
+        "clear — never one inverted span that would shade the middle of the day — while a "
+        "daytime window stays one span and an absent/zero-width/out-of-day/malformed window "
+        "shades nothing at all (CFG-42, 24-06-PLAN.md Task 1)",
+        _day_band_night_window_shades_the_night_as_two_spans)
+
+    def _day_band_collapses_crowded_marks_and_reports_exactly_how_many():
+        day = draw.SECONDS_PER_DAY
+        spacing = draw.DAY_BAND_MIN_MARK_SPACING_PERCENT
+        ceiling = int(100.0 / spacing) + 1
+
+        # A 30-minute cadence is 48 marks in the band's ~330px at the
+        # 360px floor — about 7px apart, which is drawable. Nothing is
+        # collapsed and the caller may caption the exact number.
+        sparse = [_BAND_DAY_START + 1800 * i for i in range(48)]
+        markup, collapsed = draw.day_band(_BAND_DAY_START, day, sparse)
+        marks = _band_shapes(markup, "drawing-band-mark")
+        if len(marks) != 48 or collapsed != 0:
+            return False, (
+                "expected 48 marks and 0 collapsed at a 30-minute cadence, got %d and %d"
+                % (len(marks), collapsed))
+
+        # A 60-second cadence is 1440 marks in the same 330px. Drawing
+        # them all would let the reader believe the band shows 1440
+        # things; the emitter collapses and SAYS how many.
+        for cadence, total in ((60, 1440), (1, 86400)):
+            instants = [_BAND_DAY_START + cadence * i for i in range(total)]
+            markup, collapsed = draw.day_band(_BAND_DAY_START, day, instants)
+            marks = _band_shapes(markup, "drawing-band-mark")
+            if len(marks) + collapsed != total:
+                return False, (
+                    "at a %ds cadence %d marks + %d collapsed != the %d instants supplied — "
+                    "the number the caption is written from has to be exact"
+                    % (cadence, len(marks), collapsed, total))
+            if len(marks) > ceiling:
+                return False, (
+                    "at a %ds cadence the band drew %d marks, over the %d its own minimum "
+                    "spacing allows — T-24-06-C is that the element count is bounded by the "
+                    "band's WIDTH, never by the row count" % (cadence, len(marks), ceiling))
+            positions = [_band_percent(el, "x") for el in marks]
+            if positions != sorted(positions):
+                return False, "expected the kept marks in chronological order, got %r" % (
+                    positions[:8],)
+            tight = [(a, b) for a, b in zip(positions, positions[1:])
+                     if b - a < spacing - 0.011]
+            if tight:
+                return False, (
+                    "at a %ds cadence two kept marks sit %.2f%% apart, under the %.2f%% "
+                    "minimum — they would paint as one smear and the band would show fewer "
+                    "things than it appears to" % (cadence, tight[0][1] - tight[0][0], spacing))
+
+        # An instant the band cannot place counts as not-individually-
+        # visible too, so a caller captioning from this number can never
+        # name a total the drawing does not reach.
+        mixed = [_BAND_DAY_START, _BAND_DAY_START - 60, "not a number", None,
+                 _BAND_DAY_START + day // 2]
+        markup, collapsed = draw.day_band(_BAND_DAY_START, day, mixed)
+        marks = _band_shapes(markup, "drawing-band-mark")
+        if len(marks) != 2 or collapsed != 3:
+            return False, (
+                "expected 2 marks and 3 unplaceable instants reported, got %d and %d"
+                % (len(marks), collapsed))
+        # Every mark is centred on its instant rather than hung to the
+        # right of it: a 23:59 mark whose LEFT edge were the instant
+        # would sit entirely outside the canvas. Asserted on the band
+        # just drawn, which has two marks — asserting it on an empty
+        # band is a loop that runs zero times and proves nothing.
+        offset = -draw.DAY_BAND_MARK_WIDTH_PX / 2.0
+        for element in marks:
+            if _band_attr(element, "transform") != "translate(%.2f 0)" % offset:
+                return False, "expected every mark centred on its instant, got %r" % (element,)
+
+        markup, collapsed = draw.day_band(_BAND_DAY_START, day, 17)
+        if collapsed != 0 or _band_shapes(markup, "drawing-band-mark"):
+            return False, "expected a non-iterable series to draw no marks and report 0"
+        return True, ""
+    check(
+        "the day band collapses marks closer than its own stated minimum spacing and returns "
+        "EXACTLY how many it hid — 48 marks at a 30-minute cadence with nothing collapsed, a "
+        "60-second and a 1-second cadence both bounded by the band's width rather than the row "
+        "count (T-24-06-C), no two kept marks under the minimum apart, and an unplaceable "
+        "instant counted too so a caption built from the number can never claim a total the "
+        "drawing does not reach (T-24-06-B, 24-06-PLAN.md Task 1)",
+        _day_band_collapses_crowded_marks_and_reports_exactly_how_many)
+
+    def _day_band_emits_only_registered_classes_and_no_colour():
+        markup, _ = draw.day_band(
+            _BAND_DAY_START, draw.SECONDS_PER_DAY,
+            [_band_hour(h) for h in (1, 5, 9, 13, 17, 21)],
+            window=(_band_hour(23), _band_hour(7)), label="the day")
+        for constant in (draw.DRAWING_BAND_CLASS, draw.DRAWING_BAND_SPAN_CLASS,
+                         draw.DRAWING_BAND_MARK_CLASS):
+            if constant not in draw.DRAWING_CLASSES:
+                return False, (
+                    "the band's class %r is not in draw.DRAWING_CLASSES, so the guard that "
+                    "every emitted class resolves to a real selector cannot see it — a class "
+                    "that exists in Python and nowhere in CSS paints nothing at all"
+                    % (constant,))
+        for class_name in re.findall(r'class="([^"]*)"', markup):
+            for token in class_name.split():
+                if token not in draw.DRAWING_CLASSES:
+                    return False, (
+                        "the band emitted class %r, which is not one of draw.py's own named "
+                        "constants" % (token,))
+        for forbidden in ("url(", "#", "rgb(", "style=", "<linearGradient"):
+            if forbidden in markup:
+                return False, (
+                    "the band's markup carries %r — a colour decided in Python is correct in "
+                    "one theme only, and an external reference is banned outright"
+                    % (forbidden,))
+        if 'role="group"' not in markup or 'aria-label="the day"' not in markup:
+            return False, (
+                "expected a labelled band: it is the only statement of its data, so it is not "
+                "aria-hidden the way the ring beside its own printed percentage is")
+        unlabelled, _ = draw.day_band(_BAND_DAY_START, draw.SECONDS_PER_DAY, [])
+        if 'aria-hidden="true"' not in unlabelled:
+            return False, "expected an unlabelled band to be hidden rather than an unnamed group"
+        return True, ""
+    check(
+        "every class the day band emits is one of companion/draw.py's own named constants and "
+        "is registered in DRAWING_CLASSES (so the stylesheet-resolution guard can see it), the "
+        "markup carries no colour literal, no url() reference and no inline style, and a band "
+        "supplied with a label announces itself as a named group rather than being hidden "
+        "(CFG-39/CFG-42, 24-06-PLAN.md Task 1)",
+        _day_band_emits_only_registered_classes_and_no_colour)
 
     # --- 19-12-PLAN.md Task 3 (D-13/S-02): the "Next wake ≈ HH:MM" figure --
 
