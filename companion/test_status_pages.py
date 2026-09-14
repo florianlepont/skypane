@@ -906,6 +906,20 @@ EXPECTED_CHECK_COUNT = 291
 # 291 + 4 = 295, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 295
 
+# 24-07-PLAN.md Task 2 (CFG-43): +7 — the Health section. Three of them
+# are the caption's three clauses, one clause each, because they are
+# three separate claims and one check over the whole caption would go
+# green on two out of three. The other four: the fallback-floors caption
+# for a deployment whose cadence cannot be determined (and that it names
+# no configured value); every cell's verdict computed in the check FROM
+# the classifier rather than hard-coded, with the page's own builders
+# read off their compiled co_names for the classifier call and against
+# every threshold constant; the empty deployment, which renders a full
+# grid of no-observation cells rather than no section; and the blunt
+# both-languages grep for the roadmap's own superseded phrasing.
+# 295 + 7 = 302, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 302
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -3426,6 +3440,320 @@ def main():
         "CHECK_IN_* values — the one coupling a stdlib-only geometry module cannot express as "
         "an import (CFG-43, 24-07-PLAN.md Task 1)",
         _draw_cell_vocabulary_is_the_classifiers_own)
+
+    # --- 24-07-PLAN.md Task 2 (CFG-43): the Health section -------------
+    #
+    # THE CAPTION'S THREE CLAUSES GET THREE CHECKS, one each, because
+    # they are three separate claims and a later editor will be tempted
+    # to trim the third as noise. A single check over the whole caption
+    # would go green on two clauses out of three.
+
+    _CELL_RE = re.compile(
+        r'<rect class="drawing-cell ([^"]+)"[^>]*><title>([^<]*)</title></rect>')
+
+    def _check_in_cells(rendered):
+        """[(state class, title), ...] in document order."""
+        return [(m.group(1), m.group(2)) for m in _CELL_RE.finditer(rendered)]
+
+    def _seeded_regularity_page(state_dir, now, wake_interval_s=300):
+        """Seed a device_config cadence plus two days of check-ins whose
+        gaps land on three different verdicts, and render Health."""
+        if wake_interval_s is not None:
+            device_config.save_device_config(state_dir, wake_interval_s=wake_interval_s)
+        today = now.astimezone(layout.LOCAL_TZ).replace(
+            hour=1, minute=0, second=0, microsecond=0)
+        yesterday = today - timedelta(days=1)
+        _seed_device_health(state_dir, [
+            # Yesterday: a 20-minute gap. At a 300s cadence that is past
+            # warn (900s) and short of error (3600s) — late.
+            (_iso(yesterday), 4200),
+            (_iso(yesterday + timedelta(minutes=20)), 4190),
+            # Today: a 10-minute gap, then a 6-hour one.
+            (_iso(today), 4180),
+            (_iso(today + timedelta(minutes=10)), 4170),
+            (_iso(today + timedelta(hours=6)), 4160),
+        ])
+        return health_page.render(_ctx(state_dir, now=_iso(now)))
+
+    def _the_caption_says_what_the_grid_SHOWS():
+        tmp = _mkstate("h-regularity-clause-1")
+        try:
+            rendered = _seeded_regularity_page(tmp, _now())
+            clause = layout.escape_html(health_page.i18n.t(health_page.CHECK_IN_CAPTION_OBSERVED))
+            if clause not in rendered:
+                return False, (
+                    "the caption does not carry its first clause %r — a grid whose reader "
+                    "cannot tell what one cell means is a texture" % (clause,))
+            if health_page.CHECK_IN_SECTION_HEADING.lower() in ("wake punctuality",):
+                return False, "the heading is the roadmap's own superseded phrasing"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "CLAUSE 1 — Health's regularity caption says what the grid SHOWS: one cell is one day "
+        "of OBSERVED check-in regularity (CFG-43, 24-07-PLAN.md Task 2)",
+        _the_caption_says_what_the_grid_SHOWS)
+
+    def _the_caption_names_the_cadence_it_judged_against_and_says_it_is_TODAYS():
+        tmp = _mkstate("h-regularity-clause-2")
+        try:
+            now = _now()
+            rendered = _seeded_regularity_page(tmp, now, wake_interval_s=300)
+            # The VALUE, formatted the one way this app formats a length
+            # of time — never re-derived here as "5 minutes".
+            expected = layout.escape_html(
+                health_page.i18n.t(health_page.CHECK_IN_CAPTION_CADENCE)
+                % layout.duration_text(300))
+            if expected not in rendered:
+                return False, (
+                    "the caption does not name the cadence it judged against: expected %r"
+                    % (expected,))
+            if "5m" not in rendered and "5 min" not in rendered:
+                return False, "the configured 300s cadence is not named by its value anywhere"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "CLAUSE 2 — Health's regularity caption names the cadence the grid was judged against, by "
+        "its value and in this app's own duration form, and says that cadence is the one "
+        "configured NOW rather than the one in force on an earlier day (CFG-43, 24-07-PLAN.md "
+        "Task 2)",
+        _the_caption_names_the_cadence_it_judged_against_and_says_it_is_TODAYS)
+
+    def _the_caption_says_a_gap_is_NOT_proof_of_a_missed_wake():
+        # T-24-07-A. This is the clause a later editor trims as noise,
+        # and it is the difference between reporting an observation and
+        # accusing the device: 24-RESEARCH.md Risk 1 shows the record
+        # cannot tell a missed wake from a log range the ingest lost.
+        tmp = _mkstate("h-regularity-clause-3")
+        try:
+            rendered = _seeded_regularity_page(tmp, _now())
+            clause = layout.escape_html(health_page.i18n.t(health_page.CHECK_IN_CAPTION_NOT_PROOF))
+            if clause not in rendered:
+                return False, (
+                    "the caption does not carry its third clause %r — without it the grid "
+                    "accuses the device of missing wakes the record cannot show it missed"
+                    % (clause,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "CLAUSE 3 — Health's regularity caption says a day with no record is NOT proof the frame "
+        "did not wake, naming the log rotation that leaves the same gap (CFG-43, T-24-07-A, "
+        "24-07-PLAN.md Task 2)",
+        _the_caption_says_a_gap_is_NOT_proof_of_a_missed_wake)
+
+    def _with_no_determinable_cadence_the_caption_names_the_FLOORS():
+        tmp = _mkstate("h-regularity-no-cadence")
+        env_before = os.environ.pop(wake.SLEEP_ENV_VAR, None)
+        try:
+            now = _now()
+            # No device_config.json and no SKYPANE_SLEEP_S: exactly the
+            # freshly-provisioned deployment device_staleness_thresholds()
+            # degrades to its bare floors for.
+            rendered = _seeded_regularity_page(tmp, now, wake_interval_s=None)
+            if wake.effective_wake_interval_s(None) is not None:
+                return False, "the fixture still resolves a cadence — this check measures nothing"
+            floors = layout.escape_html(
+                health_page.i18n.t(health_page.CHECK_IN_CAPTION_CADENCE_FALLBACK))
+            if floors not in rendered:
+                return False, (
+                    "with no determinable cadence the caption must name the fallback floors: "
+                    "expected %r" % (floors,))
+            configured = layout.escape_html(
+                health_page.i18n.t(health_page.CHECK_IN_CAPTION_CADENCE).split("%s")[0])
+            if configured in rendered:
+                return False, (
+                    "the caption still claims a CONFIGURED cadence (%r) for a deployment that "
+                    "has none — a silently assumed default is the one thing this clause exists "
+                    "to prevent" % (configured,))
+            return True, ""
+        finally:
+            if env_before is not None:
+                os.environ[wake.SLEEP_ENV_VAR] = env_before
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with a config yielding no cadence at all, Health's regularity caption says the grid is "
+        "judged against the fallback staleness floors and does NOT name a configured value "
+        "(CFG-43, 24-07-PLAN.md Task 2)",
+        _with_no_determinable_cadence_the_caption_names_the_FLOORS)
+
+    def _every_cell_verdict_is_the_classifiers_own_output():
+        tmp = _mkstate("h-regularity-verdicts")
+        try:
+            now = _now()
+            rendered = _seeded_regularity_page(tmp, now, wake_interval_s=300)
+            cells = _check_in_cells(rendered)
+            if len(cells) != health_page.CHECK_IN_WINDOW_DAYS:
+                return False, (
+                    "expected one cell per day of the %d-day window, got %d"
+                    % (health_page.CHECK_IN_WINDOW_DAYS, len(cells)))
+            # The expectation is COMPUTED from the classifier over the
+            # reader's own rows — never a hard-coded colour. A cell is
+            # right when it agrees with wake.classify_check_in_gap(), and
+            # that is the only definition of right this check knows.
+            with history_db.open_db(tmp) as conn:
+                rows = history_db.check_in_gaps(conn)
+            worst = {}
+            for row in rows:
+                day, gap = row["day"], row["gap_s"]
+                if day is None or gap is None:
+                    continue
+                worst[day] = max(gap, worst.get(day, gap))
+            if len(worst) != 2:
+                return False, (
+                    "the fixture seeded gaps on %d Paris days, expected 2 — this check would "
+                    "be measuring something other than what it seeded" % (len(worst),))
+            expected = {}
+            for day, gap in worst.items():
+                state = wake.classify_check_in_gap(gap, 300)
+                parsed = datetime.strptime(day, "%Y-%m-%d")
+                expected["%d %s" % (parsed.day, layout.month_abbr(parsed.month))] = state
+            if set(expected.values()) != {wake.CHECK_IN_LATE, wake.CHECK_IN_MISSING}:
+                return False, (
+                    "the fixture's own verdicts are %r — it must exercise more than one "
+                    "verdict or the mapping below is untested" % (sorted(expected.values()),))
+            seen = 0
+            for class_name, title in cells:
+                for label, state in expected.items():
+                    if title.startswith(label):
+                        seen += 1
+                        if class_name != draw.cell_class(state):
+                            return False, (
+                                "the cell titled %r carries %r; the classifier says %r for "
+                                "its own longest observed gap, which is %r"
+                                % (title, class_name, state, draw.cell_class(state)))
+                        break
+                else:
+                    if class_name != draw.cell_class(wake.CHECK_IN_UNKNOWN):
+                        return False, (
+                            "the cell titled %r carries %r for a day the record says nothing "
+                            "about — it must carry the no-observation class %r"
+                            % (title, class_name, draw.cell_class(wake.CHECK_IN_UNKNOWN)))
+            if seen != len(expected):
+                return False, (
+                    "found %d of the %d seeded days in the grid" % (seen, len(expected)))
+            # AND THE PAGE COMPUTES NO INTERVAL OF ITS OWN. Read off the
+            # compiled functions rather than their source text, the same
+            # technique 24-03 used for the classifier's own reuse check,
+            # so a docstring can neither pass nor fail this.
+            builders = [health_page._check_in_regularity_cells,
+                        health_page._check_in_regularity_section_html]
+            names = set()
+            for fn in builders:
+                names |= set(fn.__code__.co_names)
+            if "classify_check_in_gap" not in names:
+                return False, (
+                    "no regularity builder calls wake.classify_check_in_gap() — the verdicts "
+                    "are coming from somewhere other than the one definition of 'late'")
+            for forbidden in ("device_staleness_thresholds", "MISSED_WAKES_WARN",
+                              "MISSED_WAKES_ERROR", "STALE_WARN_FLOOR_S",
+                              "STALE_ERROR_FLOOR_S"):
+                if forbidden in names:
+                    return False, (
+                        "a regularity builder references %r — this page consumes verdicts and "
+                        "derives no threshold of its own" % (forbidden,))
+            for fn in builders:
+                source = inspect.getsource(fn)
+                for arithmetic in ("timedelta", "3600", "60 *"):
+                    if arithmetic in source:
+                        return False, (
+                            "%s's own source contains %r — the interval arithmetic belongs to "
+                            "24-03's reader and classifier, never to this page"
+                            % (fn.__name__, arithmetic))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every cell's verdict equals wake.classify_check_in_gap()'s own output for that day's "
+        "longest observed gap — computed in this check from the classifier, never hard-coded — "
+        "every unobserved day carries the no-observation class, and the page's own regularity "
+        "builders call the classifier while referencing no threshold constant and containing no "
+        "interval arithmetic of their own (CFG-43, 24-07-PLAN.md Task 2)",
+        _every_cell_verdict_is_the_classifiers_own_output)
+
+    def _with_no_observations_the_section_still_renders_its_grid():
+        tmp = _mkstate("h-regularity-empty")
+        try:
+            now = _now()
+            device_config.save_device_config(tmp, wake_interval_s=300)
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            heading = layout.escape_html(health_page.i18n.t(health_page.CHECK_IN_SECTION_HEADING))
+            if heading not in rendered:
+                return False, (
+                    "a deployment with no check-ins renders no regularity section at all — an "
+                    "absent section is a worse answer than an honest empty one")
+            cells = _check_in_cells(rendered)
+            if len(cells) != health_page.CHECK_IN_WINDOW_DAYS:
+                return False, (
+                    "expected a full %d-cell grid of no-observation cells, got %d"
+                    % (health_page.CHECK_IN_WINDOW_DAYS, len(cells)))
+            none_class = draw.cell_class(wake.CHECK_IN_UNKNOWN)
+            wrong = [c for c, _ in cells if c != none_class]
+            if wrong:
+                return False, (
+                    "a deployment with no check-ins painted %r — with no observations there is "
+                    "nothing to be on cadence about and nothing to be missing" % (set(wrong),))
+            empty = layout.escape_html(health_page.i18n.t(health_page.CHECK_IN_CAPTION_EMPTY))
+            if empty not in rendered:
+                return False, (
+                    "the empty grid carries no caption of its own saying so: expected %r"
+                    % (empty,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with no observations at all the regularity section still renders — a full grid of "
+        "no-observation cells, none of them on-cadence or missing, under its own caption saying "
+        "there is nothing recorded yet (CFG-43, T-24-07-A, 24-07-PLAN.md Task 2)",
+        _with_no_observations_the_section_still_renders_its_grid)
+
+    def _the_rendered_page_never_claims_punctuality_in_either_language():
+        # The roadmap's own phrasing for this drawing was "wake
+        # punctuality", and 24-RESEARCH.md Risk 1 is why it is not what
+        # shipped: the expected interval is not recoverable, so a page
+        # using that word would assert something this deployment cannot
+        # observe. The blunt grep is the point — it is re-runnable from a
+        # terminal by anyone, with no parser to trust.
+        tmp = _mkstate("h-regularity-vocabulary")
+        try:
+            now = _now()
+            device_config.save_device_config(tmp, wake_interval_s=300)
+            try:
+                prefs.set_request_prefs(lang="en")
+                en_rendered = _seeded_regularity_page(tmp, now)
+                prefs.set_request_prefs(lang="fr")
+                fr_rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            for lang_name, rendered in (("EN", en_rendered), ("FR", fr_rendered)):
+                lowered = rendered.lower()
+                for banned in ("honoured", "punctual", "punctualité", "ponctual"):
+                    if banned in lowered:
+                        return False, (
+                            "the %s-rendered Health page contains %r — this grid reports an "
+                            "OBSERVATION, and no name in this app may call it a rate of wakes "
+                            "the device kept" % (lang_name, banned))
+                if len(_check_in_cells(rendered)) != health_page.CHECK_IN_WINDOW_DAYS:
+                    return False, (
+                        "the %s render carries no regularity grid, so this check is scanning a "
+                        "page without the drawing it is about" % (lang_name,))
+            fr_heading = health_page.i18n.t_lang(health_page.CHECK_IN_SECTION_HEADING, "fr")
+            if fr_heading == health_page.CHECK_IN_SECTION_HEADING:
+                return False, (
+                    "the section heading has no French sibling — it would render in English "
+                    "inside a French page")
+            if layout.escape_html(fr_heading) not in fr_rendered:
+                return False, "the French render does not carry the French heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered Health page contains neither 'honoured' nor 'punctual' (nor 'punctualité') "
+        "in EITHER language while carrying the full grid in both, and the section heading has a "
+        "real French sibling rather than an English string inside a French page (CFG-43, "
+        "24-07-PLAN.md Task 2)",
+        _the_rendered_page_never_claims_punctuality_in_either_language)
 
     def _sparkline_axis_chrome_present():
         # quick task 260902-ep7 (BUG 4): the new check for the drawn axis
