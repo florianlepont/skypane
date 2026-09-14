@@ -746,6 +746,37 @@ EXPECTED_CHECK_COUNT = 74
 # 74 + 1 = 75, re-derived by RUNNING the harness (75/75, 0 SKIPs), never
 # by arithmetic.
 EXPECTED_CHECK_COUNT = 75
+# 25-06-PLAN.md Task 4 (CFG-50/D-09): +3 — D5's carousel measured, and
+# not one of the three measures that it RENDERS. One proves the theme
+# still reaches DISK with scripts blocked, at 360px and in both shipped
+# languages, and on that same scripts-blocked page: all eighteen chips
+# present, the strip really overflowing and really ONE row (a count
+# passes against eighteen chips stacked in a column), the saved radio
+# taking focus and one ArrowDown moving the selection — the property
+# `display: none` would destroy and `.visually-hidden` exists to keep —
+# the <details> OPENING on a click and turning that row into a real grid
+# holding the SAME eighteen radios, and no sideways page scroll; then
+# the gate in both directions. One drives the strip by keyboard alone at
+# one, six and seventeen steps with zero pointer events and the recorder
+# proving itself, and asserts at every one of those positions that the
+# selected chip is still fully inside the scrollport — the clause the
+# carousel adds, and the one that FAILED before the strip reserved a
+# chip's width, because the browser only ever scrolls the 1px
+# visually-hidden radio into view and stops. It also asserts the live
+# preview follows a KEYBOARD selection (the existing crossfade check
+# clicks) and that the two pagers scroll forward and exactly back while
+# changing no selection at all. One measures the floors at 360px: four
+# hit-area measurements in this control's OWN container, the strip's box
+# against its panel's content box by getBoundingClientRect, the page's
+# own no-sideways-scroll baseline with the grid both shut and open, and
+# the paint as a FLOOR — chip name, chip surface, disclosure summary and
+# pager chevron all differing between the themes, no name painted in its
+# own surface and neither the summary nor the chevron in the canvas
+# colour, sampled only once the browser's own Web Animations `finished`
+# promise says `.theme-chip`'s transitions are over.
+# 75 + 3 = 78, re-derived by RUNNING the harness (78/78, 0 SKIPs), never
+# by arithmetic.
+EXPECTED_CHECK_COUNT = 78
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -11614,6 +11645,57 @@ def main():
                     "(CFG-49/CFG-52, 25-05-PLAN.md Task 3)",
                     _the_slider_meets_its_floors_at_360px_in_both_themes)
 
+                # --- 25-06-PLAN.md Tasks 1 and 4 (CFG-50): D5's theme
+                # carousel. One selector set for all four checks.
+                THEME_STRIP_SEL = "#" + config_page.THEME_CAROUSEL_STRIP_ID
+                THEME_PAGERS_SEL = ".theme-carousel__pagers"
+                THEME_DETAILS_SEL = ".theme-carousel__all"
+                THEME_PREVIEW_SEL = ".theme-live-preview__image"
+
+                # The strip's own state, read as one object so a caller
+                # never takes two samples that could disagree.
+                _STRIP_PROBE = (
+                    "sels => {"
+                    "  const s = document.querySelector(sels.strip);"
+                    "  if (!s) return {error: 'no-strip'};"
+                    "  const chips = [...s.querySelectorAll('.theme-chip')];"
+                    "  const sr = s.getBoundingClientRect();"
+                    "  const cs = getComputedStyle(s);"
+                    "  const d = document.querySelector(sels.details);"
+                    "  const tops = chips.map("
+                    "    c => Math.round(c.getBoundingClientRect().top));"
+                    "  return {chips: chips.length,"
+                    "          scroll: [s.scrollWidth, s.clientWidth],"
+                    "          box: [sr.width, sr.height],"
+                    "          wrap: cs.flexWrap, overflow: cs.overflowX,"
+                    "          snap: cs.scrollSnapType,"
+                    "          rows: new Set(tops).size,"
+                    "          spread: Math.max(...tops) - Math.min(...tops),"
+                    "          open: d ? d.open : null,"
+                    "          checked: [...document.querySelectorAll("
+                    "            'input[name=\"theme\"]')].filter("
+                    "              e => e.checked).map(e => e.value)};"
+                    "}")
+
+                # THE WHOLE POINT OF A SETTLE PROBE, AND NOT A TIMER:
+                # `.theme-chip` declares `transition: transform,
+                # border-color, box-shadow`, so any sample taken right
+                # after a theme switch or a selection change reads an
+                # interpolation frame. 25-03 lost a paint measurement to
+                # exactly this and 25-05 lost another. An element with
+                # nothing running returns an empty list and resolves at
+                # once, so this neither guesses an instant nor waits for
+                # one that will not come.
+                _SETTLE_CAROUSEL = (
+                    "async () => {"
+                    "  const els = [...document.querySelectorAll("
+                    "    '.theme-carousel, .theme-carousel *, body')];"
+                    "  await Promise.all(els.flatMap("
+                    "    e => e.getAnimations().map("
+                    "      a => a.finished.catch(() => {}))));"
+                    "  return els.length;"
+                    "}")
+
                 # --- 25-06-PLAN.md Task 1 (CFG-50): the number this
                 # plan is judged against, taken before there was any
                 # incentive to like it. See _display_page_height() for
@@ -11670,6 +11752,501 @@ def main():
                     "(narrower cannot be shorter) was MEASURED FALSE on this page before the "
                     "plan changed anything (CFG-50, 25-06-PLAN.md Task 1)",
                     _displays_page_height_is_recorded_at_both_phone_widths)
+
+                # --- 25-06-PLAN.md Task 4 (CFG-50/D-09) ---------------
+
+                def _the_theme_still_saves_with_scripts_blocked_through_the_carousel():
+                    base_url = harness.base_url()
+
+                    def read_back():
+                        return device_config.load_device_config(harness.tmpdir)["theme"]
+
+                    before = read_back()
+                    target = next(t for t in device_config.THEME_IDS if t != before)
+                    seen = {}
+                    # BOTH SHIPPED LANGUAGES: the UI language is a cookie
+                    # the FIRST rendered document has to honour, and "it
+                    # saves in English" is not the D-09 floor.
+                    for lang in ("en", "fr"):
+                        seen[lang] = _persist_without_js(
+                            browser, base_url, "/display", "theme", target, read_back,
+                            viewport=VIEWPORT_MIN_SUPPORTED,
+                            cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
+                                      "value": lang, "url": base_url}])
+                    after = read_back()
+                    if str(after) != str(before):
+                        return False, (
+                            "the scripts-blocked save left the theme at %r, it started at %r — "
+                            "a harness that changes a real setting edits its neighbours' "
+                            "subject" % (after, before))
+                    for lang, result in seen.items():
+                        if str(result["stored"]) != str(target):
+                            return False, (
+                                "lang=%s: the theme did not reach disk, it reads %r"
+                                % (lang, result["stored"]))
+                        if str(result["restored"]) != str(before):
+                            return False, (
+                                "lang=%s: the restore leg did not put %r back, disk reads %r"
+                                % (lang, before, result["restored"]))
+
+                    with _no_js_page(browser, base_url, "/display",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        shut = page.evaluate(
+                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
+                                           "details": THEME_DETAILS_SEL})
+                        if shut.get("error"):
+                            return False, "no strip on the scripts-blocked page at all"
+                        if shut["chips"] != len(device_config.THEME_IDS):
+                            return False, (
+                                "the scripts-blocked strip holds %d chips, expected %d — every "
+                                "theme is server-rendered and owes nothing to a script"
+                                % (shut["chips"], len(device_config.THEME_IDS)))
+                        # IT REALLY IS A STRIP, AND IT REALLY SCROLLS.
+                        # A count passes against eighteen chips stacked
+                        # in a column; this does not.
+                        if shut["scroll"][0] <= shut["scroll"][1]:
+                            return False, (
+                                "the strip's scrollWidth (%s) does not exceed its clientWidth "
+                                "(%s) with scripts blocked — it is not overflowing, so it is "
+                                "not a strip and there is nothing to scroll" % tuple(shut["scroll"]))
+                        if shut["spread"] > 2:
+                            return False, (
+                                "the eighteen chips sit on %d rows spread over %dpx with the "
+                                "disclosure shut — a strip is one row"
+                                % (shut["rows"], shut["spread"]))
+
+                        # KEYBOARD SELECTION, WITH SCRIPTS BLOCKED. This
+                        # is what `.visually-hidden` buys and
+                        # `display: none` would destroy: a radio that
+                        # cannot take focus cannot be arrow-keyed, and a
+                        # keyboard visitor loses the control entirely.
+                        # `_operate_with_keyboard()` refuses to run here
+                        # (its pointer recorder cannot prove itself in a
+                        # context where listeners never fire), so focus
+                        # is taken through the element's own API and the
+                        # keys are real presses — arrow navigation inside
+                        # a radiogroup is the BROWSER's default action
+                        # and needs no listener at all.
+                        focused = page.evaluate(
+                            "v => {"
+                            "  const el = document.querySelector("
+                            "    'input[name=\"theme\"][value=\"' + v + '\"]');"
+                            "  if (!el) return {error: 'no-radio'};"
+                            "  el.focus();"
+                            "  return {focused: document.activeElement === el};"
+                            "}", before)
+                        if focused.get("error") or not focused.get("focused"):
+                            return False, (
+                                "the saved theme's radio could not take focus with scripts "
+                                "blocked (%r) — a radio hidden with display:none rather than "
+                                "the .visually-hidden utility is exactly this, and it takes "
+                                "arrow-key selection away with it" % (focused,))
+                        page.keyboard.press("ArrowDown")
+                        moved = page.evaluate(
+                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
+                                           "details": THEME_DETAILS_SEL})
+                        if moved["checked"] == [before]:
+                            return False, (
+                                "one ArrowDown with scripts blocked left the selection on %r — "
+                                "native radiogroup navigation is the whole no-JS story here"
+                                % (before,))
+
+                        # THE DISCLOSURE OPENS WITH SCRIPTS BLOCKED, and
+                        # that is the entire reason it is a <details>
+                        # rather than the <dialog> the audit named.
+                        page.click(THEME_DETAILS_SEL + " summary")
+                        opened = page.evaluate(
+                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
+                                           "details": THEME_DETAILS_SEL})
+                        if not opened["open"]:
+                            return False, (
+                                "clicking the summary with scripts blocked did not open the "
+                                "disclosure — a <dialog> would behave exactly like this, which "
+                                "is why this is not one")
+                        if opened["wrap"] != "wrap" or opened["spread"] <= 2:
+                            return False, (
+                                "the disclosure opened and the strip is still one row "
+                                "(flex-wrap %r, chips spread over %dpx) — 'See all themes' laid "
+                                "nothing out" % (opened["wrap"], opened["spread"]))
+                        if opened["box"][1] <= shut["box"][1] * 2:
+                            return False, (
+                                "the strip measured %.1fpx shut and %.1fpx open — opening the "
+                                "disclosure has to reveal a real grid, not nudge a row"
+                                % (shut["box"][1], opened["box"][1]))
+                        if opened["chips"] != shut["chips"]:
+                            return False, (
+                                "the open grid holds %d chips and the shut strip held %d — they "
+                                "are the SAME eighteen radios and must be"
+                                % (opened["chips"], shut["chips"]))
+
+                        message = _assert_no_page_overflow(
+                            page, "the theme carousel on /display with scripts blocked",
+                            VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+
+                    # AND THE GATE, IN BOTH DIRECTIONS. Asserting only
+                    # the blocked half passes against a gate stuck shut.
+                    gate = _assert_js_gate(
+                        browser, base_url, "/display", THEME_PAGERS_SEL,
+                        viewport=VIEWPORT_MIN_SUPPORTED)
+                    if not gate["blocked"]["candidates"]:
+                        return False, (
+                            "the pager wrapper holds nothing focusable at all, so the tab walk "
+                            "proving a keyboard visitor cannot reach it measured nothing")
+                    return True, ""
+                check(
+                    "the theme still SAVES with scripts blocked through the carousel, at 360px "
+                    "and in BOTH shipped languages — operated natively, submitted through the "
+                    "real form, re-read FROM DISK after a fresh GET and restored the same way — "
+                    "and on that same scripts-blocked page all eighteen chips are present, the "
+                    "strip really overflows and really is ONE row, the saved theme's radio "
+                    "takes focus and one ArrowDown moves the selection (which display:none "
+                    "would take away), the <details> OPENS on a click and turns that one row "
+                    "into a real grid holding the same eighteen radios, and the page does not "
+                    "scroll sideways — with the pager wrapper proved in BOTH gate directions "
+                    "(CFG-50/D-09, 25-06-PLAN.md Task 4)",
+                    _the_theme_still_saves_with_scripts_blocked_through_the_carousel)
+
+                def _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview():
+                    base_url = harness.base_url()
+                    ids = list(device_config.THEME_IDS)
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+                        saved = str(device_config.load_device_config(
+                            harness.tmpdir)["theme"])
+                        if saved not in ids:
+                            return False, (
+                                "the saved theme %r is not in the registry — this check would "
+                                "measure nothing" % (saved,))
+                        selector = 'input[name="theme"][value="%s"]' % saved
+                        start = ids.index(saved)
+
+                        # 1. ARROW KEYS MOVE SELECTION, WITH NOT ONE
+                        #    POINTER EVENT, AND THE RECORDER PROVES
+                        #    ITSELF. A `click` is not a pointer event and
+                        #    that distinction is 25-02's, not this
+                        #    plan's: a keyboard-activated radio fires a
+                        #    real click as part of its activation
+                        #    behaviour, so "no click" would prove
+                        #    nothing here.
+                        for steps in (1, 6, len(ids) - 1):
+                            expected = ids[(start + steps) % len(ids)]
+                            seen = _operate_with_keyboard(
+                                page, selector, ["ArrowDown"] * steps)
+                            if seen["group"] != expected:
+                                return False, (
+                                    "%d ArrowDown(s) from %r selected %r, expected the "
+                                    "registry's entry %r — the carousel broke native "
+                                    "radiogroup navigation, which is the only selection the "
+                                    "no-JS path has" % (steps, saved, seen["group"], expected))
+                            if seen["pointer_events"]:
+                                return False, (
+                                    "a pointer event fired during the keyboard sequence: %r"
+                                    % (seen["pointer_events"],))
+                            if not seen["recorder_proved"]:
+                                return False, (
+                                    "the pointer recorder never proved itself, so the empty "
+                                    "pointer-event list measured nothing")
+
+                            # 2. AND THE CHIP IS STILL ON SCREEN. THIS IS
+                            #    THE CLAUSE THE CAROUSEL ADDS, and it
+                            #    FAILED before `scroll-padding-right`
+                            #    existed: focus lands on a 1px
+                            #    visually-hidden radio at the chip's
+                            #    top-left corner, so the browser scrolls
+                            #    that into view, is satisfied, and leaves
+                            #    50px of the selected chip outside the
+                            #    strip. A control that selects something
+                            #    the visitor cannot see is a control that
+                            #    has lost its own feedback.
+                            box = page.evaluate(
+                                "sel => {"
+                                "  const s = document.querySelector(sel);"
+                                "  const a = document.activeElement;"
+                                "  const chip = a.closest ? a.closest('.theme-chip') : null;"
+                                "  if (!chip) return {error: 'no-chip'};"
+                                "  const c = chip.getBoundingClientRect();"
+                                "  const r = s.getBoundingClientRect();"
+                                "  return {left: c.left - r.left, right: r.right - c.right,"
+                                "          value: a.value, scrollLeft: s.scrollLeft};"
+                                "}", THEME_STRIP_SEL)
+                            recorded["inview_%d" % steps] = box
+                            if box.get("error"):
+                                return False, (
+                                    "after %d ArrowDown(s) the focused element is not inside a "
+                                    "chip at all" % steps)
+                            if box["left"] < -1 or box["right"] < -1:
+                                return False, (
+                                    "after %d ArrowDown(s) the selected chip %r sits %.1fpx "
+                                    "past the strip's left edge and %.1fpx past its right — "
+                                    "scroll-snap and the keyboard have to agree, and the "
+                                    "browser only ever scrolls the 1px radio into view"
+                                    % (steps, box["value"], -min(box["left"], 0),
+                                       -min(box["right"], 0)))
+
+                        # 3. THE LIVE PREVIEW FOLLOWS A KEYBOARD
+                        #    SELECTION. The existing crossfade check
+                        #    CLICKS a chip; this plan touched the script
+                        #    that owns the preview, and a carousel that
+                        #    traded the preview for a strip would still
+                        #    pass every clause above.
+                        landed = _operate_with_keyboard(
+                            page, selector, ["ArrowDown"] * 6)["group"]
+                        page.wait_for_timeout(900)
+                        preview = page.eval_on_selector(
+                            THEME_PREVIEW_SEL,
+                            "el => [el.getAttribute('src'),"
+                            "       parseFloat(getComputedStyle(el).opacity)]")
+                        recorded["preview"] = preview
+                        if landed not in (preview[0] or ""):
+                            return False, (
+                                "the keyboard selected %r and the live preview still reads %r "
+                                "— this plan grew the script that owns that swap, and a "
+                                "carousel that broke it has traded one feature for another"
+                                % (landed, preview[0]))
+                        if preview[1] != 1:
+                            return False, (
+                                "the preview settled at opacity %r — a fade-out with no fade "
+                                "back in is worse than the cut it replaced" % (preview[1],))
+
+                        # 4. THE PAGERS SCROLL, AND CHANGE NOTHING ELSE.
+                        #    A pager that moved the selection would be a
+                        #    second way to change a saved setting, and
+                        #    one that captured an arrow key would break
+                        #    clause 1 above.
+                        paged = page.evaluate(
+                            "sels => {"
+                            "  const s = document.querySelector(sels.strip);"
+                            "  const checked = () => [...document.querySelectorAll("
+                            "    'input[name=\"theme\"]')].filter(e => e.checked)"
+                            "      .map(e => e.value)[0];"
+                            "  s.scrollLeft = 0;"
+                            "  const was = checked();"
+                            "  document.querySelector(sels.next).click();"
+                            "  const forward = s.scrollLeft;"
+                            "  const afterNext = checked();"
+                            "  document.querySelector(sels.prev).click();"
+                            "  return {forward: forward, back: s.scrollLeft,"
+                            "          was: was, afterNext: afterNext,"
+                            "          afterPrev: checked()};"
+                            "}",
+                            {"strip": THEME_STRIP_SEL,
+                             "next": '[%s="%s"]' % (
+                                 config_page.THEME_CAROUSEL_PAGER_ATTR,
+                                 config_page.THEME_CAROUSEL_PAGER_NEXT),
+                             "prev": '[%s="%s"]' % (
+                                 config_page.THEME_CAROUSEL_PAGER_ATTR,
+                                 config_page.THEME_CAROUSEL_PAGER_PREV)})
+                        recorded["paged"] = paged
+                        if paged["forward"] <= 0:
+                            return False, (
+                                "the Next pager left the strip at scrollLeft %r — it is the "
+                                "one part of this control that needs a script, and it does "
+                                "nothing" % (paged["forward"],))
+                        if paged["back"] != 0:
+                            return False, (
+                                "Next then Previous left the strip at scrollLeft %r rather "
+                                "than back where it started (%r forward) — the two pagers do "
+                                "not step the same distance"
+                                % (paged["back"], paged["forward"]))
+                        if paged["afterNext"] != paged["was"] or paged["afterPrev"] != paged["was"]:
+                            return False, (
+                                "a pager changed the selection: %r -> %r -> %r. Paging is not "
+                                "choosing, and a pager that selects is a second way to change "
+                                "a saved setting"
+                                % (paged["was"], paged["afterNext"], paged["afterPrev"]))
+                        if str(device_config.load_device_config(
+                                harness.tmpdir)["theme"]) != saved:
+                            return False, (
+                                "this check changed the stored theme (%r, started at %r)"
+                                % (device_config.load_device_config(
+                                    harness.tmpdir)["theme"], saved))
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the carousel is driven by the keyboard ALONE and the strip keeps up: one, "
+                    "six and seventeen ArrowDowns each land on the registry's own next theme "
+                    "with zero pointer events and the recorder proving itself, and at every one "
+                    "of those positions the selected chip is still fully inside the strip — the "
+                    "clause the carousel adds, and the one that FAILED before the scrollport "
+                    "reserved a chip's width, because the browser only ever scrolls the 1px "
+                    "visually-hidden radio into view; the live preview follows a KEYBOARD "
+                    "selection (the existing crossfade check clicks) and settles opaque; and "
+                    "the two pagers scroll the strip forward and exactly back again while "
+                    "changing no selection at all, on the page or on disk (CFG-50/CFG-52, "
+                    "25-06-PLAN.md Task 4)",
+                    _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview)
+
+                def _the_carousel_meets_its_floors_at_360px_in_both_themes():
+                    base_url = harness.base_url()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+
+                        # 1. THE HIT TARGETS, MEASURED IN THIS CONTROL'S
+                        #    OWN CONTAINER AND NEVER INHERITED FROM A
+                        #    CLASS. `control-density.md`'s
+                        #    exempt-by-delegation category is valid only
+                        #    while the WRAPPING LABEL exceeds 44px in
+                        #    both axes, and a compact chip in a
+                        #    scroll-snap strip is exactly where that
+                        #    could stop being true. The pagers are
+                        #    measured for the opposite reason and it is
+                        #    not hypothetical: at --space-sm apart, the
+                        #    Previous pager hit-tested 30x45 here,
+                        #    because the Next pager's own 44px ::before
+                        #    covered its right side.
+                        recorded["chip_first"] = _assert_hit_target(
+                            page, THEME_STRIP_SEL + " > .theme-chip:nth-child(1)",
+                            "the carousel's FIRST chip on /display")
+                        recorded["chip_last"] = _assert_hit_target(
+                            page, THEME_STRIP_SEL + " > .theme-chip:nth-last-child(1)",
+                            "the carousel's LAST chip on /display")
+                        for direction in (config_page.THEME_CAROUSEL_PAGER_PREV,
+                                          config_page.THEME_CAROUSEL_PAGER_NEXT):
+                            recorded["pager_" + direction] = _assert_hit_target(
+                                page, '[%s="%s"]' % (
+                                    config_page.THEME_CAROUSEL_PAGER_ATTR, direction),
+                                "the carousel's %s pager on /display" % direction)
+
+                        # 2. THE STRIP'S OWN GEOMETRY, by
+                        #    getBoundingClientRect and never clientWidth,
+                        #    which rounds to an integer and can fail a
+                        #    correct drawing.
+                        shut = page.evaluate(
+                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
+                                           "details": THEME_DETAILS_SEL})
+                        recorded["shut"] = shut
+                        panel = page.eval_on_selector(
+                            THEME_STRIP_SEL,
+                            "el => {"
+                            "  const p = el.closest('.frame-colours__usage-panel');"
+                            "  const r = p.getBoundingClientRect();"
+                            "  const cs = getComputedStyle(p);"
+                            "  return r.width - parseFloat(cs.paddingLeft)"
+                            "    - parseFloat(cs.paddingRight);"
+                            "}")
+                        recorded["panel"] = panel
+                        if shut["box"][0] > panel + 0.5:
+                            return False, (
+                                "the strip measures %.2fpx inside a %.2fpx panel content box — "
+                                "a strip wider than the card holding it is the grid blowout, "
+                                "and it takes the whole page sideways with it"
+                                % (shut["box"][0], panel))
+                        if shut["scroll"][0] <= shut["scroll"][1]:
+                            return False, (
+                                "the strip's scrollWidth (%s) does not exceed its clientWidth "
+                                "(%s) at 360px — with eighteen 104px chips in one nowrap row "
+                                "it must, or `flex: 0 0 auto` is not holding and the chips are "
+                                "being squeezed" % tuple(shut["scroll"]))
+                        if shut["overflow"] != "auto" or shut["snap"] != "x mandatory":
+                            return False, (
+                                "the strip computes overflow-x:%r and scroll-snap-type:%r — "
+                                "without both it is either a blowout or a free-scrolling row "
+                                "that never settles on a chip"
+                                % (shut["overflow"], shut["snap"]))
+
+                        # 3. THE PAGE DOES NOT SCROLL SIDEWAYS. A strip
+                        #    that scrolls ITSELF is allowed and is the
+                        #    whole design; the page body is not.
+                        message = _assert_no_page_overflow(
+                            page, "the theme carousel on /display",
+                            VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+                        page.click(THEME_DETAILS_SEL + " summary")
+                        message = _assert_no_page_overflow(
+                            page, "the theme carousel on /display with the grid open",
+                            VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+                        page.click(THEME_DETAILS_SEL + " summary")
+
+                        # 4. THE PAINT, IN BOTH THEMES, AS A FLOOR AND
+                        #    NOT ONLY A CEILING. "Not the default" is the
+                        #    ceiling and passes against a strip painted
+                        #    in one flat grey; the floor is that a chip's
+                        #    name is not its own surface, that the
+                        #    disclosure and the pager chevron are visible
+                        #    at all, and that every one of them inverts
+                        #    with the theme.
+                        paints = {}
+                        for theme in UI_THEMES_EXPLICIT:
+                            _set_ui_theme(page, theme)
+                            recorded["settled_" + theme] = page.evaluate(_SETTLE_CAROUSEL)
+                            paints[theme] = page.evaluate(
+                                "sels => {"
+                                "  const read = (s, p, pseudo) =>"
+                                "    getComputedStyle(document.querySelector(s), pseudo || null)"
+                                "      .getPropertyValue(p).trim();"
+                                "  return {"
+                                "    name: read(sels.strip + ' .theme-chip__name', 'color'),"
+                                "    surface: read(sels.strip + ' .theme-chip',"
+                                "                  'background-color'),"
+                                "    summary: read(sels.details + ' summary', 'color'),"
+                                "    chevron: read(sels.pager, 'border-right-color', '::after'),"
+                                "    canvas: getComputedStyle(document.body).backgroundColor};"
+                                "}",
+                                {"strip": THEME_STRIP_SEL, "details": THEME_DETAILS_SEL,
+                                 "pager": '[%s="%s"]' % (
+                                     config_page.THEME_CAROUSEL_PAGER_ATTR,
+                                     config_page.THEME_CAROUSEL_PAGER_NEXT)})
+                        recorded["paints"] = paints
+                        light, dark = paints["light"], paints["dark"]
+                        for key in ("name", "surface", "summary", "chevron"):
+                            if light[key] == dark[key]:
+                                return False, (
+                                    "the carousel's %s paints identically in both themes (%r) — "
+                                    "a token that does not invert is a literal, and one of the "
+                                    "two modes is wrong" % (key, light[key]))
+                        for theme, sampled in paints.items():
+                            if sampled["name"] == sampled["surface"]:
+                                return False, (
+                                    "%s: a chip's name is painted in its own surface colour "
+                                    "(%r) — the chips are not legible at all"
+                                    % (theme, sampled["name"]))
+                            if sampled["summary"] == sampled["canvas"]:
+                                return False, (
+                                    "%s: the disclosure's summary is the canvas colour (%r)"
+                                    % (theme, sampled["summary"]))
+                            if sampled["chevron"] == sampled["canvas"]:
+                                return False, (
+                                    "%s: the pager's chevron is the canvas colour (%r) — the "
+                                    "buttons have no text of their own, so an invisible "
+                                    "chevron is an invisible control"
+                                    % (theme, sampled["chevron"]))
+                        _set_ui_theme(page, "light")
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the carousel meets its floors at 360px — the FIRST and LAST chip and BOTH "
+                    "pagers clear the 44px target by real hit-testing in THIS control's own "
+                    "container (never inherited from a class: the pagers measured 30x45 here "
+                    "at --space-sm apart, each covering the other's synthesised ::before), the "
+                    "strip fits its panel's content box by getBoundingClientRect rather than "
+                    "clientWidth while genuinely overflowing its own scrollport, it computes "
+                    "both overflow-x:auto and scroll-snap-type, the PAGE does not scroll "
+                    "sideways with the grid shut or open (a strip that scrolls itself is the "
+                    "design; the body is not), and the paint is a FLOOR not a ceiling: the chip "
+                    "name, the chip surface, the disclosure summary and the pager chevron all "
+                    "differ between the two themes, no chip name is its own surface colour, and "
+                    "neither the summary nor the chevron is the canvas colour (CFG-50/CFG-52, "
+                    "25-06-PLAN.md Task 4)",
+                    _the_carousel_meets_its_floors_at_360px_in_both_themes)
 
             finally:
                 browser.close()

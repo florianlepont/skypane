@@ -9776,11 +9776,31 @@ input:checked + .frame-colours__row {
  * least obvious way of all: a nowrap flex line SHRINKS its items by
  * default, so without it eighteen chips squeeze into the card's ~330px
  * and every one of them drops far below the touch floor rather than
- * overflowing. */
+ * overflowing.
+ *
+ * `scroll-padding-right` IS THE ONE DECLARATION HERE THAT IS NOT
+ * OBVIOUS, AND IT IS THE ONE THAT MAKES THE KEYBOARD AND THE STRIP
+ * AGREE. Arrow-keying through the radiogroup moves focus to the next
+ * RADIO, and that radio is a 1px `.visually-hidden` box sitting at its
+ * chip's top-left corner — so the browser scrolls a 1px target into
+ * view, is satisfied the instant the chip's left edge appears, and
+ * leaves the chip the visitor just selected hanging 50px off the right
+ * edge of the strip. MEASURED, not feared: six ArrowDowns at 360px put
+ * the focused chip at left 224 inside a 278px strip, i.e. 50px of it
+ * outside. Reserving the width of one chip at the scrollport's end edge
+ * makes every position land fully inside it (measured again at 1, 3, 6,
+ * 10 and 17 steps, and at the last theme in the group).
+ *
+ * 104px is `.theme-chip--compact`'s OWN declared width, not a number
+ * chosen here — companion/test_config_page.py reads both out of this
+ * file and asserts they are equal, so a future density pass that
+ * changes one and forgets the other fails rather than silently
+ * re-breaking the keyboard. */
 .theme-chip-grid--strip {
   flex-wrap: nowrap;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
+  scroll-padding-right: 104px;
 }
 
 .theme-chip-grid--strip > .theme-chip {

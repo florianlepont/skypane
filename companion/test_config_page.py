@@ -11541,7 +11541,7 @@ def main():
         strip_rules = {
             ".theme-chip-grid--strip {": (
                 "flex-wrap: nowrap;", "overflow-x: auto;",
-                "scroll-snap-type: x mandatory;"),
+                "scroll-snap-type: x mandatory;", "scroll-padding-right:"),
             ".theme-chip-grid--strip > .theme-chip {": (
                 "flex: 0 0 auto;", "scroll-snap-align: start;"),
             ".theme-carousel__dots {": (
@@ -11571,6 +11571,37 @@ def main():
                     return False, (
                         "%s does not declare %r — %r"
                         % (selector.rstrip(" {"), declaration, body.strip()))
+
+        # THE TWO NUMBERS THAT HAVE TO BE THE SAME NUMBER. The strip's
+        # `scroll-padding-right` exists to keep the chip a keyboard
+        # visitor just selected fully inside the scrollport: focus lands
+        # on a 1px visually-hidden radio at the chip's top-left corner,
+        # so the browser scrolls that into view and stops, leaving the
+        # chip itself hanging off the right edge (measured at 360px: the
+        # focused chip at left 224 inside a 278px strip). The reserved
+        # width must be one chip's width, and the chip's width is
+        # declared by `.theme-chip--compact`. Read BOTH out of the
+        # stylesheet and compare, so a density pass that changes one
+        # fails here rather than silently re-breaking the keyboard.
+        def _px(selector, prop):
+            if selector not in source:
+                return None
+            body = source[source.index(selector) + len(selector):]
+            body = body[:body.index("}")]
+            hit = re.search(r"(?m)^\s*%s:\s*(\d+(?:\.\d+)?)px;" % re.escape(prop), body)
+            return float(hit.group(1)) if hit else None
+        reserved = _px(".theme-chip-grid--strip {", "scroll-padding-right")
+        chip_width = _px(".theme-chip--compact {", "width")
+        if reserved is None or chip_width is None:
+            return False, (
+                "could not read both numbers: scroll-padding-right=%r, "
+                ".theme-chip--compact width=%r" % (reserved, chip_width))
+        if reserved != chip_width:
+            return False, (
+                "the strip reserves %gpx at its end edge but a compact chip is %gpx wide — "
+                "the reservation exists to fit exactly one chip, and any other number leaves "
+                "the chip a keyboard visitor just selected partly outside the scrollport"
+                % (reserved, chip_width))
 
         # .theme-chip--compact STAYS SIZE-ONLY. The design system records
         # that every selected-state rule reaches a compact chip from the
