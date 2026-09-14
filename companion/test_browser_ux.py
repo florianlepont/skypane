@@ -2647,32 +2647,68 @@ def main():
                             " src: chip.getAttribute('data-preview-src')} : null; }")
                         if not target:
                             return False, "found no unchecked departures theme chip to click"
-                        # Click and sample two frames later, in one
-                        # evaluate. Without this sample the whole check
-                        # would pass on the CUT this plan replaces: a
-                        # preview that swaps instantly also settles on
-                        # the right theme at opacity 1, so "settles
-                        # correct" alone is satisfied by doing nothing.
+                        # Click, then WAIT FOR THE TRANSITION ITSELF to
+                        # be created rather than sampling at a guessed
+                        # instant. Without this the whole check would
+                        # pass on the CUT this plan replaces: a preview
+                        # that swaps instantly also settles on the right
+                        # theme at opacity 1, so "settles correct" alone
+                        # is satisfied by doing nothing.
+                        #
+                        # The original form sampled two rAF after the
+                        # click and asserted 0 <= opacity < 1. That is
+                        # the right INTENT measured the wrong way: two
+                        # frames is a guess about the machine, not about
+                        # the app, and on a loaded runner the transition
+                        # has been created but has not yet painted a
+                        # changed value. It failed exactly that way in CI
+                        # (`got opacity 1 with transition '0.18s' on
+                        # 'opacity'` — the transition was right there),
+                        # and `deferred-items.md` had already recorded it
+                        # as an intermittent seen in mutation runs.
+                        #
+                        # `transitionrun` fires when the browser CREATES
+                        # the transition, before any delay and before the
+                        # first painted step, so it is independent of
+                        # frame timing — while a cut creates no
+                        # transition at all and fires nothing. The
+                        # listener is on `document` in the CAPTURE phase
+                        # because the crossfade swaps layer elements: a
+                        # listener bound to whichever image existed
+                        # before the click can be watching the wrong one.
                         mid = page.evaluate(
                             "sel => new Promise(resolve => {"
+                            "let ran = null;"
+                            "const onRun = e => {"
+                            "if (ran) return;"
+                            "if (e.propertyName !== 'opacity') return;"
+                            "if (!(e.target instanceof Element)) return;"
+                            "if (!e.target.matches('.theme-live-preview__image')) return;"
+                            "const s = getComputedStyle(e.target);"
+                            "ran = {opacity: parseFloat(s.opacity), dur: s.transitionDuration,"
+                            " props: s.transitionProperty};"
+                            "};"
+                            "document.addEventListener('transitionrun', onRun, true);"
                             "document.querySelector(sel).click();"
-                            "requestAnimationFrame(() => requestAnimationFrame(() => {"
+                            "setTimeout(() => {"
+                            "document.removeEventListener('transitionrun', onRun, true);"
                             "const i = document.querySelector('.theme-live-preview__image');"
-                            "const s = getComputedStyle(i);"
-                            "resolve({opacity: parseFloat(s.opacity), dur: s.transitionDuration,"
-                            " props: s.transitionProperty});"
-                            "}));"
+                            "const s = i ? getComputedStyle(i) : null;"
+                            "resolve({ran: ran, dur: s && s.transitionDuration,"
+                            " props: s && s.transitionProperty});"
+                            "}, 400);"
                             "})",
                             '[data-usage-panel-target="departures"] '
                             'label.theme-chip input[type=radio][value="%s"]' % target["value"])
-                        if not (0 <= mid["opacity"] < 1):
+                        if not mid["ran"]:
                             return False, (
-                                "expected the live preview to be MID-CROSSFADE two frames after "
-                                "the chip was selected, got opacity %r with transition %r on %r "
-                                "— a preview still fully opaque two frames in is the CUT this "
-                                "plan replaces, and every other assertion in this check is "
-                                "satisfied by that cut"
-                                % (mid["opacity"], mid["dur"], mid["props"]))
+                                "expected the live preview to CROSSFADE — no opacity transition "
+                                "was created on .theme-live-preview__image within 400ms of the "
+                                "chip being selected (the preview's own computed transition is "
+                                "%r on %r) — a preview that changes with no transition at all is "
+                                "the CUT this plan replaces, and every other assertion in this "
+                                "check is satisfied by that cut"
+                                % (mid["dur"], mid["props"]))
                         page.wait_for_timeout(900)
                         settled = page.evaluate(read)
                         if settled["src"] != target["src"]:
@@ -2702,9 +2738,11 @@ def main():
                     finally:
                         context.close()
                 check(
-                    "the live theme preview CROSSFADES - sampled MID-FADE two frames after the "
-                    "chip was selected, because every other assertion here is satisfied by the "
-                    "cut this plan replaces - and settles on the theme that was actually "
+                    "the live theme preview CROSSFADES - proven by the opacity transition the "
+                    "browser CREATES on the preview image, caught as a transitionrun event rather "
+                    "than sampled at a guessed instant, because every other assertion here is "
+                    "satisfied by the cut this plan replaces - and settles on the theme that "
+                    "was actually "
                     "selected, fully opaque rather than stuck mid-fade, and Cancel restores the "
                     "SAVED theme through that same crossfade — T8 asserted through the fade "
                     "rather than around it (D3/CFG-32, T-23-38, 23-10-PLAN.md Task 2)",
