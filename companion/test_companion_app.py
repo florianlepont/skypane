@@ -45,6 +45,7 @@ import sys
 import tempfile
 import threading
 import time
+import tokenize
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -57,7 +58,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth, layout, theme_preview  # noqa: E402
+from companion import auth, draw, layout, theme_preview  # noqa: E402
 from companion.pages import health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import calendar_rules  # noqa: E402
@@ -644,6 +645,28 @@ EXPECTED_CHECK_COUNT = 290
 # standing constraint rather than a property of one version.
 # 290 + 1 = 291, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 291
+# 24-01-PLAN.md Task 4 (CFG-39): +8 — Section 2.8, the executable
+# drawing contract this whole phase is measured against. The battery
+# estimate's exclusivity (one home for the millivolt constants, one
+# percentage function, and no third module naming both endpoints under
+# new names); no colour literal in any emitted markup; every drawn shape
+# carrying a class or an explicit fill route; every class draw.py can
+# emit resolving to a real selector in style.css on a SELECTOR BOUNDARY
+# (a plain substring test reports `.drawing-axis` as resolved by
+# `.drawing-axis-label`); draw.py's import rules; draw.py emitting no
+# script, no external reference and no inline style (D-09); its one
+# escaping helper covering all five dangerous characters in content and
+# in attributes alike (T-24-01); and its scales clamping at exactly the
+# domain floor and ceiling while no helper raises on a hostile input
+# (T-24-04). Every scan strips comments and docstrings first — this
+# phase's own prose quotes the tokens being measured, so a raw scan would
+# be satisfied, or broken, by an explanatory paragraph.
+# NO pre-existing check was retargeted: the deferred-script count is
+# still fourteen and this phase adds no script.
+# 291 + 8 = 299, re-derived by RUNNING the harness (297/299 pass — the
+# two documented WR-11 root-sandbox failures, unrelated to this plan),
+# never by arithmetic.
+EXPECTED_CHECK_COUNT = 299
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -3545,6 +3568,423 @@ def main():
         "every key companion/pages/__init__.py documents is actually present in ctx",
         _page_context_supplies_resolve_prefix_and_manual_resolutions)
 
+    # ==================================================================
+    # Section 2.8: the drawing contract (CFG-39, 24-01-PLAN.md Task 4) —
+    # pure in-process source scans over companion/draw.py,
+    # companion/battery.py, companion/pages/*.py and
+    # companion/static/style.css. No subprocess and no password env
+    # needed: none of those modules imports auth or app.py.
+    #
+    # Phase 24 adds four server-rendered SVG drawings across five plans.
+    # These checks are what makes the contract those plans are measured
+    # against a TEST rather than a review comment: a later plan that types
+    # a colour, forgets a fill, names a class that exists in no
+    # stylesheet, copies the battery constants or reaches into a page
+    # module from the geometry layer fails here, before review.
+    #
+    # Every scan below strips comments and docstrings BEFORE measuring,
+    # and that is load-bearing rather than tidy. This phase's own
+    # explanatory paragraphs quote the very tokens being counted:
+    # health_page.py's docstring contains the text `<line class="sparkline-`
+    # and three separate prose mentions of `<polyline>` with no class at
+    # all, and draw.py's module docstring names every rule it enforces. A
+    # scan over raw source would be BROKEN by that prose, and — worse —
+    # could be SATISFIED by it, which is the failure mode this project has
+    # hit repeatedly: fourteen-plus earlier plans tripped a count on their
+    # own comments.
+    # ==================================================================
+
+    def _python_source_parts(path):
+        """`(code, literals)` for the Python file at `path`: its source
+        with every comment and docstring removed, and the list of
+        `(line_number, raw_text)` of every string literal that is NOT a
+        docstring.
+
+        Two products from one tokenisation because the scans below need
+        both halves. `code` is what a "is this symbol defined here" scan
+        measures, so a paragraph of prose naming the symbol cannot satisfy
+        it. `literals` is what a "what does this module actually emit"
+        scan measures: emitted markup lives in string literals and
+        nowhere else, so scanning literals alone is both narrower and
+        more honest than scanning the file.
+
+        A docstring is recognised structurally — a string token standing
+        alone as its own statement — rather than by position, so a
+        helper's explanatory docstring halfway down a module is stripped
+        exactly like the module's own.
+        """
+        with open(path) as fh:
+            source = fh.read()
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+        code_parts = []
+        literals = []
+        previous = tokenize.NEWLINE
+        for index, token in enumerate(tokens):
+            if token.type == tokenize.COMMENT:
+                continue
+            if token.type == tokenize.STRING and previous in (
+                    tokenize.NEWLINE, tokenize.NL, tokenize.INDENT,
+                    tokenize.DEDENT, tokenize.ENCODING):
+                following = None
+                for later in tokens[index + 1:]:
+                    if later.type != tokenize.COMMENT:
+                        following = later
+                        break
+                if following is not None and following.type in (
+                        tokenize.NEWLINE, tokenize.NL):
+                    previous = token.type
+                    continue
+            if token.type == tokenize.STRING:
+                literals.append((token.start[0], token.string))
+            code_parts.append(token.string)
+            if token.type not in (tokenize.COMMENT,):
+                previous = token.type
+        return "\n".join(code_parts), literals
+
+    def _python_files_under(*roots):
+        """Every non-harness `*.py` file under `roots`, as repo-relative
+        paths with forward slashes, sorted. Harnesses are excluded because
+        a test file legitimately names anything it asserts about.
+        """
+        found = []
+        for root in roots:
+            for dirpath, dirnames, filenames in os.walk(os.path.join(REPO_ROOT, root)):
+                dirnames[:] = [d for d in dirnames
+                               if d not in (".venv", "__pycache__", "node_modules")]
+                for name in filenames:
+                    if not name.endswith(".py") or name.startswith("test_"):
+                        continue
+                    full = os.path.join(dirpath, name)
+                    found.append(os.path.relpath(full, REPO_ROOT).replace(os.sep, "/"))
+        return sorted(found)
+
+    # companion/battery.py is the ONE home for the companion's battery
+    # estimate (19-01, extended by 24-01). server/poll_loop.py carries a
+    # private, DOCUMENTED copy under different names, and that copy is
+    # architectural rather than accidental: the server package must never
+    # import the web-app package (D-27, the constraint server/wake.py's
+    # own docstring also states), so the poll oneshot genuinely cannot
+    # call companion/battery.py. The allow-list below is therefore an
+    # allow-list of exactly two entries with two different justifications,
+    # not a licence — any THIRD definition, anywhere, fails.
+    _BATTERY_CONSTANT_HOMES = {
+        "companion/battery.py": ("BATTERY_FULL_MV", "BATTERY_EMPTY_MV"),
+        "server/poll_loop.py": ("_NOTIFY_BATTERY_FULL_MV", "_NOTIFY_BATTERY_EMPTY_MV"),
+    }
+    _BATTERY_FUNCTION_HOMES = {
+        "companion/battery.py": ("battery_percent", "battery_fraction"),
+        "server/poll_loop.py": ("_battery_percent_estimate",),
+    }
+
+    def _battery_estimate_has_exactly_one_home():
+        constant_tail = re.compile(r"BATTERY_(FULL|EMPTY)_MV$")
+        for path in _python_files_under("companion", "server"):
+            code, _literals = _python_source_parts(os.path.join(REPO_ROOT, path))
+            for match in re.finditer(r"(?m)^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)", code):
+                name = match.group(1)
+                if not constant_tail.search(name):
+                    continue
+                if name not in _BATTERY_CONSTANT_HOMES.get(path, ()):
+                    return False, (
+                        "%s defines %s — the companion's battery millivolt constants have "
+                        "exactly one home (companion/battery.py), plus server/poll_loop.py's "
+                        "documented private copy that exists only because the server package "
+                        "may never import the web-app package. A third copy is how two "
+                        "surfaces come to show two different percentages for one reading."
+                        % (path, name))
+            for match in re.finditer(r"(?m)^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)", code):
+                name = match.group(1)
+                if "battery_percent" not in name and "battery_fraction" not in name:
+                    continue
+                if name not in _BATTERY_FUNCTION_HOMES.get(path, ()):
+                    return False, (
+                        "%s defines %s() — a second battery estimate. Every companion-side "
+                        "caller reaches the one estimate through companion/battery.py."
+                        % (path, name))
+            # The third net, and the only one that catches a copy made
+            # under NEW names: the two millivolt endpoints appearing
+            # TOGETHER in one module is the signature of a copied
+            # estimate, whatever the copy calls itself. 4200 alone is
+            # innocent — health_page.SPARKLINE_Y_MAX_MV is legitimately
+            # the same number, being the same battery's full charge —
+            # which is exactly why the pair, not either literal, is what
+            # is measured.
+            if path in _BATTERY_CONSTANT_HOMES:
+                continue
+            if "4200" in code and "3300" in code:
+                return False, (
+                    "%s names both 4200 and 3300 — the signature of a re-derived battery "
+                    "percentage. The estimate lives in companion/battery.py." % path)
+        return True, ""
+    check(
+        "the battery millivolt constants are defined in exactly one companion module "
+        "(companion/battery.py) plus server/poll_loop.py's documented private copy, no other "
+        "module defines a second battery_percent()/battery_fraction(), and no module outside "
+        "those two names both millivolt endpoints — comments and docstrings stripped first, so "
+        "the prose that explains the rule can neither satisfy nor break it (CFG-39, T-24-03)",
+        _battery_estimate_has_exactly_one_home)
+
+    def _drawing_emitter_files():
+        """companion/draw.py plus every page module — the modules that
+        actually emit drawing markup. Deliberately not companion/layout.py:
+        its icon sprite is a different convention (an <svg><use> against
+        one defs block), and this contract is about DRAWINGS.
+        """
+        files = ["companion/draw.py"]
+        files += [p for p in _python_files_under("companion/pages")]
+        return files
+
+    _COLOUR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(")
+
+    def _no_colour_literal_in_emitted_markup():
+        for path in _drawing_emitter_files():
+            _code, literals = _python_source_parts(os.path.join(REPO_ROOT, path))
+            for line_number, text in literals:
+                found = _COLOUR_LITERAL.search(text)
+                if found is not None:
+                    return False, (
+                        "%s:%d emits the colour %r — a colour decided in Python is correct in "
+                        "ONE theme. Every drawn shape takes its colour from a class bound to a "
+                        "theme token, which is redefined under the dark theme so the shape "
+                        "follows for free. A literal is also invisible to "
+                        "companion/test_contrast_check.py."
+                        % (path, line_number, found.group(0)))
+        return True, ""
+    check(
+        "no string literal in companion/draw.py or any companion/pages/*.py module carries a "
+        "colour value into emitted SVG markup — docstrings excluded, so a paragraph explaining "
+        "the rule cannot break the scan (CFG-39 contract rule 3)",
+        _no_colour_literal_in_emitted_markup)
+
+    _SHAPE_ELEMENT = re.compile(
+        r"<(rect|circle|line|path|polygon|polyline|ellipse)\b([^>]*)")
+
+    def _every_drawn_shape_has_a_fill_route():
+        for path in _drawing_emitter_files():
+            _code, literals = _python_source_parts(os.path.join(REPO_ROOT, path))
+            for line_number, text in literals:
+                for match in _SHAPE_ELEMENT.finditer(text):
+                    attributes = match.group(2)
+                    if ("class=" in attributes or "fill=" in attributes
+                            or "stroke=" in attributes):
+                        continue
+                    return False, (
+                        "%s:%d emits a <%s> with neither a class nor an explicit fill/stroke — "
+                        "it takes the SVG default fill, which is black: correct against a light "
+                        "card, invisible against a dark one, and invisible to the contrast "
+                        "harness too" % (path, line_number, match.group(1)))
+        return True, ""
+    check(
+        "every <rect>/<circle>/<line>/<path>/<polygon>/<polyline>/<ellipse> emitted by "
+        "companion/draw.py or a page module carries a class attribute or an explicit "
+        "fill/stroke — a shape with neither paints SVG-default black and is invisible in one "
+        "of the two themes (CFG-39 contract rule 4)",
+        _every_drawn_shape_has_a_fill_route)
+
+    def _every_emitted_class_resolves_in_the_stylesheet():
+        # Collected from draw.py's own named constants rather than
+        # scraped from its string literals, which is why the emitters take
+        # their class names from constants at all: a scrape would miss a
+        # class built by concatenation and would pick up every unrelated
+        # word in the file.
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            css = fh.read()
+        css = re.sub(r"/\*.*?\*/", " ", css, flags=re.S)
+        for class_name in draw.DRAWING_CLASSES:
+            # The negative lookahead is not decoration. `.drawing-axis` is
+            # a SUBSTRING of `.drawing-axis-label`, and `.drawing` is a
+            # substring of both plus `.drawing__canvas` — a plain `in`
+            # test would report every one of them as resolved on the
+            # strength of one selector, which is the substring collision
+            # that has silently redirected checks in this codebase before.
+            pattern = r"\.%s(?![-\w])" % re.escape(class_name)
+            if re.search(pattern, css) is None:
+                return False, (
+                    "companion/draw.py can emit class %r and companion/static/style.css "
+                    "carries no selector for it — a class that exists in Python and nowhere "
+                    "in CSS paints NOTHING at all, and nothing else in this codebase would "
+                    "notice" % (class_name,))
+        return True, ""
+    check(
+        "every class name companion/draw.py can emit (DRAWING_CLASSES, its own constants) "
+        "resolves to at least one selector in companion/static/style.css, matched on a "
+        "selector boundary so `.drawing-axis` is not reported as resolved by "
+        "`.drawing-axis-label` (CFG-39)",
+        _every_emitted_class_resolves_in_the_stylesheet)
+
+    def _draw_module_imports_no_page_and_no_server():
+        code, _literals = _python_source_parts(os.path.join(HERE, "draw.py"))
+        imported = set()
+        for match in re.finditer(
+                r"(?m)^\s*(?:import\s+([\w.]+)|from\s+([\w.]+)\s+import)", code):
+            imported.add(match.group(1) or match.group(2))
+        for name in sorted(imported):
+            root = name.split(".")[0]
+            if root in ("server", "stub-server"):
+                return False, (
+                    "companion/draw.py imports %r — a geometry module must not depend on the "
+                    "server package" % (name,))
+            if name.startswith("companion.pages") or name.endswith("_page"):
+                return False, (
+                    "companion/draw.py imports the page module %r — draw.py exists so pages "
+                    "can share geometry WITHOUT any page-to-page dependency; importing one "
+                    "here inverts that" % (name,))
+            if name in ("companion.layout", "layout"):
+                return False, (
+                    "companion/draw.py imports companion/layout.py — layout.py owns the page "
+                    "shell, nav, tiles and timestamps, and pulling it in would make every "
+                    "drawing depend on the shell it is drawn inside")
+        if not imported <= {"html", "math"}:
+            return False, (
+                "companion/draw.py is stdlib-only; unexpected imports %r"
+                % (sorted(imported - {"html", "math"}),))
+        return True, ""
+    check(
+        "companion/draw.py imports no page module, nothing from the server package and not "
+        "companion/layout.py — measured over the comment-stripped source, so the docstring "
+        "paragraph stating the rule cannot satisfy it (CFG-39)",
+        _draw_module_imports_no_page_and_no_server)
+
+    def _draw_module_emits_no_script_and_no_external_reference():
+        # D-09's no-JS floor is why this phase server-renders its SVG at
+        # all: the drawing arrives complete in the first response and
+        # paints with scripts blocked. The page shell's own deferred-script
+        # count is pinned separately and unchanged by this phase — see
+        # _fourteen_deferred_scripts_before_closing_body() below, which
+        # this phase does not move.
+        samples = [
+            draw.rect(draw.DRAWING_AXIS_CLASS, 0, "100%", 1, 4),
+            draw.line(draw.DRAWING_LINE_CLASS, "0.00%", "1.00%", "2.00%", "3.00%"),
+            draw.circle(draw.DRAWING_MARK_CLASS, "50.00%", "50.00%", 3),
+            draw.path(draw.DRAWING_LINE_CLASS, "M0 0 L10 10", attrs={"fill": "none"}),
+            draw.title("a reading"),
+            draw.label_span("4200 mV"),
+            draw.percent_canvas(draw.DRAWING_CANVAS_CLASS, "", label="chart"),
+            draw.unit_canvas(draw.DRAWING_FIGURE_CLASS, "", 48, 48, hidden=True),
+        ]
+        for markup in samples:
+            for banned in ("<script", "url(", "href=", "src=", "onload", "<image",
+                           "javascript:", "style="):
+                if banned in markup:
+                    return False, (
+                        "companion/draw.py emitted %r, which contains %r — a drawing that "
+                        "needs a script, an external reference or an inline style has left "
+                        "the no-JS floor (D-09) or the app's script-src 'self' policy"
+                        % (markup, banned))
+        for attempt, label in (
+                ({"fill": "url(#gradient)"}, "an external reference"),
+                ({"href": "/static/x.svg"}, "a loaded reference"),
+                ({"style": "fill: currentColor"}, "an inline style")):
+            try:
+                draw.rect(draw.DRAWING_AXIS_CLASS, 0, 0, 1, 1, attrs=attempt)
+            except ValueError:
+                continue
+            return False, (
+                "companion/draw.py accepted %s (%r) instead of refusing it" % (label, attempt))
+        return True, ""
+    check(
+        "every companion/draw.py emitter returns complete markup with no script tag, no "
+        "external reference and no inline style, and refuses an attribute carrying one — the "
+        "no-JS floor (D-09) is why this phase server-renders its SVG",
+        _draw_module_emits_no_script_and_no_external_reference)
+
+    def _draw_module_escapes_every_interpolated_value():
+        # T-24-01: history.db values — timestamps, firmware strings,
+        # airline names — are interpolated into <title> elements and
+        # attributes and served to a browser. One escaping helper, used by
+        # every emitter, with no "this value is always safe" exception.
+        hostile = "<img src=x>&\"'"
+        escaped = draw.escape(hostile)
+        for character, entity in (("<", "&lt;"), (">", "&gt;"), ("&", "&amp;"),
+                                  ('"', "&quot;"), ("'", "&#x27;")):
+            if entity not in escaped:
+                return False, (
+                    "draw.escape() left %r unescaped: %r" % (character, escaped))
+        if "<img" in escaped:
+            return False, "draw.escape() let a tag through: %r" % (escaped,)
+        if draw.escape(None) != "":
+            return False, "draw.escape(None) must be the empty string, got %r" % (
+                draw.escape(None),)
+        for markup, origin in (
+                (draw.title(hostile), "title()"),
+                (draw.label_span(hostile), "label_span()"),
+                (draw.percent_canvas(draw.DRAWING_CANVAS_CLASS, "", label=hostile),
+                 "percent_canvas(label=)"),
+                (draw.circle(draw.DRAWING_MARK_CLASS, 0, 0, 3,
+                             attrs={"data-when": 'a"b&c'}), "circle(attrs=)")):
+            if "<img" in markup or 'a"b' in markup:
+                return False, (
+                    "draw.%s did not route its value through escape(): %r" % (origin, markup))
+        if "&quot;" not in draw.circle(draw.DRAWING_MARK_CLASS, 0, 0, 3,
+                                      attrs={"data-when": 'a"b&c'}):
+            return False, "an attribute value reached the markup unescaped"
+        return True, ""
+    check(
+        "companion/draw.py escapes every interpolated value through its one escape() helper — "
+        "all five dangerous characters, in element content and in attribute values alike, with "
+        "no 'this value is always safe' exception (T-24-01)",
+        _draw_module_escapes_every_interpolated_value)
+
+    def _draw_module_scales_clamp_and_never_raise():
+        # T-24-04: a drawing emitter reached with a hostile or absent
+        # series. Asserted AT both boundaries rather than near them,
+        # because a scale that rescales itself to its own data is the
+        # defect D-04/A-22 removed from this app once already.
+        low, high, inset = 3000, 4200, 3.75
+        if draw.percent_y(low - 1, low, high, inset) != draw.percent_y(low, low, high, inset):
+            return False, "percent_y() below the domain floor must pin at exactly the floor"
+        if draw.percent_y(high + 1, low, high, inset) != draw.percent_y(high, low, high, inset):
+            return False, "percent_y() above the domain ceiling must pin at exactly the ceiling"
+        if draw.percent_y(high, low, high, 0.0) != 0.0:
+            return False, "percent_y() must invert for SVG's downward y axis"
+        if draw.percent_y(low, low, high, 0.0) != 100.0:
+            return False, "percent_y() must place the domain floor at the bottom"
+        if draw.percent_x(-1, 6) != 0.0 or draw.percent_x(99, 6) != 100.0:
+            return False, "percent_x() must pin an out-of-range index at exactly 0/100"
+        if draw.percent_x(0, 1) != 0.0:
+            return False, "percent_x() must not divide by zero for a one-point series"
+        if draw.unit_circle_dash_array(0.0, 10).split()[0] != "0.0000":
+            return False, "a zero-fraction ring must draw no arc at all"
+        if draw.unit_circle_dash_array(5, 10) != draw.unit_circle_dash_array(1.0, 10):
+            return False, "a fraction above 1 must pin at a full ring, never wrap"
+        # The pair filter, at the shape that actually breaks a chart: the
+        # NEWEST row carries no reading, so a "mark the latest point"
+        # drawing must mark the newest row that HAS one, with that row's
+        # own label attached.
+        rows = [{"battery_mv": None, "ts": "unusable-newest"},
+                {"battery_mv": 3900, "ts": "real-newest"},
+                {"battery_mv": True, "ts": "a-bool-is-not-a-reading"},
+                {"battery_mv": 3800, "ts": "older"}]
+        pairs = draw.usable_pairs(rows, "battery_mv")
+        if [value for value, _row in pairs] != [3800, 3900]:
+            return False, (
+                "usable_pairs() must keep only usable readings, chronologically: %r" % (pairs,))
+        if pairs[-1][1]["ts"] != "real-newest":
+            return False, (
+                "a dropped row must drop its own label — the last pair's label source is %r"
+                % (pairs[-1][1]["ts"],))
+        for hostile in (None, True, False, -1, 0, "", "abc", {}, [], float("nan")):
+            try:
+                draw.percent_x(hostile, hostile)
+                draw.percent_y(hostile, 3000, 4200, hostile)
+                draw.percent_attr(hostile)
+                draw.unit_circle_dash_array(hostile, hostile)
+                draw.unit_point_on_circle(hostile, hostile, hostile, hostile)
+                draw.usable_pairs(hostile, "battery_mv")
+                draw.escape(hostile)
+                draw.is_number(hostile)
+            except Exception as exc:
+                return False, (
+                    "a draw.py helper raised %r on the input %r — every helper here states "
+                    "'never raises', because a drawing that crashes has broken the whole page "
+                    "rather than just itself" % (exc, hostile))
+        return True, ""
+    check(
+        "companion/draw.py's scales clamp into their caller-supplied FIXED domain and pin at "
+        "exactly the floor and ceiling positions, usable_pairs() drops a row's label with the "
+        "row itself, and no helper raises on None/a bool/a negative/a string/a NaN (T-24-04, "
+        "D-04/A-22)",
+        _draw_module_scales_clamp_and_never_raise)
     # ==================================================================
     # Section 3: companion/app.py (plan 06-05) — a real companion/app.py
     # subprocess, launched on a free local port, driven with

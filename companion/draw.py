@@ -558,33 +558,50 @@ def _number(value):
     return "%.2f" % value
 
 
+# Attribute names this module will not emit under any value: each one
+# either loads something or paints something from outside the stylesheet.
+REFUSED_ATTRIBUTES = ("href", "xlink:href", "src", "style",
+                      "filter", "mask", "clip-path")
+# Attribute names whose value is a PAINT rather than text. These are the
+# ones a colour literal or a url() reference could hide in, so their
+# values are restricted to the keyword list rather than escaped.
+PAINT_ATTRIBUTES = ("fill", "stroke", "stop-color")
+
+
 def _attrs(attrs):
     """` k="v"` for each attribute, every value escaped, insertion order
     preserved. Raises on an attribute this module refuses to emit.
 
-    Three refusals, each one a defect this module exists to make
-    unreachable: a fill or stroke carrying anything but a paint keyword
-    (a literal colour is correct in one theme only), any value carrying
-    an external reference, and any attribute that loads something.
+    The refusals are narrow ON PURPOSE, and the boundary between
+    "refuse" and "escape" is the whole point of this function:
+
+    A paint attribute may carry only a paint keyword, because a colour
+    decided in Python is correct in one theme only and a url() there is
+    an external reference. That is a refusal, because there is no safe
+    rendering of a value that should not exist.
+
+    An attribute that LOADS something is refused by name, whatever it
+    carries.
+
+    Everything else is TEXT — a timestamp, an airline name, a firmware
+    string out of history.db — and text is escaped, never refused.
+    Refusing it would turn a page render into an exception for a value
+    the app cannot control, which is a worse outcome than the escaping
+    that already makes it safe.
     """
     out = ""
     for name, value in attrs.items():
-        if name in ("href", "xlink:href", "src", "onload", "style"):
+        if name in REFUSED_ATTRIBUTES or name.startswith("on"):
             raise ValueError(
-                "companion/draw.py emits no external reference and no inline "
-                "style: refusing attribute %r" % (name,))
+                "companion/draw.py emits no external reference, no inline style "
+                "and no event handler: refusing attribute %r" % (name,))
         text = value if isinstance(value, str) else _number(value)
-        if name in ("fill", "stroke", "stop-color"):
-            if text not in PAINT_KEYWORDS:
-                raise ValueError(
-                    "%s=%r is a colour decided in Python — a drawing takes its "
-                    "colour from a class bound to a theme token, so it is correct "
-                    "in both themes; only %r may be set here"
-                    % (name, text, PAINT_KEYWORDS))
-        if "url(" in text or "<" in text:
+        if name in PAINT_ATTRIBUTES and text not in PAINT_KEYWORDS:
             raise ValueError(
-                "companion/draw.py emits no external reference and no nested "
-                "markup: refusing %s=%r" % (name, text))
+                "%s=%r is a paint decided in Python — a drawing takes its "
+                "colour from a class bound to a theme token, so it is correct "
+                "in both themes; only %r may be set here"
+                % (name, text, PAINT_KEYWORDS))
         out += ' %s="%s"' % (name, escape(text))
     return out
 
