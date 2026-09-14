@@ -802,6 +802,167 @@ def _guard_armed(page):
         "window.dispatchEvent(e); return e.defaultPrevented; }")
 
 
+# --- 24-02-PLAN.md (CFG-45): the three shared measurement helpers the
+# four drawing plans (24-04..24-08) each need, added BEFORE the drawings
+# rather than after them. Helpers only: this plan registers no check of
+# its own and EXPECTED_CHECK_COUNT is unchanged at 54.
+#
+# Why they are here at all. Until this block, this file — the only
+# harness in the repository that renders anything — had never once
+# switched theme: `grep -c data-ui-theme companion/test_browser_ux.py`
+# was 0 across twenty-three phases, so every dark-mode claim this project
+# has made rested on READING style.css rather than on rendering it. The
+# single most predictable defect in a set of server-rendered SVG drawings
+# is one that is correct in light mode and invisible in dark, and no
+# source scan can see it: the markup can be structurally perfect and
+# still paint wrong once the cascade, `currentColor` and a theme token
+# have had their say.
+
+# The explicit themes this harness can drive, derived from the app's own
+# vocabulary (layout.UI_THEME_CHOICES) rather than restated as literals,
+# so a call site reads as the thing it means and a renamed choice fails
+# here instead of silently measuring nothing.
+#
+# "auto" is excluded ON PURPOSE and is not an oversight: style.css's own
+# header comment (the CFG-09 theme-resolution paragraph) states that
+# `data-ui-theme="auto"` intentionally has no override rule of its own,
+# so the media query keeps governing and the resolved theme becomes
+# whatever the host OS says. That is precisely the one thing a
+# measurement must not depend on, so asking for it is an error rather
+# than a third mode.
+UI_THEME_AUTO = "auto"
+UI_THEMES_EXPLICIT = tuple(
+    t for t in layout.UI_THEME_CHOICES if t != UI_THEME_AUTO)
+
+# Set an explicit theme, sample the paint it produces, and leave the page
+# on the requested one. Every read below goes through getComputedStyle,
+# which is a forced style flush: the browser must resolve every pending
+# recalculation before it can answer, so THE READ IS THE WAIT. There is
+# no sleep, no timeout and no transitionend listener anywhere in this
+# helper, for the same reason 23-02 recorded when it put the disclosure
+# sweep under reduced motion — a timing wait is a flakiness generator on
+# the slowest file in the suite, and an intermittently red check is worse
+# than no check.
+#
+# `document.body` is the witness because style.css's own `body` rule is
+# where both inverting tokens are actually SPENT (`background:
+# var(--color-canvas)`, `color: var(--color-text)`), so this reads real
+# paint rather than a custom property's declared text — a
+# getPropertyValue('--color-canvas') would return the token's literal
+# string even if nothing on the page ever used it.
+_THEME_PROBE = (
+    "args => {"
+    "  const html = document.documentElement;"
+    "  const sampled = {};"
+    "  const read = () => {"
+    "    const s = getComputedStyle(document.body);"
+    "    return {canvas: s.backgroundColor, text: s.color,"
+    "            attr: html.getAttribute('data-ui-theme')};"
+    "  };"
+    "  args.themes.forEach(t => {"
+    "    html.setAttribute('data-ui-theme', t);"
+    "    sampled[t] = read();"
+    "  });"
+    "  html.setAttribute('data-ui-theme', args.settle);"
+    "  return {sampled: sampled, settled: read()};"
+    "}")
+
+
+def _set_ui_theme(page, theme):
+    """Put an already-loaded `page` into an explicitly named theme and
+    return the resolved paint that theme produces. The first thing in
+    this harness that has ever measured dark mode.
+
+    Returns {"theme", "canvas", "text"} — `canvas` and `text` are the
+    browser's own resolved `background-color`/`color` on <body>, in
+    Chromium's `rgb(r, g, b)` form, ready to be compared between themes
+    or recorded in a SUMMARY.
+
+    THE EXPLICIT ATTRIBUTE, NOT `emulate_media`. The next reader's
+    instinct will be `context.new_context(color_scheme="dark")` or
+    `page.emulate_media(color_scheme="dark")`, and that is the weaker
+    test here. `html[data-ui-theme="light"|"dark"]` is what this app's
+    OWN theme picker sets (companion/app.py's theme form ->
+    layout.page_shell()'s <html> attribute), and style.css declares those
+    two blocks specifically so they TAKE PRECEDENCE over
+    prefers-color-scheme. Driving the OS preference would exercise a
+    path the app deliberately lets the user override, and would leave the
+    measurement at the mercy of the host's own setting; driving the
+    attribute exercises the path a real visitor takes and is
+    deterministic. Both halves matter, which is why this comment states
+    both.
+
+    IT MUST KEEP WORKING WITH SCRIPTS BLOCKED. "renders correctly in dark
+    mode with scripts blocked" is the combination most likely to be
+    wrong, so it is the one the drawing plans have to be able to ask
+    about. Measured on this tree: a context built with
+    `java_script_enabled=False` (which is what `_no_js_page()` composes)
+    still answers `page.evaluate` — Playwright's evaluation runs through
+    the debugging protocol rather than through the page's own script
+    execution, and CSS cascade/recalculation is not gated on scripts at
+    all. Light and dark resolved to the identical pair of values with
+    scripts on and with scripts blocked.
+
+    THE HELPER VERIFIES THE PAGE REALLY REPAINTED, and that is the whole
+    point of it rather than a nicety. A helper that set the attribute and
+    returned would let every later dark-mode assertion pass VACUOUSLY:
+    if the override rule were renamed, dropped, or outranked, both themes
+    would resolve to the same paint and a "these two differ" check
+    downstream would be comparing a value to itself. So this helper
+    samples BOTH explicit themes on every call and refuses to return
+    unless the two genuinely differ in BOTH inverting tokens. It is
+    deliberately not a literal-value assertion: hardcoding #F7F4EF /
+    #0C0F14 here would duplicate style.css into a harness and would start
+    failing on a palette change that is not a defect. What is asserted is
+    the PROPERTY the two override blocks exist to produce.
+    """
+    if theme not in UI_THEMES_EXPLICIT:
+        raise AssertionError(
+            "_set_ui_theme: %r is not one of this app's explicit themes %r. "
+            "%r is excluded on purpose — it declares no override rule of its "
+            "own (style.css's CFG-09 theme-resolution comment), so it "
+            "resolves to whatever the host OS prefers, which is the one "
+            "thing a measurement must not depend on."
+            % (theme, UI_THEMES_EXPLICIT, UI_THEME_AUTO))
+
+    seen = page.evaluate(
+        _THEME_PROBE,
+        {"themes": list(UI_THEMES_EXPLICIT), "settle": theme})
+    sampled = seen["sampled"]
+    missing = [t for t in UI_THEMES_EXPLICIT if t not in sampled]
+    if missing:
+        raise AssertionError(
+            "_set_ui_theme: the probe returned no sample for %r — with none, "
+            "this helper measures nothing" % (missing,))
+
+    first, second = UI_THEMES_EXPLICIT[0], UI_THEMES_EXPLICIT[1]
+    for token in ("canvas", "text"):
+        if sampled[first][token] == sampled[second][token]:
+            raise AssertionError(
+                "_set_ui_theme: setting html[data-ui-theme] did not repaint "
+                "the page — %s resolved to %r in BOTH %r and %r, so the "
+                "explicit CFG-09 override is not reaching <body> and every "
+                "dark-mode assertion built on this helper would be comparing "
+                "a value to itself (style.css's html[data-ui-theme=\"%s\"] / "
+                "html[data-ui-theme=\"%s\"] blocks)"
+                % (token, sampled[first][token], first, second, first, second))
+
+    settled = seen["settled"]
+    if settled["attr"] != theme:
+        raise AssertionError(
+            "_set_ui_theme: asked for %r, the document element reports %r "
+            "after the switch" % (theme, settled["attr"]))
+    if (settled["canvas"], settled["text"]) != (
+            sampled[theme]["canvas"], sampled[theme]["text"]):
+        raise AssertionError(
+            "_set_ui_theme: the page did not settle on the theme it was "
+            "asked for — %r sampled %r but the page came to rest on %r"
+            % (theme, sampled[theme], settled))
+
+    return {"theme": theme, "canvas": settled["canvas"],
+            "text": settled["text"]}
+
+
 def main():
     try:
         from playwright.sync_api import sync_playwright
