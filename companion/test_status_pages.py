@@ -864,6 +864,20 @@ EXPECTED_CHECK_COUNT = 287
 # the chart, and this plan must be provably beside it.
 # 287 + 1 = 288, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 288
+# 24-05-PLAN.md Task 1 (CFG-41/CFG-45): +1 — the area under the battery
+# chart's trend line. The check is written around the constraint that
+# decided the geometry rather than around "an area appears": percentages
+# are illegal in a <polygon> points list (the same rule that already made
+# the line n - 1 <line> segments), and the outer canvas's no-viewBox
+# scheme is what holds every stroke and hit target at its absolute pixel
+# size at 360px, so the area is drawn in a NESTED viewBox'd <svg> and the
+# check asserts its vertices land on the coordinates the chart's own
+# marks did — plus the outer canvas still carrying no viewBox, the
+# baseline at the axis minimum rather than the canvas edge, paint order
+# by index, the unweakened no-url(/image/script guarantee, and NO rule of
+# its own for the layer.
+# 288 + 1 = 289, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 289
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -875,6 +889,22 @@ def _mkstate(prefix):
 
 def _iso(dt):
     return dt.isoformat(timespec="seconds")
+
+
+def _css_without_comments():
+    """The shipped stylesheet with every /* */ comment blanked out.
+
+    24-05-PLAN.md Task 1: this file already strips comments before
+    grepping CSS in four places (each inlining the same `re.sub`), and
+    for a good reason — style.css's comments quote the very selectors
+    and declarations these checks look for, so an un-stripped grep can
+    be green because a comment SAYS the rule exists. Named once here
+    because this plan's checks need it three more times, not as a
+    retrofit of the four existing call sites, which are left exactly as
+    they are.
+    """
+    with open(os.path.join(HERE, "static", "style.css"), encoding="utf-8") as handle:
+        return re.sub(r"/\*.*?\*/", " ", handle.read(), flags=re.DOTALL)
 
 
 def _now():
@@ -2714,6 +2744,152 @@ def main():
         "canvas height exactly once for this selector and never inside a @media block (quick task 260902-ep7 "
         "BUG 4, rewritten in place from 260902-dng's retired scale-bound mechanism)",
         _sparkline_scale_bounded_at_one_across_real_container_widths)
+
+    def _sparkline_area_sits_under_the_line_in_its_own_nested_viewbox():
+        # 24-05-PLAN.md Task 1 (CFG-41/CFG-45, resolving 24-RESEARCH.md's
+        # open decision 4 — the area's geometry): a filled area under the
+        # trend line, drawn WITHOUT touching the outer canvas's scheme.
+        #
+        # THE CONSTRAINT THAT DECIDED THE GEOMETRY, pinned here because
+        # the next reader's instinct is to "simplify" this back into a
+        # single <polygon> beside the <line> segments and that cannot
+        # work: percentages are not permitted inside a <polygon>/
+        # <polyline> `points` list or inside a <path> `d` — the exact
+        # rule that already made the trend line n - 1 <line> segments
+        # rather than one polyline. The outer canvas's no-viewBox
+        # percentage scheme is what keeps every stroke and every hit
+        # target at its absolute pixel size at every container width
+        # (see the no-scale-factor check above), so it is not available
+        # to trade away for an easier area.
+        #
+        # The resolution: a NESTED <svg> carrying its own
+        # viewBox="0 0 100 100" plus preserveAspectRatio="none". Inside
+        # it user unit N maps to exactly N% of the same box in each axis
+        # independently, so the polygon's vertices land on the IDENTICAL
+        # coordinates the outer scheme's percentages produce — which is
+        # what this check asserts, vertex by vertex, against the marks
+        # the chart actually drew rather than against a recomputation.
+        # The nested viewBox is permitted; an outer one is not, and both
+        # halves are asserted here.
+        rows = [
+            {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
+            for i in range(5)]
+        svg = health_page.battery_sparkline_svg(rows)
+
+        outer_tag = svg[svg.index("<svg"):svg.index(">", svg.index("<svg"))]
+        if "viewBox" in outer_tag or "preserveAspectRatio" in outer_tag:
+            return False, (
+                "expected the OUTER canvas to keep no viewBox and no preserveAspectRatio "
+                "after the area was added, got %r" % outer_tag)
+
+        layers = re.findall(r'<svg class="sparkline__area"[^>]*>', svg)
+        if len(layers) != 1:
+            return False, "expected exactly one nested area layer <svg>, got %d" % len(layers)
+        layer = layers[0]
+        for needed in ('viewBox="0 0 100 100"', 'preserveAspectRatio="none"', 'aria-hidden="true"'):
+            if needed not in layer:
+                return False, (
+                    "expected the nested area layer to carry %s — without it the polygon's user "
+                    "units do not map onto the outer scheme's percentages; got %r"
+                    % (needed, layer))
+
+        polygons = re.findall(r'<polygon class="sparkline-area" points="([^"]*)"\s*/>', svg)
+        if len(polygons) != 1:
+            return False, "expected exactly one <polygon class=\"sparkline-area\">, got %d" % len(polygons)
+
+        # Paint order: SVG paints in document order, so an area emitted
+        # after the line would cover it. Asserted by index, not by
+        # reading the comment that says so.
+        if svg.index('<svg class="sparkline__area"') > svg.index('<line class="%s"' % health_page.SPARKLINE_LINE_CLASS):
+            return False, "expected the area layer to be emitted BEFORE the first trend-line segment"
+
+        vertices = []
+        for pair in polygons[0].split(" "):
+            x_text, _, y_text = pair.partition(",")
+            vertices.append((float(x_text), float(y_text)))
+        if len(vertices) != 7:
+            return False, (
+                "expected 7 polygon vertices for a 5-point series (5 along the line, then two "
+                "baseline corners), got %d" % len(vertices))
+
+        drawn = [(float(cx), float(cy)) for cx, cy in re.findall(
+            r'<circle class="%s"[^>]*cx="([\d.]+)%%" cy="([\d.]+)%%"' % health_page.SPARKLINE_HIT_CLASS, svg)]
+        if len(drawn) != 5:
+            return False, "expected to read back 5 plotted point coordinates, got %d" % len(drawn)
+        for index, (drawn_point, vertex) in enumerate(zip(drawn, vertices[:5])):
+            if abs(drawn_point[0] - vertex[0]) > 0.005 or abs(drawn_point[1] - vertex[1]) > 0.005:
+                return False, (
+                    "expected the area's vertex %d to sit exactly on the point the chart drew "
+                    "%r, got %r — the area and the line are then two different scales"
+                    % (index, drawn_point, vertex))
+
+        # The baseline is the SCALE's own floor (the level the "3000 mV"
+        # label names), never the canvas edge: closing the area at y=100
+        # would add the vertical inset to every reading as a constant,
+        # so the filled height would no longer be the value above the
+        # axis minimum.
+        baseline = health_page.sparkline_point_y(health_page.SPARKLINE_Y_MIN_MV)
+        if abs(vertices[5][1] - baseline) > 0.005 or abs(vertices[6][1] - baseline) > 0.005:
+            return False, (
+                "expected the area's two baseline corners at the axis minimum's own y (%.2f%%), "
+                "got %r and %r" % (baseline, vertices[5], vertices[6]))
+        if abs(vertices[5][0] - drawn[-1][0]) > 0.005 or abs(vertices[6][0] - drawn[0][0]) > 0.005:
+            return False, (
+                "expected the baseline corners to span exactly the plotted x range (newest then "
+                "oldest), got %r and %r" % (vertices[5], vertices[6]))
+
+        # D-09's no-external-reference guarantee, re-asserted AT the
+        # area: `url(#gradient)` is the obvious way to fade a fill and it
+        # is forbidden by this function's own standing guarantee, so the
+        # area is a flat translucent fill instead. No colour value is
+        # introduced either — the fill is currentColor in CSS.
+        for forbidden in ("url(", "<image", "<script"):
+            if forbidden in svg:
+                return False, "found forbidden %r in the sparkline SVG after adding the area" % forbidden
+        literal = re.search(r'#[0-9a-fA-F]{3,8}|rgb\(', svg)
+        if literal is not None:
+            return False, "found a raw colour literal %r in the emitted markup" % literal.group(0)
+
+        # The "" floor below two points takes the area with it: an area
+        # under one point is meaningless.
+        one_point = health_page.battery_sparkline_svg([{"ts": "2024-01-01T00:00:00", "battery_mv": 4000}])
+        if one_point != "":
+            return False, "expected no chart at all (and so no area) below two plotted points, got %r" % one_point[:80]
+
+        css = _css_without_comments()
+        area_rule = re.search(r'\.sparkline-area(?![-\w])\s*\{([^}]*)\}', css)
+        if area_rule is None:
+            return False, "expected a `.sparkline-area` rule in style.css — a class with no rule paints nothing"
+        body = area_rule.group(1)
+        if re.search(r'(?<![-\w])fill:\s*currentColor', body) is None:
+            return False, (
+                "expected `.sparkline-area` to fill with currentColor — the area's colour must be "
+                "the LINE's own colour, so dark mode is correct by the same mechanism; got %r" % body)
+        opacity = re.search(r'fill-opacity:\s*([\d.]+)', body)
+        if opacity is None:
+            return False, "expected `.sparkline-area` to declare a fill-opacity — an opaque area hides the axis beneath it"
+        if not (0.0 < float(opacity.group(1)) < 1.0):
+            return False, "expected a translucent fill-opacity strictly between 0 and 1, got %r" % opacity.group(1)
+
+        # The nested layer must carry NO rule of its own: its box comes
+        # from the single `.battery-trend-section svg:not(.icon)`
+        # declaration the check above pins, which is what makes the area
+        # layer and the canvas it sits inside impossible to size
+        # differently. A `.sparkline__area` rule would be a second size
+        # route (and, at (0,1,0), one that silently loses to (0,2,1)).
+        if re.search(r'\.sparkline__area(?![-\w])\s*[,{]', css) is not None:
+            return False, (
+                "expected NO `.sparkline__area` rule in style.css — the area layer's box must come "
+                "from the one `.battery-trend-section svg:not(.icon)` height declaration, not a second one")
+        return True, ""
+    check(
+        "battery_sparkline_svg() fills an area under the trend line from a NESTED viewBox'd <svg> "
+        "(percentages are illegal in a points list) whose vertices land on the exact coordinates the "
+        "chart's own marks did, closed at the axis minimum rather than the canvas edge, painted before "
+        "the line, in currentColor at a translucent fill-opacity, with the outer canvas still carrying no "
+        "viewBox, no url(/image/script reference, no colour literal, no rule of its own for the layer, and "
+        "nothing at all below two points (CFG-41/CFG-45, 24-05-PLAN.md Task 1)",
+        _sparkline_area_sits_under_the_line_in_its_own_nested_viewbox)
 
     def _sparkline_axis_chrome_present():
         # quick task 260902-ep7 (BUG 4): the new check for the drawn axis
