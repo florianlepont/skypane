@@ -3746,6 +3746,19 @@ def main():
         "companion/battery.py": ("battery_percent", "battery_fraction"),
         "server/poll_loop.py": ("_battery_percent_estimate",),
     }
+    # 25-01-PLAN.md Task 3 (CFG-49), retargeted IN PLACE with no new
+    # check(...) call: the module gains a battery LIFE estimate, and its
+    # exclusivity is the same rule as the percentage's for the same
+    # reason. A days-remaining figure derived in a page module is
+    # exactly the drift 19-01 created this module to prevent — and it
+    # would be worse than a second percentage, because the two would
+    # disagree about how long the user has rather than about a
+    # rounding.
+    _BATTERY_LIFE_HOMES = {
+        "companion/battery.py": ("battery_life_estimate",),
+    }
+    _BATTERY_LIFE_NAME_RE = re.compile(
+        r"battery_life|life_estimate|days_remaining|days_left|_life_days")
 
     def _battery_estimate_has_exactly_one_home():
         constant_tail = re.compile(r"BATTERY_(FULL|EMPTY)_MV$")
@@ -3771,6 +3784,17 @@ def main():
                     return False, (
                         "%s defines %s() — a second battery estimate. Every companion-side "
                         "caller reaches the one estimate through companion/battery.py."
+                        % (path, name))
+            # The LIFE estimate's own exclusivity, on the same terms.
+            for match in re.finditer(r"(?m)^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)", code):
+                name = match.group(1)
+                if not _BATTERY_LIFE_NAME_RE.search(name):
+                    continue
+                if name not in _BATTERY_LIFE_HOMES.get(path, ()):
+                    return False, (
+                        "%s defines %s() — a second battery-LIFE computation. The one estimate "
+                        "lives in companion/battery.py, and two surfaces disagreeing about how "
+                        "long the user has is worse than two disagreeing about a rounding."
                         % (path, name))
             # The third net, and the only one that catches a copy made
             # under NEW names: the two millivolt endpoints appearing
@@ -6205,6 +6229,236 @@ def main():
             "five-line grep counts the four paragraphs that explain the rule (CFG-46, "
             "25-01-PLAN.md Task 2)",
             _exactly_one_has_feature_query_block_survives)
+
+        # --- 25-01-PLAN.md Task 3 (CFG-49): the battery-life estimate,
+        # in the ONE module that already owns the battery estimate.
+        # 19-01 created that module precisely to stop two surfaces
+        # computing one number; a days-remaining figure derived in a
+        # page module would be that drift again, one phase later.
+
+        def _battery_life_estimate_is_total_and_never_claims_what_it_cannot():
+            from companion import battery as battery_module
+
+            # The cadence pair is the same in every shape below, so any
+            # difference in the result is the SERIES talking, never the
+            # cadence.
+            current_s, proposed_s = 900, 1800
+
+            def est(rows, proposed=proposed_s):
+                return battery_module.battery_life_estimate(
+                    rows, current_wake_interval_s=current_s,
+                    proposed_wake_interval_s=proposed)
+
+            falling = [
+                {"ts": "2026-09-10", "battery_mv": 3900, "reading_count": 96},
+                {"ts": "2026-09-04", "battery_mv": 4020, "reading_count": 96},
+            ]
+            rising = [
+                {"ts": "2026-09-10", "battery_mv": 4000, "reading_count": 96},
+                {"ts": "2026-09-04", "battery_mv": 3700, "reading_count": 96},
+            ]
+            flat = [
+                {"ts": "2026-09-10", "battery_mv": 3900, "reading_count": 96},
+                {"ts": "2026-09-04", "battery_mv": 3900, "reading_count": 96},
+            ]
+            newest_is_none = [
+                {"ts": "2026-09-10", "battery_mv": None, "reading_count": 0},
+                {"ts": "2026-09-04", "battery_mv": 3900, "reading_count": 96},
+            ]
+            one_row = [{"ts": "2026-09-10", "battery_mv": 3900, "reading_count": 96}]
+            shapes = {
+                "empty": [],
+                "one-row": one_row,
+                "two-flat-rows": flat,
+                "falling": falling,
+                "rising": rising,
+                "newest-reading-None": newest_is_none,
+            }
+
+            # TOTALITY. Six shapes, six defined results, nothing raised.
+            results = {}
+            for name, rows in shapes.items():
+                try:
+                    results[name] = est(rows)
+                except Exception as exc:
+                    return False, "battery_life_estimate(%s) raised %r" % (name, exc)
+                if not isinstance(results[name], dict) or "trend" not in results[name]:
+                    return False, (
+                        "battery_life_estimate(%s) returned %r — every shape must return the "
+                        "same structure carrying a named trend" % (name, results[name]))
+
+            # THE TWO UNKNOWNS ARE DIFFERENT UNKNOWNS. A caller that
+            # cannot tell "the battery is unknown" from "the trend is
+            # unknown" prints the wrong sentence, which is the whole
+            # reason the state is named rather than None.
+            if results["empty"]["trend"] != battery_module.LIFE_TREND_NO_READING:
+                return False, (
+                    "an empty series must report %r, got %r"
+                    % (battery_module.LIFE_TREND_NO_READING, results["empty"]["trend"]))
+            if results["one-row"]["trend"] != battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY:
+                return False, (
+                    "a one-row series must report %r, got %r"
+                    % (battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY,
+                       results["one-row"]["trend"]))
+            if (battery_module.LIFE_TREND_NO_READING
+                    == battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY):
+                return False, (
+                    "LIFE_TREND_NO_READING and LIFE_TREND_NOT_ENOUGH_HISTORY are the same value "
+                    "(%r) — 'we have no battery reading' and 'we have a reading but cannot see a "
+                    "trend yet' are two different sentences a caller has to be able to tell "
+                    "apart" % (battery_module.LIFE_TREND_NO_READING,))
+            # A series whose newest row carries no reading still has a
+            # usable older one: the row is dropped, not the series, and
+            # the latest known level is the older row's.
+            if results["newest-reading-None"]["trend"] != (
+                    battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY):
+                return False, (
+                    "a series whose newest row has a None reading must drop that row and report "
+                    "%r off what is left, got %r"
+                    % (battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY,
+                       results["newest-reading-None"]["trend"]))
+            if results["newest-reading-None"]["latest_mv"] != 3900:
+                return False, (
+                    "expected the latest USABLE reading (3900) to survive a None newest row, "
+                    "got %r" % (results["newest-reading-None"]["latest_mv"],))
+
+            # THE RISING SERIES — the device was charged. A naive
+            # divide here yields a negative or an infinite lifetime, and
+            # both are numbers a user would act on. The honest answer is
+            # not a number at all.
+            if results["rising"]["trend"] != battery_module.LIFE_TREND_RISING:
+                return False, (
+                    "a rising series must report %r, got %r"
+                    % (battery_module.LIFE_TREND_RISING, results["rising"]["trend"]))
+            rising_days = results["rising"]["days_remaining"]
+            if rising_days is not None:
+                return False, (
+                    "a rising series returned days_remaining=%r — a charged device has a "
+                    "positive slope and there is no honest lifetime to divide out of it; the "
+                    "answer must be None, never a negative or an infinite number"
+                    % (rising_days,))
+            if results["two-flat-rows"]["trend"] != battery_module.LIFE_TREND_FLAT:
+                return False, (
+                    "a flat series must report %r, got %r"
+                    % (battery_module.LIFE_TREND_FLAT, results["two-flat-rows"]["trend"]))
+            if results["two-flat-rows"]["days_remaining"] is not None:
+                return False, (
+                    "a flat series returned days_remaining=%r — no measurable discharge means "
+                    "no lifetime can be divided out of it"
+                    % (results["two-flat-rows"]["days_remaining"],))
+
+            # THE ONE SHAPE THAT MAY STATE A FIGURE, and the figure is
+            # RECOMPUTED here from the observed series rather than
+            # restated: 4020 -> 3900 over six days is 20 mV/day, and
+            # 3900 is 600 mV above the empty endpoint, so thirty days.
+            falling_result = results["falling"]
+            if falling_result["trend"] != battery_module.LIFE_TREND_FALLING:
+                return False, (
+                    "a falling series must report %r, got %r"
+                    % (battery_module.LIFE_TREND_FALLING, falling_result["trend"]))
+            span_days = 6.0
+            slope = (4020 - 3900) / span_days
+            expected_days = int(round(
+                (3900 - battery_module.BATTERY_EMPTY_MV) / slope))
+            if falling_result["days_remaining"] != expected_days:
+                return False, (
+                    "a falling series reported days_remaining=%r; recomputed from the OBSERVED "
+                    "slope (%.1f mV/day over %.0f days, %d mV above empty) it is %d"
+                    % (falling_result["days_remaining"], slope, span_days,
+                       3900 - battery_module.BATTERY_EMPTY_MV, expected_days))
+
+            # THE FLOOR, not only the ceiling: a series already at or
+            # below the empty endpoint has zero days left, not a
+            # negative number.
+            flat_out = est([
+                {"ts": "2026-09-10", "battery_mv": 3200, "reading_count": 96},
+                {"ts": "2026-09-04", "battery_mv": 3400, "reading_count": 96},
+            ])
+            if flat_out["days_remaining"] != 0:
+                return False, (
+                    "a series that has already fallen below the empty endpoint reported "
+                    "days_remaining=%r — the floor is zero, never a negative lifetime"
+                    % (flat_out["days_remaining"],))
+
+            # THE RELATIVE FACTOR, available in EVERY shape including
+            # the five with no absolute figure — it is arithmetic on two
+            # cadences, not on the battery, which is what lets a gauge
+            # say something true on day one.
+            for name, result in results.items():
+                if result["relative_factor"] != 2.0:
+                    return False, (
+                        "battery_life_estimate(%s) returned relative_factor=%r for 900s -> "
+                        "1800s — the factor is arithmetic on two cadences and must be available "
+                        "in every shape, including the ones with no absolute figure"
+                        % (name, result["relative_factor"]))
+            # DOUBLING THE PROPOSED CADENCE DOUBLES THE FACTOR EXACTLY.
+            # This is the property that makes the gauge's claim
+            # checkable rather than a feeling.
+            doubled = est([], proposed=proposed_s * 2)["relative_factor"]
+            if doubled != results["empty"]["relative_factor"] * 2:
+                return False, (
+                    "doubling the proposed cadence moved the relative factor from %r to %r — it "
+                    "must double exactly"
+                    % (results["empty"]["relative_factor"], doubled))
+            # A hostile or absent cadence is refused, not guessed:
+            # bools, zero, negatives and non-numerics all return None
+            # rather than a factor a caller would print.
+            for bad in (None, 0, -60, True, "900", 1.5e308):
+                hostile = battery_module.battery_life_estimate(
+                    falling, current_wake_interval_s=bad, proposed_wake_interval_s=proposed_s)
+                if hostile["relative_factor"] is not None:
+                    return False, (
+                        "a current cadence of %r produced relative_factor=%r — an unusable "
+                        "cadence has no factor, and a guessed one is a sentence the user acts on"
+                        % (bad, hostile["relative_factor"]))
+            return True, ""
+        check(
+            "companion.battery.battery_life_estimate() is TOTAL over six series shapes (empty, "
+            "one row, two flat rows, falling, RISING, and a newest row with a None reading) and "
+            "never states a figure the data cannot support: a charged device's rising slope "
+            "returns days_remaining=None rather than a negative or infinite lifetime, a flat "
+            "series returns None, an already-empty series floors at zero, the 'no reading' and "
+            "'not enough history' states are DIFFERENT named values, the falling series' figure "
+            "is recomputed from the observed slope, and the relative cadence factor is available "
+            "in all six shapes and doubles exactly when the proposed cadence doubles (CFG-49, "
+            "25-01-PLAN.md Task 3)",
+            _battery_life_estimate_is_total_and_never_claims_what_it_cannot)
+
+        def _battery_module_imports_neither_a_page_module_nor_the_server_package():
+            # companion/battery.py exists so home_page.py and
+            # health_page.py can share one estimate without either
+            # importing the other (the pages package's own rule), and it
+            # may not reach into server/ either — D-27, the same
+            # constraint server/wake.py's docstring states from the
+            # other side. Asserted by SOURCE SCAN rather than by
+            # inspection, because the module's own docstring has claimed
+            # this since 19-01 and a docstring has never stopped an
+            # import.
+            battery_path = os.path.join(HERE, "battery.py")
+            with open(battery_path) as fh:
+                tree = ast.parse(fh.read(), filename=battery_path)
+            offenders = []
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        offenders.append(alias.name)
+                elif isinstance(node, ast.ImportFrom):
+                    offenders.append(node.module or "")
+            for name in offenders:
+                root = name.split(".")[0]
+                if root in ("server",) or name.startswith("companion.pages") \
+                        or root == "pages":
+                    return False, (
+                        "companion/battery.py imports %r — this module is stdlib-only on "
+                        "purpose: it is the shared home two page modules reach instead of "
+                        "importing each other, and the server package may never be pulled into "
+                        "the web-app package (D-27)" % name)
+            return True, ""
+        check(
+            "companion/battery.py imports nothing from companion.pages and nothing from the "
+            "server package — an ast scan of the real module, not its docstring's claim "
+            "(D-27/CFG-49, 25-01-PLAN.md Task 3)",
+            _battery_module_imports_neither_a_page_module_nor_the_server_package)
 
 
         # --- 23-01-PLAN.md Task 2 (D3/CFG-32): the motion budget, made
