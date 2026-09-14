@@ -11,13 +11,29 @@ control below is unrelated plumbing owned by companion/app.py (plan
 server.poll_loop.run_once() call all live there, not here — this module
 only renders the button/copy for it.
 """
+import collections  # 25-04-PLAN.md Task 1 (CFG-48): QuietWindowSpan, the
+# named triple the quiet dial's duration text and its drawn sweep are
+# BOTH read off, so the words and the picture cannot disagree.
 import re
+from datetime import timedelta  # 25-05-PLAN.md Task 1 (CFG-49): the
+# battery sentence's own look-back window, the same shape health_page's
+# _cutoff_iso() uses for the identical read.
 from urllib.parse import urlsplit
 
 from companion import i18n  # D-05, 20-07-PLAN.md Task 1: the Display page's
 # three supersection headings/intros render through i18n.t() (Task 3
 # widens this to every user-visible string in this file).
 from companion import theme_preview
+from companion import battery  # 25-05-PLAN.md Task 1 (CFG-49): the ONE
+# battery estimator (references/data-density.md's two-allow-listed-homes
+# rule). Imported as a MODULE and called qualified — a bare
+# `from companion.battery import battery_life_estimate` would make the
+# estimate read as this page's own, which is the drift 19-01 created
+# that module to prevent.
+from companion import draw  # 25-03-PLAN.md Task 1 (CFG-47): the shared
+# SVG geometry/emission primitives the runway map's shapes come from.
+# stdlib-only by its own contract, so importing it here adds no
+# dependency edge this module did not already have.
 from companion.layout import escape_html
 import companion.layout as layout
 from companion import frame_state  # 22-05-PLAN.md Task 2 (D-04): the one
@@ -219,6 +235,44 @@ CURRENT_BADGE_LABEL = "Current"
 # (see CALENDAR_DISCONNECT_FORM_ID's own comment) — the constant exists
 # so test_config_page.py can reference the name without retyping it.
 CURRENT_BADGE_ATTR = "data-current-label"
+
+# --- 25-06-PLAN.md Task 2/3 (CFG-50): D5's theme carousel -------------
+#
+# The DEPARTURES chip grid, and only that one, is presented as a
+# horizontal scroll-snap strip. The other three grids (arrivals,
+# calendar, rule-add) are deliberately untouched — see
+# `_theme_chip_grid_html()`'s own docstring for that decision and its
+# reason.
+#
+# `theme-carousel-strip` is both the strip's `id` (so the two pagers'
+# `aria-controls` names something real) and the element
+# `companion/static/theme-preview.js` scrolls — the script resolves it
+# through the button's OWN `aria-controls`, so the accessibility
+# contract and the script contract are one contract rather than two that
+# can drift apart.
+THEME_CAROUSEL_STRIP_ID = "theme-carousel-strip"
+# The gated wrapper's own attribute, and the one
+# companion/test_companion_app.py's `_NO_JS_CONTROL_REGISTRY` names for
+# this control. It is on the WRAPPER only, never on a button — that
+# registry asserts that EVERY element carrying it also carries the
+# `.js` gate class, which is the whole point of it.
+THEME_CAROUSEL_WRAPPER_ATTR = "data-theme-carousel"
+# Each pager's own direction, read by theme-preview.js. A separate name
+# rather than a value of the wrapper attribute above, so neither scan
+# can ever match the other by prefix.
+THEME_CAROUSEL_PAGER_ATTR = "data-theme-pager"
+THEME_CAROUSEL_PAGER_PREV = "prev"
+THEME_CAROUSEL_PAGER_NEXT = "next"
+THEME_CAROUSEL_SUMMARY = "See all themes"
+# The disclosure's own body, and it says the one thing a reader of this
+# control most needs to know: NOTHING IS HIDDEN BEHIND IT. See
+# `_theme_carousel_html()` for why this disclosure governs the layout of
+# the grid that follows it instead of containing a second copy of it.
+THEME_CAROUSEL_DISCLOSURE_BODY_TEMPLATE = (
+    "Opening this lays all %d themes out at once. They are all in the "
+    "strip either way — it scrolls, and the arrow keys move through it.")
+THEME_CAROUSEL_PREV_LABEL = "Previous theme"
+THEME_CAROUSEL_NEXT_LABEL = "Next theme"
 # The attribute-as-CSS-hook/JS-hook contract theme-preview.js (Task 3)
 # reads: each row's own radio names which usage panel it selects, and
 # each panel carries the matching target.
@@ -344,9 +398,21 @@ DISPLAY_CHECKBOX_VALUE = "on"
 # other three, it is consumed by a two-branch renderer
 # (poll_trigger_section()), so it must be interpolated on both branches
 # or it would silently vanish for the whole cooldown window.
+# 25-03-PLAN.md Task 1 (CFG-47): the caption gains a schematic clause and
+# stays ONE caption — the one-caption-per-section rule above is the
+# reason this sentence is extended in place rather than joined by a
+# second paragraph under the map. The clause is not decoration: the
+# group now draws a diagram, and a diagram that implies a scale it does
+# not have is the same dishonest-state defect family Phase 22 removed.
+# What the drawing really claims is stated exactly: relative bearings,
+# north up, nothing else. It does NOT claim relative lengths — the
+# registry carries no runway length for any entry, so every strip is
+# drawn the same length, and a caption promising relative lengths would
+# be promising a fact the drawing does not have.
 RUNWAY_SECTION_CAPTION = (
-    "Which Orly runway the device watches. Applies on the next "
-    "scheduled poll, not immediately.")
+    "Which Orly runway the device watches. The diagram is schematic: "
+    "relative bearings only, north up, not to scale. Applies on the "
+    "next scheduled poll, not immediately.")
 LED_SECTION_CAPTION = (
     "Lit only during the device's brief wake window, not visible from "
     "the wall side. Applies on the next scheduled poll.")
@@ -477,6 +543,130 @@ WAKE_INTERVAL_INPUT_ID = "wake-interval-s"
 # 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
 # comment above.
 WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
+
+# --- 25-05-PLAN.md Task 1 (CFG-49): THE TWO GAUGES --------------------
+#
+# The wake interval is a trade-off the card never showed either side of:
+# a smaller number means the frame notices a plane sooner AND that the
+# battery empties sooner. These two sentences are those two sides, and
+# the interesting thing about them is that ONLY ONE OF THEM CAN BE
+# HONEST TODAY.
+#
+# FRESHNESS is true by construction, as long as it says "at most". The
+# frame learns about a plane at its next wake, so a plane that passes
+# one instant after a wake shows up one whole interval later and no
+# later than that. State it as a BOUND and it is the interval restated
+# the way a person experiences it; drop the "at most" and it becomes a
+# claim about TYPICAL behaviour, which nothing in this project measures.
+#
+# BATTERY LIFE cannot state an absolute figure from first principles,
+# and this is the constraint the whole card is built around. Computing
+# "≈ 38 days remaining" needs a per-wake energy cost, and this project
+# has NEVER MEASURED ONE — DEVICE-05's multi-day discharge run is still
+# open. A number invented from an assumed cost, printed next to a
+# control a person will act on, is exactly the dishonest state Phase 22
+# spent a whole phase removing. So the figure here comes out of
+# companion/battery.py's `battery_life_estimate()`, which derives it
+# from this device's OWN OBSERVED discharge slope or refuses to derive
+# it at all — and when it refuses, WAKE_BATTERY_UNKNOWN_TEXT is a real
+# rendered state, not a blank.
+#
+# NO DAYS-REMAINING ARITHMETIC LIVES IN THIS MODULE. Every figure below
+# is `battery.battery_life_estimate()`'s own return, called QUALIFIED
+# (`references/data-density.md`: a bare `from companion.battery import
+# ...` makes the estimator read as the page's own). 19-01 created that
+# module to stop exactly this drift.
+# The name the form posts this setting under, in ONE place: the number
+# input's own `name`, the gauges' `data-value-readout`, the slider's
+# `data-value-field` and the no-JS control contract's registry row all
+# have to be the same string, and three of those four are attributes a
+# string comparison would never catch drifting.
+WAKE_INTERVAL_FIELD_NAME = "wake_interval_s"
+WAKE_GAUGE_CLASS = "wake-gauge"
+WAKE_GAUGE_FRESHNESS_ID = "wake-gauge-freshness"
+WAKE_GAUGE_BATTERY_ID = "wake-gauge-battery"
+# The gauges speak in minutes; the field holds seconds. One name, so the
+# ceiling division below and the scale attribute the script reads are
+# provably the same number.
+WAKE_GAUGE_SECONDS_PER_MINUTE = 60
+# How much history the battery sentence is allowed to look back over.
+# Deliberately SHORTER than health_page's own 3-month trend window: this
+# sentence says "recent", and a slope measured from a point three months
+# and one charge ago is not recent behaviour. Two weeks is comfortably
+# more than battery.LIFE_MIN_OBSERVED_SPAN_DAYS and still recent enough
+# for the word to be true.
+WAKE_BATTERY_WINDOW_DAYS = 14
+# THE QUANTITY'S PLACE IS "#", never "%s"/"%d"/"{}" — every template
+# below reaches the browser as an ATTRIBUTE VALUE on a rendered page
+# (companion/static/value-controls.js substitutes into it live), and
+# companion/test_i18n.py's Check 3 scans every French render for a stray
+# format artefact. layout.VALUE_CONTROL_TEXT_TOKEN and
+# layout.RELATIVE_QUANTITY_MARK both record that lesson; this is the
+# third consumer of it, and a check asserts every template here carries
+# that exact token.
+#
+# THE UNIT IS "min" AND THE QUANTITY IS WHOLE MINUTES, which keeps these
+# sentences free of a plural form in both languages and free of the
+# s/m/h/d ladder: the configured band is 60..3600 s, which is 1..60 min,
+# so the unit never changes mid-sweep. layout.duration_text() is the
+# app's one ladder and is used below for the ONE fixed cadence that is
+# not the field's own value (the screen-off one), where no live update
+# has to reproduce it in a second language of source.
+WAKE_FRESHNESS_TEXT = (
+    "A plane reaches the frame at most # min after it passes.")
+# The two absolute-figure wordings. Only ever rendered when
+# battery.battery_life_estimate() says the OBSERVED history supports a
+# figure, and carrying this app's own "≈" honesty marker (the battery
+# percentage already wears it) plus the source of the claim, so it can
+# never be read as a datasheet number.
+WAKE_BATTERY_DAY_TEXT = (
+    "≈ # day of battery left at this interval, from this frame's own "
+    "recent readings.")
+WAKE_BATTERY_DAYS_TEXT = (
+    "≈ # days of battery left at this interval, from this frame's own "
+    "recent readings.")
+# THE NAMED "NOT ENOUGH HISTORY YET" STATE. A rendered sentence, never a
+# blank and never a zero: a card that silently drops the battery half
+# whenever it cannot compute one reads as a card that has nothing to say
+# about battery at all.
+WAKE_BATTERY_UNKNOWN_TEXT = (
+    "Not enough battery history yet to say how long a charge lasts — "
+    "this frame has never measured what one wake costs.")
+# The clause that keeps BOTH sentences from over-claiming: neither the
+# bound nor the battery figure is in force while the screen is off,
+# because device_config.DISPLAY_OFF_SLEEP_S is pinned independently of
+# this field then (server/wake.py's effective_wake_interval_s(),
+# precedence rule 1). A visitor who has turned the screen off would
+# otherwise read a claim that does not apply to their frame.
+WAKE_BATTERY_SCREEN_OFF_TEXT = (
+    "While the screen is off the frame wakes every %s instead, whatever "
+    "this is set to.")
+# The RELATIVE half, and the only half companion/static/value-controls.js
+# may recompute while the slider moves. It names TWO CADENCES and no
+# ratio: it is arithmetic on the two cadences and nothing else, which is
+# the one thing battery.battery_life_estimate()'s `relative_factor`
+# docstring is emphatic can be said honestly on day one — and it is
+# carefully NOT a multiplier on the lifetime, which those two would only
+# be if every joule this device spends went into waking.
+#
+# "%d" is the SAVED cadence, written in server-side and fixed for the
+# life of the page; "#" is the proposed one, which is the only thing
+# that moves and therefore the only thing the script substitutes.
+WAKE_BATTERY_INSTEAD_TEXT = (
+    "This setting wakes the frame every # min instead of every %d min.")
+
+# --- 25-05-PLAN.md Task 2 (CFG-49/CFG-52): the gated range -----------
+WAKE_SLIDER_CLASS = "wake-slider"
+WAKE_SLIDER_INPUT_CLASS = "wake-slider__input"
+# One minute, which is WAKE_INTERVAL_MIN_S itself and the unit both
+# gauges speak in — so every position the slider can reach is a whole
+# number of minutes and neither sentence ever has to round.
+WAKE_SLIDER_STEP_S = 60
+# The range's own accessible name. It needs one of its own: the number
+# input's label ("Wake interval (seconds)") names THAT control, and two
+# controls sharing one accessible name is how a screen-reader visitor
+# loses track of which of them they are on.
+WAKE_SLIDER_LABEL = "Wake interval slider"
 
 # 20-11-PLAN.md Task 1 (D-26/D-28, 20-UI-SPEC.md Section Anatomy J/copy
 # table G): the Notifications group's own copy — a Device-only sixth
@@ -1184,6 +1374,25 @@ def _theme_chip_grid_html(
     `None` (no attribute at all, byte-identical to before this fix) —
     Theme's own two always-in-form grids and the rule-add-form's grid
     never pass it.
+
+    25-06-PLAN.md Task 2 (CFG-50): the DEPARTURES call site now passes a
+    second grid-level modifier (`theme-chip-grid--strip`) and an `id`,
+    and `_theme_carousel_html()` wraps what this function returns. THIS
+    FUNCTION IS UNCHANGED BY THAT — the carousel is a presentation
+    around its output, deliberately not a sixth seam and emphatically
+    not a fork: four call sites share this function, and a second
+    renderer is exactly how the arrivals grid and the departures grid
+    come to disagree about what a selected chip looks like.
+
+    THE OTHER THREE GRIDS ARE DELIBERATELY NOT CONVERTED, and that is a
+    recorded scope decision rather than an oversight for a later reader
+    to "finish". Arrivals, Calendar flights and the rule-add form are
+    already compact and already sit beside other controls; none of them
+    is the page-height problem X6 named. Turning four grids into four
+    carousels would multiply this file's single largest risk — the ONE
+    `@supports selector(:has(*))` block, whose specificity arithmetic is
+    marked "verified, not to be re-derived" — by four, for no height
+    gain on the three cards that were never the defect.
     """
     form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     chips = []
@@ -1269,6 +1478,144 @@ def _theme_chip_grid_html(
         i18n.t(THEME_CHIP_SWATCH_LEGEND))
     return '<div class="%s"%s>%s%s</div>%s' % (
         grid_class, attr_html, leading_chip_html, "".join(chips), legend_html)
+
+
+def _theme_carousel_html(grid_html):
+    """25-06-PLAN.md Task 2 (CFG-50): D5's carousel, as a PRESENTATION
+    wrapped around `_theme_chip_grid_html()`'s existing output — never a
+    second chip renderer.
+
+    `grid_html` arrives already built and is interpolated UNCHANGED: the
+    same eighteen `.theme-chip` labels, the same visually-hidden native
+    radios, the same check glyphs, the same `role="radiogroup"`, and the
+    same swatch legend glued underneath the grid and outside it. This
+    function adds a wrapper, a row of colour dots, and (Task 3) a
+    disclosure and two gated pagers. It emits no chip.
+
+    THE CAROUSEL IS THE RADIO GROUP, NOT A THING BESIDE IT. The strip is
+    the grid laid out with CSS scroll-snap, which is what makes swipe
+    native; arrow keys already move selection inside a radiogroup and a
+    browser already scrolls a focused label into view. That is why this
+    control needs almost no script, and it is why nothing here has a
+    "current slide" distinct from "selected theme" — in a radio group
+    those are the same thing, and a second state is how
+    `style.css`'s one feature query comes to have a sibling.
+
+    THE DOTS ROW CARRIES EACH THEME'S OWN COLOUR AND NO SELECTION STATE
+    AT ALL, and that is a decision rather than an omission. A dots row
+    that tracked the current slide would need either a `:has()` chain
+    reaching from a checked radio in the grid to one dot in a sibling
+    row (eighteen rules, inside the one feature query whose arithmetic
+    is marked "verified, not to be re-derived") or a script; with
+    neither, a server-rendered "active dot" would be marking the SAVED
+    theme and would be visibly wrong the instant a chip is clicked with
+    scripts blocked. So each dot is that theme's own
+    `_palette_hex(departing_index)` — the identical per-theme inline
+    mechanism the chips' own `.theme-chip__dot` swatches already use,
+    never a colour literal in the stylesheet — and the row is
+    `aria-hidden`, because the chips themselves already announce all of
+    this in real text and eighteen dots after eighteen radios is noise.
+
+    MEASURED WHILE WRITING THIS, AND RECORDED BECAUSE IT SURPRISED:
+    every one of the eighteen themes has `departing_index ==
+    arriving_index`, and the eighteen resolve to only SEVEN distinct
+    hexes. So this row is a palette overview, not an identifier of
+    individual themes, and the chips' own two swatch dots — the ones the
+    "Departures · Arrivals" legend names — are the same colour as each
+    other in every theme this app ships. That is a registry fact, not a
+    defect introduced here, and nothing in this plan changes it.
+    """
+    dots = "".join(
+        '<span class="theme-chip__dot" style="background:%s"></span>' % escape_html(
+            _palette_hex(device_config.THEMES[theme_id]["departing_index"]))
+        for theme_id in device_config.THEME_IDS)
+    dots_html = (
+        '<div class="theme-carousel__dots theme-chip__swatches" aria-hidden="true">%s</div>'
+        % dots)
+    # A NATIVE <details>, NOT A <dialog>, AND THAT IS A DELIBERATE
+    # DEVIATION FROM 22-AUDIT.md's OWN WORDING (D5: "full grid behind
+    # 'See all themes' in a dialog"). A <dialog> has no way to open
+    # without script — `showModal()` is the only thing that opens one —
+    # so eighteen themes behind a dialog is eighteen themes behind a
+    # control that does nothing whatever with scripts blocked, which is
+    # the exact defect this phase exists to prevent. <details> opens
+    # natively, already has this app's shipped chevron treatment
+    # (22-15 T3) and already sits in the harness's disclosure sweep.
+    #
+    # AND IT GOVERNS THE GRID THAT FOLLOWS IT RATHER THAN CONTAINING
+    # ONE. This is the part a later reader will want explained, so:
+    # there is exactly ONE set of eighteen radios on this page, and the
+    # strip and the full grid are the same set. That forces this shape.
+    # A <details> hides its own non-summary children when closed, so a
+    # disclosure that CONTAINED the grid would hide all eighteen themes
+    # whenever it was shut — there would be no strip at all — and the
+    # only way to have both an always-visible strip and a full-grid
+    # disclosure while keeping one set of radios is for the disclosure
+    # to change the layout of the grid that follows it. Its `[open]`
+    # state selects that adjacent sibling in style.css; no `:has()` is
+    # involved and this file's one feature query is untouched.
+    #
+    # The alternative — two sets of eighteen radios — was rejected, and
+    # not on tidiness grounds: they would share a name and a form, so a
+    # browser would treat them as ONE radio group and keep exactly one
+    # checked, but the page would then carry two places showing a
+    # selection, two `--selected` chips, and two copies of every chip
+    # image, for a setting that has one value (T-25-06-B).
+    #
+    # Nothing is hidden behind this control at any time, so the body
+    # says so in real, translated text rather than leaving a reader to
+    # discover it.
+    disclosure_html = (
+        '<details class="theme-carousel__all">'
+        "<summary>%s</summary>"
+        '<p class="text-body">%s</p>'
+        "</details>"
+    ) % (
+        escape_html(i18n.t(THEME_CAROUSEL_SUMMARY)),
+        escape_html(
+            i18n.t(THEME_CAROUSEL_DISCLOSURE_BODY_TEMPLATE)
+            % len(device_config.THEME_IDS)),
+    )
+    # The two pagers, and NOTHING ELSE, sit behind 25-01's `.js` gate —
+    # they are the only part of this control that cannot work without a
+    # script. The gate class is on the wrapper ITSELF (not an ancestor),
+    # which is what companion/test_companion_app.py's no-JS control
+    # registry asserts for every element carrying
+    # THEME_CAROUSEL_WRAPPER_ATTR.
+    #
+    # Real <button>s with real labels, never aria-hidden decorations,
+    # and `aria-controls` naming the strip — which is also how
+    # theme-preview.js finds the element to scroll, so the accessibility
+    # contract and the script contract are ONE contract. Neither button
+    # listens for a key of any kind: a pager that captured ArrowLeft
+    # would break the native radiogroup selection the whole no-JS path
+    # depends on.
+    #
+    # `.control-hit-area` is 25-01's shared 22x22-box-plus-44x44-::before
+    # synthesis, which is `.copy-btn`'s own values verbatim — not a
+    # fourth set of numbers. The glyph is drawn in CSS rather than
+    # written as a "◀"/"▶" character, following `summary::before`'s own
+    # recorded reasoning: a `content` string is the hard-coded-English
+    # hazard T10 had to unpick, and an arrow glyph's rendering varies by
+    # installed font.
+    pager_template = (
+        '<button type="button" class="control-hit-area theme-carousel__pager%s"'
+        ' %s="%s" aria-controls="%s" aria-label="%s"></button>')
+    pagers_html = (
+        '<div class="theme-carousel__pagers %s" %s>%s%s</div>'
+    ) % (
+        escape_html(layout.JS_GATE_CLASS), THEME_CAROUSEL_WRAPPER_ATTR,
+        pager_template % (
+            " theme-carousel__pager--prev", THEME_CAROUSEL_PAGER_ATTR,
+            THEME_CAROUSEL_PAGER_PREV, escape_html(THEME_CAROUSEL_STRIP_ID),
+            escape_html(i18n.t(THEME_CAROUSEL_PREV_LABEL))),
+        pager_template % (
+            "", THEME_CAROUSEL_PAGER_ATTR, THEME_CAROUSEL_PAGER_NEXT,
+            escape_html(THEME_CAROUSEL_STRIP_ID),
+            escape_html(i18n.t(THEME_CAROUSEL_NEXT_LABEL))),
+    )
+    return '<div class="theme-carousel">%s%s%s%s</div>' % (
+        disclosure_html, grid_html, pagers_html, dots_html)
 
 
 def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
@@ -1459,8 +1806,12 @@ def _frame_colours_card_html(
         current_theme_id, state_dir, extra_class="frame-colours__preview")
 
     effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
-    departures_grid_attr = 'role="radiogroup" aria-labelledby="%s"' % escape_html(
-        FRAME_COLOURS_HEADING_ID)
+    # 25-06-PLAN.md Task 2 (CFG-50): the `id` is added HERE rather than
+    # inside the renderer, because it is a property of this ONE call
+    # site — an id emitted by a function with four call sites would be
+    # four identical ids on one page.
+    departures_grid_attr = 'role="radiogroup" aria-labelledby="%s" id="%s"' % (
+        escape_html(FRAME_COLOURS_HEADING_ID), escape_html(THEME_CAROUSEL_STRIP_ID))
     # 22-10-PLAN.md Task 1 (X6): the departures grid was this page's LAST
     # full-size chip grid — eighteen 160x108 chips against the same
     # eighteen themes rendered at ~104px in the Arrivals, Calendar and
@@ -1475,13 +1826,18 @@ def _frame_colours_card_html(
     # so no selection logic changes here and none was touched.
     #
     # X6's OTHER half — "grid folded behind the big preview (dialog/
-    # drawer)" — is D5, Phase 23 (the theme carousel), and is
-    # deliberately NOT shipped here. Named so the omission reads as a
-    # scope boundary rather than a miss.
+    # drawer)" — was D5, and 25-06-PLAN.md Task 2 (CFG-50) is where it
+    # lands: the SECOND grid-level modifier below lays this one grid out
+    # as a scroll-snap strip, and `_theme_carousel_html()` wraps its
+    # output. Both are additive; the chips, their radios, their check
+    # glyphs and the swatch legend are byte-for-byte what they were, and
+    # the three other grids below are untouched.
     departures_grid = _theme_chip_grid_html(
         "theme", effective_theme_id, extra_attr=departures_grid_attr,
-        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
+        extra_class="theme-chip-grid--compact theme-chip-grid--strip",
+        chip_extra_class="theme-chip--compact",
         radio_form_id=SETTINGS_FORM_ID)
+    departures_carousel = _theme_carousel_html(departures_grid)
     theme_error_html = _field_error_html(errors, "theme", "theme")
     departures_safe_id = (
         effective_theme_id if effective_theme_id in device_config.THEMES
@@ -1492,7 +1848,7 @@ def _frame_colours_card_html(
     departures_meta = i18n.t(device_config.theme_label(departures_safe_id))
     departures_panel = _frame_colours_usage_panel_html(
         COLOUR_USAGE_DEPARTURES, i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES]),
-        departures_grid + theme_error_html)
+        departures_carousel + theme_error_html)
 
     effective_arriving = _submitted_or_current(submitted, "theme_arriving", current_theme_arriving)
     arrivals_same_checked = not effective_arriving
@@ -1636,6 +1992,163 @@ def _frame_colours_card_html(
     )
 
 
+# --- 25-03-PLAN.md Task 1 (CFG-47): the schematic Orly runway map ------
+#
+# Class names as constants, never literals at the emission site, matching
+# this file's own convention and companion/draw.py's stated reason for
+# having any: a class that exists in Python and nowhere in
+# companion/static/style.css paints nothing at all and nothing else in
+# this codebase would notice. `_runway_map_classes_resolve_in_style_css`
+# in companion/test_config_page.py scans the EMITTED markup's classes
+# against the stylesheet for exactly that reason.
+RUNWAY_MAP_CLASS = "runway-map"
+RUNWAY_MAP_FIELD_CLASS = "runway-map__field"
+RUNWAY_MAP_STRIP_CLASS = "runway-map__strip"
+# The strip belonging to the card that draws it. Present on exactly one
+# strip per map, on EVERY card, selected or not — it says "this card's
+# runway", never "the chosen runway". Selection is the label's own
+# state (`.runway-card--selected` and the live `:has(input:checked)`
+# rule inside the ONE feature query), and keeping the two apart is what
+# makes a map with `current_runway_id=None` render with nothing marked
+# as chosen rather than defaulting to one.
+RUNWAY_MAP_THIS_STRIP_CLASS = "runway-map__strip--this"
+
+# User units. The map is an aspect-locked mark, so it belongs to
+# companion/draw.py's `unit_*` scheme (a viewBox plus intrinsic
+# width/height attributes), not the percentage scheme — see that
+# module's "TWO COORDINATE SCHEMES LIVE HERE" paragraph. The intrinsic
+# attributes are the size route companion/layout.py's icon_html()
+# docstring records: an <svg> with neither an attribute nor a CSS rule
+# renders at the SVG default 300x150 and blows the layout apart.
+RUNWAY_MAP_SIZE = 64
+RUNWAY_MAP_FIELD_RADIUS = 30
+RUNWAY_MAP_STRIP_LENGTH = 52
+RUNWAY_MAP_STRIP_WIDTH = 6
+# Perpendicular separation between adjacent strips, so three runways do
+# not all pile through one point. Derived from the strip's index in the
+# registry, so a fourth entry spaces itself.
+RUNWAY_MAP_STRIP_SPACING = 7
+
+# A runway designator IS its magnetic bearing in tens of degrees (ICAO
+# convention), and a designator pair is reciprocal: 07/25, 06/24, 02/20
+# all differ by exactly 18. Requiring the reciprocal is what makes this
+# a designator parser rather than a "two numbers with a slash" parser.
+_RUNWAY_DESIGNATOR_RE = re.compile(r"(?<!\d)(\d{1,2})\s*[/-]\s*(\d{1,2})(?!\d)")
+_RUNWAY_RECIPROCAL_OFFSET = 18
+# The stated fallback for a registry entry whose id and label both carry
+# no parseable designator: due north, drawn as a plain north-south
+# strip. A fallback and never an exception — T-25-03-D — because a
+# registry typo must not take down the whole Display page.
+RUNWAY_MAP_FALLBACK_BEARING_DEG = 0
+
+
+def runway_bearing_deg(runway_id):
+    """The bearing, in degrees clockwise from north and folded into
+    [0, 180), at which `runway_id`'s strip is drawn. Never raises.
+
+    THE LABEL IS READ BEFORE THE ID, AND THAT ORDER IS THE WHOLE POINT
+    OF THIS FUNCTION. Orly's first registry entry is keyed `"3"` — an
+    ADP runway NUMBER, not a designator — while its label is
+    `"Runway 3 (07/25)"`. Parsing the id first would draw that runway at
+    030 while its own visible label says 07/25, which is precisely the
+    drawing-contradicts-its-own-labels defect this parse exists to make
+    unreachable. The label is what the visitor reads, so the label is
+    what the geometry comes from; the id is the second source only
+    because a future registry entry may be keyed by its designator and
+    labelled in some other way.
+
+    Folded modulo 180 because a strip is a LINE, not an arrow: 07 and
+    25 are the same piece of tarmac walked in opposite directions and
+    draw identically, so the lower designator is the canonical one.
+
+    Falls back to RUNWAY_MAP_FALLBACK_BEARING_DEG for an entry neither
+    of whose strings carries a reciprocal designator pair.
+    """
+    label = device_config.RUNWAYS.get(runway_id, {}).get("label", "")
+    for text in (label, runway_id):
+        for match in _RUNWAY_DESIGNATOR_RE.finditer(str(text)):
+            first, second = int(match.group(1)), int(match.group(2))
+            if not (1 <= first <= 36 and 1 <= second <= 36):
+                continue
+            if abs(first - second) != _RUNWAY_RECIPROCAL_OFFSET:
+                continue
+            return (first * 10) % 180
+    return RUNWAY_MAP_FALLBACK_BEARING_DEG
+
+
+def runway_map_svg(this_runway_id):
+    """The schematic Orly map as one `<svg>`, drawn from
+    `device_config.RUNWAY_IDS` and nothing else — every entry in the
+    registry becomes a strip, and the strip belonging to
+    `this_runway_id` additionally carries RUNWAY_MAP_THIS_STRIP_CLASS.
+
+    WHAT THIS DRAWING CLAIMS, EXACTLY: relative bearings, north up. It
+    does not claim scale and it does not claim relative lengths — the
+    registry carries no length for any runway, so every strip is drawn
+    at RUNWAY_MAP_STRIP_LENGTH and the caption says so out loud
+    (RUNWAY_SECTION_CAPTION). A diagram that implied a survey it does
+    not have would be the same dishonest-state defect family Phase 22
+    removed, and the honest fix is the caption, not a plausible-looking
+    invented length.
+
+    EVERY CARD DRAWS THE WHOLE AIRFIELD, not just its own runway, and
+    that is the reason this is a map at all. Three photographs side by
+    side — or three lone strips side by side — tell a visitor nothing
+    about where these runways are RELATIVE TO EACH OTHER, which is the
+    one thing a map is for. So each `.runway-card` carries a complete
+    map with its own runway picked out, and comparing cards compares
+    highlights on one shared picture. An `<svg>` cannot contain a
+    `<label>` or an `<input>`, so one shared canvas with three labels
+    floated over it was the alternative, and it would have put the three
+    touch targets on absolutely-positioned overlays at 360px — the exact
+    hit-area failure Task 3 measures against.
+
+    `aria-hidden="true" focusable="false"`: the accessible names come
+    from the three labels, exactly as before this drawing existed. A
+    labelled graphic would announce the runways a second time.
+    Deliberately hand-written rather than `draw.unit_canvas()`, which
+    emits the viewBox, the intrinsic size and `aria-hidden` but not
+    `focusable` — every SHAPE inside still comes from draw.py's own
+    primitives, so the escaping and the refuse-a-paint-decided-in-Python
+    guard apply to all of them.
+    """
+    centre = RUNWAY_MAP_SIZE / 2.0
+    runway_ids = device_config.RUNWAY_IDS
+    count = len(runway_ids)
+    shapes = [draw.circle(
+        RUNWAY_MAP_FIELD_CLASS, centre, centre, RUNWAY_MAP_FIELD_RADIUS)]
+    for index, runway_id in enumerate(runway_ids):
+        class_name = RUNWAY_MAP_STRIP_CLASS
+        if runway_id == this_runway_id:
+            class_name += " " + RUNWAY_MAP_THIS_STRIP_CLASS
+        # Offset perpendicular to the strip's own axis (applied before
+        # the rotation, so it rotates with it), centred on the registry
+        # so the set stays symmetric whatever its size.
+        offset = (index - (count - 1) / 2.0) * RUNWAY_MAP_STRIP_SPACING
+        shapes.append(draw.rect(
+            class_name,
+            centre + offset - RUNWAY_MAP_STRIP_WIDTH / 2.0,
+            centre - RUNWAY_MAP_STRIP_LENGTH / 2.0,
+            RUNWAY_MAP_STRIP_WIDTH,
+            RUNWAY_MAP_STRIP_LENGTH,
+            attrs={
+                "rx": RUNWAY_MAP_STRIP_WIDTH / 2.0,
+                # Clockwise from north, which is what a bearing is, and
+                # what an SVG rotate() about the centre of a
+                # north-south strip already does.
+                "transform": "rotate(%d %.2f %.2f)" % (
+                    runway_bearing_deg(runway_id), centre, centre),
+            },
+        ))
+    return (
+        '<svg class="%s" viewBox="0 0 %d %d" width="%d" height="%d" '
+        'aria-hidden="true" focusable="false">%s</svg>'
+    ) % (
+        escape_html(RUNWAY_MAP_CLASS), RUNWAY_MAP_SIZE, RUNWAY_MAP_SIZE,
+        RUNWAY_MAP_SIZE, RUNWAY_MAP_SIZE, "".join(shapes),
+    )
+
+
 def runway_fieldset(
         current_runway_id, images_available=(), errors=None, submitted=None,
         next_wake_clock=None):
@@ -1725,6 +2238,36 @@ def runway_fieldset(
     Calendar card's own connect/replace `<form>` (21-07-PLAN.md Task 1)
     sit between the Calendar card and this group in document order
     without ever nesting one `<form>` inside another.
+
+    25-03-PLAN.md Task 1 (CFG-47) adds a schematic MAP to each card and
+    changes NOTHING about the control. The three radios keep their
+    `name`, their `value`s, their `class="visually-hidden"` (never
+    `display: none`, which would drop them from the tab order and break
+    keyboard selection), their `form=` association and their `checked`
+    computation; the row keeps `role="radiogroup"`, `aria-labelledby`
+    and `aria-describedby` with the same ids. That is the whole point of
+    this change: a native radiogroup already has arrow-key navigation,
+    already has a native selected state and already submits, so the map
+    is what a visitor LOOKS AT while operating a control that was
+    already complete. This group therefore ships ZERO new JavaScript and
+    needs none of 25-01's `.js` gate — a control that needs no
+    enhancement needs no gate.
+
+    Each card's map is `runway_map_svg(runway_id)`: the whole airfield,
+    every registry entry drawn at the bearing its own designator states,
+    with this card's runway picked out. See that function for why every
+    card draws every runway and why the geometry is parsed rather than
+    typed.
+
+    THE PHOTOGRAPHS STAY, AND STAY WHERE THEY WERE. `images_available`
+    is untouched, the session-gated `/runway-image/{id}.png` route is
+    untouched, and the three PNGs on disk are untouched. The map is
+    ADDED above the card's number; the `<img>` keeps its existing slot
+    below it, so `.runway-card__image`'s own rule and the two-of-three
+    availability behaviour need no edit at all. The map and the
+    photograph answer different questions — where this runway is, and
+    what it looks like — and deleting real imagery in favour of a
+    schematic would be irreversible in a way adding one is not.
     """
     effective_runway_id = _submitted_or_current(
         submitted, "tracked_runway", current_runway_id)
@@ -1759,13 +2302,15 @@ def runway_fieldset(
             '<label class="%s"%s>'
             '<input type="radio" name="tracked_runway" value="%s" class="visually-hidden" '
             'form="%s"%s>'
+            "%s"
             '<span class="runway-card__number">%s</span>'
             "%s"
             '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
             "</label>"
             % (
                 card_class, current_attr_html,
-                escaped_id, SETTINGS_FORM_ID, checked, escape_html(label),
+                escaped_id, SETTINGS_FORM_ID, checked,
+                runway_map_svg(runway_id), escape_html(label),
                 image_html, layout.icon_html("icon-check"),
                 escape_html(i18n.t("Selected")),
             )
@@ -1946,6 +2491,110 @@ def quick_led_form_html(current_led_enabled):
     )
 
 
+# --- 25-04-PLAN.md Task 1 (CFG-48): the wrapping-midnight arithmetic ---
+#
+# Settled BEFORE anything is drawn, because the defect it exists to
+# prevent is a picture that is confidently wrong: 23:00 to 07:00 is eight
+# hours going forward through midnight and sixteen going the other way,
+# and an `end - start` implementation draws the sixteen while the card
+# says eight. The shipped default window is exactly that case, so this is
+# not a boundary somebody might one day reach — it is the value the
+# device leaves the factory with.
+#
+# ONE PARSE DISCIPLINE, NOT TWO. `_normalised_time_html()` below already
+# owned an inline `^\d{2}:\d{2}$`; it is lifted to the constant here and
+# both read it, so a future loosening cannot apply to the text and not to
+# the geometry (or the reverse) — which would be a card whose printed 24h
+# sibling and whose drawn arc disagree about what a stored value means.
+_HHMM_RE = re.compile(r"^\d{2}:\d{2}$")
+
+QUIET_WINDOW_MINUTES_PER_DAY = 24 * 60
+
+# `start_fraction` and `sweep_fraction` are turns of the ring, in the
+# convention companion/draw.py's `unit_point_on_circle()` and
+# `unit_circle_dash_array()` already share: 0 at twelve o'clock, growing
+# CLOCKWISE. `minutes` is the same span in whole minutes.
+#
+# The sweep is DERIVED FROM `minutes` inside the one function below and
+# nowhere else. That is the whole reason this is a named triple rather
+# than two separate helpers: a duration computed here and a sweep
+# computed at the drawing site is exactly how a card comes to print
+# "8h" beside an arc covering two thirds of the day.
+QuietWindowSpan = collections.namedtuple(
+    "QuietWindowSpan", "start_fraction sweep_fraction minutes")
+
+
+def quiet_window_minute_of_day(value):
+    """`value` ("HH:MM") as whole minutes since local midnight, or `None`
+    when it is not a real time of day. Never raises.
+
+    `None` IS THE "RENDER NOTHING" SIGNAL, matching
+    `_normalised_time_html()`'s own omit-don't-fabricate convention
+    directly below — an unset or unparseable stored window must draw no
+    arc at all rather than a plausible-looking one starting at midnight.
+    The values reaching here are already server-validated HH:MM by
+    `handle_post()`; this is the second gate, not the first.
+
+    The shape regex alone is not enough and the range check is not
+    decoration: `^\\d{2}:\\d{2}$` accepts "99:99", which would become
+    minute 5,999 of a 1,440-minute day and send every fraction below off
+    the ring.
+    """
+    if not value or not _HHMM_RE.match(str(value)):
+        return None
+    hours, minutes = (int(part) for part in str(value).split(":"))
+    if hours > 23 or minutes > 59:
+        return None
+    return hours * 60 + minutes
+
+
+def quiet_window_span(start_hm, end_hm):
+    """The quiet window as a `QuietWindowSpan`, or `None` when either end
+    does not parse. Never raises (T-25-04-C: an unparseable stored window
+    must not take the whole Display page down).
+
+    ALWAYS FORWARD FROM `start_hm`, THROUGH MIDNIGHT IF NECESSARY, which
+    is a modulo and not a subtraction. 23:00 to 07:00 is 480 minutes;
+    07:00 to 23:00 is its complement, 960. Both are legitimate windows
+    and the pair is what proves direction is honoured rather than
+    accidentally symmetric.
+
+    THE THREE DEGENERATE CASES, STATED RATHER THAN DISCOVERED:
+
+      EQUAL START AND END IS A ZERO-LENGTH WINDOW, NOT A WHOLE DAY.
+      `server.device_config.seconds_until_quiet_hours_end()` is the
+      authority here and its docstring already settles it out loud: "when
+      `start_hm == end_hm` the window is zero-width and this always
+      returns `None` for every instant - a zero-width window is never
+      active, and that is intentional rather than a bug to 'fix' into an
+      always-active window." `(end - start) % 1440` returns 0 for that
+      input, so this function agrees with the server by construction
+      rather than by coincidence, and a check asserts the two agree on a
+      shared instant instead of pinning a number in isolation.
+
+      A 24-HOUR WINDOW IS UNREACHABLE THROUGH TWO HH:MM VALUES, and that
+      follows from the paragraph above rather than being a separate rule:
+      the only pair whose forward distance could be 1440 is a pair with
+      equal ends, and that pair is already spoken for as zero. The
+      largest window this control can express is therefore 1439 minutes
+      (23:59), which is what the dial's own `aria-valuemax` says too.
+
+      AN UNPARSEABLE END RENDERS NOTHING. `None` propagates out of
+      `quiet_window_minute_of_day()` and out of here; it is never a zero
+      span, because a zero span draws a real (empty) window and would
+      claim the device has one configured.
+    """
+    start = quiet_window_minute_of_day(start_hm)
+    end = quiet_window_minute_of_day(end_hm)
+    if start is None or end is None:
+        return None
+    minutes = (end - start) % QUIET_WINDOW_MINUTES_PER_DAY
+    return QuietWindowSpan(
+        start / float(QUIET_WINDOW_MINUTES_PER_DAY),
+        minutes / float(QUIET_WINDOW_MINUTES_PER_DAY),
+        minutes)
+
+
 def _normalised_time_html(value):
     """B14 (22-AUDIT.md, 22-10-PLAN.md Task 2): the normalised 24h value
     rendered as a VISIBLE sibling beside a native `<input type="time">`.
@@ -1972,10 +2621,362 @@ def _normalised_time_html(value):
     convention. The value is already server-validated HH:MM by
     `handle_post()`; this only ever echoes it back.
     """
-    if not value or not re.match(r"^\d{2}:\d{2}$", str(value)):
+    if not value or not _HHMM_RE.match(str(value)):
         return ""
     return ' <span class="text-label field-inline-value" aria-hidden="true">%s</span>' % escape_html(
         value)
+
+
+# --- 25-04-PLAN.md Task 2 (CFG-48): the server-drawn 24 h ring --------
+#
+# Class names as constants rather than literals at the emission site,
+# the same reason RUNWAY_MAP_* above gives: a class that exists in Python
+# and nowhere in companion/static/style.css paints nothing at all, and a
+# check scans the EMITTED markup's classes against the stylesheet for
+# exactly that.
+QUIET_DIAL_CLASS = "quiet-dial"
+QUIET_DIAL_RING_CLASS = "quiet-dial__ring"
+# The full circumference: the whole 24 hours, always drawn.
+QUIET_DIAL_DAY_CLASS = "quiet-dial__day"
+# The quiet window itself, drawn on top of the day.
+QUIET_DIAL_ARC_CLASS = "quiet-dial__arc"
+QUIET_DIAL_HOUR_CLASS = "quiet-dial__hour"
+QUIET_DIAL_READOUT_CLASS = "quiet-dial__readout"
+
+# User units, and CSS pixels — the aspect-locked `unit_*` scheme
+# companion/draw.py documents, with an explicit intrinsic size so the
+# <svg> can never fall back to the format's own 300x150 default.
+QUIET_DIAL_SIZE = 176
+# Chosen so the arithmetic below lands on whole numbers: 64 - 7 - 3 = 54.
+# A radius carrying a rounding tail would make every recomputed-from-the-
+# markup check invent a tolerance to hide it.
+QUIET_DIAL_STROKE = 14
+# Clear space between the stroke's OUTER edge and the viewBox edge. A
+# stroked arc extends half its stroke width past the nominal radius,
+# which is the usual way a ring clips itself on its own box.
+QUIET_DIAL_CLEARANCE = 3
+QUIET_DIAL_RADIUS = QUIET_DIAL_SIZE // 2 - QUIET_DIAL_STROKE // 2 - QUIET_DIAL_CLEARANCE
+
+# The four anchor hours, and four rather than twenty-four on purpose.
+# These are the quarter turns: they are the only hours whose position a
+# reader resolves at a GLANCE rather than by counting round from one that
+# is labelled, and twenty-four labels on a 128px ring is illegible at the
+# 360px contract floor either way. 00 is the one that has to be there —
+# the whole defect this control's arithmetic exists to prevent is about
+# what happens at midnight, so midnight is marked.
+#
+# Each hour is PAIRED with the modifier class that places it rather than
+# templated from a single "quiet-dial__hour--%d" constant. That is not a
+# stylistic choice: companion/test_i18n.py strips a literal's format
+# specs before deciding whether it is a bare identifier, so the templated
+# form reads to the D-05 scanner as untranslated user-facing copy and
+# fails Check 1 — measured on this tree. A class name is not copy, and
+# the paired form is the shape that says so.
+QUIET_DIAL_LABELLED_HOURS = (
+    (0, "quiet-dial__hour--0"),
+    (6, "quiet-dial__hour--6"),
+    (12, "quiet-dial__hour--12"),
+    (18, "quiet-dial__hour--18"),
+)
+
+# "23:00 → 07:00 · 8h". No letters of its own (the duration's unit comes
+# from layout.duration_text(), which speaks both languages), so it needs
+# no catalogue entry — see quiet_dial_readout_html() below.
+QUIET_DIAL_READOUT_TEMPLATE = "%s → %s · %s"
+
+# A full turn in degrees, and the quarter turn that moves <circle>'s own
+# three-o'clock dash origin to twelve o'clock — the same correction
+# companion/draw.py's ring_gauge() applies, restated here because this
+# drawing additionally rotates by the window's own start.
+_QUIET_DIAL_FULL_TURN_DEG = 360.0
+_QUIET_DIAL_TWELVE_OCLOCK_DEG = -90.0
+
+
+def quiet_dial_svg(span):
+    """The 24 h ring as one `<svg>`: a full-circumference day, plus the
+    quiet arc when `span` describes one. Never raises.
+
+    SERVER-DRAWN, AND THAT IS THE POINT OF THE WHOLE CONTROL. With
+    scripts blocked the visitor still sees a correct picture of the saved
+    window — only the DRAGGING is script, and only the dragging is behind
+    the `.js` gate. A dial whose arc needed a script would be a card that
+    renders an empty ring to anybody whose script failed.
+
+    `span` is `quiet_window_span()`'s return value, which already decided
+    the wrap; this function does no window arithmetic of its own and must
+    not grow any. The arc's sweep is `span.sweep_fraction` and its start
+    is `span.start_fraction`, both read straight off the one triple, so
+    the drawing cannot disagree with the duration printed beside it.
+
+    NO ARC AT ALL for `span is None` (nothing parseable is stored) and
+    for a zero-length window. Those are two different facts with the same
+    drawing, and that is correct: neither is a window, and neither may be
+    drawn as one. The empty-dash case is refused for
+    `ring_gauge()`'s own recorded reason — a zero-length dash renders as
+    a DOT under a round cap, so "no window" would read as "a few
+    minutes".
+
+    THE DASH ROUTE, NOT AN ARC PATH, again following `ring_gauge()`: an
+    arc <path> whose sweep is the whole circle is degenerate in SVG and
+    draws nothing. This control cannot reach a full turn (see
+    `quiet_window_span()`'s docstring), but the dash route also needs no
+    large-arc-flag reasoning and no trigonometry, and
+    `draw.unit_circle_dash_array()` already owns it.
+
+    `aria-hidden="true" focusable="false"`, and hand-written rather than
+    `draw.unit_canvas()` for the one reason `runway_map_svg()` above
+    records: that helper emits the viewBox, the intrinsic size and
+    `aria-hidden`, but not `focusable`. Every SHAPE still comes from
+    draw.py's own primitives, so the escaping and the
+    refuse-a-paint-decided-in-Python guard apply to all of them.
+
+    Both shapes carry `fill="none"` as a presentation ATTRIBUTE: a
+    stroked circle with no fill declared takes the format's default
+    black, which is a filled black disc over the middle of the card.
+    `stroke-width` is a presentation attribute too, and deliberately not
+    a stylesheet declaration — a CSS stroke-width of any specificity
+    beats a presentation attribute, which would flatten the geometry the
+    constants above derive.
+    """
+    centre = QUIET_DIAL_SIZE // 2
+    shapes = [draw.circle(QUIET_DIAL_DAY_CLASS, centre, centre, QUIET_DIAL_RADIUS, attrs={
+        "fill": "none",
+        "stroke-width": QUIET_DIAL_STROKE,
+    })]
+    if span is not None and span.minutes > 0:
+        shapes.append(draw.circle(
+            QUIET_DIAL_ARC_CLASS, centre, centre, QUIET_DIAL_RADIUS, attrs={
+                "fill": "none",
+                "stroke-width": QUIET_DIAL_STROKE,
+                "stroke-dasharray": draw.unit_circle_dash_array(
+                    span.sweep_fraction, QUIET_DIAL_RADIUS),
+                # Twelve o'clock plus the window's own start, clockwise —
+                # <circle>'s dash origin is three o'clock and grows
+                # clockwise already.
+                "transform": "rotate(%.4f %d %d)" % (
+                    _QUIET_DIAL_TWELVE_OCLOCK_DEG
+                    + _QUIET_DIAL_FULL_TURN_DEG * span.start_fraction,
+                    centre, centre),
+            }))
+    return (
+        '<svg class="%s" viewBox="0 0 %d %d" width="%d" height="%d" '
+        'aria-hidden="true" focusable="false">%s</svg>'
+    ) % (
+        escape_html(QUIET_DIAL_RING_CLASS), QUIET_DIAL_SIZE, QUIET_DIAL_SIZE,
+        QUIET_DIAL_SIZE, QUIET_DIAL_SIZE, "".join(shapes),
+    )
+
+
+def quiet_dial_html(span, handles_html=""):
+    """The ring and its four anchor-hour labels, as one positioned block.
+
+    THE LABELS ARE HTML OUTSIDE THE `<svg>`, NOT `<text>` INSIDE IT, and
+    that is structural rather than stylistic: companion/draw.py's
+    drawing contract owes a viewBox that contains the bounding box of any
+    text drawn inside it, and the only honest way to prove that in this
+    codebase is a real browser measurement. Keeping the labels out of the
+    canvas makes the defect unreachable by construction, and keeps them
+    at a constant CSS size instead of scaling with the box — the same
+    reason `draw.label_span()`'s own docstring gives.
+
+    `handles_html` is the `.js`-gated handle layer (25-04 Task 3) and is
+    empty for every caller that has none. It is rendered LAST so document
+    order is paint order: the handles sit above the ring they steer.
+    """
+    hours_html = "".join(
+        '<span class="text-label %s %s" aria-hidden="true">%02d</span>' % (
+            escape_html(QUIET_DIAL_HOUR_CLASS), escape_html(modifier_class), hour)
+        for hour, modifier_class in QUIET_DIAL_LABELLED_HOURS)
+    return '<div class="%s">%s%s%s</div>' % (
+        escape_html(QUIET_DIAL_CLASS), quiet_dial_svg(span), hours_html, handles_html)
+
+
+# --- 25-04-PLAN.md Task 3 (CFG-48): the two handles, gated ------------
+#
+# Everything below renders INSIDE 25-01's `.js` gate and nothing else
+# does. The ring, the readout, the three presets and both time inputs
+# all survive with scripts blocked; only the dragging is script, and
+# only the dragging is hidden when script does not run.
+QUIET_DIAL_HANDLE_LAYER_CLASS = "quiet-dial__handles"
+QUIET_DIAL_HANDLE_CLASS = "quiet-dial__handle"
+# The box value-controls.js measures the pointer angle against. It is the
+# ring's own square, so the angle is measured about the ring's centre.
+QUIET_DIAL_HANDLE_TRACK_CLASS = "quiet-dial__handle-track"
+
+# The steering range, in minutes since local midnight.
+#
+# THE MAXIMUM IS 1439, NOT 1440, and the difference is a real one: 1440
+# would make 00:00 and "24:00" two values for one instant, and the End
+# key would write a time no <input type="time"> accepts. 1439 is 23:59 —
+# the last minute of the day — and `clampToStep()`'s round-then-clamp
+# order reaches it exactly even though it is not on a step boundary.
+QUIET_DIAL_HANDLE_MIN = 0
+QUIET_DIAL_HANDLE_MAX = QUIET_WINDOW_MINUTES_PER_DAY - 1
+
+# THE KEYBOARD MODEL, AND IT IS THE NATIVE <input type="range"> ONE
+# RATHER THAN A NEW INVENTION. value-controls.js owns it: arrows move one
+# step, Page keys move ten steps, Home and End go to the two ends. With
+# this step that is arrows ±15 min, Page ±150 min and Home/End to
+# 00:00/23:59.
+#
+# 25-04-PLAN.md's own behaviour line asked for Page ±60. It is ±150 here,
+# deliberately, because the same plan's binding constraint — "it must
+# match the native <input type="range"> model 25-05 will inherit" — is
+# the stronger of the two, and the two cannot both hold: ten steps of 15
+# minutes is 10.4% of the day, which is exactly what a native range
+# control's Page keys do. A per-control page size would have been a
+# second keyboard model on the second settings page, which is the drift
+# this phase's one script exists to prevent.
+QUIET_DIAL_HANDLE_STEP = 15
+
+# The two ends, each with the field it steers and the accessible name
+# that says WHICH end it is. aria-valuetext carries the time itself and
+# nothing else (layout.VALUE_CONTROL_TEXT_TOKEN alone, no sentence around
+# it): a screen reader reading "one thousand three hundred and eighty"
+# instead of "23:00" is the whole reason aria-valuetext exists, and
+# repeating the label on every arrow press is noise, not information.
+QUIET_DIAL_START_LABEL = "Quiet hours start"
+QUIET_DIAL_END_LABEL = "Quiet hours end"
+
+
+def quiet_dial_handle_fraction(minute):
+    """`minute` as the 0..1 fraction of a turn the stylesheet positions
+    the handle from — and DELIBERATELY the same formula
+    value-controls.js's own `paint()` uses, `(value - min) / (max - min)`,
+    rather than the `minute / 1440` the arc is drawn from.
+
+    The two differ by at most 0.25 degrees (1439/1440 of a turn against
+    1439/1439 at the far end), which is a quarter of a pixel at this
+    ring's radius. Matching the script exactly is worth that: the server
+    paints the handle once and the script repaints it on every step, and
+    two formulas that agree in theory are how a handle comes to JUMP
+    imperceptibly on the first arrow press and then never quite line up
+    with the arc it is steering.
+    """
+    return minute / float(QUIET_DIAL_HANDLE_MAX)
+
+
+def quiet_dial_handles_html(start_hm, end_hm):
+    """The two drag handles, each in its own `.js`-gated wrapper.
+
+    EACH HANDLE IS A REAL `<button type="button">`, never a bare `<div>`.
+    A button is focusable, activatable and announced with no ARIA at all;
+    everything below only refines it. `type="button"` because a bare
+    `<button>` inside a form defaults to submit, and a handle that posted
+    the settings form on Enter would save on a keystroke meant to adjust
+    a value.
+
+    DRIVEN FROM THE TWO NATIVE INPUTS, NEVER FROM STATE OF ITS OWN. The
+    server renders each handle's position from the same effective value
+    the matching input is populated with, and value-controls.js re-reads
+    that input on every steer. That is what makes the three existing
+    presets move the handles with no code at all — they already write
+    into these two fields — and it is the cheapest available proof that
+    there is one source of truth.
+
+    NO HANDLE AT ALL for an end that does not parse: a handle at a
+    fabricated position claims a value that was never set, which is the
+    same omit-don't-fabricate rule `_normalised_time_html()` and
+    `quiet_dial_svg()` already follow.
+
+    WHEN THE TWO ENDS ARE CLOSE ENOUGH TO OVERLAP, WHICH IS A DECISION
+    AND NOT AN EMERGENT BEHAVIOUR:
+
+      * There is NO minimum separation in the value. A zero-length window
+        is a real, defined state — `server.device_config`'s own
+        arithmetic calls it never-active and means it — and refusing it
+        here would make a state reachable by typing unreachable by
+        dragging, which is a worse card, not a safer one.
+      * Z-ORDER IS DOCUMENT ORDER, and document order is paint order in
+        HTML: the END handle is emitted second and therefore sits above
+        the start handle. Neither carries a `z-index`.
+      * SO THE END HANDLE WINS A POINTER-DOWN IN THE OVERLAP. That is
+        sufficient rather than arbitrary: recovering from an overlap
+        needs only ONE end to be draggable, and moving it separates the
+        pair, after which both are independently grabbable again. The
+        start handle is never unreachable meanwhile — it stays its own
+        tab stop whatever it is painted under, and both times stay
+        typable in the two native inputs below.
+      * The separation at which BOTH handles are independently grabbable
+        is a measured consequence of the shared 44px hit target rather
+        than a number chosen here: the targets stop overlapping at about
+        22px of chord, which on this ring is about 94 minutes.
+        companion/test_browser_ux.py measures both handles at a window
+        narrower than that and records the result.
+    """
+    handles = []
+    for value, field, label in ((start_hm, "quiet_hours_start", QUIET_DIAL_START_LABEL),
+                                (end_hm, "quiet_hours_end", QUIET_DIAL_END_LABEL)):
+        minute = quiet_window_minute_of_day(value)
+        if minute is None:
+            continue
+        handles.append((
+            '<div class="value-control %s %s" %s %s="%s" %s="%s" %s="%d" %s="%d" %s="%d"'
+            ' %s="angular" %s="%s" %s="%s" style="--value-fraction: %.6f">'
+            '<span class="value-control__track %s" %s></span>'
+            '<button type="button" class="value-control__handle control-hit-area %s" %s'
+            ' role="slider" aria-valuemin="%d" aria-valuemax="%d" aria-valuenow="%d"'
+            ' aria-valuetext="%s" aria-label="%s"></button>'
+            "</div>"
+        ) % (
+            escape_html(QUIET_DIAL_HANDLE_LAYER_CLASS), escape_html(layout.JS_GATE_CLASS),
+            layout.VALUE_CONTROL_ATTR,
+            layout.VALUE_CONTROL_FIELD_ATTR, escape_html(field),
+            layout.VALUE_CONTROL_FORM_ATTR, escape_html(SETTINGS_FORM_ID),
+            layout.VALUE_CONTROL_MIN_ATTR, QUIET_DIAL_HANDLE_MIN,
+            layout.VALUE_CONTROL_MAX_ATTR, QUIET_DIAL_HANDLE_MAX,
+            layout.VALUE_CONTROL_STEP_ATTR, QUIET_DIAL_HANDLE_STEP,
+            layout.VALUE_CONTROL_GEOMETRY_ATTR,
+            layout.VALUE_CONTROL_FORMAT_ATTR, escape_html(layout.VALUE_CONTROL_FORMAT_CLOCK),
+            layout.VALUE_CONTROL_TEXT_ATTR, escape_html(layout.VALUE_CONTROL_TEXT_TOKEN),
+            quiet_dial_handle_fraction(minute),
+            escape_html(QUIET_DIAL_HANDLE_TRACK_CLASS), layout.VALUE_CONTROL_TRACK_ATTR,
+            escape_html(QUIET_DIAL_HANDLE_CLASS), layout.VALUE_CONTROL_HANDLE_ATTR,
+            QUIET_DIAL_HANDLE_MIN, QUIET_DIAL_HANDLE_MAX, minute,
+            escape_html(value), escape_html(i18n.t(label)),
+        ))
+    return "".join(handles)
+
+
+def quiet_dial_readout_html(start_hm, end_hm, span):
+    """"23:00 → 07:00 · 8h" — the window in words, or nothing at all when
+    `span` is None.
+
+    `aria-hidden="true"`, AND THAT IS THE SAME REASONING
+    `_normalised_time_html()` ABOVE ALREADY RECORDS, written out here so
+    a later reader does not "fix" it into a live region. Both time inputs
+    announce their own values natively, in the visitor's own notation;
+    repeating them here would say the same thing twice with nothing
+    added. The visual duplication is this element's whole job and the
+    aural duplication is not.
+
+    IT IS SPECIFICALLY NOT A `role="status"` / `aria-live` REGION, and
+    that is CFG-52 rather than a preference. Dragging a handle fires
+    continuously, and a live region would re-announce the identical
+    phrase on every step — the exact defect Phase 23 hit with its three
+    switches. The focused handle's own `aria-valuetext` is the native,
+    debounced announcement path and it is enough.
+
+    The duration comes from `layout.duration_text()`, this app's ONE
+    length-of-time ladder, rather than a second set of boundaries
+    invented here. It is COARSE by construction — it names the largest
+    unit that fits, so a 90-minute window reads "1h" — and that is
+    accepted rather than worked around: the two exact endpoints are
+    printed immediately beside it, and a second duration ladder in a page
+    module is precisely the drift that ladder exists to prevent.
+
+    Escaped once, after formatting, matching this file's
+    "translate first, escape once" convention. Both times are already
+    known to be real HH:MM here (a `span` exists), so this escaping is
+    the convention holding rather than a live need — T-25-04-B.
+    """
+    if span is None:
+        return ""
+    return '<p class="time-value %s" aria-hidden="true">%s</p>' % (
+        escape_html(QUIET_DIAL_READOUT_CLASS),
+        escape_html(QUIET_DIAL_READOUT_TEMPLATE % (
+            start_hm, end_hm, layout.duration_text(span.minutes * 60))),
+    )
 
 
 def quiet_hours_group(current_start, current_end, errors=None, submitted=None, delay_sentence=None):
@@ -2118,6 +3119,28 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     # level request, and the visible sibling below is the fix that
     # actually holds when a browser ignores it (a Chromium in en-US
     # renders "11:00 PM" either way).
+    # 25-04-PLAN.md Task 2 (CFG-48): the server-drawn ring, rendered
+    # between the caption and the presets. WHERE IT GOES, AND WHY IT IS
+    # NOT A REORDERING: 10-UI-SPEC.md locks the order of the four
+    # CONTROLS — presets, then Start, then End, each on its own
+    # full-width line — and all four keep their positions and their
+    # adjacency. The ring is not a control; it is a picture of what is
+    # currently set, so it reads before the things that change it
+    # (what this is now, then how to change it), and putting it after
+    # the End field would separate the picture from the caption that
+    # introduces it while pushing it below the fold at 360px.
+    #
+    # Drawn from the SAME effective values the two inputs are populated
+    # from, never from `current_start`/`current_end` directly. That is
+    # D-07's echo rule, which the inputs already follow: on a rejected
+    # save the arc must show what the visitor actually submitted, not
+    # what is stored, or the picture and the fields disagree on exactly
+    # the screen where a mistake is being fixed.
+    dial_span = quiet_window_span(effective_start, effective_end)
+    dial_html = quiet_dial_html(
+        dial_span, quiet_dial_handles_html(effective_start, effective_end))
+    readout_html = quiet_dial_readout_html(effective_start, effective_end, dial_span)
+
     site_lang = prefs.current_lang()
     effective_delay_sentence = (
         delay_sentence if delay_sentence is not None else i18n.t(frame_state.DELAY_UNKNOWN))
@@ -2126,6 +3149,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
+        "%s%s"
         "%s"
         '<label>%s <input type="time" name="quiet_hours_start" value="%s" required'
         ' lang="%s" form="%s"%s>%s</label>'
@@ -2139,6 +3163,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
         escape_html(caption_html),
+        dial_html, readout_html,
         preset_row_html,
         escape_html(i18n.t("Start")),
         escape_html(effective_start), escape_html(site_lang), SETTINGS_FORM_ID, start_error_attrs,
@@ -2151,7 +3176,390 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     )
 
 
-def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, next_wake_clock=None):
+def wake_gauge_interval_s(current_wake_interval_s, submitted=None):
+    """The interval the two gauges describe, as an int inside
+    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]`, or `None` when there is
+    no such value — in which case NOTHING this plan adds renders at all.
+
+    THE SAME OMIT-DON'T-FABRICATE RULE THE `value` ATTRIBUTE BELOW
+    ALREADY FOLLOWS, and the same one `quiet_dial_handles_html()` applies
+    to a handle whose end does not parse: a gauge for a value that was
+    never set claims a fact about the frame that is not true (D-07), and
+    a slider pre-positioned at a fabricated point is worse still,
+    because dragging it saves that fabrication.
+
+    D-07's ECHO RULE IS HONOURED WHERE IT CAN BE, AND ONLY THERE. On a
+    rejected save `submitted` carries the raw string the visitor typed,
+    and the gauges describe THAT rather than the stored value — the
+    identical rule 25-04 applied to the quiet arc, for the identical
+    reason: on exactly the screen where a mistake is being fixed, the
+    picture and the field must not disagree. But a raw submission is
+    where the out-of-range values live ("7", "99999", "abc"), and a
+    gauge for 7 seconds would describe a cadence this device cannot be
+    configured to use. So an echo that is not a usable interval renders
+    no gauge rather than a gauge about nothing.
+
+    Total by construction: a non-string, a non-numeric string, a float
+    string, a bool and `None` all resolve to `None` and nothing raises.
+    """
+    if submitted is not None and "wake_interval_s" in submitted:
+        raw = submitted["wake_interval_s"]
+        try:
+            candidate = int(str(raw).strip())
+        except (TypeError, ValueError):
+            return None
+    elif isinstance(current_wake_interval_s, int) and not isinstance(
+            current_wake_interval_s, bool):
+        candidate = current_wake_interval_s
+    else:
+        return None
+    if device_config.WAKE_INTERVAL_MIN_S <= candidate <= device_config.WAKE_INTERVAL_MAX_S:
+        return candidate
+    return None
+
+
+def _wake_minutes(interval_s):
+    """`interval_s` as a whole number of minutes, ROUNDED UP.
+
+    The ONE expression both gauges and companion/static/value-controls.js
+    read the minute count off — the script divides by the same scale the
+    markup hands it and takes the same ceiling, so the sentence and the
+    field cannot disagree by construction rather than by agreement.
+
+    Up rather than down, because both sentences are claims about a
+    BOUND: a 90-second cadence bounds the wait at a minute and a half,
+    and `90 // 60` would print "at most 1 min", which is FALSE. The
+    ceiling prints "at most 2 min", which is true and merely loose.
+    Every value this control can produce is a whole number of minutes
+    anyway (its step is a minute); the ceiling exists for the values
+    already ON DISK from before this control existed.
+    """
+    return -(-int(interval_s) // WAKE_GAUGE_SECONDS_PER_MINUTE)
+
+
+def wake_freshness_text(interval_s):
+    """"A plane reaches the frame at most 5 min after it passes." — the
+    bound, or `""` when there is no interval to bound.
+
+    THE WORD "AT MOST" IS THE WHOLE SENTENCE. The frame learns about a
+    plane at its next wake, so a plane that passes one instant after a
+    wake appears one whole interval later and never later than that —
+    true for every interval, by construction. Drop those two words and
+    the same sentence becomes a claim about TYPICAL behaviour, which
+    nothing in this project measures.
+
+    The minute count is `_wake_minutes()`'s, shared with the relative
+    clause and with the script, so the sentence and the field cannot
+    disagree.
+    """
+    if interval_s is None:
+        return ""
+    return i18n.t(WAKE_FRESHNESS_TEXT).replace(
+        layout.VALUE_CONTROL_TEXT_TOKEN, str(_wake_minutes(interval_s)))
+
+
+def wake_battery_observed_text(interval_s, battery_rows=None):
+    """The battery half: an absolute figure ONLY when this frame's own
+    observed history supports one, and the named "not enough history
+    yet" sentence in every other case. `""` when there is no interval.
+
+    NAMED FOR WHAT IT IS — a SENTENCE about the observed series, not a
+    life computation — and the name matters beyond taste. The first
+    draft was called `wake_battery_life_text()` and
+    `test_companion_app.py`'s one-home guard failed it by name:
+    *"companion/pages/config_page.py defines wake_battery_life_text() —
+    a second battery-LIFE computation"*. That guard is deliberately
+    blunt and it was right to object to the NAME; the answer is not to
+    allow-list the name (which would let a real second estimate in under
+    it later), it is to stop claiming to compute a lifetime. Nothing
+    here computes one: the only arithmetic in this function is choosing
+    between a singular and a plural wording.
+
+    THE FIGURE IS `battery.battery_life_estimate()`'s, NEVER THIS
+    MODULE'S. There is no division anywhere in this file that could
+    produce a days-remaining number, deliberately, and a check scans
+    `companion/pages/` for one. Four of that function's five named
+    trends carry no figure at all (no reading, not enough history, a
+    RISING series — a charged device has a positive slope and dividing
+    by it yields a negative or infinite lifetime — and a flat one), and
+    all four land on the same honest sentence here.
+
+    `battery_rows` is a daily-average series in
+    `server/history_db.py`'s row shape; `None`/`()` is the ordinary
+    state of a fresh deployment and produces the unknown sentence rather
+    than an empty card.
+    """
+    if interval_s is None:
+        return ""
+    estimate = battery.battery_life_estimate(
+        battery_rows or (), interval_s, interval_s)
+    days = estimate["days_remaining"]
+    if (estimate["trend"] == battery.LIFE_TREND_FALLING
+            and isinstance(days, int) and not isinstance(days, bool)):
+        template = WAKE_BATTERY_DAY_TEXT if days == 1 else WAKE_BATTERY_DAYS_TEXT
+        return i18n.t(template).replace(
+            layout.VALUE_CONTROL_TEXT_TOKEN, str(days))
+    return i18n.t(WAKE_BATTERY_UNKNOWN_TEXT)
+
+
+def wake_screen_off_text():
+    """"While the screen is off the frame wakes every 5m instead,
+    whatever this is set to."
+
+    Rendered unconditionally beside the battery sentence rather than
+    hidden behind a `display_enabled` read: the clause is true whichever
+    way that switch is set, and a qualifier that appears only once the
+    screen is already off is a qualifier nobody reads in time.
+
+    The cadence goes through `layout.duration_text()` — this app's ONE
+    duration ladder — because it is a fixed constant no script has to
+    reproduce. The two sentences above deliberately do not, for the
+    opposite reason: their number changes as the slider moves, and a
+    ladder that switches unit at an hour cannot be recomputed in the
+    browser without a second copy of it in JavaScript.
+    """
+    return i18n.t(WAKE_BATTERY_SCREEN_OFF_TEXT) % layout.duration_text(
+        device_config.DISPLAY_OFF_SLEEP_S)
+
+
+def wake_battery_relative_template(saved_interval_s):
+    """The relative clause's TEMPLATE, with the saved cadence already
+    written into it and `#` left standing for the proposed one — or `""`
+    when there is no usable saved cadence to compare against.
+
+    "This setting wakes the frame every # min instead of every 10 min."
+
+    TWO CADENCES NAMED IN FULL, NOT A RATIO, and the reason is a
+    language one rather than a taste one. A ratio needs a decimal
+    ("≈ 1.5× more often"), a decimal needs a decimal MARK, and French
+    writes it with a comma — so a ratio recomputed in the browser would
+    either print an English decimal on a French page or need the mark
+    handed to the script as one more attribute. Two whole minute counts
+    need neither: they are integers in both languages, the "instead of"
+    says the direction without a second wording for each side, and the
+    reader does not have to remember what the saved value was in order
+    to read the sentence. The half-up/half-to-even rounding trap that a
+    shared decimal would have carried between Python and JavaScript
+    disappears with it.
+
+    THE SAVED CADENCE IS BAKED IN HERE, server-side, because it is fixed
+    for the life of the page: only the PROPOSED one moves, so only the
+    proposed one is left as the quantity mark. That is what keeps the
+    script to one substitution and keeps this sentence out of
+    JavaScript.
+
+    Routed through `battery.battery_life_estimate()`'s own
+    `relative_factor` for its GUARD rather than for a number: that
+    function already refuses a bool cadence, a non-numeric one, a
+    non-positive one and an absurd one, and a clause built on a cadence
+    it would have refused is a clause about nothing.
+    """
+    estimate = battery.battery_life_estimate(
+        (), saved_interval_s, saved_interval_s)
+    if estimate["relative_factor"] is None:
+        return ""
+    return i18n.t(WAKE_BATTERY_INSTEAD_TEXT) % _wake_minutes(saved_interval_s)
+
+
+def wake_battery_relative_text(proposed_interval_s, saved_interval_s):
+    """The relative clause as the SERVER would render it for a given
+    proposal — `""` when the two cadences are the same, which is what
+    every real page render produces.
+
+    The clause exists for companion/static/value-controls.js to fill
+    while a drag is in flight; the server renders the saved interval
+    against itself, and "this setting wakes the frame every 10 min
+    instead of every 10 min" would be noise on every page load. `""`
+    rather than a hidden element, so there is nothing to un-hide and no
+    second visibility mechanism.
+
+    It is nonetheless a real function with a real return, because it is
+    the ONE definition of this sentence in Python: companion/
+    test_browser_ux.py drives the slider in a browser and compares the
+    script's own output against this, so "the script says what the
+    server would have said" is measured rather than assumed.
+
+    IT NEVER CARRIES A DAYS FIGURE, and that is the whole division of
+    labour with `wake_battery_observed_text()` above. This half is
+    arithmetic on two cadences and is therefore always available and
+    always live; the absolute half comes out of observed history and is
+    server-rendered once. A script that could recompute the absolute
+    half would be a script that could invent one — which is the defect
+    this split makes unreachable rather than merely unlikely.
+    """
+    template = wake_battery_relative_template(saved_interval_s)
+    if not template:
+        return ""
+    estimate = battery.battery_life_estimate(
+        (), saved_interval_s, proposed_interval_s)
+    factor = estimate["relative_factor"]
+    if factor is None or factor == 1.0:
+        return ""
+    return template.replace(
+        layout.VALUE_CONTROL_TEXT_TOKEN, str(_wake_minutes(proposed_interval_s)))
+
+
+def wake_battery_rows(state_dir, now=None):
+    """`WAKE_BATTERY_WINDOW_DAYS` of daily battery averages for the
+    battery sentence, or `()` on any read failure or absent state dir.
+
+    Never raises, matching `_rule_suggestion_chips_html()`'s and
+    `_theme_live_preview_html()`'s own fail-soft contract for the
+    identical class of read in this same module: a settings page that
+    500s because a battery history table could not be opened would be a
+    far worse defect than a card that says it has no history yet — which
+    is exactly what `wake_battery_observed_text()` renders from `()`.
+
+    Read here rather than threaded through `ctx`: this is the only card
+    in the app that needs the series, it renders on one scope of one
+    page, and `companion/app.py`'s `page_context()` runs on EVERY
+    authenticated render.
+    """
+    if not state_dir:
+        return ()
+    try:
+        with history_db.open_db(state_dir) as conn:
+            return history_db.daily_battery_averages(
+                conn, since=_wake_battery_cutoff_iso(now))
+    except Exception:
+        return ()
+
+
+def _wake_battery_cutoff_iso(now):
+    """The `since=` bound for the read above, or `None` when `now` does
+    not parse — in which case `daily_battery_averages()` degrades to an
+    UNBOUNDED read, health_page's own documented choice for the one
+    input it does not control: more history rather than none.
+    """
+    parsed = layout.parse_iso(now)
+    if parsed is None:
+        return None
+    return (parsed - timedelta(days=WAKE_BATTERY_WINDOW_DAYS)).isoformat(
+        timespec="seconds")
+
+
+def wake_gauges_html(interval_s, battery_rows=None):
+    """The two gauges, as two muted sentences — or `""` when there is no
+    interval for them to describe.
+
+    SERVER-RENDERED, AND OUTSIDE THE `.js` GATE ENTIRELY. This is the
+    same split 25-04's dial made: with scripts blocked a visitor can
+    still type an interval, still read what it means for freshness and
+    for battery, and still save it. Only the slider is gated, because a
+    slider with no script is a control that drags and shows nothing.
+    Rendering these server-side is also what gives the script something
+    to UPDATE rather than something to create — so a failed script
+    leaves correct sentences rather than empty ones.
+
+    Both wear `.text-label .section-caption`, the app's existing muted
+    voice, and neither is a live region: they change on every step of a
+    drag, and an `aria-live` region here would re-announce the same
+    phrase continuously — the defect Phase 23 hit with its three
+    switches, and the same call 25-04 made for its readout (CFG-52). The
+    range announces itself natively instead, and points at these two by
+    `aria-describedby`.
+    """
+    if interval_s is None:
+        return ""
+    # THE FRESHNESS SENTENCE IS ENTIRELY LIVE and the battery one is
+    # only PARTLY live, and that split is the honesty rule made
+    # structural. The freshness paragraph is itself the readout: its
+    # whole text is arithmetic on the value, so the script may rewrite
+    # all of it. The battery paragraph's figure came out of observed
+    # history, so the script may not touch it — only the trailing span,
+    # whose template names two cadences and contains no days figure at
+    # all. A script cannot become braver than the server was, because
+    # there is no template here through which it could.
+    return (
+        '<p class="text-label section-caption %s" id="%s" %s="%s" %s="%s" %s="%d">%s</p>'
+        '<p class="text-label section-caption %s" id="%s">%s %s '
+        '<span %s="%s" %s="%s" %s="%d" %s="%d">%s</span></p>'
+    ) % (
+        escape_html(WAKE_GAUGE_CLASS), escape_html(WAKE_GAUGE_FRESHNESS_ID),
+        layout.VALUE_CONTROL_READOUT_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
+        layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        escape_html(i18n.t(WAKE_FRESHNESS_TEXT)),
+        layout.VALUE_CONTROL_READOUT_SCALE_ATTR, WAKE_GAUGE_SECONDS_PER_MINUTE,
+        escape_html(wake_freshness_text(interval_s)),
+
+        escape_html(WAKE_GAUGE_CLASS), escape_html(WAKE_GAUGE_BATTERY_ID),
+        escape_html(wake_battery_observed_text(interval_s, battery_rows)),
+        escape_html(wake_screen_off_text()),
+        layout.VALUE_CONTROL_READOUT_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
+        layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        escape_html(wake_battery_relative_template(interval_s)),
+        layout.VALUE_CONTROL_READOUT_SCALE_ATTR, WAKE_GAUGE_SECONDS_PER_MINUTE,
+        # THE BASE: the readout says nothing at all while the proposed
+        # value is the saved one, which is every page load and every
+        # scripts-blocked render.
+        layout.VALUE_CONTROL_READOUT_BASE_ATTR, interval_s,
+        escape_html(wake_battery_relative_text(interval_s, interval_s)),
+    )
+
+
+def wake_slider_html(interval_s):
+    """The range input, inside 25-01's `.js` gate — or `""` when there is
+    no saved interval for it to start from.
+
+    IT CARRIES NO `name`, AND THAT IS THE WHOLE DESIGN. "Why does this
+    input have no name" is exactly the question a later editor answers
+    wrongly by adding one, so: a named range would post a SECOND value
+    for `wake_interval_s` on every save, and whichever arrived last
+    would win, silently. The `<input type="number">` above is the only
+    control on this card that posts, and this one only ever writes into
+    it through companion/static/value-controls.js.
+
+    NO `role="slider"` EITHER. A native range input already exposes
+    slider semantics, a native `aria-valuenow` and the keyboard model
+    (arrows one step, Page ten, Home and End to the ends) that
+    value-controls.js implements by hand for a `<div>` handle — adding
+    the role on top is the classic double-role error. It gets an
+    `aria-label` naming it (the number input's own label already names
+    that control) and an `aria-describedby` pointing at the two gauges,
+    which is what makes the trade-off audible rather than only visible.
+
+    GATED, because a range with no script is a control that drags and
+    shows the visitor nothing — 25-RESEARCH.md's "renders but does
+    nothing", in its purest form. The two gauges and the number input
+    are NOT gated: with scripts blocked a visitor still reads what the
+    interval means and still types and saves one.
+
+    `min`/`max` come from `device_config`, never re-typed — the same
+    cross-file convention the number input already follows, so one
+    control can never accept what the other (and
+    `save_device_config()`'s own server-side re-check) rejects.
+
+    NO INITIAL `--value-fraction`, unlike 25-04's handles: a native
+    range paints its own thumb from its own value, so there is no
+    geometry here for the stylesheet to place. The property is still
+    written by the script's shared paint and is simply unused.
+    """
+    if interval_s is None:
+        return ""
+    return (
+        '<div class="%s %s" %s %s="%s" %s="%s" %s="%d" %s="%d" %s="%d">'
+        '<input type="range" class="%s" %s value="%d" min="%d" max="%d" step="%d"'
+        ' aria-label="%s" aria-describedby="%s %s">'
+        "</div>"
+    ) % (
+        escape_html(WAKE_SLIDER_CLASS), escape_html(layout.JS_GATE_CLASS),
+        layout.VALUE_CONTROL_ATTR,
+        layout.VALUE_CONTROL_FIELD_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
+        layout.VALUE_CONTROL_FORM_ATTR, SETTINGS_FORM_ID,
+        layout.VALUE_CONTROL_MIN_ATTR, device_config.WAKE_INTERVAL_MIN_S,
+        layout.VALUE_CONTROL_MAX_ATTR, device_config.WAKE_INTERVAL_MAX_S,
+        layout.VALUE_CONTROL_STEP_ATTR, WAKE_SLIDER_STEP_S,
+        escape_html(WAKE_SLIDER_INPUT_CLASS), layout.VALUE_CONTROL_INPUT_ATTR,
+        interval_s,
+        device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
+        WAKE_SLIDER_STEP_S,
+        escape_html(i18n.t(WAKE_SLIDER_LABEL)),
+        escape_html(WAKE_GAUGE_FRESHNESS_ID), escape_html(WAKE_GAUGE_BATTERY_ID),
+    )
+
+
+def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, next_wake_clock=None,
+                        battery_rows=None):
     """The Wake interval settings group (11-UI-SPEC.md, 11-RESEARCH.md
     Pattern 4): a fifth sibling of the Theme/Runway/Diagnostic LED/Quiet
     hours groups inside the single merged `<form action="{SETTINGS_ROUTE}">`,
@@ -2207,6 +3615,16 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
     validation still applies on the user's NEXT submit attempt (nothing
     here suppresses it) — that is a feature, not a bug: it is what
     prompts them to fix the value before it can be saved.
+
+    25-05-PLAN.md Task 1 (CFG-49): `battery_rows` is the daily-average
+    battery series the battery gauge is derived from, `()` by default —
+    every pre-existing call site keeps producing its previous output for
+    the input, the label, the unit sibling and the error block, which
+    are UNTOUCHED by this plan and asserted so. The two gauges are
+    APPENDED after the error block, never interleaved with it: they are
+    what the setting MEANS, so they read after the control that sets it,
+    and appending is also what makes "the rest of the card is
+    byte-identical" a structural fact rather than a careful edit.
     """
     if submitted is not None and "wake_interval_s" in submitted:
         raw_submitted = submitted["wake_interval_s"]
@@ -2222,6 +3640,11 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
     error_attrs = _field_error_attrs(
         errors, "wake_interval_s", "wake-interval-s", hint_id=WAKE_INTERVAL_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "wake_interval_s", "wake-interval-s")
+    # ONE resolution of the gauges' and the slider's subject, so the
+    # three of them can never describe different values — and so
+    # "everything this plan adds renders together or not at all" is a
+    # property of the code rather than of three matching conditions.
+    gauge_interval_s = wake_gauge_interval_s(current_wake_interval_s, submitted)
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
@@ -2244,6 +3667,17 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         # _normalised_time_html()'s own sibling (B14).
         '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
         "%s"
+        # 25-05-PLAN.md Tasks 1 and 2 (CFG-49): the gated slider and then
+        # the two gauges, APPENDED. Every element above this line is
+        # byte-identical to its pre-plan output, in all six argument
+        # shapes, and a check diffs them.
+        #
+        # The slider sits AFTER the field's own error message rather than
+        # between the two: an error has to read as attached to the
+        # control it is about, and a control inserted between them breaks
+        # that adjacency. The gauges come last because they are what the
+        # setting MEANS — the control first, its consequences after.
+        "%s%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
@@ -2257,6 +3691,8 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         value_attr, error_attrs,
         escape_html(WAKE_INTERVAL_UNIT_LABEL),
         error_html,
+        wake_slider_html(gauge_interval_s),
+        wake_gauges_html(gauge_interval_s, battery_rows),
     )
 
 
@@ -3520,9 +4956,15 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
             current_quiet_start, current_quiet_end,
             errors=errors, submitted=submitted, delay_sentence=quiet_hours_delay_sentence),
+        # 25-05-PLAN.md Task 1 (CFG-49): the battery series is read
+        # INSIDE the lambda, so it is read only on a scope that actually
+        # renders this group (Device and the legacy SCOPE_ALL) and never
+        # on Display — `builders` is a dict of thunks precisely so an
+        # entry costs nothing until its group is in scope.
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
             current_wake_interval_s, errors=errors, submitted=submitted,
-            next_wake_clock=next_wake_clock),
+            next_wake_clock=next_wake_clock,
+            battery_rows=wake_battery_rows(ctx.get("state_dir"), ctx.get("now"))),
         # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): screens.GROUP_DISPLAY has
         # no entry here any more — display_group() is retired outright,
         # matching screens.GROUP_THEME/screens.GROUP_CALENDAR's own

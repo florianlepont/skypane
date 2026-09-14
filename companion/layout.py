@@ -231,6 +231,162 @@ RELATIVE_TIME_SCRIPT_SRC = "/static/relative-time.js"
 # carry the Frame strip's two, Device carries the LED switch's own
 # sibling form).
 QUICK_SWITCH_SCRIPT_SRC = "/static/quick-switch.js"
+# 25-01-PLAN.md Task 1 (CFG-46): the FIFTEENTH script on the
+# authenticated shell and the seventeenth in the tree, under the same
+# duplicated-not-imported contract as every SCRIPT_SRC above —
+# companion/app.py's VALUE_CONTROLS_SCRIPT_ROUTE must equal this
+# exactly, and a harness asserts it. Registered on the shell rather than
+# per page because its two known consumers (25-04's quiet-hours dial and
+# 25-05's wake-interval slider) already live on two different settings
+# pages and the set is expected to grow; its listeners are delegated at
+# document level and its guard returns before touching anything on a
+# page with no [data-value-control] wrapper.
+#
+# THIS IS PHASE 25'S ONLY NEW SCRIPT. Five controls are being built on
+# top of it; a second one would be a second copy of one clamp/round/
+# keyboard model.
+VALUE_CONTROLS_SCRIPT_SRC = "/static/value-controls.js"
+
+# 25-01-PLAN.md Task 1 (CFG-46): the registration seam value-controls.js
+# reads, defined HERE so a page module never types an attribute name and
+# so a rename cannot drift from the script that consumes it (a harness
+# asserts the served script body names every one of them). A control
+# opts in entirely by attribute — there is no per-control JavaScript,
+# which is what keeps the phase's script budget at one.
+#
+# The floor these names sit on (D-09, the no-JS control contract's
+# points 1 and 2): the wrapper is a LAYER, never the control. The value
+# is always held by the native <input>/<select> named by
+# VALUE_CONTROL_FIELD_ATTR, which the server renders unconditionally.
+VALUE_CONTROL_ATTR = "data-value-control"
+VALUE_CONTROL_FIELD_ATTR = "data-value-field"
+# The id of the form that input belongs to. Load-bearing rather than
+# convenience: this app's settings groups deliberately attach ACROSS the
+# DOM through a form= attribute (a <form> can never nest inside another
+# <form>), so an ancestor walk from the wrapper would miss the field.
+VALUE_CONTROL_FORM_ATTR = "data-value-form"
+VALUE_CONTROL_MIN_ATTR = "data-value-min"
+VALUE_CONTROL_MAX_ATTR = "data-value-max"
+VALUE_CONTROL_STEP_ATTR = "data-value-step"
+VALUE_CONTROL_HANDLE_ATTR = "data-value-handle"
+VALUE_CONTROL_TRACK_ATTR = "data-value-track"
+# The SERVER-RENDERED, already-translated aria-valuetext template, with
+# VALUE_CONTROL_TEXT_TOKEN standing in for the number. No copy of any
+# kind lives in the script: absent this attribute it writes no
+# aria-valuetext at all rather than inventing an English one.
+VALUE_CONTROL_TEXT_ATTR = "data-value-text"
+# 25-04-PLAN.md Task 3 (CFG-48): "#", AND IT USED TO BE "{}" — corrected
+# in place the moment this seam got its first consumer, because the
+# original choice could not be used by one.
+#
+# These templates reach the browser as ATTRIBUTE VALUES on a rendered
+# page, and companion/test_i18n.py's Check 3 scans every French render
+# for a stray "%s"/"%d"/"{}" — the real failure mode of a mistyped
+# catalogue key. Measured on this tree: the dial's first
+# `data-value-text` attribute failed that check on GET /display?lang=fr,
+# with nothing wrong with it. RELATIVE_QUANTITY_MARK below already
+# records this exact reasoning and already chose "#" for it; this is the
+# same decision applied to the same problem, not a new convention.
+VALUE_CONTROL_TEXT_TOKEN = "#"
+# "angular" for a dial, absent for a left-to-right track. One of the two
+# differences between 25-04's dial and 25-05's slider.
+VALUE_CONTROL_GEOMETRY_ATTR = "data-value-geometry"
+
+# 25-04-PLAN.md Task 3 (CFG-48): the other difference — the codec between
+# the NUMBER value-controls.js steers and the TEXT the native input
+# holds. Absent, the number is written straight in, which is what a
+# numeric input wants. VALUE_CONTROL_FORMAT_CLOCK makes the script read
+# and write "HH:MM" instead, which is what an <input type="time">
+# requires: a time input silently DISCARDS anything else, so a minute
+# count written into one empties the field the form posts, with no error
+# anywhere. That is the difference between a dial that steers a native
+# time input and a dial that quietly deletes the visitor's quiet hours.
+VALUE_CONTROL_FORMAT_ATTR = "data-value-format"
+VALUE_CONTROL_FORMAT_CLOCK = "clock"
+
+# --- 25-05-PLAN.md Task 2 (CFG-49/CFG-52): the MIRROR, and the READOUTS
+#
+# THE MIRROR is a NATIVE control inside the wrapper that carries the
+# same value as the field and posts NOTHING — 25-05's
+# `<input type="range">`, which has no `name` and therefore cannot
+# submit. It is the third and last way the five controls of this phase
+# differ from one another, after the geometry and the codec.
+#
+# WHY A NATIVE RANGE RATHER THAN ANOTHER TRACK-AND-HANDLE. A range input
+# is ALREADY a slider: it has the keyboard model this script implements
+# (arrows one step, Page ten, Home/End to the ends), a native
+# aria-valuenow, native touch dragging, and a thumb every platform draws
+# the way its users expect. Re-implementing that on a <div> to avoid one
+# attribute would be the classic case of building what the platform
+# ships. It also means role="slider" must NOT be added to it — the
+# element already has those semantics, and a redundant role is the
+# double-role error.
+#
+# AND IT IS WHY THE POINTER AND KEYBOARD PATHS BELOW STAND ASIDE. A
+# wrapper carrying a mirror gets NO preventDefault and no steering from
+# this file's own gesture handlers: `preventDefault()` on a pointerdown
+# over a native range cancels the browser's own thumb drag outright, and
+# a keydown handler that both prevents the default AND steps the value
+# would move the control twice per arrow press. The script's job with a
+# mirror is only to SYNC — which is a smaller job than steering, and the
+# reason this seam is four lines of script rather than a second control.
+VALUE_CONTROL_INPUT_ATTR = "data-value-input"
+
+# A READOUT is an element whose whole text is a sentence ABOUT the
+# value, rendered by the server and rewritten by the script as the value
+# moves. It carries the field's own name, so a readout can live anywhere
+# in the document — which it must, because a readout is NOT gated (it
+# has to be correct with scripts blocked) while the control that moves
+# it is.
+#
+# THE SENTENCE IS SERVER-RENDERED AND ALREADY TRANSLATED, exactly like
+# VALUE_CONTROL_TEXT_ATTR above and for the identical reason: no copy of
+# any kind lives in the script. It substitutes a number into a template
+# it was handed and writes nothing else, so a French reader can never be
+# dropped into English by moving a slider.
+VALUE_CONTROL_READOUT_ATTR = "data-value-readout"
+VALUE_CONTROL_READOUT_TEXT_ATTR = "data-value-readout-text"
+# What the value is DIVIDED BY before it is substituted, rounded UP —
+# 60 for a readout that speaks in whole minutes about a field that holds
+# seconds. Absent or unusable, the value is substituted as it stands.
+# The ceiling rather than the floor because every consumer of this seam
+# so far states a BOUND, and "at most 1 min" is false for a 90-second
+# cadence.
+VALUE_CONTROL_READOUT_SCALE_ATTR = "data-value-readout-scale"
+# The value at which the readout says NOTHING AT ALL. A readout that
+# compares the proposed value against the saved one has nothing to say
+# while they are equal, which is every page load — and an empty string
+# is a better answer there than a sentence comparing a value with
+# itself. Absent, the readout always speaks.
+VALUE_CONTROL_READOUT_BASE_ATTR = "data-value-readout-base"
+
+# THE PAINTED POSITION HAS NO CONSTANT HERE, AND THAT IS DELIBERATE. It
+# travels on the `--value-fraction` custom property, written by the
+# SERVER once (so the handle renders in the right place before any
+# script has run) and rewritten by value-controls.js on every steer. A
+# module-level constant for it was written and removed: a CSS custom
+# property's name begins with two hyphens, which matches none of
+# companion/test_i18n.py's identifier exclusions, so the D-05 scan reads
+# it as untranslated user-facing copy and fails — measured. The name
+# therefore lives inline in the one markup template that emits it (the
+# same place `style="background:%s"` already lives), in
+# value-controls.js's own FRACTION_PROPERTY, and in style.css; a harness
+# pins all three to one string, which is a stronger guard than a constant
+# two of the three could not have read anyway.
+
+# 25-01-PLAN.md Task 4 (CFG-46/D-09): the class companion/static/
+# style.css hides by default and reveals under `.js`. Defined here so a
+# page module never types it, and pinned by a harness against both a
+# real selector in the stylesheet and the no-JS control contract's own
+# registry.
+#
+# THE CLASS GOES ON THE GATED ELEMENT ITSELF, never on an ancestor.
+# That is a contract, not a convenience: "this wrapper is somewhere
+# inside a gated ancestor" cannot be checked from rendered markup
+# without parsing the whole tree, whereas "this wrapper carries the
+# class" is exact — and making them one element removes the nesting
+# mistake entirely rather than detecting it.
+JS_GATE_CLASS = "js-gate"
 
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
@@ -2885,6 +3041,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -2969,6 +3126,18 @@ def page_shell(
         # with no such form, and — the load-bearing part — with the file
         # absent every one of those forms still posts and still saves.
         QUICK_SWITCH_SCRIPT_SRC,
+        # 25-01-PLAN.md Task 1 (CFG-46): fifteenth script on this shell,
+        # same unconditional convention, and here for the fourth
+        # distinct shape of that reason: its listeners are DELEGATED at
+        # document level over every [data-value-control] wrapper, and
+        # its two known consumers are on two different settings pages
+        # (25-04's quiet-hours dial, 25-05's wake-interval slider) with
+        # more expected. Its guard returns before touching anything on a
+        # page with no such wrapper — which is EVERY page today — and,
+        # the load-bearing part, with the file absent every value it
+        # steers is still held by a native input the server renders and
+        # the form posts.
+        VALUE_CONTROLS_SCRIPT_SRC,
     )
 
 

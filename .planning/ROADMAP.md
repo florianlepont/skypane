@@ -1144,9 +1144,9 @@ Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 **Goal:** Five new controls, each with a no-JS fallback and a 360 px touch obligation: D16 (runway picked on one SVG map of Orly), D17 (24 h dial for quiet hours), D18 (wake-interval slider with freshness and battery-life gauges), D5 (theme carousel over the chip grid — this is also X6's deferred half, the reason Phase 22's Display page misses its height target) and D19 (drag-and-drop artwork with client-side crop).
 **Requirements**: CFG-46, CFG-47, CFG-48, CFG-49, CFG-50, CFG-51, CFG-52
 **Depends on:** Phase 23 (and inherits facts from Phase 24, which is planned but NOT executed)
-**Plans:** 8 plans across 7 waves
+**Plans:** 8/8 plans complete
 
-**Planned 2026-09-13, and planning ONLY — this phase must not be executed before the developer has seen Phases 23 and 24 on screen.** That is the developer's own instruction and it is sound: this phase creates five new components, and a new component built on an unreviewed foundation is the expensive kind of rework.
+**Planned 2026-09-13, and planning ONLY — this phase must not be executed before the developer has seen Phases 23 and 24 on screen.** **EXECUTED 2026-09-14, 8/8, and this sentence is kept in place rather than rewritten, because the instruction it records is still half-outstanding: the code is written and green, and the developer's visual review of Phases 23, 24 and now 25 has still not happened. That review is this phase's real gate — see the Phase 25 coverage ledger in `.planning/REQUIREMENTS.md` for the five controls to judge, the eight decisions that are still the developer's, and the two requirement boxes (CFG-50, CFG-52) deliberately left unticked.** That is the developer's own instruction and it is sound: this phase creates five new components, and a new component built on an unreviewed foundation is the expensive kind of rework.
 
 Planned with **no CONTEXT.md and no UI-SPEC** (the precedent Phases 23 and 24 both set), so **eight decisions were taken PROVISIONALLY** and every one is collected in `25-RESEARCH.md`'s "Open decisions" section for the developer:
 
@@ -1161,26 +1161,26 @@ Planned with **no CONTEXT.md and no UI-SPEC** (the precedent Phases 23 and 24 bo
 Plans:
 
 **Wave 1** *(parallel — two plans, disjoint files)*
-- [ ] 25-01-PLAN.md — wave 1: the phase's one new script with its three taxes paid once, the `.js`-gate control vocabulary, the shared battery-life arithmetic, and the executable no-JS control contract. Builds no control.
-- [ ] 25-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — operate-submit-**persist** under blocked scripts, keyboard-only operation with zero pointer events, real hit-tested area measurement, and the two-direction gate assertion; zero net checks
+- [x] 25-01-PLAN.md — wave 1: the phase's one new script with its three taxes paid once, the `.js`-gate control vocabulary, the shared battery-life arithmetic, and the executable no-JS control contract. Builds no control.
+- [x] 25-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — operate-submit-**persist** under blocked scripts, keyboard-only operation with zero pointer events, real hit-tested area measurement, and the two-direction gate assertion; zero net checks
 
 **Wave 2** *(blocked on Wave 1)*
-- [ ] 25-03-PLAN.md — wave 2: D16 — the runway picked on one drawn schematic of Orly, adding zero scripts because the three radios were always the control
+- [x] 25-03-PLAN.md — wave 2: D16 — the runway picked on one drawn schematic of Orly, adding zero scripts because the three radios were always the control
 
 **Wave 3** *(blocked on Wave 2)*
-- [ ] 25-04-PLAN.md — wave 3: D17 — the server-drawn 24 h arc, the two gated handles, and the wrapping-midnight arithmetic settled before anything is drawn
+- [x] 25-04-PLAN.md — wave 3: D17 — the server-drawn 24 h arc, the two gated handles, and the wrapping-midnight arithmetic settled before anything is drawn
 
 **Wave 4** *(blocked on Wave 3)*
-- [ ] 25-05-PLAN.md — wave 4: D18 — the gated range input beside an untouched number input, and two gauges of which only one can currently be absolute
+- [x] 25-05-PLAN.md — wave 4: D18 — the gated range input beside an untouched number input, and two gauges of which only one can currently be absolute
 
 **Wave 5** *(blocked on Wave 4)*
-- [ ] 25-06-PLAN.md — wave 5: D5 — the carousel around the one chip renderer, the full grid behind a native disclosure, and Display's height measured before and after
+- [x] 25-06-PLAN.md — wave 5: D5 — the carousel around the one chip renderer, the full grid behind a native disclosure, and Display's height measured before and after
 
 **Wave 6** *(blocked on Wave 1)*
-- [ ] 25-07-PLAN.md — wave 6: D19 — the drop zone and framing preview over two byte-identical upload forms, with the normaliser untouched and picked-vs-dropped proven equivalent
+- [x] 25-07-PLAN.md — wave 6: D19 — the drop zone and framing preview over two byte-identical upload forms, with the normaliser untouched and picked-vs-dropped proven equivalent
 
 **Wave 7** *(blocked on all prior waves)*
-- [ ] 25-08-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's eight-decision list with each one's reversal cost, and the phase gate including the required real-device sweep
+- [x] 25-08-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's eight-decision list with each one's reversal cost, and the phase gate including the required real-device sweep
 
 *The waves are serial after wave 1 because `companion/pages/config_page.py` is written by four plans and `companion/static/style.css` by six, and this project's rule is one writer per file per wave — the same reason Phase 23 needed 9 waves for 11 plans and Phase 24 needs 7 for 9. 25-07 touches neither the settings page nor its form and is serialised only by the stylesheet.*
 

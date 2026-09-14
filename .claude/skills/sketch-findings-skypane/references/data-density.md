@@ -206,6 +206,56 @@ legitimately the same number.) A page that calls the estimator must call it
 **qualified** (`battery.battery_percent(...)`), because a bare
 `from companion.battery import battery_percent` makes it read as the page's own.
 
+**The estimator's SECOND arithmetic, and the honesty rule that governs it (new, Phase
+25, D18/CFG-49, 25-01/25-05).** `battery_life_estimate(rows, current_s, proposed_s)`
+joins the same module — same one home, same guard, no new file. It answers a question
+this app had never answered before ("how long does a charge last?") and it answers it
+**only as far as this device's own observed history supports**, which is the rule
+worth carrying forward rather than the function:
+
+- **Five NAMED states, never an overloaded `None`:** `no-reading`,
+  `not-enough-history`, `rising`, `flat`, `falling`. **Only `falling` carries a
+  number.** `rising` carries none *deliberately* — a charged device has a positive
+  slope, and dividing by it gives a negative or an infinite lifetime, and both are
+  numbers a reader would act on.
+- **No per-wake energy cost is assumed anywhere**, because this project has never
+  measured one (DEVICE-05's discharge run is still open). The audit's own
+  "estimated battery life ≈ 38 days" **cannot be computed honestly today and was not
+  computed**. This is the dishonest-state defect class Phase 22 spent a phase
+  removing, met before it shipped rather than after.
+- **Two observation floors, both load-bearing and both pinned from the opposite
+  extreme.** `LIFE_MIN_OBSERVED_SPAN_DAYS = 2` (a one-day delta between two daily
+  *averages* is inside this series' own noise — a 150 mV fall measured across one day
+  would otherwise report three days remaining) and `LIFE_MIN_OBSERVED_DROP_MV = 10`
+  (a 1 mV fall over three days divides out to roughly five years, which a reader takes
+  as a promise). The second is load-bearing for **totality** as well as honesty:
+  without it a perfectly flat series divides by zero.
+- **`relative_factor` is separable and always available** — the ratio of two cadences
+  and nothing else — which is what lets a gauge say something true on day one. Its
+  docstring states precisely what it is **not**: a multiplier on the lifetime, which
+  would only be the same number if every joule this device spends went into waking.
+- **The honesty rule is made STRUCTURAL at the presentation layer, not promised.** The
+  absolute "≈ N days" sentence is rendered by the **server, outside every element a
+  script can rewrite**; what the script may rewrite is a template naming two cadences
+  and containing no days figure at all. "The script cannot be braver than the server
+  was" is therefore not a policy a future editor has to remember — **there is no
+  template through which it could be.** Full card-level contract in
+  `references/settings-page-patterns.md`.
+- **The `≈` marker travels with it**, the same marker the battery percentage already
+  wears, plus a named source ("from this frame's own recent readings") over a **14-day**
+  window — deliberately shorter than health_page's three-month trend window, because
+  the sentence says *recent* and a slope measured across a charge three months ago is
+  not. Dropping the marker fails a check by name.
+- **Phase 24's paragraph in `companion/battery.py` forbidding this was corrected IN
+  PLACE, not deleted.** It read: *"Deliberately NOT added here: a 'battery life
+  remaining' estimate … it needs a discharge model this project has no data to
+  justify."* That reasoning was right about the **model** and wrong about the
+  **conclusion** — what it ruled out was an estimate built on an assumed per-wake
+  cost, which this is not. **DEVICE-05 will change this**: a measured mAh-per-cycle
+  figure lets a later plan add a second, model-based branch inside this same module
+  and print it through the same wording. **The gap is in the data, not in the
+  presentation**, and nothing in the card needs to change to accept it.
+
 **Phase 24's drawings carry no motion, deliberately.** The `.drawing*` block declares
 no `transition` and no `animation`; the stylesheet's `@keyframes` count is still
 **4** and the reduce-block count still **2**, exactly where Phase 23 left them. A
@@ -342,6 +392,95 @@ implementation outright — 24-04 lost a whole mutation round to exactly that, w
 four "failures" turning out to be one `AttributeError` for a function the revert had
 just removed.
 
+### Measurement conventions Phase 25 paid for, on top of those four
+
+Phase 24's four are unchanged and still binding. Phase 25 ran ~170 mutations across
+six plans and added these; **convention 4 above cost a second full re-write in this
+phase, which is why it is restated here rather than assumed learned.**
+
+**5. VACUITY is this codebase's recurring defect class, and MUTATION is the only
+thing that finds it.** Not one of the checks below was wrong-looking; every one of
+them was green against an implementation it was written to refuse. 25-01 strengthened
+**four** before committing, 25-03 found **four**, 25-04 **three**, 25-05 **two**,
+25-06 **one**. The *shapes* transfer even where the subjects do not, and each of these
+is a specific thing to look for in your own check before you trust it:
+
+| Shape | Where it bit | Why it passes |
+|---|---|---|
+| A mutation that edits a **comment** | 25-01 (twice), 25-07 | `str.replace(…, 1)` hits the paragraph quoting the constant, eleven lines above the assignment. The run is silent, the diff looks perfect, and the mutation **proves nothing while looking rigorous**. Print the changed line numbers and re-read the file after substituting. |
+| A **substring rename** survives a seam check | 25-06 | `data-theme-pagerr` *contains* `data-theme-pager`, so `if NAME not in script` passed while both pagers were completely inert. Match on a `(?<![-\w])…(?![-\w])` boundary — the same discipline the gate-class pin already used. |
+| A subject located by a **bare id string** | 25-05 | `markup.find("wake-interval-s-error")` matched inside the *input's own* `aria-describedby`, so a clause about element order passed against the one arrangement it forbids. Locate by the element (`<p class="field-error…" id="…"`), not by the id alone. |
+| Width compared against **another element** | 25-05 | "the slider is full width" was asserted against the number input beside it — which a range with **no width rule at all** passes, its intrinsic ~129 px beating the field's 96 px. Compare against the container's own content box (278 px), which is the property under test. |
+| `.click()` works on a **`display: none`** element | 25-06 | The prescribed mutation stayed green because the save still reached disk. `display: none` destroys **focusability**, not clickability — ask the keyboard question directly. |
+| `locator.count()` counts a **hidden** element | 25-04 | "the arc is present with scripts blocked" passed against the arc moved *behind the gate* — the exact refactor it existed to notice. Measure the rendered **box**, not the node count. |
+| An **inert** source order | 25-03 | "parse the label before the id" was asserted against a registry where the two sources cannot disagree, so swapping them changed no angle at all. Build a fixture where they genuinely disagree (id `31-13`, label `Runway 9 (07/25)`). |
+| An attribute satisfied by a **child** | 25-03 | `"width=" in svg` was satisfied by the `<rect>` children while the `<svg>`'s own size route was gone. Scope the assertion to the opening tag. |
+| The **border box** instead of the content box | 25-03 | A 64 px drawing inside an 87 px card's *border* box passes while overflowing its 53 px **content** box by 11 px. Read `getBoundingClientRect()` minus padding and border — and normalise by the element's own transform scale, because a selected card carries `scale(1.02)` while its padding does not. |
+| A **first-paint** sample of a live-state rule | 25-03 | At rest the saved card *is* the checked card, so deleting the live `:has()` rule changed nothing a first-paint measurement could see. Pull the two apart with the keyboard — one card checked, a different one saved, a third neither. |
+| A fixture that never produces the value under test | 25-05 | The "the figure equals the estimator's return" clause would pass against a card that prints no figure at all. **Assert the fixture produces one** before reading the sentence. |
+
+**The general question, and it is the one to ask of every new check: what would a
+WRONG implementation do here?** If the answer is "pass", the check is decoration.
+
+**6. Never sample at a guessed instant — and this is now a THREE-phase finding.**
+25-03's paint check read an interpolation frame and reported that *"the selected paint
+is the same in BOTH themes — it is not coming from a token that inverts"*, against a
+stylesheet that was entirely correct: the strips carry `transition: fill
+var(--motion-fast)`, so a `getComputedStyle` taken straight after a theme flip read
+**rgb(41, 43, 49)** for a strip whose settled dark value is **rgb(241, 243, 246)** —
+about 8 % of the way along. (The `color-mix` samples gave it away by changing colour
+**space**: `color(srgb …)` settled, `oklab(…)` mid-interpolation.) 25-05 met the
+identical defect on the global `input, select` rule's `transition: background-color
+.15s`. Phase 24 lost a check to the same class and the orchestrator fixed it with
+`transitionrun`. **The instrument is the browser's own signal, never a timer:** await
+the Web Animations `finished` promise on the elements (an element with nothing running
+returns an empty list and resolves at once, so it can neither hang nor flake), or
+listen for `transitionrun`. Counting `getAnimations()` immediately after a theme flip
+also finds **zero**, before any style recalculation has created them — await one
+`requestAnimationFrame`, a real browser callback, first.
+
+**7. A SYNTHETIC event can drive a real control, and the guard and the proof need not
+trade against each other.** 25-04 measured `_operate_with_keyboard()`'s own pointer
+recorder self-test — an `el.dispatchEvent(new PointerEvent("pointerdown"))`, which
+carries `clientX/clientY` of `(0, 0)` — **moving the user's saved quiet window from
+23:15 to 22:30** while merely proving the recorder was alive. Any script on the page
+could have done the same. `value-controls.js` now refuses `evt.isTrusted === false`
+(compared against `false`, not negated, so a browser without the property does not
+refuse every real drag) on both `pointerdown` and `pointermove`. That guard would
+normally make the real gesture unmeasurable — but 25-07 showed it need not:
+**Chromium's DevTools protocol `Input.dispatchDragEvent` carries a real `files` list
+through the same input pipeline a pointer uses**, and the handler sees
+`isTrusted: true`. One check now measures the real gesture *and* proves the fake one
+inert.
+
+**8. A function NAME can trip an existing guard, and the guard may be right.** 25-05's
+`wake_battery_life_text()` failed `test_companion_app.py`'s battery one-home guard by
+its name alone. The resolution was the **rename** — the function does not compute a
+lifetime and should not claim to — **not an allow-list entry**, which would have let a
+real second estimate in under that name later. When a guard objects to a name, check
+whether the name was the defect before widening the guard.
+
+**9. A mutation suite without a NULL CONTROL cannot tell a load-bearing property from
+layout jitter.** 25-07 mutated twenty-nine CSS declarations and re-measured the
+**rendered** result in a real browser each time. A mutation editing only a *comment*
+inside the same block reported **14 measurements moved** — every one a
+sub-pixel-to-4-pixel geometry jitter in the dialog's own width. Without that control,
+every mutation in the sweep would have looked RED for the wrong reason. The named
+properties moved for the null control **not at all**, which is what separates signal
+from noise. The same run found one genuinely inert declaration (`.upload-drop
+{ width: 100% }` moved the rendering by **0.00 px** where the null control moved it by
+0.01) and kept a neighbouring one that moved it by ~1.9 px — and the stylesheet now
+carries **both** results in a comment.
+
+**10. Restated because it cost a second full re-write: STAGE BEFORE YOU MUTATE.**
+25-07 ran its first Task 2 mutation against an **unstaged** tree, and the revert step
+(`git checkout-index -f --`) restored `panel-lookup.js` from the index — deleting the
+entire task's implementation in one step. 25-04 lost an implementation the same way.
+Nothing was lost permanently either time, and both cost a full re-write. **Stage every
+time, not the first time**, and clear `__pycache__` after the revert (convention 3
+above), because a sub-second mutate/revert cycle leaves stale bytecode serving the
+mutated behaviour.
+
 ### Airlines gallery illustration frame (quick task 260904-e92, UIR-08)
 
 **Current contract.** Every companion-served Airlines illustration
@@ -395,6 +534,52 @@ companion-web target further "for consistency" with the panel, and do
 not read the panel's own resize target as a hint that this one should
 match it — they are deliberately separate call sites reading the same
 source files for two different purposes.
+
+**The FRAMING PREVIEW, and the recorded ground for having no client crop
+(new, Phase 25, D19/CFG-51, 25-07).** The drop zone shows the visitor
+what they picked and how it will be framed. It does **not** crop.
+
+- **The preview box RESERVES the normaliser's own frame**, through an
+  inline `--upload-preview-ratio` computed from
+  `ILLUSTRATION_TARGET_WIDTH`/`HEIGHT` and read by `style.css` with
+  **no fallback value** — a fallback would keep the box the right shape
+  after the inline property stopped being rendered, which *masks* the
+  deletion of the live value rather than guarding it. Measured at 360 px,
+  at rest, before any image exists: **3.4098:1** against the module's
+  **3.4091:1**. The `<img>` is `object-fit: contain` inside it.
+- **There is NO client-side canvas crop, and this is a decision with a
+  ground rather than an omission.** `companion/illustration_normalize.py`'s
+  own docstring records that a *second, differently-thresholded
+  measurement silently drifting from the first* is the debug session
+  (`illustration-crop-text-margin`) that created it, and that the module
+  "must never become a second implementation for that same measurement
+  to drift against". A browser-side crop that "matches" it **is** that
+  second implementation — in a language the server cannot check, on a
+  machine it cannot trust. **The absence is asserted, not assumed:**
+  `panel-lookup.js` names no `getContext`, `drawImage`, `toBlob`,
+  `toDataURL`, `OffscreenCanvas` or `createImageBitmap`, comments
+  included, and `companion/illustration_normalize.py` is unchanged by
+  **one line** across the whole of Phase 25 (verified by diff against
+  the phase's base commit).
+- **Dropped and picked bytes are proven the same act, three ways, in this
+  order of strength:** the static absence of every canvas API; a
+  comparison of the file's **size in the input** on both paths; and a
+  byte comparison of what landed on disk. The third is the *weakest* of
+  the three and that is recorded rather than assumed — the server
+  re-encodes every upload through Pillow, which absorbed a deliberate
+  one-byte truncation and produced byte-identical output, so the clause
+  that actually bit was the in-input size. Measured: the same source
+  file stored **1833 bytes** whether picked or dropped, with **the
+  stored file deleted between the two uploads**, or the comparison would
+  have passed on the file left behind.
+- **A future phase proposing a client crop meets this argument, not the
+  idea.** So does one proposing an upload **progress bar**:
+  `submit-guard.js` already disables a form's submitting control on
+  submit, app-wide, and a ≤ 4 MB upload to a household server does not
+  need `XMLHttpRequest.upload.onprogress`. (The recommendation's other
+  half — adding an "Uploading…" label beside that disable — was **not**
+  built either, and is on the developer's decision list rather than
+  quietly dropped.)
 
 ### Table restyle this file predates (06.6.4, D-07)
 
@@ -457,8 +642,13 @@ Below 960px, `_history_cards_html()` renders the same merged data as `<li class=
 - Reaching for the sketch's SUPERSEDED `--color-text-muted` token for any secondary/muted text in this file — it does not exist; use `opacity` on `--color-text` (matching `.cell-secondary`) or `color-mix(in srgb, var(--color-text) 70%, transparent)` (matching `.data-table th`/`.filter-bar__count`), whichever this file's existing precedent for that specific element already uses.
 - Reintroducing a horizontal-scroll-only mobile fallback for Flights specifically — the `.history-cards` card list replaced it (D-16 confirms it is unchanged by Phase 21); other pages' `.data-table-wrap` reuse (Airlines, Health) is unaffected and still scrolls horizontally as before, since they never pair with a `.history-cards` sibling.
 - Giving `.cell-secondary` and `.history-card__secondary` two different opacity values — they render the same content at two viewport widths and must stay at one shared muting strength.
+- **Adding a client-side `<canvas>` crop for the artwork upload** (Phase 25, D19) — `companion/illustration_normalize.py`'s own docstring names a second, differently-thresholded implementation of that measurement as the failure mode it exists to prevent, and the absence is asserted by a source scan naming six canvas APIs. The preview *frames*; it never crops.
+- **Adding an `XMLHttpRequest.upload.onprogress` progress bar** — `submit-guard.js` already disables the submitting control on submit, app-wide, and the upload is capped at 4 MB to a household server.
+- **Writing a mutation sweep with no NULL CONTROL** (Phase 25) — a comment-only mutation inside the same block moved 14 rendered measurements by up to 4 px. Without that control every mutation in the sweep reads RED for the wrong reason.
+- **Sampling a transitioning property at a guessed instant** — three phases running have lost a check to this. Await the Web Animations `finished` promise or listen for `transitionrun`; never a timer, and never immediately after a theme flip (the transitions do not exist yet).
+- **Trusting a mutation that produced no failure without confirming it changed the line you meant** — the silent case is a `str.replace` landing in a comment that quotes the constant. Print the changed line numbers and re-read the file after substituting.
 - Keying the Flights detail row's collapse off a page-wide `.js` class instead of `flight-rows.js`'s own scoped class-at-load — that would hide detail data on a page where a stricter CSP blocks only that one script, per the reasoning above.
 
 ## Origin
-Synthesized from sketch: 003 (history-table-density), winner: Variant B. Corrected against the shipped implementation (`companion/pages/history_page.py`, `companion/static/style.css`) per 06.6.3 (D-07, mobile card list, table restyle) and `companion/layout.py`'s `concise_timestamp_html()` (06.6.3, resolving this file's own former open timestamp-format risk) — quick task 260901-t00. Updated Phase 21 (21-03-PLAN.md, D-15, CFG-22): the desktop table recompacted from 7 to 5 visible columns plus a detail-row toggle column, the When/Flight cells' scoped stacked-line exception (measured, not assumed), the dot-only Corroboration column (`status_dot(visually_hide_label=True)`), the scoped 8px cell-padding register, and `flight-rows.js`'s own no-JS floor for the new detail row. Updated Phase 22 (22-companion-audit-round-4, T4/X5/B12, CFG-31): the sticky-header entry SUPERSEDED outright (the wrap has no height, so it could never engage) with its never-live-validated `--color-canvas` background note recorded as **moot** rather than deferred; the Flights day separators, grouped by Paris calendar day and shaped by the Paris-day formatter rather than a direct date call, and explicitly not sticky; and Health's registry table recorded as the stacked-cell exception's **second measured consumer**, with its own numbers, leaving the do-not-generalise warning verbatim. Updated quick task 260913-cz6: Health's battery readings table measured against the same cause at 390px behind a closed `<details>`, the stacked treatment measured and REJECTED on its own numbers, the floor-release remedy (`table.data-table--readings { min-width: 0 }`) taken instead — the stacked-cell exception's consumer count deliberately stays at **two** — plus the new general lesson that a scrolling WRAPPER is invisible to `document.documentElement.scrollWidth` and must be measured against its own `clientWidth` with every disclosure forced open. Updated quick task 260913-dgh: a FOURTH site of the same content-sized-track cause, this one outside a table — Home's `.recent-flight` grid row, whose `minmax(0, 1fr)` callsign track was starved to 10.9px (FR) / 18.6px (EN) for 57.8px of content at 320px and 50.9px (FR) at 360px by a rigid `auto` time track; a container query was measured, worked, and was rejected because its threshold cannot track an unbounded relative-age string (the same defect reaches the 1280px desktop row once the age grows), and a wrapping flex line was taken as a THIRD distinct remedy — plus the new general lesson that a box can be wrong against its own CONTENT while correct against every container it sits in, so it must be measured with a `Range` over its own contents rather than against a parent or against integer-rounded `scrollWidth`. Updated Phase 23 (23-companion-dynamism, D7/D14, CFG-34/CFG-37, 23-03/23-08/23-11): the Flights list joining the shared refresh loop with both renderings as swap regions, identity-before-position as a transferable rule, the one-shot arrival wash and why its known set must never start empty, the detail row's `grid-template-rows` height with its `min-height: 0` and its `.flight-rows-live` scope and the written argument against `allow-discrete`, the enumeration of every relative age that deliberately stays static (with a correction of record: the unconverted site is the DESKTOP When cell, not the phone card), and sticky day headers **declined** on rendered evidence with their revisit condition — every value re-read from `companion/pages/history_page.py`, `companion/pages/config_page.py`, `companion/pages/health_page.py` and `companion/static/style.css` at execution time.
+Synthesized from sketch: 003 (history-table-density), winner: Variant B. Corrected against the shipped implementation (`companion/pages/history_page.py`, `companion/static/style.css`) per 06.6.3 (D-07, mobile card list, table restyle) and `companion/layout.py`'s `concise_timestamp_html()` (06.6.3, resolving this file's own former open timestamp-format risk) — quick task 260901-t00. Updated Phase 21 (21-03-PLAN.md, D-15, CFG-22): the desktop table recompacted from 7 to 5 visible columns plus a detail-row toggle column, the When/Flight cells' scoped stacked-line exception (measured, not assumed), the dot-only Corroboration column (`status_dot(visually_hide_label=True)`), the scoped 8px cell-padding register, and `flight-rows.js`'s own no-JS floor for the new detail row. Updated Phase 22 (22-companion-audit-round-4, T4/X5/B12, CFG-31): the sticky-header entry SUPERSEDED outright (the wrap has no height, so it could never engage) with its never-live-validated `--color-canvas` background note recorded as **moot** rather than deferred; the Flights day separators, grouped by Paris calendar day and shaped by the Paris-day formatter rather than a direct date call, and explicitly not sticky; and Health's registry table recorded as the stacked-cell exception's **second measured consumer**, with its own numbers, leaving the do-not-generalise warning verbatim. Updated quick task 260913-cz6: Health's battery readings table measured against the same cause at 390px behind a closed `<details>`, the stacked treatment measured and REJECTED on its own numbers, the floor-release remedy (`table.data-table--readings { min-width: 0 }`) taken instead — the stacked-cell exception's consumer count deliberately stays at **two** — plus the new general lesson that a scrolling WRAPPER is invisible to `document.documentElement.scrollWidth` and must be measured against its own `clientWidth` with every disclosure forced open. Updated quick task 260913-dgh: a FOURTH site of the same content-sized-track cause, this one outside a table — Home's `.recent-flight` grid row, whose `minmax(0, 1fr)` callsign track was starved to 10.9px (FR) / 18.6px (EN) for 57.8px of content at 320px and 50.9px (FR) at 360px by a rigid `auto` time track; a container query was measured, worked, and was rejected because its threshold cannot track an unbounded relative-age string (the same defect reaches the 1280px desktop row once the age grows), and a wrapping flex line was taken as a THIRD distinct remedy — plus the new general lesson that a box can be wrong against its own CONTENT while correct against every container it sits in, so it must be measured with a `Range` over its own contents rather than against a parent or against integer-rounded `scrollWidth`. Updated Phase 23 (23-companion-dynamism, D7/D14, CFG-34/CFG-37, 23-03/23-08/23-11): the Flights list joining the shared refresh loop with both renderings as swap regions, identity-before-position as a transferable rule, the one-shot arrival wash and why its known set must never start empty, the detail row's `grid-template-rows` height with its `min-height: 0` and its `.flight-rows-live` scope and the written argument against `allow-discrete`, the enumeration of every relative age that deliberately stays static (with a correction of record: the unconverted site is the DESKTOP When cell, not the phone card), and sticky day headers **declined** on rendered evidence with their revisit condition — every value re-read from `companion/pages/history_page.py`, `companion/pages/config_page.py`, `companion/pages/health_page.py` and `companion/static/style.css` at execution time. **Updated Phase 24 (24-companion-dynamism-ii-drawn, D21/D8/D13/D20/D4, CFG-39..CFG-45) — recorded here at Phase 25's close, because Phase 24 added this file's largest entry (the whole drawing contract) and its four measurement conventions without extending this line, which is the same class of omission as a stale number and is corrected in place rather than silently:** `companion/draw.py` as the one geometry vocabulary, the two coordinate schemes and the rule for choosing, the nested-viewBox escape hatch, the class-and-token paint idiom with its four machine-enforced anti-patterns, the `url(` ban that rules out gradients, the one-value rule, the one battery estimator's two allow-listed homes, and the four conventions (assert the floor; mutate every property; clear `__pycache__`; stage before you mutate). Updated Phase 25 (25-companion-dynamism-iii-controls, D18/D19, CFG-49/CFG-51, 25-01/25-05/25-07/25-08): the estimator's second arithmetic and **the battery honesty rule made structural** (five named states, a number only from `falling`, two observation floors pinned from the opposite extreme, the absolute sentence rendered outside every script-writable element, and Phase 24's own forbidding paragraph corrected in place rather than deleted); the **framing-preview** pattern with the recorded ground for having no client crop and the three-way proof that dropped and picked bytes are one act; and six further measurement conventions on top of Phase 24's four — the vacuity shape table, the never-sample-at-a-guessed-instant rule as a three-phase finding, the synthetic-event finding and the trusted-drag instrument that answers it, the guard-tripping function NAME, the mutation-suite null control, and stage-before-you-mutate restated because it cost a second full re-write.
 Source file available in: `sources/003-history-table-density.html` (historical artifact, byte-identical, not current-reality documentation).

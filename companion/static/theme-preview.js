@@ -340,6 +340,77 @@
     applyPreviewSrc(src);
   });
 
+  // --- 25-06-PLAN.md Task 3 (CFG-50): D5's two carousel pagers ------
+  //
+  // WHY THIS FILE GREW INSTEAD OF A NEW ONE APPEARING. Phase 25's
+  // budget is ONE new static script and 25-01 spent it on
+  // value-controls.js; the deferred-script pin in
+  // companion/test_companion_app.py is fifteen and this plan does not
+  // move it. Beyond the budget, this is the right file on the merits:
+  // the carousel IS the theme radio group, and this file is already
+  // the one thing on the page that listens to that radio group. A
+  // second file would have meant two scripts bound to one control.
+  //
+  // THE PAGERS ARE THE ONLY PART OF THE CAROUSEL THAT NEEDS A SCRIPT,
+  // which is why they are the only part inside 25-01's .js gate. (No
+  // backtick appears in this comment, or anywhere else in this file:
+  // companion/test_companion_app.py bans the character outright as the
+  // template-literal guard, and it does not except comments.)
+  // Everything else — the strip scrolling, the eighteen radios
+  // selecting, the arrow keys moving through them, the disclosure
+  // opening, the whole thing saving — is native and works with this
+  // file blocked.
+  //
+  // NO KEY LISTENER OF ANY KIND IS REGISTERED HERE, and that is
+  // load-bearing rather than an omission: a pager that captured
+  // ArrowLeft/ArrowRight would take those keys away from the native
+  // radiogroup, and native arrow-key selection is exactly what the
+  // scripts-blocked path depends on. Clicks only.
+  //
+  // The strip is resolved through the button's OWN aria-controls, not
+  // through a class or a second data attribute, so the accessibility
+  // contract and this script's contract are ONE contract: an
+  // aria-controls pointing at nothing breaks the pager too, rather
+  // than leaving a button that works while announcing a lie.
+  var PAGER_ATTR = "data-theme-pager";
+
+  function pagerStep(strip) {
+    var chip = strip.querySelector(".theme-chip");
+    var gap;
+    if (!chip) {
+      return strip.clientWidth;
+    }
+    gap = parseFloat(getComputedStyle(strip).columnGap);
+    if (isNaN(gap)) {
+      gap = 0;
+    }
+    return chip.getBoundingClientRect().width + gap;
+  }
+
+  // scrollLeft, not scrollBy({behavior: "smooth"}): an instant scroll
+  // has no duration for the reduced-motion override to have an opinion
+  // about, and the strip's own CSS scroll-snap settles the landing
+  // position either way. This file names no duration anywhere and adds
+  // none here.
+  function onPagerClick(evt) {
+    var button = evt.currentTarget;
+    var strip = document.getElementById(button.getAttribute("aria-controls"));
+    if (!strip) {
+      return;
+    }
+    if (button.getAttribute(PAGER_ATTR) === "prev") {
+      strip.scrollLeft -= pagerStep(strip);
+    } else {
+      strip.scrollLeft += pagerStep(strip);
+    }
+  }
+
+  var pagers = card.querySelectorAll("[" + PAGER_ATTR + "]");
+  var pagerIndex;
+  for (pagerIndex = 0; pagerIndex < pagers.length; pagerIndex++) {
+    pagers[pagerIndex].addEventListener("click", onPagerClick);
+  }
+
   // No DOMContentLoaded wrapper is needed: the <script> tag
   // companion/layout.py's page_shell() emits carries the defer
   // attribute, so this file only ever runs after parsing. Do not add

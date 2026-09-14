@@ -920,6 +920,29 @@ EXPECTED_CHECK_COUNT = 295
 # 295 + 7 = 302, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 302
 
+# 25-07-PLAN.md Task 1 (CFG-51/D19): +3 — the drop zone, over two upload
+# forms that did not change. Three checks rather than one, because they
+# are three separate claims and a single check over all of them would go
+# green on two out of three:
+#   1. the three upload-form renderings' native controls, pinned
+#      BYTE-FOR-BYTE against retyped pre-25-07 literals (not against
+#      whatever the builder currently emits, which would only restate
+#      itself), plus the drop zone's position as the form's last child;
+#   2. id uniqueness AND the gate's converse on the page's busiest state
+#      — a Step-B edit-mode render, where all three copies exist at once
+#      — with the three gated subtrees EXCISED and the remainder proven
+#      free of every drop-zone token, since counting alone would pass a
+#      preview box rendered beside the gate rather than inside it;
+#   3. the preview's reserved box read out of
+#      illustration_normalize.ILLUSTRATION_TARGET_SIZE, with style.css
+#      proven to consume the property WITHOUT a fallback (a fallback
+#      would mask the inline value's deletion), plus the block's three
+#      standing properties: no :hover, no colour literal, no animation.
+# 302 + 3 = 305, re-derived by RUNNING the harness (304/305 pass here —
+# the one documented anomaly_active() sandbox failure), never by
+# arithmetic.
+EXPECTED_CHECK_COUNT = 305
+
 
 # --- fixture helpers ---------------------------------------------------
 
@@ -11713,6 +11736,269 @@ def main():
         "element's text equals REPLACE_HINT_TEXT; and companion/static/style.css (read from disk) contains "
         "LIGHTBOX_REPLACE_ZONE_CLASS, REPLACE_HINT_CLASS, REPLACE_ICON_CLASS and a '::file-selector-button' rule",
         _replace_zone_markup_and_styling_contract)
+
+    # ======================================================================
+    # 25-07-PLAN.md Task 1 (CFG-51/D19): THE DROP ZONE, OVER TWO UPLOAD
+    # FORMS THAT DID NOT CHANGE.
+    #
+    # D19's whole design is that the gesture changes and the parser does
+    # not: a drop assigns the File to the form's own
+    # `<input type="file">` through a DataTransfer, so the bytes travel
+    # the identical path a picked file travels. The three checks below
+    # are what makes "identical" a measurement rather than a claim —
+    # the first pins the native controls byte-for-byte, the second pins
+    # that nothing the script needs renders where the script cannot run,
+    # and the third pins that the preview's reserved box is
+    # `illustration_normalize.py`'s own frame and not a second number.
+    # ======================================================================
+
+    def _upload_forms_native_controls_are_unchanged_by_the_drop_zone():
+        # The three renderings the two shared builders produce: the
+        # no-JS fallback upload form (a real action, no id suffix), the
+        # dialog's copy of the same form (the `action=""` placeholder
+        # panel-lookup.js overwrites, id suffix "-dialog") and the
+        # single lightbox replace form.
+        #
+        # Every literal below is the PRE-25-07 text, retyped here on
+        # purpose: that is what makes this a byte-identity pin rather
+        # than a restatement of whatever the builder currently emits. A
+        # future edit that "tidies" an attribute order, drops `required`
+        # or renames the field fails here.
+        renderings = (
+            ("the no-JS fallback upload form",
+             airlines_page._resolve_upload_form_html("/illustration/demo.png", ""),
+             airlines_page.MANUAL_UPLOAD_INPUT_ID,
+             airlines_page.MANUAL_UPLOAD_FORM_ID,
+             'action="/illustration/demo.png"'),
+            ("the dialog's copy of the upload form",
+             airlines_page._resolve_upload_form_html("", "-dialog"),
+             airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog",
+             airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog",
+             'action=""'),
+            ("the lightbox replace form",
+             airlines_page._lightbox_replace_form_html(),
+             airlines_page.REPLACE_INPUT_ID,
+             airlines_page.REPLACE_FORM_ID,
+             'action=""'),
+        )
+        hint_html = '<p class="%s">%s</p>' % (
+            airlines_page.REPLACE_HINT_CLASS,
+            airlines_page.i18n.t(airlines_page.REPLACE_HINT_TEXT))
+        for label, markup, input_id, form_id, action_attr in renderings:
+            expected_input = (
+                '<input type="file" id="%s" name="image" accept="image/png" required>' % input_id)
+            if markup.count(expected_input) != 1:
+                return False, (
+                    "%s: expected exactly one %r — the drop zone changes the affordance, never "
+                    "the control the form posts" % (label, expected_input))
+            if markup.count('<button type="submit">') != 1:
+                return False, (
+                    "%s: expected exactly one bare <button type=\"submit\"> — no progress bar, no "
+                    "second submitter (25-07 builds neither)" % (label,))
+            if markup.count(hint_html) != 1:
+                return False, "%s: expected the pre-25-07 hint paragraph %r verbatim" % (label, hint_html)
+            if markup.count("<form") != 1:
+                return False, (
+                    "%s: expected exactly one <form — a second one would be a second upload path "
+                    "with a second set of limits to keep in sync" % (label,))
+            form_tag = re.search(r"<form\b[^>]*>", markup)
+            if not form_tag:
+                return False, "%s: expected a <form> opening tag" % (label,)
+            for required in ('method="post"', 'enctype="multipart/form-data"', action_attr,
+                             'id="%s"' % form_id):
+                if required not in form_tag.group(0):
+                    return False, (
+                        "%s: expected %r in the form's opening tag %r — a missing enctype would "
+                        "silently post the file as a filename string, and a missing (as opposed "
+                        "to empty) action would leave panel-lookup.js writing an attribute that "
+                        "was never rendered" % (label, required, form_tag.group(0)))
+            # The drop zone is the form's LAST child, after the submit
+            # button: an enhancement appended to a working control, never
+            # spliced between the control and the button that posts it.
+            drop_at = markup.find(airlines_page.UPLOAD_DROP_ATTR)
+            if drop_at == -1:
+                return False, "%s: renders no drop zone at all" % (label,)
+            if drop_at < markup.index('<button type="submit">'):
+                return False, (
+                    "%s: the drop zone renders BEFORE the submit button — it is an enhancement "
+                    "appended to a working form, not a layer spliced into it" % (label,))
+            # And it names the input it writes into, which is the only
+            # thing tying the gesture to the form (panel-lookup.js is
+            # ES5-subset, with no Element.closest() to walk up with).
+            expected_hook = '%s="%s"' % (airlines_page.UPLOAD_DROP_INPUT_ATTR, input_id)
+            if expected_hook not in markup:
+                return False, "%s: expected the drop zone to carry %r" % (label, expected_hook)
+        return True, ""
+    check(
+        "all three upload-form renderings (the no-JS fallback's, the dialog's copy, and the "
+        "lightbox replace form) keep their <input type=\"file\" ... accept=\"image/png\" "
+        "required>, their single bare <button type=\"submit\">, their hint paragraph, their "
+        "method/enctype/action and exactly one <form> byte-identical to their pre-25-07 output — "
+        "each now also carrying its own id and, as the form's LAST child after the submit button, "
+        "a drop zone naming the very input it writes into (CFG-51/D19, 25-07-PLAN.md Task 1)",
+        _upload_forms_native_controls_are_unchanged_by_the_drop_zone)
+
+    def _drop_zone_ids_are_unique_and_no_drop_markup_escapes_the_js_gate():
+        # A Step-B render with edit mode on is the page's busiest state:
+        # the no-JS fallback panel's own upload zone, the dialog's copy
+        # of it, and the dialog's replace form all render at once. That
+        # is exactly the state an id collision would appear in, and it
+        # is the reason the id_suffix discipline exists at all.
+        tmp = _mkstate("a-drop-gate")
+        try:
+            result = manual_resolutions.add_entry(tmp, "NEW", "Totally Novel Airline")
+            if result != manual_resolutions.ADD_OK:
+                return False, "test setup failure: add_entry returned %r" % (result,)
+            rendered = airlines_page.render(
+                dict(_ctx(tmp), resolve_prefix="NEW", edit_mode=True))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        ids = re.findall(r'\sid="([^"]*)"', rendered)
+        duplicates = sorted({value for value in ids if ids.count(value) > 1})
+        if duplicates:
+            return False, (
+                "the Airlines page emits duplicate id(s) %r — HTML requires every id to be "
+                "document-unique, and adding markup to a form that exists twice is exactly how "
+                "that breaks (this is what `id_suffix` is for)" % (duplicates,))
+
+        # POINT 3 OF 25-01's CONTRACT, AND ITS CONVERSE. Boundary-
+        # anchored on both sides so `data-upload-drop-input` (a real,
+        # different attribute on the same tag) can never satisfy a
+        # lookup for `data-upload-drop`.
+        wrapper_re = re.compile(
+            r"(?<![-\w])%s(?![-\w])" % re.escape(airlines_page.UPLOAD_DROP_ATTR))
+        wrappers = []
+        for tag in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", rendered):
+            text = tag.group(0)
+            if not wrapper_re.search(text):
+                continue
+            class_match = re.search(r'\bclass="([^"]*)"', text)
+            classes = class_match.group(1).split() if class_match else []
+            if layout.JS_GATE_CLASS not in classes:
+                return False, (
+                    "an element carries %s OUTSIDE the %r gate — %s. A drop target that cannot "
+                    "receive a drop must not advertise one: with scripts blocked it would show "
+                    "permanently and do nothing, competing with the file input that works"
+                    % (airlines_page.UPLOAD_DROP_ATTR, layout.JS_GATE_CLASS, text))
+            wrappers.append(tag.start())
+        if len(wrappers) != 3:
+            return False, (
+                "expected exactly three gated drop wrappers on a Step-B edit-mode render (the "
+                "fallback panel's upload form, the dialog's copy, and the replace form), got %d"
+                % (len(wrappers),))
+
+        # And nothing the script paints renders outside one of those
+        # three wrappers. Counting the classes is not enough — a preview
+        # box rendered beside the gate rather than inside it would still
+        # count correctly while being permanently visible and inert.
+        outside = rendered
+        for start in reversed(wrappers):
+            end = rendered.index("</section>", start) + len("</section>")
+            outside = outside[:start] + outside[end:]
+        for token in (airlines_page.UPLOAD_DROP_PREVIEW_CLASS,
+                      airlines_page.UPLOAD_DROP_IMAGE_CLASS,
+                      airlines_page.UPLOAD_DROP_NOTE_CLASS,
+                      airlines_page.UPLOAD_DROP_MESSAGE_CLASS,
+                      airlines_page.UPLOAD_DROP_INPUT_ATTR,
+                      "--upload-preview-ratio"):
+            if token in outside:
+                return False, (
+                    "%r renders OUTSIDE every gated drop wrapper — with scripts blocked that is "
+                    "markup nothing can ever fill" % (token,))
+        return True, ""
+    check(
+        "on a Step-B edit-mode Airlines render (the fallback panel's upload form, the dialog's "
+        "copy and the replace form all at once) every emitted id is document-unique, every one "
+        "of the three elements carrying data-upload-drop also carries layout.JS_GATE_CLASS ON "
+        "ITSELF (boundary-anchored, so data-upload-drop-input cannot satisfy it), and with those "
+        "three <section> subtrees excised the rest of the document contains zero preview, image, "
+        "note, message, input-hook or --upload-preview-ratio markup (CFG-51/D-09, 25-07-PLAN.md "
+        "Task 1)",
+        _drop_zone_ids_are_unique_and_no_drop_markup_escapes_the_js_gate)
+
+    def _preview_box_reserves_illustration_normalize_s_own_frame():
+        markup = airlines_page._resolve_upload_form_html("", "-dialog")
+        ratio = re.search(r'style="--upload-preview-ratio: (\d+) / (\d+)"', markup)
+        if not ratio:
+            return False, (
+                "the preview box carries no inline --upload-preview-ratio — without it the box "
+                "reserves nothing and the card jumps when the first image arrives")
+        measured = (int(ratio.group(1)), int(ratio.group(2)))
+        if measured != illustration_normalize.ILLUSTRATION_TARGET_SIZE:
+            return False, (
+                "the preview box reserves %r but companion/illustration_normalize.py's output "
+                "frame is %r — a preview promising a shape the server does not produce is the "
+                "SECOND measurement that module's own docstring exists to forbid"
+                % (measured, illustration_normalize.ILLUSTRATION_TARGET_SIZE))
+
+        style_css_path = os.path.join(HERE, "static", "style.css")
+        with open(style_css_path) as fh:
+            css = re.sub(r"/\*.*?\*/", " ", fh.read(), flags=re.DOTALL)
+        # Deliberately matched with EITHER terminator, so a rule that
+        # grew a fallback still counts as "reads it" and fails on the
+        # fallback clause below with the message that explains why —
+        # rather than on this one, which would be the right verdict for
+        # the wrong reason (measured: an exact `var(--upload-preview-
+        # ratio)` test made the fallback clause unreachable).
+        if not re.search(r"var\(\s*--upload-preview-ratio\s*[,)]", css):
+            return False, (
+                "companion/static/style.css never reads var(--upload-preview-ratio) — the inline "
+                "property and the rule that consumes it are two halves of one contract")
+        if re.search(r"var\(\s*--upload-preview-ratio\s*,", css):
+            return False, (
+                "companion/static/style.css gives --upload-preview-ratio a FALLBACK value — a "
+                "fallback would keep the box the right shape even after the inline property "
+                "stopped being rendered, masking the deletion of the live value rather than "
+                "guarding against it")
+
+        # Every class and attribute this plan adds resolves to a real
+        # selector, matched on a SELECTOR BOUNDARY: a plain substring
+        # test would report `.upload-drop` as resolved by a future
+        # `.upload-drop-inner`.
+        for class_name in (airlines_page.UPLOAD_DROP_CLASS,
+                           airlines_page.UPLOAD_DROP_PREVIEW_CLASS,
+                           airlines_page.UPLOAD_DROP_IMAGE_CLASS,
+                           airlines_page.UPLOAD_DROP_NOTE_CLASS,
+                           airlines_page.UPLOAD_DROP_MESSAGE_CLASS):
+            if not re.search(r"\.%s(?![-\w])" % re.escape(class_name), css):
+                return False, (
+                    "companion/static/style.css declares no `.%s` selector on a boundary"
+                    % (class_name,))
+        if not re.search(r"\[%s\]" % re.escape(airlines_page.UPLOAD_DROP_ACTIVE_ATTR), css):
+            return False, (
+                "companion/static/style.css declares no [%s] rule — the drag state would have "
+                "nowhere to paint" % (airlines_page.UPLOAD_DROP_ACTIVE_ATTR,))
+
+        # The block's own three standing properties, asserted over the
+        # rules themselves rather than over the whole file.
+        rules = [m for m in re.finditer(r"([^{}]*)\{([^{}]*)\}", css)
+                 if ".upload-drop" in m.group(1)]
+        if len(rules) < 5:
+            return False, "expected at least five .upload-drop rules in style.css, got %d" % len(rules)
+        for selector, body in ((m.group(1).strip(), m.group(2)) for m in rules):
+            if ":hover" in selector:
+                return False, (
+                    "`%s` is a :hover rule — the drag state must be reachable by touch, which is "
+                    "why it rides on [%s] instead (the ground CFG-28 used for this app's "
+                    "tooltips)" % (selector, airlines_page.UPLOAD_DROP_ACTIVE_ATTR))
+            literal = re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", body)
+            if literal:
+                return False, (
+                    "`%s` declares the colour literal %r — every colour in this block must come "
+                    "from a theme token so both themes stay load-bearing"
+                    % (selector, literal.group(0)))
+            if "@keyframes" in selector or "animation" in body:
+                return False, "`%s` introduces animation; this plan adds no motion at all" % (selector,)
+        return True, ""
+    check(
+        "the framing preview reserves companion/illustration_normalize.py's OWN output frame "
+        "(read from ILLUSTRATION_TARGET_SIZE, never a retyped ratio) through an inline "
+        "--upload-preview-ratio that style.css reads with NO fallback value; every .upload-drop "
+        "class and the [data-upload-drop-active] state resolve to real selectors on a selector "
+        "boundary; and not one .upload-drop rule uses :hover, declares a colour literal or "
+        "introduces animation (CFG-51/CFG-52, 25-07-PLAN.md Task 1)",
+        _preview_box_reserves_illustration_normalize_s_own_frame)
 
     # ------------------------------------------------------------------
     # Phase 14 (14-04-PLAN.md Task 1): the coverage-gap block (D-01,

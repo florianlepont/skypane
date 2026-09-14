@@ -21,7 +21,12 @@
  * hamburger toggle's active state, a stat tile's icon tint and top
  * accent when no ok/warn/error status applies, the skip link's fill,
  * the selected runway card's border and check glyph, the native
- * `accent-color` of radios/checkboxes, a `<summary>` disclosure's marker
+ * `accent-color` of radios/checkboxes AND (25-05-PLAN.md Task 2 — a
+ * genuine broadening rather than a clarification, recorded because
+ * this list is kept exhaustive on purpose) of the wake-interval
+ * range input, which inherits it from the same global `input,
+ * select` declaration and is a selection affordance of exactly the
+ * kind this reservation is for, a `<summary>` disclosure's marker
  * (260902-ep7: this is a genuine broadening, not a clarification — the
  * marker pseudo-element was already on this list; its own label text
  * was not, and is now added too), the neutral (non-anomaly) banner's
@@ -1098,6 +1103,439 @@ a:hover {
   .js .mobile-nav {
     transition: none;
   }
+}
+
+/* ===================================================================
+ * 25-01-PLAN.md Task 2 (CFG-46) — THE .js GATE, AND THE SHARED CONTROL
+ * VOCABULARY THE WHOLE OF PHASE 25 IS BUILT ON.
+ *
+ * Placed here, immediately after the two `.js .mobile-nav` rules above,
+ * because those are this file's other consumers of the same `.js` class
+ * (added unconditionally to <html> as nav-dropdown.js's very first
+ * statement) and all three read as one group. Placement is for
+ * READABILITY only: every selector below is unique to this block, so
+ * nothing here wins or loses on source order.
+ *
+ * --- THE DIRECTION, AND WHY THE REVERSE IS A DEFECT ----------------
+ *
+ * D-09 (22-CONTEXT.md) is a locked decision: an affordance that cannot
+ * work without script does not RENDER without script. The gate
+ * therefore HIDES BY DEFAULT and is revealed under `.js` — never the
+ * other way round.
+ *
+ * Writing it the other way round (render by default, hide under `.js`)
+ * fails twice. It flashes a dead control on every single load, in the
+ * window between first paint and the script running. And when a script
+ * genuinely fails to run — blocked, 404, a parse error — `.js` is never
+ * added at all, so the dead control does not merely flash, it stays on
+ * screen permanently with nothing behind it. This file has already paid
+ * that bill once: 19-10's `.js`-keyed fallback-hide rule (the block
+ * immediately below this one, which now keys on two liveness markers
+ * instead) hid the only working Save button whenever an unrelated
+ * script failed, and the fix was to stop keying on `.js` at all. That
+ * rule's own attribute name is deliberately NOT repeated in this
+ * paragraph: companion/test_config_page.py locates it by the FIRST
+ * occurrence of that literal in this file, so quoting it here would
+ * point the guard at a comment.
+ *
+ * `display: none` specifically, and it is not interchangeable with
+ * `visibility: hidden` or `opacity: 0`. Those two leave the element in
+ * the layout AND in the tab order, so a keyboard user with scripts
+ * blocked can tab straight into a control that cannot do anything. Out
+ * of the layout and out of the tab order is the whole requirement.
+ *
+ * --- THE REVEAL, AND WHY IT IS ONE RULE ---------------------------
+ *
+ * The revealed display value comes from `--js-gate-display`, which a
+ * consumer sets on its own rule (`--js-gate-display: flex;`) with no
+ * `.js`-scoped selector of its own. Without that indirection every
+ * consumer would have to write its own `.js .thing { display: flex; }`
+ * pair and the gate's direction would be re-decided five times. The
+ * fallback is `block`, which is what an unstyled <div> is anyway.
+ * =================================================================== */
+.js-gate {
+  display: none;
+}
+
+.js .js-gate {
+  display: var(--js-gate-display, block);
+}
+
+/* The shared hit area for a small control, in the RELOCATED category of
+ * `references/control-density.md`'s touch-target register — a 22x22px
+ * visual box with a `::before` synthesizing a real 44x44 pointer/touch
+ * target (22 + 11 + 11 = 44), which is a hit-area GAIN, never a trade.
+ *
+ * Every value here is `.copy-btn`'s own, reused VERBATIM rather than
+ * re-chosen: the 22x22 box, the zero padding, the inline-flex centring,
+ * the 6px radius, the negative-11px inset and the 14px glyph
+ * `.copy-btn .icon` already scopes its SVG down to. `.row-toggle` did
+ * exactly this in 22-09 and its own comment says so; this is the third
+ * consumer of one register entry, not a fourth set of numbers. A
+ * harness asserts every one of those declarations EQUAL to
+ * `.copy-btn`'s and recomputes the 44 from the declared box and inset,
+ * so a future density pass that shrinks one and forgets the other
+ * fails rather than drifts.
+ *
+ * NO FOCUS RULE HERE, AND THAT IS DELIBERATE. The global
+ * `a/button/input/select/summary:focus-visible` floor near the top of
+ * this file already paints every native interactive element, and a
+ * handle in this phase is a real <button>. A plan adding its own focus
+ * ring to a control is duplicating a solved problem and will end up
+ * with a second, subtly different ring. (For the record, so the next
+ * reader does not go looking in the wrong place: that floor is a
+ * top-level rule, NOT part of the one `@supports selector(:has(*))`
+ * block — what lives inside the feature query is the DELEGATED focus
+ * ring for cards wrapping a visually-hidden radio, which is a different
+ * mechanism for a different markup shape.)
+ *
+ * No background, border or content of its own on the `::before`: it is
+ * a pointer target, not a painted surface. */
+.control-hit-area {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.control-hit-area::before {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+
+.control-hit-area .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* The continuous-value control's three-part naming convention, shared
+ * by 25-04's quiet-hours dial and 25-05's wake-interval slider:
+ *
+ *   .value-control           the wrapper, and the positioning context
+ *   .value-control__track    the box companion/static/value-controls.js
+ *                            measures the pointer against
+ *   .value-control__handle   the grabbable, focusable <button>
+ *
+ * There is deliberately no `__readout` class. A control's printed value
+ * is a TIME VALUE and this file already has exactly one role for that
+ * (`.time-value`, C5's consolidation of four competing treatments,
+ * carrying `font-variant-numeric: tabular-nums` so a changing digit
+ * never reflows its neighbours). A readout wears that class. Adding a
+ * fourth numeric voice here would be reopening C5.
+ *
+ * Only the declarations that are genuinely SHARED live here — each
+ * control's own geometry (a track's length, a dial's diameter, where a
+ * handle sits for a given fraction) is that control's plan's, and
+ * guessing it now would be inventing numbers with nothing to measure
+ * them against. The two that ARE shared:
+ *
+ * `touch-action: none` is load-bearing and easy to omit: without it the
+ * browser's own panning gesture claims a press-and-drag on every touch
+ * device, `pointermove` never reaches value-controls.js, and the
+ * control is simply immovable on a phone — with no error anywhere and
+ * every string-comparison check still green. It is declared on the
+ * wrapper AND on the handle, because the handle is the element a drag
+ * actually starts on and `touch-action` does not inherit.
+ *
+ * `position: relative` on the wrapper and the track is what an
+ * absolutely-placed handle is measured against; without it the handle
+ * would resolve against the nearest positioned ancestor somewhere else
+ * on the page.
+ *
+ * The painted position arrives as the `--value-fraction` custom
+ * property, written by value-controls.js from the value it just read
+ * back off the native input — so the geometry stays in the stylesheet
+ * and the script stays out of the layout business. With scripts
+ * blocked the property is simply never set, which is correct: the
+ * control it positions is inside a `.js-gate` and is not rendered at
+ * all. */
+.value-control {
+  position: relative;
+  touch-action: none;
+}
+
+.value-control__track {
+  position: relative;
+}
+
+.value-control__handle {
+  position: absolute;
+  touch-action: none;
+}
+
+/* ===================================================================
+ * 25-04-PLAN.md Task 2 (CFG-48) — THE QUIET-HOURS DIAL: A SERVER-DRAWN
+ * 24 h RING, AND THE FIRST CONSUMER OF THE VOCABULARY ABOVE.
+ *
+ * Placed here, immediately after the three shared names, because this
+ * is the component that gives them a subject. Placement is for
+ * READABILITY only — every selector below is unique to this component.
+ *
+ * WHAT IS PAINTED HERE IS NOT AN AFFORDANCE. The ring, its arc and its
+ * four anchor-hour labels are rendered by the SERVER on every render
+ * and are outside the `.js` gate entirely; only the two drag handles
+ * are gated. That split is the whole design: with scripts blocked the
+ * visitor still sees a correct picture of the saved window and can
+ * still type both times into the two native time inputs below it.
+ *
+ * NO ACCENT ANYWHERE IN THIS COMPONENT. The header comment's
+ * accent-reservation list is exhaustive and a dial is not on it. What
+ * this drawing says, it says in INK — the same choice the airfield
+ * diagram further down this file already made, and for the same
+ * reason.
+ *
+ * NO `fill` AND NO `stroke-width` DECLARED BELOW, deliberately. Both
+ * ride as presentation ATTRIBUTES on the emitted shapes: a CSS
+ * stroke-width of any specificity beats a presentation attribute and
+ * would flatten the geometry companion/pages/config_page.py derives
+ * from its own constants, and a CSS `fill: none` beside an attribute
+ * already saying `none` is the inert restatement 25-03 measured,
+ * deleted and wrote this sentence about.
+ * =================================================================== */
+.quiet-dial {
+  /* The positioning context the four hour labels and (once script is
+   * running) the two gated handles resolve against. Without it they
+   * would resolve against whatever ancestor happens to be positioned
+   * somewhere else on the page. */
+  position: relative;
+  /* The drawing's own intrinsic size, restated so the block that holds
+   * it is exactly as wide as the ring and `margin: auto` therefore
+   * centres the ring rather than a wider box. Both this and the radius
+   * below are pinned by a harness against
+   * companion/pages/config_page.py's own QUIET_DIAL_SIZE and
+   * QUIET_DIAL_RADIUS: the handle has to land on the stroke the emitter
+   * drew, and two numbers that have to agree and live in two files
+   * agree until one of them is edited. */
+  width: 176px;
+  /* The ring's stroke centre line, which is the circle the handles ride
+   * on. Declared here rather than inside the handle's own transform so
+   * the one number is written once. */
+  --quiet-dial-radius: 78px;
+  margin: 0 auto var(--space-sm);
+}
+
+/* `display: block` and nothing else. An <svg> is replaced-inline by
+ * default, which puts a baseline descender gap under it — real vertical
+ * space this card would then carry below a drawing that has already
+ * ended. A `width: 100%` / `height: auto` pair was written here, then
+ * measured to be inert (the canvas carries its own intrinsic 128x128
+ * attributes and its parent is 128px wide) and deleted rather than left
+ * behind with a comment claiming it mattered. */
+.quiet-dial__ring {
+  display: block;
+}
+
+/* The whole 24 hours: structural ink, the same token every hairline
+ * card edge in this file already uses, so the day recedes behind the
+ * window drawn on top of it without a second rule and inverts with the
+ * theme for free. */
+.quiet-dial__day {
+  stroke: var(--color-border);
+}
+
+/* The quiet window itself, and the subject of the whole drawing: full
+ * ink. Painted from --color-text rather than a literal, which is what
+ * makes it correct in dark mode — the token inverts and the shape
+ * follows. It out-reads both the day ring it is drawn on and the four
+ * labels that orient it, which is the reading order this card wants: the
+ * window first, then where it sits in the day. */
+.quiet-dial__arc {
+  stroke: var(--color-text);
+}
+
+/* The four anchor hours, absolutely placed inside the ring's hole
+ * rather than around its outside — outside would grow this block past
+ * the 128px the parent declares and reopen the horizontal-overflow
+ * question at 360px. Muted to the same strength as the arc: they orient
+ * the drawing, they are not part of its reading. */
+.quiet-dial__hour {
+  position: absolute;
+  /* 30% is this file's own existing CONTEXT strength — the same one the
+   * airfield diagram further down uses for the runways a card is not
+   * about — because that is exactly what these are: they place the arc,
+   * they are not part of its reading. A harness asserts they stay
+   * weaker than the arc. */
+  color: color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+
+/* The four quarter turns. Each label is placed by its OWN edge and then
+ * pulled back by half of itself on the axis it has to centre on, which
+ * is what makes the numeral's centre land on the ring's axis rather
+ * than its leading edge. */
+.quiet-dial__hour--0 {
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.quiet-dial__hour--6 {
+  top: 50%;
+  right: 13%;
+  transform: translateY(-50%);
+}
+
+.quiet-dial__hour--12 {
+  bottom: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.quiet-dial__hour--18 {
+  top: 50%;
+  left: 13%;
+  transform: translateY(-50%);
+}
+
+/* The window in words, under the drawing it describes. A <p> arrives
+ * with a 1em margin on both sides; the top one would open a gap between
+ * a picture and its own caption, so it is zeroed and the bottom one
+ * spends an existing spacing token to separate the pair from the preset
+ * row below. Centred, because it reads as the ring's caption and a
+ * left-aligned caption under a centred drawing reads as a stray
+ * sentence. The element wears the shared numeric voice (tabular figures)
+ * through its own class in the markup, so no type is declared here. */
+.quiet-dial__readout {
+  margin: 0 0 var(--space-md);
+  text-align: center;
+}
+
+/* 25-04-PLAN.md Task 3 (CFG-48) — THE TWO DRAG HANDLES, AND THE ONLY
+ * PART OF THIS COMPONENT BEHIND THE `.js` GATE.
+ *
+ * The layer is one per handle, each covering the ring exactly, so the
+ * pointer angle value-controls.js measures is measured about the ring's
+ * own centre. It is a FRAME AND NEVER A TARGET: `pointer-events: none`
+ * here (and on the measurement box inside it) is what stops the upper
+ * of the two stacked layers from swallowing every press meant for the
+ * ring or for the other handle. Without it the whole dial would steer
+ * whichever end happened to be emitted last, from any press anywhere on
+ * it, with nothing else in this codebase noticing.
+ *
+ * `inset: 0` rather than a repeated width/height: the layer is the
+ * drawing's box by definition, and restating 128px twice more is two
+ * more numbers to keep in step. */
+.quiet-dial__handles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.quiet-dial__handle-track {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The grabbable end itself. Its `position: absolute` and its
+ * `touch-action: none` both come from the shared .value-control__handle
+ * rule above, and its 22x22 box with the 44x44 pointer target
+ * synthesised by a -11px inset ::before comes from the shared
+ * .control-hit-area rule above that — three classes on one element, each
+ * contributing what it owns. A harness pins the SOURCE ORDER of those
+ * two shared rules, because they both declare `position` at equal
+ * specificity and the absolute one has to win.
+ *
+ * POLAR PLACEMENT WITHOUT ANY TRIGONOMETRY, and that is why the
+ * transform reads the way it does. Starting from the ring's centre:
+ * pull the button back by half of itself so its own centre sits there,
+ * rotate the frame by the value's fraction of a turn, walk outwards to
+ * the ring's stroke line, then rotate the same amount BACK so the
+ * button is carried round the circle without being spun on the way.
+ * The alternative is a CSS sin()/cos() pair, which buys nothing here and
+ * costs a browser-support argument.
+ *
+ * The fraction falls back to 0 rather than being required: an unset
+ * custom property in a calc() invalidates the whole declaration, which
+ * would drop the centring translate too and leave the handle in the
+ * corner of the ring.
+ *
+ * Repainted rather than inherited: .control-hit-area is transparent and
+ * borderless by design (it is a hit target for a glyph, and the Copy
+ * button supplies its own glyph), so a handle wearing it and nothing
+ * else would be invisible. Canvas fill with a full-ink edge reads as a
+ * grip in both themes from one rule, and uses no accent — the header
+ * comment's accent-reservation list is exhaustive and a dial is not on
+ * it. */
+.quiet-dial__handle {
+  top: 50%;
+  left: 50%;
+  transform:
+    translate(-50%, -50%)
+    rotate(calc(var(--value-fraction, 0) * 1turn))
+    translateY(calc(-1 * var(--quiet-dial-radius)))
+    rotate(calc(var(--value-fraction, 0) * -1turn));
+  pointer-events: auto;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-text);
+  border-radius: 50%;
+}
+
+/* THE ONE PLACE THIS COMPONENT OVERRIDES THE SHARED HIT-AREA REGISTER,
+ * and it is a GAIN rather than a trade: 22 + 12 + 12 = 46 against the
+ * shared entry's 22 + 11 + 11 = 44.
+ *
+ * The shared inset synthesises EXACTLY the floor, with nothing to spare,
+ * which is correct for every consumer placed on the pixel grid. This
+ * handle is not: it is carried round a circle by a rotate/translate
+ * pair, so it lands at a FRACTIONAL pixel position and the browser snaps
+ * its hit region to the grid — measured on this tree at 43x43 with the
+ * shared inset, one pixel under a floor the declared box clears. One
+ * extra pixel per side survives that snapping in either direction.
+ *
+ * Declared here rather than by loosening the shared rule, because every
+ * other consumer of that rule really is grid-aligned and does not need
+ * it. */
+.quiet-dial__handle::before {
+  inset: -12px;
+}
+
+/* ===================================================================
+ * 25-05-PLAN.md Task 2 (CFG-49/CFG-52) — D18'S WAKE-INTERVAL SLIDER.
+ *
+ * TWO DECLARATIONS, AND THE SHORTNESS OF THIS BLOCK IS THE POINT. The
+ * control is a NATIVE <input type="range">, so the browser supplies the
+ * track, the thumb, the drag, the keyboard model and the accessible
+ * value; the global `input, select` rule above already supplies the
+ * 44px floor, the padding, the surface, the 1px structural edge, the
+ * radius and the `accent-color` every other native control in this app
+ * wears. Re-declaring any of that here would be re-choosing values the
+ * file has already chosen.
+ *
+ * IT DELIBERATELY DOES NOT WEAR `.value-control`. That class is the
+ * wrapper vocabulary for a control whose absolutely-placed handle is
+ * positioned from `--value-fraction` — it declares `position: relative`
+ * as that handle's containing block and `touch-action: none` so a touch
+ * drag is not claimed by the browser's panning gesture. A native range
+ * has no such handle to contain, and `touch-action: none` on an
+ * ancestor of one would be this plan taking a position on a gesture
+ * the browser already implements, with no way to measure the result in
+ * a headless harness. Both declarations would be inert at best here,
+ * and the second could be worse than inert. (Recorded rather than left
+ * silent: a later reader will notice the phase's other control uses the
+ * shared class and wonder.)
+ *
+ * WHY `width: 100%` IS THE ONE GEOMETRY DECLARATION: a range input's
+ * intrinsic width is about 129px in this engine, which at the 360px
+ * floor would be a third of the card and a sweep of the whole 60..3600
+ * band in about 120 pixels. It is a full-width control or it is not
+ * worth having.
+ *
+ * The wrapper needs no `--js-gate-display`: `block` is the gate's own
+ * fallback and a <div> is block anyway, so declaring it would be inert.
+ * =================================================================== */
+.wake-slider {
+  margin-top: var(--space-sm);
+}
+
+.wake-slider__input {
+  width: 100%;
 }
 
 /* Unified save bar (06.6.4.1 D-04, retargeted by 19-10-PLAN.md D-09/
@@ -2586,6 +3024,94 @@ button:disabled {
   display: inline-flex;
 }
 
+/* The schematic Orly map inside each runway card (CFG-47,
+ * 25-03-PLAN.md Task 2). Server-rendered SVG, one per card, every
+ * registry entry drawn at the bearing its own designator states.
+ *
+ * THE SIZE ROUTE IS DECLARED IN BOTH DIRECTIONS AND BOTH HALVES ARE
+ * LOAD-BEARING. The <svg> carries intrinsic width/height attributes
+ * (companion/draw.py's unit scheme), which is what keeps it off the SVG
+ * default 300x150 with no stylesheet at all; the max-width/height pair
+ * here is what keeps those intrinsic 64 user units from overflowing a
+ * card that is narrower than 64px. At the 360px contract floor three
+ * cards share one row and each one's content box measures about 54px,
+ * so the intrinsic size is the WIDER of the two and `max-width: 100%`
+ * is the declaration standing between this drawing and a page that
+ * scrolls sideways. `height: auto` is what stops that shrink from
+ * squashing an aspect-locked mark.
+ *
+ * No accent anywhere in this component, in any state. The header
+ * comment's accent-reservation list is an exhaustive list and this
+ * drawing is not on it — the card's own border, ring, wash and check
+ * glyph already carry the selection signal in accent, and a fifth
+ * accent property on the same component would be a broadening of that
+ * list rather than a reuse of it. What the map says instead is said in
+ * INK: a strip gets darker as it becomes more relevant. */
+.runway-map {
+  display: block;
+  width: 100%;
+  max-width: 64px;
+  height: auto;
+  margin-bottom: var(--space-sm);
+}
+
+/* The airfield outline: structural ink, the same --color-border token
+ * every hairline card edge in this file already uses, so it recedes
+ * behind the strips in both themes without a second rule. Stroke-only
+ * on purpose — `fill: none` is companion/draw.py's contract rule 4
+ * "deliberately unfilled" case stated out loud rather than left to the
+ * SVG default. Deliberately declares NO `stroke-width`: 1 user unit is
+ * the SVG default already, so a declaration of it would be inert — it
+ * was written, mutated, measured to break nothing, and deleted rather
+ * than left behind with a comment claiming it mattered. */
+.runway-map__field {
+  fill: none;
+  stroke: var(--color-border);
+}
+
+/* Context: the runways this card is NOT about. Faint, because their
+ * job is to place the one strip that matters, not to compete with it.
+ *
+ * Painted from --color-text rather than a literal, which is what makes
+ * the drawing correct in dark mode for the same reason the battery
+ * chart already is: the token inverts with the theme and the shape
+ * follows for free. 30% is this file's own existing muted-ink strength,
+ * not an eighth wash percentage invented for one drawing.
+ *
+ * The transition lives HERE, on the base rule, and never inside the
+ * feature query — the identical discipline the card's own transition
+ * follows, and the reason this file's ONE feature query is asserted to
+ * declare no transition at all. Declaring it once here animates the
+ * live selected state and its no-:has() fallback identically. A plain
+ * transition on a real element is already covered by the global
+ * reduced-motion block, so this rule declares no per-rule
+ * prefers-reduced-motion block (that would be dead code, not a safety
+ * net) and no new @keyframes. */
+.runway-map__strip {
+  fill: color-mix(in srgb, var(--color-text) 30%, transparent);
+  transition: fill var(--motion-fast) ease;
+}
+
+/* The runway this card IS about — present on exactly one strip of every
+ * map, selected or not. It says "this card's runway", never "the chosen
+ * runway", which is what lets a page with nothing selected render with
+ * nothing claimed. 55% is likewise an existing strength in this file. */
+.runway-map__strip--this {
+  fill: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* The no-:has() FALLBACK half of this drawing's selected state, keyed to
+ * the server-rendered modifier, sitting outside the feature query and
+ * declaring the same value its live twin inside the query does — the
+ * identical parity contract the border, the ring, the wash and the
+ * scale already hold on this component, for the identical reason: a
+ * browser without :has() must not render a different-looking selected
+ * card. Full ink, no accent: the strip that matters goes from 55% to
+ * solid, which reads at a glance without borrowing a reserved colour. */
+.runway-card--selected .runway-map__strip--this {
+  fill: var(--color-text);
+}
+
 /* Theme picker chip (06.6.4.1.1-05, sketch 004 variant B — the
  * developer-confirmed winner, UIR-01/UIR-02). This is a second
  * selectable-card component, deliberately placed as a neighbour of
@@ -3024,6 +3550,28 @@ button:disabled {
     display: inline-flex;
   }
 
+  /* CFG-47/CFG-52 (25-03-PLAN.md Task 2): the map's own live selected
+   * state JOINS this block rather than opening a second one. Two named
+   * checks assert this file holds exactly one such block, and an
+   * unsupported :has() invalidates the whole selector list it appears
+   * in — which is why every rule needing it is quarantined here.
+   *
+   * Specificity, using the arithmetic recorded above this block and
+   * deliberately not re-derived: this is (0,1,0)+(0,1,1)+(0,1,0) =
+   * (0,3,1), against the fallback rule's (0,2,0). The live rule wins,
+   * which is the required direction.
+   *
+   * The property is `fill` and the value is plain ink. No accent: this
+   * component's accent budget is already spent on the card's border,
+   * ring, wash and check glyph, all four of which are on the header
+   * comment's reservation list, and a drawing that also painted accent
+   * would be a new entry on an exhaustive list rather than a reuse of
+   * one. The transition that animates this lives on the strip's own
+   * base rule outside this query, never in here. */
+  .runway-card:has(input:checked) .runway-map__strip--this {
+    fill: var(--color-text);
+  }
+
   /* T6 (22-15-PLAN.md Task 1): the same positive-restore reconciliation
    * the chip's own hover rule above documents in full — `none` would
    * now erase the selection ring rather than suppress the hover
@@ -3048,6 +3596,17 @@ button:disabled {
 
   .runway-card--selected:not(:has(input:checked)) .runway-card__check {
     display: none;
+  }
+
+  /* CFG-47 (25-03-PLAN.md Task 2): saved-but-not-live CLEARS the map's
+   * full-ink strip back to its resting weight, for exactly the reason
+   * the rules above clear the ring, the wash, the glyph and the scale —
+   * a card can be SAVED at the very moment its neighbour is the LIVE
+   * choice, and two solid-ink strips would claim two selections. The
+   * value is the resting strength restated, so it can never drift from
+   * the base rule it restores. */
+  .runway-card--selected:not(:has(input:checked)) .runway-map__strip--this {
+    fill: color-mix(in srgb, var(--color-text) 55%, transparent);
   }
 
   /* Top-right here (unlike the chip's bottom-right): .runway-card has no
@@ -7298,6 +7857,130 @@ a.airline-card {
   background: color-mix(in srgb, var(--color-text) 7%, var(--color-secondary));
 }
 
+/* =====================================================================
+ * 25-07-PLAN.md Task 1 (CFG-51/D19): the drag-and-drop affordance and
+ * the framing preview, layered over the two upload zones above.
+ *
+ * Every element styled below is emitted by
+ * companion/pages/airlines_page.py's _upload_drop_html() INSIDE 25-01's
+ * `.js` gate, so with scripts blocked none of it is in the layout or in
+ * the tab order and the visitor sees exactly the form the six rules
+ * above already paint. `--js-gate-display: flex` is how this consumer
+ * picks its own revealed display without writing a `.js`-scoped
+ * selector of its own — see the gate's own comment for why that
+ * indirection exists.
+ *
+ * NO `:hover` RULE ANYWHERE IN THIS BLOCK, and that is the point. The
+ * drag state is carried by `[data-upload-drop-active]`, an attribute
+ * companion/static/panel-lookup.js sets and removes, because a state
+ * that exists only under `:hover` is invisible on a phone — the same
+ * ground CFG-28 used when it moved this app's tooltips out from behind
+ * hover. No new animation at-rule, no transition and so no per-rule
+ * reduced-motion block: the state change is instantaneous, which is the
+ * one motion budget nobody has to police. (The at-rule's own keyword is
+ * deliberately not spelled out here — several guards in this tree locate
+ * a rule by the FIRST occurrence of a literal in this file, and a
+ * comment that quotes one points the guard at prose.)
+ *
+ * NO COLOUR LITERAL ANYWHERE IN THIS BLOCK either — every value is a
+ * theme token or a color-mix() over one, and each WR-02 fallback falls
+ * back to the token at full strength rather than to a hard-coded rgba(),
+ * which can only ever raise contrast, never lower it. */
+/* NO `width: 100%` HERE, AND ITS ABSENCE IS A MEASUREMENT RATHER THAN
+ * an oversight. This wrapper is a block-level <section> inside the
+ * upload form, so it already fills that form's content box; removing
+ * the declaration moved the rendered width by 0.00px at 1280 and left
+ * it exactly equal to the form's inner width, while a
+ * comment-only null mutation moved the same measurement by 0.01px. A
+ * declaration that cannot be told from the null control is dead code,
+ * which is what `references/accessibility-contrast.md` already says
+ * about per-rule reduced-motion blocks. The preview box below DOES
+ * declare one, and there the same mutation moved the rendering. */
+.upload-drop {
+  --js-gate-display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-control);
+}
+
+/* The drag-over state. A background wash on the wrapper plus the
+ * preview frame going solid: two signals rather than one, because the
+ * wash alone is a small step against this zone's own tint. */
+.upload-drop[data-upload-drop-active] {
+  background: var(--color-secondary);
+}
+
+/* The hint and the framing-preview caption share one voice — the same
+ * sub-scale muted tier `.lightbox__replace-hint` above already occupies,
+ * restated against tokens rather than reusing that class, so
+ * test_status_pages.py's replace-zone contract keeps matching exactly
+ * one `<p class="lightbox__replace-hint">` per zone. */
+.upload-drop__note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text); /* fallback for browsers without color-mix() (WR-02) */
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The reserved box. `aspect-ratio` is fed by the `--upload-preview-ratio`
+ * custom property _upload_drop_html() writes inline from
+ * companion/illustration_normalize.py's own ILLUSTRATION_TARGET_WIDTH /
+ * ILLUSTRATION_TARGET_HEIGHT — DELIBERATELY WITH NO FALLBACK VALUE. A
+ * `var(--upload-preview-ratio, 450 / 132)` here would keep the box the
+ * right shape even if the inline property stopped being rendered, which
+ * is a fallback masking the deletion of the live value rather than a
+ * safety net. `margin: 0` is load-bearing: this is a <figure>, and the
+ * UA stylesheet gives it `margin: 1em 40px`. */
+.upload-drop__preview {
+  margin: 0;
+  width: 100%;
+  aspect-ratio: var(--upload-preview-ratio);
+  overflow: hidden;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-dominant);
+}
+
+.upload-drop[data-upload-drop-active] .upload-drop__preview {
+  border-style: solid;
+  border-color: var(--color-text);
+}
+
+/* `:not([hidden])` is not decoration. The preview <img> is rendered
+ * `hidden` until a file is chosen, and a bare `display: block` here
+ * would win its specificity tie against the UA stylesheet's
+ * `[hidden] { display: none }` and paint an empty image box forever —
+ * the identical trap the `.resolve-upload-zone:not([hidden])` rule
+ * above documents for the zone itself.
+ *
+ * `object-fit: contain` shows the WHOLE chosen image inside the frame it
+ * will occupy. That is the honest thing to draw: the server may crop
+ * differently and this preview is not the authority — which is exactly
+ * why no canvas crop was written to make it one. */
+.upload-drop__image:not([hidden]) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* The refusal message. Its text is server-rendered onto the wrapper and
+ * only copied into this element by the script, so it is already
+ * translated; the element is present and empty at rest, and `:empty`
+ * collapses it — the same idiom `.lightbox__note:empty` already uses,
+ * and the reason no `hidden` attribute is juggled here. */
+.upload-drop__message {
+  margin: 0;
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  color: var(--color-status-error);
+}
+
+.upload-drop__message:empty {
+  display: none;
+}
+
 /* 06.6.4.1.1-03 (D-18b, UIR-26): buttons grow to 14px/36px specifically
  * below 960px — a phone-only extension of 06.6.4 D-01's 30px desktop
  * button decision, NOT a reopening of it. This is the file's FIRST
@@ -9026,9 +9709,25 @@ button.calendar-disconnect-btn:focus-visible {
  * Flight-colours card with one preview-plus-four-row-assignment layout.
  * Zero new colour tokens: every accent/wash value below is the exact
  * literal .theme-chip--selected/.runway-card--selected already use. */
+/* 25-06-PLAN.md Task 2 (CFG-50): `minmax(0, 1fr)`, not the bare `1fr`
+ * this declared until the departures grid became a scroll-snap strip.
+ * `1fr` is `minmax(auto, 1fr)`, and an `auto` MINIMUM is the item's own
+ * min-content width — which, once one of the panels below holds a
+ * nowrap strip of eighteen 106px chips, is about 2000px. The classic
+ * grid blowout, and MEASURED on this tree rather than feared: with the
+ * bare `1fr`, documentElement.scrollWidth read 2049 against a client
+ * width of 360, i.e. the page itself scrolled sideways by 1689px.
+ *
+ * IT IS ONE HALF OF THE FIX AND THE OTHER HALF IS
+ * `.frame-colours__usage-panel`'s own `min-width: 0` (below). Each was
+ * measured ALONE and each alone leaves the 2049px blowout exactly
+ * where it was — the panel is a <fieldset>, whose UA `min-inline-size:
+ * min-content` re-introduces the same minimum one level down. Neither
+ * declaration is redundant with the other and neither may be "tidied"
+ * away on the grounds that the other exists. */
 .frame-colours__layout {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-md);
 }
 @media (min-width: 960px) {
@@ -9140,7 +9839,16 @@ input:checked + .frame-colours__row {
   padding: 0;
   margin: 0 0 var(--space-sm);
 }
+/* `min-width: 0` first, and load-bearing — see `.frame-colours__layout`
+ * above for the measurement and for why that rule's own
+ * `minmax(0, 1fr)` does not make this one redundant. A <fieldset>
+ * carries `min-inline-size: min-content` in the UA stylesheet, so
+ * without this the panel holding the scroll-snap strip is at least as
+ * wide as eighteen chips laid end to end whatever the grid track does
+ * (measured alone: documentElement.scrollWidth 2049 against a client
+ * width of 360). */
 .frame-colours__usage-panel {
+  min-width: 0;
   border: 0;
   padding: 0;
   margin: 0 0 var(--space-lg);
@@ -9166,6 +9874,141 @@ input:checked + .frame-colours__row {
   align-items: center;
   justify-content: center;
   min-height: 120px;
+}
+
+/* --- 25-06-PLAN.md Task 2 (CFG-50): D5's theme carousel ---------------
+ * The DEPARTURES chip grid, and only that one, laid out as a horizontal
+ * scroll-snap strip. Everything below is LAYOUT. Not one selected-state
+ * declaration appears here, and none may be added: the whole
+ * `.theme-chip` selected treatment lives in this file's single feature
+ * query, whose specificity arithmetic is marked "verified, not to be
+ * re-derived", and the carousel changes where a chip sits, never how a
+ * selected one looks. `.theme-chip--compact` is likewise untouched and
+ * stays size-only.
+ *
+ * SCROLL-SNAP IS WHY THIS CONTROL NEEDS ALMOST NO SCRIPT. Swipe is the
+ * browser's own overflow scrolling; arrow keys already move selection
+ * inside a radiogroup; a focused label is already scrolled into view by
+ * the browser. Nothing below is reachable only with JavaScript, which is
+ * what makes the strip work with scripts blocked.
+ *
+ * `flex-wrap: nowrap` is the strip. `overflow-x: auto` is what keeps
+ * eighteen 104px chips — about 1900px of intrinsic width — from
+ * painting past the card and giving the PAGE a horizontal scrollbar at
+ * the 360px floor; a strip that scrolls itself is allowed and the page
+ * body is not. `flex: 0 0 auto` on the chips is load-bearing in the
+ * least obvious way of all: a nowrap flex line SHRINKS its items by
+ * default, so without it eighteen chips squeeze into the card's ~330px
+ * and every one of them drops far below the touch floor rather than
+ * overflowing.
+ *
+ * `scroll-padding-right` IS THE ONE DECLARATION HERE THAT IS NOT
+ * OBVIOUS, AND IT IS THE ONE THAT MAKES THE KEYBOARD AND THE STRIP
+ * AGREE. Arrow-keying through the radiogroup moves focus to the next
+ * RADIO, and that radio is a 1px `.visually-hidden` box sitting at its
+ * chip's top-left corner — so the browser scrolls a 1px target into
+ * view, is satisfied the instant the chip's left edge appears, and
+ * leaves the chip the visitor just selected hanging 50px off the right
+ * edge of the strip. MEASURED, not feared: six ArrowDowns at 360px put
+ * the focused chip at left 224 inside a 278px strip, i.e. 50px of it
+ * outside. Reserving the width of one chip at the scrollport's end edge
+ * makes every position land fully inside it (measured again at 1, 3, 6,
+ * 10 and 17 steps, and at the last theme in the group).
+ *
+ * 104px is `.theme-chip--compact`'s OWN declared width, not a number
+ * chosen here — companion/test_config_page.py reads both out of this
+ * file and asserts they are equal, so a future density pass that
+ * changes one and forgets the other fails rather than silently
+ * re-breaking the keyboard. */
+.theme-chip-grid--strip {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-right: 104px;
+}
+
+.theme-chip-grid--strip > .theme-chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+/* 25-06-PLAN.md Task 3 (CFG-50): the "See all themes" disclosure, and
+ * the ONE rule that is the whole reason it is a <details> sitting BEFORE
+ * the strip rather than around it.
+ *
+ * There is exactly one set of eighteen radios on this page. A <details>
+ * hides its own non-summary children when closed, so a disclosure
+ * CONTAINING the grid would hide every theme whenever it was shut and
+ * there would be no strip at all. Governing the adjacent sibling's
+ * layout is what keeps the strip and the full grid the same eighteen
+ * native radios — see config_page._theme_carousel_html() for the
+ * rejected two-set alternative.
+ *
+ * An adjacent-sibling combinator and an attribute selector, so no
+ * `:has()` is involved and this file's single feature query is not
+ * touched. (0,3,0) against the strip rule's own (0,1,0), so source
+ * order decides nothing here. */
+.theme-carousel__all {
+  margin-bottom: var(--space-sm);
+}
+
+.theme-carousel__all[open] + .theme-chip-grid--strip {
+  flex-wrap: wrap;
+}
+
+/* The two pagers. `--js-gate-display` is how a consumer picks its own
+ * display without re-deciding 25-01's gate direction.
+ *
+ * THE GAP IS `--space-lg`, NOT `--space-sm`, AND IT IS A HIT-TARGET
+ * NUMBER RATHER THAN A SPACING ONE. `.control-hit-area::before` reaches
+ * 11px beyond its button on every side; two of them 8px apart overlap
+ * in the 8px between, and the later one in document order wins the hit
+ * test. MEASURED AT 360px WITH `--space-sm`: the Previous pager's real
+ * hit area came out 30x45 — it reached 23px left of its centre and only
+ * 6px right, because the Next pager's own ::before covered the rest —
+ * which is under the 44px floor in the x axis and is exactly the defect
+ * 25-02 recorded for `.copy-btn` (a declared 44x44 hit-testing at
+ * 34x26 because its neighbours covered the ::before that synthesises
+ * it). At 24px the two ::befores stop 2px short of each other and both
+ * buttons hit-test at a real 44x44. A future density pass shrinking
+ * this to --space-md (16px) would silently put them back under the
+ * floor; the browser harness measures it rather than trusting it. */
+.theme-carousel__pagers {
+  --js-gate-display: flex;
+  gap: var(--space-lg);
+  margin-top: var(--space-sm);
+}
+
+/* ::after, not ::before — `.control-hit-area::before` is already the
+ * 44x44 pointer target and must stay empty. Pure geometry, no glyph:
+ * `summary::before`'s own 6px box and 2px edges, reused verbatim for
+ * that rule's own two recorded reasons — a `content` string is the
+ * hard-coded-English hazard T10 unpicked, and an arrow character's
+ * rendering varies by installed font. */
+.theme-carousel__pager::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.theme-carousel__pager--prev::after {
+  transform: rotate(135deg);
+}
+
+/* The dots row: one dot per theme, in that theme's own departing ink,
+ * carried by the SAME `.theme-chip__dot` rule and the same
+ * `.theme-chip__swatches` row the chips' own swatches use — no new
+ * geometry, and the per-theme colour arrives as an inline style from the
+ * registry exactly as it already does on every chip, never as a literal
+ * in this file. `flex-wrap` because eighteen 12px dots plus their gaps
+ * are wider than the card's content box at the narrowest supported
+ * width, and a nowrap flex row would shrink them instead. */
+.theme-carousel__dots {
+  flex-wrap: wrap;
+  margin-top: var(--space-sm);
 }
 
 /* --- 20-UI-SPEC.md §K: the Airlines "Change pictures" toggle (D-36) ----

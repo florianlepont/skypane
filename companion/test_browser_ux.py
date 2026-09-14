@@ -74,10 +74,14 @@ Usage:
     server/.venv/bin/python3 companion/test_browser_ux.py
 """
 import contextlib
+import io
+import json
 import itertools
 import os
 import re
+import shutil
 import sys
+import tempfile
 from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -95,9 +99,10 @@ from companion.contrast_check import (  # noqa: E402
     perceptual_distance,
 )
 from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
-from companion.pages import config_page, health_page  # noqa: E402
+from companion.pages import airlines_page, config_page, health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
-from server.plane import colour_rules, manual_resolutions  # noqa: E402
+from companion import illustration_normalize  # noqa: E402
+from server.plane import colour_rules, illustrations, manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
 EXPECTED_CHECK_COUNT = 6  # 22-01-PLAN.md Task 1: one check (the Flights
@@ -652,6 +657,168 @@ EXPECTED_CHECK_COUNT = 63
 # that seeds check-ins on the band's own Paris day.
 # 63 + 2 = 65, re-derived by RUNNING (65/65).
 EXPECTED_CHECK_COUNT = 65
+# 25-03-PLAN.md Task 3 (CFG-47): +3 — the runway map, measured where it
+# has to be correct, and not one of the three measures that it RENDERS.
+# One proves the runway still reaches DISK with scripts blocked, at
+# 360px and in BOTH shipped languages, through 25-02's operate-submit-
+# persist helper (which gains a `cookies` passthrough here so the one
+# java_script_enabled=False call site stays one), with the map's
+# presence on that page asserted only AFTER the save so it can never
+# stand in for it. One proves the map did not break the native
+# radiogroup: one ArrowDown moves to the registry's next entry, an
+# ArrowDown/ArrowDown/ArrowUp returns to it, zero pointer events fire,
+# the recorder proves itself, and the live :has(input:checked) card
+# follows the keyboard rather than the saved value. One measures the
+# floors at 360px: all three labels hit-tested in THEIR OWN container,
+# every drawing fitting inside its card without stretching, no sideways
+# page scroll, and the paint as a FLOOR — context/own/selected three
+# different colours, each differing between the themes — sampled only
+# once the browser's own Web Animations `finished` promise says the
+# 180ms fill transition is over, because the first version of that
+# clause read an interpolation frame and reported a theme that does not
+# invert.
+# 65 + 3 = 68, re-derived by RUNNING (68/68).
+EXPECTED_CHECK_COUNT = 68
+# 25-04-PLAN.md Task 4 (CFG-48/CFG-52): +3 — D17's quiet-hours dial, and
+# again not one of the three measures that it RENDERS. One proves the
+# window still reaches DISK with scripts blocked, both ends, at 360px and
+# in both shipped languages, through 25-02's operate-submit-persist
+# helper, then runs the gate in both directions and asserts the
+# SERVER-DRAWN arc, the readout, both time inputs, B14's two 24h siblings
+# and the three presets are all present on the scripts-blocked page —
+# which is what makes this dial's fallback a feature rather than an
+# absence. One drags a handle to a point this check computes itself,
+# proves the announcement moved ON THE HANDLE rather than on the wrapper,
+# proves the save bar woke and the dragged value reached disk, then
+# drives the same handle with the keyboard alone (one ArrowRight is one
+# stated step; End and Home reach the day's own ends) with zero pointer
+# events and the recorder proving itself, clicks a preset and requires
+# BOTH handles to move, and reads 23:00→07:00 back as eight hours. One
+# measures the floors at 360px: four hit-area measurements in the
+# control's OWN container across two windows, the overlapping case
+# recorded and its document-order z-rule confirmed, the drawing's box by
+# getBoundingClientRect rather than clientWidth, the four anchor hours
+# each on their own axis, no sideways page scroll, and the paint as a
+# FLOOR — the day and the window two different colours, the grip with an
+# edge, and all five differing between the themes.
+# 68 + 3 = 71, re-derived by RUNNING (71/71).
+EXPECTED_CHECK_COUNT = 71
+# 25-05-PLAN.md Task 3 (CFG-49/CFG-52): +3 — D18's wake-interval slider,
+# and again not one of the three measures that it RENDERS. One proves the
+# interval still reaches DISK with scripts blocked, at 360px and in both
+# shipped languages, then runs the gate in both directions, MEASURES both
+# gauges' boxes on the scripts-blocked page (a count passes against a
+# gauge moved behind the gate), and re-proves the out-of-range trap end to
+# end: with 30 s written straight into the config file — the one state
+# save_device_config() refuses to create, so the UI cannot produce it —
+# the number input carries NO value attribute, no range and no gauge
+# render at all, and the whole Settings form still saves a corrected
+# value. That last clause is the one defect on this card that takes down
+# the WHOLE page rather than one field. One drags the range and requires
+# three things to move together (the native number input, the freshness
+# sentence and the battery sentence), asserts the script's own wording
+# EQUALS the server's for the same two cadences, proves the save bar woke
+# and the dragged value reached disk, drives the same control by keyboard
+# alone (one ArrowRight is one stated step; End and Home reach
+# device_config's own ceiling and floor) with zero pointer events and the
+# recorder proving itself, types into the number input and requires the
+# range to follow, and asserts at every one of those positions that the
+# battery gauge produces NO days figure from this fixture's rising series.
+# One measures the floors at 360px: the hit area in the control's OWN
+# container, the box by getBoundingClientRect rather than clientWidth,
+# the Device page's own no-sideways-scroll baseline, and the paint as a
+# FLOOR — both gauges and the control's accent and surface all differing
+# between the themes, sampled only once the browser's own Web Animations
+# `finished` promise says the 150ms background transition the global
+# `input` rule declares is over, because the first version of that clause
+# read an interpolation frame and reported a token that does not invert.
+# 71 + 3 = 74, re-derived by RUNNING (74/74, 0 SKIPs).
+EXPECTED_CHECK_COUNT = 74
+# 25-06-PLAN.md Task 1 (CFG-50): +1 — Display's own rendered document
+# height at 390px and at 360px, recorded BEFORE this plan changed a byte
+# of markup. This is the one item in the phase whose success criterion is
+# a MEASUREMENT rather than a behaviour (22-10 recorded X6's height
+# target as "NOT met and cannot be by density alone"), so the
+# before-number is taken by the same registered instrument that later
+# produces the after-number rather than typed into a document by hand
+# once the change is in. The check asserts NO target — it asserts only
+# that the instrument is pointed at the authenticated Display page, at
+# the width asked for, at a document taller than the viewport, and that
+# the narrower measurement is not the smaller of the two. There is no
+# production behaviour in this task and therefore NO RED PHASE, which is
+# stated rather than manufactured.
+# 74 + 1 = 75, re-derived by RUNNING the harness (75/75, 0 SKIPs), never
+# by arithmetic.
+EXPECTED_CHECK_COUNT = 75
+# 25-06-PLAN.md Task 4 (CFG-50/D-09): +3 — D5's carousel measured, and
+# not one of the three measures that it RENDERS. One proves the theme
+# still reaches DISK with scripts blocked, at 360px and in both shipped
+# languages, and on that same scripts-blocked page: all eighteen chips
+# present, the strip really overflowing and really ONE row (a count
+# passes against eighteen chips stacked in a column), the saved radio
+# taking focus and one ArrowDown moving the selection — the property
+# `display: none` would destroy and `.visually-hidden` exists to keep —
+# the <details> OPENING on a click and turning that row into a real grid
+# holding the SAME eighteen radios, and no sideways page scroll; then
+# the gate in both directions. One drives the strip by keyboard alone at
+# one, six and seventeen steps with zero pointer events and the recorder
+# proving itself, and asserts at every one of those positions that the
+# selected chip is still fully inside the scrollport — the clause the
+# carousel adds, and the one that FAILED before the strip reserved a
+# chip's width, because the browser only ever scrolls the 1px
+# visually-hidden radio into view and stops. It also asserts the live
+# preview follows a KEYBOARD selection (the existing crossfade check
+# clicks) and that the two pagers scroll forward and exactly back while
+# changing no selection at all. One measures the floors at 360px: four
+# hit-area measurements in this control's OWN container, the strip's box
+# against its panel's content box by getBoundingClientRect, the page's
+# own no-sideways-scroll baseline with the grid both shut and open, and
+# the paint as a FLOOR — chip name, chip surface, disclosure summary and
+# pager chevron all differing between the themes, no name painted in its
+# own surface and neither the summary nor the chevron in the canvas
+# colour, sampled only once the browser's own Web Animations `finished`
+# promise says `.theme-chip`'s transitions are over.
+# 75 + 3 = 78, re-derived by RUNNING the harness (78/78, 0 SKIPs), never
+# by arithmetic.
+EXPECTED_CHECK_COUNT = 78
+# 25-07-PLAN.md Task 3 (CFG-51/D19): +3 — D19's artwork drop zone, on
+# its OWN isolated Harness() seeded with a Step-B manual entry (name
+# saved, no artwork yet), which is the one state where BOTH copies of
+# the upload form render at once. Every one of the three restores that
+# fixture as its last act.
+#
+# One is the no-JS floor, and it is the only one in this phase whose
+# scriptless proof is an UPLOAD rather than a field save:
+# `_persist_without_js()` operates by assigning to `.value`, which the
+# browser forbids on `<input type="file">`, so this task adds the stated
+# variant `_upload_without_js()` beside it — same `_no_js_page()`, same
+# read-the-verdict-off-disk discipline, plus the clause the field case
+# has no counterpart for (the illustration route SERVES the artwork back
+# afterwards, as an image at illustration_normalize's own frame size).
+# It also asserts the gate in both directions on the fallback panel's
+# own zone.
+#
+# One is the equivalence that proves the whole design: the same source
+# file stored BYTE-IDENTICALLY whether picked or dropped, with the
+# stored file deleted between the two uploads so a drop that never
+# reached the server could not pass on the picked file left behind. The
+# drop is dispatched through Chromium's DevTools protocol rather than
+# synthesised in the page, because panel-lookup.js refuses an untrusted
+# drop — so the same check measures BOTH the real gesture and the
+# refusal of the fake one. Its floor clauses are measured against the
+# INPUT, never against a message: zero files, a wrong type, several at
+# once and an oversized file each assign nothing and each say something
+# DIFFERENT, with the oversized fixture proved over the app's own cap
+# before it is used.
+#
+# One is the 360px/both-themes floor: the hit target measured in this
+# control's own container, no sideways page scroll, the preview box's
+# reserved ASPECT RATIO (by getBoundingClientRect, never clientWidth)
+# read out of illustration_normalize.py, and the paint as a floor rather
+# than a ceiling in both themes.
+# 78 + 3 = 81, re-derived by RUNNING the harness (81/81, 0 SKIPs), never
+# by arithmetic.
+EXPECTED_CHECK_COUNT = 81
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -823,7 +990,8 @@ def _login(page, base_url):
 
 
 @contextlib.contextmanager
-def _no_js_page(browser, base_url, route, viewport=None, sign_in=True):
+def _no_js_page(browser, base_url, route, viewport=None, sign_in=True,
+                cookies=None):
     """A scripts-blocked browser context, signed in, landed on `route`.
 
     The one place in this file that blocks scripts. Three checks each
@@ -846,12 +1014,23 @@ def _no_js_page(browser, base_url, route, viewport=None, sign_in=True):
     nothing at all. Pass VIEWPORT_MIN_SUPPORTED to measure a
     scripts-blocked control at the 360px contract floor.
 
+    `cookies` is applied to the context BEFORE the sign-in navigation,
+    which is the only order that works for a cookie the first rendered
+    document already has to honour — the UI-language cookie being the
+    live case. It exists because 23-05's freshness check needed exactly
+    that and, lacking it, opened this file's SECOND
+    `java_script_enabled=False` context by hand, quietly undoing the one
+    property the paragraph above claims. 25-02 added the parameter and
+    converted that check back rather than let the claim stay untrue.
+
     `context.close()` runs in a finally, the discipline every check in
     this file already follows by hand.
     """
     extra = {} if viewport is None else {"viewport": viewport}
     context = browser.new_context(java_script_enabled=False, **extra)
     try:
+        if cookies:
+            context.add_cookies(cookies)
         page = context.new_page()
         if sign_in:
             page.goto(base_url + "/login")
@@ -1276,6 +1455,1235 @@ def _assert_no_page_overflow(page, where, expected_width=None):
             "%r (CFG-45's page-body floor)"
             % (where, seen["cw"], seen["sw"], seen["cw"], seen["escaped"]))
     return ""
+
+
+# --- 25-02-PLAN.md (CFG-52): the four control-contract helpers the five
+# control plans (25-03..25-07) each need, written ONCE, before any of the
+# five controls exists. Helpers only: this plan registers no check of its
+# own and EXPECTED_CHECK_COUNT is unchanged at 65.
+#
+# Why they are here at all, and why the FIRST of them is the one that
+# matters. Phase 25 replaces five bare fields with richer controls, and
+# every one of them owes the same four proofs: it is operable with
+# scripts blocked, it is operable from the keyboard with no pointer at
+# all, its hit target survives the 360px floor, and it is legible in both
+# themes. Written out five times by hand, that is five chances to
+# transcribe a sequence WRONG — which is the exact argument
+# `_no_js_page()`'s own docstring already makes about the flag it owns.
+#
+# THE NO-JS PROOF FOR A CONTROL IS NOT "IT RENDERS". A control can render
+# perfectly with scripts blocked and save nothing whatsoever: Phase 22
+# found exactly that (a fallback Save that was rendered and had a
+# zero-size box), and a phase that replaces five inputs can ship it five
+# times over. So the first helper below operates the control, submits the
+# real form it belongs to, reloads, and reads the value back FROM DISK.
+# Reading it back from the reloaded DOM alone would still pass against a
+# server that echoed the submission straight back without storing it, and
+# stopping at "the page navigated" would pass against a control that
+# saves nothing at all.
+
+
+# ---------------------------------------------------------------------
+# 1. Operate, submit, PERSIST — with scripts blocked.
+# ---------------------------------------------------------------------
+
+# Locate every form control posting under one `name`, set it by the
+# browser's OWN mechanism, and report what happened — never a
+# Playwright coordinate interaction.
+#
+# The kind is dispatched on the control's own `type`, so a call site says
+# what it means ("this field must end up holding this value") and the
+# helper picks `el.click()` for a radio/checkbox and a `.value`
+# assignment for everything else. `_click_control()`'s docstring is the
+# precedent and its reasoning carries verbatim: the radios this phase's
+# controls are built over are `clip-path: inset(50%)` visually-hidden,
+# which clips their hit-testable area to nothing, so a coordinate click
+# lands on whatever the hit-test resolves to instead. The DOM's own
+# activation behaviour is what every keyboard/assistive path already
+# uses for this pattern and is what works here.
+#
+# Controls are collected by comparing `.name` rather than through a
+# `[name="..."]` attribute selector, so a field name needing CSS escaping
+# can never turn a real subject into a silent zero-match.
+_OPERATE_PROBE = (
+    "args => {"
+    "  const all = [...document.querySelectorAll('input, select, textarea')]"
+    "    .filter(e => e.name === args.field);"
+    "  if (!all.length) return {error: 'no-control',"
+    "    names: [...new Set([...document.querySelectorAll("
+    "      'input, select, textarea')].map(e => e.name).filter(Boolean))]};"
+    "  const kind = (all[0].type || '').toLowerCase();"
+    "  let target;"
+    "  if (kind === 'radio' || kind === 'checkbox') {"
+    "    target = all.find(e => e.value === args.value);"
+    "    if (!target) return {error: 'no-option',"
+    "      options: all.map(e => e.value), kind: kind};"
+    "    if (!target.checked) target.click();"
+    "  } else {"
+    "    target = all[0];"
+    "    target.value = args.value;"
+    "  }"
+    "  const held = (kind === 'radio' || kind === 'checkbox')"
+    "    ? ((all.find(e => e.checked) || {}).value === undefined ? null"
+    "       : all.find(e => e.checked).value)"
+    "    : target.value;"
+    "  const form = target.form;"
+    "  if (!form) return {error: 'no-form', kind: kind, held: held};"
+    "  const invalid = [...form.elements]"
+    "    .filter(e => e.willValidate && !e.checkValidity())"
+    "    .map(e => (e.name || e.id || e.tagName) + ': ' + e.validationMessage);"
+    "  const submits = [...document.querySelectorAll("
+    "      'button, input[type=submit], input[type=image]')]"
+    "    .filter(b => b.form === form"
+    "      && (b.type || '').toLowerCase() === 'submit' && !b.disabled);"
+    "  const visible = submits.filter(b => b.getClientRects().length);"
+    "  return {kind: kind, held: held, invalid: invalid,"
+    "          action: form.getAttribute('action'),"
+    "          submits: submits.length, visible: visible.length};"
+    "}")
+
+# The submission itself, re-resolving the form from the same field name
+# so nothing has to be carried across the two evaluations.
+#
+# A VISIBLE submit button is preferred over `form.requestSubmit()`, and
+# that preference is the point rather than an implementation detail: the
+# button a scripts-blocked visitor can actually press is the always-
+# rendered fallback Save, and Phase 22's P0 was precisely that button
+# being rendered with a zero-size box. Going through it means this helper
+# exercises the control AND the one affordance that submits it. `click()`
+# is the DOM's activation behaviour, so it carries the submitter's own
+# name/value (which several of this app's forms post) and still runs
+# native constraint validation — `form.submit()` would skip both, and is
+# deliberately not used anywhere here.
+_SUBMIT_PROBE = (
+    "args => {"
+    "  const all = [...document.querySelectorAll('input, select, textarea')]"
+    "    .filter(e => e.name === args.field);"
+    "  const form = all.length && all[0].form;"
+    "  if (!form) return 'no-form';"
+    "  const submits = [...document.querySelectorAll("
+    "      'button, input[type=submit], input[type=image]')]"
+    "    .filter(b => b.form === form"
+    "      && (b.type || '').toLowerCase() === 'submit' && !b.disabled);"
+    "  const chosen = submits.filter(b => b.getClientRects().length)[0]"
+    "    || submits[0];"
+    "  if (chosen) { chosen.click(); return 'submitter'; }"
+    "  form.requestSubmit();"
+    "  return 'requestSubmit';"
+    "}")
+
+_READ_FIELD_PROBE = (
+    "args => {"
+    "  const all = [...document.querySelectorAll('input, select, textarea')]"
+    "    .filter(e => e.name === args.field);"
+    "  if (!all.length) return null;"
+    "  const kind = (all[0].type || '').toLowerCase();"
+    "  if (kind === 'radio' || kind === 'checkbox') {"
+    "    const on = all.find(e => e.checked);"
+    "    return on ? on.value : '';"
+    "  }"
+    "  return all[0].value;"
+    "}")
+
+
+def _persist_without_js(browser, base_url, route, field, value, read_back,
+                        viewport=None, restore=True, shows_back=True,
+                        cookies=None):
+    """Operate a native control with scripts blocked, submit the real
+    form it belongs to, reload the route, and prove the value SURVIVED —
+    on disk, not merely on the page.
+
+    Returns {"field", "set", "held", "reloaded", "stored", "before",
+    "submitted_via", "restored"} on success. RAISES AssertionError on
+    every failure, `_set_ui_theme()`'s shape and for its reason: a helper
+    that returned a verdict string would hand five calling plans a guard
+    each of them has to REMEMBER, and `check()` turns a raised
+    AssertionError into a named FAIL that nobody can forget.
+
+    THE ASSERTION IS ON THE RELOADED, RE-READ VALUE — NEVER THE POSTED
+    ONE, and that is the entire reason this helper exists rather than the
+    three-line sequence it replaces. Three weaker sequences all pass
+    against a broken control:
+      * "the input is present with scripts blocked" passes against a
+        control that saves nothing — the Phase 22 defect exactly;
+      * "the page navigated after submit" passes against a POST the
+        server rejected on validation and redirected straight back from;
+      * "the reloaded page shows the value" passes against a server that
+        echoes a rejected submission back into the field (which
+        `wake_interval_group()` deliberately DOES, by design, for D-07).
+    So the verdict is `read_back()` — a caller-supplied reader that goes
+    to the real state directory through the app's own loader. The
+    reloaded DOM is measured too, and reported, but it is corroboration.
+
+    `read_back` is a zero-argument callable returning the stored value;
+    it is compared as text (`str()`), because a field posts "300" and
+    `device_config` stores `300`, and a helper that failed on that would
+    only teach its callers to pre-stringify.
+
+    `shows_back=True` (the default) additionally corroborates that the
+    reloaded page SHOWS the saved value back, which is what makes a
+    setting visible to the visitor who made it. It is a parameter rather
+    than an always-on clause because this app has a deliberate,
+    documented exception: `notifications_topic_url` is write-only by
+    design (T-20-12 — never echoed, never masked, in any state), so it
+    stores correctly and renders empty forever. Measured on this tree:
+    with the default it raises on that field and with `shows_back=False`
+    it passes, which is the right answer in both cases. The DISK read is
+    never optional — it is the verdict.
+
+    `restore=True` (the default) puts the setting back the way it found
+    it as this helper's LAST act, through the identical operate-submit
+    sequence — never a direct write to the state directory, which would
+    be a second way of changing settings living in a harness. The
+    fixture is shared by every check in this file and a helper that left
+    a real setting changed would be a test that edits its own
+    neighbours' subject (T-25-02-A).
+
+    `cookies` is a straight passthrough to `_no_js_page()`'s own
+    parameter, added by 25-03 for one reason: D-09's floor has to hold in
+    BOTH shipped languages, and the UI language is a cookie the FIRST
+    rendered document already has to honour. A passthrough rather than a
+    second sequence — this helper's whole value is that the five control
+    plans measure saving the same way, and a plan that needed a cookie
+    and hand-rolled its own operate-submit-reload would have re-opened
+    exactly the transcription risk `_no_js_page()` exists to close. It
+    reaches the restore pass too, so a French-language measurement puts
+    the setting back through the French page.
+
+    It runs entirely inside `_no_js_page()` and opens no context of its
+    own — the one scripts-blocked call site in this file stays one.
+    """
+    before = read_back()
+    result = _persist_once(
+        browser, base_url, route, field, value, read_back, viewport,
+        shows_back, cookies)
+    result["before"] = before
+    result["restored"] = None
+    if restore and before is not None and str(before) != str(value):
+        back = _persist_once(
+            browser, base_url, route, field, str(before), read_back, viewport,
+            shows_back, cookies)
+        result["restored"] = back["stored"]
+    return result
+
+
+def _upload_without_js(browser, base_url, route, input_selector, submit_selector,
+                       source_path, read_back, serve_path, viewport=None,
+                       cookies=None):
+    """`_persist_without_js()`'s FILE-INPUT VARIANT, added by 25-07 and
+    stated as a variant rather than smuggled in as a second sequence.
+
+    WHY A VARIANT AT ALL, since the whole point of 25-02's helper is that
+    five control plans measure saving the same way. `_persist_without_js()`
+    operates its control by ASSIGNING TO `.value` through `_OPERATE_PROBE`,
+    and `<input type="file">` is the one native control in this app whose
+    `.value` a script may not write — that restriction is the browser's,
+    not this app's, and no amount of parameterising gets around it. The
+    file is put in through the browser's own file-chooser plumbing
+    (`page.set_input_files()`, which is CDP's `DOM.setFileInputFiles` and
+    works perfectly well with scripts blocked) and the form is submitted
+    by clicking its real submit button.
+
+    EVERYTHING ELSE IS 25-02'S DISCIPLINE, DELIBERATELY UNCHANGED:
+
+      * It runs entirely inside `_no_js_page()` and opens no context of
+        its own, so this file's one scripts-blocked call site stays one.
+      * THE VERDICT IS READ BACK FROM DISK, never from the page. A POST
+        the server rejected on validation redirects straight back to a
+        page that looks exactly like success — this app even has a named
+        flash key for it (`illustration_rejected`) — so "the browser
+        navigated" proves nothing at all.
+      * It additionally fetches `serve_path` BY NAVIGATING TO IT and
+        reading the navigation response's own body, and returns those
+        bytes too. For an upload that is the clause that matters and it
+        has no counterpart in the field case: an illustration that is
+        stored but not SERVED is a setting nobody can see, and D19's
+        whole promise is a picture on a card.
+
+        BY NAVIGATION, AND NOT THROUGH `page.request`, WHICH WAS
+        MEASURED WRONG HERE. `page.request` is documented as sharing the
+        browser context's cookie jar; on this tree's Playwright it does
+        not send `sp_session`, so an authenticated fetch through it
+        follows the redirect to /login and comes back **200 with a
+        1493-byte HTML page**. A check asserting "200" on that would
+        have passed against the login screen. A navigation carries the
+        session cookie and reports the route's real status, so that is
+        what this helper uses.
+
+    Returns {"before_len", "landed", "stored", "stored_len",
+    "served_status", "served", "served_len", "gate"}. RAISES
+    AssertionError on every failure, `_persist_without_js()`'s shape and
+    for its reason.
+
+    `read_back` is a zero-argument callable returning the stored BYTES,
+    or None when nothing is stored — a caller-supplied reader going to
+    the real state directory, exactly as in the field case.
+    """
+    before = read_back()
+    with _no_js_page(browser, base_url, route, viewport=viewport,
+                     cookies=cookies) as page:
+        found = page.locator(input_selector).count()
+        if found != 1:
+            raise AssertionError(
+                "_upload_without_js: %r matches %d element(s) on %s with scripts blocked — the "
+                "file input must be rendered UNCONDITIONALLY, and with none this helper measures "
+                "nothing" % (input_selector, found, route))
+        page.set_input_files(input_selector, source_path)
+        with page.expect_navigation():
+            page.click(submit_selector)
+        landed = page.url
+        served = page.goto(base_url + serve_path)
+        result = {
+            "before_len": None if before is None else len(before),
+            "landed": landed,
+            "served_status": served.status,
+            "served": served.body(),
+        }
+    result["served_len"] = len(result["served"])
+    stored = read_back()
+    if stored is None:
+        raise AssertionError(
+            "_upload_without_js: nothing was stored after a scripts-blocked upload of %r through "
+            "%r on %s — the browser navigated to %r, which is exactly what a REJECTED upload "
+            "looks like from outside. A control that renders without scripts and stores nothing "
+            "is the D-09 defect this helper exists to catch"
+            % (source_path, input_selector, route, result["landed"]))
+    if result["served_status"] != 200:
+        raise AssertionError(
+            "_upload_without_js: %r stored %d bytes but %s answers %d — an illustration that is "
+            "saved and not served is a picture nobody can see"
+            % (source_path, len(stored), serve_path, result["served_status"]))
+    result["stored"] = stored
+    result["stored_len"] = len(stored)
+    return result
+
+
+def _persist_once(browser, base_url, route, field, value, read_back, viewport,
+                  shows_back, cookies=None):
+    """One operate-submit-reload-verify pass. Split out only so
+    `_persist_without_js()`'s restore step is the SAME sequence as its
+    measurement rather than a second, hand-written one.
+    """
+    with _no_js_page(browser, base_url, route, viewport=viewport,
+                     cookies=cookies) as page:
+        seen = page.evaluate(_OPERATE_PROBE, {"field": field, "value": value})
+        error = seen.get("error")
+        if error == "no-control":
+            raise AssertionError(
+                "_persist_without_js: no form control posts under name %r on "
+                "%s with scripts blocked — with none, this helper measures "
+                "nothing. The names that page does post are %r"
+                % (field, route, seen["names"]))
+        if error == "no-option":
+            raise AssertionError(
+                "_persist_without_js: the %r group on %s has no option with "
+                "value %r; its options are %r"
+                % (field, route, value, seen["options"]))
+        if error == "no-form":
+            raise AssertionError(
+                "_persist_without_js: the %r control on %s belongs to no "
+                "<form>, so with scripts blocked there is nothing that can "
+                "post it at all" % (field, route))
+        if str(seen["held"]) != str(value):
+            raise AssertionError(
+                "_persist_without_js: the browser refused to put %r into %r "
+                "on %s — it holds %r after the native set, so the submission "
+                "below would have measured the wrong value"
+                % (value, field, route, seen["held"]))
+        if seen["invalid"]:
+            raise AssertionError(
+                "_persist_without_js: %r cannot be submitted with %r in %r — "
+                "native constraint validation rejects %r, and a browser "
+                "silently refuses to submit an invalid form rather than "
+                "reporting an error"
+                % (seen["action"], value, field, seen["invalid"]))
+        if not seen["submits"]:
+            raise AssertionError(
+                "_persist_without_js: the form posting %r on %s renders no "
+                "enabled submit control at all, so a visitor with scripts "
+                "blocked has no way to save it (D-09)" % (field, route))
+
+        with page.expect_navigation():
+            via = page.evaluate(_SUBMIT_PROBE, {"field": field})
+
+        # A genuine second GET, not page.reload() — the redirect the save
+        # lands on is not necessarily the route under test, and what the
+        # next visitor sees is this route fetched fresh.
+        page.goto(base_url + route)
+        reloaded = page.evaluate(_READ_FIELD_PROBE, {"field": field})
+
+    stored = read_back()
+    if stored is None or str(stored) != str(value):
+        raise AssertionError(
+            "_persist_without_js: %r did NOT persist with scripts blocked — "
+            "it was set to %r and submitted (via the %s), and the stored "
+            "value still reads back as %r (the reloaded page shows %r). A "
+            "control that renders without scripts and saves nothing is the "
+            "D-09 defect this helper exists to catch"
+            % (field, value, via, stored, reloaded))
+    if shows_back and (reloaded is None or str(reloaded) != str(value)):
+        raise AssertionError(
+            "_persist_without_js: %r stored %r but the reloaded %s does not "
+            "show it back — the field reads %r with scripts blocked, so the "
+            "saved setting is invisible to the visitor who made it"
+            % (field, stored, route, reloaded))
+    return {"field": field, "set": value, "held": seen["held"],
+            "submitted_via": via, "visible_submits": seen["visible"],
+            "reloaded": reloaded, "stored": stored}
+
+
+# ---------------------------------------------------------------------
+# 2. Keyboard-only operation, with the pointer-free claim MEASURED.
+# ---------------------------------------------------------------------
+
+# Arm a capture-phase recorder for every pointer-ish event on the
+# document, then (separately) read it back and then prove it was alive.
+#
+# WHY A RECORDER AT ALL, when this helper simply does not call a pointer
+# API. Because "I did not click" is a statement about the harness, and
+# the property under test is a statement about the CONTROL: that a
+# keyboard-only visitor can operate it. A helper that merely avoided
+# clicking would still pass against a control reachable only by mouse,
+# because it would never notice that the value it read had been changed
+# by something other than the keys it pressed. The recorder turns "no
+# pointer was involved" from the harness's promise into the page's own
+# measurement.
+# A `click` IS NOT A POINTER EVENT, AND THIS DISTINCTION IS NOT
+# PEDANTRY — IT IS MEASURED ON THIS TREE AND IT DECIDES WHETHER THIS
+# HELPER IS USABLE AT ALL. Pressing ArrowDown inside a native radiogroup
+# moves the selection and, as part of the selected radio's ACTIVATION
+# BEHAVIOUR, fires a real `click` event on it. The first version of this
+# recorder logged `click` unconditionally, and it duly reported that the
+# existing runway radiogroup — the single behaviour D16's runway map and
+# D5's carousel both inherit for free — "was driven with ['ArrowDown']
+# and 1 pointer event(s) fired ... ['click:INPUT']". That verdict is
+# wrong, and a helper that returns it would have taught this phase to
+# stop using the keyboard behaviour it is built on.
+#
+# The discriminator is the event's own provenance, not its name.
+# UI Events gives a pointer-driven `click` a `detail` of at least 1 (the
+# click count) and a `pointerType` of "mouse"/"pen"/"touch"; a click
+# synthesized by keyboard activation or by `el.click()` carries
+# `detail === 0` and an empty `pointerType`. So `click`/`dblclick`/
+# `contextmenu` are logged ONLY when they carry that provenance, and
+# every genuinely pointer-only event (pointer*/mouse*/touch*) is logged
+# unconditionally. Verified in both directions below: a real
+# `locator.click()` is caught, and a keyboard ArrowDown is not.
+_POINTER_RECORDER_ARM = (
+    "() => {"
+    "  window.__skypanePointerLog = [];"
+    "  if (!window.__skypanePointerArmed) {"
+    "    const always = ['pointerdown','pointerup','pointermove',"
+    "      'mousedown','mouseup','mousemove','touchstart','touchend'];"
+    "    const onlyIfPointerDriven = ['click','dblclick','contextmenu'];"
+    "    const log = (t, e) => window.__skypanePointerLog.push("
+    "      t + ':' + (e.target && (e.target.id || e.target.tagName))"
+    "      + '(detail=' + e.detail + ',pointerType=' + (e.pointerType || '')"
+    "      + ')');"
+    "    always.forEach(t => document.addEventListener("
+    "      t, e => log(t, e), true));"
+    "    onlyIfPointerDriven.forEach(t => document.addEventListener(t, e => {"
+    "      if (e.detail > 0 || (e.pointerType && e.pointerType !== ''))"
+    "        log(t, e);"
+    "    }, true));"
+    "    window.__skypanePointerArmed = true;"
+    "  }"
+    "  return true;"
+    "}")
+
+_POINTER_RECORDER_READ = "() => (window.__skypanePointerLog || []).slice()"
+
+# The recorder's OWN proof of life, dispatched only AFTER the measurement
+# above has been taken, so it can never pollute what it verifies.
+_POINTER_RECORDER_SELFTEST = (
+    "args => {"
+    "  const el = document.querySelector(args.selector) || document.body;"
+    "  el.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));"
+    "  const n = (window.__skypanePointerLog || []).length;"
+    "  window.__skypanePointerLog = [];"
+    "  return n;"
+    "}")
+
+_FOCUS_PROBE = (
+    "args => {"
+    "  const el = document.querySelector(args.selector);"
+    "  if (!el) return {error: 'no-element'};"
+    "  el.focus();"
+    "  const a = document.activeElement;"
+    "  return {focused: !!a && (a === el || el.contains(a)),"
+    "          active: a ? (a.id || a.getAttribute('value') || a.tagName) : null};"
+    "}")
+
+_KEYBOARD_RESULT_PROBE = (
+    "args => {"
+    "  const el = document.querySelector(args.selector);"
+    "  const a = document.activeElement;"
+    "  const name = el && el.name;"
+    "  let group = null;"
+    "  if (name) {"
+    "    const on = [...document.querySelectorAll('input, select, textarea')]"
+    "      .filter(e => e.name === name)"
+    "      .find(e => (e.type === 'radio' || e.type === 'checkbox')"
+    "                 ? e.checked : true);"
+    "    group = on ? on.value : null;"
+    "  }"
+    "  return {value: el ? el.value : null,"
+    "          checked: el ? !!el.checked : null,"
+    "          group: group,"
+    "          active: a ? (a.id || a.getAttribute('value') || a.tagName) : null,"
+    "          activeIsInside: !!a && !!el && (a === el || el.contains(a)),"
+    "          activeName: a ? a.name || null : null,"
+    "          activeValue: a ? a.getAttribute('value') : null};"
+    "}")
+
+
+def _operate_with_keyboard(page, selector, keys):
+    """Drive a control with the keyboard ALONE and report what it did,
+    having measured that not one pointer event fired while doing it.
+
+    Returns {"selector", "keys", "value", "checked", "group", "active",
+    "pointer_events", "recorder_proved"}. Raises AssertionError when the
+    element cannot be focused, when a pointer event DID fire, or when the
+    recorder could not prove itself (below).
+
+    FOCUS IS TAKEN WITH `el.focus()`, NOT A CLICK. That is the DOM's own
+    focusing method — no pointer event of any kind is generated by it —
+    and it is the same reasoning `_click_control()` records for using the
+    element's own API instead of a coordinate interaction.
+
+    THE KEYS ARE PRESSED THROUGH `page.keyboard`, NOT DISPATCHED AS
+    SYNTHETIC KeyboardEvents, and this is load-bearing rather than
+    stylistic: the single most important keyboard behaviour this phase
+    depends on — arrow keys moving the selection inside a native
+    radiogroup, which is what D16's runway map and D5's carousel both
+    inherit for free — is implemented by the browser's own default action
+    and runs only for TRUSTED events. A `dispatchEvent(new
+    KeyboardEvent('keydown', {key: 'ArrowDown'}))` is untrusted, moves
+    nothing, and would make this helper report that a perfectly good
+    radiogroup is not keyboard-operable.
+
+    THE RECORDER PROVES ITSELF, IN THIS ORDER: arm, measure (must be
+    empty), then dispatch one synthetic pointer event and confirm the
+    recorder caught it (must not be empty). Without that last step the
+    pointer-free claim would be vacuous in exactly the case where it is
+    easiest to get wrong — a context where the listener never ran at all
+    would report "zero pointer events" forever.
+
+    MEASURED ON THIS TREE, AND THE REASON THIS HELPER REFUSES TO RUN
+    WITH SCRIPTS BLOCKED: in a `java_script_enabled=False` context,
+    listeners registered through `page.evaluate` are installed (the array
+    is really there and really readable afterwards) but NEVER FIRE — a
+    Tab walk moves focus and an `el.click()` still activates, and the log
+    stays empty regardless. `getComputedStyle` and CSS recalculation are
+    not gated on scripts, which is why `_set_ui_theme()` works there, but
+    listener callbacks are. So in that context the recorder's self-test
+    fails and this helper raises rather than returning a green
+    pointer-free verdict it cannot back up. Keyboard operation of a
+    control that needs no script is proven by
+    `_persist_without_js()` instead; this helper's subject is the
+    enhanced control, which has scripts by definition.
+    """
+    page.evaluate(_POINTER_RECORDER_ARM)
+
+    focus = page.evaluate(_FOCUS_PROBE, {"selector": selector})
+    if focus.get("error") == "no-element":
+        raise AssertionError(
+            "_operate_with_keyboard: no element matched %r on %s — with none, "
+            "this helper measures nothing" % (selector, page.url))
+    if not focus["focused"]:
+        raise AssertionError(
+            "_operate_with_keyboard: %r did not take focus from el.focus() — "
+            "the document element in focus is %r. A control a keyboard user "
+            "cannot focus is a control they cannot operate, whatever a mouse "
+            "can do with it" % (selector, focus["active"]))
+
+    for key in keys:
+        page.keyboard.press(key)
+
+    seen = page.evaluate(_KEYBOARD_RESULT_PROBE, {"selector": selector})
+    fired = page.evaluate(_POINTER_RECORDER_READ)
+    proved = page.evaluate(
+        _POINTER_RECORDER_SELFTEST, {"selector": selector})
+
+    if fired:
+        raise AssertionError(
+            "_operate_with_keyboard: %r was driven with %r and %d pointer "
+            "event(s) fired during the sequence — %r. A keyboard proof that "
+            "a pointer took part proves nothing about a keyboard-only "
+            "visitor" % (selector, list(keys), len(fired), fired))
+    if not proved:
+        raise AssertionError(
+            "_operate_with_keyboard: the pointer recorder never fired for its "
+            "own synthetic pointerdown on %r, so the 'zero pointer events' "
+            "result above measured nothing. Listeners do not run in a "
+            "scripts-blocked context; use _persist_without_js() there"
+            % (selector,))
+
+    return {"selector": selector, "keys": list(keys),
+            "value": seen["value"], "checked": seen["checked"],
+            "group": seen["group"], "active": seen["active"],
+            "active_is_inside": seen["activeIsInside"],
+            "active_name": seen["activeName"],
+            "active_value": seen["activeValue"],
+            "pointer_events": fired, "recorder_proved": proved}
+
+
+# ---------------------------------------------------------------------
+# 3. The hit area the browser really hit-tests, at a real viewport.
+# ---------------------------------------------------------------------
+
+# The established touch-target floor, in both axes
+# (.claude/skills/sketch-findings-skypane/references/control-density.md,
+# and the same 44 the `.copy-btn`/`.row-toggle` ::before synthesis and
+# the global `input, select` rule are both built to reach). Named once
+# here so five control plans do not each retype it.
+MIN_HIT_TARGET_PX = 44
+
+# Measure the visual box, confirm the centre is genuinely reachable, then
+# find how far past each edge the browser still resolves a hit to this
+# element.
+#
+# THE TECHNIQUE, RECORDED HERE BECAUSE A LATER READER WILL OTHERWISE
+# "SIMPLIFY" IT BACK INTO A WRONG MEASUREMENT. `getBoundingClientRect()`
+# alone is not the hit area, in either direction:
+#   * it UNDERSTATES a synthesized target. `.copy-btn` is a 22x22 box
+#     whose `::before` carries `inset: -11px`, making the real target
+#     44x44. A pseudo-element has no box of its own in the DOM and no
+#     rect to read; the only thing that knows about it is the hit-test.
+#   * it OVERSTATES an occluded one. A perfectly-sized rectangle covered
+#     by a sticky bar, an overlay or a later-painted sibling is a control
+#     nobody can press, and its rect says 44x44 regardless.
+# `document.elementFromPoint()` answers both, because it IS the browser's
+# hit-test: it returns the element that would receive a pointer
+# interaction at a point, pseudo-elements resolving to their generating
+# element. So the centre is probed first (occlusion), and then each edge
+# is pushed outwards by binary search for as long as the hit still
+# resolves to this element or a descendant of it (synthesis).
+#
+# Reading `getComputedStyle(el, '::before')`'s insets instead — which one
+# existing check in this file does by hand — measures the DECLARATION,
+# not the hit test. It cannot see an occluder, it cannot see a
+# `pointer-events: none` on the pseudo-element, and it has to know in
+# advance which pseudo-element to ask about.
+#
+# The search is bounded by `max` and monotonic by construction (an inset
+# hit area is a rectangle), and it reports `clipped` when a probe left
+# the viewport — at which point the measurement is a floor, not the
+# answer, and a caller comparing it against 44 is still safe because a
+# clipped measurement can only be too SMALL.
+_HIT_AREA_PROBE = (
+    "args => {"
+    "  const el = document.querySelector(args.selector);"
+    "  if (!el) return {error: 'no-element'};"
+    "  el.scrollIntoView({block: 'center', inline: 'center'});"
+    "  const r = el.getBoundingClientRect();"
+    "  if (!r.width || !r.height)"
+    "    return {error: 'no-box', visual: [r.width, r.height]};"
+    "  const owns = n => !!n && (n === el || el.contains(n));"
+    "  const vw = document.documentElement.clientWidth;"
+    "  const vh = document.documentElement.clientHeight;"
+    "  const inView = (x, y) => x >= 0 && y >= 0 && x < vw && y < vh;"
+    "  const cx = Math.floor(r.left + r.width / 2) + 0.5;"
+    "  const cy = Math.floor(r.top + r.height / 2) + 0.5;"
+    "  if (!inView(cx, cy))"
+    "    return {error: 'off-screen', visual: [r.width, r.height]};"
+    "  const at = document.elementFromPoint(cx, cy);"
+    "  if (!owns(at))"
+    "    return {error: 'occluded', visual: [r.width, r.height],"
+    "            by: at ? (at.className.toString().trim() || at.tagName)"
+    "                   : null};"
+    "  let clipped = false;"
+    "  const ownsAt = (x, y) =>"
+    "    inView(x, y) && owns(document.elementFromPoint(x, y));"
+    "  const reach = (dx, dy, span) => {"
+    "    const limit = Math.ceil(span / 2) + args.max;"
+    "    let lo = 0, hi = limit + 1;"
+    "    if (ownsAt(cx + dx * hi, cy + dy * hi)) return hi;"
+    "    while (hi - lo > 1) {"
+    "      const mid = (lo + hi) >> 1;"
+    "      if (ownsAt(cx + dx * mid, cy + dy * mid)) lo = mid; else hi = mid;"
+    "    }"
+    "    if (!inView(cx + dx * (lo + 1), cy + dy * (lo + 1))) clipped = true;"
+    "    return lo;"
+    "  };"
+    "  const left = reach(-1, 0, r.width), right = reach(1, 0, r.width);"
+    "  const up = reach(0, -1, r.height), down = reach(0, 1, r.height);"
+    "  return {visual: [r.width, r.height],"
+    "          reach: [left, right, up, down],"
+    "          hit: [left + right + 1, up + down + 1],"
+    "          clipped: clipped,"
+    "          viewport: [vw, vh]};"
+    "}")
+
+
+def _hit_area(page, selector, max_expand=64):
+    """The element's VISUAL box and the box the browser actually
+    hit-tests to it, both axes, at whatever viewport `page` is at.
+
+    Returns {"selector", "visual": (w, h), "hit": (w, h), "reach":
+    (left, right, up, down), "clipped", "viewport"}. Raises
+    AssertionError when the selector matches nothing, when the element
+    has no box at all, or when its own centre point hit-tests to
+    something else — an occluded control, which is the failure a
+    rectangle measurement is blind to.
+
+    Read the module comment above this function before changing it: the
+    `elementFromPoint` probing is the whole measurement, and
+    `getBoundingClientRect()` on its own would report `.copy-btn` as
+    22x22 when its real target is 44x44.
+
+    THE SEARCH COUNTS WHOLE PIXELS, OUTWARDS FROM THE CENTRE, SAMPLED AT
+    THEIR CENTRES, AND THE ANSWER IS A PIXEL COUNT. Both halves of that
+    were arrived at by measuring rather than by taste:
+      * A FRACTIONAL binary search inflates every answer by about a
+        pixel, because `elementFromPoint` resolves to the pixel grid — a
+        312.0-wide <h1> reported 312.97. On a 44px floor a systematic
+        +1 is the difference between passing a 43px target and failing
+        it, so the search is over integers.
+      * Each pixel is sampled at its own CENTRE (x + 0.5), which asks
+        the unambiguous question "does THIS pixel route a pointer to the
+        control?" rather than the ambiguous one about a box edge.
+    THE ANSWER CAN EXCEED THE CSS BOX BY ABOUT A PIXEL PER AXIS, and that
+    is the browser rather than this probe: a box whose edges land off the
+    pixel grid has its hit region snapped outwards, so the row toggle's
+    22x22 visual box and -11px `::before` inset measure 45x45 rather than
+    44x44, and a 96x44 `<input>` measures 97x45. Those pixels really do
+    route a pointer to the control — a click at them lands on it — so the
+    number is the truth about this rendering and not an error to be
+    corrected away. It does mean a floor comparison is permissive by up
+    to a pixel: a control measuring exactly 44 here could be 43 in CSS.
+    Do not trust the last pixel of this measurement; do trust the
+    difference between 22 and 44, which is what it exists to tell apart.
+
+    Probing outward FROM THE CENTRE (rather than inward from each edge)
+    is what makes the search monotonic without having to guess a starting
+    point that is definitely inside the box.
+
+    THE ELEMENT IS SCROLLED TO THE CENTRE OF THE VIEWPORT FIRST, and that
+    is a correctness measure rather than a convenience. A hit-test is
+    meaningless off-screen, and — measured here — `#wake-interval-s` at
+    360px reports its centre hit-testing to `tab-bar__pill`, the fixed
+    bottom tab bar, purely because of where the page happened to be
+    scrolled. An occlusion verdict that depends on scroll position is an
+    intermittently-red check, which is worse than no check. After
+    centring, an `occluded` result means a real overlay rather than a
+    scroll accident.
+
+    `max_expand` bounds the outward search. 64 is comfortably past the
+    44px floor and past the 11px-per-side synthesis this app uses, and
+    keeps a control that happens to sit inside a large clickable parent
+    from reporting that parent's size — the search stops at this element,
+    but only because `owns()` requires the hit to BE this element or a
+    descendant, never an ancestor.
+    """
+    seen = page.evaluate(
+        _HIT_AREA_PROBE, {"selector": selector, "max": max_expand})
+    error = seen.get("error")
+    if error == "no-element":
+        raise AssertionError(
+            "_hit_area: no element matched %r on %s — with none, this "
+            "measures nothing" % (selector, page.url))
+    if error == "no-box":
+        raise AssertionError(
+            "_hit_area: %r renders with a zero-size box %r, so there is no "
+            "hit area to measure at all — the Phase 22 P0 shape exactly (a "
+            "control rendered and unpressable)" % (selector, seen["visual"]))
+    if error == "off-screen":
+        raise AssertionError(
+            "_hit_area: %r's centre lies outside the viewport, so the browser "
+            "cannot be asked what it hit-tests there. Scroll it into view "
+            "before measuring" % (selector,))
+    if error == "occluded":
+        raise AssertionError(
+            "_hit_area: %r measures %r but its own centre point hit-tests to "
+            "%r instead — the control is not reachable by pointer where it "
+            "is drawn, and a bounding-box measurement would have reported it "
+            "as fine. Three causes measured on this tree, all of which leave "
+            "the rect intact: something painted over it; a collapsed "
+            "disclosure (`max-height: 0; overflow: hidden` clips the paint "
+            "and keeps the boxes); and `pointer-events: none` at rest (the "
+            "Flights copy buttons, revealed on `tr:hover`/`tr:focus-within`) "
+            "— for that last one, put the control into the state it is meant "
+            "to be pressed in before measuring"
+            % (selector, seen["visual"], seen["by"]))
+    return {"selector": selector,
+            "visual": tuple(seen["visual"]), "hit": tuple(seen["hit"]),
+            "reach": tuple(seen["reach"]), "clipped": seen["clipped"],
+            "viewport": tuple(seen["viewport"])}
+
+
+# 25-07-PLAN.md Task 3 (CFG-51/D19): a REAL, TRUSTED file drop.
+#
+# WHY CDP AND NOT page.dispatch_event(). panel-lookup.js's drop handler
+# refuses an event whose `isTrusted` is false — 25-01's value-controls.js
+# closes the same exposure for its own control — and every drop a page
+# script can construct is untrusted by definition. The obvious harness
+# recipe (build a DataTransfer in the page, dispatch a synthetic "drop")
+# therefore measures the refusal and nothing else.
+#
+# Chromium's DevTools protocol dispatches drag events through the same
+# input pipeline a real pointer uses, with a `files` list the browser
+# turns into genuine File objects. Measured on this tree: the handler
+# sees `isTrusted: true` and `dataTransfer.files.length === 1`. So the
+# guard stays, AND the gesture is measured end to end — which is the
+# only combination that proves both.
+#
+# The drag-over state is sampled BETWEEN dragOver and drop, i.e. while
+# the browser is genuinely in the state, rather than at a guessed
+# instant after a sleep. An intermittently-red check is worse than none.
+def _drop_files(page, selector, paths):
+    """Dispatch a trusted file drop of `paths` onto `selector`'s centre.
+
+    Returns {"active_during_drag", "active_after_drop", "paint_during_drag",
+    "paint_at_rest"} — the attribute the stylesheet keys its drag state
+    on, sampled on both sides of the drop, plus the resolved paint in
+    each state so "the state is visible" is a measurement rather than a
+    class name.
+    """
+    box = page.locator(selector).bounding_box()
+    if not box or not box["height"]:
+        raise AssertionError(
+            "_drop_files: %r has no box on %s, so there is nowhere to drop — a drop target that "
+            "is not drawn is not a drop target" % (selector, page.url))
+    x = box["x"] + box["width"] / 2
+    y = box["y"] + box["height"] / 2
+    data = {"items": [], "files": list(paths), "dragOperationsMask": 1}
+    client = page.context.new_cdp_session(page)
+    seen = {"paint_at_rest": _drop_zone_paint(page, selector)}
+    for kind in ("dragEnter", "dragOver"):
+        client.send("Input.dispatchDragEvent",
+                    {"type": kind, "x": x, "y": y, "data": data})
+    seen["active_during_drag"] = page.locator(selector).get_attribute(
+        "data-upload-drop-active") is not None
+    seen["paint_during_drag"] = _drop_zone_paint(page, selector)
+    client.send("Input.dispatchDragEvent",
+                {"type": "drop", "x": x, "y": y, "data": data})
+    seen["active_after_drop"] = page.locator(selector).get_attribute(
+        "data-upload-drop-active") is not None
+    return seen
+
+
+def _drop_zone_paint(page, selector):
+    """The zone's own resolved background plus its preview frame's
+    resolved border, as the browser computed them — never the class."""
+    return page.evaluate(
+        "sel => { const z = document.querySelector(sel);"
+        "  const p = z.querySelector('.upload-drop__preview');"
+        "  const zs = getComputedStyle(z), ps = getComputedStyle(p);"
+        "  return {background: zs.backgroundColor,"
+        "          borderStyle: ps.borderTopStyle,"
+        "          borderColor: ps.borderTopColor}; }", selector)
+
+
+def _await_upload_zone(page, selector):
+    """Wait for a gated drop zone to become genuinely visible, and when
+    it does not, say WHY rather than reporting a rectangle.
+
+    A zone can be invisible for four unrelated reasons that a bare
+    `wait_for_selector` timeout cannot tell apart: the `.js` gate never
+    opened (nav-dropdown.js did not run), the shared dialog never opened
+    (no matching resolve trigger), panel-lookup.js hid the upload zone
+    because the card's mode is not `needs-artwork`, or the element is
+    genuinely absent. Each one has a different fix, so each one gets
+    named here.
+    """
+    try:
+        page.wait_for_selector(selector, state="visible", timeout=10000)
+        return
+    except Exception:
+        pass
+    seen = page.evaluate(
+        "sel => { const d = document.getElementById('panel-lookup-dialog');"
+        "  const z = document.querySelector(sel);"
+        "  const zone = z ? z.closest('.resolve-upload-zone') : null;"
+        "  return {htmlClass: document.documentElement.className,"
+        "          dialogOpen: d ? d.open : null,"
+        "          zoneHidden: zone ? zone.hidden : null,"
+        "          gateDisplay: z ? getComputedStyle(z).display : null,"
+        "          resolvePrefixes: [...document.querySelectorAll("
+        "            '[data-view-panel-resolve-prefix]')].map(e =>"
+        "              e.getAttribute('data-view-panel-resolve-prefix') + ':' +"
+        "              e.getAttribute('data-view-panel-mode'))"
+        "            .filter(s => !s.startsWith(':'))}; }", selector)
+    raise AssertionError(
+        "_await_upload_zone: %r never became visible on %s — %r"
+        % (selector, page.url, seen))
+
+
+def _upload_zone_state(page, selector):
+    """Everything about one drop zone a check ever wants to assert."""
+    return page.evaluate(
+        "sel => { const z = document.querySelector(sel);"
+        "  const i = document.getElementById(z.getAttribute('data-upload-drop-input'));"
+        "  const im = z.querySelector('.upload-drop__image');"
+        "  const pv = z.querySelector('.upload-drop__preview').getBoundingClientRect();"
+        "  return {files: i.files ? i.files.length : -1,"
+        "          name: i.files && i.files[0] ? i.files[0].name : null,"
+        "          size: i.files && i.files[0] ? i.files[0].size : null,"
+        "          message: z.querySelector('.upload-drop__message').textContent,"
+        "          imageHidden: im.hidden,"
+        "          imageScheme: (im.getAttribute('src') || '').split(':')[0],"
+        "          natural: [im.naturalWidth, im.naturalHeight],"
+        "          preview: [pv.width, pv.height],"
+        "          action: i.form.getAttribute('action')}; }", selector)
+
+
+def _assert_hit_target(page, selector, where, minimum=MIN_HIT_TARGET_PX):
+    """`_hit_area()` plus the floor, so five control plans do not each
+    retype the comparison and get the axis or the number slightly
+    different. Returns the measurement; raises when either axis is under
+    `minimum`.
+    """
+    seen = _hit_area(page, selector)
+    w, h = seen["hit"]
+    if w < minimum or h < minimum:
+        raise AssertionError(
+            "%s: %r's hit area measures %dx%d at %dpx, under the %dpx floor "
+            "in %s (its visual box is %.1fx%.1f and it reaches %r pixels "
+            "left/right/up/down of its own centre)"
+            % (where, selector, w, h, seen["viewport"][0], minimum,
+               "both axes" if (w < minimum and h < minimum)
+               else ("the x axis" if w < minimum else "the y axis"),
+               seen["visual"][0], seen["visual"][1], seen["reach"]))
+    return seen
+
+
+# ---------------------------------------------------------------------
+# 4. The `.js` gate, asserted in BOTH directions.
+# ---------------------------------------------------------------------
+
+# The tabbable-candidate vocabulary, in one place. `[tabindex]` is
+# included and then filtered on its resolved value rather than matched as
+# `[tabindex="-1"]` in the selector, because a programmatically-set
+# `el.tabIndex = -1` leaves no attribute to match.
+_FOCUSABLE_CANDIDATE_SELECTOR = (
+    "a[href], area[href], button, input, select, textarea, summary, "
+    "iframe, object, embed, audio[controls], video[controls], "
+    "[tabindex], [contenteditable]")
+
+_GATE_BOX_PROBE = (
+    "args => {"
+    "  const els = [...document.querySelectorAll(args.selector)];"
+    "  if (!els.length) return {error: 'no-element'};"
+    "  const boxes = els.map(e => {"
+    "    const r = e.getBoundingClientRect();"
+    "    return [r.width, r.height];"
+    "  });"
+    "  const candidates = els.reduce((n, e) =>"
+    "    n + e.querySelectorAll(args.focusable).length"
+    "      + (e.matches(args.focusable) ? 1 : 0), 0);"
+    "  return {boxes: boxes, count: els.length, candidates: candidates,"
+    "          tabbable: document.querySelectorAll(args.focusable).length};"
+    "}")
+
+# Where focus currently is, and whether it is inside the gated wrapper.
+# Read after every single Tab press, because a `focusin` recorder — the
+# obvious optimisation — does not fire at all in a scripts-blocked
+# context, which is the only context this walk is ever taken in.
+# The walk's own cycle detector MARKS THE ELEMENT rather than comparing a
+# name, because names collide: the first version stopped after 24 of a
+# page's 44 tab stops, having decided it had come back round when two
+# different controls merely shared a class string. A mark is identity,
+# and a walk that stops early is a walk that never reaches the stops it
+# was looking for.
+_ACTIVE_PROBE = (
+    "args => {"
+    "  const a = document.activeElement;"
+    "  if (!a || a === document.body)"
+    "    return {where: null, inside: false, seen: false};"
+    "  const seen = a.hasAttribute('data-skypane-tab-seen');"
+    "  a.setAttribute('data-skypane-tab-seen', '');"
+    "  const inside = [...document.querySelectorAll(args.selector)]"
+    "    .some(e => e === a || e.contains(a));"
+    "  return {where: (a.id || a.name || a.className.toString().trim()"
+    "                  || a.tagName), inside: inside, seen: seen};"
+    "}")
+
+
+def _assert_js_gate(browser, base_url, route, selector, viewport=None,
+                    prepare=None, arm=None, tab_budget=None):
+    """Prove a `.js`-gated wrapper in BOTH directions: it occupies no
+    space and holds nothing a keyboard can reach when scripts are
+    blocked, AND it occupies space when they are not.
+
+    Returns {"blocked": {...}, "enabled": {...}}; raises AssertionError
+    on either direction.
+
+    BOTH DIRECTIONS, BECAUSE ONLY ONE OF THEM IS THE DEFECT PEOPLE
+    REMEMBER. Asserting only the blocked half passes perfectly against a
+    gate that is stuck shut and never reveals anything at all — a control
+    that is invisible to everybody rather than to nobody. Asserting only
+    the enabled half is the defect 25-RESEARCH.md's finding 2 names: an
+    affordance that renders and does nothing without its script. A gate
+    is a two-state thing and a one-state assertion is half a check.
+
+    "HOLDS NOTHING FOCUSABLE" IS THE CLAUSE THAT MATTERS, AND IT IS
+    ASSERTED BY WALKING THE TAB ORDER RATHER THAN BY READING THE
+    COMPUTED `display`. `display: none` does remove its subtree from the
+    tab order, so a computed-style read agrees with the tab walk TODAY —
+    and would keep agreeing, wrongly, the moment somebody refactors the
+    rule to `visibility: hidden` on the wrapper with an inner override,
+    or to `opacity: 0`, both of which leave a keyboard visitor able to
+    Tab into a control that does nothing. The property under test is
+    reachability, so reachability is what is measured.
+
+    The walk is skipped, and `candidates: 0` recorded instead, when the
+    wrapper contains no focusable candidate in the first place — that is
+    not a short cut around the assertion, it is the assertion already
+    answered: a wrapper with nothing focusable in it cannot put anything
+    in the tab order. The walk runs exactly when it can find something,
+    which is the case it exists for.
+
+    TWO HOOKS, AND THE DIFFERENCE BETWEEN THEM IS THE POINT.
+
+    `prepare` runs on BOTH pages, right after the route loads and before
+    anything is measured, and it is for putting the subject into the
+    state it is meant to be judged in — opening the disclosure the gated
+    wrapper lives inside, or (as 25-02 used it) rendering a wrapper that
+    carries the gate class at all, so the STYLESHEET's rule can be
+    measured in a real browser before any page renders one. Whatever it
+    does, it must do to both pages identically, or the two directions
+    stop being the same measurement taken twice.
+
+    `arm` runs on the scripts-ENABLED page only, after `prepare`, and it
+    is for the state change that does the revealing. A plain `.js` gate
+    needs none (the class is on <html> from the first script statement),
+    but the same two-state shape covers a wrapper revealed by a script's
+    own logic — `.dirty-bar`, revealed by dirty-state.js only once the
+    form is dirty, is the live precedent and one of the two subjects this
+    helper was demonstrated against.
+
+    `tab_budget` bounds the walk; it defaults to the page's own count of
+    focusable candidates plus two, so it is derived from the document
+    rather than guessed, and a page that grows a control does not
+    silently start walking too few steps.
+    """
+    probe_args = {"selector": selector,
+                  "focusable": _FOCUSABLE_CANDIDATE_SELECTOR}
+    with _no_js_page(browser, base_url, route, viewport=viewport) as page:
+        if prepare is not None:
+            prepare(page)
+        seen = page.evaluate(_GATE_BOX_PROBE, probe_args)
+        if seen.get("error"):
+            raise AssertionError(
+                "_assert_js_gate: no element matched %r on %s with scripts "
+                "blocked — the gated wrapper must be RENDERED and merely "
+                "collapsed, so with none this helper measures nothing"
+                % (selector, route))
+        painted = [box for box in seen["boxes"] if box[1] > 0]
+        if painted:
+            raise AssertionError(
+                "_assert_js_gate: %r occupies space with scripts blocked on "
+                "%s — %r of the %d wrapper(s) measured %r. The gate must hide "
+                "by default and REVEAL under .js, never the reverse, which "
+                "shows a dead affordance permanently when a script fails to "
+                "run (D-09)"
+                % (selector, route, len(painted), seen["count"], painted))
+
+        reached = None
+        steps = 0
+        if seen["candidates"]:
+            budget = tab_budget or (seen["tabbable"] + 2)
+            for steps in range(1, budget + 1):
+                page.keyboard.press("Tab")
+                at = page.evaluate(_ACTIVE_PROBE, probe_args)
+                if at["inside"]:
+                    reached = at["where"]
+                    break
+                if at["seen"]:
+                    break  # the tab order has cycled; every stop was seen
+        if reached is not None:
+            raise AssertionError(
+                "_assert_js_gate: %r on %s collapses to zero height with "
+                "scripts blocked but a keyboard visitor still tabs INTO it — "
+                "%r took focus after %d Tab presses. A gate that hides by "
+                "`visibility`/opacity rather than `display: none` leaves "
+                "exactly this focusable ghost, operating nothing"
+                % (selector, route, reached, steps))
+        blocked = {"boxes": seen["boxes"], "candidates": seen["candidates"],
+                   "tab_steps": steps, "tabbable_on_page": seen["tabbable"]}
+
+    extra = {} if viewport is None else {"viewport": viewport}
+    context = browser.new_context(**extra)
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+        page.goto(base_url + route)
+        page.wait_for_load_state("load")
+        if prepare is not None:
+            prepare(page)
+        if arm is not None:
+            arm(page)
+        seen = page.evaluate(_GATE_BOX_PROBE, probe_args)
+        if seen.get("error"):
+            raise AssertionError(
+                "_assert_js_gate: no element matched %r on %s with scripts "
+                "ENABLED" % (selector, route))
+        revealed = [box for box in seen["boxes"] if box[1] > 0]
+        if not revealed:
+            raise AssertionError(
+                "_assert_js_gate: %r never reveals on %s — every one of the "
+                "%d wrapper(s) still measures zero height WITH scripts "
+                "running (%r). A gate asserted in the blocked direction "
+                "alone passes against exactly this: an affordance hidden "
+                "from everybody"
+                % (selector, route, seen["count"], seen["boxes"]))
+        enabled = {"boxes": seen["boxes"], "revealed": len(revealed),
+                   "candidates": seen["candidates"]}
+    finally:
+        context.close()
+
+    return {"blocked": blocked, "enabled": enabled}
+
+
+# ---------------------------------------------------------------------
+# 5. Both themes, and the page-overflow floor — both already owned.
+# ---------------------------------------------------------------------
+
+def _in_both_themes(page):
+    """Yield `_set_ui_theme(page, t)`'s measurement for each of this
+    app's explicit themes, in order, so "assert this in both themes" is
+    one `for` line at a control plan's call site.
+
+    THIS IS COMPOSITION, NOT A SECOND THEME MECHANISM. 24-02 owns the
+    theme switch and every one of its guarantees lives in
+    `_set_ui_theme()` — the explicit `data-ui-theme` attribute rather
+    than `emulate_media`, the both-themes sampling, and the refusal to
+    return unless `--color-canvas` and `--color-text` genuinely differ
+    between them. This generator adds a loop and nothing else. A control
+    plan that reached for `context.new_context(color_scheme="dark")`
+    instead would be building the second theme switch this project keeps
+    paying for.
+
+    The page is left on the LAST theme yielded, which is
+    `UI_THEMES_EXPLICIT`'s last entry — a caller that cares should call
+    `_set_ui_theme()` again itself rather than depend on that order.
+    """
+    for theme in UI_THEMES_EXPLICIT:
+        yield _set_ui_theme(page, theme)
+
+
+# THE 360px BODY-OVERFLOW MEASUREMENT IS `_assert_no_page_overflow()`
+# ABOVE, AND THIS PLAN ADDS NOTHING BESIDE IT. 24-02 already exposed it
+# as one call taking a page and a name, already settled which box means
+# "the page" (documentElement, matching the two page-level checks this
+# file carried before it), already established that a deliberately
+# scrollable `.data-table-wrap` is not a page overflow, and already
+# carries the optional `expected_width` guard that proves the
+# measurement was taken at the viewport the caller believes it built.
+# Every control plan in this phase calls it as:
+#
+#     msg = _assert_no_page_overflow(
+#         page, "the dial on /device", VIEWPORT_MIN_SUPPORTED["width"])
+#     if msg:
+#         return False, msg
+#
+# A second overflow helper would be a third convention in one file about
+# what "the page" means, which is how three checks come to disagree.
+
+
+# ---------------------------------------------------------------------
+# 6. Display's own rendered page HEIGHT — 25-06-PLAN.md Task 1 (CFG-50).
+# ---------------------------------------------------------------------
+#
+# WHY A HARNESS HELPER AND NOT A NUMBER IN A SUMMARY. D5 is the one item
+# in this phase whose success criterion is a MEASUREMENT rather than a
+# behaviour: 22-AUDIT.md's X6 row set a page-height target that 22-10
+# then recorded as "NOT met and cannot be by density alone — folding the
+# grid behind the big preview is D5". A before-number typed into a
+# document by hand, after the change, is not a before-number; a before-
+# number produced by the same instrument that later produces the after-
+# number is. So the measurement is a registered check, taken before any
+# markup in this plan existed, and re-run afterwards by the identical
+# code path.
+#
+# IT DELIBERATELY ASSERTS NO TARGET. The number it reports is the
+# verdict, and 25-06 Task 4 states plainly whether the target is met.
+# What it DOES assert is that the instrument is pointed at the right
+# thing, which is the only way a recorded height means anything at all:
+#   * the measurement was taken at the width the caller asked for (a
+#     context that silently came up at another size reports a height for
+#     a layout nobody asked about);
+#   * the document really is the authenticated Display page and not the
+#     login card it redirects to when the session is missing — asserted
+#     by the Frame colours card's own heading id AND by the departures
+#     radiogroup's full THEME_IDS-sized population, because "a page
+#     rendered" is exactly the vacuous version of this;
+#   * the page is genuinely taller than the viewport, so the number is a
+#     document height rather than a viewport height wearing one.
+#
+# `scrollHeight` on documentElement, not `body`: `body` can be shorter
+# than the document when a child escapes it, and documentElement is the
+# same box `_assert_no_page_overflow()` already settled on for the
+# horizontal axis. One convention per file.
+_DISPLAY_HEIGHT_PROBE = (
+    "args => ({"
+    "  height: document.documentElement.scrollHeight,"
+    "  clientWidth: document.documentElement.clientWidth,"
+    "  clientHeight: document.documentElement.clientHeight,"
+    "  scrollWidth: document.documentElement.scrollWidth,"
+    "  heading: !!document.getElementById(args.headingId),"
+    "  themeRadios: document.querySelectorAll("
+    "    'input[name=\"theme\"]').length,"
+    "})")
+
+
+def _display_page_height(browser, base_url, viewport):
+    """Display's full rendered document height at `viewport`, with the
+    instrument proved to be pointed at Display.
+
+    Returns the probe's own dict (height, clientWidth, clientHeight,
+    scrollWidth, heading, themeRadios). Raises AssertionError when the
+    measurement cannot be trusted — `_set_ui_theme()`'s shape and for
+    its reason: a helper returning a verdict string hands every caller a
+    guard it has to remember, and `check()` turns a raised
+    AssertionError into a named FAIL nobody can forget.
+
+    Scripts are ENABLED here, deliberately. The height a visitor sees is
+    the height of the page their browser actually renders, and on
+    Display that includes `theme-preview.js` collapsing three of the
+    four usage panels at load — a scripts-blocked measurement would
+    report a page nobody with a default browser ever sees, and would
+    move for reasons that have nothing to do with this plan.
+    """
+    context = browser.new_context(viewport=viewport)
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+        page.wait_for_load_state("networkidle")
+        seen = page.evaluate(
+            _DISPLAY_HEIGHT_PROBE,
+            {"headingId": config_page.FRAME_COLOURS_HEADING_ID})
+    finally:
+        context.close()
+    if seen["clientWidth"] != viewport["width"]:
+        raise AssertionError(
+            "_display_page_height: asked for a %dpx viewport, the document "
+            "reports a client width of %d — the height below would be a "
+            "measurement of a layout nobody asked for"
+            % (viewport["width"], seen["clientWidth"]))
+    if not seen["heading"]:
+        raise AssertionError(
+            "_display_page_height: the document at %dpx carries no Frame "
+            "colours heading — this is not the authenticated Display page "
+            "(a missing session redirects to the login card, which renders "
+            "perfectly and is a quarter of the height)" % (viewport["width"],))
+    expected_radios = len(device_config.THEME_IDS)
+    if seen["themeRadios"] != expected_radios:
+        raise AssertionError(
+            "_display_page_height: the Display page at %dpx posts %d radios "
+            "named 'theme', expected %d — a height measured against a "
+            "different number of chips is not comparable with the one this "
+            "plan recorded before it started"
+            % (viewport["width"], seen["themeRadios"], expected_radios))
+    if seen["height"] <= seen["clientHeight"]:
+        raise AssertionError(
+            "_display_page_height: the document reports a scrollHeight of %d "
+            "against a client height of %d — Display is not shorter than a "
+            "phone viewport, so this is a viewport height wearing a document "
+            "height's name" % (seen["height"], seen["clientHeight"]))
+    return seen
 
 
 def main():
@@ -4896,18 +6304,21 @@ def main():
                 def _the_relative_age_is_server_rendered_and_static_without_scripts():
                     base_url = harness.base_url()
                     for lang in ("en", "fr"):
-                        context = browser.new_context(
-                            java_script_enabled=False, viewport=VIEWPORT_MIN_SUPPORTED)
-                        try:
-                            context.add_cookies([{
-                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
-                                "url": base_url}])
-                            page = context.new_page()
-                            page.goto(base_url + "/login")
-                            page.fill("#password", TEST_PASSWORD)
-                            page.click('button[type="submit"]')
-                            page.wait_for_load_state("load")
-                            page.goto(base_url + "/health")
+                        # 25-02-PLAN.md: this used to open the file's
+                        # SECOND java_script_enabled=False context by
+                        # hand, because it needs the UI-language cookie
+                        # set before the first navigation and
+                        # `_no_js_page()` had no way to take one. It does
+                        # now, so this composes with the one call site
+                        # again. The sequence is otherwise unchanged:
+                        # same viewport, same cookie, same sign-in, same
+                        # landing route.
+                        with _no_js_page(
+                                browser, base_url, "/health",
+                                viewport=VIEWPORT_MIN_SUPPORTED,
+                                cookies=[{
+                                    "name": auth.UI_LANG_COOKIE_NAME,
+                                    "value": lang, "url": base_url}]) as page:
                             found = page.locator(FRESHNESS_AGE).count()
                             if found != 1:
                                 return False, (
@@ -4976,8 +6387,6 @@ def main():
                                     "rewriting it" % (lang, first, second))
                             if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
                                 return False, "expected the measurement at the 360px contract floor"
-                        finally:
-                            context.close()
                     return True, ""
                 check(
                     "with scripts blocked at 360px, in BOTH languages, the freshness line still "
@@ -8785,6 +10194,2804 @@ def main():
                     "their lefts, widths and gaps and both drawings keep their boxes (CFG-44, "
                     "CFG-45, D-09, 24-08-PLAN.md Task 3)",
                     _the_heros_grouping_holds_at_both_widths_and_owes_nothing_to_a_script)
+
+                # ----------------------------------------------------------
+                # 25-03-PLAN.md Task 3 (CFG-47): the runway map, measured
+                # where it has to be correct.
+                #
+                # Three checks, and NOT ONE OF THEM MEASURES THAT THE MAP
+                # RENDERS. A check that asserted the radios are present
+                # would pass against a map that saves nothing, which is
+                # precisely the class of defect Phase 22 found; a check
+                # that read a CSS value would pass against a hit area the
+                # browser does not actually award (25-02 measured
+                # `.copy-btn`'s declared 44x44 at a real 34x26). So the
+                # subjects here are: what reaches DISK with scripts
+                # blocked, what a keyboard alone can do with zero pointer
+                # events, and what the browser's own hit test and cascade
+                # answer at 360px in both themes.
+                # ----------------------------------------------------------
+
+                def _runway_ids():
+                    return device_config.RUNWAY_IDS
+
+                # Every strip carries `transition: fill var(--motion-fast)`,
+                # so ANY sample taken right after a theme switch or a
+                # selection change reads an interpolation frame rather
+                # than the settled paint — measured, not feared: the first
+                # version of the paint check below read rgb(41, 43, 49)
+                # for a strip whose settled dark value is
+                # rgb(241, 243, 246), and reported a theme that does not
+                # invert. This waits on the Web Animations `finished`
+                # promise, the browser's OWN signal that the transition is
+                # over, and never on a timer: an element with nothing
+                # running returns an empty list and resolves at once, so
+                # this neither guesses an instant nor waits for one that
+                # will not come.
+                _SETTLE_STRIPS = (
+                    "async () => {"
+                    "  const els = [...document.querySelectorAll("
+                    "    '.runway-map__strip, .runway-map__field')];"
+                    "  await Promise.all(els.flatMap("
+                    "    e => e.getAnimations().map("
+                    "      a => a.finished.catch(() => {}))));"
+                    "  return els.length;"
+                    "}")
+
+                def _the_runway_still_saves_with_scripts_blocked_through_the_map():
+                    base_url = harness.base_url()
+
+                    def read_back():
+                        return device_config.load_device_config(
+                            harness.tmpdir)["tracked_runway"]
+
+                    before = read_back()
+                    target = next(r for r in _runway_ids() if r != before)
+                    seen = {}
+                    # BOTH SHIPPED LANGUAGES, because the UI language is a
+                    # cookie the first rendered document has to honour and
+                    # "it saves in English" is not the D-09 floor.
+                    for lang in ("en", "fr"):
+                        seen[lang] = _persist_without_js(
+                            browser, base_url, "/display", "tracked_runway",
+                            target, read_back,
+                            viewport=VIEWPORT_MIN_SUPPORTED,
+                            cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
+                                      "value": lang, "url": base_url}])
+                    after = read_back()
+                    if str(after) != str(before):
+                        return False, (
+                            "the scripts-blocked save left tracked_runway at %r, it "
+                            "started at %r — a harness that changes a real setting is a "
+                            "test that edits its neighbours' subject" % (after, before))
+                    for lang, result in seen.items():
+                        if str(result["stored"]) != str(target):
+                            return False, (
+                                "lang=%s: tracked_runway did not reach disk, it reads %r"
+                                % (lang, result["stored"]))
+                        if str(result["restored"]) != str(before):
+                            return False, (
+                                "lang=%s: the restore leg did not put %r back, disk reads "
+                                "%r" % (lang, before, result["restored"]))
+
+                    # And the map itself is really on that scripts-blocked
+                    # page — asserted AFTER the save, so it can never be
+                    # mistaken for the verdict. One map per card, every
+                    # registry entry drawn on each.
+                    n = len(_runway_ids())
+                    with _no_js_page(browser, base_url, "/display",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        maps = page.locator(".runway-card .runway-map").count()
+                        strips = page.locator(".runway-card .runway-map__strip").count()
+                        if maps != n:
+                            return False, (
+                                "expected %d maps with scripts blocked, found %d — the "
+                                "drawing is server-rendered and owes nothing to a script"
+                                % (n, maps))
+                        if strips != n * n:
+                            return False, (
+                                "expected %d strips with scripts blocked, found %d"
+                                % (n * n, strips))
+                    return True, ""
+                check(
+                    "the runway still SAVES with scripts blocked through the map, at 360px and "
+                    "in BOTH shipped languages — operated natively, submitted through the real "
+                    "form, re-read FROM DISK after a fresh GET, and restored through the "
+                    "identical sequence; with the server-rendered map present on the "
+                    "scripts-blocked page itself, asserted after the save so it can never stand "
+                    "in for it (D-09/CFG-47, 25-03-PLAN.md Task 3)",
+                    _the_runway_still_saves_with_scripts_blocked_through_the_map)
+
+                def _keyboard_only_selection_survived_the_map():
+                    base_url = harness.base_url()
+                    ids = _runway_ids()
+                    if len(ids) < 2:
+                        return False, "a radiogroup of one has no arrow-key behaviour to keep"
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        saved = str(device_config.load_device_config(
+                            harness.tmpdir)["tracked_runway"])
+                        if saved not in ids:
+                            return False, (
+                                "the saved runway %r is not in the registry — this check "
+                                "would be measuring nothing" % (saved,))
+                        start = ids.index(saved)
+                        following = ids[(start + 1) % len(ids)]
+                        selector = 'input[name="tracked_runway"][value="%s"]' % saved
+                        # THE SUBJECT IS WHETHER THE MAP BROKE IT. Arrow
+                        # keys moving selection inside a native radiogroup
+                        # is the browser's own default action, measured on
+                        # the PRE-map markup by 25-02 ('3' -> '06-24' on
+                        # one ArrowDown, zero pointer events). This plan
+                        # wrapped a drawing around that control and adds
+                        # no script, so the same sequence must give the
+                        # same answer.
+                        down = _operate_with_keyboard(page, selector, ["ArrowDown"])
+                        if down["group"] != following:
+                            return False, (
+                                "one ArrowDown from %r selected %r, expected the registry's "
+                                "next entry %r — the map broke native radiogroup navigation"
+                                % (saved, down["group"], following))
+                        if down["pointer_events"]:
+                            return False, (
+                                "a pointer event fired during the keyboard sequence: %r"
+                                % (down["pointer_events"],))
+                        if not down["recorder_proved"]:
+                            return False, (
+                                "the pointer recorder never proved itself, so the empty "
+                                "pointer-event list measured nothing")
+                        # A radiogroup wraps and returns; a control that
+                        # only ever moved forwards would pass the clause
+                        # above.
+                        back = _operate_with_keyboard(
+                            page, selector, ["ArrowDown", "ArrowDown", "ArrowUp"])
+                        if back["group"] != following:
+                            return False, (
+                                "ArrowDown/ArrowDown/ArrowUp from %r landed on %r, expected "
+                                "%r — arrow navigation moves one way only"
+                                % (saved, back["group"], following))
+                        # The selection is REAL: the strip the CSS paints
+                        # follows the live checked radio, not the saved
+                        # one. Measured through the browser's own :has()
+                        # evaluation, which is the mechanism the stylesheet
+                        # relies on.
+                        live = page.eval_on_selector_all(
+                            ".runway-card:has(input:checked) input",
+                            "els => els.map(e => e.value)")
+                        if live != [following]:
+                            return False, (
+                                "after keyboard selection the live :has(input:checked) card "
+                                "is %r, expected exactly [%r] — the paint is following the "
+                                "saved value, not the visitor's choice" % (live, following))
+
+                        # AND THE PAINT REALLY MOVED WITH IT. This is the
+                        # only state in which the feature query earns its
+                        # place: at rest the saved card is also the checked
+                        # card, so the no-:has() fallback paints the
+                        # identical thing and deleting the live rule
+                        # entirely changes NOTHING a first-paint
+                        # measurement can see — that mutation was run and
+                        # failed nothing, which is why these three samples
+                        # exist. Here the two have been pulled apart: one
+                        # card is checked, a different one is saved, and a
+                        # third is neither.
+                        if not page.evaluate(_SETTLE_STRIPS):
+                            return False, "no strip matched the settle probe"
+                        chosen = _computed_paint(
+                            page,
+                            ".runway-card:has(input:checked) "
+                            ".runway-map__strip--this", props=("fill",))["fill"]
+                        was_saved = _computed_paint(
+                            page,
+                            ".runway-card--selected:not(:has(input:checked)) "
+                            ".runway-map__strip--this", props=("fill",))["fill"]
+                        neither = _computed_paint(
+                            page,
+                            ".runway-card:not(.runway-card--selected)"
+                            ":not(:has(input:checked)) "
+                            ".runway-map__strip--this", props=("fill",))["fill"]
+                        if chosen == was_saved:
+                            return False, (
+                                "the card the keyboard chose and the card that is merely "
+                                "SAVED paint their own strip identically (%r) — the live "
+                                ":has(input:checked) rule is doing nothing, and the map is "
+                                "showing the stored value rather than the visitor's choice"
+                                % (chosen,))
+                        if was_saved != neither:
+                            return False, (
+                                "the saved-but-not-live card's strip paints %r against %r "
+                                "on a card that is neither — a saved card must fall back to "
+                                "the resting weight, or two strips claim one selection"
+                                % (was_saved, neither))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "keyboard-only selection survived the map — one ArrowDown moves the native "
+                    "radiogroup to the registry's next entry and an ArrowDown/ArrowDown/ArrowUp "
+                    "returns to it, with ZERO pointer events fired and the recorder proving "
+                    "itself, and the live :has(input:checked) card follows the keyboard choice "
+                    "rather than the saved one (CFG-47, matching 25-02's pre-map measurement)",
+                    _keyboard_only_selection_survived_the_map)
+
+                def _the_map_meets_its_floors_at_360px_in_both_themes():
+                    base_url = harness.base_url()
+                    ids = _runway_ids()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+
+                        # 1. THE HIT AREA, MEASURED IN THIS CONTAINER AND
+                        # NOT INHERITED FROM A CLASS. A runway strip is
+                        # long and thin and is not the target; the wrapping
+                        # label is, and `control-density.md`'s
+                        # exempt-by-delegation category is only valid while
+                        # that label really exceeds 44px in both axes. At
+                        # 360px with three cards in one row that is not
+                        # automatic, which is why all three are measured
+                        # rather than one.
+                        hits = []
+                        for index in range(len(ids)):
+                            selector = (
+                                ".runway-row > .runway-card:nth-child(%d)" % (index + 1))
+                            hits.append(_assert_hit_target(
+                                page, selector,
+                                "the runway map's card %d of %d on /display"
+                                % (index + 1, len(ids))))
+
+                        # 2. THE DRAWING FITS THE CARD IT IS IN. The <svg>
+                        # carries intrinsic 64-user-unit width/height; a
+                        # runway card's content box at 360px is narrower
+                        # than that, so without the stylesheet's
+                        # max-width/height pair the drawing is wider than
+                        # its own card. Measured, not read off the rule.
+                        # THE COMPARISON IS AGAINST THE CARD'S CONTENT
+                        # BOX, NOT ITS BORDER BOX, AND THAT IS THE
+                        # DIFFERENCE BETWEEN A CHECK AND A DECORATION.
+                        # Measured on this tree: a runway card at 360px is
+                        # about 88px wide and carries 16px of padding on
+                        # each side plus a 1px border, so its content box
+                        # is about 54px. Comparing against the 88 lets a
+                        # 64px drawing — the map's own intrinsic size, i.e.
+                        # exactly what it renders at with the stylesheet's
+                        # max-width removed — pass while overflowing its
+                        # card by 10px. That mutation was run, passed
+                        # everything, and is the reason this reads
+                        # clientWidth minus the padding.
+                        boxes = page.eval_on_selector_all(
+                            ".runway-card .runway-map",
+                            "els => els.map(e => {"
+                            "  const r = e.getBoundingClientRect();"
+                            "  const card = e.parentElement;"
+                            "  const cs = getComputedStyle(card);"
+                            # The selected card carries transform:
+                            # scale(1.02), so its rect and the drawing's
+                            # rect are both in a scaled space while its
+                            # padding and border are not. Dividing both
+                            # rects by the card's own scale factor puts
+                            # every number in one space; clientWidth is
+                            # not usable here because it is an INTEGER,
+                            # and its rounding alone reported a 54.41px
+                            # drawing as overflowing a "53px" box.
+                            "  const k = cs.transform === 'none' ? 1"
+                            "    : (new DOMMatrixReadOnly(cs.transform).a || 1);"
+                            "  const cr = card.getBoundingClientRect();"
+                            "  const content = (cr.width / k)"
+                            "    - parseFloat(cs.paddingLeft)"
+                            "    - parseFloat(cs.paddingRight)"
+                            "    - parseFloat(cs.borderLeftWidth)"
+                            "    - parseFloat(cs.borderRightWidth);"
+                            "  const s = getComputedStyle(e);"
+                            "  return [r.width / k, r.height / k, content, s.display,"
+                            "          s.marginBottom];"
+                            "})")
+                        if len(boxes) != len(ids):
+                            return False, (
+                                "expected %d maps, measured %d" % (len(ids), len(boxes)))
+                        for width, height, card_width, display, margin in boxes:
+                            if width <= 0 or height <= 0:
+                                return False, (
+                                    "a map measured %sx%s — it has no box at all"
+                                    % (width, height))
+                            if width > card_width + 0.5:
+                                return False, (
+                                    "a map measures %.2fpx inside a %.2fpx card CONTENT "
+                                    "box — the drawing is wider than the space the card "
+                                    "has for it" % (width, card_width))
+                            if abs(width - height) > 1:
+                                return False, (
+                                    "a map measured %.2fx%.2f — the aspect-locked mark is "
+                                    "being stretched, so `height: auto` is not doing its "
+                                    "job" % (width, height))
+                            if display != "block":
+                                return False, (
+                                    "a map computes display:%s — an inline <svg> sits on a "
+                                    "text baseline and leaves a descender gap under it"
+                                    % (display,))
+                            if margin in ("0px", "", None):
+                                return False, (
+                                    "a map computes margin-bottom:%r — it would sit hard "
+                                    "against the runway name under it" % (margin,))
+
+                        # 3. THE PAGE DOES NOT SCROLL SIDEWAYS at the
+                        # narrowest supported screen. 24-02's helper, not a
+                        # second convention about what "the page" means.
+                        message = _assert_no_page_overflow(
+                            page, "the runway map on /display",
+                            VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+
+                        # 4. THE PAINT, IN BOTH THEMES, ASSERTED AS A FLOOR
+                        # AND NOT ONLY A CEILING. "Not the SVG default" is
+                        # the ceiling and passes against a drawing where
+                        # every strip is the same flat grey; the floor is
+                        # that the three states are three different paints
+                        # and that both themes are two different paints.
+                        #
+                        # SAMPLED ONLY ONCE THE BROWSER SAYS IT HAS
+                        # FINISHED, AND THIS IS NOT A PRECAUTION — IT IS
+                        # THE DEFECT THIS CHECK ALREADY CAUGHT. The strips
+                        # carry `transition: fill var(--motion-fast)`, so
+                        # switching the theme starts a 180ms transition on
+                        # every one of them; the first version of this
+                        # check read getComputedStyle immediately after
+                        # the switch and measured rgb(41, 43, 49) for a
+                        # strip whose settled dark value is
+                        # rgb(241, 243, 246) — an interpolation frame,
+                        # reported as a theme that does not invert. The
+                        # fix is the Web Animations `finished` promise,
+                        # which is the browser's OWN signal that the
+                        # transition is over, and never a timer: an
+                        # element with nothing running returns an empty
+                        # list and resolves at once, so this neither
+                        # guesses an instant nor waits for one that will
+                        # not come.
+                        samples = {
+                            "context": (
+                                ".runway-map__strip:not(.runway-map__strip--this)",
+                                "fill"),
+                            "own": (
+                                ".runway-card:not(:has(input:checked)) "
+                                ".runway-map__strip--this", "fill"),
+                            "selected": (
+                                ".runway-card:has(input:checked) "
+                                ".runway-map__strip--this", "fill"),
+                            "field": (".runway-map__field", "stroke"),
+                        }
+                        paints = []
+                        for measured in _in_both_themes(page):
+                            if not page.evaluate(_SETTLE_STRIPS):
+                                return False, (
+                                    "%s: no strip matched the settle probe, so nothing "
+                                    "below measured anything" % (measured["theme"],))
+                            sample = {}
+                            for name, (selector, prop) in samples.items():
+                                seen = _computed_paint(page, selector, props=(prop,))
+                                if prop in seen["svg_default"]:
+                                    return False, (
+                                        "%s: the %s shape's %s is %r, indistinguishable "
+                                        "from the SVG initial value — it is taking no "
+                                        "colour from the stylesheet at all"
+                                        % (measured["theme"], name, prop, seen[prop]))
+                                sample[name] = seen[prop]
+                            if sample["context"] == sample["own"]:
+                                return False, (
+                                    "%s: a context strip and this card's own strip paint "
+                                    "identically (%r) — the map marks nothing"
+                                    % (measured["theme"], sample["own"]))
+                            if sample["own"] == sample["selected"]:
+                                return False, (
+                                    "%s: the own-runway strip paints the same selected and "
+                                    "unselected (%r) — the live selected state does nothing"
+                                    % (measured["theme"], sample["own"]))
+                            paints.append((measured["theme"], sample))
+                        if len(paints) != 2:
+                            return False, "expected a measurement in each theme, got %d" % (
+                                len(paints),)
+                        light, dark = paints[0][1], paints[1][1]
+                        for name in sorted(samples):
+                            if light[name] == dark[name]:
+                                return False, (
+                                    "the %s paint is %r in BOTH themes — it is not coming "
+                                    "from a token that inverts, so one of the two themes is "
+                                    "wrong" % (name, light[name]))
+
+                        # 5. THE TRANSITION IS REAL, measured rather than
+                        # read off the rule: a theme switch must put a
+                        # running animation on the strips. Declared-but-
+                        # inert is the failure mode this phase keeps
+                        # finding, and the only thing that can tell the
+                        # difference is the browser.
+                        running = page.evaluate(
+                            "async themes => {"
+                            "  const el = document.documentElement;"
+                            "  const strips = [...document.querySelectorAll("
+                            "    '.runway-map__strip')];"
+                            "  el.setAttribute('data-ui-theme', themes[0]);"
+                            "  await Promise.all(strips.flatMap("
+                            "    e => e.getAnimations().map("
+                            "      a => a.finished.catch(() => {}))));"
+                            "  el.setAttribute('data-ui-theme', themes[1]);"
+                            # One painted frame, awaited through the
+                            # browser's own rAF callback rather than a
+                            # timer: a transition is created during the
+                            # style recalculation that precedes a paint,
+                            # so counting before one has happened counts
+                            # a transition that does not exist yet.
+                            "  await new Promise(r => requestAnimationFrame(r));"
+                            "  return strips.reduce("
+                            "    (n, e) => n + e.getAnimations().length, 0);"
+                            "}", list(UI_THEMES_EXPLICIT))
+                        if not running:
+                            return False, (
+                                "switching the theme started no transition on any strip — "
+                                "the `transition` declared on .runway-map__strip is inert, "
+                                "so it is either dead code or the fill is not changing")
+                        _ = hits
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the map meets its floors at 360px — every one of the runway labels clears "
+                    "the 44px touch target by real hit-testing in ITS OWN container (never "
+                    "inherited from a class), each drawing fits inside the card holding it "
+                    "without stretching, the page does not scroll sideways, and the paint is a "
+                    "FLOOR not a ceiling: context/own/selected are three different colours and "
+                    "every one of them differs between the two themes, so none is the SVG "
+                    "default and none is a literal (CFG-47, 25-03-PLAN.md Task 3)",
+                    _the_map_meets_its_floors_at_360px_in_both_themes)
+
+                # ----------------------------------------------------------
+                # 25-04-PLAN.md Task 4 (CFG-48): D17's quiet-hours dial,
+                # measured at 360px, from the keyboard, and with its
+                # fallback proven by SAVING rather than by rendering.
+                #
+                # None of the three checks below asserts that the dial
+                # renders. "Rendered" is not "usable" (Phase 22's P0) and
+                # "the field shows the value" is not "the value was
+                # stored" — this card ECHOES a rejected submission back
+                # into its own fields by design (D-07), so a DOM read
+                # would pass against a save that stored nothing. The
+                # verdicts here are: what reaches DISK with scripts
+                # blocked, what a drag and a keystroke do to the native
+                # input and to the save bar, and what the browser's own
+                # hit test and cascade answer at 360px in both themes.
+                # ----------------------------------------------------------
+
+                QUIET_DIAL_SEL = ".quiet-dial"
+                QUIET_ARC_SEL = ".quiet-dial__arc"
+                QUIET_HANDLES_SEL = ".quiet-dial__handles"
+                QUIET_READOUT_SEL = ".quiet-dial__readout"
+
+                def _handle_sel(field):
+                    return '[data-value-field="%s"] [data-value-handle]' % field
+
+                def _quiet_hours_on_disk():
+                    config = device_config.load_device_config(harness.tmpdir)
+                    return (config["quiet_hours_start"], config["quiet_hours_end"])
+
+                # Set both ends through the real UI and save, so every
+                # arrangement this file measures is reached the way a
+                # visitor reaches it. Returns nothing; raises on failure.
+                def _set_window(page, base_url, start, end):
+                    page.goto(base_url + "/display")
+                    page.fill('input[name="quiet_hours_start"]', start)
+                    page.fill('input[name="quiet_hours_end"]', end)
+                    page.eval_on_selector(
+                        'input[name="quiet_hours_end"]',
+                        "el => el.dispatchEvent(new Event('change', {bubbles: true}))")
+                    with page.expect_navigation():
+                        page.locator(".dirty-bar__save").click()
+                    stored = _quiet_hours_on_disk()
+                    if stored != (start, end):
+                        raise AssertionError(
+                            "setting the window to %r through the UI stored %r"
+                            % ((start, end), stored))
+                    page.goto(base_url + "/display")
+
+                # Every rule this component adds is a plain paint or a
+                # placement, so nothing here transitions today — but the
+                # theme switch starts transitions elsewhere on the page,
+                # and 25-03 already lost a paint measurement to an
+                # interpolation frame read at a guessed instant. This is
+                # the browser's OWN "it has finished" signal, never a
+                # timer: an element with nothing running returns an empty
+                # list and resolves at once.
+                _SETTLE_DIAL = (
+                    "async () => {"
+                    "  const els = [...document.querySelectorAll("
+                    "    '.quiet-dial, .quiet-dial *')];"
+                    "  await Promise.all(els.flatMap("
+                    "    e => e.getAnimations().map("
+                    "      a => a.finished.catch(() => {}))));"
+                    "  return els.length;"
+                    "}")
+
+                def _the_window_still_saves_with_scripts_blocked_through_the_dial():
+                    base_url = harness.base_url()
+                    before = _quiet_hours_on_disk()
+
+                    def read_start():
+                        return _quiet_hours_on_disk()[0]
+
+                    def read_end():
+                        return _quiet_hours_on_disk()[1]
+
+                    # BOTH ENDS AND BOTH SHIPPED LANGUAGES. The UI
+                    # language is a cookie the first rendered document
+                    # already has to honour, and "it saves in English" is
+                    # not the D-09 floor.
+                    saved = {}
+                    for lang in ("en", "fr"):
+                        cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
+                                    "value": lang, "url": base_url}]
+                        saved[(lang, "start")] = _persist_without_js(
+                            browser, base_url, "/display", "quiet_hours_start",
+                            "21:45", read_start, viewport=VIEWPORT_MIN_SUPPORTED,
+                            cookies=cookies)
+                        saved[(lang, "end")] = _persist_without_js(
+                            browser, base_url, "/display", "quiet_hours_end",
+                            "06:15", read_end, viewport=VIEWPORT_MIN_SUPPORTED,
+                            cookies=cookies)
+                    after = _quiet_hours_on_disk()
+                    if after != before:
+                        return False, (
+                            "the scripts-blocked saves left the window at %r; it started at "
+                            "%r — a harness that changes a real setting is a test that edits "
+                            "its neighbours' subject" % (after, before))
+                    for key, result in saved.items():
+                        if str(result["stored"]) != str(result["set"]):
+                            return False, (
+                                "%s: %s did not reach disk, it reads %r"
+                                % (key, result["field"], result["stored"]))
+
+                    # THE GATE, IN BOTH DIRECTIONS. Asserting only the
+                    # blocked half passes against a gate stuck shut;
+                    # asserting only the enabled half is the "renders and
+                    # does nothing" defect. 25-02's helper owns both.
+                    gate = _assert_js_gate(
+                        browser, base_url, "/display", QUIET_HANDLES_SEL,
+                        viewport=VIEWPORT_MIN_SUPPORTED)
+
+                    # AND THE ARC IS PRESENT IN BOTH — which is what makes
+                    # this dial's fallback a FEATURE rather than an
+                    # absence. A check that skipped it would let a later
+                    # refactor move the whole drawing behind the gate
+                    # unnoticed, and nothing else here would object.
+                    with _no_js_page(browser, base_url, "/display",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        # MEASURED, NOT COUNTED. locator.count() counts
+                        # elements in the DOM whatever their box is, so
+                        # it passes against an arc moved behind the gate
+                        # — the exact refactor this clause exists to
+                        # notice. The verdict is the rendered box.
+                        blocked_arc = page.locator(QUIET_ARC_SEL).count()
+                        blocked_arc_box = (
+                            page.locator(QUIET_ARC_SEL).bounding_box()
+                            if blocked_arc else None)
+                        blocked_readout = page.locator(QUIET_READOUT_SEL).inner_text()
+                        blocked_inputs = page.locator(
+                            'input[name="quiet_hours_start"], '
+                            'input[name="quiet_hours_end"]').count()
+                        blocked_presets = page.locator("[data-quiet-preset]").count()
+                        blocked_siblings = page.locator(
+                            ".field-inline-value").count()
+                    if blocked_arc != 1:
+                        return False, (
+                            "the quiet arc is not drawn with scripts blocked (%d found) — the "
+                            "ring is SERVER-drawn and only the dragging is script"
+                            % blocked_arc)
+                    if not blocked_arc_box or blocked_arc_box["width"] <= 0 \
+                            or blocked_arc_box["height"] <= 0:
+                        return False, (
+                            "the quiet arc is in the scripts-blocked document but occupies no "
+                            "space (%r) — rendered is not drawn, and an arc behind the gate is "
+                            "the refactor this clause exists to notice" % (blocked_arc_box,))
+                    if blocked_inputs != 2 or blocked_presets != 3:
+                        return False, (
+                            "with scripts blocked the card renders %d time input(s) and %d "
+                            "preset(s); it owes two and three"
+                            % (blocked_inputs, blocked_presets))
+                    if blocked_siblings < 2:
+                        return False, (
+                            "B14's visible 24h siblings are missing with scripts blocked "
+                            "(%d found) — a browser in en-US renders the stored 23:00 as "
+                            "'11:00 PM' beside a preset labelled 'Night (23:00-07:00)'"
+                            % blocked_siblings)
+                    if ":" not in blocked_readout:
+                        return False, (
+                            "the scripts-blocked readout says %r — the saved window has to be "
+                            "legible without a script" % blocked_readout)
+                    _ = gate
+                    return True, ""
+                check(
+                    "the quiet window still SAVES with scripts blocked through the dial — both "
+                    "ends set natively, submitted through the real form, re-read FROM DISK "
+                    "after a fresh GET and restored the same way, at 360px and in BOTH shipped "
+                    "languages; the gated handle layer has zero height and no keyboard can "
+                    "reach into it with scripts blocked while it occupies space with them; and "
+                    "the server-drawn ARC, the readout, both time inputs, B14's two 24h "
+                    "siblings and the three presets are all present on the scripts-blocked "
+                    "page, asserted after the save so none of them can stand in for it "
+                    "(D-09/CFG-48, 25-04-PLAN.md Task 4)",
+                    _the_window_still_saves_with_scripts_blocked_through_the_dial)
+
+                def _dragging_and_keying_a_handle_reach_disk():
+                    base_url = harness.base_url()
+                    before = _quiet_hours_on_disk()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        _set_window(page, base_url, "23:00", "07:00")
+
+                        # 1. THE DRAG. Aimed at six o'clock on the ring,
+                        # which is 12:00 — a point this check can compute
+                        # without trusting the control's own arithmetic.
+                        #
+                        # SCROLLED TO THE MIDDLE OF THE VIEWPORT FIRST,
+                        # for `_hit_area()`'s own recorded reason: at
+                        # 360px this page is long and its tab bar is
+                        # fixed to the bottom, so a coordinate gesture
+                        # taken wherever the page happened to be scrolled
+                        # is a gesture that lands somewhere else.
+                        page.eval_on_selector(
+                            QUIET_DIAL_SEL, "el => el.scrollIntoView({block: 'center'})")
+                        box = page.evaluate(
+                            "sel => { const r = document.querySelector(sel)"
+                            "  .getBoundingClientRect();"
+                            "  return [r.left + r.width / 2, r.top + r.height / 2,"
+                            "          r.width, r.height]; }", QUIET_DIAL_SEL)
+                        grip = page.evaluate(
+                            "sel => { const r = document.querySelector(sel)"
+                            "  .getBoundingClientRect();"
+                            "  return [r.left + r.width / 2, r.top + r.height / 2]; }",
+                            _handle_sel("quiet_hours_start"))
+                        page.mouse.move(grip[0], grip[1])
+                        page.mouse.down()
+                        # The steering script focuses the handle it
+                        # captured, so this is the page's own answer to
+                        # "did the press reach the control", and it turns
+                        # a silent no-op into a named diagnostic.
+                        if not page.evaluate(
+                                "sel => document.activeElement"
+                                "  === document.querySelector(sel)",
+                                _handle_sel("quiet_hours_start")):
+                            page.mouse.up()
+                            return False, (
+                                "a pointer-down at the start handle's own centre (%r, dial box "
+                                "%r) did not reach the steering script — nothing below measured "
+                                "a drag" % (grip, box))
+                        page.mouse.move(box[0], box[1] + box[3] / 2 - 8, steps=8)
+                        page.mouse.up()
+                        dragged = page.input_value('input[name="quiet_hours_start"]')
+                        recorded["dragged_to"] = dragged
+                        if dragged != "12:00":
+                            return False, (
+                                "dragging the start handle to six o'clock on the ring put %r "
+                                "into quiet_hours_start; the bottom of a 24h dial is 12:00"
+                                % dragged)
+                        # THE ANNOUNCEMENT FOLLOWED THE DRAG, AND IT IS
+                        # THE HANDLE THAT CARRIES IT. A wrapper holding
+                        # role="slider" while the <button> inside takes
+                        # the focus announces the saved value forever.
+                        announced = page.get_attribute(
+                            _handle_sel("quiet_hours_start"), "aria-valuetext")
+                        if announced != dragged:
+                            return False, (
+                                "the handle announces %r while its own input now holds %r — a "
+                                "screen-reader visitor is being told the value it had before "
+                                "the drag" % (announced, dragged))
+                        if page.get_attribute(
+                                '[data-value-field="quiet_hours_start"]',
+                                "aria-valuenow") is not None:
+                            return False, (
+                                "the wrapper carries aria-valuenow; the element a keyboard "
+                                "visitor lands on is the button inside it, and two elements "
+                                "announcing one value is how the stale one gets read")
+                        # A CONTROL THAT CHANGES A VALUE WITHOUT WAKING
+                        # THE SAVE BAR LOSES THE EDIT SILENTLY.
+                        if page.locator("[data-dirty-bar]").is_hidden():
+                            return False, (
+                                "the save bar stayed hidden after a drag changed a settings "
+                                "value — the edit is lost the moment the visitor navigates")
+                        with page.expect_navigation():
+                            page.locator(".dirty-bar__save").click()
+                        recorded["dragged_stored"] = _quiet_hours_on_disk()[0]
+                        if recorded["dragged_stored"] != "12:00":
+                            return False, (
+                                "the dragged value did not reach disk; it reads %r"
+                                % (recorded["dragged_stored"],))
+                        page.goto(base_url + "/display")
+                        if page.input_value('input[name="quiet_hours_start"]') != "12:00":
+                            return False, "the reloaded page does not show the dragged value"
+
+                        # 2. THE KEYBOARD ALONE, with the pointer-free
+                        # claim MEASURED rather than promised. One
+                        # ArrowRight is one step, and the step is stated.
+                        _set_window(page, base_url, "23:00", "07:00")
+                        keyed = _operate_with_keyboard(
+                            page, _handle_sel("quiet_hours_start"), ["ArrowRight"])
+                        after_key = page.input_value('input[name="quiet_hours_start"]')
+                        recorded["after_arrow"] = after_key
+                        if after_key != "23:15":
+                            return False, (
+                                "one ArrowRight moved the start from 23:00 to %r; the stated "
+                                "step is %d minutes" % (after_key, 15))
+                        if keyed["pointer_events"]:
+                            return False, "a pointer event fired during the keyboard sequence"
+                        # HOME AND END REACH THE DAY'S OWN ENDS.
+                        page.keyboard.press("End")
+                        recorded["after_end"] = page.input_value(
+                            'input[name="quiet_hours_start"]')
+                        if recorded["after_end"] != "23:59":
+                            return False, (
+                                "End put %r into the start field; the day's last minute is "
+                                "23:59" % (recorded["after_end"],))
+                        page.keyboard.press("Home")
+                        recorded["after_home"] = page.input_value(
+                            'input[name="quiet_hours_start"]')
+                        if recorded["after_home"] != "00:00":
+                            return False, (
+                                "Home put %r into the start field" % (recorded["after_home"],))
+
+                        # 3. A PRESET MOVES BOTH HANDLES, which is the
+                        # cheapest available proof that the two native
+                        # inputs are the ONE source of truth: the presets
+                        # write into those fields and know nothing about
+                        # this control.
+                        _set_window(page, base_url, "12:00", "13:00")
+                        fractions = page.evaluate(
+                            "() => [...document.querySelectorAll('[data-value-control]')]"
+                            "  .map(e => e.style.getPropertyValue('--value-fraction'))")
+                        page.locator(
+                            '[data-preset-start="08:00"]').click()
+                        moved = page.evaluate(
+                            "() => [...document.querySelectorAll('[data-value-control]')]"
+                            "  .map(e => e.style.getPropertyValue('--value-fraction'))")
+                        recorded["preset_fractions"] = (fractions, moved)
+                        if len(moved) != 2 or moved == fractions:
+                            return False, (
+                                "a preset click left the handles at %r (they were at %r) — the "
+                                "presets write into the two time inputs, so a handle driven BY "
+                                "those inputs moves for free; one that did not is holding a "
+                                "value of its own" % (moved, fractions))
+                        if moved[0] == fractions[0] or moved[1] == fractions[1]:
+                            return False, (
+                                "a preset click moved only one handle: %r -> %r"
+                                % (fractions, moved))
+
+                        # 4. THE WRAP, END TO END IN A REAL BROWSER. The
+                        # window this device ships with, read back as
+                        # words off the rendered page.
+                        _set_window(page, base_url, "23:00", "07:00")
+                        readout = page.locator(QUIET_READOUT_SEL).inner_text()
+                        recorded["readout"] = readout
+                        if "23:00" not in readout or "07:00" not in readout:
+                            return False, "the readout %r does not name the window" % readout
+                        if not re.search(r"(?<!\d)8\s*h", readout):
+                            return False, (
+                                "the readout reads %r — 23:00 to 07:00 is EIGHT hours forward "
+                                "through midnight, and sixteen the other way" % readout)
+                        # RESTORED THROUGH THE SAME UI SEQUENCE, never
+                        # a direct write to the state directory — a
+                        # harness that changes a real setting is a test
+                        # that edits its neighbours' subject.
+                        _set_window(page, base_url, before[0], before[1])
+                        if _quiet_hours_on_disk() != before:
+                            return False, (
+                                "this check left the window at %r; it started at %r"
+                                % (_quiet_hours_on_disk(), before))
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        # Best effort only, and deliberately silent: a
+                        # restore that raised here would mask the failure
+                        # it is cleaning up after. The happy path asserts
+                        # the restore above.
+                        try:
+                            _set_window(page, base_url, before[0], before[1])
+                        except Exception:
+                            pass
+                        context.close()
+                check(
+                    "dragging a quiet-hours handle changes its own native <input type=\"time\">, "
+                    "moves the announcement ON THE HANDLE rather than on the wrapper, raises the "
+                    "save bar, and PERSISTS to disk across a submit and a reload; one ArrowRight "
+                    "moves exactly one stated step and End/Home reach 23:59 and 00:00 with zero "
+                    "pointer events fired and the recorder proving itself; a preset click moves "
+                    "BOTH handles, which is what proves the two native inputs are the one source "
+                    "of truth; and 23:00→07:00 reads as eight hours in the browser "
+                    "(CFG-48, 25-04-PLAN.md Task 4)",
+                    _dragging_and_keying_a_handle_reach_disk)
+
+                def _the_dial_meets_its_floors_at_360px_in_both_themes():
+                    base_url = harness.base_url()
+                    before = _quiet_hours_on_disk()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+
+                        # 1. THE HIT TARGETS, IN THIS CONTROL'S OWN
+                        # CONTAINER. A class-level measurement is worth
+                        # nothing here: 25-02 measured `.copy-btn`'s
+                        # declared 44x44 at a real 34x26 because its
+                        # neighbours covered the ::before that synthesises
+                        # it. Two windows: ends far apart (the control)
+                        # and ends close together (the real test).
+                        # WHY "CLOSE" IS FOUR HOURS AND NOT FIFTEEN
+                        # MINUTES, stated rather than tuned: two 44px
+                        # targets on ONE ring cannot both clear the floor
+                        # at every separation, and that is geometry, not
+                        # a defect to fix. Each target is a 46px box, so
+                        # neither may intrude within 22px of the other's
+                        # centre — which needs about 45px between the two
+                        # centres on one axis, and in the worst (45°)
+                        # orientation that is 45*sqrt(2) of chord. On
+                        # this 176px ring (radius 78) that is about 3h12;
+                        # on the 128px ring this control started as it
+                        # was about 4h49, which is what moved the size.
+                        # Four hours is inside the reachable band with
+                        # room to spare and is a window a person really
+                        # sets. The genuinely overlapping case is
+                        # measured below, and answered by a decision.
+                        for label, (start, end) in (("far", ("23:00", "07:00")),
+                                                    ("close", ("23:00", "03:00"))):
+                            _set_window(page, base_url, start, end)
+                            for field in ("quiet_hours_start", "quiet_hours_end"):
+                                seen = _assert_hit_target(
+                                    page, _handle_sel(field),
+                                    "the %s handle with the window's ends %s apart"
+                                    % (field, label))
+                                recorded["%s/%s" % (label, field)] = (
+                                    seen["visual"], seen["hit"], seen["reach"])
+
+                        # AND THE OVERLAP CASE, RECORDED RATHER THAN
+                        # ASSERTED AWAY. There is deliberately no minimum
+                        # separation in the VALUE — a zero-length window
+                        # is a real, defined state that
+                        # server.device_config's own arithmetic calls
+                        # never-active, and refusing it here would make a
+                        # state reachable by typing unreachable by
+                        # dragging. What happens instead is a decision:
+                        # z-order is DOCUMENT order, the end handle is
+                        # emitted second, so the END handle wins a
+                        # pointer-down in the overlap. That is sufficient
+                        # rather than arbitrary — moving either end
+                        # separates the pair, and the start handle stays
+                        # its own tab stop whatever it is painted under.
+                        _set_window(page, base_url, "23:00", "23:15")
+                        overlap = _assert_hit_target(
+                            page, _handle_sel("quiet_hours_end"),
+                            "the end handle with the two ends 15 minutes apart")
+                        recorded["overlap/quiet_hours_end"] = (
+                            overlap["visual"], overlap["hit"])
+                        try:
+                            _hit_area(page, _handle_sel("quiet_hours_start"))
+                            recorded["overlap/quiet_hours_start"] = "reachable"
+                        except AssertionError as exc:
+                            recorded["overlap/quiet_hours_start"] = "occluded"
+                            if "hit-tests to" not in str(exc):
+                                return False, (
+                                    "the start handle failed the overlap measurement for a "
+                                    "reason other than the stated z-order: %s" % exc)
+                        focusable = page.evaluate(
+                            "sel => { const el = document.querySelector(sel);"
+                            "  el.focus(); return document.activeElement === el; }",
+                            _handle_sel("quiet_hours_start"))
+                        if not focusable:
+                            return False, (
+                                "with the two ends overlapping, the start handle cannot take "
+                                "focus — the stated escape from an overlap is that it stays "
+                                "its own tab stop whatever it is painted under")
+
+                        # 2. THE GEOMETRY, MEASURED WITH
+                        # getBoundingClientRect AND NOT clientWidth.
+                        # clientWidth rounds to an integer and can fail a
+                        # correct drawing; this control's own card carries
+                        # no scale, but the rule is the file's.
+                        _set_window(page, base_url, "23:00", "07:00")
+                        geometry = page.evaluate(
+                            "args => {"
+                            "  const dial = document.querySelector(args.dial);"
+                            "  const svg = dial.querySelector('svg');"
+                            "  const parent = dial.parentElement;"
+                            "  const pr = parent.getBoundingClientRect();"
+                            "  const ps = getComputedStyle(parent);"
+                            "  const dr = dial.getBoundingClientRect();"
+                            "  const readout = document.querySelector(args.readout);"
+                            "  const rs = getComputedStyle(readout);"
+                            "  const range = document.createRange();"
+                            "  range.selectNodeContents(readout);"
+                            "  const tr = range.getBoundingClientRect();"
+                            "  const rr = readout.getBoundingClientRect();"
+                            "  const hours = {};"
+                            "  for (const h of ['0', '6', '12', '18']) {"
+                            "    const el = document.querySelector("
+                            "      '.quiet-dial__hour--' + h);"
+                            "    if (!el) { hours[h] = null; continue; }"
+                            "    const b = el.getBoundingClientRect();"
+                            "    hours[h] = [b.left + b.width / 2 - (dr.left + dr.width / 2),"
+                            "                b.top + b.height / 2 - (dr.top + dr.height / 2)];"
+                            "  }"
+                            "  return {"
+                            "    dial: [dr.width, dr.height],"
+                            "    svgDisplay: getComputedStyle(svg).display,"
+                            "    dialCentre: dr.left + dr.width / 2,"
+                            "    contentCentre: pr.left + parseFloat(ps.paddingLeft)"
+                            "      + (pr.width - parseFloat(ps.paddingLeft)"
+                            "         - parseFloat(ps.paddingRight)) / 2,"
+                            "    readoutMargins: [rs.marginTop, rs.marginBottom],"
+                            "    readoutTextCentre: tr.left + tr.width / 2,"
+                            "    readoutBoxCentre: rr.left + rr.width / 2,"
+                            "    hours: hours};"
+                            "}", {"dial": QUIET_DIAL_SEL, "readout": QUIET_READOUT_SEL})
+                        recorded["geometry"] = geometry
+                        width, height = geometry["dial"]
+                        drawn = config_page.QUIET_DIAL_SIZE
+                        if abs(width - drawn) > 0.5 or abs(height - drawn) > 0.5:
+                            return False, (
+                                "the dial measures %.2fx%.2f; its emitter draws a %dpx canvas "
+                                "and the handles are thrown out to a radius derived from it"
+                                % (width, height, drawn))
+                        if geometry["svgDisplay"] != "block":
+                            return False, (
+                                "the ring computes display:%s — a replaced-inline <svg> sits on "
+                                "a text baseline and leaves a descender gap under a drawing "
+                                "that has already ended" % geometry["svgDisplay"])
+                        if abs(geometry["dialCentre"] - geometry["contentCentre"]) > 2:
+                            return False, (
+                                "the dial's centre is %.2f and its card's content centre is "
+                                "%.2f — a drawing captioned by a centred readout has to be "
+                                "centred itself"
+                                % (geometry["dialCentre"], geometry["contentCentre"]))
+                        if geometry["readoutMargins"][0] != "0px":
+                            return False, (
+                                "the readout computes margin-top:%s — a <p>'s own 1em margin "
+                                "opens a gap between a picture and its caption"
+                                % geometry["readoutMargins"][0])
+                        if geometry["readoutMargins"][1] == "0px":
+                            return False, (
+                                "the readout computes no bottom margin, so it sits hard against "
+                                "the preset row under it")
+                        if abs(geometry["readoutTextCentre"]
+                               - geometry["readoutBoxCentre"]) > 1:
+                            return False, (
+                                "the readout's text is not centred in its own box (%.2f against "
+                                "%.2f) — a left-aligned caption under a centred drawing reads "
+                                "as a stray sentence"
+                                % (geometry["readoutTextCentre"],
+                                   geometry["readoutBoxCentre"]))
+
+                        # 3. THE FOUR ANCHOR HOURS ARE WHERE THEY CLAIM TO
+                        # BE. Each is placed by its own edge and then
+                        # pulled back by half of itself; dropping either
+                        # half puts a numeral off its own axis, which no
+                        # string assertion can see.
+                        for hour, (want_dx, want_dy) in (
+                                ("0", (0, -1)), ("6", (1, 0)),
+                                ("12", (0, 1)), ("18", (-1, 0))):
+                            offset = geometry["hours"][hour]
+                            if offset is None:
+                                return False, "the %s label is missing from the dial" % hour
+                            dx, dy = offset
+                            along = dx if want_dx else dy
+                            across = dy if want_dx else dx
+                            if (want_dx or want_dy) > 0 and along < 20:
+                                return False, (
+                                    "the %s label sits %.2f along its own axis from the dial's "
+                                    "centre; it belongs on the far side" % (hour, along))
+                            if (want_dx or want_dy) < 0 and along > -20:
+                                return False, (
+                                    "the %s label sits %.2f along its own axis from the dial's "
+                                    "centre; it belongs on the far side" % (hour, along))
+                            if abs(across) > 4:
+                                return False, (
+                                    "the %s label is %.2fpx off the axis it is meant to be "
+                                    "centred on — the half-of-itself pull-back is not being "
+                                    "applied" % (hour, across))
+
+                        # 4. NO SIDEWAYS PAGE SCROLL at the narrowest
+                        # supported screen. 24-02's helper, not a second
+                        # convention about what "the page" means.
+                        message = _assert_no_page_overflow(
+                            page, "the quiet dial on /display",
+                            VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+                        recorded["page"] = page.evaluate(
+                            "() => [document.documentElement.scrollWidth,"
+                            "       document.documentElement.clientWidth]")
+
+                        # 5. THE PAINT, IN BOTH THEMES, AS A FLOOR AND NOT
+                        # ONLY A CEILING. "Not the SVG default" passes
+                        # against a ring where the day and the window are
+                        # the same flat grey; the floor is that they are
+                        # two different paints and that each differs
+                        # between the themes.
+                        samples = {
+                            "day": (".quiet-dial__day", "stroke"),
+                            "arc": (".quiet-dial__arc", "stroke"),
+                            "hour": (".quiet-dial__hour", "color"),
+                            "grip": (".quiet-dial__handle", "background-color"),
+                            "grip-edge": (".quiet-dial__handle", "border-top-color"),
+                        }
+                        paints = []
+                        for measured in _in_both_themes(page):
+                            if not page.evaluate(_SETTLE_DIAL):
+                                return False, (
+                                    "%s: nothing matched the settle probe, so nothing below "
+                                    "measured anything" % (measured["theme"],))
+                            sample = {}
+                            for name, (selector, prop) in samples.items():
+                                seen = _computed_paint(page, selector, props=(prop,))
+                                if prop in seen["svg_default"]:
+                                    return False, (
+                                        "%s: the %s shape's %s is %r, indistinguishable from "
+                                        "the SVG initial value — it takes no colour from the "
+                                        "stylesheet at all"
+                                        % (measured["theme"], name, prop, seen[prop]))
+                                sample[name] = seen[prop]
+                            if sample["day"] == sample["arc"]:
+                                return False, (
+                                    "%s: the whole day and the quiet window paint identically "
+                                    "(%r) — the ring shows nothing"
+                                    % (measured["theme"], sample["arc"]))
+                            if sample["arc"] == sample["hour"]:
+                                return False, (
+                                    "%s: the quiet window and the hour labels that orient it "
+                                    "paint identically (%r) — the labels are context and must "
+                                    "not compete with the reading"
+                                    % (measured["theme"], sample["arc"]))
+                            if sample["grip"] == sample["grip-edge"]:
+                                return False, (
+                                    "%s: the handle's fill and its edge are the same colour "
+                                    "(%r), so the grip is a flat dot with no edge"
+                                    % (measured["theme"], sample["grip"]))
+                            paints.append((measured["theme"], sample))
+                        if len(paints) != 2:
+                            return False, (
+                                "expected a measurement in each theme, got %d" % len(paints))
+                        light, dark = paints[0][1], paints[1][1]
+                        for name in sorted(samples):
+                            if light[name] == dark[name]:
+                                return False, (
+                                    "the %s paint is %r in BOTH themes — it is not coming from "
+                                    "a token that inverts, so one of the two themes is wrong"
+                                    % (name, light[name]))
+                        recorded["paints"] = paints
+                        _set_window(page, base_url, before[0], before[1])
+                        if _quiet_hours_on_disk() != before:
+                            return False, (
+                                "this check left the window at %r; it started at %r"
+                                % (_quiet_hours_on_disk(), before))
+                        return True, ""
+                    finally:
+                        # Best effort only — see the neighbouring check.
+                        try:
+                            _set_window(page, base_url, before[0], before[1])
+                        except Exception:
+                            pass
+                        context.close()
+                check(
+                    "the quiet dial meets its floors at 360px — BOTH handles clear the 44px "
+                    "touch target by real hit-testing in THEIR OWN container with the window's "
+                    "ends far apart AND close together, with the overlapping case measured and "
+                    "its document-order z-rule confirmed (the end handle grabbable, the start "
+                    "handle still focusable); the drawing measures its emitter's own declared size by "
+                    "getBoundingClientRect rather than clientWidth, computes display:block, is "
+                    "centred in its card and captioned by a centred readout with no top margin; "
+                    "the four anchor hours each sit on their own axis; the page does not scroll "
+                    "sideways; and the paint is a FLOOR not a ceiling — the day and the window "
+                    "are different colours, the labels that orient it are weaker than it is, the grip "
+                    "has an edge, and every one of the five "
+                    "differs between the two themes (CFG-48/CFG-52, 25-04-PLAN.md Task 4)",
+                    _the_dial_meets_its_floors_at_360px_in_both_themes)
+
+
+                # ----------------------------------------------------------
+                # 25-05-PLAN.md Task 3 (CFG-49/CFG-52): D18's wake-interval
+                # slider, measured at 360px, from the keyboard, and with
+                # its fallback proven by SAVING rather than by rendering.
+                #
+                # None of the three checks below asserts that the slider
+                # renders. The verdicts are: what reaches DISK with
+                # scripts blocked, what a drag and a keystroke do to the
+                # native number input and to the save bar, what the
+                # battery gauge refuses to say at any drag position, and
+                # what the browser's own hit test and cascade answer at
+                # 360px in both themes.
+                #
+                # A DOM read would prove nothing here in particular: this
+                # card ECHOES a rejected submission back into its own
+                # field by design (D-07), so "the reloaded page shows the
+                # value" passes against a save that stored nothing. That
+                # is the exact case 25-02's helper was built for.
+                # ----------------------------------------------------------
+
+                WAKE_SLIDER_SEL = ".wake-slider"
+                WAKE_RANGE_SEL = ".wake-slider__input"
+                WAKE_NUMBER_SEL = 'input[name="wake_interval_s"]'
+                WAKE_FRESHNESS_SEL = "#" + config_page.WAKE_GAUGE_FRESHNESS_ID
+                WAKE_BATTERY_SEL = "#" + config_page.WAKE_GAUGE_BATTERY_ID
+
+                def _wake_interval_on_disk():
+                    config = device_config.load_device_config(harness.tmpdir)
+                    return config.get("wake_interval_s")
+
+                def _gauge_texts(page):
+                    return (page.locator(WAKE_FRESHNESS_SEL).inner_text(),
+                            page.locator(WAKE_BATTERY_SEL).inner_text())
+
+                # Set the interval through the real UI and save, so every
+                # arrangement measured below is reached the way a visitor
+                # reaches it. Raises on failure.
+                def _set_interval(page, base_url, seconds):
+                    # IDEMPOTENT, AND THAT IS NOT A CONVENIENCE. The save
+                    # bar only exists while the form differs from what
+                    # was loaded, so "set it to what it already is"
+                    # renders no Save control at all and a click on one
+                    # waits thirty seconds for an element that is
+                    # correctly absent. Measured here the hard way.
+                    page.goto(base_url + "/device")
+                    if _wake_interval_on_disk() == seconds:
+                        return
+                    page.fill(WAKE_NUMBER_SEL, str(seconds))
+                    page.eval_on_selector(
+                        WAKE_NUMBER_SEL,
+                        "el => el.dispatchEvent(new Event('change', {bubbles: true}))")
+                    with page.expect_navigation():
+                        page.locator(".dirty-bar__save").click()
+                    stored = _wake_interval_on_disk()
+                    if stored != seconds:
+                        raise AssertionError(
+                            "setting the interval to %r through the UI stored %r"
+                            % (seconds, stored))
+                    page.goto(base_url + "/device")
+
+                # A days figure in EITHER shipped language, which is what
+                # the battery gauge may not print unless this frame's own
+                # observed history supports one.
+                _DAYS_FIGURE_RE = re.compile(r"\d+\s*(?:day|jour)", re.I)
+
+                def _the_interval_still_saves_with_scripts_blocked_through_the_slider():
+                    base_url = harness.base_url()
+                    before = _wake_interval_on_disk()
+                    recorded = {}
+
+                    # 1. IT STILL REACHES DISK WITH SCRIPTS BLOCKED, at
+                    #    360px and in BOTH shipped languages. The gauges
+                    #    are asserted present only AFTER the save, so
+                    #    they can never stand in for it.
+                    saved = {}
+                    for lang in ("en", "fr"):
+                        cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
+                                    "value": lang, "url": base_url}]
+                        saved[lang] = _persist_without_js(
+                            browser, base_url, "/device", "wake_interval_s",
+                            "900", _wake_interval_on_disk,
+                            viewport=VIEWPORT_MIN_SUPPORTED, cookies=cookies)
+                    recorded["persisted"] = {
+                        lang: (r["set"], r["stored"], r["reloaded"])
+                        for lang, r in saved.items()}
+                    for lang, result in saved.items():
+                        if str(result["stored"]) != str(result["set"]):
+                            return False, (
+                                "%s: the typed interval did not reach disk, it reads %r"
+                                % (lang, result["stored"]))
+                    if _wake_interval_on_disk() != before:
+                        return False, (
+                            "the scripts-blocked saves left the interval at %r; it started at "
+                            "%r — a harness that changes a real setting is a test that edits "
+                            "its neighbours' subject" % (_wake_interval_on_disk(), before))
+
+                    # 2. THE GATE, IN BOTH DIRECTIONS. Asserting only the
+                    #    blocked half passes against a gate stuck shut;
+                    #    asserting only the enabled half is the "renders
+                    #    and does nothing" defect.
+                    gate = _assert_js_gate(
+                        browser, base_url, "/device", WAKE_SLIDER_SEL,
+                        viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded["gate"] = gate
+
+                    # 3. AND BOTH GAUGES ARE THERE WITHOUT A SCRIPT —
+                    #    which is what makes this card's fallback a
+                    #    feature rather than an absence. MEASURED, not
+                    #    counted: locator.count() counts elements
+                    #    whatever their box is, so it passes against a
+                    #    gauge moved behind the gate, which is the exact
+                    #    refactor this clause exists to notice.
+                    with _no_js_page(browser, base_url, "/device",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        boxes = {}
+                        texts = {}
+                        for name, sel in (("freshness", WAKE_FRESHNESS_SEL),
+                                          ("battery", WAKE_BATTERY_SEL)):
+                            locator = page.locator(sel)
+                            boxes[name] = locator.bounding_box() if locator.count() else None
+                            texts[name] = locator.inner_text() if locator.count() else None
+                        blocked_number = page.locator(WAKE_NUMBER_SEL).count()
+                        blocked_unit = page.locator(".field-inline-value").count()
+                        blocked_value = page.get_attribute(WAKE_NUMBER_SEL, "value")
+                    recorded["blocked_boxes"] = boxes
+                    recorded["blocked_texts"] = texts
+                    for name in ("freshness", "battery"):
+                        box = boxes[name]
+                        if not box or box["width"] <= 0 or box["height"] <= 0:
+                            return False, (
+                                "the %s gauge occupies no space with scripts blocked (%r) — "
+                                "rendered is not read, and a gauge behind the gate is the "
+                                "refactor this clause exists to notice" % (name, box))
+                    if blocked_number != 1 or blocked_unit < 1:
+                        return False, (
+                            "with scripts blocked the card renders %d number input(s) and %d "
+                            "unit sibling(s); it owes one of each"
+                            % (blocked_number, blocked_unit))
+                    if str(blocked_value) != str(before):
+                        return False, (
+                            "with scripts blocked the number input shows %r, not the saved %r"
+                            % (blocked_value, before))
+                    if "at most" not in texts["freshness"] and "au plus" not in texts["freshness"]:
+                        return False, (
+                            "the scripts-blocked freshness gauge reads %r — the bound has to be "
+                            "legible without a script" % texts["freshness"])
+
+                    # 4. THE OUT-OF-RANGE TRAP, END TO END, and it is the
+                    #    one defect on this card that takes down the
+                    #    WHOLE page rather than one field: an
+                    #    out-of-range `value` on a native numeric input
+                    #    fails HTML5 constraint validation, which blocks
+                    #    submission of the entire Settings form. A slider
+                    #    added beside that input is exactly the change
+                    #    that could reintroduce a fabricated value.
+                    #
+                    #    The below-floor state is written to the config
+                    #    file DIRECTLY — the only direct state write in
+                    #    this check, and it is unavoidable rather than a
+                    #    shortcut: save_device_config() raises on 30
+                    #    ("must be an int in [60, 3600]"), so the UI
+                    #    cannot produce the state this clause is about.
+                    #    The file's exact previous bytes are restored.
+                    config_path = device_config.device_config_path(harness.tmpdir)
+                    with open(config_path, encoding="utf-8") as fh:
+                        original_bytes = fh.read()
+                    try:
+                        doc = json.loads(original_bytes)
+                        doc["wake_interval_s"] = 30
+                        with open(config_path, "w", encoding="utf-8") as fh:
+                            json.dump(doc, fh)
+                        with _no_js_page(browser, base_url, "/device",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                            below_value = page.get_attribute(WAKE_NUMBER_SEL, "value")
+                            below_ranges = page.locator(WAKE_RANGE_SEL).count()
+                            below_gauges = page.locator(WAKE_FRESHNESS_SEL).count()
+                        recorded["below_floor"] = (below_value, below_ranges, below_gauges)
+                        if below_value is not None:
+                            return False, (
+                                "with 30 s stored the number input carries value=%r — an "
+                                "out-of-range value fails HTML5 constraint validation and "
+                                "blocks submission of the ENTIRE Settings form" % below_value)
+                        if below_ranges or below_gauges:
+                            return False, (
+                                "with 30 s stored the card rendered %d range(s) and %d gauge(s) "
+                                "— a range with no usable value sits at the midpoint of its own "
+                                "band, which is a number nobody chose"
+                                % (below_ranges, below_gauges))
+                        # AND THE WHOLE FORM STILL SUBMITS. This is the
+                        # half that matters: the page is still usable
+                        # with a below-floor value on disk.
+                        corrected = _persist_without_js(
+                            browser, base_url, "/device", "wake_interval_s", "1200",
+                            _wake_interval_on_disk, viewport=VIEWPORT_MIN_SUPPORTED,
+                            restore=False)
+                        recorded["corrected"] = (corrected["set"], corrected["stored"])
+                        if str(corrected["stored"]) != "1200":
+                            return False, (
+                                "with a below-floor value on disk the Settings form did not "
+                                "save a corrected one; disk reads %r" % (corrected["stored"],))
+                    finally:
+                        with open(config_path, "w", encoding="utf-8") as fh:
+                            fh.write(original_bytes)
+                    if _wake_interval_on_disk() != before:
+                        return False, (
+                            "this check left the interval at %r; it started at %r"
+                            % (_wake_interval_on_disk(), before))
+                    _ = recorded
+                    return True, ""
+                check(
+                    "the wake interval still SAVES with scripts blocked beside the slider — "
+                    "typed natively, submitted through the real form, re-read FROM DISK after a "
+                    "fresh GET and restored the same way, at 360px and in BOTH shipped "
+                    "languages; the gated range has zero height and no keyboard can reach into "
+                    "it with scripts blocked while it occupies space with them; both gauges are "
+                    "MEASURED (not counted) present on the scripts-blocked page, asserted after "
+                    "the save so neither can stand in for it; and the out-of-range trap is "
+                    "re-proven end to end — with 30 s on disk the number input carries NO value "
+                    "attribute, no range and no gauge render at all, and the whole Settings "
+                    "form still saves a corrected value (D-09/CFG-49/T-25-05-B, 25-05-PLAN.md "
+                    "Task 3)",
+                    _the_interval_still_saves_with_scripts_blocked_through_the_slider)
+
+                def _dragging_and_keying_the_range_reach_disk():
+                    base_url = harness.base_url()
+                    before = _wake_interval_on_disk()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    page = None
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        _set_interval(page, base_url, 600)
+                        started = _gauge_texts(page)
+                        recorded["at_600"] = started
+
+                        # 1. THE DRAG. Aimed at a point well along the
+                        #    track rather than at a value computed from
+                        #    the thumb geometry: a native range maps its
+                        #    value across (width - thumbWidth), which is
+                        #    an engine detail this check has no business
+                        #    predicting. What it asserts is what the plan
+                        #    asks — that the number input and BOTH gauge
+                        #    sentences moved together, and that what the
+                        #    script rendered is what the SERVER would
+                        #    have rendered for the same value.
+                        #
+                        #    Scrolled to the middle of the viewport
+                        #    first, for _hit_area()'s own recorded
+                        #    reason: at 360px this page is long and its
+                        #    tab bar is fixed to the bottom, so a
+                        #    coordinate gesture taken wherever the page
+                        #    happened to be scrolled lands somewhere
+                        #    else.
+                        page.eval_on_selector(
+                            WAKE_SLIDER_SEL, "el => el.scrollIntoView({block: 'center'})")
+                        box = page.evaluate(
+                            "sel => { const r = document.querySelector(sel)"
+                            "  .getBoundingClientRect();"
+                            "  return [r.left, r.top, r.width, r.height]; }", WAKE_RANGE_SEL)
+                        page.mouse.move(box[0] + box[2] * 0.25, box[1] + box[3] / 2)
+                        page.mouse.down()
+                        page.mouse.move(box[0] + box[2] * 0.8, box[1] + box[3] / 2, steps=8)
+                        page.mouse.up()
+                        dragged = page.input_value(WAKE_NUMBER_SEL)
+                        recorded["dragged_to"] = dragged
+                        if dragged == str(600):
+                            return False, (
+                                "dragging the range across %.0fpx of its own track left the "
+                                "number input at %r — the range steers the control that already "
+                                "existed, or it steers nothing" % (box[2] * 0.55, dragged))
+                        dragged_s = int(dragged)
+                        if dragged_s % config_page.WAKE_SLIDER_STEP_S:
+                            return False, (
+                                "a drag produced %r, which is not a whole number of the stated "
+                                "%d-second steps" % (dragged, config_page.WAKE_SLIDER_STEP_S))
+                        moved = _gauge_texts(page)
+                        recorded["after_drag"] = moved
+                        if moved[0] == started[0]:
+                            return False, (
+                                "the freshness gauge still reads %r after the value moved from "
+                                "600 to %s — a gauge that does not move is a gauge that is "
+                                "wrong from the first drag" % (moved[0], dragged))
+                        if moved[1] == started[1]:
+                            return False, (
+                                "the battery gauge still reads %r after the value moved from "
+                                "600 to %s" % (moved[1], dragged))
+                        # WHAT THE SCRIPT SAYS IS WHAT THE SERVER WOULD
+                        # HAVE SAID. The relative clause has exactly one
+                        # definition in Python, and this is what makes
+                        # "the script carries no copy of its own" a
+                        # measurement rather than a claim.
+                        expected_clause = config_page.wake_battery_relative_text(dragged_s, 600)
+                        recorded["expected_clause"] = expected_clause
+                        if not expected_clause or expected_clause not in moved[1]:
+                            return False, (
+                                "the battery gauge reads %r; the server's own wording for the "
+                                "same two cadences is %r" % (moved[1], expected_clause))
+                        expected_bound = config_page.wake_freshness_text(dragged_s)
+                        if moved[0] != expected_bound:
+                            return False, (
+                                "the freshness gauge reads %r; the server's own wording for %s "
+                                "seconds is %r" % (moved[0], dragged, expected_bound))
+                        # THE HONESTY CLAUSE, IN THE BROWSER. This
+                        # fixture's battery series is RISING (the device
+                        # was charged), so companion/battery.py refuses a
+                        # figure — and no drag position may produce one.
+                        if _DAYS_FIGURE_RE.search(moved[1]):
+                            return False, (
+                                "the battery gauge produced a days figure (%r) from a rising "
+                                "series — the per-wake energy cost has never been measured and "
+                                "the script has no template that could state one" % moved[1])
+                        # A CONTROL THAT CHANGES A VALUE WITHOUT WAKING
+                        # THE SAVE BAR LOSES THE EDIT SILENTLY.
+                        if page.locator("[data-dirty-bar]").is_hidden():
+                            return False, (
+                                "the save bar stayed hidden after a drag changed a settings "
+                                "value — the edit is lost the moment the visitor navigates")
+                        with page.expect_navigation():
+                            page.locator(".dirty-bar__save").click()
+                        recorded["dragged_stored"] = _wake_interval_on_disk()
+                        if recorded["dragged_stored"] != dragged_s:
+                            return False, (
+                                "the dragged value did not reach disk; it reads %r"
+                                % (recorded["dragged_stored"],))
+                        page.goto(base_url + "/device")
+                        if page.input_value(WAKE_NUMBER_SEL) != dragged:
+                            return False, "the reloaded page does not show the dragged value"
+
+                        # 2. THE KEYBOARD ALONE, with the pointer-free
+                        #    claim MEASURED rather than promised. One
+                        #    ArrowRight is one stated step — and the
+                        #    model is the one 25-04's dial recorded,
+                        #    inherited rather than re-decided.
+                        _set_interval(page, base_url, 600)
+                        keyed = _operate_with_keyboard(
+                            page, WAKE_RANGE_SEL, ["ArrowRight"])
+                        after_key = page.input_value(WAKE_NUMBER_SEL)
+                        recorded["after_arrow"] = after_key
+                        if int(after_key) != 600 + config_page.WAKE_SLIDER_STEP_S:
+                            return False, (
+                                "one ArrowRight moved the interval from 600 to %r; the stated "
+                                "step is %d seconds"
+                                % (after_key, config_page.WAKE_SLIDER_STEP_S))
+                        if keyed["pointer_events"]:
+                            return False, (
+                                "a pointer event fired during the keyboard sequence: %r"
+                                % (keyed["pointer_events"],))
+                        if not keyed["recorder_proved"]:
+                            return False, "the pointer recorder could not prove itself"
+                        # HOME AND END REACH THE CONFIGURED BAND'S OWN
+                        # ENDS — the floor as well as the ceiling.
+                        page.keyboard.press("End")
+                        recorded["after_end"] = page.input_value(WAKE_NUMBER_SEL)
+                        if int(recorded["after_end"]) != device_config.WAKE_INTERVAL_MAX_S:
+                            return False, (
+                                "End put %r into the field; the band's ceiling is %d"
+                                % (recorded["after_end"], device_config.WAKE_INTERVAL_MAX_S))
+                        recorded["at_max"] = _gauge_texts(page)
+                        page.keyboard.press("Home")
+                        recorded["after_home"] = page.input_value(WAKE_NUMBER_SEL)
+                        if int(recorded["after_home"]) != device_config.WAKE_INTERVAL_MIN_S:
+                            return False, (
+                                "Home put %r into the field; the band's floor is %d"
+                                % (recorded["after_home"], device_config.WAKE_INTERVAL_MIN_S))
+                        recorded["at_min"] = _gauge_texts(page)
+                        # THE FLOOR AND THE CEILING BOTH READ TRUE, and
+                        # neither produces a days figure.
+                        for where, texts, seconds in (
+                                ("the band's floor", recorded["at_min"],
+                                 device_config.WAKE_INTERVAL_MIN_S),
+                                ("the band's ceiling", recorded["at_max"],
+                                 device_config.WAKE_INTERVAL_MAX_S)):
+                            if texts[0] != config_page.wake_freshness_text(seconds):
+                                return False, (
+                                    "at %s the freshness gauge reads %r, not the server's own "
+                                    "%r" % (where, texts[0],
+                                            config_page.wake_freshness_text(seconds)))
+                            if _DAYS_FIGURE_RE.search(texts[1]):
+                                return False, (
+                                    "at %s the battery gauge produced a days figure: %r"
+                                    % (where, texts[1]))
+
+                        # 3. TYPING IN THE NUMBER INPUT MOVES THE RANGE,
+                        #    which is the direction a repaint has to
+                        #    cover and the one a drag test is blind to.
+                        _set_interval(page, base_url, 600)
+                        page.fill(WAKE_NUMBER_SEL, "1800")
+                        page.eval_on_selector(
+                            WAKE_NUMBER_SEL,
+                            "el => el.dispatchEvent(new Event('input', {bubbles: true}))")
+                        recorded["range_after_typing"] = page.input_value(WAKE_RANGE_SEL)
+                        if recorded["range_after_typing"] != "1800":
+                            return False, (
+                                "typing 1800 into the number input left the range at %r — the "
+                                "slider would then show a value that is no longer there while "
+                                "the field beside it shows the real one"
+                                % (recorded["range_after_typing"],))
+                        # RESTORED THROUGH THE SAME UI SEQUENCE, never a
+                        # direct write to the state directory.
+                        _set_interval(page, base_url, before)
+                        if _wake_interval_on_disk() != before:
+                            return False, (
+                                "this check left the interval at %r; it started at %r"
+                                % (_wake_interval_on_disk(), before))
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        # Best effort only, and deliberately silent: a
+                        # restore that raised here would mask the failure
+                        # it is cleaning up after.
+                        try:
+                            _set_interval(page, base_url, before)
+                        except Exception:
+                            pass
+                        context.close()
+                check(
+                    "dragging the wake-interval range moves the native <input type=\"number\"> "
+                    "the form posts, moves BOTH gauge sentences with it, raises the save bar and "
+                    "PERSISTS to disk across a submit and a reload — with the script's own "
+                    "wording asserted EQUAL to the server's for the same two cadences, so the "
+                    "script provably carries no copy of its own; one ArrowRight moves exactly "
+                    "one stated step and End/Home reach device_config's own ceiling and floor "
+                    "with zero pointer events fired and the recorder proving itself; typing into "
+                    "the number input moves the range back; and at no position — dragged, keyed, "
+                    "at the floor or at the ceiling — does the battery gauge produce a days "
+                    "figure from this fixture's RISING series (CFG-49/CFG-52/T-25-05-C, "
+                    "25-05-PLAN.md Task 3)",
+                    _dragging_and_keying_the_range_reach_disk)
+
+                def _the_slider_meets_its_floors_at_360px_in_both_themes():
+                    base_url = harness.base_url()
+                    before = _wake_interval_on_disk()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/device")
+
+                        # 1. THE HIT TARGET, IN THIS CONTROL'S OWN
+                        #    CONTAINER. A class-level measurement is
+                        #    worth nothing: 25-02 measured `.copy-btn`'s
+                        #    declared 44x44 at a real 34x26 because its
+                        #    neighbours covered the ::before that
+                        #    synthesises it.
+                        recorded["hit"] = _assert_hit_target(
+                            page, WAKE_RANGE_SEL, "the wake-interval slider on /device")
+
+                        # 2. THE GEOMETRY, by getBoundingClientRect and
+                        #    never clientWidth — which rounds to an
+                        #    integer and can fail a correct drawing
+                        #    (54.41 in a "53.00" box).
+                        measured = page.evaluate(
+                            "sels => {"
+                            "  const el = document.querySelector(sels.range);"
+                            "  const card = el.closest('.theme-status');"
+                            "  const r = el.getBoundingClientRect();"
+                            "  const c = card.getBoundingClientRect();"
+                            "  const wrap = document.querySelector(sels.wrap);"
+                            "  const cs = getComputedStyle(wrap);"
+                            "  const cc = getComputedStyle(card);"
+                            "  const content = card.clientWidth"
+                            "    - parseFloat(cc.paddingLeft) - parseFloat(cc.paddingRight);"
+                            "  return {range: [r.width, r.height], card: [c.width, c.height],"
+                            "          content: content, marginTop: cs.marginTop,"
+                            "          number: document.querySelector(sels.number)"
+                            "                    .getBoundingClientRect().width};"
+                            "}", {"range": WAKE_RANGE_SEL, "wrap": WAKE_SLIDER_SEL,
+                                  "number": WAKE_NUMBER_SEL})
+                        recorded["measured"] = measured
+                        # COMPARED AGAINST THE CARD'S CONTENT BOX, NOT
+                        # AGAINST THE NUMBER INPUT BESIDE IT. The first
+                        # version asked only that the range was wider
+                        # than the 96px number field — which a range
+                        # with NO width rule passes, because its
+                        # intrinsic width is about 129px. Measured:
+                        # `width: auto` failed nothing at all. The
+                        # property under test is "full width", so full
+                        # width is what is measured.
+                        if measured["range"][0] < measured["content"] - 1:
+                            return False, (
+                                "the range measures %.2fpx inside a %.2fpx content box (the "
+                                "number input beside it is %.2fpx) — a range input's intrinsic "
+                                "width is about 129px, and at the 360px floor that is a sweep "
+                                "of the whole 60..3600 band in a third of the card"
+                                % (measured["range"][0], measured["content"],
+                                   measured["number"]))
+                        if measured["range"][0] <= measured["number"]:
+                            return False, (
+                                "the range (%.2fpx) is no wider than the number input it steers "
+                                "(%.2fpx)" % (measured["range"][0], measured["number"]))
+                        if measured["range"][0] > measured["card"][0]:
+                            return False, (
+                                "the range (%.2fpx) is wider than the card holding it (%.2fpx)"
+                                % (measured["range"][0], measured["card"][0]))
+                        if not measured["marginTop"].endswith("px") or float(
+                                measured["marginTop"][:-2]) <= 0:
+                            return False, (
+                                "the slider's wrapper computes margin-top %r — without it the "
+                                "range sits flush against the number input's own row"
+                                % measured["marginTop"])
+                        width_at_360 = page.evaluate(
+                            "() => [document.body.scrollWidth, document.body.clientWidth,"
+                            "       document.documentElement.scrollWidth,"
+                            "       document.documentElement.clientWidth]")
+                        recorded["page_width"] = width_at_360
+                        if width_at_360[0] > width_at_360[1] or width_at_360[2] > width_at_360[3]:
+                            return False, (
+                                "the Device page scrolls sideways at 360px: %r — a full-width "
+                                "control is the most likely cause and this is its own page's "
+                                "baseline, not the Display page's" % (width_at_360,))
+
+                        # 3. THE PAINT, IN BOTH THEMES, AND AS A FLOOR
+                        #    RATHER THAN A CEILING. A gauge is only a
+                        #    gauge if it can be read: both sentences and
+                        #    the control's own accent have to change with
+                        #    the theme, or one of the two modes is
+                        #    showing ink on ink.
+                        # THE THEME SWITCH STARTS A TRANSITION, AND THE
+                        # READ HAS TO WAIT FOR THE BROWSER'S OWN "it has
+                        # finished" SIGNAL RATHER THAN A GUESSED INSTANT.
+                        # The global `input, select` rule declares
+                        # `transition: background-color .15s ease`, so a
+                        # getComputedStyle taken straight after the
+                        # attribute flip reads an INTERPOLATION FRAME —
+                        # measured here: the range's surface reported the
+                        # LIGHT value in both themes and this check
+                        # failed, claiming a token that does not invert
+                        # when it does. 25-03 lost a paint measurement to
+                        # exactly this and fixed it the same way. Never a
+                        # timer: an element with nothing running returns
+                        # an empty list and resolves at once.
+                        _SETTLE_SLIDER = (
+                            "async () => {"
+                            "  const els = [...document.querySelectorAll("
+                            "    '.wake-slider, .wake-slider *, .wake-gauge, body')];"
+                            "  await Promise.all(els.flatMap("
+                            "    e => e.getAnimations().map("
+                            "      a => a.finished.catch(() => {}))));"
+                            "  return els.length;"
+                            "}")
+                        paints = {}
+                        for theme in UI_THEMES_EXPLICIT:
+                            _set_ui_theme(page, theme)
+                            recorded["settled_" + theme] = page.evaluate(_SETTLE_SLIDER)
+                            paints[theme] = page.evaluate(
+                                "sels => {"
+                                "  const read = (s, p) =>"
+                                "    getComputedStyle(document.querySelector(s))"
+                                "      .getPropertyValue(p).trim();"
+                                "  return {freshness: read(sels.freshness, 'color'),"
+                                "          battery: read(sels.battery, 'color'),"
+                                "          accent: read(sels.range, 'accent-color'),"
+                                "          surface: read(sels.range, 'background-color'),"
+                                "          canvas: getComputedStyle(document.body)"
+                                "            .backgroundColor};"
+                                "}", {"freshness": WAKE_FRESHNESS_SEL,
+                                      "battery": WAKE_BATTERY_SEL,
+                                      "range": WAKE_RANGE_SEL})
+                        recorded["paints"] = paints
+                        light, dark = paints["light"], paints["dark"]
+                        for key in ("freshness", "battery", "accent", "surface"):
+                            if light[key] == dark[key]:
+                                return False, (
+                                    "the slider card's %s paints identically in both themes "
+                                    "(%r) — a token that does not invert is a literal, and one "
+                                    "of the two modes is wrong" % (key, light[key]))
+                        for theme, sampled in paints.items():
+                            for key in ("freshness", "battery"):
+                                if sampled[key] == sampled["canvas"]:
+                                    return False, (
+                                        "%s: the %s gauge's text is the canvas colour (%r) — it "
+                                        "is not legible at all" % (theme, key, sampled[key]))
+                        _set_ui_theme(page, "light")
+                        if _wake_interval_on_disk() != before:
+                            return False, (
+                                "this check changed the stored interval (%r, started at %r)"
+                                % (_wake_interval_on_disk(), before))
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the wake-interval slider meets its floors at 360px — its hit area clears "
+                    "the 44px target by real hit-testing in ITS OWN container (never inherited "
+                    "from a class), it measures wider than the number input it steers and no "
+                    "wider than the card holding it by getBoundingClientRect rather than "
+                    "clientWidth, its wrapper keeps a real top margin off the field's own row, "
+                    "the Device page does not scroll sideways at that width (its own baseline, "
+                    "not the Display page's), and the paint is a FLOOR not a ceiling: both gauge "
+                    "sentences and the control's own accent and surface all differ between the "
+                    "two themes and neither sentence is painted in the canvas colour "
+                    "(CFG-49/CFG-52, 25-05-PLAN.md Task 3)",
+                    _the_slider_meets_its_floors_at_360px_in_both_themes)
+
+                # --- 25-06-PLAN.md Tasks 1 and 4 (CFG-50): D5's theme
+                # carousel. One selector set for all four checks.
+                THEME_STRIP_SEL = "#" + config_page.THEME_CAROUSEL_STRIP_ID
+                THEME_PAGERS_SEL = ".theme-carousel__pagers"
+                THEME_DETAILS_SEL = ".theme-carousel__all"
+                THEME_PREVIEW_SEL = ".theme-live-preview__image"
+
+                # The strip's own state, read as one object so a caller
+                # never takes two samples that could disagree.
+                _STRIP_PROBE = (
+                    "sels => {"
+                    "  const s = document.querySelector(sels.strip);"
+                    "  if (!s) return {error: 'no-strip'};"
+                    "  const chips = [...s.querySelectorAll('.theme-chip')];"
+                    "  const sr = s.getBoundingClientRect();"
+                    "  const cs = getComputedStyle(s);"
+                    "  const d = document.querySelector(sels.details);"
+                    "  const tops = chips.map("
+                    "    c => Math.round(c.getBoundingClientRect().top));"
+                    "  return {chips: chips.length,"
+                    "          scroll: [s.scrollWidth, s.clientWidth],"
+                    "          box: [sr.width, sr.height],"
+                    "          wrap: cs.flexWrap, overflow: cs.overflowX,"
+                    "          snap: cs.scrollSnapType,"
+                    "          rows: new Set(tops).size,"
+                    "          spread: Math.max(...tops) - Math.min(...tops),"
+                    "          open: d ? d.open : null,"
+                    "          checked: [...document.querySelectorAll("
+                    "            'input[name=\"theme\"]')].filter("
+                    "              e => e.checked).map(e => e.value)};"
+                    "}")
+
+                # THE WHOLE POINT OF A SETTLE PROBE, AND NOT A TIMER:
+                # `.theme-chip` declares `transition: transform,
+                # border-color, box-shadow`, so any sample taken right
+                # after a theme switch or a selection change reads an
+                # interpolation frame. 25-03 lost a paint measurement to
+                # exactly this and 25-05 lost another. An element with
+                # nothing running returns an empty list and resolves at
+                # once, so this neither guesses an instant nor waits for
+                # one that will not come.
+                _SETTLE_CAROUSEL = (
+                    "async () => {"
+                    "  const els = [...document.querySelectorAll("
+                    "    '.theme-carousel, .theme-carousel *, body')];"
+                    "  await Promise.all(els.flatMap("
+                    "    e => e.getAnimations().map("
+                    "      a => a.finished.catch(() => {}))));"
+                    "  return els.length;"
+                    "}")
+
+                # --- 25-06-PLAN.md Task 1 (CFG-50): the number this
+                # plan is judged against, taken before there was any
+                # incentive to like it. See _display_page_height() for
+                # why this is an instrument rather than a sentence in a
+                # document, and for what it refuses to measure.
+                def _displays_page_height_is_recorded_at_both_phone_widths():
+                    base_url = harness.base_url()
+                    heights = {}
+                    for viewport in (VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
+                        seen = _display_page_height(browser, base_url, viewport)
+                        heights[viewport["width"]] = seen["height"]
+                        print(
+                            "        [25-06 T1] Display document height at %dpx: "
+                            "%d px (client %dx%d, %d theme radios)"
+                            % (viewport["width"], seen["height"],
+                               seen["clientWidth"], seen["clientHeight"],
+                               seen["themeRadios"]))
+                    # NO TARGET IS ASSERTED HERE, DELIBERATELY. 22-10
+                    # recorded X6's height target as not met and not
+                    # reachable by density alone; whether THIS plan
+                    # reaches it is stated in that plan's own SUMMARY
+                    # from these numbers, in either direction.
+                    #
+                    # AND NO CROSS-WIDTH RELATIONSHIP EITHER, BECAUSE THE
+                    # OBVIOUS ONE IS FALSE ON THIS PAGE AND WAS MEASURED
+                    # TO BE. The first version of this check asserted
+                    # that a narrower viewport cannot make a reflowing
+                    # page shorter. Run before a byte of this plan's
+                    # markup existed, Display measured 4276 px at 390px
+                    # and 4269 px at 360px — SEVEN PIXELS SHORTER at the
+                    # narrower width — and the check duly failed against
+                    # a page with nothing whatever wrong with it. The
+                    # cause is ordinary: this page is a stack of cards
+                    # whose rows each round independently, and a handful
+                    # of them land on a different line count at one width
+                    # than the other. The clause was removed rather than
+                    # loosened to a tolerance, because a tolerance would
+                    # have been a number invented to make a wrong belief
+                    # pass. What is asserted instead is everything
+                    # `_display_page_height()` asserts about WHERE the
+                    # number came from, which is the property that makes
+                    # a recorded height worth anything.
+                    if not heights:
+                        return False, "no viewport was measured at all"
+                    return True, ""
+                check(
+                    "Display's full rendered document height is recorded at 390px and at 360px "
+                    "by one instrument — proved to be pointed at the authenticated Display page "
+                    "(its Frame colours heading AND a full THEME_IDS-sized departures "
+                    "radiogroup, never merely 'a page rendered'), at the width the caller asked "
+                    "for, and taller than the viewport — asserting NO target, because the "
+                    "number IS the criterion and 25-06 states in its own SUMMARY whether it is "
+                    "met, and no cross-width relationship either, because the obvious one "
+                    "(narrower cannot be shorter) was MEASURED FALSE on this page before the "
+                    "plan changed anything (CFG-50, 25-06-PLAN.md Task 1)",
+                    _displays_page_height_is_recorded_at_both_phone_widths)
+
+                # --- 25-06-PLAN.md Task 4 (CFG-50/D-09) ---------------
+
+                def _the_theme_still_saves_with_scripts_blocked_through_the_carousel():
+                    base_url = harness.base_url()
+
+                    def read_back():
+                        return device_config.load_device_config(harness.tmpdir)["theme"]
+
+                    before = read_back()
+                    target = next(t for t in device_config.THEME_IDS if t != before)
+                    seen = {}
+                    # BOTH SHIPPED LANGUAGES: the UI language is a cookie
+                    # the FIRST rendered document has to honour, and "it
+                    # saves in English" is not the D-09 floor.
+                    for lang in ("en", "fr"):
+                        seen[lang] = _persist_without_js(
+                            browser, base_url, "/display", "theme", target, read_back,
+                            viewport=VIEWPORT_MIN_SUPPORTED,
+                            cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
+                                      "value": lang, "url": base_url}])
+                    after = read_back()
+                    if str(after) != str(before):
+                        return False, (
+                            "the scripts-blocked save left the theme at %r, it started at %r — "
+                            "a harness that changes a real setting edits its neighbours' "
+                            "subject" % (after, before))
+                    for lang, result in seen.items():
+                        if str(result["stored"]) != str(target):
+                            return False, (
+                                "lang=%s: the theme did not reach disk, it reads %r"
+                                % (lang, result["stored"]))
+                        if str(result["restored"]) != str(before):
+                            return False, (
+                                "lang=%s: the restore leg did not put %r back, disk reads %r"
+                                % (lang, before, result["restored"]))
+
+                    with _no_js_page(browser, base_url, "/display",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        shut = page.evaluate(
+                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
+                                           "details": THEME_DETAILS_SEL})
+                        if shut.get("error"):
+                            return False, "no strip on the scripts-blocked page at all"
+                        if shut["chips"] != len(device_config.THEME_IDS):
+                            return False, (
+                                "the scripts-blocked strip holds %d chips, expected %d — every "
+                                "theme is server-rendered and owes nothing to a script"
+                                % (shut["chips"], len(device_config.THEME_IDS)))
+                        # IT REALLY IS A STRIP, AND IT REALLY SCROLLS.
+                        # A count passes against eighteen chips stacked
+                        # in a column; this does not.
+                        if shut["scroll"][0] <= shut["scroll"][1]:
+                            return False, (
+                                "the strip's scrollWidth (%s) does not exceed its clientWidth "
+                                "(%s) with scripts blocked — it is not overflowing, so it is "
+                                "not a strip and there is nothing to scroll" % tuple(shut["scroll"]))
+                        if shut["spread"] > 2:
+                            return False, (
+                                "the eighteen chips sit on %d rows spread over %dpx with the "
+                                "disclosure shut — a strip is one row"
+                                % (shut["rows"], shut["spread"]))
+
+                        # KEYBOARD SELECTION, WITH SCRIPTS BLOCKED. This
+                        # is what `.visually-hidden` buys and
+                        # `display: none` would destroy: a radio that
+                        # cannot take focus cannot be arrow-keyed, and a
+                        # keyboard visitor loses the control entirely.
+                        # `_operate_with_keyboard()` refuses to run here
+                        # (its pointer recorder cannot prove itself in a
+                        # context where listeners never fire), so focus
+                        # is taken through the element's own API and the
+                        # keys are real presses — arrow navigation inside
+                        # a radiogroup is the BROWSER's default action
+                        # and needs no listener at all.
+                        focused = page.evaluate(
+                            "v => {"
+                            "  const el = document.querySelector("
+                            "    'input[name=\"theme\"][value=\"' + v + '\"]');"
+                            "  if (!el) return {error: 'no-radio'};"
+                            "  el.focus();"
+                            "  return {focused: document.activeElement === el};"
+                            "}", before)
+                        if focused.get("error") or not focused.get("focused"):
+                            return False, (
+                                "the saved theme's radio could not take focus with scripts "
+                                "blocked (%r) — a radio hidden with display:none rather than "
+                                "the .visually-hidden utility is exactly this, and it takes "
+                                "arrow-key selection away with it" % (focused,))
+                        page.keyboard.press("ArrowDown")
+                        moved = page.evaluate(
+                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
+                                           "details": THEME_DETAILS_SEL})
+                        if moved["checked"] == [before]:
+                            return False, (
+                                "one ArrowDown with scripts blocked left the selection on %r — "
+                                "native radiogroup navigation is the whole no-JS story here"
+                                % (before,))
+
+                        # THE DISCLOSURE OPENS WITH SCRIPTS BLOCKED, and
+                        # that is the entire reason it is a <details>
+                        # rather than the <dialog> the audit named.
+                        page.click(THEME_DETAILS_SEL + " summary")
+                        opened = page.evaluate(
+                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
+                                           "details": THEME_DETAILS_SEL})
+                        if not opened["open"]:
+                            return False, (
+                                "clicking the summary with scripts blocked did not open the "
+                                "disclosure — a <dialog> would behave exactly like this, which "
+                                "is why this is not one")
+                        if opened["wrap"] != "wrap" or opened["spread"] <= 2:
+                            return False, (
+                                "the disclosure opened and the strip is still one row "
+                                "(flex-wrap %r, chips spread over %dpx) — 'See all themes' laid "
+                                "nothing out" % (opened["wrap"], opened["spread"]))
+                        if opened["box"][1] <= shut["box"][1] * 2:
+                            return False, (
+                                "the strip measured %.1fpx shut and %.1fpx open — opening the "
+                                "disclosure has to reveal a real grid, not nudge a row"
+                                % (shut["box"][1], opened["box"][1]))
+                        if opened["chips"] != shut["chips"]:
+                            return False, (
+                                "the open grid holds %d chips and the shut strip held %d — they "
+                                "are the SAME eighteen radios and must be"
+                                % (opened["chips"], shut["chips"]))
+
+                        message = _assert_no_page_overflow(
+                            page, "the theme carousel on /display with scripts blocked",
+                            VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+
+                    # AND THE GATE, IN BOTH DIRECTIONS. Asserting only
+                    # the blocked half passes against a gate stuck shut.
+                    gate = _assert_js_gate(
+                        browser, base_url, "/display", THEME_PAGERS_SEL,
+                        viewport=VIEWPORT_MIN_SUPPORTED)
+                    if not gate["blocked"]["candidates"]:
+                        return False, (
+                            "the pager wrapper holds nothing focusable at all, so the tab walk "
+                            "proving a keyboard visitor cannot reach it measured nothing")
+                    return True, ""
+                check(
+                    "the theme still SAVES with scripts blocked through the carousel, at 360px "
+                    "and in BOTH shipped languages — operated natively, submitted through the "
+                    "real form, re-read FROM DISK after a fresh GET and restored the same way — "
+                    "and on that same scripts-blocked page all eighteen chips are present, the "
+                    "strip really overflows and really is ONE row, the saved theme's radio "
+                    "takes focus and one ArrowDown moves the selection (which display:none "
+                    "would take away), the <details> OPENS on a click and turns that one row "
+                    "into a real grid holding the same eighteen radios, and the page does not "
+                    "scroll sideways — with the pager wrapper proved in BOTH gate directions "
+                    "(CFG-50/D-09, 25-06-PLAN.md Task 4)",
+                    _the_theme_still_saves_with_scripts_blocked_through_the_carousel)
+
+                def _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview():
+                    base_url = harness.base_url()
+                    ids = list(device_config.THEME_IDS)
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+                        saved = str(device_config.load_device_config(
+                            harness.tmpdir)["theme"])
+                        if saved not in ids:
+                            return False, (
+                                "the saved theme %r is not in the registry — this check would "
+                                "measure nothing" % (saved,))
+                        selector = 'input[name="theme"][value="%s"]' % saved
+                        start = ids.index(saved)
+
+                        # 1. ARROW KEYS MOVE SELECTION, WITH NOT ONE
+                        #    POINTER EVENT, AND THE RECORDER PROVES
+                        #    ITSELF. A `click` is not a pointer event and
+                        #    that distinction is 25-02's, not this
+                        #    plan's: a keyboard-activated radio fires a
+                        #    real click as part of its activation
+                        #    behaviour, so "no click" would prove
+                        #    nothing here.
+                        for steps in (1, 6, len(ids) - 1):
+                            expected = ids[(start + steps) % len(ids)]
+                            seen = _operate_with_keyboard(
+                                page, selector, ["ArrowDown"] * steps)
+                            if seen["group"] != expected:
+                                return False, (
+                                    "%d ArrowDown(s) from %r selected %r, expected the "
+                                    "registry's entry %r — the carousel broke native "
+                                    "radiogroup navigation, which is the only selection the "
+                                    "no-JS path has" % (steps, saved, seen["group"], expected))
+                            if seen["pointer_events"]:
+                                return False, (
+                                    "a pointer event fired during the keyboard sequence: %r"
+                                    % (seen["pointer_events"],))
+                            if not seen["recorder_proved"]:
+                                return False, (
+                                    "the pointer recorder never proved itself, so the empty "
+                                    "pointer-event list measured nothing")
+
+                            # 2. AND THE CHIP IS STILL ON SCREEN. THIS IS
+                            #    THE CLAUSE THE CAROUSEL ADDS, and it
+                            #    FAILED before `scroll-padding-right`
+                            #    existed: focus lands on a 1px
+                            #    visually-hidden radio at the chip's
+                            #    top-left corner, so the browser scrolls
+                            #    that into view, is satisfied, and leaves
+                            #    50px of the selected chip outside the
+                            #    strip. A control that selects something
+                            #    the visitor cannot see is a control that
+                            #    has lost its own feedback.
+                            box = page.evaluate(
+                                "sel => {"
+                                "  const s = document.querySelector(sel);"
+                                "  const a = document.activeElement;"
+                                "  const chip = a.closest ? a.closest('.theme-chip') : null;"
+                                "  if (!chip) return {error: 'no-chip'};"
+                                "  const c = chip.getBoundingClientRect();"
+                                "  const r = s.getBoundingClientRect();"
+                                "  return {left: c.left - r.left, right: r.right - c.right,"
+                                "          value: a.value, scrollLeft: s.scrollLeft};"
+                                "}", THEME_STRIP_SEL)
+                            recorded["inview_%d" % steps] = box
+                            if box.get("error"):
+                                return False, (
+                                    "after %d ArrowDown(s) the focused element is not inside a "
+                                    "chip at all" % steps)
+                            if box["left"] < -1 or box["right"] < -1:
+                                return False, (
+                                    "after %d ArrowDown(s) the selected chip %r sits %.1fpx "
+                                    "past the strip's left edge and %.1fpx past its right — "
+                                    "scroll-snap and the keyboard have to agree, and the "
+                                    "browser only ever scrolls the 1px radio into view"
+                                    % (steps, box["value"], -min(box["left"], 0),
+                                       -min(box["right"], 0)))
+
+                        # 3. THE LIVE PREVIEW FOLLOWS A KEYBOARD
+                        #    SELECTION. The existing crossfade check
+                        #    CLICKS a chip; this plan touched the script
+                        #    that owns the preview, and a carousel that
+                        #    traded the preview for a strip would still
+                        #    pass every clause above.
+                        landed = _operate_with_keyboard(
+                            page, selector, ["ArrowDown"] * 6)["group"]
+                        page.wait_for_timeout(900)
+                        preview = page.eval_on_selector(
+                            THEME_PREVIEW_SEL,
+                            "el => [el.getAttribute('src'),"
+                            "       parseFloat(getComputedStyle(el).opacity)]")
+                        recorded["preview"] = preview
+                        if landed not in (preview[0] or ""):
+                            return False, (
+                                "the keyboard selected %r and the live preview still reads %r "
+                                "— this plan grew the script that owns that swap, and a "
+                                "carousel that broke it has traded one feature for another"
+                                % (landed, preview[0]))
+                        if preview[1] != 1:
+                            return False, (
+                                "the preview settled at opacity %r — a fade-out with no fade "
+                                "back in is worse than the cut it replaced" % (preview[1],))
+
+                        # 4. THE PAGERS SCROLL, AND CHANGE NOTHING ELSE.
+                        #    A pager that moved the selection would be a
+                        #    second way to change a saved setting, and
+                        #    one that captured an arrow key would break
+                        #    clause 1 above.
+                        paged = page.evaluate(
+                            "sels => {"
+                            "  const s = document.querySelector(sels.strip);"
+                            "  const checked = () => [...document.querySelectorAll("
+                            "    'input[name=\"theme\"]')].filter(e => e.checked)"
+                            "      .map(e => e.value)[0];"
+                            "  s.scrollLeft = 0;"
+                            "  const was = checked();"
+                            "  document.querySelector(sels.next).click();"
+                            "  const forward = s.scrollLeft;"
+                            "  const afterNext = checked();"
+                            "  document.querySelector(sels.prev).click();"
+                            "  return {forward: forward, back: s.scrollLeft,"
+                            "          was: was, afterNext: afterNext,"
+                            "          afterPrev: checked()};"
+                            "}",
+                            {"strip": THEME_STRIP_SEL,
+                             "next": '[%s="%s"]' % (
+                                 config_page.THEME_CAROUSEL_PAGER_ATTR,
+                                 config_page.THEME_CAROUSEL_PAGER_NEXT),
+                             "prev": '[%s="%s"]' % (
+                                 config_page.THEME_CAROUSEL_PAGER_ATTR,
+                                 config_page.THEME_CAROUSEL_PAGER_PREV)})
+                        recorded["paged"] = paged
+                        if paged["forward"] <= 0:
+                            return False, (
+                                "the Next pager left the strip at scrollLeft %r — it is the "
+                                "one part of this control that needs a script, and it does "
+                                "nothing" % (paged["forward"],))
+                        if paged["back"] != 0:
+                            return False, (
+                                "Next then Previous left the strip at scrollLeft %r rather "
+                                "than back where it started (%r forward) — the two pagers do "
+                                "not step the same distance"
+                                % (paged["back"], paged["forward"]))
+                        if paged["afterNext"] != paged["was"] or paged["afterPrev"] != paged["was"]:
+                            return False, (
+                                "a pager changed the selection: %r -> %r -> %r. Paging is not "
+                                "choosing, and a pager that selects is a second way to change "
+                                "a saved setting"
+                                % (paged["was"], paged["afterNext"], paged["afterPrev"]))
+                        if str(device_config.load_device_config(
+                                harness.tmpdir)["theme"]) != saved:
+                            return False, (
+                                "this check changed the stored theme (%r, started at %r)"
+                                % (device_config.load_device_config(
+                                    harness.tmpdir)["theme"], saved))
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the carousel is driven by the keyboard ALONE and the strip keeps up: one, "
+                    "six and seventeen ArrowDowns each land on the registry's own next theme "
+                    "with zero pointer events and the recorder proving itself, and at every one "
+                    "of those positions the selected chip is still fully inside the strip — the "
+                    "clause the carousel adds, and the one that FAILED before the scrollport "
+                    "reserved a chip's width, because the browser only ever scrolls the 1px "
+                    "visually-hidden radio into view; the live preview follows a KEYBOARD "
+                    "selection (the existing crossfade check clicks) and settles opaque; and "
+                    "the two pagers scroll the strip forward and exactly back again while "
+                    "changing no selection at all, on the page or on disk (CFG-50/CFG-52, "
+                    "25-06-PLAN.md Task 4)",
+                    _keying_the_strip_selects_scrolls_into_view_and_moves_the_preview)
+
+                def _the_carousel_meets_its_floors_at_360px_in_both_themes():
+                    base_url = harness.base_url()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+
+                        # 1. THE HIT TARGETS, MEASURED IN THIS CONTROL'S
+                        #    OWN CONTAINER AND NEVER INHERITED FROM A
+                        #    CLASS. `control-density.md`'s
+                        #    exempt-by-delegation category is valid only
+                        #    while the WRAPPING LABEL exceeds 44px in
+                        #    both axes, and a compact chip in a
+                        #    scroll-snap strip is exactly where that
+                        #    could stop being true. The pagers are
+                        #    measured for the opposite reason and it is
+                        #    not hypothetical: at --space-sm apart, the
+                        #    Previous pager hit-tested 30x45 here,
+                        #    because the Next pager's own 44px ::before
+                        #    covered its right side.
+                        recorded["chip_first"] = _assert_hit_target(
+                            page, THEME_STRIP_SEL + " > .theme-chip:nth-child(1)",
+                            "the carousel's FIRST chip on /display")
+                        recorded["chip_last"] = _assert_hit_target(
+                            page, THEME_STRIP_SEL + " > .theme-chip:nth-last-child(1)",
+                            "the carousel's LAST chip on /display")
+                        for direction in (config_page.THEME_CAROUSEL_PAGER_PREV,
+                                          config_page.THEME_CAROUSEL_PAGER_NEXT):
+                            recorded["pager_" + direction] = _assert_hit_target(
+                                page, '[%s="%s"]' % (
+                                    config_page.THEME_CAROUSEL_PAGER_ATTR, direction),
+                                "the carousel's %s pager on /display" % direction)
+
+                        # 2. THE STRIP'S OWN GEOMETRY, by
+                        #    getBoundingClientRect and never clientWidth,
+                        #    which rounds to an integer and can fail a
+                        #    correct drawing.
+                        shut = page.evaluate(
+                            _STRIP_PROBE, {"strip": THEME_STRIP_SEL,
+                                           "details": THEME_DETAILS_SEL})
+                        recorded["shut"] = shut
+                        panel = page.eval_on_selector(
+                            THEME_STRIP_SEL,
+                            "el => {"
+                            "  const p = el.closest('.frame-colours__usage-panel');"
+                            "  const r = p.getBoundingClientRect();"
+                            "  const cs = getComputedStyle(p);"
+                            "  return r.width - parseFloat(cs.paddingLeft)"
+                            "    - parseFloat(cs.paddingRight);"
+                            "}")
+                        recorded["panel"] = panel
+                        if shut["box"][0] > panel + 0.5:
+                            return False, (
+                                "the strip measures %.2fpx inside a %.2fpx panel content box — "
+                                "a strip wider than the card holding it is the grid blowout, "
+                                "and it takes the whole page sideways with it"
+                                % (shut["box"][0], panel))
+                        if shut["scroll"][0] <= shut["scroll"][1]:
+                            return False, (
+                                "the strip's scrollWidth (%s) does not exceed its clientWidth "
+                                "(%s) at 360px — with eighteen 104px chips in one nowrap row "
+                                "it must, or `flex: 0 0 auto` is not holding and the chips are "
+                                "being squeezed" % tuple(shut["scroll"]))
+                        if shut["overflow"] != "auto" or shut["snap"] != "x mandatory":
+                            return False, (
+                                "the strip computes overflow-x:%r and scroll-snap-type:%r — "
+                                "without both it is either a blowout or a free-scrolling row "
+                                "that never settles on a chip"
+                                % (shut["overflow"], shut["snap"]))
+
+                        # 3. THE PAGE DOES NOT SCROLL SIDEWAYS. A strip
+                        #    that scrolls ITSELF is allowed and is the
+                        #    whole design; the page body is not.
+                        message = _assert_no_page_overflow(
+                            page, "the theme carousel on /display",
+                            VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+                        page.click(THEME_DETAILS_SEL + " summary")
+                        message = _assert_no_page_overflow(
+                            page, "the theme carousel on /display with the grid open",
+                            VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+                        page.click(THEME_DETAILS_SEL + " summary")
+
+                        # 4. THE PAINT, IN BOTH THEMES, AS A FLOOR AND
+                        #    NOT ONLY A CEILING. "Not the default" is the
+                        #    ceiling and passes against a strip painted
+                        #    in one flat grey; the floor is that a chip's
+                        #    name is not its own surface, that the
+                        #    disclosure and the pager chevron are visible
+                        #    at all, and that every one of them inverts
+                        #    with the theme.
+                        paints = {}
+                        for theme in UI_THEMES_EXPLICIT:
+                            _set_ui_theme(page, theme)
+                            recorded["settled_" + theme] = page.evaluate(_SETTLE_CAROUSEL)
+                            paints[theme] = page.evaluate(
+                                "sels => {"
+                                "  const read = (s, p, pseudo) =>"
+                                "    getComputedStyle(document.querySelector(s), pseudo || null)"
+                                "      .getPropertyValue(p).trim();"
+                                "  return {"
+                                "    name: read(sels.strip + ' .theme-chip__name', 'color'),"
+                                "    surface: read(sels.strip + ' .theme-chip',"
+                                "                  'background-color'),"
+                                "    summary: read(sels.details + ' summary', 'color'),"
+                                "    chevron: read(sels.pager, 'border-right-color', '::after'),"
+                                "    canvas: getComputedStyle(document.body).backgroundColor};"
+                                "}",
+                                {"strip": THEME_STRIP_SEL, "details": THEME_DETAILS_SEL,
+                                 "pager": '[%s="%s"]' % (
+                                     config_page.THEME_CAROUSEL_PAGER_ATTR,
+                                     config_page.THEME_CAROUSEL_PAGER_NEXT)})
+                        recorded["paints"] = paints
+                        light, dark = paints["light"], paints["dark"]
+                        for key in ("name", "surface", "summary", "chevron"):
+                            if light[key] == dark[key]:
+                                return False, (
+                                    "the carousel's %s paints identically in both themes (%r) — "
+                                    "a token that does not invert is a literal, and one of the "
+                                    "two modes is wrong" % (key, light[key]))
+                        for theme, sampled in paints.items():
+                            if sampled["name"] == sampled["surface"]:
+                                return False, (
+                                    "%s: a chip's name is painted in its own surface colour "
+                                    "(%r) — the chips are not legible at all"
+                                    % (theme, sampled["name"]))
+                            if sampled["summary"] == sampled["canvas"]:
+                                return False, (
+                                    "%s: the disclosure's summary is the canvas colour (%r)"
+                                    % (theme, sampled["summary"]))
+                            if sampled["chevron"] == sampled["canvas"]:
+                                return False, (
+                                    "%s: the pager's chevron is the canvas colour (%r) — the "
+                                    "buttons have no text of their own, so an invisible "
+                                    "chevron is an invisible control"
+                                    % (theme, sampled["chevron"]))
+                        _set_ui_theme(page, "light")
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the carousel meets its floors at 360px — the FIRST and LAST chip and BOTH "
+                    "pagers clear the 44px target by real hit-testing in THIS control's own "
+                    "container (never inherited from a class: the pagers measured 30x45 here "
+                    "at --space-sm apart, each covering the other's synthesised ::before), the "
+                    "strip fits its panel's content box by getBoundingClientRect rather than "
+                    "clientWidth while genuinely overflowing its own scrollport, it computes "
+                    "both overflow-x:auto and scroll-snap-type, the PAGE does not scroll "
+                    "sideways with the grid shut or open (a strip that scrolls itself is the "
+                    "design; the body is not), and the paint is a FLOOR not a ceiling: the chip "
+                    "name, the chip surface, the disclosure summary and the pager chevron all "
+                    "differ between the two themes, no chip name is its own surface colour, and "
+                    "neither the summary nor the chevron is the canvas colour (CFG-50/CFG-52, "
+                    "25-06-PLAN.md Task 4)",
+                    _the_carousel_meets_its_floors_at_360px_in_both_themes)
+
+                # ==========================================================
+                # 25-07-PLAN.md Task 3 (CFG-51/D19): THE ARTWORK DROP ZONE.
+                #
+                # ITS OWN ISOLATED Harness(), for the reason 25-02's own
+                # helper docstring gives about T-25-02-A: these checks
+                # UPLOAD an illustration and add a manual resolution, and
+                # the shared fixture is the subject of forty other checks
+                # in this file. Every one of them below also deletes the
+                # override file it wrote, so the block leaves its own
+                # fixture as it found it too.
+                #
+                # THE SUBJECT IS A MANUAL ENTRY WITH NO ARTWORK YET —
+                # Step B — because that is the one state where BOTH copies
+                # of the upload form render at once: the in-page no-JS
+                # fallback panel (a real action, the scriptless floor) and
+                # the dialog's copy (the placeholder action panel-lookup.js
+                # rewrites). The two are the same builder's output.
+                # ==========================================================
+                artwork_harness = Harness()
+                seed_state_dir(artwork_harness.tmpdir)
+                ARTWORK_PREFIX = "NEW"
+                ARTWORK_NAME = "Totally Novel Airline"
+                if manual_resolutions.add_entry(
+                        artwork_harness.tmpdir, ARTWORK_PREFIX,
+                        ARTWORK_NAME) != manual_resolutions.ADD_OK:
+                    raise AssertionError("could not seed the Step-B manual entry")
+                ARTWORK_KEY = manual_resolutions.illustration_key_for_name(ARTWORK_NAME)
+                ARTWORK_ROUTE = "/airlines?resolve=" + ARTWORK_PREFIX
+                ARTWORK_SERVE = "/illustration/%s.png" % ARTWORK_KEY
+                FALLBACK_ZONE = "[data-resolve-fallback] [data-upload-drop]"
+                DIALOG_ZONE = "#panel-lookup-dialog [data-upload-drop]"
+
+                art_dir = tempfile.mkdtemp(prefix="skypane-browser-ux-artwork-")
+                artwork_harness.start()
+                try:
+                    from PIL import Image as _ArtImage
+
+                    # A real, plausible illustration: a landscape PNG with
+                    # transparent padding, the shape every vendored file
+                    # has and the shape illustration_normalize.py crops.
+                    art_path = os.path.join(art_dir, "artwork.png")
+                    art = _ArtImage.new("RGBA", (1200, 300), (0, 0, 0, 0))
+                    for ax in range(200, 1000):
+                        for ay in range(80, 220):
+                            art.putpixel((ax, ay), (200, 40, 40, 255))
+                    art.save(art_path)
+
+                    # Not an image at all, and over the server's own cap.
+                    # The oversized one is INCOMPRESSIBLE NOISE on purpose:
+                    # a large flat PNG compresses to nothing and would sail
+                    # under a cap this check exists to reach.
+                    not_png_path = os.path.join(art_dir, "not-an-image.txt")
+                    with open(not_png_path, "wb") as fh:
+                        fh.write(b"this is not a png\n")
+                    oversized_path = os.path.join(art_dir, "oversized.png")
+                    _ArtImage.frombytes(
+                        "RGBA", (1200, 1200), os.urandom(1200 * 1200 * 4)
+                    ).save(oversized_path)
+                    OVERSIZED_BYTES = os.path.getsize(oversized_path)
+                    ART_BYTES = os.path.getsize(art_path)
+
+                    def _override_path():
+                        return illustrations.override_path_for_key(
+                            ARTWORK_KEY, artwork_harness.tmpdir)
+
+                    def _stored_artwork():
+                        """The stored override's BYTES, or None. The
+                        verdict for every upload below, read off the real
+                        state directory rather than off the page — a POST
+                        this app rejected redirects to a page that looks
+                        exactly like success."""
+                        path = _override_path()
+                        if not path or not os.path.isfile(path):
+                            return None
+                        with open(path, "rb") as fh:
+                            return fh.read()
+
+                    def _clear_stored_artwork():
+                        path = _override_path()
+                        if path and os.path.isfile(path):
+                            os.unlink(path)
+
+                    def _artwork_uploads_and_is_served_with_scripts_blocked():
+                        try:
+                            # BOTH DIRECTIONS OF THE GATE FIRST, because
+                            # a successful upload moves this entry out of
+                            # Step B and the fallback panel stops
+                            # rendering the zone at all.
+                            #
+                            # `prepare` un-hides the in-page fallback on
+                            # BOTH pages, and that is not a poke to make a
+                            # check pass: a ?resolve= deep link auto-opens
+                            # the dialog and panel-lookup.js hides the
+                            # in-page copy as a duplicate sitting behind
+                            # the backdrop (Phase 18 audit). Without this
+                            # the two directions would measure two
+                            # different elements. It is applied identically
+                            # to both pages, which is the helper's own
+                            # stated requirement.
+                            def unhide_fallback(page):
+                                page.evaluate(
+                                    "() => { const f = document.querySelector("
+                                    "'[data-resolve-fallback]'); if (f) f.hidden = false; }")
+                            gate = _assert_js_gate(
+                                browser, artwork_harness.base_url(), ARTWORK_ROUTE,
+                                FALLBACK_ZONE, viewport=VIEWPORT_MIN_SUPPORTED,
+                                prepare=unhide_fallback)
+                            if gate["blocked"]["candidates"] != 0:
+                                return False, (
+                                    "the drop zone holds %d focusable descendant(s) — it is a "
+                                    "hint, a preview and a message, and nothing in it should be "
+                                    "reachable at all" % gate["blocked"]["candidates"])
+
+                            before = _stored_artwork()
+                            if before is not None:
+                                return False, (
+                                    "the fixture already has stored artwork for %r, so an upload "
+                                    "could not be told from the state before it" % ARTWORK_KEY)
+                            seen = _upload_without_js(
+                                browser, artwork_harness.base_url(), ARTWORK_ROUTE,
+                                "#%s" % airlines_page.MANUAL_UPLOAD_INPUT_ID,
+                                "#%s button[type=\"submit\"]" % airlines_page.MANUAL_UPLOAD_FORM_ID,
+                                art_path, _stored_artwork, ARTWORK_SERVE,
+                                viewport=VIEWPORT_MIN_SUPPORTED)
+                            # "Stored and served" is two claims. The
+                            # second one is what a visitor sees, so it is
+                            # measured as an IMAGE rather than as 200 plus
+                            # a byte count: the route normalises on the
+                            # way out, and the size it normalises to is
+                            # illustration_normalize.py's own frame.
+                            served = _ArtImage.open(io.BytesIO(seen["served"]))
+                            if served.size != illustration_normalize.ILLUSTRATION_TARGET_SIZE:
+                                return False, (
+                                    "%s serves a %r image after a scripts-blocked upload, but "
+                                    "companion/illustration_normalize.py's frame is %r — the "
+                                    "route is not the normaliser's output"
+                                    % (ARTWORK_SERVE, served.size,
+                                       illustration_normalize.ILLUSTRATION_TARGET_SIZE))
+                            _ = (seen["stored_len"], gate)
+                            return True, ""
+                        finally:
+                            _clear_stored_artwork()
+                    check(
+                        "with scripts blocked at 360px, an artwork file chosen through the native "
+                        "<input type=\"file\"> and submitted through the fallback panel's own form "
+                        "is STORED (read back off the real state directory, never off the page — a "
+                        "rejected upload redirects to a page that looks like success) and SERVED "
+                        "back by the illustration route as an image at "
+                        "illustration_normalize.ILLUSTRATION_TARGET_SIZE; and the drop zone beside "
+                        "it measures zero height and holds zero focusable descendants with scripts "
+                        "blocked while occupying a real box with them on (CFG-51/D-09, "
+                        "25-07-PLAN.md Task 3)",
+                        _artwork_uploads_and_is_served_with_scripts_blocked)
+
+                    def _dropped_and_picked_files_are_stored_identically():
+                        context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                        try:
+                            if _stored_artwork() is not None:
+                                return False, (
+                                    "stored artwork for %r was already on disk when this check "
+                                    "started — the previous check did not restore the fixture, "
+                                    "and this entry would render as `art` rather than "
+                                    "`needs-artwork`, hiding the upload zone entirely"
+                                    % (ARTWORK_KEY,))
+                            page = context.new_page()
+                            _login(page, artwork_harness.base_url())
+                            page.goto(artwork_harness.base_url() + ARTWORK_ROUTE)
+                            _await_upload_zone(page, DIALOG_ZONE)
+                            submit = "#%s button[type=\"submit\"]" % (
+                                airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog")
+
+                            def upload_current_selection():
+                                """Submit, then read the stored bytes and
+                                put the fixture BACK into Step B.
+
+                                The reset is not tidiness, it is what
+                                makes the next upload possible at all: a
+                                successful upload moves this entry from
+                                `needs-artwork` to `art`, and
+                                panel-lookup.js hides the dialog's upload
+                                zone in every mode but the first. It is
+                                also what makes the byte comparison mean
+                                anything — with the previous file left in
+                                place, a drop that never reached the
+                                server would leave it there and compare
+                                equal to itself.
+                                """
+                                with page.expect_navigation():
+                                    page.click(submit)
+                                written = _stored_artwork()
+                                _clear_stored_artwork()
+                                page.goto(artwork_harness.base_url() + ARTWORK_ROUTE)
+                                _await_upload_zone(page, DIALOG_ZONE)
+                                return written
+
+                            # THE FIXTURES, PROVED NON-VACUOUS AGAINST THE
+                            # APP'S OWN NUMBER before anything is dropped.
+                            # An "oversized" file that is not actually
+                            # over the cap tests nothing while reading
+                            # exactly like a passing check, and the cap is
+                            # companion/app.py's, rendered into the page,
+                            # never retyped here.
+                            cap = int(page.locator(DIALOG_ZONE).get_attribute(
+                                "data-upload-drop-max-bytes"))
+                            if OVERSIZED_BYTES <= cap:
+                                return False, (
+                                    "the oversized fixture is %d bytes and the app's own cap is "
+                                    "%d — the oversized case would be measuring nothing"
+                                    % (OVERSIZED_BYTES, cap))
+                            if ART_BYTES >= cap:
+                                return False, (
+                                    "the valid-artwork fixture is %d bytes, at or over the app's "
+                                    "own %d cap — every acceptance below would be measuring the "
+                                    "wrong thing" % (ART_BYTES, cap))
+
+                            # --- THE FLOOR, MEASURED BEFORE THE CEILING ---
+                            # A drop zone that silently accepts what the
+                            # picker would reject is a defect, so every
+                            # refusal is measured against the INPUT, not
+                            # against a message: the question is whether
+                            # anything was assigned.
+                            floor = {}
+                            _drop_files(page, DIALOG_ZONE, [])
+                            floor["zero-files"] = _upload_zone_state(page, DIALOG_ZONE)
+                            _drop_files(page, DIALOG_ZONE, [not_png_path])
+                            floor["wrong-type"] = _upload_zone_state(page, DIALOG_ZONE)
+                            _drop_files(page, DIALOG_ZONE, [art_path, art_path])
+                            floor["several"] = _upload_zone_state(page, DIALOG_ZONE)
+                            _drop_files(page, DIALOG_ZONE, [oversized_path])
+                            floor["oversized"] = _upload_zone_state(page, DIALOG_ZONE)
+                            for label, state in floor.items():
+                                if state["files"] != 0:
+                                    return False, (
+                                        "a %s drop assigned %d file(s) to the form's input — the "
+                                        "refusal has to happen BEFORE the assignment or it "
+                                        "refuses nothing (%r)" % (label, state["files"], state))
+                                if not state["message"]:
+                                    return False, (
+                                        "a %s drop was refused silently — a drop target that "
+                                        "declines without saying so is indistinguishable from one "
+                                        "that is broken (%r)" % (label, state))
+                                if not state["imageHidden"]:
+                                    return False, (
+                                        "a %s drop still rendered a preview (%r)" % (label, state))
+                                # AND THE SRC IS GONE, not merely hidden.
+                                # A hidden <img> still holding a data:
+                                # URL keeps the whole decoded file alive
+                                # for the life of the document — the same
+                                # leak an unrevoked object URL would have
+                                # been, and invisible to a check that only
+                                # asks whether the preview is showing.
+                                if state["imageScheme"] != "":
+                                    return False, (
+                                        "after a %s drop the preview <img> still holds a %r src — "
+                                        "hidden is not released, and the whole decoded file stays "
+                                        "in the document (%r)"
+                                        % (label, state["imageScheme"], state))
+                            if floor["oversized"]["message"] == floor["wrong-type"]["message"]:
+                                return False, (
+                                    "the oversized drop and the wrong-type drop say the same "
+                                    "thing (%r) — the visitor cannot tell which rule they hit"
+                                    % (floor["oversized"]["message"],))
+                            if floor["several"]["message"] == floor["wrong-type"]["message"]:
+                                return False, (
+                                    "a several-files drop and a wrong-type drop say the same "
+                                    "thing (%r)" % (floor["several"]["message"],))
+
+                            # REPLACING A PREVIEW AND THEN BEING REFUSED,
+                            # which is the only sequence in which "the
+                            # preview is released" can be measured at
+                            # all: every drop above was refused with no
+                            # preview on screen to release, so an <img>
+                            # that never let go of its data: URL would
+                            # have passed all four of them.
+                            _drop_files(page, DIALOG_ZONE, [art_path])
+                            page.wait_for_function(
+                                "sel => { const im = document.querySelector(sel)"
+                                ".querySelector('.upload-drop__image');"
+                                " return !im.hidden && !!im.getAttribute('src'); }",
+                                arg=DIALOG_ZONE, timeout=5000)
+                            shown = _upload_zone_state(page, DIALOG_ZONE)
+                            _drop_files(page, DIALOG_ZONE, [not_png_path])
+                            after = _upload_zone_state(page, DIALOG_ZONE)
+                            if after["imageScheme"] != "":
+                                return False, (
+                                    "a refused drop left the previous preview's %r src on the "
+                                    "<img> (%r) — the decoded file stays in the document for as "
+                                    "long as the page does"
+                                    % (after["imageScheme"], after))
+                            if after["files"] != 1 or after["size"] != shown["size"]:
+                                return False, (
+                                    "a refused drop discarded the file the visitor had already "
+                                    "chosen (%r was holding %r, now %r) — declining to perform "
+                                    "its own act is the script doing nothing; removing somebody "
+                                    "else's choice is the script doing harm"
+                                    % (shown["name"], shown["size"], after))
+                            page.goto(artwork_harness.base_url() + ARTWORK_ROUTE)
+                            _await_upload_zone(page, DIALOG_ZONE)
+
+                            # --- THE EQUIVALENCE, WHICH IS THE WHOLE POINT ---
+                            # The same source file, uploaded twice: once
+                            # picked, once dropped. The stored result must
+                            # be byte-identical, because the ONLY thing
+                            # between the file and the route is a
+                            # DataTransfer assignment — no crop, no
+                            # resize, no re-encode.
+                            _clear_stored_artwork()
+                            page.set_input_files(
+                                "#%s" % (airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog"),
+                                art_path)
+                            page.wait_for_function(
+                                "sel => { const im = document.querySelector(sel)"
+                                ".querySelector('.upload-drop__image');"
+                                " return !im.hidden && !!im.getAttribute('src'); }",
+                                arg=DIALOG_ZONE, timeout=5000)
+                            picked_state = _upload_zone_state(page, DIALOG_ZONE)
+                            picked_bytes = upload_current_selection()
+                            if picked_bytes is None:
+                                return False, (
+                                    "picking the file and submitting stored nothing — before "
+                                    "comparing two paths, one of them has to work")
+                            if _stored_artwork() is not None:
+                                return False, "could not clear the stored artwork between uploads"
+                            dragged = _drop_files(page, DIALOG_ZONE, [art_path])
+                            page.wait_for_function(
+                                "sel => { const im = document.querySelector(sel)"
+                                ".querySelector('.upload-drop__image');"
+                                " return !im.hidden && !!im.getAttribute('src'); }",
+                                arg=DIALOG_ZONE, timeout=5000)
+                            dropped_state = _upload_zone_state(page, DIALOG_ZONE)
+                            if dropped_state["files"] != 1:
+                                return False, (
+                                    "a trusted drop of a valid PNG assigned %d file(s) (%r)"
+                                    % (dropped_state["files"], dropped_state))
+                            dropped_bytes = upload_current_selection()
+                            if dropped_bytes is None:
+                                return False, (
+                                    "dropping the same file and submitting stored NOTHING, while "
+                                    "picking it stored %d bytes — the drop path does not reach "
+                                    "the server the picked file reaches" % (len(picked_bytes),))
+                            if dropped_bytes != picked_bytes:
+                                return False, (
+                                    "the SAME source file stored %d bytes when picked and %d when "
+                                    "dropped — a second transform crept into the drop path, which "
+                                    "is exactly the drift no client-side crop was written to "
+                                    "avoid" % (len(picked_bytes), len(dropped_bytes)))
+                            if picked_state["size"] != dropped_state["size"]:
+                                return False, (
+                                    "the picked file measured %r bytes in the input and the "
+                                    "dropped one %r — the script altered the file on the way in"
+                                    % (picked_state["size"], dropped_state["size"]))
+                            if dropped_state["imageScheme"] != "data":
+                                return False, (
+                                    "the preview's src scheme is %r — this app's own "
+                                    "Content-Security-Policy is img-src 'self' data:, under which "
+                                    "a blob: preview is blocked outright"
+                                    % (dropped_state["imageScheme"],))
+                            if dropped_state["natural"] != [1200, 300]:
+                                return False, (
+                                    "the preview decoded to %r, not the source file's own "
+                                    "1200x300 — the preview is the file, not a redrawing of it"
+                                    % (dropped_state["natural"],))
+
+                            # A SYNTHETIC drop, the one a page script can
+                            # construct, must change nothing.
+                            _clear_stored_artwork()
+                            page.evaluate(
+                                "sel => { const z = document.querySelector(sel);"
+                                "  const dt = new DataTransfer();"
+                                "  const ev = new DragEvent('drop',"
+                                "    {bubbles: true, cancelable: true, dataTransfer: dt});"
+                                "  z.dispatchEvent(ev); }", DIALOG_ZONE)
+                            synthetic = _upload_zone_state(page, DIALOG_ZONE)
+                            if synthetic["message"]:
+                                return False, (
+                                    "a synthetic (isTrusted: false) drop reached the handler and "
+                                    "produced %r — the only way into it should be a gesture a "
+                                    "person performed" % (synthetic["message"],))
+
+                            # And the drag state was really on, DURING the
+                            # drag, and really off after it.
+                            if not dragged["active_during_drag"]:
+                                return False, (
+                                    "the drag-over state never appeared while the browser was in "
+                                    "a drag — sampled between dragOver and drop, %r" % (dragged,))
+                            if dragged["active_after_drop"]:
+                                return False, "the drag-over state survived the drop (%r)" % (dragged,)
+                            if dragged["paint_during_drag"] == dragged["paint_at_rest"]:
+                                return False, (
+                                    "the zone paints identically at rest and mid-drag (%r) — the "
+                                    "state is set but invisible, which is the same as not having "
+                                    "one" % (dragged["paint_at_rest"],))
+                            return True, ""
+                        finally:
+                            _clear_stored_artwork()
+                            context.close()
+                    check(
+                        "the SAME source file stored byte-identically whether it was PICKED or "
+                        "DROPPED (with the stored file deleted between the two uploads, so a drop "
+                        "that never reached the server could not pass on the picked file left "
+                        "behind), the preview decoding to the source's own 1200x300 through a "
+                        "data: URL (a blob: one is blocked by this app's own CSP); and the FLOOR "
+                        "measured against the INPUT rather than against a message — zero files, a "
+                        "wrong type, several at once and an oversized file each assign nothing, "
+                        "each say something, and each say something different, while a synthetic "
+                        "drop changes nothing at all and the drag-over state is sampled visible "
+                        "BETWEEN dragOver and drop (CFG-51/D19, 25-07-PLAN.md Task 3)",
+                        _dropped_and_picked_files_are_stored_identically)
+
+                    def _drop_zone_meets_its_floors_at_360px_in_both_themes():
+                        context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                        try:
+                            page = context.new_page()
+                            _login(page, artwork_harness.base_url())
+                            page.goto(artwork_harness.base_url() + ARTWORK_ROUTE)
+                            _await_upload_zone(page, DIALOG_ZONE)
+
+                            # THE HIT TARGET, MEASURED IN THIS CONTROL'S
+                            # OWN CONTAINER rather than inherited from a
+                            # class — 25-06's pagers measured 30x45 in
+                            # theirs while the same class measured 45x45
+                            # elsewhere.
+                            hit = _assert_hit_target(
+                                page, DIALOG_ZONE, "the artwork drop zone on Airlines at 360px")
+                            msg = _assert_no_page_overflow(
+                                page, "the artwork drop zone on Airlines",
+                                VIEWPORT_MIN_SUPPORTED["width"])
+                            if msg:
+                                return False, msg
+
+                            # THE RESERVED BOX, before any image exists.
+                            # A ratio, not a size: the box is fluid and
+                            # the promise is its SHAPE. getBoundingClientRect,
+                            # never clientWidth, which rounds to an integer
+                            # and can fail a correct drawing.
+                            at_rest = _upload_zone_state(page, DIALOG_ZONE)
+                            want = (illustration_normalize.ILLUSTRATION_TARGET_WIDTH
+                                    / illustration_normalize.ILLUSTRATION_TARGET_HEIGHT)
+                            got = at_rest["preview"][0] / at_rest["preview"][1]
+                            if abs(got - want) > 0.02:
+                                return False, (
+                                    "the preview box reserves %.4f:1 (%r) before any image "
+                                    "exists, but illustration_normalize.py's frame is %.4f:1 — a "
+                                    "box reserved at the wrong shape still makes the card jump"
+                                    % (got, at_rest["preview"], want))
+                            if not at_rest["imageHidden"]:
+                                return False, (
+                                    "the preview <img> is showing before a file was chosen (%r)"
+                                    % (at_rest,))
+
+                            painted = []
+                            for measured in _in_both_themes(page):
+                                paint = page.evaluate(
+                                    "sel => { const z = document.querySelector(sel);"
+                                    "  const n = z.querySelector('.upload-drop__note');"
+                                    "  const p = z.querySelector('.upload-drop__preview');"
+                                    "  return {note: getComputedStyle(n).color,"
+                                    "          frame: getComputedStyle(p).borderTopColor,"
+                                    "          surface: getComputedStyle(p).backgroundColor}; }",
+                                    DIALOG_ZONE)
+                                if paint["note"] == measured["canvas"]:
+                                    return False, (
+                                        "%s: the drop zone's hint text is the canvas colour (%r) "
+                                        "— an invisible instruction is no instruction"
+                                        % (measured["theme"], paint["note"]))
+                                if paint["frame"] == paint["surface"]:
+                                    return False, (
+                                        "%s: the preview frame (%r) is its own fill, so the "
+                                        "reserved box has no visible edge before an image arrives"
+                                        % (measured["theme"], paint["frame"]))
+                                painted.append((measured["theme"], paint))
+                            if painted[0][1] == painted[1][1]:
+                                return False, (
+                                    "the drop zone paints identically in both themes (%r) — one "
+                                    "of them is not reading the theme's tokens"
+                                    % (painted[0][1],))
+                            _set_ui_theme(page, "light")
+                            _ = hit
+                            return True, ""
+                        finally:
+                            context.close()
+                    check(
+                        "the artwork drop zone clears the 44px target by real hit-testing in ITS "
+                        "OWN container at 360px, the Airlines page does not scroll sideways there, "
+                        "the preview box reserves illustration_normalize.py's own aspect ratio "
+                        "(by getBoundingClientRect, never clientWidth) BEFORE any image exists "
+                        "with the <img> still hidden, and the paint is a FLOOR not a ceiling: the "
+                        "hint text is never the canvas colour, the preview frame is never its own "
+                        "fill, and the whole zone paints differently in the two themes (CFG-51/"
+                        "CFG-52, 25-07-PLAN.md Task 3)",
+                        _drop_zone_meets_its_floors_at_360px_in_both_themes)
+                finally:
+                    artwork_harness.stop()
+                    artwork_harness.cleanup()
+                    shutil.rmtree(art_dir, ignore_errors=True)
 
             finally:
                 browser.close()

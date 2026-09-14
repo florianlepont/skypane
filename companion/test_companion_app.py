@@ -61,7 +61,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import auth, draw, layout, theme_preview  # noqa: E402
-from companion.pages import health_page  # noqa: E402
+from companion.pages import airlines_page, config_page, health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import calendar_rules  # noqa: E402
 from server.plane import colour_rules  # noqa: E402
@@ -686,6 +686,303 @@ EXPECTED_CHECK_COUNT = 299
 # 299 + 1 = 300, re-derived by RUNNING the harness (298/300 pass here —
 # the two documented WR-11 root-sandbox failures), never by arithmetic.
 EXPECTED_CHECK_COUNT = 300
+# 25-01-PLAN.md Task 1 (CFG-46): +6 — value-controls.js, the FIFTEENTH
+# deferred script on the authenticated shell and Phase 25's ONLY new
+# script. Five of the six are the registration block every static script
+# here carries (public-route smoke, ES5-safety/required-token scan,
+# route==src agreement, exactly-one-script-tag with no bare inline
+# script, and a REAL GET proving the served body), mirroring
+# quick-switch.js's own. The sixth is this file's specific risk, and it
+# is the one that would actually ship: a control that changes a value
+# without waking the save bar silently loses the user's edit, so the
+# notification is pinned from BOTH sides — the event name constructed
+# identically in the script's two branches, dirty-state.js's delegated
+# document-level listener for that same name, and that listener's
+# e.target.form filter (the only reason a form=-attached settings field
+# reaches the bar at all). The ES5 scan also carries point 2 of the
+# no-JS control contract as a shape pin: exactly ONE assignment to a
+# `.value` in the whole file, and at least one read of `field.value`
+# back, so the script provably holds no parallel copy of a value.
+# ONE pre-existing check was retargeted in place with no count
+# contribution: the deferred-script count, fourteen -> FIFTEEN, forced
+# by this plan's own registration, and now also naming value-controls.js
+# in the login shell's exclusion list. THIS IS THE ONLY TIME PHASE 25
+# MOVES THAT PIN.
+# 300 + 6 = 306, re-derived by RUNNING the harness (304/306 pass here —
+# the two documented WR-11 root-sandbox failures, unrelated to this
+# plan), never by arithmetic.
+EXPECTED_CHECK_COUNT = 306
+# 25-01-PLAN.md Task 2 (CFG-46): +3 — the `.js` gate and the shared
+# control vocabulary, asserted at the RULE level so "an affordance that
+# cannot work without script does not render without script" is a
+# property of the stylesheet rather than a promise repeated in five
+# plans. One check pins the gate's DIRECTION (hidden by default,
+# revealed under `.js`, `display: none` specifically rather than
+# visibility/opacity, which leave a focusable ghost a keyboard user can
+# tab into with scripts blocked) and — the half that would actually
+# ship — that no gate rule anywhere runs the reverse direction. One
+# pins the shared hit area EQUAL, declaration by declaration, to
+# `.copy-btn`'s own registered values, with the 44px recomputed from the
+# declared box plus inset rather than restated, plus `touch-action:
+# none` on the wrapper and the handle (without it a touch drag is
+# claimed by the browser's panning gesture and the control is immovable
+# on a phone, with no error anywhere) and no colour literal in any added
+# rule. The third is a REGRESSION guard with no RED phase, and that is
+# recorded rather than manufactured: exactly one @supports
+# selector(:has(*)) block, counted on COMMENT-STRIPPED source and on the
+# opening brace, because the raw grep returns five and four of those are
+# the paragraphs explaining the rule.
+# Every scan here strips comments first, for this file's own standing
+# reason: the stylesheet's prose quotes the selectors and values being
+# measured.
+# 306 + 3 = 309, re-derived by RUNNING the harness (307/309 pass here —
+# the two documented WR-11 root-sandbox failures), never by arithmetic.
+EXPECTED_CHECK_COUNT = 309
+# 25-01-PLAN.md Task 3 (CFG-49): +2 — the battery-LIFE estimate, in the
+# ONE module that already owns the battery estimate. The first check is
+# the estimate's totality AND its honesty in one place, because the two
+# are the same property here: six series shapes (empty, one row, two
+# flat rows, falling, RISING, and a newest row whose reading is None)
+# each produce a defined result and raise nothing, the two unknowns are
+# DIFFERENT named values rather than an overloaded None, a charged
+# device's rising slope returns no number at all (a naive divide yields
+# a negative or infinite lifetime, and both are numbers a user would act
+# on), an already-empty series floors at zero rather than going
+# negative, the one figure that IS emitted is recomputed from the
+# observed slope rather than restated, and the relative cadence factor —
+# arithmetic on two cadences, never on the battery — is available in all
+# six shapes and doubles EXACTLY when the proposed cadence doubles.
+# The second is the module's import rules, asserted by ast scan rather
+# than by its docstring's claim: nothing from companion.pages, nothing
+# from server (D-27). It has no RED phase and that is recorded rather
+# than manufactured — it guards an invariant that already held.
+# ONE pre-existing check was retargeted in place with no count
+# contribution: the battery estimate's one-home guard now also catches a
+# second battery-LIFE computation anywhere under companion/ or server/,
+# on the same terms as the percentage's.
+# 309 + 2 = 311, re-derived by RUNNING the harness (309/311 pass here —
+# the two documented WR-11 root-sandbox failures), never by arithmetic.
+EXPECTED_CHECK_COUNT = 311
+# 25-01-PLAN.md Task 4 (CFG-46/D-09): +2 — the no-JS control contract,
+# made executable. The first check runs _NO_JS_CONTROL_REGISTRY (empty
+# today, one row per control plan from 25-03 on) through a machine that
+# asserts the value is held by a NATIVE <input>/<select> the server
+# renders unconditionally, that the field is really associated with the
+# form that posts it (the cross-DOM form= idiom and the enclosing-form
+# idiom are both legitimate here and which one a control uses is
+# DECLARED, never guessed — the enclosing case is verified against a
+# real authenticated render, not against the builder's own string), and
+# that EVERY element carrying the control's wrapper attribute also
+# carries the .js-gate class. That last one is the converse, and it is
+# the defect that actually ships: a wrapper rendered outside the gate is
+# visible and inert with scripts blocked, competing with the native
+# input that works.
+# An empty registry passing would prove nothing, so the machine is run
+# against four fixtures built from REAL group-builder output — one
+# correct control it must accept and three it must reject. The guard is
+# therefore non-vacuous on the day it lands, with no control built.
+# The second check pins layout.JS_GATE_CLASS to a real selector in
+# style.css on a SELECTOR BOUNDARY: a rename on either side alone
+# renders a script-only affordance permanently with scripts blocked.
+# This task adds only measurement — there is no production behaviour
+# here and so no RED phase, which is stated rather than manufactured.
+# 311 + 2 = 313, re-derived by RUNNING the harness (311/313 pass here —
+# the two documented WR-11 root-sandbox failures), never by arithmetic.
+EXPECTED_CHECK_COUNT = 313
+# 25-04-PLAN.md Task 3 (CFG-48): +0, RE-DERIVED BY RUNNING (313/313
+# registered, 311 passing — the same two documented WR-11 root-sandbox
+# failures and no others). This plan adds no check here and retargets two
+# in place: _NO_JS_CONTROL_REGISTRY gains its first rows (D17's two
+# quiet-hours handles, two rows because a row names one FIELD and this
+# control holds two), and the served-body seam loop gains the tenth
+# VALUE_CONTROL_* name, the clock codec 25-04 had to add to steer a
+# native <input type="time">. Both are edits to existing checks, so the
+# number below does not move.
+# 25-06-PLAN.md Task 3 (CFG-50): +0, RE-DERIVED BY RUNNING (313/313
+# registered, 311 passing — the same two documented WR-11 root-sandbox
+# failures and no others). This plan adds no check here either and
+# retargets one in place: _NO_JS_CONTROL_REGISTRY gains D5's theme
+# carousel, ONE row because a row names one FIELD and this control holds
+# exactly one (`theme`) however many affordances surround it. The
+# existing theme-preview.js ES5/forbidden-sink guard and the
+# deferred-script pin (still fifteen) both cover this plan's script
+# growth unchanged — no new file appeared, which is why neither moved.
+# 25-07-PLAN.md Task 2 (CFG-51/D19): +1, and it is a check for an
+# ABSENCE, which is worth stating: the plan's central constraint is that
+# no client-side crop was written, and an absence is exactly what stops
+# being noticed once the diff that introduced it scrolls away. The one
+# check asserts panel-lookup.js names no canvas API and no object URL,
+# assigns the dropped file to the form's OWN file input through exactly
+# one `new DataTransfer()`, routes BOTH the drop and the picker through
+# exactly ONE shared validator called exactly twice, consults it BEFORE
+# assigning, and refuses an untrusted drop event.
+# This plan also retargets _NO_JS_CONTROL_REGISTRY in place: it gains
+# D19's drop zone, ONE row because a row names one field and this
+# control holds exactly one (`image`) however many copies of the form
+# carry a zone. The existing panel-lookup.js ES5/forbidden-sink guard,
+# the static-script count and the deferred-script pin (still fifteen)
+# all cover this plan's script growth unchanged — no new file appeared.
+# 313 + 1 = 314, re-derived by RUNNING the harness (312/314 pass here —
+# the same two documented WR-11 root-sandbox failures and no others),
+# never by arithmetic.
+EXPECTED_CHECK_COUNT = 314
+
+# ==========================================================================
+# 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
+# REGISTRY A LATER PLAN APPENDS ONE ROW TO.
+#
+# D-09 (22-CONTEXT.md:133-135) is a locked developer decision, and Phase
+# 25 is the phase most at risk from it: every control it replaces is a
+# real input somebody has to be able to SAVE with scripts blocked. Phase
+# 23's own P0 is the shape to guard against — a fallback Save that was
+# RENDERED and had a zero-size box. "Rendered" is not "usable".
+#
+# The four points this registry makes executable (25-RESEARCH.md's
+# seven-point contract, points 1, 2, 3 and 7; points 4, 5 and 6 are
+# browser measurements and belong to 25-02's helpers):
+#
+#   1. The server renders the submitting control UNCONDITIONALLY. The
+#      named field must be present in the group builder's own returned
+#      string, with scripts irrelevant because no script has run.
+#   2. The enhancement writes into that control and never holds the
+#      value. The field must be a NATIVE <input>/<select>, never a
+#      <div>/<span>/<button> wearing a name, and never a value living
+#      only in a data attribute.
+#   3. An affordance that cannot work without script does not render
+#      without script. The wrapper must carry layout.JS_GATE_CLASS ON
+#      ITSELF — see that constant's own comment for why it is the
+#      element and not an ancestor.
+#   7. Colour comes from a theme token through a class, which is the
+#      stylesheet guard in Task 2 and 25-02's both-themes measurement,
+#      not a string assertion here.
+#
+# ZERO CONTROLS ARE REGISTERED TODAY, and that is correct: 25-01 builds
+# no control, and a guard that required a subject to exist would have
+# forced it to build one. The guard is NOT vacuous even so — it runs its
+# whole checker against four fixtures below, one correct and three
+# deliberately wrong, so an empty registry still proves the machine
+# works. Each of 25-03..25-07 appends exactly one row here.
+#
+# Row shape:
+#   control      what it is, for the failure message
+#   plan         the plan that registered it
+#   wrapper_attr the attribute the gated wrapper carries
+#   field        the `name` of the native input the form posts
+#   form         the id of the form that input belongs to
+#   form_assoc   "attribute" when the input carries form="{form}"
+#                itself (this app's cross-DOM idiom), or "enclosing"
+#                when it is rendered inside that form on a page
+#   page_route   required for "enclosing": the authenticated route
+#                whose rendered document must show the input inside
+#                that form
+#   render       a zero-argument callable returning the group builder's
+#                own output
+# 25-04-PLAN.md Task 3 (CFG-48): the FIRST two rows, and two rather than
+# the "exactly one row" the registry's own comment above anticipates.
+# That is the registry's row shape rather than a control counted twice: a
+# row names ONE field, and D17's dial holds TWO values in two separate
+# native <input type="time"> elements, each steered by its own gated
+# wrapper. Registering one of them would leave the other end's contract —
+# is it native? does it post? is its wrapper gated? — entirely unproven,
+# which is the opposite of what this registry is for.
+#
+# `form_assoc` is "attribute": both time inputs carry
+# form="{SETTINGS_FORM_ID}" themselves, because this card is a SIBLING of
+# the settings form and never a descendant of it (a <form> cannot nest
+# inside another <form>).
+_NO_JS_CONTROL_REGISTRY = (
+    {
+        "control": "the quiet-hours dial's start handle (D17)",
+        "plan": "25-04-PLAN.md Task 3",
+        "wrapper_attr": layout.VALUE_CONTROL_ATTR,
+        "field": "quiet_hours_start",
+        "form": config_page.SETTINGS_FORM_ID,
+        "form_assoc": "attribute",
+        "render": lambda: config_page.quiet_hours_group("23:00", "07:00"),
+    },
+    {
+        "control": "the quiet-hours dial's end handle (D17)",
+        "plan": "25-04-PLAN.md Task 3",
+        "wrapper_attr": layout.VALUE_CONTROL_ATTR,
+        "field": "quiet_hours_end",
+        "form": config_page.SETTINGS_FORM_ID,
+        "form_assoc": "attribute",
+        "render": lambda: config_page.quiet_hours_group("23:00", "07:00"),
+    },
+    # 25-05-PLAN.md Task 2 (CFG-49/CFG-52). form_assoc is "enclosing"
+    # rather than "attribute" and that is not an oversight: unlike the
+    # quiet-hours fields, the wake interval's <input type="number">
+    # carries no form= at all — it is rendered INSIDE
+    # <form id="settings-form"> by the page, which this guard then
+    # verifies against a real authenticated render of /device.
+    {
+        "control": "the wake-interval slider (D18)",
+        "plan": "25-05-PLAN.md Task 2",
+        "wrapper_attr": layout.VALUE_CONTROL_ATTR,
+        "field": config_page.WAKE_INTERVAL_FIELD_NAME,
+        "form": config_page.SETTINGS_FORM_ID,
+        "form_assoc": "enclosing",
+        "page_route": "/device",
+        "render": lambda: config_page.wake_interval_group(600),
+    },
+    # 25-06-PLAN.md Task 3 (CFG-50): ONE row, not two, and the reason is
+    # the opposite of 25-04's. A row names one FIELD, and D5's carousel
+    # holds exactly one — `theme` — however many affordances surround it.
+    # The two pagers are two BUTTONS steering one native radio group;
+    # registering them separately would claim this card saves two
+    # settings, which it does not.
+    #
+    # The registered wrapper attribute is the PAGER WRAPPER's, because
+    # the pagers are the only part of this control that cannot work
+    # without a script. Everything else the carousel adds — the strip's
+    # scroll-snap layout, the "See all themes" <details>, the dots row —
+    # is native or server-rendered and is deliberately NOT gated: gating
+    # any of it would hide working affordances from a scripts-blocked
+    # visitor, which is the mirror of the defect this registry catches.
+    #
+    # `form_assoc` is "attribute": the Frame colours card is a SIBLING of
+    # <form id="settings-form"> (a <form> cannot nest inside another
+    # <form>), so every theme radio carries form= itself.
+    {
+        "control": "the theme carousel's two pagers (D5)",
+        "plan": "25-06-PLAN.md Task 3",
+        "wrapper_attr": config_page.THEME_CAROUSEL_WRAPPER_ATTR,
+        "field": "theme",
+        "form": config_page.SETTINGS_FORM_ID,
+        "form_assoc": "attribute",
+        "render": lambda: config_page._frame_colours_card_html({}, "white", None, None),
+    },
+    # 25-07-PLAN.md Task 2 (CFG-51): ONE row. A row names one FIELD, and
+    # D19's drop zone holds exactly one — `image` — however many copies
+    # of the form carry a zone (three on a Step-B edit-mode render).
+    # Registering each copy would claim this page uploads three
+    # illustrations, which it does not.
+    #
+    # The registered render is the DIALOG copy, and that is a deliberate
+    # choice between two honest ones. The dialog's copy is emitted on
+    # every single /airlines render, so `page_route: "/airlines"` needs
+    # no fixture at all; the unsuffixed fallback copy is the SAME
+    # function's output with a real action, and only appears under a
+    # ?resolve= deep link into a Step-B entry. That copy is not left
+    # unproven — 25-07-PLAN.md Task 3 uploads through it with scripts
+    # blocked and reads the stored artwork back off the illustration
+    # route, which is a stronger proof than this registry can make.
+    #
+    # `form_assoc` is "enclosing" rather than "attribute": the file
+    # input carries no form= at all. It is rendered INSIDE the upload
+    # <form> — which gained its id for exactly this reason — and that is
+    # verified here against a real authenticated render of /airlines.
+    {
+        "control": "the artwork drop zone (D19)",
+        "plan": "25-07-PLAN.md Task 2",
+        "wrapper_attr": airlines_page.UPLOAD_DROP_ATTR,
+        "field": "image",
+        "form": airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog",
+        "form_assoc": "enclosing",
+        "page_route": "/airlines",
+        "render": lambda: airlines_page._resolve_upload_form_html("", "-dialog"),
+    },
+)
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -3694,6 +3991,19 @@ def main():
         "companion/battery.py": ("battery_percent", "battery_fraction"),
         "server/poll_loop.py": ("_battery_percent_estimate",),
     }
+    # 25-01-PLAN.md Task 3 (CFG-49), retargeted IN PLACE with no new
+    # check(...) call: the module gains a battery LIFE estimate, and its
+    # exclusivity is the same rule as the percentage's for the same
+    # reason. A days-remaining figure derived in a page module is
+    # exactly the drift 19-01 created this module to prevent — and it
+    # would be worse than a second percentage, because the two would
+    # disagree about how long the user has rather than about a
+    # rounding.
+    _BATTERY_LIFE_HOMES = {
+        "companion/battery.py": ("battery_life_estimate",),
+    }
+    _BATTERY_LIFE_NAME_RE = re.compile(
+        r"battery_life|life_estimate|days_remaining|days_left|_life_days")
 
     def _battery_estimate_has_exactly_one_home():
         constant_tail = re.compile(r"BATTERY_(FULL|EMPTY)_MV$")
@@ -3719,6 +4029,17 @@ def main():
                     return False, (
                         "%s defines %s() — a second battery estimate. Every companion-side "
                         "caller reaches the one estimate through companion/battery.py."
+                        % (path, name))
+            # The LIFE estimate's own exclusivity, on the same terms.
+            for match in re.finditer(r"(?m)^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)", code):
+                name = match.group(1)
+                if not _BATTERY_LIFE_NAME_RE.search(name):
+                    continue
+                if name not in _BATTERY_LIFE_HOMES.get(path, ()):
+                    return False, (
+                        "%s defines %s() — a second battery-LIFE computation. The one estimate "
+                        "lives in companion/battery.py, and two surfaces disagreeing about how "
+                        "long the user has is worse than two disagreeing about a rounding."
                         % (path, name))
             # The third net, and the only one that catches a copy made
             # under NEW names: the two millivolt endpoints appearing
@@ -3881,7 +4202,7 @@ def main():
         # all: the drawing arrives complete in the first response and
         # paints with scripts blocked. The page shell's own deferred-script
         # count is pinned separately and unchanged by this phase — see
-        # _fourteen_deferred_scripts_before_closing_body() below, which
+        # _fifteen_deferred_scripts_before_closing_body() below, which
         # this phase does not move.
         samples = [
             draw.rect(draw.DRAWING_AXIS_CLASS, 0, "100%", 1, 4),
@@ -4710,6 +5031,105 @@ def main():
             "gate is CSS-only, on the Airlines trigger's own rule (quick task 260902-tli)",
             _panel_lookup_script_es5_safe_and_no_html_write)
 
+        def _panel_lookup_drop_handling_writes_the_form_s_own_input_and_no_canvas():
+            # 25-07-PLAN.md Task 2 (CFG-51/D19). This check exists for
+            # an ABSENCE, which is unusual enough to state plainly: the
+            # plan's central constraint is that no client-side crop was
+            # written, and an absence is precisely what a reviewer stops
+            # noticing after the diff that introduced it scrolls away.
+            #
+            # companion/illustration_normalize.py's own docstring records
+            # that a SECOND, differently-thresholded measurement silently
+            # drifting from the first is the debug session that created
+            # it, and that the module "must never become a second
+            # implementation for that same measurement to drift against".
+            # A browser-side crop is that second implementation, in a
+            # language the server cannot check.
+            js_path = os.path.join(HERE, "static", "panel-lookup.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            # Scanned over the WHOLE source, comments included, on
+            # purpose: a comment naming one of these is a reader being
+            # told the file does something it must not, and the file's
+            # own prose is written to avoid every one of them.
+            for token in ("getContext", "drawImage", "toBlob", "toDataURL",
+                          "OffscreenCanvas", "createImageBitmap"):
+                if token in src:
+                    return False, (
+                        "panel-lookup.js names %r — no canvas API may appear in this file. The "
+                        "crop belongs to companion/illustration_normalize.py alone, whose own "
+                        "docstring forbids a second implementation of the measurement it owns"
+                        % (token,))
+            # The object URL the plan originally called for is absent
+            # too, and for a measured reason: this app's own
+            # Content-Security-Policy is img-src 'self' data:, under
+            # which Chromium refuses a blob: image outright. The preview
+            # is a data: URL, which that policy already allows for the
+            # inline favicon, so no security header was widened for a
+            # thumbnail.
+            if "createObjectURL" in src:
+                return False, (
+                    "panel-lookup.js names createObjectURL — an object URL is a blob: URL, and "
+                    "this app's Content-Security-Policy (img-src 'self' data:) blocks a blob: "
+                    "image. Either the preview is broken or the policy was widened for it")
+            # THE MECHANISM, pinned from both ends. The drop must reach
+            # the server through the form's OWN input, never through a
+            # second request this file makes itself.
+            if "input.files = transfer.files" not in src:
+                return False, (
+                    "panel-lookup.js never assigns a DataTransfer's files to the form's own file "
+                    "input — that assignment IS the design: it is what makes a dropped file and "
+                    "a picked file travel one path, with one size cap and one parser")
+            if src.count("new DataTransfer()") != 1:
+                return False, (
+                    "expected exactly one `new DataTransfer()` in panel-lookup.js, got %d — two "
+                    "would be two ways into the same input" % src.count("new DataTransfer()"))
+            # ONE VALIDATOR, TWO CALLERS. This is the whole answer to
+            # "can the drop path and the picker path diverge?": they
+            # cannot, because neither has a validation branch of its
+            # own. A second definition, or a caller that skips it, is
+            # the defect this clause catches.
+            if src.count("function uploadRefusal(") != 1:
+                return False, (
+                    "expected exactly one uploadRefusal() definition in panel-lookup.js, got %d — "
+                    "the drop path and the picker path must share ONE validator or they can "
+                    "disagree about what is acceptable" % src.count("function uploadRefusal("))
+            # `= uploadRefusal(...)`, never a bare `uploadRefusal(...)`:
+            # the DEFINITION line matches the bare form too, so the
+            # first version of this clause counted three and failed a
+            # correct implementation.
+            callers = re.findall(r"= uploadRefusal\(zone, files\);", src)
+            if len(callers) != 2:
+                return False, (
+                    "expected uploadRefusal() to be called exactly twice (once from the drop "
+                    "path, once from the picker path), got %d — a path that reaches the input "
+                    "without passing through it is a path that validates differently"
+                    % (len(callers),))
+            # The refusal precedes the assignment, textually, in the
+            # drop path. A courtesy applied after the file is already in
+            # the input is not a courtesy.
+            if src.index("var refusal = uploadRefusal(zone, files);") \
+                    > src.index("input.files = transfer.files"):
+                return False, (
+                    "panel-lookup.js assigns the dropped file BEFORE consulting the validator — "
+                    "the refusal has to happen first or it refuses nothing")
+            # And the drop refuses a synthetic event, the same exposure
+            # 25-01's value-controls.js closes for its own control.
+            if "if (!evt.isTrusted)" not in src:
+                return False, (
+                    "panel-lookup.js's drop handler does not refuse an untrusted event — a script "
+                    "running in this document could otherwise dispatch a drop carrying a "
+                    "DataTransfer it built itself")
+            return True, ""
+        check(
+            "panel-lookup.js's drop handling names NO canvas API and no object URL, assigns the "
+            "dropped file to the form's own <input type=\"file\"> through exactly one `new "
+            "DataTransfer()` (so dropped and picked bytes travel one path, with one size cap and "
+            "one parser), routes BOTH the drop and the picker through exactly one shared "
+            "uploadRefusal() called exactly twice, consults it BEFORE assigning, and refuses an "
+            "untrusted drop event (CFG-51/D19, 25-07-PLAN.md Task 2)",
+            _panel_lookup_drop_handling_writes_the_form_s_own_input_and_no_canvas)
+
         def _panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard():
             # new (quick task 260903-btu): pins the single line that
             # keeps History's lightbox alive. Moving the optional
@@ -5059,7 +5479,7 @@ def main():
             "=>/ let / const  (21-03-PLAN.md Task 2)",
             _real_get_flight_rows_route_serves_expected_body)
 
-        def _fourteen_deferred_scripts_before_closing_body():
+        def _fifteen_deferred_scripts_before_closing_body():
             # Retargeted in place from _ten_deferred_scripts_before_
             # closing_body() (21-03-PLAN.md Task 2, D-15/R-12):
             # flight-rows.js was the eleventh unconditional script.
@@ -5087,24 +5507,37 @@ def main():
             # Frame strip's two; Device carries the LED switch's own
             # sibling form), so a per-page include would enumerate a set
             # that is already going to grow.
+            # Retargeted a FIFTH time, in place, by 25-01-PLAN.md Task 1
+            # (CFG-46): value-controls.js is the fifteenth, and it is
+            # shell-registered rather than per-page because its two
+            # known consumers live on two DIFFERENT settings pages
+            # (25-04's quiet-hours dial on Device, 25-05's
+            # wake-interval slider) and the set is expected to grow —
+            # the same delegated-document-level-listener shape as the
+            # three above. THIS IS THE ONLY TIME PHASE 25 MOVES THIS
+            # NUMBER: the phase adds exactly one script, and the four
+            # control plans that follow add markup and checks against
+            # it, never a second file. A later plan finding itself
+            # wanting to move this pin has left 25-RESEARCH.md's
+            # Decision 1 and must say so in its own SUMMARY.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 14:
-                return False, "expected exactly 14 deferred <script src= tags before </body>, got %d" % count
+            if count != 15:
+                return False, "expected exactly 15 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
                     layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
                     layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC,
                     layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
-                    layout.QUICK_SWITCH_SCRIPT_SRC):
+                    layout.QUICK_SWITCH_SCRIPT_SRC, layout.VALUE_CONTROLS_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
-            # 22-13-PLAN.md Task 2 (X3): the app has FIFTEEN static
-            # scripts as of 23-07, but an authenticated page still loads
-            # exactly the fourteen above — login-card.js is emitted by
-            # login_shell() alone. Asserted here, in the check that
+            # 22-13-PLAN.md Task 2 (X3): the app has SEVENTEEN static
+            # scripts as of 25-01, but an authenticated page still loads
+            # exactly the fifteen above — login-card.js is emitted by
+            # login_shell() alone, and battery-trend.js is per-page. Asserted here, in the check that
             # already owns this count, so "the authenticated page's
             # script count is unchanged" is pinned by the same machine
             # that pins the count itself rather than by inspection.
@@ -5119,26 +5552,28 @@ def main():
             login = layout.login_shell("<p>login</p>")
             for shell_only in (layout.SUBMIT_GUARD_SCRIPT_SRC,
                                layout.RELATIVE_TIME_SCRIPT_SRC,
-                               layout.QUICK_SWITCH_SCRIPT_SRC):
+                               layout.QUICK_SWITCH_SCRIPT_SRC,
+                               layout.VALUE_CONTROLS_SCRIPT_SRC):
                 if shell_only in login:
                     return False, (
                         "%s is registered on the authenticated shell only — the login shell "
                         "keeps emitting exactly one deferred script (22-15-PLAN.md Task 3, "
-                        "23-05-PLAN.md Task 1, 23-07-PLAN.md Task 1)" % shell_only)
+                        "23-05-PLAN.md Task 1, 23-07-PLAN.md Task 1, 25-01-PLAN.md Task 1)"
+                        % shell_only)
             if login.count('<script src=') != 1:
                 return False, (
                     "expected the login shell to keep emitting exactly one deferred script, "
                     "got %d" % login.count('<script src='))
             return True, ""
         check(
-            "a rendered authenticated page contains exactly fourteen deferred <script src= tags "
+            "a rendered authenticated page contains exactly fifteen deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
             "poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js, "
-            "submit-guard.js, relative-time.js and quick-switch.js — and NOT login-card.js, which "
-            "login_shell() alone emits, nor submit-guard.js/relative-time.js/quick-switch.js on "
-            "that login shell, which still emits exactly one (retargeted in place by "
-            "23-07-PLAN.md Task 1)",
-            _fourteen_deferred_scripts_before_closing_body)
+            "submit-guard.js, relative-time.js, quick-switch.js and value-controls.js — and NOT "
+            "login-card.js, which login_shell() alone emits, nor submit-guard.js/"
+            "relative-time.js/quick-switch.js/value-controls.js on that login shell, which still "
+            "emits exactly one (retargeted in place by 25-01-PLAN.md Task 1)",
+            _fifteen_deferred_scripts_before_closing_body)
 
         def _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard():
             # T14 (22-AUDIT.md, 22-15-PLAN.md Task 3). One shared guard
@@ -5688,6 +6123,981 @@ def main():
             "the Python that defines it, pinned in one place so a rename on any one side fails "
             "rather than silently disabling the D1-races-D2 rule (T-23-26, 23-07-PLAN.md Task 1)",
             _quick_switch_pending_marker_is_layouts_own_name)
+
+        # --- 25-01-PLAN.md Task 1 (CFG-46): value-controls.js, the
+        # FIFTEENTH deferred script on this shell and the seventeenth
+        # static script in the tree — and the ONLY new script Phase 25
+        # is allowed. The same five-check registration block
+        # quick-switch.js already carries, plus the one pin that is this
+        # file's own specific risk: it must wake the save bar through
+        # the ONE mechanism dirty-state.js actually listens for, because
+        # a control that changes a value without waking the save bar
+        # silently loses the user's edit.
+
+        check(
+            "GET /static/value-controls.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/value-controls.js"))
+
+        def _value_controls_script_es5_safe_and_never_holds_the_value():
+            js_path = os.path.join(HERE, "static", "value-controls.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            # No reviewed exception of any kind here. Unlike
+            # freshness.js's loop, relative-time.js's timer and
+            # quick-switch.js's fetch, this file makes no network call,
+            # runs no timer and takes no navigation — it reads
+            # attributes, writes one input value and paints one wrapper.
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(",
+                "XMLHttpRequest", "fetch(", "setInterval", "setTimeout",
+                "location.href", "location.assign", "location.replace")
+            for token in banned:
+                if token in src:
+                    return False, "value-controls.js must not contain %r" % token
+            required = (
+                "preventDefault", "getAttribute", "dispatchEvent",
+                "aria-valuenow", "aria-valuetext", "parseFloat",
+                "Math.round", "Math.max", "Math.min")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in value-controls.js" % token
+            # POINT 2 OF THE NO-JS CONTROL CONTRACT, PINNED BY SHAPE.
+            # "The enhancement writes into that control; it never holds
+            # the value." The only place this file may write a value is
+            # the native input's own `.value`, and the control's current
+            # state must be read back off that same input — so there is
+            # nothing for a later paint to be fed from except the field
+            # the form actually posts. A SECOND assignment is a parallel
+            # copy; ZERO reads means the paint is fed from somewhere
+            # else. Boundary-guarded on the left so a hyphenated or
+            # dotted longer name cannot satisfy either half.
+            value_writes = re.findall(r"(?<![-\w.])\w+\.value\s*=(?!=)", src)
+            if len(value_writes) != 1:
+                return False, (
+                    "expected exactly ONE assignment to a `.value` in value-controls.js (the "
+                    "write into the native input the form posts), found %d: %r — a second one "
+                    "is a parallel copy of a value this file is forbidden to hold"
+                    % (len(value_writes), value_writes))
+            # 25-05-PLAN.md Task 2 (CFG-49): THE COUNT ALONE STOPPED
+            # BEING THE WHOLE PROPERTY, AND SAYING SO HERE IS THE POINT.
+            # That single assignment now lives inside a write helper with
+            # TWO callers: the native input the form posts, and a MIRROR
+            # (25-05's nameless <input type="range">, which posts
+            # nothing). Funnelling both through one helper would satisfy
+            # the count above while quietly reopening exactly what it
+            # guards, so the shape is pinned instead of the arithmetic:
+            # the write lives in writeValue(), the field write goes
+            # through it, and the mirror write goes through it FROM
+            # INSIDE paint() — i.e. strictly downstream of a value read
+            # back off the field. A mirror written anywhere else would be
+            # a second source of truth whatever the count said.
+            if not re.search(r"function writeValue\(el, text\)", src):
+                return False, (
+                    "value-controls.js's one `.value` assignment is not inside writeValue() — "
+                    "the single write helper is what makes 'one assignment' a shape rather than "
+                    "a coincidence")
+            for caller, why in (
+                    ("writeValue(field,", "the native input the form posts"),
+                    ("writeValue(mirrorFor(wrapper),",
+                     "the mirror, which posts nothing and is written only from paint()")):
+                if src.count(caller) != 1:
+                    return False, (
+                        "expected exactly one `%s` in value-controls.js (%s), found %d"
+                        % (caller, why, src.count(caller)))
+            paint_at = src.index("function paint(wrapper, bounds, value)")
+            mirror_at = src.index("writeValue(mirrorFor(wrapper),")
+            steer_at = src.index("function steer(wrapper, raw)")
+            if not paint_at < mirror_at < steer_at:
+                return False, (
+                    "the mirror write is not inside paint() (paint at %d, write at %d, steer at "
+                    "%d) — written anywhere else it stops being downstream of the field and "
+                    "becomes a second value" % (paint_at, mirror_at, steer_at))
+            if not re.search(r"(?<![-\w.])field\.value(?!\s*=)", src):
+                return False, (
+                    "expected value-controls.js to READ the native input back through "
+                    "`field.value` — a file that never reads the input it wrote is holding the "
+                    "value somewhere else, which is point 2 of the no-JS control contract")
+            return True, ""
+        check(
+            "value-controls.js stays ES5-safe and sink-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/XHR/fetch/timer and no "
+            "URL-taking navigation), carries the steering contract (preventDefault, "
+            "getAttribute, dispatchEvent, aria-valuenow, aria-valuetext, parseFloat and the "
+            "three Math clamps) and NEVER holds the value — exactly one `.value` assignment, "
+            "inside the one write helper, reached by exactly two callers (the native input the "
+            "form posts, and the nameless MIRROR written only from inside paint(), strictly "
+            "downstream of a read off that field), and at least one read of `field.value` back "
+            "(CFG-46, 25-01-PLAN.md Task 1; the mirror clause 25-05-PLAN.md Task 2)",
+            _value_controls_script_es5_safe_and_never_holds_the_value)
+
+        def _value_controls_script_route_src_agree():
+            import companion.app as app_module
+            if layout.VALUE_CONTROLS_SCRIPT_SRC != app_module.VALUE_CONTROLS_SCRIPT_ROUTE:
+                return False, "value-controls script route drift: %r vs %r" % (
+                    layout.VALUE_CONTROLS_SCRIPT_SRC, app_module.VALUE_CONTROLS_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.VALUE_CONTROLS_SCRIPT_SRC equals companion.app.VALUE_CONTROLS_SCRIPT_ROUTE",
+            _value_controls_script_route_src_agree)
+
+        def _value_controls_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.VALUE_CONTROLS_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one value-controls.js <script> tag "
+            "and no inline <script> without a src (D-32, 25-01-PLAN.md Task 1)",
+            _value_controls_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _real_get_value_controls_route_serves_the_registration_seam():
+            # Served over real HTTP, because a registration whose route
+            # 404s is a control that renders and does nothing — and the
+            # deferred-script count check above would still pass.
+            status, headers, body = http_request(base + "/static/value-controls.js")
+            if status != 200:
+                return False, "expected 200 from GET /static/value-controls.js, got %d" % status
+            text = body.decode("utf-8")
+            for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
+                           "=>", " let ", " const ", "`"):
+                if banned in text:
+                    return False, "did not expect %r in the served value-controls.js body" % banned
+            # THE REGISTRATION SEAM, asserted on the SERVED body. 25-04's
+            # dial and 25-05's slider opt in by writing these attributes
+            # and nothing else; a rename on the Python side alone would
+            # otherwise be a control that renders and steers nothing,
+            # invisible to every other check in this file.
+            # 25-04-PLAN.md Task 3 (CFG-48): the tenth name joins in
+            # place — VALUE_CONTROL_FORMAT_ATTR, the codec that makes
+            # this script able to steer a native <input type="time">
+            # (which holds "HH:MM" and silently discards a number) rather
+            # than only a numeric input. A seam attribute nothing pins is
+            # a seam attribute a rename can quietly break, which is the
+            # whole point of this loop.
+            # 25-05-PLAN.md Task 2 (CFG-49/CFG-52): five more join in
+            # place — the MIRROR (a native control inside the wrapper
+            # that carries the same value and posts nothing, which is
+            # what lets a real <input type="range"> be the slider
+            # instead of a re-implementation of one) and the four
+            # READOUT names (a sentence beside the control restating
+            # what its value MEANS, rewritten from a server-rendered
+            # translated template as the value moves).
+            for attr in (layout.VALUE_CONTROL_ATTR, layout.VALUE_CONTROL_FIELD_ATTR,
+                         layout.VALUE_CONTROL_FORM_ATTR, layout.VALUE_CONTROL_MIN_ATTR,
+                         layout.VALUE_CONTROL_MAX_ATTR, layout.VALUE_CONTROL_STEP_ATTR,
+                         layout.VALUE_CONTROL_HANDLE_ATTR, layout.VALUE_CONTROL_TRACK_ATTR,
+                         layout.VALUE_CONTROL_TEXT_ATTR, layout.VALUE_CONTROL_FORMAT_ATTR,
+                         layout.VALUE_CONTROL_INPUT_ATTR, layout.VALUE_CONTROL_READOUT_ATTR,
+                         layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+                         layout.VALUE_CONTROL_READOUT_SCALE_ATTR,
+                         layout.VALUE_CONTROL_READOUT_BASE_ATTR):
+                if ('"%s"' % attr) not in text:
+                    return False, (
+                        "expected the served body to name %r — the registration seam 25-04 and "
+                        "25-05 opt into by attribute, so a rename on the Python side alone is a "
+                        "control that renders and steers nothing" % attr)
+            return True, ""
+        check(
+            "a real GET of /static/value-controls.js returns 200 with the served steering body — "
+            "all FIFTEEN of layout's VALUE_CONTROL_* seam attributes named, and none of innerHTML/"
+            "insertAdjacentHTML/document.write/eval/=>/ let / const /backtick (CFG-46, "
+            "25-01-PLAN.md Task 1)",
+            _real_get_value_controls_route_serves_the_registration_seam)
+
+        def _value_controls_wakes_the_save_bar_through_dirty_states_own_listener():
+            # THE DEFECT THIS EXISTS TO CATCH: a control that changes a
+            # value without waking the save bar silently loses the
+            # user's edit — it looks saved and is not.
+            #
+            # dirty-state.js's own preset handler reaches its bar by
+            # calling a PRIVATE notifyDirty(), a closure inside that
+            # file's IIFE that a separate file cannot reach. So
+            # value-controls.js has to use the one PUBLIC surface
+            # between a control and the save bar: the DELEGATED
+            # document-level listener dirty-state.js registers. Pinned
+            # from BOTH sides, the way the PENDING_ATTR pin above is.
+            #
+            # The event name is read out of the two CONSTRUCTION sites
+            # rather than a named constant (a bare lowercase word in a
+            # named JS constant is what companion/test_i18n.py Check 6
+            # reads as untranslated copy — quick-switch.js documents the
+            # same reason for its own inline wire values). Reading both
+            # sites also pins them equal to each other, which is a real
+            # defect shape: a file whose modern branch dispatches
+            # "change" and whose legacy branch dispatches "input" wakes
+            # the save bar on one browser and loses the edit on another.
+            js_path = os.path.join(HERE, "static", "value-controls.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            modern = re.findall(r'new window\.Event\("([a-z]+)"', src)
+            legacy = re.findall(r'\.initEvent\("([a-z]+)"', src)
+            if len(modern) != 1 or len(legacy) != 1:
+                return False, (
+                    "expected value-controls.js to construct its notification exactly once each "
+                    "way — new window.Event(\"...\") for browsers that have it and "
+                    ".initEvent(\"...\") otherwise — found %r and %r" % (modern, legacy))
+            if modern[0] != legacy[0]:
+                return False, (
+                    "value-controls.js constructs %r in its modern branch and %r in its legacy "
+                    "branch — one of the two browsers would never wake the save bar"
+                    % (modern[0], legacy[0]))
+            event_name = modern[0]
+            if "bubbles: true" not in src:
+                return False, (
+                    "expected value-controls.js's notification event to be constructed as a "
+                    "BUBBLING event — dirty-state.js listens on `document`, so an event that "
+                    "does not bubble never reaches it")
+            if not re.search(r"(?<![-\w.])\w+\.dispatchEvent\(", src):
+                return False, (
+                    "expected value-controls.js to dispatch its notification — writing "
+                    "field.value alone leaves the save bar asleep and the edit unsaveable")
+            dirty_path = os.path.join(HERE, "static", "dirty-state.js")
+            with open(dirty_path) as fh:
+                dirty = fh.read()
+            listener = 'document.addEventListener("%s"' % event_name
+            if listener not in dirty:
+                return False, (
+                    "value-controls.js notifies with %r but dirty-state.js registers no "
+                    "document-level listener for it (%r not found) — the save bar would never "
+                    "wake and the user's edit would be silently lost" % (event_name, listener))
+            if "e.target.form === form" not in dirty:
+                return False, (
+                    "dirty-state.js's delegated listener no longer filters on "
+                    "`e.target.form === form` — the filter that is the only reason a "
+                    "form=-attached settings field (which is what every one of them is) reaches "
+                    "the bar at all")
+            return True, ""
+        check(
+            "value-controls.js wakes the save bar through the ONE public surface — a bubbling "
+            "event constructed identically in both its branches, whose name is dirty-state.js's "
+            "own delegated document-level listener, pinned from both sides together with that "
+            "listener's e.target.form filter, because a control that changes a value without "
+            "waking the save bar silently loses the user's edit (CFG-46, 25-01-PLAN.md Task 1)",
+            _value_controls_wakes_the_save_bar_through_dirty_states_own_listener)
+
+        # --- 25-01-PLAN.md Task 2 (CFG-46): the .js gate and the shared
+        # control vocabulary, asserted at the RULE level. Every check
+        # below reads COMMENT-STRIPPED source, because this stylesheet's
+        # comments quote the very selectors and values being measured —
+        # a raw scan would be satisfied, or broken, by a paragraph of
+        # prose. 25-02's helpers re-assert the gate's effect in a real
+        # browser once a control exists to point them at.
+
+        def _stripped_style_css():
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                return re.sub(r"/\*.*?\*/", " ", fh.read(), flags=re.DOTALL)
+
+        def _css_rule_body(css, selector):
+            """The declaration block for an EXACT selector, or None.
+
+            Boundary-guarded on both sides: `.drawing-axis` is a
+            substring of `.drawing-axis-label`, and the same trap is
+            live here — `.value-control` is a substring of
+            `.value-control__track`. The selector must be followed by
+            optional whitespace and then the opening brace, and preceded
+            by something that is not a class/identifier character.
+            """
+            match = re.search(
+                r"(?<![-\w.#:])" + re.escape(selector) + r"\s*\{([^}]*)\}", css)
+            return match.group(1) if match else None
+
+        def _css_declaration(body, prop):
+            if body is None:
+                return None
+            match = re.search(
+                r"(?<![-\w])" + re.escape(prop) + r"\s*:\s*([^;]+);", body)
+            return match.group(1).strip() if match else None
+
+        def _js_gate_hides_by_default_and_reveals_under_js():
+            # D-09'S DIRECTION, MADE A PROPERTY OF THE STYLESHEET. An
+            # affordance that cannot work without script must not render
+            # without script — and the gate has to run in THIS
+            # direction. The reverse (render by default, hide under
+            # `.js`) flashes a dead control on every single load and,
+            # worse, leaves it showing permanently whenever a script
+            # fails to run at all. `display: none` specifically, not
+            # visibility or opacity: those two leave a focusable ghost a
+            # keyboard user can tab into with scripts blocked.
+            css = _stripped_style_css()
+            base = _css_rule_body(css, ".js-gate")
+            if base is None:
+                return False, (
+                    "expected a bare `.js-gate` rule in companion/static/style.css — the "
+                    "hide-by-default half of the gate")
+            display = _css_declaration(base, "display")
+            if display != "none":
+                return False, (
+                    "the default `.js-gate` rule declares display: %r — it must be `none`, so "
+                    "the gated content is out of the LAYOUT and out of the TAB ORDER with "
+                    "scripts blocked. visibility/opacity leave a focusable ghost."
+                    % (display,))
+            revealed = _css_rule_body(css, ".js .js-gate")
+            if revealed is None:
+                return False, (
+                    "expected a `.js .js-gate` rule — without it the gate is a permanent hide "
+                    "rather than a gate")
+            revealed_display = _css_declaration(revealed, "display")
+            if revealed_display is None or revealed_display == "none":
+                return False, (
+                    "the `.js .js-gate` rule declares display: %r — the reveal half must set a "
+                    "rendering display value" % (revealed_display,))
+            # A consumer opts into its own display through
+            # `--js-gate-display`. Dropping the FALLBACK from that var()
+            # would make the reveal resolve to nothing for every
+            # consumer that never sets the property — the gate would
+            # stay shut and this check would still see a non-`none`
+            # declaration. Asserted explicitly for exactly that reason.
+            if revealed_display.startswith("var(") and "," not in revealed_display:
+                return False, (
+                    "the `.js .js-gate` reveal declares display: %r with no fallback — a "
+                    "consumer that never sets --js-gate-display would resolve to nothing and "
+                    "the gate would never open" % (revealed_display,))
+            # THE REVERSE DIRECTION, CAUGHT EXPLICITLY. A later plan
+            # writing `.js .something-gate { display: none; }` would be
+            # re-introducing the flash this class exists to remove, and
+            # every other check here would still pass.
+            for match in re.finditer(r"\.js\s+([-\w.]*gate[-\w.]*)\s*\{([^}]*)\}", css):
+                if _css_declaration(match.group(2), "display") == "none":
+                    return False, (
+                        "`.js %s` hides its gated content under the `.js` class — the gate runs "
+                        "the other way round: hidden by default, revealed under `.js`, because "
+                        "the reverse flashes a dead control on every load and shows it "
+                        "permanently when a script fails" % match.group(1))
+            return True, ""
+        check(
+            "companion/static/style.css's `.js` gate hides by default (`.js-gate { display: "
+            "none }` — out of the layout AND out of the tab order, never visibility or opacity) "
+            "and reveals under `.js`, and no gate rule anywhere runs the reverse direction, "
+            "which flashes a dead control on every load and shows it permanently when a script "
+            "fails (D-09/CFG-46, 25-01-PLAN.md Task 2)",
+            _js_gate_hides_by_default_and_reveals_under_js)
+
+        def _control_vocabulary_reuses_the_registered_hit_area_verbatim():
+            # references/control-density.md's RELOCATED touch-target
+            # category: a 22x22 visual box with a ::before at inset
+            # -11px synthesizing a real 44x44 pointer target. Two
+            # controls already carry those numbers (.copy-btn and
+            # .row-toggle, whose own comment says every value is
+            # .copy-btn's "reused verbatim rather than re-chosen"), and
+            # this phase's shared class is the third. The check is NOT
+            # "the file says 22px" — it is that the shared class's
+            # numbers EQUAL .copy-btn's own, and that the arithmetic
+            # they produce is exactly 44. A future density pass that
+            # shrinks .copy-btn and forgets this class fails here.
+            css = _stripped_style_css()
+            source_body = _css_rule_body(css, ".copy-btn")
+            shared_body = _css_rule_body(css, ".control-hit-area")
+            if source_body is None or shared_body is None:
+                return False, (
+                    "expected both a `.copy-btn` rule and a `.control-hit-area` rule in "
+                    "companion/static/style.css (found %r / %r)"
+                    % (source_body is not None, shared_body is not None))
+            # EVERY declaration the shared class carries, not a
+            # sample: a property left out of this list is a property
+            # that can drift from .copy-btn's own silently, which is the
+            # exact failure "reused verbatim" is supposed to prevent.
+            for prop in ("width", "height", "padding", "position", "display",
+                         "align-items", "justify-content", "border", "border-radius",
+                         "background"):
+                source_value = _css_declaration(source_body, prop)
+                shared_value = _css_declaration(shared_body, prop)
+                if source_value != shared_value:
+                    return False, (
+                        "`.control-hit-area` declares %s: %r but `.copy-btn` declares %r — the "
+                        "shared class reuses the registered values VERBATIM rather than "
+                        "re-choosing them" % (prop, shared_value, source_value))
+            source_before = _css_rule_body(css, ".copy-btn::before")
+            shared_before = _css_rule_body(css, ".control-hit-area::before")
+            if source_before is None or shared_before is None:
+                return False, (
+                    "expected both `.copy-btn::before` and `.control-hit-area::before` — the "
+                    "::before IS the relocated hit area; without it the control is a 22px "
+                    "target")
+            # inset alone is not enough: without `content` the
+            # pseudo-element is never generated at all, and without
+            # `position: absolute` the inset has nothing to offset
+            # from — either omission leaves a 22px target while every
+            # number in the file still reads 44.
+            for prop in ("inset", "content", "position"):
+                if _css_declaration(shared_before, prop) != _css_declaration(source_before, prop):
+                    return False, (
+                        "`.control-hit-area::before` declares %s: %r but `.copy-btn::before` "
+                        "declares %r — without all three the hit area is not synthesized at all"
+                        % (prop, _css_declaration(shared_before, prop),
+                           _css_declaration(source_before, prop)))
+            inset = _css_declaration(shared_before, "inset")
+            source_icon = _css_rule_body(css, ".copy-btn .icon")
+            shared_icon = _css_rule_body(css, ".control-hit-area .icon")
+            if source_icon is None or shared_icon is None:
+                return False, (
+                    "expected both `.copy-btn .icon` and `.control-hit-area .icon` — the 14px "
+                    "glyph scoping is part of the same register entry")
+            for prop in ("width", "height"):
+                if _css_declaration(shared_icon, prop) != _css_declaration(source_icon, prop):
+                    return False, (
+                        "`.control-hit-area .icon` declares %s: %r but `.copy-btn .icon` "
+                        "declares %r" % (prop, _css_declaration(shared_icon, prop),
+                                         _css_declaration(source_icon, prop)))
+            # The arithmetic, RECOMPUTED from the declared values rather
+            # than restated: box + |inset| on each side must land on 44.
+            box = _css_declaration(shared_body, "width")
+            box_px = float(re.sub(r"[^\d.]", "", box or "0"))
+            inset_px = abs(float(re.sub(r"[^-\d.]", "", inset or "0")))
+            if box_px + inset_px * 2 != 44.0:
+                return False, (
+                    "`.control-hit-area` synthesizes a %.1fpx hit area (%.1fpx box + %.1fpx on "
+                    "each side), not 44 — WCAG 2.5.5's AAA floor and the value the register's "
+                    "relocated category is defined by" % (box_px + inset_px * 2, box_px, inset_px))
+            # THE DRAG THAT SCROLLS THE PAGE INSTEAD. Without
+            # `touch-action: none` a pointerdown-and-drag on a touch
+            # device is claimed by the browser's own panning gesture, so
+            # value-controls.js's pointermove never fires and the
+            # control is simply immovable on a phone — with no error
+            # anywhere and every other check still green.
+            for selector in (".value-control", ".value-control__handle"):
+                body = _css_rule_body(css, selector)
+                if body is None:
+                    return False, "expected a `%s` rule in companion/static/style.css" % selector
+                if _css_declaration(body, "touch-action") != "none":
+                    return False, (
+                        "`%s` declares touch-action: %r — it must be `none`, or the browser's "
+                        "own panning gesture claims the drag and the control is immovable on "
+                        "every touch device" % (selector, _css_declaration(body, "touch-action")))
+            for selector in (".value-control", ".value-control__track"):
+                if _css_declaration(_css_rule_body(css, selector), "position") != "relative":
+                    return False, (
+                        "`%s` must be `position: relative` — it is the positioning context an "
+                        "absolutely-placed handle is measured against; without it the handle "
+                        "resolves against whatever positioned ancestor happens to be next up "
+                        "the tree" % selector)
+            if _css_declaration(_css_rule_body(css, ".value-control__handle"),
+                                "position") != "absolute":
+                return False, (
+                    "`.value-control__handle` must be `position: absolute` — a handle placed in "
+                    "normal flow cannot be moved by the --value-fraction the script writes")
+            # NO NEW COLOUR. Every declaration this task adds either
+            # names no colour at all or takes one from a token.
+            for selector in (".control-hit-area", ".control-hit-area::before", ".value-control",
+                             ".value-control__track", ".value-control__handle", ".js-gate",
+                             ".js .js-gate"):
+                body = _css_rule_body(css, selector) or ""
+                for literal in re.finditer(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", body):
+                    return False, (
+                        "`%s` introduces the colour literal %r — every colour in this file comes "
+                        "from a theme token or currentColor, or a control is correct in exactly "
+                        "one theme" % (selector, literal.group(0)))
+            return True, ""
+        check(
+            "the shared control vocabulary reuses references/control-density.md's RELOCATED "
+            "hit-area values VERBATIM from `.copy-btn` (every geometry declaration equal, the "
+            "same ::before inset, and 44px recomputed from the declared box plus inset rather "
+            "than restated), `.value-control`/`.value-control__handle` both carry `touch-action: "
+            "none` so a touch drag is not claimed by the browser's own panning gesture, and not "
+            "one added rule introduces a colour literal (CFG-46, 25-01-PLAN.md Task 2)",
+            _control_vocabulary_reuses_the_registered_hit_area_verbatim)
+
+        def _exactly_one_has_feature_query_block_survives():
+            # The file carries ONE `@supports selector(:has(*))` block
+            # and the comment above it says so. Measured on
+            # COMMENT-STRIPPED source and on the OPENING BRACE, because
+            # the raw grep the plan proposed returns five — four of them
+            # are the paragraphs that explain the rule, which is the
+            # substring trap in its other direction: prose satisfying a
+            # prose-blind scan.
+            css = _stripped_style_css()
+            blocks = re.findall(r"@supports\s+selector\(:has\(\*\)\)\s*\{", css)
+            if len(blocks) != 1:
+                return False, (
+                    "expected exactly ONE @supports selector(:has(*)) block in comment-stripped "
+                    "companion/static/style.css, found %d — a second feature query is a second "
+                    "place the no-:has() fallback story has to be reasoned about" % len(blocks))
+            return True, ""
+        check(
+            "companion/static/style.css still carries exactly ONE @supports selector(:has(*)) "
+            "block, counted on COMMENT-STRIPPED source and on the opening brace — the raw "
+            "five-line grep counts the four paragraphs that explain the rule (CFG-46, "
+            "25-01-PLAN.md Task 2)",
+            _exactly_one_has_feature_query_block_survives)
+
+        # --- 25-01-PLAN.md Task 3 (CFG-49): the battery-life estimate,
+        # in the ONE module that already owns the battery estimate.
+        # 19-01 created that module precisely to stop two surfaces
+        # computing one number; a days-remaining figure derived in a
+        # page module would be that drift again, one phase later.
+
+        def _battery_life_estimate_is_total_and_never_claims_what_it_cannot():
+            from companion import battery as battery_module
+
+            # The cadence pair is the same in every shape below, so any
+            # difference in the result is the SERIES talking, never the
+            # cadence.
+            current_s, proposed_s = 900, 1800
+
+            def est(rows, proposed=proposed_s):
+                return battery_module.battery_life_estimate(
+                    rows, current_wake_interval_s=current_s,
+                    proposed_wake_interval_s=proposed)
+
+            falling = [
+                {"ts": "2026-09-10", "battery_mv": 3900, "reading_count": 96},
+                {"ts": "2026-09-04", "battery_mv": 4020, "reading_count": 96},
+            ]
+            rising = [
+                {"ts": "2026-09-10", "battery_mv": 4000, "reading_count": 96},
+                {"ts": "2026-09-04", "battery_mv": 3700, "reading_count": 96},
+            ]
+            flat = [
+                {"ts": "2026-09-10", "battery_mv": 3900, "reading_count": 96},
+                {"ts": "2026-09-04", "battery_mv": 3900, "reading_count": 96},
+            ]
+            newest_is_none = [
+                {"ts": "2026-09-10", "battery_mv": None, "reading_count": 0},
+                {"ts": "2026-09-04", "battery_mv": 3900, "reading_count": 96},
+            ]
+            one_row = [{"ts": "2026-09-10", "battery_mv": 3900, "reading_count": 96}]
+            shapes = {
+                "empty": [],
+                "one-row": one_row,
+                "two-flat-rows": flat,
+                "falling": falling,
+                "rising": rising,
+                "newest-reading-None": newest_is_none,
+            }
+
+            # TOTALITY. Six shapes, six defined results, nothing raised.
+            results = {}
+            for name, rows in shapes.items():
+                try:
+                    results[name] = est(rows)
+                except Exception as exc:
+                    return False, "battery_life_estimate(%s) raised %r" % (name, exc)
+                if not isinstance(results[name], dict) or "trend" not in results[name]:
+                    return False, (
+                        "battery_life_estimate(%s) returned %r — every shape must return the "
+                        "same structure carrying a named trend" % (name, results[name]))
+
+            # THE TWO UNKNOWNS ARE DIFFERENT UNKNOWNS. A caller that
+            # cannot tell "the battery is unknown" from "the trend is
+            # unknown" prints the wrong sentence, which is the whole
+            # reason the state is named rather than None.
+            if results["empty"]["trend"] != battery_module.LIFE_TREND_NO_READING:
+                return False, (
+                    "an empty series must report %r, got %r"
+                    % (battery_module.LIFE_TREND_NO_READING, results["empty"]["trend"]))
+            if results["one-row"]["trend"] != battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY:
+                return False, (
+                    "a one-row series must report %r, got %r"
+                    % (battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY,
+                       results["one-row"]["trend"]))
+            if (battery_module.LIFE_TREND_NO_READING
+                    == battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY):
+                return False, (
+                    "LIFE_TREND_NO_READING and LIFE_TREND_NOT_ENOUGH_HISTORY are the same value "
+                    "(%r) — 'we have no battery reading' and 'we have a reading but cannot see a "
+                    "trend yet' are two different sentences a caller has to be able to tell "
+                    "apart" % (battery_module.LIFE_TREND_NO_READING,))
+            # A series whose newest row carries no reading still has a
+            # usable older one: the row is dropped, not the series, and
+            # the latest known level is the older row's.
+            if results["newest-reading-None"]["trend"] != (
+                    battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY):
+                return False, (
+                    "a series whose newest row has a None reading must drop that row and report "
+                    "%r off what is left, got %r"
+                    % (battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY,
+                       results["newest-reading-None"]["trend"]))
+            if results["newest-reading-None"]["latest_mv"] != 3900:
+                return False, (
+                    "expected the latest USABLE reading (3900) to survive a None newest row, "
+                    "got %r" % (results["newest-reading-None"]["latest_mv"],))
+
+            # THE RISING SERIES — the device was charged. A naive
+            # divide here yields a negative or an infinite lifetime, and
+            # both are numbers a user would act on. The honest answer is
+            # not a number at all.
+            if results["rising"]["trend"] != battery_module.LIFE_TREND_RISING:
+                return False, (
+                    "a rising series must report %r, got %r"
+                    % (battery_module.LIFE_TREND_RISING, results["rising"]["trend"]))
+            rising_days = results["rising"]["days_remaining"]
+            if rising_days is not None:
+                return False, (
+                    "a rising series returned days_remaining=%r — a charged device has a "
+                    "positive slope and there is no honest lifetime to divide out of it; the "
+                    "answer must be None, never a negative or an infinite number"
+                    % (rising_days,))
+            if results["two-flat-rows"]["trend"] != battery_module.LIFE_TREND_FLAT:
+                return False, (
+                    "a flat series must report %r, got %r"
+                    % (battery_module.LIFE_TREND_FLAT, results["two-flat-rows"]["trend"]))
+            if results["two-flat-rows"]["days_remaining"] is not None:
+                return False, (
+                    "a flat series returned days_remaining=%r — no measurable discharge means "
+                    "no lifetime can be divided out of it"
+                    % (results["two-flat-rows"]["days_remaining"],))
+
+            # THE ONE SHAPE THAT MAY STATE A FIGURE, and the figure is
+            # RECOMPUTED here from the observed series rather than
+            # restated: 4020 -> 3900 over six days is 20 mV/day, and
+            # 3900 is 600 mV above the empty endpoint, so thirty days.
+            falling_result = results["falling"]
+            if falling_result["trend"] != battery_module.LIFE_TREND_FALLING:
+                return False, (
+                    "a falling series must report %r, got %r"
+                    % (battery_module.LIFE_TREND_FALLING, falling_result["trend"]))
+            span_days = 6.0
+            slope = (4020 - 3900) / span_days
+            expected_days = int(round(
+                (3900 - battery_module.BATTERY_EMPTY_MV) / slope))
+            if falling_result["days_remaining"] != expected_days:
+                return False, (
+                    "a falling series reported days_remaining=%r; recomputed from the OBSERVED "
+                    "slope (%.1f mV/day over %.0f days, %d mV above empty) it is %d"
+                    % (falling_result["days_remaining"], slope, span_days,
+                       3900 - battery_module.BATTERY_EMPTY_MV, expected_days))
+
+            # THE OTHER EXTREME OF THE SAME BOUND. The falling case
+            # above measures a six-day span; this one measures ONE day,
+            # with a drop large enough that a span-blind implementation
+            # would happily divide it into a confident figure. A single
+            # day's difference between two daily AVERAGES is well inside
+            # this series' noise — a LiPo's terminal voltage moves with
+            # temperature and load independently of state of charge — so
+            # the honest answer is the named state, not a number.
+            # Without this the span floor is load-bearing and unchecked:
+            # lowering LIFE_MIN_OBSERVED_SPAN_DAYS to 1 would fail
+            # nothing at all.
+            one_day = est([
+                {"ts": "2026-09-10", "battery_mv": 3800, "reading_count": 96},
+                {"ts": "2026-09-09", "battery_mv": 3950, "reading_count": 96},
+            ])
+            if one_day["trend"] != battery_module.LIFE_TREND_NOT_ENOUGH_HISTORY:
+                return False, (
+                    "a 150 mV fall measured across a ONE-day span reported %r (days_remaining "
+                    "%r) — below LIFE_MIN_OBSERVED_SPAN_DAYS the answer is the named state, "
+                    "because a single day's delta between two daily averages is inside this "
+                    "series' own noise" % (one_day["trend"], one_day["days_remaining"]))
+            if one_day["days_remaining"] is not None:
+                return False, (
+                    "a one-day span produced days_remaining=%r — no figure may be emitted below "
+                    "the observed-span floor" % (one_day["days_remaining"],))
+            # And the drop floor, from the same direction: a 1 mV fall
+            # over three days divides out to roughly five years, which a
+            # reader takes as a promise. Reported FLAT, with no figure.
+            barely = est([
+                {"ts": "2026-09-10", "battery_mv": 3899, "reading_count": 96},
+                {"ts": "2026-09-07", "battery_mv": 3900, "reading_count": 96},
+            ])
+            if barely["trend"] != battery_module.LIFE_TREND_FLAT:
+                return False, (
+                    "a 1 mV fall over three days reported %r (days_remaining %r) — below "
+                    "LIFE_MIN_OBSERVED_DROP_MV nothing measurable has drained, and dividing it "
+                    "out yields a multi-year promise"
+                    % (barely["trend"], barely["days_remaining"]))
+            if barely["days_remaining"] is not None:
+                return False, (
+                    "a 1 mV fall over three days produced days_remaining=%r"
+                    % (barely["days_remaining"],))
+
+            # THE FLOOR, not only the ceiling: a series already at or
+            # below the empty endpoint has zero days left, not a
+            # negative number.
+            flat_out = est([
+                {"ts": "2026-09-10", "battery_mv": 3200, "reading_count": 96},
+                {"ts": "2026-09-04", "battery_mv": 3400, "reading_count": 96},
+            ])
+            if flat_out["days_remaining"] != 0:
+                return False, (
+                    "a series that has already fallen below the empty endpoint reported "
+                    "days_remaining=%r — the floor is zero, never a negative lifetime"
+                    % (flat_out["days_remaining"],))
+
+            # THE RELATIVE FACTOR, available in EVERY shape including
+            # the five with no absolute figure — it is arithmetic on two
+            # cadences, not on the battery, which is what lets a gauge
+            # say something true on day one.
+            for name, result in results.items():
+                if result["relative_factor"] != 2.0:
+                    return False, (
+                        "battery_life_estimate(%s) returned relative_factor=%r for 900s -> "
+                        "1800s — the factor is arithmetic on two cadences and must be available "
+                        "in every shape, including the ones with no absolute figure"
+                        % (name, result["relative_factor"]))
+            # DOUBLING THE PROPOSED CADENCE DOUBLES THE FACTOR EXACTLY.
+            # This is the property that makes the gauge's claim
+            # checkable rather than a feeling.
+            doubled = est([], proposed=proposed_s * 2)["relative_factor"]
+            if doubled != results["empty"]["relative_factor"] * 2:
+                return False, (
+                    "doubling the proposed cadence moved the relative factor from %r to %r — it "
+                    "must double exactly"
+                    % (results["empty"]["relative_factor"], doubled))
+            # A hostile or absent cadence is refused, not guessed:
+            # bools, zero, negatives and non-numerics all return None
+            # rather than a factor a caller would print.
+            for bad in (None, 0, -60, True, "900", 1.5e308):
+                hostile = battery_module.battery_life_estimate(
+                    falling, current_wake_interval_s=bad, proposed_wake_interval_s=proposed_s)
+                if hostile["relative_factor"] is not None:
+                    return False, (
+                        "a current cadence of %r produced relative_factor=%r — an unusable "
+                        "cadence has no factor, and a guessed one is a sentence the user acts on"
+                        % (bad, hostile["relative_factor"]))
+            return True, ""
+        check(
+            "companion.battery.battery_life_estimate() is TOTAL over six series shapes (empty, "
+            "one row, two flat rows, falling, RISING, and a newest row with a None reading) and "
+            "never states a figure the data cannot support: a charged device's rising slope "
+            "returns days_remaining=None rather than a negative or infinite lifetime, a flat "
+            "series returns None, an already-empty series floors at zero, the 'no reading' and "
+            "'not enough history' states are DIFFERENT named values, the falling series' figure "
+            "is recomputed from the observed slope, and the relative cadence factor is available "
+            "in all six shapes and doubles exactly when the proposed cadence doubles (CFG-49, "
+            "25-01-PLAN.md Task 3)",
+            _battery_life_estimate_is_total_and_never_claims_what_it_cannot)
+
+        def _battery_module_imports_neither_a_page_module_nor_the_server_package():
+            # companion/battery.py exists so home_page.py and
+            # health_page.py can share one estimate without either
+            # importing the other (the pages package's own rule), and it
+            # may not reach into server/ either — D-27, the same
+            # constraint server/wake.py's docstring states from the
+            # other side. Asserted by SOURCE SCAN rather than by
+            # inspection, because the module's own docstring has claimed
+            # this since 19-01 and a docstring has never stopped an
+            # import.
+            battery_path = os.path.join(HERE, "battery.py")
+            with open(battery_path) as fh:
+                tree = ast.parse(fh.read(), filename=battery_path)
+            offenders = []
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        offenders.append(alias.name)
+                elif isinstance(node, ast.ImportFrom):
+                    offenders.append(node.module or "")
+            for name in offenders:
+                root = name.split(".")[0]
+                if root in ("server",) or name.startswith("companion.pages") \
+                        or root == "pages":
+                    return False, (
+                        "companion/battery.py imports %r — this module is stdlib-only on "
+                        "purpose: it is the shared home two page modules reach instead of "
+                        "importing each other, and the server package may never be pulled into "
+                        "the web-app package (D-27)" % name)
+            return True, ""
+        check(
+            "companion/battery.py imports nothing from companion.pages and nothing from the "
+            "server package — an ast scan of the real module, not its docstring's claim "
+            "(D-27/CFG-49, 25-01-PLAN.md Task 3)",
+            _battery_module_imports_neither_a_page_module_nor_the_server_package)
+
+        # --- 25-01-PLAN.md Task 4 (CFG-46/D-09): the no-JS control
+        # contract, made EXECUTABLE. See _NO_JS_CONTROL_REGISTRY at
+        # module level for the four points it enforces and the row
+        # shape each of 25-03..25-07 appends one of.
+
+        _NAMED_ELEMENT_RE = r'<(?P<tag>[a-zA-Z][-\w]*)\b[^>]*\bname="%s"'
+
+        def _no_js_control_violation(row, fetch_page):
+            """None when `row` honours the contract, else the reason.
+
+            Split out from the check so the four fixtures below can run
+            the IDENTICAL machine over a deliberately wrong control —
+            an empty registry that merely returns True would be a guard
+            nobody has ever seen fail.
+            """
+            label = "%s (%s)" % (row["control"], row["plan"])
+            markup = row["render"]()
+            if not isinstance(markup, str):
+                return "%s: its group builder returned %r, not markup" % (label, type(markup))
+
+            # POINT 1 + POINT 2: the value is held by a NATIVE control
+            # the server emitted, not by a div wearing a name and not by
+            # a data attribute the script reads.
+            matches = list(re.finditer(_NAMED_ELEMENT_RE % re.escape(row["field"]), markup))
+            if not matches:
+                return (
+                    "%s: no element named %r appears in its group builder's own output — the "
+                    "control's value must be held by an input the SERVER renders on every "
+                    "render, or there is no way to save it with scripts blocked"
+                    % (label, row["field"]))
+            native = [m for m in matches if m.group("tag").lower() in ("input", "select")]
+            if not native:
+                return (
+                    "%s: %r is carried by <%s>, not a native <input>/<select> — a value held "
+                    "anywhere but a native form control is a value the form cannot post"
+                    % (label, row["field"], matches[0].group("tag")))
+            element = markup[native[0].start():markup.index(">", native[0].start()) + 1]
+
+            # The form association, which is what actually makes the
+            # field submit. This app's settings groups deliberately
+            # attach ACROSS the DOM via form= (a <form> cannot nest
+            # inside another <form>), so both shapes are legitimate —
+            # but which one a control uses is declared, never guessed.
+            if row["form_assoc"] == "attribute":
+                if ('form="%s"' % row["form"]) not in element:
+                    return (
+                        "%s: %r carries no form=%r — declared as a cross-DOM attachment, so "
+                        "without that attribute the field is outside every form and posts "
+                        "nowhere. Element: %s" % (label, row["field"], row["form"], element))
+            elif row["form_assoc"] == "enclosing":
+                page = fetch_page(row["page_route"])
+                if page is None:
+                    return "%s: could not fetch %r to check the enclosing form" % (
+                        label, row["page_route"])
+                open_tag = re.search(r'<form\b[^>]*\bid="%s"[^>]*>' % re.escape(row["form"]), page)
+                if not open_tag:
+                    return "%s: %s renders no <form id=%r>" % (
+                        label, row["page_route"], row["form"])
+                close_at = page.find("</form>", open_tag.end())
+                field_at = page.find('name="%s"' % row["field"], open_tag.end())
+                if field_at == -1 or close_at == -1 or field_at > close_at:
+                    return (
+                        "%s: %r is not rendered INSIDE <form id=%r> on %s — declared as an "
+                        "enclosing association, so outside that form it posts nothing"
+                        % (label, row["field"], row["form"], row["page_route"]))
+            else:
+                return "%s: unknown form_assoc %r" % (label, row["form_assoc"])
+
+            # POINT 3, AND ITS CONVERSE — WHICH IS THE DEFECT THAT
+            # ACTUALLY SHIPS. It is not enough that the gated wrapper
+            # exists somewhere inside a gate; EVERY element carrying the
+            # wrapper attribute must carry the gate class itself.
+            # A wrapper rendered outside the gate is the "renders but
+            # does nothing" control: visible with scripts blocked,
+            # inert, and competing for the user's attention with the
+            # native input that actually works.
+            gated = 0
+            for tag in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", markup):
+                text = tag.group(0)
+                if not re.search(r"(?<![-\w])%s(?![-\w])" % re.escape(row["wrapper_attr"]), text):
+                    continue
+                class_match = re.search(r'\bclass="([^"]*)"', text)
+                classes = class_match.group(1).split() if class_match else []
+                if layout.JS_GATE_CLASS not in classes:
+                    return (
+                        "%s: an element carries %s OUTSIDE the %r gate — %s. A script-only "
+                        "affordance rendered without the gate shows permanently whenever the "
+                        "script does not run, which is the control that renders and does nothing"
+                        % (label, row["wrapper_attr"], layout.JS_GATE_CLASS, text))
+                gated += 1
+            if gated == 0:
+                return (
+                    "%s: its group builder emits no element carrying %s at all — the control is "
+                    "registered but never rendered" % (label, row["wrapper_attr"]))
+            return None
+
+        def _no_js_control_contract_holds_for_every_registered_control():
+            session = _login(harness)
+            page_cache = {}
+
+            def fetch_page(route):
+                if route not in page_cache:
+                    status, _headers, body = http_request(base + route, cookie=session)
+                    page_cache[route] = body.decode("utf-8") if status == 200 else None
+                return page_cache[route]
+
+            # THE FIXTURES. Zero controls are registered today, so
+            # without these the check would pass an empty loop and prove
+            # nothing. Each fixture is built on a REAL group builder's
+            # real output, so the machine is exercised against the
+            # markup this app actually emits rather than a hand-written
+            # imitation of it.
+            gate_attr = layout.VALUE_CONTROL_ATTR
+            wrapper_ok = (
+                '<div class="value-control %s" %s %s="wake_interval_s"></div>'
+                % (layout.JS_GATE_CLASS, gate_attr, layout.VALUE_CONTROL_FIELD_ATTR))
+            wrapper_ungated = (
+                '<div class="value-control" %s %s="wake_interval_s"></div>'
+                % (gate_attr, layout.VALUE_CONTROL_FIELD_ATTR))
+            real_group = config_page.wake_interval_group(900)
+            div_instead_of_input = re.sub(
+                r'<input\b([^>]*\bname="wake_interval_s"[^>]*)>',
+                r'<div\1></div>', real_group)
+
+            def fixture(render, field="wake_interval_s"):
+                return {
+                    "control": "fixture", "plan": "25-01-PLAN.md Task 4",
+                    "wrapper_attr": gate_attr, "field": field,
+                    "form": config_page.SETTINGS_FORM_ID, "form_assoc": "enclosing",
+                    "page_route": "/device", "render": render,
+                }
+
+            good = fixture(lambda: real_group + wrapper_ok)
+            if _no_js_control_violation(good, fetch_page) is not None:
+                return False, (
+                    "the contract rejected a CORRECT control — a real server-rendered native "
+                    "input inside the settings form, with its gated wrapper carrying the gate "
+                    "class: %s" % _no_js_control_violation(good, fetch_page))
+            wrong = {
+                "a field name nothing renders":
+                    fixture(lambda: real_group + wrapper_ok, field="wake_interval_seconds"),
+                "a wrapper rendered outside the gate":
+                    fixture(lambda: real_group + wrapper_ungated),
+                "a value held by a div instead of a native input":
+                    fixture(lambda: div_instead_of_input + wrapper_ok),
+            }
+            for name, bad_row in wrong.items():
+                if _no_js_control_violation(bad_row, fetch_page) is None:
+                    return False, (
+                        "the contract ACCEPTED %s — the guard is vacuous and every control this "
+                        "phase registers would pass it" % name)
+
+            # And now the real registry, which is empty today and which
+            # each of 25-03..25-07 appends exactly one row to.
+            for row in _NO_JS_CONTROL_REGISTRY:
+                violation = _no_js_control_violation(row, fetch_page)
+                if violation is not None:
+                    return False, violation
+            return True, ""
+        check(
+            "every control in _NO_JS_CONTROL_REGISTRY holds its value in a native <input>/"
+            "<select> the server renders unconditionally, associated with the form that posts "
+            "it, with EVERY element carrying its wrapper attribute also carrying the .js-gate "
+            "class — and the machine that judges that is proven non-vacuous against four "
+            "fixtures built from real group-builder output: one correct control it must accept, "
+            "and three it must reject (a field name nothing renders, a wrapper rendered outside "
+            "the gate, and a value held by a div instead of a native input) (CFG-46/D-09, "
+            "25-01-PLAN.md Task 4)",
+            _no_js_control_contract_holds_for_every_registered_control)
+
+        def _js_gate_class_is_one_name_in_python_and_in_the_stylesheet():
+            # layout.JS_GATE_CLASS is what a page module writes; the
+            # rule that hides it lives in companion/static/style.css.
+            # A rename on either side alone is an affordance that
+            # renders permanently with scripts blocked — and nothing
+            # else in this tree would notice. Matched on a SELECTOR
+            # BOUNDARY, because a plain substring test would report
+            # `.js-gate` as resolved by a future `.js-gate-inner`.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = re.sub(r"/\*.*?\*/", " ", fh.read(), flags=re.DOTALL)
+            selector = re.compile(r"\.%s(?![-\w])" % re.escape(layout.JS_GATE_CLASS))
+            if not selector.search(css):
+                return False, (
+                    "layout.JS_GATE_CLASS is %r but companion/static/style.css declares no "
+                    "`.%s` selector on a boundary — the class a page module writes and the rule "
+                    "that hides it are two halves of one contract"
+                    % (layout.JS_GATE_CLASS, layout.JS_GATE_CLASS))
+            return True, ""
+        check(
+            "layout.JS_GATE_CLASS resolves to a real selector in companion/static/style.css on "
+            "a SELECTOR BOUNDARY — the class a page module writes and the rule that hides it "
+            "pinned as one name, because a rename on either side alone renders a script-only "
+            "affordance permanently with scripts blocked (CFG-46/D-09, 25-01-PLAN.md Task 4)",
+            _js_gate_class_is_one_name_in_python_and_in_the_stylesheet)
 
 
         # --- 23-01-PLAN.md Task 2 (D3/CFG-32): the motion budget, made

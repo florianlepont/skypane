@@ -105,6 +105,21 @@ CATALOG = {
     # `content: "Current"` in style.css that no catalogue could reach.
     "Current": "Actuel",
 
+    # --- 25-06-PLAN.md Task 2/3 (CFG-50): D5's theme carousel ---------
+    #     The disclosure's body says the one thing that matters about
+    #     it: nothing is hidden behind it. See
+    #     config_page._theme_carousel_html() for why the disclosure
+    #     governs the layout of the strip that follows it instead of
+    #     holding a second copy of the same eighteen radios.
+    "See all themes": "Voir tous les thèmes",
+    "Opening this lays all %d themes out at once. They are all in the "
+    "strip either way — it scrolls, and the arrow keys move through it.":
+        "L’ouvrir affiche les %d thèmes d’un seul coup. Ils sont de "
+        "toute façon tous dans la bande : elle défile, et les flèches "
+        "du clavier la parcourent.",
+    "Previous theme": "Thème précédent",
+    "Next theme": "Thème suivant",
+
     # --- The live theme preview above the chip grid (D-22..D-24,
     #     20-11-PLAN.md Task 2, 20-UI-SPEC.md copy table E) -------------
     "Live preview of the %s theme": "Aperçu en direct du thème %s",
@@ -114,10 +129,18 @@ CATALOG = {
 
     # --- Runway card (config_page.py's runway_fieldset()) --------------
     "Runway": "Piste",
-    "Which Orly runway the device watches. Applies on the next "
-    "scheduled poll, not immediately.":
-        "Quelle piste d’Orly l’appareil surveille. S’applique "
-        "lors de la prochaine vérification programmée, pas immédiatement.",
+    # 25-03-PLAN.md Task 1 (CFG-47): the schematic clause, because the
+    # group now draws a map. "indicatif" / "pas à l'échelle" carry the
+    # same refusal-to-claim-a-survey the English does — a French visitor
+    # given an unqualified diagram would be given a claim the drawing
+    # cannot back up.
+    "Which Orly runway the device watches. The diagram is schematic: "
+    "relative bearings only, north up, not to scale. Applies on the "
+    "next scheduled poll, not immediately.":
+        "Quelle piste d’Orly l’appareil surveille. Le schéma est "
+        "indicatif : orientations relatives seulement, nord en haut, "
+        "pas à l’échelle. S’applique lors de la prochaine vérification "
+        "programmée, pas immédiatement.",
     "Airport diagram for %s": "Schéma de l’aéroport pour %s",
 
     # --- Calendar card (config_page.py's merged calendar_group()/
@@ -196,6 +219,17 @@ CATALOG = {
     # produced now — see that module's own comment for the pattern.
     "Start": "Début",
     "End": "Fin",
+    # 25-04-PLAN.md Task 3 (CFG-48): the two quiet-hours dial handles'
+    # accessible names. Each handle is a real <button> carrying
+    # role="slider", and its aria-valuetext is the time ITSELF and
+    # nothing else (the server writes the bare "{}" token, so the script
+    # substitutes "23:00" and never a sentence) — which is why only the
+    # two names below need a French sibling and the announced value does
+    # not. Deliberately not composed from "Quiet hours" + "Start": a
+    # French accessible name is a phrase, not two catalogue keys joined
+    # with a space, and "Heures calmes Début" is not one.
+    "Quiet hours start": "Début des heures calmes",
+    "Quiet hours end": "Fin des heures calmes",
     "Night (%s–%s)": "Nuit (%s–%s)",
     "Work day (%s–%s)": "Journée de travail (%s–%s)",
     # 20-12-PLAN.md Task 1: the workday preset's own pre-baked label
@@ -241,6 +275,53 @@ CATALOG = {
         "en un coup d’œil. S’applique lors de la prochaine "
         "vérification programmée.",
     "Wake interval (seconds)": "Intervalle de réveil (secondes)",
+    # 25-05-PLAN.md Task 2 (CFG-52): the range input's OWN accessible
+    #     name. It needs one distinct from the number input's label
+    #     above — two controls sharing one accessible name is how a
+    #     screen-reader visitor loses track of which they are on.
+    "Wake interval slider": "Curseur d’intervalle de réveil",
+    # 25-05-PLAN.md Task 1 (CFG-49): the two gauges. "#" is the
+    #     quantity's place in every one of these (layout.
+    #     VALUE_CONTROL_TEXT_TOKEN) — never "%s"/"%d"/"{}", which
+    #     Check 3 of this harness scans every French render for.
+    #     The unit is "min" and the quantity is WHOLE MINUTES in
+    #     both languages, which is what keeps these sentences free
+    #     of a plural form and free of the s/m/h/d ladder — the
+    #     configured band is 1..60 minutes, so the unit never
+    #     changes mid-sweep. U+00A0 between the number and its
+    #     unit, per D-09, exactly as layout.duration_text() already
+    #     does for its own French branch.
+    "A plane reaches the frame at most # min after it passes.":
+        "Un avion apparaît sur le cadre au plus # min après son passage.",
+    # The two absolute-figure wordings, SINGULAR and PLURAL both —
+    #     a days count of 1 is reachable (a nearly empty battery)
+    #     and "1 jours" is the missing-plural defect this harness
+    #     has caught before.
+    "≈ # day of battery left at this interval, from this frame's own "
+    "recent readings.":
+        "≈ # jour d’autonomie restante à cet intervalle, d’après les "
+        "relevés récents de ce cadre.",
+    "≈ # days of battery left at this interval, from this frame's own "
+    "recent readings.":
+        "≈ # jours d’autonomie restante à cet intervalle, d’après les "
+        "relevés récents de ce cadre.",
+    "Not enough battery history yet to say how long a charge lasts — "
+    "this frame has never measured what one wake costs.":
+        "Pas encore assez d’historique de batterie pour dire combien de "
+        "temps dure une charge — ce cadre n’a jamais mesuré ce que coûte "
+        "un réveil.",
+    "While the screen is off the frame wakes every %s instead, whatever "
+    "this is set to.":
+        "Quand l’écran est éteint, le cadre se réveille toutes les %s à la "
+        "place, quel que soit ce réglage.",
+    # The relative clause names both cadences rather than a ratio, so it
+    #     carries no decimal at all — which is what keeps it out of the
+    #     French decimal-comma question entirely. "%d" is the SAVED
+    #     cadence, filled server-side; "#" is the proposed one, filled
+    #     by companion/static/value-controls.js as the slider moves.
+    "This setting wakes the frame every # min instead of every %d min.":
+        "Ce réglage réveille le cadre toutes les # min au lieu de toutes "
+        "les %d min.",
     "Uses server default": "Utilise la valeur par défaut du serveur",
     "Manual refresh": "Actualisation manuelle",
     "Manually trigger an immediate poll cycle instead of waiting for "

@@ -20,6 +20,8 @@ urllib). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_config_page.py
 """
+import ast
+import datetime
 import html
 import json
 import os
@@ -29,6 +31,8 @@ import socket
 import subprocess
 import sys
 import tempfile
+import tokenize
+import io
 import time
 import urllib.error
 import urllib.parse
@@ -40,6 +44,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import app as companion_app  # noqa: E402
+from companion import battery  # noqa: E402
+from companion import i18n  # noqa: E402
 from companion import auth  # noqa: E402
 import companion.i18n_fr as i18n_fr  # noqa: E402
 import companion.layout as layout  # noqa: E402
@@ -728,6 +734,189 @@ EXPECTED_CHECK_COUNT = 239
 # crossfade rather than around it.
 # 239 + 1 = 240, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 240
+# 25-03-PLAN.md Task 1 (CFG-47): +4 — the schematic Orly runway map. One
+# check that the drawing follows device_config.RUNWAY_IDS and nothing
+# else (proved by adding a fourth entry to the registry alone and
+# demanding a fourth radio AND a fourth strip on every map); one that
+# every strip's bearing is DERIVED from the designator in its own
+# registry label rather than pinned, including the id-first trap that
+# would draw Orly's ADP-numbered "3" at 030 while its label says 07/25,
+# a non-reciprocal pair refused, and T-25-03-D's stated fallback for an
+# entry that parses as nothing; one that the emitted markup carries no
+# colour literal, gives every shape a paint route, is aria-hidden with
+# an explicit size route, and escapes registry text (T-25-03-B); and one
+# that the CONTROL is untouched — same radiogroup ids, nothing marked
+# with nothing selected, and the three photographs still rendered from
+# the session-gated route and still on disk.
+# 240 + 4 = 244, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 244
+# 25-03-PLAN.md Task 2 (CFG-47/CFG-52): +1 — the map's paint, asserted as
+# one thing because the parts fail together. Every class the EMITTED
+# markup carries resolves to a real selector (scanned off the markup, not
+# off a constant list, with a boundary lookahead so one class is never
+# reported as resolved by a longer one's rule); every colour comes from a
+# theme token so both themes are correct from one rule; the max-width/
+# height pair that keeps an intrinsic 64px drawing inside a ~54px card at
+# the 360px floor is declared; the transition sits on the base rule and
+# spends an existing motion token; the live selected strip JOINS the ONE
+# feature query with its no-:has() fallback outside it declaring the
+# IDENTICAL paint; no accent appears anywhere in the component; and the
+# @keyframes and prefers-reduced-motion counts are pinned at the
+# baselines this plan measured before touching the file.
+# 244 + 1 = 245, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 245
+# 25-04-PLAN.md Task 1 (CFG-48): +1 — the wrapping-midnight arithmetic,
+# settled before anything is drawn. 23:00→07:00 is 480 minutes and
+# 07:00→23:00 its 960-minute complement (the pair, because 480 alone
+# passes against an implementation that always returns the shorter arc);
+# 00:00→00:01 and 23:59→00:00 are both 1; the drawn sweep is the returned
+# minute count over a lattice of pairs rather than a second computation;
+# the span's LENGTH is reconstructed from what
+# server.device_config.seconds_until_quiet_hours_end() has left at a
+# shared instant, so the dial and the server cannot drift into two
+# wrapping-window arithmetics; equal ends is the zero-width window that
+# function's own docstring calls never-active, asserted against it at
+# five instants; and every unparseable input — including "99:99", which
+# the shape regex alone accepts — returns the render-nothing signal
+# rather than raising (T-25-04-C) or fabricating a zero.
+# 245 + 1 = 246, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 246
+# 25-04-PLAN.md Task 2 (CFG-48/CFG-52): +3 — the server-drawn ring, above
+# the unchanged inputs. One check recomputes the arc from the ATTRIBUTES
+# THE SERVER EMITTED (a third of the emitted circle for 23:00→07:00 and
+# two thirds for its complement, a dash pattern that adds up to that
+# circle's own circumference, and a rotation of a quarter turn plus the
+# window's own start about its own centre — because an eight-hour arc
+# drawn from the wrong hour is the same length and a different window),
+# plus the readout against both the times and the duration at once, the
+# absence of any role="status"/aria-live region on the card (CFG-52), the
+# no-window floor (the day ring still draws, the arc and the words do
+# not) and T-25-04-B. One check holds the card's four controls as an
+# ADDITION: both time inputs keep every locked attribute and are never
+# disabled, B14's visible 24h sibling still renders beside each, the
+# three presets keep the data attributes dirty-state.js writes through,
+# the one caption keeps its computed delay sentence, the order is
+# caption → ring → presets → Start → End, and the arc echoes the
+# SUBMITTED window on a rejected save (D-07). One check holds the paint:
+# every emitted class resolves to a real boundary-anchored selector,
+# every shape has a class, an explicit fill="none" and a stroke width,
+# the canvas has viewBox/intrinsic size/aria-hidden/focusable, nothing is
+# coloured in Python, each rule paints from a theme token, no accent
+# appears anywhere, and no rule declares stroke-width in CSS where it
+# would beat the derived presentation attribute.
+# 246 + 3 = 249, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 249
+# 25-04-PLAN.md Task 3 (CFG-48/CFG-52): +2 — the two handles. One check
+# holds them as a LAYER: both are real <button type="button"> sliders
+# inside 25-01's .js gate and nowhere else (asserted in BOTH directions —
+# every element carrying the wrapper attribute carries the gate class
+# itself, AND every element carrying the handle attribute is inside a
+# wrapper, which a wrapper-only scan is blind to); each announces through
+# aria-valuetext in its own input's HH:MM rather than a minute count, and
+# the two agree; each wrapper carries layout's own steering attributes
+# including the clock codec and is painted at the fraction its input's
+# value implies; --value-fraction is pinned in all three files it travels
+# through, because it deliberately has no Python constant; the
+# aria-valuetext token is not one of the format artefacts the i18n
+# harness scans French renders for (it was "{}" and had to stop being);
+# and an end that does not parse gets no handle. One check holds the
+# geometry: the stylesheet's dial width and handle radius equal the
+# emitter's own constants, the two shared rules keep the source order
+# that makes the absolute `position` win at equal specificity, both
+# stacked layers are pointer-transparent while the handle is not, the
+# transform reads both custom properties, and no z-index re-decides the
+# document-order overlap rule.
+# 249 + 2 = 251, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 251
+# 25-05-PLAN.md Task 1 (CFG-49): +3 — D18's two gauges, and not one of
+# the three asserts that they RENDER. One holds what they may CLAIM: the
+# freshness sentence is a BOUND ("at most", rounded UP, because "at most
+# 1 min" is FALSE for a 90-second cadence) naming the same whole minutes
+# the interval implies at both ends of the configured band; the battery
+# sentence prints an absolute figure ONLY when companion/battery.py's own
+# estimate supports one — recomputed from the estimator rather than
+# restated, singular and plural both, and the fixture is checked to
+# actually produce a figure first or the clause would be vacuous — and
+# renders the NAMED "not enough history yet" state with no digit anywhere
+# in it for a RISING series (the device was charged), a one-day span and
+# an empty one. One is the source scan: no days-remaining arithmetic
+# anywhere under companion/pages/, asserted over NAME tokens so that
+# reading the estimator's own key back out of its dict (a STRING) is the
+# one permitted shape, plus the qualified-call rule and the "#" quantity
+# mark. One holds that all of this is an ADDITION: across six argument
+# shapes the <input type="number"> is byte-identical to its pre-plan
+# output — including the value-attribute guard's two directions, which
+# matter more here than on any other field, because an out-of-range value
+# on a native numeric input blocks submission of the ENTIRE Settings form.
+# 251 + 3 = 254, re-derived by RUNNING (254/254).
+EXPECTED_CHECK_COUNT = 254
+# 25-05-PLAN.md Task 2 (CFG-49/CFG-52): +2 — the gated range and the
+# seam it shares with the phase's one script. One holds what the range
+# may never become: it carries NO name (a named range would post a
+# second value for the same setting and the last to arrive would win,
+# silently), no role="slider" on top of an element that already is one,
+# bounds read from server.device_config rather than restated, a step
+# equal to the minute both gauges speak in, an accessible name of its
+# own, an aria-describedby pointing at the gauges, and no rendering at
+# all either outside 25-01's gate or without a saved interval to start
+# from — a range with no value attribute sits at the midpoint of its own
+# band, which is a number nobody chose and which one drag would save.
+# One pins the readout seam from BOTH sides, because a rename on either
+# side alone is a gauge that is correct at load and stale for ever
+# after, which no comparison against a rendered page would notice: every
+# attribute named in both files, the same CEILING in both (a floor would
+# print "at most 1 min" for a 90-second cadence, which is false), all
+# three gesture listeners standing aside for a wrapper holding a native
+# mirror, the relative clause rendering EMPTY at the saved value, and —
+# the honesty clause, made structural — no readout template containing
+# the days wording at all, so a script that only substitutes into
+# templates cannot invent a figure the server declined to state.
+# 254 + 2 = 256, re-derived by RUNNING (256/256).
+EXPECTED_CHECK_COUNT = 256
+# 25-06-PLAN.md Task 2 (CFG-50): +2 — D5's theme carousel, and neither of
+# the two is "a carousel renders". One asserts that NOTHING WAS FORKED: a
+# source scan of config_page.py finds exactly one function emitting a
+# chip <label> carrying data-preview-src (the attribute theme-preview.js
+# reads off a chip to swap the live preview, so a second renderer either
+# copies it and is caught, or silently breaks the preview for its own
+# chips), the strip keeps every class and attribute it already had and
+# gains the id its pagers name, it holds exactly len(THEME_IDS)
+# visually-hidden form-associated radios named `theme` in registry order
+# — ONE set, never the two that would put two visibly-disagreeing copies
+# of one setting in one form — no display:none appears anywhere on the
+# card, the swatch legend still renders AFTER the element carrying
+# role="radiogroup", and exactly one of the card's four grids is
+# converted. One asserts the dots row is aria-hidden, reuses the chips'
+# own swatch geometry rather than a second set of numbers, carries one
+# dot per theme in registry order painted from the registry's own
+# palette with more than one colour among them, and carries no
+# selected-state modifier at all; plus the six layout declarations the
+# strip needs and the two-part grid-blowout fix, with
+# .theme-chip--compact still declaring no selected-state rule of any
+# kind.
+# 256 + 2 = 258, re-derived by RUNNING (258/258).
+EXPECTED_CHECK_COUNT = 258
+# 25-06-PLAN.md Task 3 (CFG-50): +1 — the disclosure and the two pagers.
+# It answers the duplication question on the WHOLE rendered Display page
+# rather than on the card: exactly len(THEME_IDS) radios named `theme`,
+# so the strip and the full grid are provably one set and the page can
+# never show one setting in two places that disagree (T-25-06-B). It
+# pins the disclosure as a native <details>/<summary> and asserts NO
+# <dialog> anywhere, because a dialog has no way to open without script
+# and eighteen themes behind one is eighteen themes behind a dead
+# control. It pins the disclosure BEFORE the strip, which is not a
+# preference: the stylesheet reaches the strip through an
+# adjacent-sibling [open] rule that only matches in that order. It pins
+# both pagers inside 25-01's gate and zero pager markup outside it, each
+# with a real aria-label (they draw their arrow in CSS and have no text
+# of their own) and an aria-controls naming the strip — which is also
+# how theme-preview.js finds the element to scroll, so one contract
+# rather than two. And it asserts the script registers NO key listener
+# and calls NO preventDefault at all, because a pager capturing an arrow
+# key would take the native radiogroup selection away from the
+# scripts-blocked path that depends on it.
+# 258 + 1 = 259, re-derived by RUNNING (259/259).
+EXPECTED_CHECK_COUNT = 259
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -865,6 +1054,26 @@ def _write_device_config(state_dir, theme, tracked_runway, led_enabled=None):
         doc["led_enabled"] = led_enabled
     with open(device_config.device_config_path(state_dir), "w") as fh:
         json.dump(doc, fh)
+
+
+def _python_identifiers(path):
+    """Every NAME token in the Python file at `path`, as a set.
+
+    25-05-PLAN.md Task 1 (CFG-49). Tokenised rather than grepped, for
+    this project's own standing reason, and the tokeniser gives it for
+    free in BOTH directions: a NAME token can never come from a comment,
+    a docstring or a string literal, so the prose explaining a rule can
+    neither satisfy nor break it — and reading a key back out of a dict
+    (`estimate["days_remaining"]`) is a STRING token, which is exactly
+    the one shape a page module is allowed to use.
+    """
+    with open(path, encoding="utf-8") as fh:
+        source = fh.read()
+    names = set()
+    for token in tokenize.generate_tokens(io.StringIO(source).readline):
+        if token.type == tokenize.NAME:
+            names.add(token.string)
+    return names
 
 
 def main():
@@ -1907,6 +2116,1365 @@ def main():
     check(
         "runway_fieldset('3', images_available=('3', '06-24')) renders an <img> inside exactly those two cards, none in the third (D-05)",
         _runway_fieldset_cards_image_rendering_per_card)
+
+    # ------------------------------------------------------------------
+    # 25-03-PLAN.md Task 1 (CFG-47): the schematic Orly runway map.
+    #
+    # Four checks, and the thing they are collectively defending is that
+    # the DRAWING cannot disagree with the LABELS a visitor reads beside
+    # it. Every number in the geometry is derived from a runway
+    # designator that is already in the registry, so there is no second
+    # list of coordinates to fall out of step — and the checks below
+    # assert the derivation rather than the resulting angles, because a
+    # pinned angle is exactly the second list wearing a harness costume.
+    # ------------------------------------------------------------------
+
+    def _temporary_registry(entries):
+        """Swap device_config.RUNWAYS/RUNWAY_IDS for `entries` and put
+        them back. A context manager rather than a try/finally at four
+        call sites: this fixture mutates a module-level registry every
+        other check in this file reads, and one missed restore would
+        make an unrelated neighbour fail in a way nobody would trace
+        back to here.
+        """
+        import contextlib
+
+        @contextlib.contextmanager
+        def _swap():
+            was_runways = device_config.RUNWAYS
+            was_ids = device_config.RUNWAY_IDS
+            device_config.RUNWAYS = entries
+            device_config.RUNWAY_IDS = tuple(entries)
+            try:
+                yield
+            finally:
+                device_config.RUNWAYS = was_runways
+                device_config.RUNWAY_IDS = was_ids
+        return _swap()
+
+    def _runway_entry(label):
+        return {"label": label, "tag_text": label, "empty_heading": label}
+
+    _MAP_STRIP_ATTR = 'class="%s' % config_page.RUNWAY_MAP_STRIP_CLASS
+
+    def _runway_map_is_drawn_from_the_registry_never_a_typed_list():
+        # Every count here is len(RUNWAY_IDS), never the literal 3. The
+        # registry has held exactly three entries since Phase 6 and a
+        # harness that pinned the 3 would pass forever while the drawing
+        # silently stopped following the registry.
+        ids = device_config.RUNWAY_IDS
+        n = len(ids)
+        rendered = config_page.runway_fieldset("3")
+        radios = rendered.count('name="tracked_runway"')
+        if radios != n:
+            return False, (
+                "expected one radio per registry entry (%d), got %d" % (n, radios))
+        if rendered.count('class="visually-hidden"') < n:
+            return False, (
+                "expected every radio to keep class=\"visually-hidden\" — display:none "
+                "would drop it from the tab order and break keyboard selection")
+        if rendered.count('form="%s"' % config_page.SETTINGS_FORM_ID) < n:
+            return False, "expected every radio to keep its explicit form= association"
+        maps = rendered.count('<svg class="%s"' % config_page.RUNWAY_MAP_CLASS)
+        if maps != n:
+            return False, "expected one map per card (%d), got %d" % (n, maps)
+        # Every card draws the WHOLE airfield — n strips on each of n
+        # maps — which is what makes this a map rather than n unrelated
+        # single-strip marks. Counted on the class ATTRIBUTE prefix
+        # because "runway-map__strip--this" contains "runway-map__strip".
+        strips = rendered.count(_MAP_STRIP_ATTR)
+        if strips != n * n:
+            return False, (
+                "expected %d strips (%d cards x %d registry entries), got %d"
+                % (n * n, n, n, strips))
+        this = rendered.count(config_page.RUNWAY_MAP_THIS_STRIP_CLASS)
+        if this != n:
+            return False, (
+                "expected exactly one own-runway strip per card (%d), got %d"
+                % (n, this))
+
+        # THE MUTATION: a fourth entry, added to the registry only. If
+        # the drawing followed a typed list, this produces a fourth radio
+        # and no fourth strip.
+        grown = dict(device_config.RUNWAYS)
+        grown["09-27"] = _runway_entry("Runway 5 (09/27)")
+        with _temporary_registry(grown):
+            after = config_page.runway_fieldset("3")
+            if after.count('name="tracked_runway"') != n + 1:
+                return False, (
+                    "a fourth registry entry produced %d radios, expected %d"
+                    % (after.count('name="tracked_runway"'), n + 1))
+            if after.count('<svg class="%s"' % config_page.RUNWAY_MAP_CLASS) != n + 1:
+                return False, "a fourth registry entry produced no fourth map"
+            if after.count(_MAP_STRIP_ATTR) != (n + 1) * (n + 1):
+                return False, (
+                    "a fourth registry entry produced %d strips, expected %d — the "
+                    "drawing is following something other than the registry"
+                    % (after.count(_MAP_STRIP_ATTR), (n + 1) * (n + 1)))
+            if "rotate(90" not in after:
+                return False, (
+                    "the fourth entry's label says 09/27 and no strip is drawn at 090 — "
+                    "the drawing is not reading the designator it was given")
+        if device_config.RUNWAY_IDS != ids:
+            return False, "the registry mutation did not restore itself"
+        return True, ""
+    check(
+        "the runway map is drawn from device_config.RUNWAY_IDS and nothing else — one map per "
+        "card, one strip per registry entry on EVERY map, exactly one own-runway strip per card, "
+        "and a fourth entry added to the registry alone produces a fourth radio AND a fourth "
+        "strip on every map with no edit to runway_fieldset() (CFG-47, 25-03-PLAN.md Task 1)",
+        _runway_map_is_drawn_from_the_registry_never_a_typed_list)
+
+    def _runway_strip_bearings_come_from_the_designators():
+        # A designator IS a bearing in tens of degrees, so the drawing's
+        # angles are ASSERTED AGAINST THE LABELS rather than against
+        # pinned numbers. Both sides of every comparison below are read
+        # out of the registry at run time.
+        def designator(runway_id):
+            found = re.search(
+                r"\((\d{1,2})/(\d{1,2})\)", device_config.runway_label(runway_id))
+            if found is None:
+                return None
+            return int(found.group(1)) * 10 % 180
+
+        for runway_id in device_config.RUNWAY_IDS:
+            stated = designator(runway_id)
+            if stated is None:
+                continue
+            drawn = config_page.runway_bearing_deg(runway_id)
+            if drawn != stated:
+                return False, (
+                    "%r is labelled %r — its designator states %d degrees and the strip "
+                    "is drawn at %d"
+                    % (runway_id, device_config.runway_label(runway_id), stated, drawn))
+
+        # The relationship, not a magic number: two runways whose
+        # designators differ by 4 tens are drawn 40 degrees apart.
+        a, b = "06-24", "02-20"
+        if a in device_config.RUNWAY_IDS and b in device_config.RUNWAY_IDS:
+            expected_gap = designator(a) - designator(b)
+            drawn_gap = (config_page.runway_bearing_deg(a)
+                         - config_page.runway_bearing_deg(b))
+            if drawn_gap != expected_gap or expected_gap == 0:
+                return False, (
+                    "%r and %r are labelled %r and %r, a %d-degree difference, and are "
+                    "drawn %d degrees apart"
+                    % (a, b, device_config.runway_label(a),
+                       device_config.runway_label(b), expected_gap, drawn_gap))
+
+        # THE TRAP THIS PARSE EXISTS FOR. Orly's first entry is keyed
+        # "3" — an ADP runway NUMBER — and labelled "Runway 3 (07/25)".
+        # An id-first parse draws it at 030 while its own label says
+        # 07/25. The label is read first precisely so this cannot happen.
+        if "3" in device_config.RUNWAY_IDS:
+            if config_page.runway_bearing_deg("3") == 3 * 10:
+                return False, (
+                    "runway '3' is drawn at 030 — that is its ADP NUMBER parsed as a "
+                    "designator, and its own label says 07/25")
+        # ...and the clause above is NOT on its own enough to pin the
+        # label-before-id order, which is why this second case exists.
+        # Measured on the shipped registry: swapping the two sources
+        # changes no angle at all, because "3" parses as nothing under
+        # either order and the other two ids carry the same designators
+        # their labels do. So the order is proven on a registry where
+        # the two sources DISAGREE — a label of 07/25 against an id
+        # reading 31-13 — and the label has to win, because the label is
+        # what a visitor reads beside the drawing.
+        with _temporary_registry({"31-13": _runway_entry("Runway 9 (07/25)")}):
+            from_label = designator("31-13")
+            drawn = config_page.runway_bearing_deg("31-13")
+            if drawn != from_label:
+                return False, (
+                    "an entry keyed %r and labelled %r is drawn at %d — its LABEL states "
+                    "%d, and a drawing that contradicts the label printed beside it is "
+                    "the whole defect this parse exists to make unreachable"
+                    % ("31-13", "Runway 9 (07/25)", drawn, from_label))
+
+        # T-25-03-D: an entry carrying no parseable designator anywhere
+        # falls back to a stated angle and renders, rather than raising
+        # and taking the whole Display page down with it.
+        with _temporary_registry({"north-field": _runway_entry("The north field")}):
+            fallback = config_page.runway_bearing_deg("north-field")
+            if fallback != config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG:
+                return False, (
+                    "an unparseable entry gave %r, expected the stated fallback %r"
+                    % (fallback, config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG))
+            rendered = config_page.runway_fieldset("north-field")
+            if _MAP_STRIP_ATTR not in rendered:
+                return False, "an unparseable entry rendered no strip at all"
+        # A pair that is not reciprocal is not a designator pair: 12/2024
+        # would otherwise parse as 120 degrees.
+        with _temporary_registry({"x": _runway_entry("Rebuilt 12/19")}):
+            if config_page.runway_bearing_deg("x") != config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG:
+                return False, (
+                    "12/19 is not a reciprocal designator pair (they differ by 7, not 18) "
+                    "and was parsed as a bearing anyway")
+        return True, ""
+    check(
+        "every runway strip's bearing is DERIVED from the designator in its own registry label "
+        "(a designator is a magnetic bearing in tens of degrees) — asserted against the labels "
+        "rather than against pinned angles, with the id read only second so Orly's ADP-numbered "
+        "'3' cannot be drawn at 030 while its label says 07/25, a non-reciprocal pair refused, "
+        "and an unparseable entry falling back to a stated angle rather than raising (T-25-03-D)",
+        _runway_strip_bearings_come_from_the_designators)
+
+    def _runway_map_paints_through_classes_and_announces_nothing_twice():
+        svg = config_page.runway_map_svg("3")
+        found = re.search(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", svg)
+        if found is not None:
+            return False, (
+                "the map emits the colour %r — a colour decided in Python is correct in "
+                "ONE theme and is invisible to companion/test_contrast_check.py"
+                % (found.group(0),))
+        shapes = re.findall(
+            r"<(rect|circle|line|path|polygon|polyline|ellipse)\b([^>]*)", svg)
+        if not shapes:
+            return False, "the map emits no drawn shape at all"
+        for tag, attributes in shapes:
+            if ("class=" not in attributes and "fill=" not in attributes
+                    and "stroke=" not in attributes):
+                return False, (
+                    "the map emits a <%s> with neither a class nor an explicit "
+                    "fill/stroke — it paints SVG-default black, which is invisible "
+                    "against a dark card" % (tag,))
+        # EVERY ATTRIBUTE ASSERTION BELOW IS SCOPED TO THE OPENING <svg>
+        # TAG, and that is not tidiness. Measured on this tree: a scan
+        # over the whole markup for "width=" passes against an <svg>
+        # carrying no size at all, because every <rect> child declares
+        # its own width — so the unscoped form of this check reported a
+        # size route that was not there.
+        opening = svg[:svg.index(">") + 1]
+        # The accessible names come from the three labels, exactly as
+        # before this drawing existed; a labelled graphic would announce
+        # the runways a second time.
+        for attribute in ('aria-hidden="true"', 'focusable="false"'):
+            if attribute not in opening:
+                return False, (
+                    "expected the map's own <svg> tag to carry %s, got %r"
+                    % (attribute, opening))
+        # The size route. companion/layout.py's icon_html() docstring
+        # records what an <svg> with neither an attribute nor a CSS rule
+        # does: 300x150 and a blown layout.
+        for attribute in ("viewBox=", "width=", "height="):
+            if attribute not in opening:
+                return False, (
+                    "expected the map's own <svg> tag to carry an explicit size route "
+                    "(%s), got %r" % (attribute, opening))
+        # T-25-03-B: registry text reaching the page. The map itself
+        # interpolates no registry string at all — only integers derived
+        # from it — and the card's label text goes through escape_html().
+        hostile = 'Runway <script>"x"</script> (07/25)'
+        with _temporary_registry({"h": _runway_entry(hostile)}):
+            rendered = config_page.runway_fieldset("h")
+            if "<script>" in rendered:
+                return False, (
+                    "a registry label containing markup reached the page unescaped")
+            if "&lt;script&gt;" not in rendered:
+                return False, (
+                    "expected the hostile registry label to render escaped, not dropped")
+            if "<script>" in config_page.runway_map_svg("h"):
+                return False, "the map itself interpolated a registry label unescaped"
+        return True, ""
+    check(
+        "the runway map takes every colour from a class bound to a theme token (no literal "
+        "anywhere in its emitted markup), gives every drawn shape a paint route, carries "
+        "aria-hidden/focusable=\"false\" plus an explicit size route so it neither announces the "
+        "runways a second time nor renders at the SVG default 300x150, and escapes registry text "
+        "that reaches the page (CFG-47, T-25-03-B)",
+        _runway_map_paints_through_classes_and_announces_nothing_twice)
+
+    def _the_map_changed_the_presentation_and_not_the_control():
+        # The radiogroup's semantics are the control. This check is the
+        # one that fails if a later edit "tidies" the map by moving,
+        # renaming or re-wrapping any of them.
+        rendered = config_page.runway_fieldset("3")
+        for fragment in (
+                'role="radiogroup"',
+                'aria-labelledby="%s"' % config_page.RUNWAY_GROUP_HEADING_ID,
+                'aria-describedby="%s"' % config_page.RUNWAY_SECTION_CAPTION_ID):
+            if fragment not in rendered:
+                return False, "expected the row to keep %s" % (fragment,)
+        # Nothing selected means nothing marked. A map that defaulted to
+        # highlighting one runway would be stating a saved value the
+        # config does not hold.
+        none_selected = config_page.runway_fieldset(None)
+        if "runway-card--selected" in none_selected:
+            return False, (
+                "current_runway_id=None still marked a card selected")
+        if " checked" in none_selected:
+            return False, "current_runway_id=None still left a radio checked"
+        # ...but every card still draws its OWN runway, because that
+        # class says "this card's runway", not "the chosen runway".
+        if none_selected.count(config_page.RUNWAY_MAP_THIS_STRIP_CLASS) != len(
+                device_config.RUNWAY_IDS):
+            return False, (
+                "with nothing selected the own-runway strips vanished — that class "
+                "marks which runway a card IS, never which one is chosen")
+        # The photographs are an addition's neighbour, not its casualty.
+        empty = config_page.runway_fieldset("3", images_available=())
+        if "<img" in empty:
+            return False, "images_available=() still rendered an <img>"
+        with_images = config_page.runway_fieldset(
+            "3", images_available=device_config.RUNWAY_IDS)
+        if with_images.count("<img") != len(device_config.RUNWAY_IDS):
+            return False, (
+                "expected one <img> per available runway image, got %d"
+                % with_images.count("<img"))
+        if config_page.RUNWAY_IMAGE_ROUTE_PREFIX not in with_images:
+            return False, (
+                "expected the session-gated runway-image route to still be the src")
+        for runway_id in device_config.RUNWAY_IDS:
+            path = os.path.join(HERE, "static", "runway-%s.png" % runway_id)
+            if not os.path.exists(path):
+                return False, (
+                    "%s is gone from disk — the map is an ADDITION, and deleting real "
+                    "imagery for a schematic is irreversible in a way adding is not"
+                    % (path,))
+        return True, ""
+    check(
+        "the map changed the presentation and NOT the control — the row keeps role=\"radiogroup\" "
+        "with the same aria-labelledby/aria-describedby ids, current_runway_id=None marks nothing "
+        "selected and leaves no radio checked while every card still draws its own runway, and "
+        "the three runway photographs still render from the session-gated route and still exist "
+        "on disk (CFG-47, 25-03-PLAN.md Task 1)",
+        _the_map_changed_the_presentation_and_not_the_control)
+
+    def _runway_map_paint_resolves_and_joins_the_one_feature_query():
+        # Read directly rather than through _read_static(): that helper
+        # is defined further down this same main(), so it is unbound at
+        # the moment this check runs.
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            source = fh.read()
+        rendered = config_page.runway_fieldset("3")
+        svg = rendered[rendered.index("<svg"):rendered.index("</svg>")]
+
+        # EVERY CLASS THE MAP EMITS MUST RESOLVE TO A REAL SELECTOR,
+        # scanned off the EMITTED markup rather than off a list of
+        # constants, because the failure being defended against is a
+        # class that exists in Python and nowhere in the stylesheet — it
+        # paints nothing at all and nothing else in this codebase would
+        # notice. The boundary is a negative lookahead, not a substring
+        # test: ".runway-map__strip" is a substring of
+        # ".runway-map__strip--this" and a plain `in` would report the
+        # first as resolved by the second's rule.
+        emitted = set()
+        for attribute in re.findall(r'class="([^"]*)"', svg):
+            emitted.update(attribute.split())
+        if not emitted:
+            return False, "the emitted map carries no class at all"
+        for class_name in sorted(emitted):
+            if not re.search(r"\.%s(?![\w-])" % re.escape(class_name), source):
+                return False, (
+                    "the map emits class %r and companion/static/style.css declares no "
+                    "selector for it — a class with no rule paints nothing at all"
+                    % (class_name,))
+
+        def _body(selector):
+            if selector not in source:
+                return None, "expected style.css to declare %r" % (selector,)
+            start = source.index(selector) + len(selector)
+            return source[start:source.index("}", start)], ""
+
+        # The paint route: a theme token, never a literal, so the
+        # drawing is correct in BOTH themes from one rule.
+        for selector, token in (
+                (".runway-map__strip {", "var(--color-text)"),
+                (".runway-map__strip--this {", "var(--color-text)"),
+                (".runway-map__field {", "var(--color-border)")):
+            body, err = _body(selector)
+            if body is None:
+                return False, err
+            if token not in body:
+                return False, (
+                    "%s must take its colour from %s — a literal is correct in one theme "
+                    "only and is invisible to companion/test_contrast_check.py"
+                    % (selector, token))
+            found = re.search(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", body)
+            if found is not None:
+                return False, "%s carries the colour literal %r" % (selector, found.group(0))
+
+        # The overflow floor's DECLARED half. Three cards share one row
+        # at 360px and each content box is narrower than the map's own
+        # intrinsic 64 user units, so without these the drawing is wider
+        # than the card that holds it. The RENDERED half is measured in
+        # companion/test_browser_ux.py at 360px.
+        body, err = _body(".runway-map {")
+        if body is None:
+            return False, err
+        for declaration in ("max-width:", "height: auto;"):
+            if declaration not in body:
+                return False, (
+                    ".runway-map must declare %r — its intrinsic size is wider than a "
+                    "runway card at the 360px contract floor, and an SVG that overflows "
+                    "its card scrolls the page sideways" % (declaration,))
+
+        # The transition is on the BASE rule and nowhere else — the same
+        # discipline the card's own transition follows, and the reason
+        # the ONE feature query is separately asserted to declare none.
+        strip_body, _err = _body(".runway-map__strip {")
+        if "transition:" not in strip_body:
+            return False, (
+                ".runway-map__strip must declare the transition on its base rule, where "
+                "it animates the live selected state and its no-:has() fallback from one "
+                "declaration")
+        if "var(--motion-fast)" not in strip_body:
+            return False, (
+                "the strip's transition must spend from the existing motion tokens, not a "
+                "new duration")
+
+        # NO NEW ACCENT CONSUMER, anywhere in this component. The header
+        # comment's reservation list is exhaustive and this drawing is
+        # not on it.
+        for match in re.finditer(r"\.runway-map[^{]*\{([^}]*)\}", source):
+            if "var(--color-accent)" in match.group(1):
+                return False, (
+                    "a .runway-map rule paints accent — this component's accent budget is "
+                    "already spent on the card's border, ring, wash and check glyph, all "
+                    "four of which are on the header comment's reservation list, and a "
+                    "fifth would be a broadening of an exhaustive list: %r"
+                    % (match.group(0)[:120],))
+
+        # CFG-52: the live selected strip JOINS the one feature query;
+        # its no-:has() fallback stays outside it; the saved-but-not-live
+        # clear joins it too. Asserted by position against the block,
+        # which is the same mechanism this file's existing :has() checks
+        # use.
+        supports_marker = "@supports selector(:has(*)) {"
+        if source.count(supports_marker) != 1:
+            return False, (
+                "expected exactly one %r block, got %d — a second block fails two named "
+                "checks and forces re-derivation of specificity arithmetic marked "
+                "verified, not to be re-derived"
+                % (supports_marker, source.count(supports_marker)))
+        supports_idx = source.index(supports_marker)
+        for selector, inside in (
+                (".runway-card:has(input:checked) .runway-map__strip--this {", True),
+                (".runway-card--selected .runway-map__strip--this {", False),
+                (".runway-card--selected:not(:has(input:checked)) "
+                 ".runway-map__strip--this {", True)):
+            body, err = _body(selector)
+            if body is None:
+                return False, err
+            at = source.index(selector)
+            if inside and at < supports_idx:
+                return False, "expected %r to live inside the feature query" % (selector,)
+            if not inside and at > supports_idx:
+                return False, "expected %r to live outside the feature query" % (selector,)
+            if "var(--color-accent)" in body:
+                return False, "%r must stay accent-free" % (selector,)
+        # Parity: the live rule and its no-:has() fallback must paint the
+        # SAME thing, or a browser without :has() renders a different
+        # selected card — the identical contract T6 already holds for the
+        # border, the ring, the wash and the scale.
+        live, _err = _body(".runway-card:has(input:checked) .runway-map__strip--this {")
+        fallback, _err = _body(".runway-card--selected .runway-map__strip--this {")
+        if live.strip() != fallback.strip():
+            return False, (
+                "the live selected strip and its --selected fallback must declare the "
+                "same paint, got %r against %r" % (live.strip(), fallback.strip()))
+
+        # The motion budget, pinned by count. Both figures are the
+        # baselines measured on this tree before this plan touched the
+        # file; the map declares no keyframes and no per-rule
+        # reduced-motion block, which the design system records as dead
+        # code rather than a safety net.
+        keyframes = len(re.findall(r"^@keyframes\b", source, flags=re.MULTILINE))
+        if keyframes != 4:
+            return False, (
+                "expected the @keyframes count to stay at 4, got %d" % keyframes)
+        reduced = source.count("@media (prefers-reduced-motion: reduce)")
+        if reduced != 3:
+            return False, (
+                "expected the prefers-reduced-motion block count to stay at 3, got %d"
+                % reduced)
+        return True, ""
+    check(
+        "the runway map's paint resolves — every class the emitted markup carries has a real "
+        "selector, every colour comes from a theme token so both themes are correct from one "
+        "rule, the map declares the max-width/height pair that keeps its intrinsic size inside a "
+        "360px card, its transition sits on the base rule and spends an existing motion token, "
+        "and the live selected strip JOINS the one @supports selector(:has(*)) block with its "
+        "no-:has() fallback outside it declaring the identical paint — with no accent anywhere "
+        "in the component and the keyframe/reduced-motion counts unmoved (CFG-47/CFG-52)",
+        _runway_map_paint_resolves_and_joins_the_one_feature_query)
+
+    # ------------------------------------------------------------------
+    # 25-04-PLAN.md Task 1 (CFG-48): the wrapping-midnight arithmetic,
+    # settled before anything is drawn.
+    # ------------------------------------------------------------------
+
+    def _the_quiet_window_wraps_midnight_the_short_way_round():
+        """CFG-48 (25-04-PLAN.md Task 1): `quiet_window_span()` goes
+        FORWARD from start to end through midnight.
+
+        Asserted AT the boundary rather than near it, because the values
+        an `end - start` implementation gets wrong are precisely the ones
+        the device ships with: 23:00 to 07:00 is the factory default.
+        """
+        span_of = config_page.quiet_window_span
+        day = config_page.QUIET_WINDOW_MINUTES_PER_DAY
+        if day != 1440:
+            return False, "expected a 1440-minute day, got %r" % (day,)
+
+        # THE DEFAULT WINDOW, AND THE COMPLEMENT THAT PROVES DIRECTION.
+        # Asserting 480 alone passes against an implementation that
+        # returns the SHORTER of the two arcs whichever way round it was
+        # asked; the complement is what refuses that.
+        for start, end, expected in (
+                ("23:00", "07:00", 480),
+                ("07:00", "23:00", 960),
+                ("00:00", "00:01", 1),
+                ("23:59", "00:00", 1),
+                ("00:00", "23:59", 1439),
+                ("12:00", "12:00", 0)):
+            span = span_of(start, end)
+            if span is None:
+                return False, "expected %s→%s to produce a span, got None" % (start, end)
+            if span.minutes != expected:
+                return False, (
+                    "%s→%s is %d minutes forward through midnight, and quiet_window_span() "
+                    "returns %d — an `end - start` implementation returns %d here, which is the "
+                    "single most likely arithmetic defect in this control"
+                    % (start, end, expected, span.minutes,
+                       config_page.quiet_window_minute_of_day(end)
+                       - config_page.quiet_window_minute_of_day(start)))
+
+        # THE SWEEP IS THE MINUTES, NOT A SECOND COMPUTATION. Asserted
+        # over every pair above and a lattice besides, because the defect
+        # is a card that prints "8 h" beside an arc covering two thirds
+        # of the day, and two agreeing numbers for one case could be a
+        # coincidence.
+        for start_minute in range(0, 1440, 37):
+            for end_minute in range(0, 1440, 53):
+                start = "%02d:%02d" % divmod(start_minute, 60)
+                end = "%02d:%02d" % divmod(end_minute, 60)
+                span = span_of(start, end)
+                if span is None:
+                    return False, "expected %s→%s to parse" % (start, end)
+                if abs(span.sweep_fraction - span.minutes / 1440.0) > 1e-12:
+                    return False, (
+                        "%s→%s: sweep_fraction %r is not minutes/%d (%r) — the drawn arc and the "
+                        "printed duration are two computations and can disagree"
+                        % (start, end, span.sweep_fraction, day, span.minutes / 1440.0))
+                if abs(span.start_fraction - start_minute / 1440.0) > 1e-12:
+                    return False, (
+                        "%s→%s: start_fraction %r is not %r"
+                        % (start, end, span.start_fraction, start_minute / 1440.0))
+                if not (0.0 <= span.sweep_fraction < 1.0):
+                    return False, (
+                        "%s→%s: sweep_fraction %r left [0, 1)" % (start, end, span.sweep_fraction))
+        default_span = span_of("23:00", "07:00")
+        if abs(default_span.sweep_fraction - 1 / 3.0) > 1e-9:
+            return False, (
+                "the default window's sweep is %r turns, not the third of the ring 480 of 1440 "
+                "minutes is" % (default_span.sweep_fraction,))
+
+        # AGREEMENT WITH THE SERVER'S OWN AUTHORITY, ON A SHARED CASE.
+        # server.device_config.seconds_until_quiet_hours_end() is what
+        # actually decides whether the device is inside a wrapping
+        # window; this function only draws one. Pinning 480 here and
+        # trusting them to stay in step is how two wrapping-window
+        # arithmetics drift. So the span's own LENGTH is reconstructed
+        # from what the server says is left at a shared instant.
+        #
+        # BOTH SIDES OF MIDNIGHT, AND THAT IS NOT BELT-AND-BRACES.
+        # seconds_until_quiet_hours_end() answers a wrapping window
+        # through TWO different branches — one for an instant after the
+        # start and before midnight, one for an instant after midnight
+        # and before the end — and a probe taken only after midnight
+        # leaves the first branch unexercised. Measured: mutating that
+        # branch's `timedelta(days=1)` to `days=2` changed nothing here
+        # until this clause grew its before-midnight probes.
+        #
+        # Times are Europe/Paris in mid-January, which is UTC+1.
+        for start, end, utc_hm, local_minute in (
+                ("23:00", "07:00", (1, 0), 2 * 60),
+                ("23:00", "07:00", (22, 30), 23 * 60 + 30),
+                ("22:30", "06:15", (23, 0), 0),
+                ("22:30", "06:15", (21, 45), 22 * 60 + 45),
+                ("01:00", "03:00", (1, 0), 2 * 60)):
+            now_utc = datetime.datetime(
+                2026, 1, 15, utc_hm[0], utc_hm[1], tzinfo=datetime.timezone.utc)
+            span = span_of(start, end)
+            remaining = device_config.seconds_until_quiet_hours_end(now_utc, start, end)
+            if remaining is None:
+                return False, (
+                    "expected server.device_config to place local %02d:%02d inside %s→%s"
+                    % (local_minute // 60, local_minute % 60, start, end))
+            elapsed = (local_minute - config_page.quiet_window_minute_of_day(start)) % 1440
+            if remaining != (span.minutes - elapsed) * 60:
+                return False, (
+                    "the dial and server.device_config disagree about %s→%s: the server has %d "
+                    "seconds left at local %02d:%02d, and the dial's %d-minute span with %d "
+                    "minutes elapsed implies %d"
+                    % (start, end, remaining, local_minute // 60, local_minute % 60,
+                       span.minutes, elapsed, (span.minutes - elapsed) * 60))
+
+        # EQUAL ENDS IS ZERO, AND THE SERVER SAYS SO TOO. Its own
+        # docstring calls a zero-width window "never active, and that is
+        # intentional rather than a bug to 'fix' into an always-active
+        # window" — so this is agreement, not a number chosen here.
+        zero = span_of("23:00", "23:00")
+        if zero.minutes != 0 or zero.sweep_fraction != 0.0:
+            return False, (
+                "expected equal ends to be a ZERO-length window (the reading "
+                "seconds_until_quiet_hours_end() implies), got %r" % (zero,))
+        for instant_hour in (0, 2, 12, 22, 23):
+            probe = datetime.datetime(
+                2026, 1, 15, (instant_hour - 1) % 24, 0, tzinfo=datetime.timezone.utc)
+            if device_config.seconds_until_quiet_hours_end(probe, "23:00", "23:00") is not None:
+                return False, (
+                    "server.device_config reports 23:00→23:00 ACTIVE at local %02d:00, so the "
+                    "zero reading above no longer agrees with it — one of the two has changed "
+                    "its mind about a zero-width window" % instant_hour)
+
+        # THE RENDER-NOTHING SIGNAL. None, never an exception (T-25-04-C:
+        # the Display page renders this) and never a zero, which would
+        # draw a real, empty window and claim one is configured.
+        for hostile in ("", None, "7:00", "0700", "99:99", "24:00", "23:60", "ab:cd",
+                        "23:00 ", 5, True, object(), "<b>23:00</b>"):
+            if span_of(hostile, "07:00") is not None:
+                return False, (
+                    "expected quiet_window_span(%r, '07:00') to be None — the render-nothing "
+                    "signal, not a fabricated window" % (hostile,))
+            if span_of("23:00", hostile) is not None:
+                return False, (
+                    "expected quiet_window_span('23:00', %r) to be None" % (hostile,))
+            if config_page.quiet_window_minute_of_day(hostile) is not None:
+                return False, (
+                    "expected quiet_window_minute_of_day(%r) to be None" % (hostile,))
+
+        # ONE PARSE DISCIPLINE. Anything the dial is willing to DRAW, the
+        # B14 24h sibling must be willing to PRINT — a value that reaches
+        # the arc but not the text is a card whose picture and whose
+        # words disagree about what is stored.
+        for value in ("00:00", "07:00", "23:59", "12:34", "99:99", "7:00", "", "24:00"):
+            if config_page.quiet_window_minute_of_day(value) is not None \
+                    and config_page._normalised_time_html(value) == "":
+                return False, (
+                    "quiet_window_minute_of_day(%r) parses but _normalised_time_html(%r) renders "
+                    "nothing — the arc and B14's visible 24h sibling have drifted into two parse "
+                    "disciplines" % (value, value))
+        return True, ""
+    check(
+        "the quiet window's span goes FORWARD through midnight — 23:00→07:00 is 480 minutes and "
+        "07:00→23:00 its 960-minute complement, 00:00→00:01 and 23:59→00:00 are both 1, the "
+        "drawn sweep is the returned minute count and never a second computation, the span's "
+        "length is reconstructed from what server.device_config.seconds_until_quiet_hours_end() "
+        "has left at a shared instant rather than pinned, equal ends is the zero-width window "
+        "that server's own docstring calls never-active, and every unparseable input returns the "
+        "render-nothing signal rather than raising or fabricating a zero "
+        "(CFG-48, 25-04-PLAN.md Task 1)",
+        _the_quiet_window_wraps_midnight_the_short_way_round)
+
+    # ------------------------------------------------------------------
+    # 25-04-PLAN.md Task 2 (CFG-48): the server-drawn ring, above the
+    # unchanged inputs.
+    # ------------------------------------------------------------------
+
+    _DIAL_CIRCLE_RE = re.compile(r"<circle\b[^>]*/>")
+
+    def _dial_circle(markup, class_name):
+        """The one `<circle>` in `markup` carrying exactly `class_name`,
+        as a dict of its attributes, or None.
+
+        Matched on a whole `class="..."` ATTRIBUTE rather than a
+        substring, because this component's day-ring class is not a
+        prefix of its arc's but a substring test is how a check comes to
+        count two shapes as one anyway.
+        """
+        for tag in _DIAL_CIRCLE_RE.finditer(markup):
+            attrs = dict(re.findall(r'([a-zA-Z-]+)="([^"]*)"', tag.group(0)))
+            if attrs.get("class") == class_name:
+                return attrs
+        return None
+
+    def _the_ring_draws_the_saved_window_from_the_emitted_attributes():
+        """CFG-48 (25-04-PLAN.md Task 2): the arc's DRAWN length,
+        recomputed from the attributes the server emitted rather than
+        from the input that produced them.
+
+        Recomputing from the input would pass against an emitter that
+        ignored its own arithmetic entirely and drew a fixed arc.
+        """
+        import math
+        for start, end, expected_turns in (
+                ("23:00", "07:00", 1 / 3.0),
+                ("07:00", "23:00", 2 / 3.0),
+                ("00:00", "06:00", 0.25),
+                ("23:59", "00:00", 1 / 1440.0)):
+            markup = config_page.quiet_hours_group(start, end)
+            day = _dial_circle(markup, config_page.QUIET_DIAL_DAY_CLASS)
+            arc = _dial_circle(markup, config_page.QUIET_DIAL_ARC_CLASS)
+            if day is None:
+                return False, "%s→%s: the dial emits no full-day ring at all" % (start, end)
+            if arc is None:
+                return False, "%s→%s: the dial emits no quiet arc" % (start, end)
+            if day["r"] != arc["r"] or day["cx"] != arc["cx"] or day["cy"] != arc["cy"]:
+                return False, (
+                    "%s→%s: the arc is not drawn on the day ring — day %r, arc %r"
+                    % (start, end, day, arc))
+            circumference = 2 * math.pi * float(arc["r"])
+            drawn = float(arc["stroke-dasharray"].split()[0])
+            gap = float(arc["stroke-dasharray"].split()[1])
+            if abs(drawn + gap - circumference) > 0.01:
+                return False, (
+                    "%s→%s: the dash pattern %r does not add up to the circumference %.4f of the "
+                    "r=%s circle it is painted on" % (start, end, arc["stroke-dasharray"],
+                                                      circumference, arc["r"]))
+            if abs(drawn / circumference - expected_turns) > 1e-4:
+                return False, (
+                    "%s→%s draws %.4f of the ring, not the %.4f its %d-minute span asks for — "
+                    "recomputed from the emitted r=%s and stroke-dasharray=%r"
+                    % (start, end, drawn / circumference, expected_turns,
+                       config_page.quiet_window_span(start, end).minutes,
+                       arc["r"], arc["stroke-dasharray"]))
+            # WHERE THE ARC STARTS, WHICH A LENGTH CHECK IS BLIND TO. An
+            # eight-hour arc drawn from 07:00 instead of 23:00 is the
+            # same length and a different window.
+            span = config_page.quiet_window_span(start, end)
+            rotation = re.match(
+                r"rotate\((-?[\d.]+) (\d+) (\d+)\)", arc["transform"])
+            if not rotation:
+                return False, "%s→%s: unreadable arc transform %r" % (start, end, arc["transform"])
+            if abs(float(rotation.group(1)) - (-90.0 + 360.0 * span.start_fraction)) > 1e-3:
+                return False, (
+                    "%s→%s: the arc is rotated %s°, but a window starting at %.6f of the way "
+                    "round from twelve o'clock needs %.4f° (a quarter turn back from <circle>'s "
+                    "own three-o'clock dash origin, plus the window's own start)"
+                    % (start, end, rotation.group(1), span.start_fraction,
+                       -90.0 + 360.0 * span.start_fraction))
+            if (rotation.group(2), rotation.group(3)) != (arc["cx"], arc["cy"]):
+                return False, (
+                    "%s→%s: the arc rotates about %r, not its own centre %r"
+                    % (start, end, rotation.group(2, 3), (arc["cx"], arc["cy"])))
+
+        # THE READOUT SAYS WHAT THE ARC DRAWS, asserted against BOTH at
+        # once: the two times it names and the duration the span implies.
+        markup = config_page.quiet_hours_group("23:00", "07:00")
+        readout = re.search(
+            r'<p class="time-value %s"([^>]*)>([^<]*)</p>'
+            % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), markup)
+        if not readout:
+            return False, "the card renders no dial readout"
+        span = config_page.quiet_window_span("23:00", "07:00")
+        expected_text = "23:00 → 07:00 · %s" % layout.duration_text(span.minutes * 60)
+        if readout.group(2) != expected_text:
+            return False, (
+                "the readout says %r; the span it is drawn from is %d minutes, which this app's "
+                "one duration ladder names %r"
+                % (readout.group(2), span.minutes, expected_text))
+        if 'aria-hidden="true"' not in readout.group(1):
+            return False, (
+                "the readout is not aria-hidden — both time inputs already announce their own "
+                "values natively and this would say the same thing twice (%r)" % readout.group(1))
+
+        # CFG-52: NOTHING ON THIS CARD IS A LIVE REGION. Dragging fires
+        # continuously and a role="status" here would re-announce the
+        # identical phrase on every step — the defect Phase 23 hit with
+        # its three switches, and the one this plan exists to avoid.
+        for banned in ('role="status"', "aria-live", 'role="alert"', 'role="log"'):
+            if banned in markup:
+                return False, (
+                    "the Quiet hours card carries %r — the focused handle's own aria-valuetext "
+                    "is the native, debounced announcement path and a live region beside it "
+                    "re-announces the same phrase on every drag step (CFG-52)" % banned)
+
+        # THE FLOOR: NO WINDOW MEANS NO ARC AND NO WORDS, never a full
+        # ring and never a zero-length dash (which renders as a dot under
+        # a round cap and would read as "a few minutes").
+        for start, end, why in (
+                ("", "", "nothing stored"),
+                ("23:00", "", "half stored"),
+                ("99:99", "07:00", "an unparseable start")):
+            markup = config_page.quiet_hours_group(start, end)
+            if _dial_circle(markup, config_page.QUIET_DIAL_DAY_CLASS) is None:
+                return False, "%s: the full-day ring must still draw" % why
+            if _dial_circle(markup, config_page.QUIET_DIAL_ARC_CLASS) is not None:
+                return False, (
+                    "%s (%r→%r): an arc was emitted anyway — a drawn window claims one is "
+                    "configured" % (why, start, end))
+            if config_page.QUIET_DIAL_READOUT_CLASS in markup:
+                return False, "%s (%r→%r): a readout was emitted anyway" % (why, start, end)
+        zero = config_page.quiet_hours_group("23:00", "23:00")
+        if _dial_circle(zero, config_page.QUIET_DIAL_ARC_CLASS) is not None:
+            return False, (
+                "a zero-length window emitted an arc — a zero-length dash is a DOT under a round "
+                "cap, so 'no window' would read as a few minutes")
+        if config_page.QUIET_DIAL_READOUT_CLASS not in zero:
+            return False, (
+                "a zero-length window is a real, stored state (server.device_config calls it "
+                "never-active) and its readout must still say so")
+
+        # T-25-04-B: a hostile stored value reaching the arc or readout.
+        hostile = config_page.quiet_hours_group(
+            "23:00", "07:00",
+            submitted={"quiet_hours_start": '"><script>alert(1)</script>',
+                       "quiet_hours_end": "07:00"})
+        if "<script>" in hostile:
+            return False, "an unescaped <script> reached the Quiet hours card"
+        if _dial_circle(hostile, config_page.QUIET_DIAL_ARC_CLASS) is not None:
+            return False, "a value that is not a time drew an arc"
+        return True, ""
+    check(
+        "the quiet dial's arc is recomputed from the attributes the SERVER emitted — 23:00→07:00 "
+        "draws a third of the emitted circle and 07:00→23:00 its two thirds, the dash pattern "
+        "adds up to that circle's own circumference, and the arc is rotated by a quarter turn "
+        "plus the window's own start about its own centre (an eight-hour arc drawn from the "
+        "wrong hour is the same length and a different window); the readout names both times and "
+        "the duration the same span implies and is aria-hidden; nothing on the card is a "
+        "role=\"status\"/aria-live region (CFG-52); nothing stored draws no arc and no words "
+        "while the full-day ring still draws; and a hostile submitted value reaches neither "
+        "(T-25-04-B) (CFG-48, 25-04-PLAN.md Task 2)",
+        _the_ring_draws_the_saved_window_from_the_emitted_attributes)
+
+    def _the_ring_is_an_addition_and_the_four_controls_are_untouched():
+        """CFG-48 (25-04-PLAN.md Task 2): B14 has been broken once
+        already, and the two time inputs are the only controls on this
+        card a visitor can TYPE into.
+
+        The byte-identical diff against the pre-task builder was taken
+        once, by hand, across five argument shapes (recorded in the
+        SUMMARY). What lives here is the durable half: the properties
+        that diff proved, asserted in a form that keeps holding.
+        """
+        for start, end, submitted in (
+                ("23:00", "07:00", None),
+                ("08:00", "18:00", None),
+                ("", "", None),
+                ("23:00", "07:00", {"quiet_hours_start": "07:30",
+                                    "quiet_hours_end": "zz"})):
+            markup = config_page.quiet_hours_group(
+                start, end, submitted=submitted,
+                errors={"quiet_hours_end": "Bad"} if submitted else None)
+            effective_start = config_page._submitted_or_current(
+                submitted, "quiet_hours_start", start)
+            effective_end = config_page._submitted_or_current(
+                submitted, "quiet_hours_end", end)
+
+            # BOTH NATIVE TIME INPUTS, with every attribute the card's
+            # own docstring locks — and NEVER `disabled`, which
+            # 10-RESEARCH.md's Open Question 2 settled in the affirmative
+            # (a window may be pre-configured whether or not quiet hours
+            # is currently on).
+            for field, effective in (("quiet_hours_start", effective_start),
+                                     ("quiet_hours_end", effective_end)):
+                tag = re.search(r'<input type="time" name="%s"[^>]*>' % field, markup)
+                if not tag:
+                    return False, (
+                        "%r→%r: no <input type=\"time\" name=%r> — the dial is an ADDITION and "
+                        "the native input is what the form posts" % (start, end, field))
+                element = tag.group(0)
+                for needed in ('value="%s"' % escape_html(effective), " required",
+                               'lang="%s"' % prefs.current_lang(),
+                               'form="%s"' % config_page.SETTINGS_FORM_ID):
+                    if needed not in element:
+                        return False, (
+                            "%r→%r: %s lost %r — %s" % (start, end, field, needed, element))
+                if "disabled" in element:
+                    return False, (
+                        "%r→%r: %s is disabled; neither time input may ever be, whatever the "
+                        "on/off state is — %s" % (start, end, field, element))
+
+            # B14's VISIBLE 24h SIBLING, present verbatim beside each
+            # input. A browser in en-US renders the stored "23:00" as
+            # "11:00 PM" directly beside a preset labelled
+            # "Night (23:00-07:00)"; this element is the fix, and a dial
+            # that removed it would reopen a closed defect.
+            for field, effective in (("quiet_hours_start", effective_start),
+                                     ("quiet_hours_end", effective_end)):
+                sibling = config_page._normalised_time_html(effective)
+                if sibling and sibling not in markup:
+                    return False, (
+                        "%r→%r: B14's visible 24h sibling for %s (%r) is gone from the card"
+                        % (start, end, field, sibling))
+                if sibling and markup.count(sibling) < 1:
+                    return False, "%r→%r: %s's 24h sibling is not rendered" % (start, end, field)
+
+            # THE THREE PRESETS, and the data attributes dirty-state.js
+            # writes into the two fields from. The dial reads FROM those
+            # same fields, which is what makes a preset move the handles
+            # with no code at all.
+            presets = re.findall(r'<button type="button" %s[^>]*>'
+                                 % re.escape(config_page.QUIET_HOURS_PRESET_ATTR), markup)
+            if len(presets) != 3:
+                return False, (
+                    "%r→%r: expected the three presets, got %d" % (start, end, len(presets)))
+            for needed in ('data-preset-start="%s"' % config_page.QUIET_HOURS_PRESET_NIGHT_START,
+                           'data-preset-end="%s"' % config_page.QUIET_HOURS_PRESET_NIGHT_END,
+                           'data-preset-start="%s"' % config_page.QUIET_HOURS_PRESET_WORKDAY_START,
+                           'data-preset-end="%s"' % config_page.QUIET_HOURS_PRESET_WORKDAY_END,
+                           'data-preset-enabled="0"'):
+                if needed not in markup:
+                    return False, "%r→%r: the preset row lost %r" % (start, end, needed)
+
+            # THE CAPTION, INCLUDING ITS ONE COMPUTED DELAY SENTENCE, and
+            # exactly one caption element — the one-caption-per-section
+            # rule, which a drawing is the obvious way to break.
+            caption = re.search(
+                r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
+                % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), markup)
+            if not caption:
+                return False, "%r→%r: the section caption is gone" % (start, end)
+            if markup.count('class="text-label section-caption"') != 1:
+                return False, (
+                    "%r→%r: the card renders %d section captions; one section, one caption"
+                    % (start, end, markup.count('class="text-label section-caption"')))
+            if not caption.group(1).startswith(
+                    escape_html(config_page.QUIET_HOURS_SECTION_CAPTION)):
+                return False, "%r→%r: the caption's first sentence changed" % (start, end)
+            if len(caption.group(1)) <= len(escape_html(config_page.QUIET_HOURS_SECTION_CAPTION)):
+                return False, (
+                    "%r→%r: the caption lost its computed delay sentence — the SAME triple the "
+                    "Frame strip reads, never a second one computed here" % (start, end))
+
+            # THE LOCKED ORDER, AND WHERE THE RING JOINS IT. The four
+            # controls keep their positions and their adjacency; the ring
+            # is an addition between the caption and the presets, so the
+            # picture reads before the things that change it.
+            positions = [
+                ("caption", markup.index('class="text-label section-caption"')),
+                ("dial", markup.index('class="%s"' % config_page.QUIET_DIAL_CLASS)),
+                ("presets", markup.index('class="runway-row"')),
+                ("start", markup.index('name="quiet_hours_start"')),
+                ("end", markup.index('name="quiet_hours_end"')),
+            ]
+            if [name for name, _ in sorted(positions, key=lambda pair: pair[1])] != [
+                    "caption", "dial", "presets", "start", "end"]:
+                return False, (
+                    "%r→%r: the card's order is %r — 10-UI-SPEC.md locks presets, then Start, "
+                    "then End, and the ring is an addition between the caption and the presets, "
+                    "never a reordering"
+                    % (start, end, sorted(positions, key=lambda pair: pair[1])))
+
+            # NOT SIDE BY SIDE. 10-UI-SPEC.md rejects that explicitly, to
+            # keep two native time pickers from wrapping at 360px.
+            if "theme-status__row" in markup:
+                return False, "%r→%r: the two time fields were put side by side" % (start, end)
+
+        # THE D-07 ECHO, WHICH IS WHY THE ARC READS THE EFFECTIVE VALUES.
+        # On a rejected save the picture must show what the visitor
+        # submitted, not what is stored, or the two disagree on exactly
+        # the screen where a mistake is being fixed.
+        echoed = config_page.quiet_hours_group(
+            "23:00", "07:00", errors={"quiet_hours_end": "Bad"},
+            submitted={"quiet_hours_start": "09:00", "quiet_hours_end": "17:00"})
+        submitted_span = config_page.quiet_window_span("09:00", "17:00")
+        arc = _dial_circle(echoed, config_page.QUIET_DIAL_ARC_CLASS)
+        if arc is None:
+            return False, "the rejected-save render drew no arc at all"
+        drawn = float(arc["stroke-dasharray"].split()[0])
+        import math
+        if abs(drawn / (2 * math.pi * float(arc["r"])) - submitted_span.sweep_fraction) > 1e-4:
+            return False, (
+                "the rejected-save render drew %.4f of the ring; the SUBMITTED 09:00→17:00 "
+                "window is %.4f, and the stored 23:00→07:00 one is %.4f — the arc must echo the "
+                "submission, the same D-07 rule the two inputs already follow"
+                % (drawn / (2 * math.pi * float(arc["r"])), submitted_span.sweep_fraction,
+                   config_page.quiet_window_span("23:00", "07:00").sweep_fraction))
+        if "09:00 → 17:00" not in echoed:
+            return False, "the rejected-save readout does not echo the submitted window"
+        return True, ""
+    check(
+        "the ring is an ADDITION: both native <input type=\"time\"> fields keep their value/"
+        "required/lang/form attributes and are never disabled, B14's visible 24h sibling still "
+        "renders beside each, the three presets keep the data attributes dirty-state.js writes "
+        "through, the one section caption keeps its computed delay sentence, the card's order is "
+        "caption → ring → presets → Start → End with the four controls' own order and adjacency "
+        "untouched and no side-by-side row, and the arc echoes the SUBMITTED window on a "
+        "rejected save rather than the stored one (B14/D-07/CFG-48, 25-04-PLAN.md Task 2)",
+        _the_ring_is_an_addition_and_the_four_controls_are_untouched)
+
+    def _the_dials_paint_resolves_and_decides_nothing_in_python():
+        """CFG-48/CFG-52 (25-04-PLAN.md Task 2): the dial's paint,
+        asserted as one thing because the parts fail together.
+
+        A class that exists in Python and nowhere in the stylesheet
+        paints nothing at all, and nothing else in this codebase would
+        notice.
+        """
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            source = fh.read()
+        markup = config_page.quiet_hours_group("23:00", "07:00")
+        # From the dial's own opening tag to the end of its readout —
+        # the whole component, handle layer included, so a class added
+        # inside the gate is scanned on exactly the same terms as one
+        # outside it.
+        dial = markup[markup.index('<div class="%s"' % config_page.QUIET_DIAL_CLASS):]
+        dial = dial[:dial.index("</p>", dial.index(
+            config_page.QUIET_DIAL_READOUT_CLASS)) + len("</p>")]
+
+        # NO COLOUR DECIDED IN PYTHON. A literal here is correct in one
+        # theme and invisible in the other, and invisible to the contrast
+        # harness too.
+        colours = re.findall(r"#[0-9a-fA-F]{3,8}|rgba?\(", dial + " " + markup[
+            markup.index(config_page.QUIET_DIAL_READOUT_CLASS):][:400])
+        if colours:
+            return False, "the dial's emitted markup carries colour literals %r" % (colours,)
+
+        # EVERY CLASS THE EMITTED MARKUP CARRIES RESOLVES TO A REAL
+        # SELECTOR, scanned off the markup rather than off a list of
+        # constants — the failure being defended against is a class that
+        # exists in Python and nowhere in the stylesheet, which a list
+        # written by the same hand would share. Boundary-anchored, so one
+        # class is never reported as resolved by a longer one's rule.
+        emitted = set()
+        for attr in re.findall(r'class="([^"]*)"', dial):
+            emitted.update(attr.split())
+        emitted.add(config_page.QUIET_DIAL_READOUT_CLASS)
+        for class_name in sorted(emitted):
+            if not re.search(r"\.%s(?![-\w])" % re.escape(class_name), source):
+                return False, (
+                    "the dial emits the class %r, which has no selector in style.css — it paints "
+                    "nothing at all and nothing else in this codebase would notice" % class_name)
+
+        # EVERY SHAPE HAS A PAINT ROUTE, and the canvas has a size route.
+        for tag in re.finditer(r"<circle\b[^>]*>", dial):
+            element = tag.group(0)
+            if 'class="' not in element:
+                return False, (
+                    "an unclassed shape: %r — with neither a class nor a fill it takes the SVG "
+                    "default black, correct in one theme and invisible in the other" % element)
+            if 'fill="none"' not in element:
+                return False, (
+                    "a stroked shape with no explicit fill: %r — the SVG default is a filled "
+                    "black disc across the middle of the card" % element)
+            if "stroke-width=" not in element:
+                return False, "a stroked shape with no stroke width: %r" % element
+        svg = re.search(r"<svg\b[^>]*>", dial).group(0)
+        for needed in ('viewBox="0 0 %d %d"' % (config_page.QUIET_DIAL_SIZE,
+                                                config_page.QUIET_DIAL_SIZE),
+                       'width="%d"' % config_page.QUIET_DIAL_SIZE,
+                       'height="%d"' % config_page.QUIET_DIAL_SIZE,
+                       'aria-hidden="true"', 'focusable="false"'):
+            if needed not in svg:
+                return False, (
+                    "the dial's canvas is missing %r — an <svg> with neither an intrinsic "
+                    "attribute nor a CSS rule renders at the format's own 300x150 default: %r"
+                    % (needed, svg))
+
+        # THE PAINT ITSELF: a theme token, never a literal, so both
+        # themes are correct from one rule. Accent is reserved (this
+        # file's header comment keeps an exhaustive list) and a dial is
+        # not on it, so the ring says what it says in INK.
+        for selector, token in ((".quiet-dial__day", "--color-border"),
+                                (".quiet-dial__arc", "--color-text"),
+                                (".quiet-dial__hour", "--color-text")):
+            rule = re.search(r"\%s\s*\{([^}]*)\}" % selector, source)
+            if not rule:
+                return False, "no %s rule in style.css" % selector
+            if token not in rule.group(1):
+                return False, (
+                    "%s paints from %r rather than %s — a paint that does not come from a theme "
+                    "token is correct in one theme only" % (selector, rule.group(1), token))
+            if "--color-accent" in rule.group(1):
+                return False, (
+                    "%s paints accent; the header comment's accent-reservation list is "
+                    "exhaustive and a dial is not on it" % selector)
+            # The presentation attributes must stay presentation
+            # attributes: a CSS stroke-width of any specificity beats
+            # one, which would flatten the geometry the constants derive.
+            if "stroke-width" in rule.group(1):
+                return False, (
+                    "%s declares stroke-width in CSS, which beats the presentation attribute the "
+                    "emitter derives from its own size constants" % selector)
+        return True, ""
+    check(
+        "the quiet dial's paint resolves — every class the EMITTED markup carries has a real "
+        "selector (scanned off the markup, boundary-anchored), every shape carries a class, an "
+        "explicit fill=\"none\" and a stroke width, the canvas declares its viewBox, its "
+        "intrinsic size, aria-hidden and focusable, no colour is decided in Python, the day "
+        "ring/arc/hour labels each paint from a theme token so both themes are correct from one "
+        "rule, no accent appears anywhere in the component, and no rule declares stroke-width in "
+        "CSS where it would beat the derived presentation attribute (CFG-48/CFG-52, "
+        "25-04-PLAN.md Task 2)",
+        _the_dials_paint_resolves_and_decides_nothing_in_python)
+
+    # ------------------------------------------------------------------
+    # 25-04-PLAN.md Task 3 (CFG-48): the two handles, gated,
+    # keyboard-first, holding no value of their own.
+    # ------------------------------------------------------------------
+
+    _WRAPPER_RE = re.compile(
+        r'<div class="([^"]*)"([^>]*\bdata-value-control\b[^>]*)>(.*?)</div>', re.DOTALL)
+
+    def _the_two_handles_are_gated_and_hold_no_value_of_their_own():
+        """CFG-48 (25-04-PLAN.md Task 3): two real `<button>` sliders,
+        inside the gate and nowhere else, announcing the value the two
+        native inputs already hold.
+
+        The point every clause below defends: the handles are a LAYER.
+        Delete the script and both times are still rendered, still
+        validated, still posted and still saved by the two
+        `<input type="time">` fields underneath.
+        """
+        with open(os.path.join(HERE, "static", "value-controls.js")) as fh:
+            script = fh.read()
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            css = fh.read()
+        markup = config_page.quiet_hours_group("23:00", "07:00")
+
+        wrappers = _WRAPPER_RE.findall(markup)
+        if len(wrappers) != 2:
+            return False, "expected exactly two gated handle wrappers, got %d" % len(wrappers)
+
+        # EVERY element carrying the wrapper attribute carries the gate
+        # class ITSELF. A wrapper rendered outside the gate is the
+        # control that renders and does nothing: visible with scripts
+        # blocked, inert, and competing with the input that works.
+        for tag in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", markup):
+            text = tag.group(0)
+            if not re.search(r"(?<![-\w])%s(?![-\w])"
+                             % re.escape(layout.VALUE_CONTROL_ATTR), text):
+                continue
+            class_match = re.search(r'\bclass="([^"]*)"', text)
+            classes = class_match.group(1).split() if class_match else []
+            if layout.JS_GATE_CLASS not in classes:
+                return False, (
+                    "an element carries %s outside the %r gate: %s"
+                    % (layout.VALUE_CONTROL_ATTR, layout.JS_GATE_CLASS, text))
+
+        # AND NO HANDLE MARKUP OUTSIDE A WRAPPER. The converse of the
+        # clause above, and the one a wrapper-only scan is blind to: a
+        # <button data-value-handle> rendered beside the gate rather than
+        # inside it is a grabbable thing that steers nothing.
+        inside = "".join(body for _classes, _attrs, body in wrappers)
+        if markup.count(layout.VALUE_CONTROL_HANDLE_ATTR) != inside.count(
+                layout.VALUE_CONTROL_HANDLE_ATTR):
+            return False, (
+                "%d element(s) carry %s but only %d are inside a gated wrapper"
+                % (markup.count(layout.VALUE_CONTROL_HANDLE_ATTR),
+                   layout.VALUE_CONTROL_HANDLE_ATTR,
+                   inside.count(layout.VALUE_CONTROL_HANDLE_ATTR)))
+
+        expected = (("quiet_hours_start", "23:00", 1380, config_page.QUIET_DIAL_START_LABEL),
+                    ("quiet_hours_end", "07:00", 420, config_page.QUIET_DIAL_END_LABEL))
+        for (classes, attrs, body), (field, clock, minute, label) in zip(wrappers, expected):
+            if layout.JS_GATE_CLASS not in classes.split():
+                return False, "the %s wrapper is not gated: %r" % (field, classes)
+            # THE STEERING CONTRACT, read off the wrapper. Every name
+            # here is companion/layout.py's, never a literal typed twice.
+            for attr, value in ((layout.VALUE_CONTROL_FIELD_ATTR, field),
+                                (layout.VALUE_CONTROL_FORM_ATTR, config_page.SETTINGS_FORM_ID),
+                                (layout.VALUE_CONTROL_MIN_ATTR, "0"),
+                                (layout.VALUE_CONTROL_MAX_ATTR, "1439"),
+                                (layout.VALUE_CONTROL_STEP_ATTR, "15"),
+                                (layout.VALUE_CONTROL_GEOMETRY_ATTR, "angular"),
+                                (layout.VALUE_CONTROL_FORMAT_ATTR,
+                                 layout.VALUE_CONTROL_FORMAT_CLOCK),
+                                (layout.VALUE_CONTROL_TEXT_ATTR,
+                                 layout.VALUE_CONTROL_TEXT_TOKEN)):
+                if ('%s="%s"' % (attr, value)) not in attrs:
+                    return False, (
+                        "the %s wrapper does not carry %s=%r: %s" % (field, attr, value, attrs))
+            # THE SERVER-PAINTED INITIAL POSITION, without which the
+            # handle renders at the top of the ring until something
+            # touches it.
+            fraction = re.search(r"--value-fraction: ([\d.]+)", attrs)
+            if not fraction:
+                return False, "the %s wrapper paints no initial position: %s" % (field, attrs)
+            if abs(float(fraction.group(1))
+                   - config_page.quiet_dial_handle_fraction(minute)) > 1e-6:
+                return False, (
+                    "the %s handle is painted at %s of a turn; the %d minutes its input holds is "
+                    "%.6f" % (field, fraction.group(1), minute,
+                              config_page.quiet_dial_handle_fraction(minute)))
+
+            # A REAL <button type="button">, never a bare <div>: a button
+            # is focusable, activatable and announced with no ARIA at
+            # all, and `type="button"` is what stops Enter on a handle
+            # from submitting the settings form.
+            handle = re.search(r'<button\b[^>]*%s[^>]*>'
+                               % re.escape(layout.VALUE_CONTROL_HANDLE_ATTR), body)
+            if not handle:
+                return False, "the %s wrapper's handle is not a <button>: %r" % (field, body)
+            for needed in ('type="button"', 'role="slider"', 'aria-valuemin="0"',
+                           'aria-valuemax="1439"', 'aria-valuenow="%d"' % minute,
+                           'aria-valuetext="%s"' % clock,
+                           'aria-label="%s"' % escape_html(label)):
+                if needed not in handle.group(0):
+                    return False, (
+                        "the %s handle is missing %r — %s" % (field, needed, handle.group(0)))
+            # THE ANNOUNCED VALUE IS THE TIME, NOT THE MINUTE COUNT. A
+            # screen reader reading "one thousand three hundred and
+            # eighty" instead of "23:00" is the whole reason
+            # aria-valuetext exists.
+            if 'aria-valuetext="%d"' % minute in handle.group(0):
+                return False, "the %s handle announces its minute count, not its time" % field
+            # AND IT IS THE VALUE THE INPUT ACTUALLY HOLDS.
+            tag = re.search(r'<input type="time" name="%s"[^>]*>' % field, markup)
+            if ('value="%s"' % clock) not in tag.group(0):
+                return False, (
+                    "the %s handle announces %r while its own input holds something else: %s"
+                    % (field, clock, tag.group(0)))
+
+        # BOTH ENDS OF THE SEAM, PINNED. A rename on either side alone is
+        # a control that renders and steers nothing, and nothing else in
+        # this tree would notice.
+        if ('"%s"' % layout.VALUE_CONTROL_FORMAT_ATTR) not in script:
+            return False, "value-controls.js does not name %r" % layout.VALUE_CONTROL_FORMAT_ATTR
+        for wire in ('=== "%s"' % layout.VALUE_CONTROL_FORMAT_CLOCK, '=== "angular"'):
+            if wire not in script:
+                return False, (
+                    "value-controls.js never compares against %r, so the markup's own value is "
+                    "read by nothing" % wire)
+        # THE PAINTED POSITION, PINNED IN ALL THREE FILES IT TRAVELS
+        # THROUGH — the server writes it, the script rewrites it, the
+        # stylesheet reads it. It has no Python constant (see
+        # companion/layout.py for why), so this is the guard instead.
+        for where, source, needle in (
+                ("the emitted markup", markup, "--value-fraction:"),
+                ("value-controls.js", script, '"--value-fraction"'),
+                ("style.css", css, "var(--value-fraction")):
+            if needle not in source:
+                return False, (
+                    "%s does not name --value-fraction (%r) — the handle's position travels on "
+                    "that property through all three, and a rename in one leaves it pinned at "
+                    "the start of its own range" % (where, needle))
+        # THE TOKEN THAT REACHES A RENDERED PAGE. "{}" here fails
+        # companion/test_i18n.py's French-render artefact scan, which is
+        # why it is not "{}" any more.
+        if layout.VALUE_CONTROL_TEXT_TOKEN in ("{}", "%s", "%d"):
+            return False, (
+                "layout.VALUE_CONTROL_TEXT_TOKEN is %r, which is one of the format artefacts the "
+                "i18n harness scans every French render for — it reaches the browser as an "
+                "attribute value on a rendered page" % layout.VALUE_CONTROL_TEXT_TOKEN)
+        if ('"%s"' % layout.VALUE_CONTROL_TEXT_TOKEN) not in script:
+            return False, "value-controls.js does not name the token %r" % (
+                layout.VALUE_CONTROL_TEXT_TOKEN,)
+
+        # THE FRENCH ACCESSIBLE NAMES. A handle whose only name is
+        # English is a control a French screen-reader user cannot tell
+        # apart from the other one.
+        prefs.set_request_prefs(lang="fr")
+        try:
+            french = config_page.quiet_hours_group("23:00", "07:00")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        for label in (config_page.QUIET_DIAL_START_LABEL, config_page.QUIET_DIAL_END_LABEL):
+            translated = i18n_fr.CATALOG.get(label)
+            if not translated or translated == label:
+                return False, "%r has no French sibling" % label
+            if ('aria-label="%s"' % escape_html(translated)) not in french:
+                return False, "the French render does not name the handle %r" % translated
+
+        # OMIT, DON'T FABRICATE: an end that does not parse gets no
+        # handle, because a handle at an invented position claims a value
+        # that was never set.
+        for start, end, expected_handles in (("23:00", "", 1), ("", "", 0), ("zz", "07:00", 1)):
+            partial = config_page.quiet_hours_group(start, end)
+            got = len(_WRAPPER_RE.findall(partial))
+            if got != expected_handles:
+                return False, (
+                    "%r→%r emitted %d handle(s), expected %d"
+                    % (start, end, got, expected_handles))
+        return True, ""
+    check(
+        "the quiet dial's two handles are real <button type=\"button\"> sliders INSIDE 25-01's "
+        ".js gate and nowhere else (every element carrying the wrapper attribute carries the "
+        "gate class itself, and every element carrying the handle attribute is inside a "
+        "wrapper); each carries role/aria-valuemin/aria-valuemax/aria-valuenow and an "
+        "aria-valuetext that is the HH:MM its own input holds rather than a minute count, plus a "
+        "translated aria-label in both languages; each wrapper carries layout's own steering "
+        "attributes including the clock codec, is painted at the fraction its input's value "
+        "implies, and names --value-fraction in all three files it travels through; the "
+        "aria-valuetext token is not one of the format artefacts the i18n harness scans French "
+        "renders for; and an end that does not parse gets no handle at all (CFG-48, "
+        "25-04-PLAN.md Task 3)",
+        _the_two_handles_are_gated_and_hold_no_value_of_their_own)
+
+    def _the_handle_rides_the_ring_the_emitter_drew():
+        """CFG-48 (25-04-PLAN.md Task 3): the handle's geometry and the
+        two stacked layers' pointer discipline.
+
+        Two numbers have to agree across two files here — the dial's
+        rendered width and the radius the handle is thrown out to — and
+        two numbers that have to agree and live in two files agree until
+        one of them is edited.
+        """
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            source = fh.read()
+
+        def rule(selector):
+            found = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", source)
+            return found.group(1) if found else None
+
+        dial_rule = rule(".quiet-dial")
+        if dial_rule is None:
+            return False, "no .quiet-dial rule in style.css"
+        width = re.search(r"width:\s*(\d+)px", dial_rule)
+        radius = re.search(r"--quiet-dial-radius:\s*(\d+)px", dial_rule)
+        if not width or int(width.group(1)) != config_page.QUIET_DIAL_SIZE:
+            return False, (
+                "the dial's CSS width is %r and its emitter draws a %dpx canvas — the handle is "
+                "positioned against the CSS box and the arc is drawn in the canvas, so a "
+                "mismatch puts the grip off the stroke it steers"
+                % (width and width.group(0), config_page.QUIET_DIAL_SIZE))
+        if not radius or int(radius.group(1)) != config_page.QUIET_DIAL_RADIUS:
+            return False, (
+                "the handle rides a radius of %r; the ring's own stroke centre line is %dpx"
+                % (radius and radius.group(0), config_page.QUIET_DIAL_RADIUS))
+
+        # THE SOURCE-ORDER PIN. The handle wears three classes and two of
+        # them declare `position` at equal (0,1,0) specificity, so the
+        # later rule wins — and the one that must win is the absolute
+        # one, or the handle stops being positioned against the ring at
+        # all.
+        hit_at = source.index(".control-hit-area {")
+        handle_at = source.index(".value-control__handle {")
+        if handle_at < hit_at:
+            return False, (
+                "the shared .value-control__handle rule now precedes the shared hit-area rule; "
+                "both declare `position` at equal specificity, so the relative one would win and "
+                "the handle would sit wherever the text flow put it")
+
+        # THE POINTER DISCIPLINE. Two full-size layers are stacked over
+        # the ring; without these three declarations the upper one
+        # swallows every press meant for the ring or for the other end.
+        for selector, expected in ((".quiet-dial__handles", "none"),
+                                   (".quiet-dial__handle-track", "none"),
+                                   (".quiet-dial__handle", "auto")):
+            body = rule(selector)
+            if body is None:
+                return False, "no %s rule in style.css" % selector
+            if ("pointer-events: %s" % expected) not in body:
+                return False, (
+                    "%s does not declare `pointer-events: %s` — with two full-size layers "
+                    "stacked over one ring, the upper one otherwise claims every press"
+                    % (selector, expected))
+
+        handle_rule = rule(".quiet-dial__handle")
+        for needed in ("var(--value-fraction", "var(--quiet-dial-radius"):
+            if needed not in handle_rule:
+                return False, "the handle's transform does not read %r: %s" % (
+                    needed, handle_rule)
+        # Z-ORDER IS DOCUMENT ORDER, WHICH IS THE STATED DECISION: the
+        # END handle is emitted second and therefore wins a pointer-down
+        # in an overlap. A z-index on either would silently re-decide it.
+        if "z-index" in handle_rule:
+            return False, (
+                "the handle declares a z-index; the overlap decision this control records is "
+                "document order, and a z-index re-decides it somewhere nobody is looking")
+        # Paint from tokens, and no accent — the header comment's
+        # reservation list is exhaustive and a dial is not on it.
+        if "--color-accent" in handle_rule:
+            return False, "the handle paints accent"
+        for token in ("var(--color-canvas)", "var(--color-text)"):
+            if token not in handle_rule:
+                return False, (
+                    "the handle does not paint from %s — the shared hit-area class is "
+                    "transparent and borderless by design, so a handle wearing it and nothing "
+                    "else is invisible" % token)
+        return True, ""
+    check(
+        "the quiet dial's handle rides the ring the emitter drew — the stylesheet's dial width "
+        "and handle radius equal config_page.QUIET_DIAL_SIZE and QUIET_DIAL_RADIUS, the shared "
+        "handle rule still follows the shared hit-area rule so the absolute `position` wins at "
+        "equal specificity, both stacked layers are pointer-transparent while the handle itself "
+        "is not, the transform reads both custom properties, no z-index re-decides the "
+        "document-order overlap rule, and the grip paints from theme tokens with no accent "
+        "(CFG-48/CFG-52, 25-04-PLAN.md Task 3)",
+        _the_handle_rides_the_ring_the_emitter_drew)
 
     # ------------------------------------------------------------------
     # 06.6.4.1 Task 1 (D-01, D-02, D-05 form half, D-26): the new
@@ -9193,6 +10761,1051 @@ def main():
         "freshness line above them in the page header — a swap landing on this page's form is the "
         "P0 Phase 22 existed to fix (B1/D1, 23-06-PLAN.md Task 2)",
         _the_display_form_is_untouched_by_the_refresh_loop)
+
+    # ------------------------------------------------------------------
+    # 25-05-PLAN.md Task 1 (CFG-49): D18's two gauges, server-rendered.
+    #
+    # The card showed neither side of the trade-off it exists for. These
+    # three checks are about what the two new sentences may CLAIM, not
+    # about whether they render: one of them can be true today and the
+    # other one cannot, and the whole subject here is that the second
+    # one says so.
+    # ------------------------------------------------------------------
+
+    # A daily-average battery series in server/history_db.py's own row
+    # shape, oldest first (order does not matter — battery.py sorts).
+    def _battery_series(*pairs):
+        return [{"ts": ts, "battery_mv": mv, "reading_count": 3}
+                for ts, mv in pairs]
+
+    # Six shapes, each named for the answer it must produce. The three
+    # that support NO figure are the point of the fixture: a series that
+    # is rising (the device was charged), one whose span is a single day
+    # (inside this series' own noise) and one with nothing in it at all.
+    _FALLING = _battery_series(
+        ("2026-09-01", 4100), ("2026-09-04", 3800), ("2026-09-07", 3600))
+    _FALLING_ONE_DAY_LEFT = _battery_series(
+        ("2026-09-05", 3600), ("2026-09-07", 3400))
+    _RISING = _battery_series(
+        ("2026-09-01", 3400), ("2026-09-04", 3700), ("2026-09-07", 4100))
+    _ONE_DAY_SPAN = _battery_series(("2026-09-06", 4100), ("2026-09-07", 3900))
+    _EMPTY = []
+
+    def _the_two_gauges_claim_exactly_what_the_data_supports():
+        """CFG-49 (25-05-PLAN.md Task 1): the freshness sentence is a
+        BOUND and the battery sentence is an OBSERVATION — and the
+        second one has to be able to say that it has nothing to say.
+
+        The audit asked for "estimated battery life ≈ 38 days". That
+        figure does not exist anywhere in this codebase: computing it
+        needs a per-wake energy cost this project has never measured
+        (DEVICE-05's discharge run is still open), so the only absolute
+        figure permitted here is one derived from this device's OWN
+        observed discharge slope, and every other case renders a named
+        state instead.
+        """
+        min_s = device_config.WAKE_INTERVAL_MIN_S
+        max_s = device_config.WAKE_INTERVAL_MAX_S
+
+        # 1. THE BOUND, at both ends of the configured band and in the
+        #    middle — and the words "at most" are part of the claim, not
+        #    decoration: without them the sentence becomes a statement
+        #    about TYPICAL behaviour, which nothing measures.
+        bound_words = config_page.WAKE_FRESHNESS_TEXT.split(
+            layout.VALUE_CONTROL_TEXT_TOKEN)[0].strip()
+        if "at most" not in bound_words:
+            return False, (
+                "the freshness wording %r does not say 'at most' before its quantity — a bound "
+                "stated without it is a claim about typical behaviour, and nothing in this "
+                "project measures that" % config_page.WAKE_FRESHNESS_TEXT)
+        for seconds, minutes in ((min_s, 1), (max_s, 60), (600, 10), (90, 2), (1800, 30)):
+            said = config_page.wake_freshness_text(seconds)
+            if bound_words not in said:
+                return False, "wake_freshness_text(%d) = %r drops the bound" % (seconds, said)
+            numbers = re.findall(r"\d+", said)
+            if numbers != [str(minutes)]:
+                return False, (
+                    "wake_freshness_text(%d) names %r; %d seconds is %d whole minutes — and it "
+                    "must round UP, because 'at most 1 min' is FALSE for a 90-second cadence"
+                    % (seconds, numbers, seconds, minutes))
+
+        # 2. THE ABSOLUTE FIGURE, AND IT IS battery.py's OWN. Recomputed
+        #    from the estimator and required to appear verbatim, so a
+        #    second days-remaining computation in the page module would
+        #    have to agree with the first one to pass — and the fixture
+        #    is checked to actually PRODUCE a figure first, or this
+        #    whole clause would be vacuous.
+        estimate = battery.battery_life_estimate(_FALLING, 600, 600)
+        days = estimate["days_remaining"]
+        if estimate["trend"] != battery.LIFE_TREND_FALLING or not isinstance(days, int):
+            return False, (
+                "the falling fixture no longer produces a figure (%r) — the clause below would "
+                "pass against a card that never prints one" % (estimate,))
+        said = config_page.wake_battery_observed_text(600, _FALLING)
+        if str(days) not in re.findall(r"\d+", said):
+            return False, (
+                "the battery sentence %r does not carry battery_life_estimate()'s own figure "
+                "(%d days) — the one estimate lives in companion/battery.py" % (said, days))
+        if "≈" not in said:
+            return False, (
+                "the battery sentence %r drops the ≈ honesty marker this app already wears on "
+                "the battery percentage — an observed projection is not a datasheet figure"
+                % said)
+
+        # THE SINGULAR, which is reachable (a nearly-empty battery) and
+        # is the plural defect this project's i18n harness has caught
+        # before.
+        one_day = battery.battery_life_estimate(_FALLING_ONE_DAY_LEFT, 600, 600)
+        if one_day["days_remaining"] != 1:
+            return False, (
+                "the one-day fixture reports %r days — the singular wording below would never "
+                "be exercised" % (one_day["days_remaining"],))
+        singular = config_page.wake_battery_observed_text(600, _FALLING_ONE_DAY_LEFT)
+        if singular != i18n.t(config_page.WAKE_BATTERY_DAY_TEXT).replace(
+                layout.VALUE_CONTROL_TEXT_TOKEN, "1"):
+            return False, (
+                "a one-day estimate renders %r rather than the singular wording — '1 days' is "
+                "the missing-plural defect" % singular)
+
+        # 3. THE THREE SHAPES THAT SUPPORT NO FIGURE AT ALL, each
+        #    required to render the NAMED state — a real sentence, never
+        #    a blank, and never a number.
+        unknown = i18n.t(config_page.WAKE_BATTERY_UNKNOWN_TEXT)
+        for name, rows in (("rising (the device was charged)", _RISING),
+                           ("a one-day span", _ONE_DAY_SPAN),
+                           ("no history at all", _EMPTY)):
+            said = config_page.wake_battery_observed_text(600, rows)
+            if said != unknown:
+                return False, (
+                    "with %s the battery sentence reads %r; it owes the named 'not enough "
+                    "history yet' state, which is a rendered sentence rather than a blank"
+                    % (name, said))
+            if re.search(r"\d", said):
+                return False, (
+                    "with %s the battery sentence carries a number (%r) — a figure the data "
+                    "cannot support is the dishonest state Phase 22 spent a phase removing"
+                    % (name, said))
+            if "-" in said.replace("—", "") and re.search(r"-\d", said):
+                return False, "with %s the battery sentence carries a negative (%r)" % (name, said)
+
+        # 4. NEITHER SENTENCE INVENTS A SUBJECT. No saved interval, no
+        #    gauges — the same omit-don't-fabricate rule the `value`
+        #    attribute and 25-04's handles already follow.
+        for absent in (None, 0, True, "", "300"):
+            if config_page.wake_gauge_interval_s(absent) is not None:
+                return False, (
+                    "wake_gauge_interval_s(%r) resolved to an interval — only a real int inside "
+                    "the configured band is one" % (absent,))
+        if config_page.wake_gauges_html(None, _FALLING) != "":
+            return False, "the gauges rendered with no interval to describe"
+        for out_of_band in (min_s - 1, max_s + 1):
+            if config_page.wake_gauge_interval_s(out_of_band) is not None:
+                return False, (
+                    "wake_gauge_interval_s(%d) accepted a value outside [%d, %d]"
+                    % (out_of_band, min_s, max_s))
+
+        # 5. D-07's ECHO, AND ITS FLOOR. A rejected save's raw string is
+        #    what the gauges describe — but only when it is a usable
+        #    interval, because "at most 0 min" for a submitted "7" would
+        #    describe a cadence this device cannot be configured to use.
+        if config_page.wake_gauge_interval_s(600, {"wake_interval_s": "900"}) != 900:
+            return False, (
+                "a rejected save's echoed 900 is not what the gauges describe — the picture and "
+                "the field must not disagree on the screen where a mistake is being fixed")
+        for junk in ("7", "", "abc", "99999", "60.5", None):
+            if config_page.wake_gauge_interval_s(600, {"wake_interval_s": junk}) is not None:
+                return False, (
+                    "an echoed %r produced a gauge subject — a gauge about a value this device "
+                    "cannot use is a gauge about nothing" % (junk,))
+
+        # 6. THE SCREEN-OFF CLAUSE, which is what keeps BOTH sentences
+        #    from over-claiming: neither is in force while the screen is
+        #    off, because server/wake.py pins DISPLAY_OFF_SLEEP_S ahead
+        #    of this field entirely.
+        off = config_page.wake_screen_off_text()
+        if layout.duration_text(device_config.DISPLAY_OFF_SLEEP_S) not in off:
+            return False, (
+                "the screen-off clause %r does not name device_config.DISPLAY_OFF_SLEEP_S (%d s) "
+                "through the app's own duration ladder"
+                % (off, device_config.DISPLAY_OFF_SLEEP_S))
+        card = config_page.wake_gauges_html(600, _FALLING)
+        if escape_html(off) not in card:
+            return False, (
+                "the rendered gauges do not carry the screen-off clause — a visitor who has "
+                "turned the screen off reads a battery claim that does not apply to their frame")
+        return True, ""
+    check(
+        "the freshness gauge states a BOUND (\"at most\", rounded UP) naming the same whole "
+        "minutes the interval implies at the band's minimum, its maximum and in between; the "
+        "battery gauge prints an absolute figure ONLY when companion/battery.py's own estimate "
+        "supports one — recomputed from the estimator, singular and plural both — and renders "
+        "the NAMED \"not enough history yet\" sentence with no number at all for a rising, a "
+        "one-day and an empty series; neither gauge renders without a usable interval, D-07's "
+        "echo is honoured only where it is usable, and the screen-off cadence is stated "
+        "(CFG-49, 25-05-PLAN.md Task 1)",
+        _the_two_gauges_claim_exactly_what_the_data_supports)
+
+    def _no_days_remaining_arithmetic_lives_outside_companion_battery():
+        """CFG-49 (25-05-PLAN.md Task 1): the page module CALLS the
+        estimate; it never computes one.
+
+        `test_companion_app.py`'s one-home guard already catches a second
+        estimate by NAME and by the millivolt-endpoint pair. This is the
+        third net and the narrow one: the arithmetic itself — a division
+        by an observed slope, or a distance to the empty endpoint —
+        appearing anywhere under `companion/pages/`. Comments and
+        docstrings are stripped first, for this file's own standing
+        reason: the prose that explains the rule must neither satisfy
+        nor break it.
+        """
+        banned = ("days_remaining", "mv_per_day", "BATTERY_EMPTY_MV",
+                  "BATTERY_FULL_MV", "observed_span_days")
+        pages_dir = os.path.join(HERE, "pages")
+        for name in sorted(os.listdir(pages_dir)):
+            if not name.endswith(".py"):
+                continue
+            for used in _python_identifiers(os.path.join(pages_dir, name)):
+                if used in banned:
+                    return False, (
+                        "companion/pages/%s uses %r as an IDENTIFIER — the days-remaining "
+                        "arithmetic has exactly one home and companion/pages is not it. "
+                        "(Reading the estimator's own returned key back out of its dict is a "
+                        "STRING, not an identifier, and is the one permitted shape.)"
+                        % (name, used))
+        # And the call itself is QUALIFIED, per references/
+        # data-density.md: a bare `from companion.battery import
+        # battery_life_estimate` makes the estimate read as the page's
+        # own, which is the drift the shared module exists to prevent.
+        names = _python_identifiers(os.path.join(HERE, "pages", "config_page.py"))
+        if "battery_life_estimate" not in names:
+            return False, (
+                "config_page.py never names battery_life_estimate() — the battery gauge would "
+                "then be reading its figure from somewhere else")
+        import ast
+        with open(os.path.join(HERE, "pages", "config_page.py"), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and (node.module or "").endswith("battery"):
+                return False, (
+                    "config_page.py imports %r OUT of companion.battery — the estimator is "
+                    "called QUALIFIED so it can never read as this page's own "
+                    "(references/data-density.md)"
+                    % [alias.name for alias in node.names])
+        # Every template this plan added carries the quantity mark the
+        # script substitutes into, and is a real catalogue key.
+        for template in (config_page.WAKE_FRESHNESS_TEXT,
+                         config_page.WAKE_BATTERY_DAY_TEXT,
+                         config_page.WAKE_BATTERY_DAYS_TEXT,
+                         config_page.WAKE_BATTERY_INSTEAD_TEXT):
+            if layout.VALUE_CONTROL_TEXT_TOKEN not in template:
+                return False, (
+                    "the template %r carries no %r — the script substitutes the quantity into it "
+                    "and would render the sentence unchanged"
+                    % (template, layout.VALUE_CONTROL_TEXT_TOKEN))
+            for artefact in ("%s", "{}"):
+                if artefact in template:
+                    return False, (
+                        "the template %r carries %r — these reach the browser as attribute "
+                        "values and companion/test_i18n.py's Check 3 scans every French render "
+                        "for exactly that artefact" % (template, artefact))
+            if template not in i18n_fr.CATALOG:
+                return False, "the template %r has no French sibling" % template
+        return True, ""
+    check(
+        "no days-remaining arithmetic exists anywhere under companion/pages/ — every one of "
+        "days_remaining/mv_per_day/observed_span_days/the two millivolt endpoints appears only "
+        "as a read of the estimator's own returned dict, comments and docstrings stripped first "
+        "— the estimate is called QUALIFIED off companion.battery, and every quantity template "
+        "this card adds carries the \"#\" mark rather than a format artefact and has a French "
+        "sibling (CFG-49/D-27, 25-05-PLAN.md Task 1)",
+        _no_days_remaining_arithmetic_lives_outside_companion_battery)
+
+    def _the_gauges_are_an_addition_and_the_number_input_is_untouched():
+        """CFG-49 (25-05-PLAN.md Task 1): the `<input type="number">` is
+        the ONLY thing on this card that posts, and its `value`-attribute
+        guard is load-bearing in a way no other field's is.
+
+        An out-of-range `value` on a native numeric input fails HTML5
+        constraint validation, which blocks submission of the ENTIRE
+        Settings form — not just this field. That is live rather than
+        hypothetical: `deploy/skypane.env.example` ships
+        SKYPANE_SLEEP_S=30, below the 60 s floor, and plan 11-04 feeds
+        that value in as the pre-fill fallback.
+
+        The byte-identical diff against the pre-task builder was taken
+        once, by hand, across four argument shapes (recorded in the
+        SUMMARY). What lives here is the durable half.
+        """
+        min_s = device_config.WAKE_INTERVAL_MIN_S
+        max_s = device_config.WAKE_INTERVAL_MAX_S
+        expected_head = (
+            '<input type="number" id="%s" name="wake_interval_s" min="%d" max="%d"'
+            ' placeholder="%s"' % (
+                escape_html(config_page.WAKE_INTERVAL_INPUT_ID), min_s, max_s,
+                escape_html(i18n.t(config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT))))
+        # The fifth column is whether the gauges are owed at all: they
+        # describe the value the FIELD will hold, so every shape where
+        # the field deliberately shows nothing is a shape where the
+        # gauges must show nothing either.
+        cases = (
+            ("saved, in band", 600, None, ' value="600"', True),
+            ("stored BELOW the floor", 30, None, "", False),
+            ("stored above the ceiling", max_s + 1, None, "", False),
+            ("never set", None, None, "", False),
+            ("a rejected save's raw echo", 600, {"wake_interval_s": "7"},
+             ' value="7"', False),
+            ("a rejected save echoing a usable value", 600,
+             {"wake_interval_s": "900"}, ' value="900"', True),
+        )
+        for name, current, submitted, value_attr, owes_gauges in cases:
+            markup = config_page.wake_interval_group(
+                current, submitted=submitted, battery_rows=_FALLING)
+            tag = re.search(r'<input type="number"[^>]*>', markup)
+            if not tag:
+                return False, "%s: no <input type=\"number\"> at all" % name
+            element = tag.group(0)
+            if not element.startswith(expected_head):
+                return False, (
+                    "%s: the number input is no longer byte-identical to its pre-plan output.\n"
+                    "  expected it to start %r\n  got %r" % (name, expected_head, element))
+            if value_attr and value_attr not in element:
+                return False, "%s: expected %r in %s" % (name, value_attr, element)
+            if not value_attr and " value=" in element:
+                return False, (
+                    "%s: the number input carries a value attribute (%s) — an out-of-range value "
+                    "fails HTML5 constraint validation and blocks submission of the WHOLE "
+                    "Settings form, not just this field" % (name, element))
+            # THE LABEL, THE UNIT SIBLING AND THE ERROR BLOCK, in their
+            # B17 order: label ABOVE the control, unit sibling directly
+            # after it. The gauges are APPENDED after all of them.
+            label = '<label for="%s">%s</label>' % (
+                escape_html(config_page.WAKE_INTERVAL_INPUT_ID),
+                escape_html(i18n.t("Wake interval (seconds)")))
+            unit = ('<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
+                    % escape_html(config_page.WAKE_INTERVAL_UNIT_LABEL))
+            if label not in markup or unit not in markup:
+                return False, "%s: the B17 label or the unit sibling changed" % name
+            if markup.index(label) > markup.index(element):
+                return False, "%s: the label is no longer ABOVE the control (B17)" % name
+            if markup.index(unit) != markup.index(element) + len(element):
+                return False, (
+                    "%s: the unit sibling no longer sits immediately after the input — something "
+                    "was inserted between them" % name)
+            gauge_at = markup.find('id="%s"' % config_page.WAKE_GAUGE_FRESHNESS_ID)
+            if owes_gauges and gauge_at == -1:
+                return False, "%s: the gauges did not render" % name
+            if not owes_gauges and gauge_at != -1:
+                return False, (
+                    "%s: a gauge rendered for a value the field itself refuses to show — that "
+                    "is the card inventing a subject" % name)
+            if gauge_at != -1 and gauge_at < markup.index(unit):
+                return False, (
+                    "%s: a gauge renders BEFORE the control it describes — they are appended "
+                    "after the error block, which is what makes the rest of the card an "
+                    "untouched prefix" % name)
+        # A STORED value below the floor still renders both gauges off
+        # the value the FIELD will hold, which is nothing — so nothing
+        # claims a cadence that was never set.
+        # The error block still attaches to the field, with the gauges
+        # after it.
+        with_error = config_page.wake_interval_group(
+            600, errors={"wake_interval_s": "Enter a whole number of seconds."},
+            submitted={"wake_interval_s": "900"}, battery_rows=_FALLING)
+        # LOCATED BY ITS OWN ELEMENT, never by the bare id string: the
+        # input's aria-describedby NAMES that id too, and the first
+        # version of this clause found THAT — so it read a position
+        # inside the input tag and passed against the gauges rendered
+        # between the input and its error message, which is the one
+        # arrangement it exists to refuse (measured; see the SUMMARY's
+        # vacuity section).
+        error_block = re.search(
+            r'<p class="field-error[^"]*" id="wake-interval-s-error"', with_error)
+        if not error_block:
+            return False, "the field error block no longer renders"
+        gauge_at = with_error.find('id="%s"' % config_page.WAKE_GAUGE_BATTERY_ID)
+        if gauge_at == -1:
+            return False, "the gauges did not render beside a rejected save's usable echo"
+        if gauge_at < error_block.start():
+            return False, (
+                "a gauge renders between the input and its own error message (gauge at %d, "
+                "error block at %d) — the message has to read as attached to the control it is "
+                "about" % (gauge_at, error_block.start()))
+        return True, ""
+    check(
+        "the two gauges are an ADDITION: across five argument shapes (in band, stored below the "
+        "60s floor, stored above the ceiling, never set, and a rejected save's raw echo) the "
+        "<input type=\"number\"> is byte-identical to its pre-plan output — same id, name, min, "
+        "max and placeholder, the value attribute present exactly when the guard admits it and "
+        "absent otherwise (an out-of-range value blocks submission of the ENTIRE form) — with "
+        "B17's label still above it, the unit sibling still immediately after it, the error "
+        "block still attached, and both gauges appended after all of them "
+        "(CFG-49/D-07/B17, 25-05-PLAN.md Task 1)",
+        _the_gauges_are_an_addition_and_the_number_input_is_untouched)
+
+    # ------------------------------------------------------------------
+    # 25-05-PLAN.md Task 2 (CFG-49/CFG-52): the gated range, and the
+    # seam it shares with the one script.
+    # ------------------------------------------------------------------
+
+    def _the_range_is_gated_nameless_and_bounded_by_device_config():
+        """CFG-49/CFG-52 (25-05-PLAN.md Task 2): the range may never
+        become a second source of truth, and it may never widen what the
+        number input enforces.
+
+        `name` is the attribute a future editor adds by reflex — it is
+        what every other input on this page carries — and a named range
+        would post a SECOND `wake_interval_s` on every save, with
+        whichever arrived last winning, silently. So it is asserted
+        directly rather than inferred from "the form posts one value".
+        """
+        markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
+        tag = re.search(r'<input type="range"[^>]*>', markup)
+        if not tag:
+            return False, "no <input type=\"range\"> renders on the card"
+        element = tag.group(0)
+        if re.search(r"\bname=", element):
+            return False, (
+                "the range carries a name (%s) — it would post a second value for the same "
+                "setting and whichever arrived last would win, silently" % element)
+        if "role=" in element:
+            return False, (
+                "the range carries a role (%s) — a native range input IS a slider, with its own "
+                "aria-valuenow and its own keyboard model; role=\"slider\" on top of that is the "
+                "double-role error" % element)
+        # THE BOUNDS ARE READ FROM THE MODULE, never restated: one
+        # control must not accept what the other, and
+        # save_device_config()'s own server-side re-check, reject.
+        for attr, expected in (("min", device_config.WAKE_INTERVAL_MIN_S),
+                               ("max", device_config.WAKE_INTERVAL_MAX_S),
+                               ("step", config_page.WAKE_SLIDER_STEP_S),
+                               ("value", 600)):
+            if ('%s="%d"' % (attr, expected)) not in element:
+                return False, (
+                    "the range's %s is not %d — %s" % (attr, expected, element))
+        if config_page.WAKE_SLIDER_STEP_S != config_page.WAKE_GAUGE_SECONDS_PER_MINUTE:
+            return False, (
+                "the slider steps by %d s while the gauges speak in %d-second minutes — every "
+                "position the slider can reach has to be a whole number of minutes, or the "
+                "sentences round and the reader sees a number that does not match the field"
+                % (config_page.WAKE_SLIDER_STEP_S, config_page.WAKE_GAUGE_SECONDS_PER_MINUTE))
+        # The accessible name is its OWN, and it points at the gauges.
+        for needed in ('aria-label="%s"' % escape_html(i18n.t(config_page.WAKE_SLIDER_LABEL)),
+                       'aria-describedby="%s %s"' % (config_page.WAKE_GAUGE_FRESHNESS_ID,
+                                                     config_page.WAKE_GAUGE_BATTERY_ID)):
+            if needed not in element:
+                return False, "the range is missing %r — %s" % (needed, element)
+        if i18n.t(config_page.WAKE_SLIDER_LABEL) == i18n.t("Wake interval (seconds)"):
+            return False, (
+                "the range and the number input share one accessible name — a screen-reader "
+                "visitor cannot tell which of the two they are on")
+        # EVERY element carrying the wrapper attribute carries the gate
+        # class, AND the range itself lives inside one. The second half
+        # is what a wrapper-only scan is blind to.
+        for tag_match in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", markup):
+            text = tag_match.group(0)
+            if layout.VALUE_CONTROL_ATTR not in text:
+                continue
+            if layout.JS_GATE_CLASS not in text:
+                return False, (
+                    "an element carries %s outside the %r gate: %s"
+                    % (layout.VALUE_CONTROL_ATTR, layout.JS_GATE_CLASS, text))
+        gate_at = markup.find(layout.JS_GATE_CLASS)
+        gate_end = markup.find("</div>", gate_at)
+        if not (gate_at != -1 and gate_at < markup.index(element) < gate_end):
+            return False, (
+                "the range is rendered outside the gated wrapper (gate at %d, range at %d, "
+                "wrapper closes at %d) — a script-only affordance rendered without the gate "
+                "shows permanently whenever the script does not run"
+                % (gate_at, markup.index(element), gate_end))
+        if markup.count('<input type="range"') != 1:
+            return False, "the card renders %d ranges" % markup.count('<input type="range"')
+        # NOT A LIVE REGION, anywhere on this card (CFG-52): the gauges
+        # change on every step of a drag, and a live region would
+        # re-announce the identical phrase continuously — the defect
+        # Phase 23 hit with its three switches.
+        # (`role="alert"` is deliberately NOT in this list: the field's
+        # own error message wears it, renders only on a rejected save,
+        # and says something once rather than on every step.)
+        for banned in ("aria-live", 'role="status"'):
+            if banned in markup:
+                return False, (
+                    "the wake-interval card carries %r — the gauges move on every step of a "
+                    "drag and would flood a screen reader" % banned)
+        # AND NOTHING AT ALL when there is no saved interval: the range
+        # would otherwise default to the midpoint of its own band, which
+        # is a fabricated position a drag would then SAVE.
+        empty = config_page.wake_interval_group(None, battery_rows=_FALLING)
+        if "<input type=\"range\"" in empty or layout.VALUE_CONTROL_ATTR in empty:
+            return False, (
+                "a range renders with no saved interval — a range with no value attribute sits "
+                "at the midpoint of its band, which is a number nobody chose and which one drag "
+                "would save")
+        return True, ""
+    check(
+        "the wake-interval range is NAMELESS (a named one would post a second value for the "
+        "same setting and the last to arrive would win), carries no role=\"slider\" on top of a "
+        "native slider, takes its min/max from server.device_config rather than a literal, steps "
+        "by exactly the minute both gauges speak in, has its own accessible name and describes "
+        "itself by the two gauges, renders ONLY inside 25-01's .js gate and only when there is a "
+        "saved interval to start from, and nothing on the card is a live region "
+        "(CFG-49/CFG-52/T-25-05-D, 25-05-PLAN.md Task 2)",
+        _the_range_is_gated_nameless_and_bounded_by_device_config)
+
+    def _the_readout_seam_this_card_declares_is_the_one_the_script_reads():
+        """CFG-49 (25-05-PLAN.md Task 2): both halves of a seam, pinned
+        together — the markup this page emits and the script that
+        consumes it.
+
+        A rename on either side alone is a gauge that renders once and
+        then never moves again, which no string comparison on the
+        rendered page would notice: the sentence would be perfectly
+        correct at load and permanently stale afterwards.
+        """
+        markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
+        with open(os.path.join(HERE, "static", "value-controls.js"),
+                  encoding="utf-8") as fh:
+            script = fh.read()
+        # 1. Every attribute this card emits is one the script names.
+        for attr in (layout.VALUE_CONTROL_INPUT_ATTR, layout.VALUE_CONTROL_READOUT_ATTR,
+                     layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+                     layout.VALUE_CONTROL_READOUT_SCALE_ATTR,
+                     layout.VALUE_CONTROL_READOUT_BASE_ATTR):
+            if attr not in markup:
+                return False, "the card emits no %r" % attr
+            if ('"%s"' % attr) not in script:
+                return False, (
+                    "value-controls.js never names %r, so the markup's own attribute is read by "
+                    "nothing and the gauge is correct at load and stale for ever after" % attr)
+        # 2. The readouts name the field the form actually posts.
+        for match in re.finditer(
+                r'%s="([^"]*)"' % re.escape(layout.VALUE_CONTROL_READOUT_ATTR), markup):
+            if match.group(1) != config_page.WAKE_INTERVAL_FIELD_NAME:
+                return False, (
+                    "a readout describes %r, which is not the field this form posts (%r)"
+                    % (match.group(1), config_page.WAKE_INTERVAL_FIELD_NAME))
+        # 3. THE SCRIPT ROUNDS THE SAME WAY THE SERVER DOES. Both state
+        #    a BOUND, so both take the CEILING; a floor on either side
+        #    would print "at most 1 min" for a 90-second cadence, which
+        #    is false.
+        if "Math.ceil(value / scale)" not in script:
+            return False, (
+                "value-controls.js does not take the CEILING of value/scale — the server does "
+                "(_wake_minutes()), and a script that floored it would print a bound that is "
+                "not true")
+        # 4. A WRAPPER WITH A MIRROR TAKES NO GESTURES FROM THE SCRIPT.
+        #    Without this the pointerdown handler's own preventDefault()
+        #    cancels the native thumb drag and the slider is immovable by
+        #    pointer, with every string comparison still green.
+        if "function steeredHere(wrapper)" not in script:
+            return False, (
+                "value-controls.js has no mirror guard — its pointerdown handler calls "
+                "preventDefault(), which cancels a native range's own thumb drag outright")
+        for listener in ("keydown", "pointerdown", "pointermove"):
+            block = script[script.index('document.addEventListener("%s"' % listener):]
+            block = block[:block.index("});")]
+            if "steeredHere(wrapper)" not in block:
+                return False, (
+                    "value-controls.js's %s listener does not stand aside for a wrapper with a "
+                    "mirror — a native range would be stepped twice per key or pinned in place "
+                    "by a prevented default" % listener)
+        # 5. The BASE is the saved interval, so the relative clause says
+        #    nothing at all until the visitor proposes something else —
+        #    which is what every page load and every scripts-blocked
+        #    render is.
+        base = re.search(r'%s="(\d+)"' % re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR),
+                         markup)
+        if not base or int(base.group(1)) != 600:
+            return False, (
+                "the relative readout's base is %r, not the saved interval — a readout with no "
+                "base compares the saved value with itself on every page load"
+                % (base.group(1) if base else None,))
+        span = re.search(
+            r'<span %s="[^"]*"[^>]*></span>' % re.escape(layout.VALUE_CONTROL_READOUT_ATTR),
+            markup)
+        if not span:
+            return False, (
+                "the relative clause is not EMPTY at the saved value — the server renders the "
+                "saved interval against itself, and 'every 10 min instead of every 10 min' "
+                "would be noise on every page load")
+        # 6. THE HONESTY CLAUSE, structural: no readout template on this
+        #    card contains a days figure or its wording, so no script
+        #    that only substitutes into templates can invent one.
+        days_words = [w for w in (i18n.t(config_page.WAKE_BATTERY_DAYS_TEXT),
+                                  i18n.t(config_page.WAKE_BATTERY_DAY_TEXT))]
+        for match in re.finditer(
+                r'%s="([^"]*)"' % re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR), markup):
+            template = html.unescape(match.group(1))
+            for wording in days_words:
+                stem = wording.split(layout.VALUE_CONTROL_TEXT_TOKEN)[-1].strip()
+                if stem and stem in template:
+                    return False, (
+                        "a readout template carries the days wording (%r) — the absolute figure "
+                        "is server-rendered from observed history, and a template containing it "
+                        "is a script that can invent one" % template)
+        return True, ""
+    check(
+        "the readout seam is pinned from BOTH sides: every attribute this card emits is named in "
+        "companion/static/value-controls.js and vice versa, every readout describes the field "
+        "the form actually posts, the script takes the same CEILING the server does (a floor "
+        "would print a bound that is false), all three gesture listeners stand aside for a "
+        "wrapper holding a native mirror (without which preventDefault cancels the thumb drag), "
+        "the relative clause's base is the saved interval so it renders EMPTY until something "
+        "else is proposed, and no readout template contains the days wording at all — so a "
+        "script that only substitutes into templates cannot invent a figure the server declined "
+        "to state (CFG-49/T-25-05-C, 25-05-PLAN.md Task 2)",
+        _the_readout_seam_this_card_declares_is_the_one_the_script_reads)
+
+    # ------------------------------------------------------------------
+    # 25-06-PLAN.md Task 2 (CFG-50): D5's theme carousel — the departures
+    # grid presented as a scroll-snap strip, around the ONE chip
+    # renderer.
+    # ------------------------------------------------------------------
+
+    def _the_departures_grid_is_the_one_renderer_presented_as_a_strip():
+        # THE PROPERTY UNDER TEST IS THAT NOTHING WAS FORKED. A carousel
+        # that copied _theme_chip_grid_html() would pass every markup
+        # assertion below on its own copy while the arrivals grid drifted
+        # away from it — so the first clause is a SOURCE scan for a
+        # second renderer, and the last is the three unconverted grids.
+        module_src = open(
+            os.path.join(REPO_ROOT, "companion", "pages", "config_page.py")).read()
+        module_lines = module_src.split("\n")
+        emitters = []
+        for node in ast.walk(ast.parse(module_src)):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            text = "\n".join(module_lines[node.lineno - 1:node.end_lineno])
+            # `data-preview-src` is the chip's signature: it is the
+            # attribute companion/static/theme-preview.js reads off a
+            # chip's own <label> to swap the big live preview, so a
+            # second chip renderer either emits it (and is caught here)
+            # or silently breaks the live preview for its own chips.
+            if "data-preview-src" in text and "<label" in text:
+                emitters.append(node.name)
+        if emitters != ["_theme_chip_grid_html"]:
+            return False, (
+                "expected exactly ONE function in config_page.py to emit a chip <label> "
+                "carrying data-preview-src, got %r — four call sites share that renderer, and "
+                "a second one is how the arrivals grid and the departures grid come to "
+                "disagree about what a selected chip looks like" % (emitters,))
+
+        card = config_page._frame_colours_card_html({}, "white", None, None)
+        theme_count = len(device_config.THEME_IDS)
+
+        # The strip IS the radiogroup: one grid div, carrying the
+        # compact modifier it already had, the new strip modifier, the
+        # role, and the id the pagers' aria-controls names.
+        strip_open = re.search(
+            r'<div class="([^"]*theme-chip-grid--strip[^"]*)"([^>]*)>', card)
+        if not strip_open:
+            return False, "the Frame colours card renders no .theme-chip-grid--strip at all"
+        classes = strip_open.group(1).split()
+        attrs = strip_open.group(2)
+        for required in ("theme-chip-grid", "theme-chip-grid--compact"):
+            if required not in classes:
+                return False, (
+                    "the strip's class list is %r — it dropped %r, so the carousel replaced "
+                    "the grid instead of laying it out" % (classes, required))
+        if 'role="radiogroup"' not in attrs:
+            return False, (
+                "the strip carries no role=\"radiogroup\" — %r" % (attrs,))
+        if ('id="%s"' % config_page.THEME_CAROUSEL_STRIP_ID) not in attrs:
+            return False, (
+                "the strip carries no id=%r, so the pagers' aria-controls names nothing — %r"
+                % (config_page.THEME_CAROUSEL_STRIP_ID, attrs))
+        if card.count("theme-chip-grid--strip") != 1:
+            return False, (
+                "the card renders %d strips — exactly one grid (departures) is converted"
+                % card.count("theme-chip-grid--strip"))
+
+        # The chips inside it are the renderer's own, unchanged.
+        radios = re.findall(
+            r'<input type="radio" name="theme" value="([^"]*)" class="visually-hidden"'
+            r' form="([^"]*)"', card)
+        if len(radios) != theme_count:
+            return False, (
+                "expected %d visually-hidden, form-associated radios named 'theme' in the "
+                "card, got %d — the strip must be the SAME native radio group, never a "
+                "second set" % (theme_count, len(radios)))
+        if [value for value, _form in radios] != list(device_config.THEME_IDS):
+            return False, (
+                "the strip's radios are %r, not device_config.THEME_IDS in registry order"
+                % ([value for value, _form in radios],))
+        for _value, form in radios:
+            if form != config_page.SETTINGS_FORM_ID:
+                return False, (
+                    "a strip radio carries form=%r, not %r — this card is a SIBLING of the "
+                    "settings form, so without that attribute it posts nowhere"
+                    % (form, config_page.SETTINGS_FORM_ID))
+        if "display:none" in card or "display: none" in card:
+            return False, (
+                "the card emits a display:none — a radio hidden that way leaves the tab "
+                "order, and arrow-key selection with it")
+
+        # The swatch legend still renders under the grid and OUTSIDE the
+        # element carrying role="radiogroup", with its shipped copy.
+        legend = '<p class="text-label section-caption">%s</p>' % html.escape(
+            config_page.THEME_CHIP_SWATCH_LEGEND, quote=False)
+        strip_close = card.index("</div>", strip_open.end())
+        if legend not in card:
+            return False, (
+                "the swatch legend's shipped copy %r is not in the card"
+                % (config_page.THEME_CHIP_SWATCH_LEGEND,))
+        if card.index(legend) < strip_close:
+            return False, (
+                "the swatch legend renders INSIDE the element carrying role=\"radiogroup\" — "
+                "a stray non-radio child is announced inside the group")
+
+        # And the three grids this plan deliberately did not convert.
+        for field in ("theme_arriving", "calendar_theme_id"):
+            grid = re.search(
+                r'<div class="([^"]*)"[^>]*>\s*(?:<label[^>]*>)?[^<]*'
+                r'(?=(?:.(?!</div>))*name="%s")' % re.escape(field), card, re.DOTALL)
+            if grid and "theme-chip-grid--strip" in grid.group(1):
+                return False, (
+                    "the %s grid was converted too — arrivals, calendar and rule-add are "
+                    "deliberately left alone (see _theme_chip_grid_html()'s docstring)"
+                    % field)
+        if config_page._rule_add_form_html().count("theme-chip-grid--strip"):
+            return False, "the rule-add form's own chip grid was converted too"
+        return True, ""
+    check(
+        "the departures chip grid is the ONE renderer's own output laid out as a scroll-snap "
+        "strip, never a fork: a source scan of config_page.py finds exactly one function "
+        "emitting a chip <label> with data-preview-src, the strip keeps both the base and the "
+        "compact grid classes plus role=\"radiogroup\" and the id its pagers name, it holds "
+        "exactly len(THEME_IDS) visually-hidden radios named 'theme' in registry order each "
+        "carrying form=\"settings-form\" (one set, never two), no display:none appears "
+        "anywhere on the card, the swatch legend still renders after the radiogroup with its "
+        "shipped copy, and exactly one of the card's grids is converted (CFG-50, "
+        "25-06-PLAN.md Task 2)",
+        _the_departures_grid_is_the_one_renderer_presented_as_a_strip)
+
+    def _the_carousel_dots_are_real_colours_and_the_strip_rules_are_declared():
+        card = config_page._frame_colours_card_html({}, "white", None, None)
+        theme_count = len(device_config.THEME_IDS)
+        dots_open = re.search(
+            r'<div class="theme-carousel__dots ([^"]*)" aria-hidden="true">', card)
+        if not dots_open:
+            return False, (
+                "no aria-hidden .theme-carousel__dots row is rendered — a dots row that is "
+                "announced repeats eighteen radios' state in eighteen wordless nodes")
+        if "theme-chip__swatches" not in dots_open.group(1).split():
+            return False, (
+                "the dots row does not reuse .theme-chip__swatches (%r) — a second swatch-row "
+                "geometry is a second set of numbers to keep in step"
+                % (dots_open.group(1),))
+        row_end = card.index("</div>", dots_open.end())
+        row = card[dots_open.end():row_end]
+        found = re.findall(
+            r'<span class="theme-chip__dot" style="background:([^"]*)"></span>', row)
+        expected = [
+            config_page._palette_hex(device_config.THEMES[t]["departing_index"])
+            for t in device_config.THEME_IDS]
+        if found != expected:
+            return False, (
+                "the dots row carries %r, expected one dot per theme in registry order "
+                "carrying that theme's own _palette_hex(departing_index) %r — a dot row that "
+                "is not the registry's own colours is decoration measuring nothing"
+                % (found, expected))
+        if len(found) != theme_count:
+            return False, (
+                "expected %d dots, got %d" % (theme_count, len(found)))
+        # AND MORE THAN ONE COLOUR IN THE ROW, WHICH IS THE FLOOR RATHER
+        # THAN THE CEILING. Measured on this registry while writing this
+        # check: every one of the eighteen themes has
+        # `departing_index == arriving_index`, and the eighteen resolve to
+        # only SEVEN distinct hexes. So "the dots carry the departing ink"
+        # and "the dots carry the arriving ink" are the same assertion
+        # here — swapping one for the other in the renderer changes not a
+        # byte of output, and was run and confirmed to change nothing.
+        # What a wrong implementation WOULD do is read one fixed palette
+        # index for every dot, which this clause and the equality above
+        # both catch.
+        if len(set(found)) < 2:
+            return False, (
+                "all %d dots are the same colour (%r) — the row is reading one fixed palette "
+                "index rather than each theme's own" % (len(found), found[:1]))
+        # NO SELECTION STATE, ASSERTED AS A FLOOR RATHER THAN LEFT
+        # IMPLIED. A server-rendered "active dot" would be marking the
+        # SAVED theme and would be visibly wrong the instant a chip is
+        # clicked with scripts blocked; see _theme_carousel_html()'s
+        # docstring for the whole argument.
+        if "theme-carousel__dot--" in card or "--selected" in row:
+            return False, (
+                "a dot carries a selected-state modifier — with no script and no :has() chain "
+                "it can only ever mark the SAVED theme, and would be wrong the moment a "
+                "different chip is clicked")
+
+        source = _read_static("style.css")
+        strip_rules = {
+            ".theme-chip-grid--strip {": (
+                "flex-wrap: nowrap;", "overflow-x: auto;",
+                "scroll-snap-type: x mandatory;", "scroll-padding-right:"),
+            ".theme-chip-grid--strip > .theme-chip {": (
+                "flex: 0 0 auto;", "scroll-snap-align: start;"),
+            ".theme-carousel__dots {": (
+                "flex-wrap: wrap;", "margin-top: var(--space-sm);"),
+            # THE TWO HALVES OF THE GRID-BLOWOUT FIX, pinned here
+            # because each of them looks redundant beside the other and
+            # neither is. Measured on this tree with the strip in place:
+            # with only one of the two, documentElement.scrollWidth read
+            # 2049 against a client width of 360 — the page itself
+            # scrolling sideways by 1689px, which is the floor CFG-52
+            # forbids. `1fr` is `minmax(auto, 1fr)` and an auto minimum
+            # is the item's min-content; a <fieldset> re-introduces the
+            # same minimum one level down through the UA's own
+            # `min-inline-size: min-content`. The browser harness
+            # measures the OUTCOME; this pins the two declarations that
+            # produce it, so deleting either fails here as well.
+            ".frame-colours__layout {": ("grid-template-columns: minmax(0, 1fr);",),
+            ".frame-colours__usage-panel {": ("min-width: 0;",),
+        }
+        for selector, declarations in strip_rules.items():
+            if selector not in source:
+                return False, "style.css declares no %s rule" % selector.rstrip(" {")
+            body = source[source.index(selector) + len(selector):]
+            body = body[:body.index("}")]
+            for declaration in declarations:
+                if declaration not in body:
+                    return False, (
+                        "%s does not declare %r — %r"
+                        % (selector.rstrip(" {"), declaration, body.strip()))
+
+        # THE TWO NUMBERS THAT HAVE TO BE THE SAME NUMBER. The strip's
+        # `scroll-padding-right` exists to keep the chip a keyboard
+        # visitor just selected fully inside the scrollport: focus lands
+        # on a 1px visually-hidden radio at the chip's top-left corner,
+        # so the browser scrolls that into view and stops, leaving the
+        # chip itself hanging off the right edge (measured at 360px: the
+        # focused chip at left 224 inside a 278px strip). The reserved
+        # width must be one chip's width, and the chip's width is
+        # declared by `.theme-chip--compact`. Read BOTH out of the
+        # stylesheet and compare, so a density pass that changes one
+        # fails here rather than silently re-breaking the keyboard.
+        def _px(selector, prop):
+            if selector not in source:
+                return None
+            body = source[source.index(selector) + len(selector):]
+            body = body[:body.index("}")]
+            hit = re.search(r"(?m)^\s*%s:\s*(\d+(?:\.\d+)?)px;" % re.escape(prop), body)
+            return float(hit.group(1)) if hit else None
+        reserved = _px(".theme-chip-grid--strip {", "scroll-padding-right")
+        chip_width = _px(".theme-chip--compact {", "width")
+        if reserved is None or chip_width is None:
+            return False, (
+                "could not read both numbers: scroll-padding-right=%r, "
+                ".theme-chip--compact width=%r" % (reserved, chip_width))
+        if reserved != chip_width:
+            return False, (
+                "the strip reserves %gpx at its end edge but a compact chip is %gpx wide — "
+                "the reservation exists to fit exactly one chip, and any other number leaves "
+                "the chip a keyboard visitor just selected partly outside the scrollport"
+                % (reserved, chip_width))
+
+        # .theme-chip--compact STAYS SIZE-ONLY. The design system records
+        # that every selected-state rule reaches a compact chip from the
+        # BASE selectors automatically; one rule here and that contract
+        # is broken silently.
+        # COMMENTS STRIPPED FIRST, and that is not tidiness: the block
+        # comment ABOVE `.theme-chip--compact` explains at length why the
+        # modifier declares no `:has(input:checked)` rule, so a scan over
+        # the raw source reports the rule's own justification as the
+        # violation. Measured — this check failed exactly that way once.
+        rules = re.sub(r"/\*.*?\*/", " ", source, flags=re.DOTALL)
+        for match in re.finditer(r"([^{}]*)\{([^{}]*)\}", rules):
+            selector, body = match.group(1), match.group(2)
+            if "theme-chip--compact" not in selector:
+                continue
+            for banned in ("--selected", ":checked", ":has("):
+                if banned in selector:
+                    return False, (
+                        "a .theme-chip--compact rule carries %r in its selector (%r) — the "
+                        "compact modifier is SIZE-ONLY and inherits every selected-state rule "
+                        "from the base .theme-chip selectors"
+                        % (banned, selector.strip()))
+        return True, ""
+    check(
+        "the carousel's dots row is aria-hidden, reuses .theme-chip__swatches/.theme-chip__dot "
+        "rather than inventing a second swatch geometry, carries exactly one dot per theme in "
+        "registry order painted with that theme's OWN _palette_hex(departing_index), and "
+        "carries no selected-state modifier at all (with no script and no :has() chain it "
+        "could only ever mark the SAVED theme); and style.css declares the strip's nowrap / "
+        "overflow-x / scroll-snap-type, its chips' flex: 0 0 auto and scroll-snap-align, and "
+        "the dots row's own wrap and top margin — with .theme-chip--compact still declaring no "
+        "selected-state rule of any kind (CFG-50/CFG-52, 25-06-PLAN.md Task 2)",
+        _the_carousel_dots_are_real_colours_and_the_strip_rules_are_declared)
+
+    def _the_full_grid_sits_behind_a_native_details_and_the_pagers_behind_the_gate():
+        # THE DUPLICATION QUESTION, ASSERTED RATHER THAN ASSUMED. The
+        # whole page — not merely the card — must carry exactly
+        # len(THEME_IDS) radios named `theme`. Two sets would share a
+        # name and a form and so still post one value, but the page
+        # would show a selection in two places, carry two --selected
+        # chips and two copies of every chip image, for a setting with
+        # one value (T-25-06-B).
+        # SCOPE_DISPLAY, not the default SCOPE_ALL: the Frame colours
+        # card is Display's, and the legacy SCOPE_ALL render (never
+        # served) carries no theme radio at all — measured, and a page
+        # with zero of them would make every count below pass for the
+        # wrong reason.
+        page = config_page.render({
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
+        theme_count = len(device_config.THEME_IDS)
+        posted = len(re.findall(r'<input type="radio" name="theme" ', page))
+        if posted != theme_count:
+            return False, (
+                "the Display page renders %d radios named 'theme', expected exactly %d — the "
+                "strip and the full grid are ONE set of radios, and a second set is two places "
+                "showing one setting" % (posted, theme_count))
+
+        # A NATIVE <details>, AND NOT A <dialog>. A dialog has no way to
+        # open without script, so eighteen themes behind one is eighteen
+        # themes behind a dead control — the exact defect this phase
+        # exists to prevent.
+        if "<dialog" in page:
+            return False, (
+                "the Display page renders a <dialog> — a dialog cannot be opened without "
+                "script, and this disclosure is deliberately a native <details> instead "
+                "(25-RESEARCH.md Decision 4)")
+        disclosure = re.search(
+            r'<details class="theme-carousel__all"><summary>([^<]*)</summary>', page)
+        if not disclosure:
+            return False, "no <details class=\"theme-carousel__all\"><summary> is rendered"
+        if disclosure.group(1) != html.escape(
+                config_page.THEME_CAROUSEL_SUMMARY, quote=False):
+            return False, (
+                "the disclosure's summary reads %r, expected %r"
+                % (disclosure.group(1), config_page.THEME_CAROUSEL_SUMMARY))
+        strip_at = page.index('id="%s"' % config_page.THEME_CAROUSEL_STRIP_ID)
+        if disclosure.start() > strip_at:
+            return False, (
+                "the disclosure renders AFTER the strip — the stylesheet reaches the strip "
+                "through an adjacent-sibling combinator on the disclosure's [open] state, "
+                "which only matches when the disclosure comes first")
+
+        # BOTH PAGERS INSIDE THE GATE, AND ZERO PAGER MARKUP OUTSIDE IT.
+        gate = re.search(
+            r'<div class="theme-carousel__pagers ([^"]*)" (%s)>(.*?)</div>'
+            % re.escape(config_page.THEME_CAROUSEL_WRAPPER_ATTR), page, re.DOTALL)
+        if not gate:
+            return False, "no .theme-carousel__pagers wrapper carrying the wrapper attribute"
+        if layout.JS_GATE_CLASS not in gate.group(1).split():
+            return False, (
+                "the pager wrapper's classes are %r — without %r it renders permanently with "
+                "scripts blocked, which is a control that shows and does nothing"
+                % (gate.group(1), layout.JS_GATE_CLASS))
+        inside = gate.group(3)
+        total_pagers = page.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="')
+        if inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="') != 2:
+            return False, (
+                "expected exactly two pagers inside the gate, found %d"
+                % inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="'))
+        if total_pagers != 2:
+            return False, (
+                "the page carries %d pager attributes but only two are inside the gate — a "
+                "pager rendered outside it is inert with scripts blocked" % total_pagers)
+        for direction, label in (
+                (config_page.THEME_CAROUSEL_PAGER_PREV, config_page.THEME_CAROUSEL_PREV_LABEL),
+                (config_page.THEME_CAROUSEL_PAGER_NEXT, config_page.THEME_CAROUSEL_NEXT_LABEL)):
+            button = re.search(
+                r'<button type="button"([^>]*%s="%s"[^>]*)>'
+                % (re.escape(config_page.THEME_CAROUSEL_PAGER_ATTR), direction), inside)
+            if not button:
+                return False, "no <button> carries the %r pager attribute" % direction
+            attrs = button.group(1)
+            if 'aria-label="%s"' % html.escape(label, quote=True) not in attrs:
+                return False, (
+                    "the %s pager carries no aria-label=%r — it draws its arrow in CSS and "
+                    "has no text of its own, so without one it announces nothing at all: %r"
+                    % (direction, label, attrs))
+            if ('aria-controls="%s"' % config_page.THEME_CAROUSEL_STRIP_ID) not in attrs:
+                return False, (
+                    "the %s pager's aria-controls does not name the strip — and that is not "
+                    "only an announcement: theme-preview.js resolves the element to scroll "
+                    "through this very attribute: %r" % (direction, attrs))
+            if "aria-hidden" in attrs:
+                return False, (
+                    "the %s pager is aria-hidden — these are real controls with real labels, "
+                    "not decorations" % direction)
+            if "control-hit-area" not in attrs and "control-hit-area" not in button.group(0):
+                return False, (
+                    "the %s pager does not carry .control-hit-area, 25-01's shared "
+                    "22px-box-plus-44px-::before synthesis (.copy-btn's own values verbatim)"
+                    % direction)
+
+        # THE SCRIPT SIDE OF THE SAME SEAM, AND THE ONE THING IT MUST
+        # NOT DO. A pager that listened for a key would take
+        # ArrowLeft/ArrowRight away from the native radiogroup, which is
+        # precisely the selection the scripts-blocked path depends on.
+        script = _read_static("theme-preview.js")
+        # ON A BOUNDARY, NEVER AS A BARE SUBSTRING. Measured: the first
+        # version of this clause asked `attr not in script`, and a
+        # mutation renaming the script's own constant to
+        # "data-theme-pagerr" — which matches nothing in the markup and
+        # leaves both pagers inert — passed it, because the typo
+        # CONTAINS the real name. The same boundary discipline
+        # test_companion_app.py's own gate-class pin records.
+        if not re.search(
+                r"(?<![-\w])%s(?![-\w])"
+                % re.escape(config_page.THEME_CAROUSEL_PAGER_ATTR), script):
+            return False, (
+                "companion/static/theme-preview.js never names %r, so the two pagers it is "
+                "supposed to own are two buttons that do nothing"
+                % config_page.THEME_CAROUSEL_PAGER_ATTR)
+        code = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", " ", script, flags=re.DOTALL))
+        for key_event in ("keydown", "keyup", "keypress"):
+            if key_event in code:
+                return False, (
+                    "theme-preview.js registers a %r listener — a pager that captures an arrow "
+                    "key breaks the native radiogroup selection the no-JS path depends on"
+                    % key_event)
+        if "preventDefault" in code:
+            return False, (
+                "theme-preview.js calls preventDefault — this file drives a native radio group "
+                "and a native scroll container, and the browser owns both models")
+
+        source = _read_static("style.css")
+        rules = {
+            ".theme-carousel__all[open] + .theme-chip-grid--strip {": ("flex-wrap: wrap;",),
+            ".theme-carousel__pagers {": (
+                "--js-gate-display: flex;", "gap: var(--space-lg);",
+                "margin-top: var(--space-sm);"),
+            ".theme-carousel__pager::after {": (
+                'content: "";', "width: 6px;", "height: 6px;",
+                "border-right: 2px solid currentColor;",
+                "border-bottom: 2px solid currentColor;",
+                "transform: rotate(-45deg);"),
+            ".theme-carousel__pager--prev::after {": ("transform: rotate(135deg);",),
+            ".theme-carousel__all {": ("margin-bottom: var(--space-sm);",),
+        }
+        for selector, declarations in rules.items():
+            if selector not in source:
+                return False, "style.css declares no %s rule" % selector.rstrip(" {")
+            body = source[source.index(selector) + len(selector):]
+            body = body[:body.index("}")]
+            for declaration in declarations:
+                if declaration not in body:
+                    return False, (
+                        "%s does not declare %r — %r"
+                        % (selector.rstrip(" {"), declaration, body.strip()))
+        return True, ""
+    check(
+        "the full grid sits behind a native <details>/<summary> and never a <dialog> (a dialog "
+        "cannot be opened without script, which would put eighteen themes behind a dead "
+        "control), the disclosure renders BEFORE the strip because the stylesheet reaches it "
+        "through an adjacent-sibling [open] rule, the whole Display page carries exactly "
+        "len(THEME_IDS) radios named 'theme' (ONE set, so the page can never show one setting "
+        "in two disagreeing places), both pagers render inside 25-01's gate wrapper and zero "
+        "pager markup renders outside it, each carries a real aria-label and an aria-controls "
+        "naming the strip — which is also how theme-preview.js finds it — neither is "
+        "aria-hidden, both wear .control-hit-area, and theme-preview.js registers no key "
+        "listener and calls no preventDefault at all, because a pager capturing an arrow key "
+        "would break the native radiogroup selection the no-JS path depends on (CFG-50/D-09, "
+        "25-06-PLAN.md Task 3)",
+        _the_full_grid_sits_behind_a_native_details_and_the_pagers_behind_the_gate)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

@@ -140,4 +140,23 @@ CATALOG = {
     "Upload": "Envoyer",
     "Transparent PNG, at least 1200px wide, landscape.":
         "PNG transparent, au moins 1200 px de large, au format paysage.",
+
+    # --- The drag-and-drop upload affordance (CFG-51/D19, 25-07 Task 1) --
+    # "cadrée", never "à quoi elle ressemblera": the preview shows the
+    # frame the image will occupy, and the server alone decides the
+    # final crop — the same distinction the English copy makes, and the
+    # whole reason no canvas crop was built on the client.
+    "Or drag an image onto this card.":
+        "Ou glissez une image sur cette carte.",
+    "Framing preview — how it will be framed. The server does the final "
+    "crop.":
+        "Aperçu du cadrage — comment elle sera cadrée. Le serveur "
+        "effectue le recadrage final.",
+    "Framing preview of the image you chose":
+        "Aperçu du cadrage de l’image choisie",
+    "Only PNG images can be dropped here.":
+        "Seules les images PNG peuvent être déposées ici.",
+    "Drop one image at a time.": "Déposez une seule image à la fois.",
+    "That image is larger than the %d MB limit.":
+        "Cette image dépasse la limite de %d Mo.",
 }

@@ -3758,10 +3758,39 @@ def main():
 
     def _panel_lookup_prevent_default_once_correctly_positioned():
         src = _read_panel_lookup_source()
-        count = src.count("evt.preventDefault()")
-        if count != 1:
-            return False, "expected evt.preventDefault() exactly once, got %d" % count
         click_idx = src.index('document.addEventListener("click"')
+        # 25-07-PLAN.md Task 2 (CFG-51/D19) retargets this check IN
+        # PLACE — no EXPECTED_CHECK_COUNT change, because it is the same
+        # claim measured better. D-12's clause has always been about the
+        # CLICK path: exactly one interception, positioned between the
+        # trigger-null-check and the one showModal()-reaching call. A
+        # bare whole-file count was only ever a proxy for that, and the
+        # drop zone adds two more preventDefault() calls with reasons of
+        # their own — without one on `dragover` an element is not a drop
+        # target at all, and without one on `drop` the browser navigates
+        # away from the page to the dropped file. Both are now asserted
+        # BY LOCATION, so a fourth appearing anywhere still fails, and
+        # the click path's own count is scoped rather than inferred.
+        if src.count("evt.preventDefault()") != 3:
+            return False, (
+                "expected evt.preventDefault() exactly three times (the click interception, plus "
+                "the dragover/drop pair that makes an element a drop target and stops the browser "
+                "navigating to the dropped file), got %d" % src.count("evt.preventDefault()"))
+        drop_block = src[src.index("function wireUploadDropZone("):click_idx]
+        if drop_block.count("evt.preventDefault()") != 2:
+            return False, (
+                "expected exactly two evt.preventDefault() calls inside wireUploadDropZone(), got "
+                "%d" % drop_block.count("evt.preventDefault()"))
+        for handler in ('zone.addEventListener("dragover"', 'zone.addEventListener("drop"'):
+            handler_idx = drop_block.index(handler)
+            if "evt.preventDefault()" not in drop_block[handler_idx:drop_block.index("});", handler_idx)]:
+                return False, (
+                    "expected an evt.preventDefault() inside %s's own handler — without it that "
+                    "half of the gesture does not work at all" % (handler,))
+        if src[click_idx:].count("evt.preventDefault()") != 1:
+            return False, (
+                "expected exactly one evt.preventDefault() at or after the click listener, got %d"
+                % src[click_idx:].count("evt.preventDefault()"))
         null_check_idx = src.index("if (!trigger) {", click_idx)
         prevent_idx = src.index("evt.preventDefault()", click_idx)
         open_call_idx = src.index("openFromTrigger(trigger)", click_idx)
