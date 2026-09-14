@@ -97,6 +97,22 @@ EXPECTED_CHECK_COUNT = 72
 # PRAGMA user_version - re-derived by running the harness, not by
 # arithmetic)
 EXPECTED_CHECK_COUNT = 78
+# 24-03-PLAN.md Task 2 (CFG-43): 78 -> 83, +5 (wake.classify_check_in_gap(),
+# the ONE definition of "late" applied to those intervals - it landed in
+# wake.py rather than history_db.py not because of an import cycle (there
+# is none) but because history_db.py's own docstring declares it
+# stdlib-only and forbids importing device_config, which wake.py imports:
+# the boundaries proven EXACTLY at warn_s and error_s for a non-default
+# 777 s cadence; a None cadence degrading to the bare floors rather than
+# refusing, asserted on interior values so a >= / > mutation fails exactly
+# one check; an unknowable gap (None, a string, a bool, a negative, NaN)
+# reported unknown and never on-cadence; the function's own source proven
+# to derive its thresholds from device_staleness_thresholds(), to re-type
+# none of the four multipliers/floors and to read no config, with
+# history_db.py proven to hold no second copy; and the four-term observed
+# vocabulary with "honoured"/"punctual" absent from both modules -
+# re-derived by running the harness, not by arithmetic)
+EXPECTED_CHECK_COUNT = 83
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -2128,6 +2144,147 @@ def main():
         "server/history_db.py still contains no ALTER TABLE and no PRAGMA user_version - the whole "
         "migration story remains CREATE TABLE IF NOT EXISTS on every connection (CFG-43)",
         _history_db_introduces_no_migration_mechanism,
+    )
+
+    # --- 24-03-PLAN.md Task 2 (CFG-43): classify_check_in_gap(), the ONE
+    # definition of "late" applied to the intervals above.
+    #
+    # It landed in server/wake.py, NOT in history_db.py, and not because of
+    # an import cycle - there is none, `import server.history_db,
+    # server.wake` succeeds either way. history_db.py's own module
+    # docstring declares it stdlib-only and forbids it from importing
+    # device_config; `import server.wake` would break the first directly
+    # and the second transitively (wake.py imports device_config). Putting
+    # the classifier beside device_staleness_thresholds() instead means the
+    # Frame tile and anything drawn from check_in_gaps() share one
+    # function, not two consistent copies. These checks live in this
+    # harness because it is this plan's harness for the reader they judge.
+
+    import inspect
+
+    import server.wake as wake
+
+    def _classify_check_in_gap_boundaries_on_the_multiplier_path():
+        # 777 s is off both the 60/300 round numbers a hand-typed default
+        # might resemble and the STALE_WARN_FLOOR_S=300 floor, so the
+        # multiplier path - not the floor - is what fires. The boundaries
+        # are derived from the shared function, never re-typed here.
+        warn_s, error_s = wake.device_staleness_thresholds(777)
+        cases = (
+            (warn_s - 1, wake.CHECK_IN_ON_CADENCE, "one second BELOW warn_s"),
+            (warn_s, wake.CHECK_IN_LATE, "exactly AT warn_s"),
+            (error_s - 1, wake.CHECK_IN_LATE, "one second BELOW error_s"),
+            (error_s, wake.CHECK_IN_MISSING, "exactly AT error_s"),
+        )
+        for gap_s, expected, where in cases:
+            got = wake.classify_check_in_gap(gap_s, 777)
+            if got != expected:
+                return False, (
+                    "at the boundary %s (warn_s=%r, error_s=%r): a %r s gap classified %r, expected %r"
+                    % (where, warn_s, error_s, gap_s, got, expected)
+                )
+        return True, ""
+    check(
+        "classify_check_in_gap() is on-cadence below warn_s, late EXACTLY AT warn_s, still late below "
+        "error_s and missing EXACTLY AT error_s, for a non-default 777 s cadence (CFG-43)",
+        _classify_check_in_gap_boundaries_on_the_multiplier_path,
+    )
+
+    def _classify_check_in_gap_none_cadence_uses_the_bare_floors():
+        # A cadence that cannot be determined must still classify - it
+        # degrades to the bare floors exactly as device_staleness_
+        # thresholds(None) already does, rather than refusing. Interior
+        # values only: the boundary discipline is check above's job, so a
+        # >= / > mutation fails exactly one check, not two.
+        floors = wake.device_staleness_thresholds(None)
+        if floors != (wake.STALE_WARN_FLOOR_S, wake.STALE_ERROR_FLOOR_S):
+            return False, "device_staleness_thresholds(None) is no longer the bare floors: %r" % (floors,)
+        warn_s, error_s = floors
+        cases = (
+            (warn_s // 2, wake.CHECK_IN_ON_CADENCE),
+            ((warn_s + error_s) // 2, wake.CHECK_IN_LATE),
+            (error_s * 4, wake.CHECK_IN_MISSING),
+        )
+        for gap_s, expected in cases:
+            got = wake.classify_check_in_gap(gap_s, None)
+            if got != expected:
+                return False, (
+                    "a %r s gap against an undetermined cadence classified %r, expected %r "
+                    "(bare floors %r)" % (gap_s, got, expected, floors)
+                )
+        return True, ""
+    check(
+        "classify_check_in_gap() with a None cadence degrades to the bare floors rather than refusing to "
+        "classify - the same degradation device_staleness_thresholds(None) already performs",
+        _classify_check_in_gap_none_cadence_uses_the_bare_floors,
+    )
+
+    def _classify_check_in_gap_reports_an_unknowable_gap_as_unknown():
+        # check_in_gaps() reports gap_s=None for a span bounded by an
+        # undatable timestamp. Classifying that as on-cadence (the naive
+        # falsy reading) would claim the device checked in on time during a
+        # span whose duration is not knowable at all.
+        for gap_s in (None, "1800", -60, True, float("nan")):
+            got = wake.classify_check_in_gap(gap_s, 300)
+            if got != wake.CHECK_IN_UNKNOWN:
+                return False, "gap_s=%r classified %r, expected %r" % (gap_s, got, wake.CHECK_IN_UNKNOWN)
+        return True, ""
+    check(
+        "classify_check_in_gap() reports an unknowable gap (None, a non-number, a bool, a negative, NaN) "
+        "as unknown - never as on-cadence",
+        _classify_check_in_gap_reports_an_unknowable_gap_as_unknown,
+    )
+
+    def _classify_check_in_gap_reuses_the_one_threshold_function():
+        source = inspect.getsource(wake.classify_check_in_gap)
+        if "device_staleness_thresholds(" not in source:
+            return False, "classify_check_in_gap() does not derive its thresholds from device_staleness_thresholds()"
+        for name in ("MISSED_WAKES_WARN", "MISSED_WAKES_ERROR", "STALE_WARN_FLOOR_S", "STALE_ERROR_FLOOR_S"):
+            if name in source:
+                return False, "classify_check_in_gap() re-types %s instead of reusing the shared pair" % (name,)
+        if "device_config" in source or "load_device_config" in source:
+            return False, (
+                "classify_check_in_gap() reads the config itself - the cadence must be an argument so a "
+                "caller can state WHICH cadence its drawing was judged against"
+            )
+        hdb_path = os.path.join(REPO_ROOT, "server", "history_db.py")
+        with open(hdb_path) as fh:
+            hdb_src = fh.read()
+        for name in ("MISSED_WAKES_WARN", "MISSED_WAKES_ERROR", "STALE_WARN_FLOOR_S", "STALE_ERROR_FLOOR_S"):
+            if name in hdb_src:
+                return False, "server/history_db.py holds a second copy of %s" % (name,)
+        return True, ""
+    check(
+        "classify_check_in_gap()'s own source derives its thresholds from device_staleness_thresholds(), "
+        "re-types none of the multipliers or floors, reads no config, and history_db.py holds no second copy",
+        _classify_check_in_gap_reuses_the_one_threshold_function,
+    )
+
+    def _the_verdict_vocabulary_is_observed_never_honoured():
+        # 24-RESEARCH.md Risk 1: the data cannot support the phrase an
+        # "honoured-wake rate" names, even with a new column, because a
+        # rotation the ingest missed is indistinguishable from a missed
+        # wake. A name chosen here is the name every caption inherits.
+        verdicts = (
+            wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
+            wake.CHECK_IN_MISSING, wake.CHECK_IN_UNKNOWN,
+        )
+        if len(set(verdicts)) != 4:
+            return False, "the four verdicts must be four distinct strings, got %r" % (verdicts,)
+        for verdict in verdicts:
+            if not isinstance(verdict, str) or not verdict:
+                return False, "each verdict must be a non-empty string, got %r" % (verdicts,)
+        for rel in ("server/history_db.py", "server/wake.py"):
+            with open(os.path.join(REPO_ROOT, *rel.split("/"))) as fh:
+                body = fh.read().lower()
+            for banned in ("honoured", "punctual"):
+                if banned in body:
+                    return False, "%s uses the word %r, which this data cannot support" % (rel, banned)
+        return True, ""
+    check(
+        "the verdict vocabulary is four distinct observed terms and neither history_db.py nor wake.py "
+        "uses the words 'honoured' or 'punctual' anywhere (24-RESEARCH.md Risk 1)",
+        _the_verdict_vocabulary_is_observed_never_honoured,
     )
 
     def _all_sql_uses_placeholders_not_string_formatting():
