@@ -290,7 +290,7 @@ CATALOG = {
     #
     # The heading is 24-RESEARCH.md open decision 3's own wording:
     # "Régularité des relevés", never "ponctualité". The English source
-    # already refuses the roadmap's "wake punctuality" phrasing because
+    # already refuses the roadmap's own phrasing for this drawing because
     # the expected interval is not recoverable from the record, and a
     # French sibling that reintroduced the claim would put it back in
     # half the app's pages. A check scans the rendered page in BOTH

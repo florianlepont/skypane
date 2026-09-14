@@ -23,7 +23,7 @@ allowed to. Geometry has no business knowing what it is plotting: the
 page module reads the battery estimate from companion/battery.py (the one
 home for it) and hands this module a fraction or a millivolt value with a
 domain. Keeping the dependency out means a drawing of something else
-entirely — a check-in gap, a punctuality cell — calls exactly the same
+entirely — a check-in gap, a regularity cell — calls exactly the same
 primitives with no battery-shaped concept in the way.
 
 Nothing here needs, produces or tolerates JavaScript. D-09's no-JS floor
@@ -757,8 +757,8 @@ def ring_gauge(fraction, size, status_class=None):
     `fraction` IS A FRACTION, NOT A MILLIVOLT READING. This module
     deliberately does not import companion/battery.py (see the module
     docstring): geometry has no business knowing what it is plotting, and
-    a ring that took millivolts could not draw a check-in rate or a
-    punctuality share without growing a second domain. The caller reads
+    a ring that took millivolts could not draw a check-in rate or any
+    other share without growing a second domain. The caller reads
     the estimate from companion/battery.py — the ONE home for it — and
     hands the result here.
 

@@ -534,7 +534,8 @@ ICON_CORROBORATION = "icon-corroboration"
 # --- 24-07-PLAN.md Task 2 (CFG-43): the check-in regularity grid -------
 #
 # THE NAME IS THE FIRST DECISION AND IT IS NOT A STYLE CHOICE.
-# .planning/ROADMAP.md asked for a "wake punctuality" grid and flagged
+# .planning/ROADMAP.md asked for a grid of how reliably the frame kept
+# its wakes — naming it with a word this codebase now refuses — and flagged
 # that the data might not support it. 24-03 settled that it does not:
 # `device_health` rows are real check-ins, so the OBSERVED cadence is
 # measurable, but the interval the device was EXPECTED to keep is nowhere
