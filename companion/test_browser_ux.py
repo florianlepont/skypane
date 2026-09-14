@@ -1560,6 +1560,406 @@ def _persist_once(browser, base_url, route, field, value, read_back, viewport,
             "submitted_via": via, "visible_submits": seen["visible"],
             "reloaded": reloaded, "stored": stored}
 
+
+# ---------------------------------------------------------------------
+# 2. Keyboard-only operation, with the pointer-free claim MEASURED.
+# ---------------------------------------------------------------------
+
+# Arm a capture-phase recorder for every pointer-ish event on the
+# document, then (separately) read it back and then prove it was alive.
+#
+# WHY A RECORDER AT ALL, when this helper simply does not call a pointer
+# API. Because "I did not click" is a statement about the harness, and
+# the property under test is a statement about the CONTROL: that a
+# keyboard-only visitor can operate it. A helper that merely avoided
+# clicking would still pass against a control reachable only by mouse,
+# because it would never notice that the value it read had been changed
+# by something other than the keys it pressed. The recorder turns "no
+# pointer was involved" from the harness's promise into the page's own
+# measurement.
+# A `click` IS NOT A POINTER EVENT, AND THIS DISTINCTION IS NOT
+# PEDANTRY — IT IS MEASURED ON THIS TREE AND IT DECIDES WHETHER THIS
+# HELPER IS USABLE AT ALL. Pressing ArrowDown inside a native radiogroup
+# moves the selection and, as part of the selected radio's ACTIVATION
+# BEHAVIOUR, fires a real `click` event on it. The first version of this
+# recorder logged `click` unconditionally, and it duly reported that the
+# existing runway radiogroup — the single behaviour D16's runway map and
+# D5's carousel both inherit for free — "was driven with ['ArrowDown']
+# and 1 pointer event(s) fired ... ['click:INPUT']". That verdict is
+# wrong, and a helper that returns it would have taught this phase to
+# stop using the keyboard behaviour it is built on.
+#
+# The discriminator is the event's own provenance, not its name.
+# UI Events gives a pointer-driven `click` a `detail` of at least 1 (the
+# click count) and a `pointerType` of "mouse"/"pen"/"touch"; a click
+# synthesized by keyboard activation or by `el.click()` carries
+# `detail === 0` and an empty `pointerType`. So `click`/`dblclick`/
+# `contextmenu` are logged ONLY when they carry that provenance, and
+# every genuinely pointer-only event (pointer*/mouse*/touch*) is logged
+# unconditionally. Verified in both directions below: a real
+# `locator.click()` is caught, and a keyboard ArrowDown is not.
+_POINTER_RECORDER_ARM = (
+    "() => {"
+    "  window.__skypanePointerLog = [];"
+    "  if (!window.__skypanePointerArmed) {"
+    "    const always = ['pointerdown','pointerup','pointermove',"
+    "      'mousedown','mouseup','mousemove','touchstart','touchend'];"
+    "    const onlyIfPointerDriven = ['click','dblclick','contextmenu'];"
+    "    const log = (t, e) => window.__skypanePointerLog.push("
+    "      t + ':' + (e.target && (e.target.id || e.target.tagName))"
+    "      + '(detail=' + e.detail + ',pointerType=' + (e.pointerType || '')"
+    "      + ')');"
+    "    always.forEach(t => document.addEventListener("
+    "      t, e => log(t, e), true));"
+    "    onlyIfPointerDriven.forEach(t => document.addEventListener(t, e => {"
+    "      if (e.detail > 0 || (e.pointerType && e.pointerType !== ''))"
+    "        log(t, e);"
+    "    }, true));"
+    "    window.__skypanePointerArmed = true;"
+    "  }"
+    "  return true;"
+    "}")
+
+_POINTER_RECORDER_READ = "() => (window.__skypanePointerLog || []).slice()"
+
+# The recorder's OWN proof of life, dispatched only AFTER the measurement
+# above has been taken, so it can never pollute what it verifies.
+_POINTER_RECORDER_SELFTEST = (
+    "args => {"
+    "  const el = document.querySelector(args.selector) || document.body;"
+    "  el.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));"
+    "  const n = (window.__skypanePointerLog || []).length;"
+    "  window.__skypanePointerLog = [];"
+    "  return n;"
+    "}")
+
+_FOCUS_PROBE = (
+    "args => {"
+    "  const el = document.querySelector(args.selector);"
+    "  if (!el) return {error: 'no-element'};"
+    "  el.focus();"
+    "  const a = document.activeElement;"
+    "  return {focused: !!a && (a === el || el.contains(a)),"
+    "          active: a ? (a.id || a.getAttribute('value') || a.tagName) : null};"
+    "}")
+
+_KEYBOARD_RESULT_PROBE = (
+    "args => {"
+    "  const el = document.querySelector(args.selector);"
+    "  const a = document.activeElement;"
+    "  const name = el && el.name;"
+    "  let group = null;"
+    "  if (name) {"
+    "    const on = [...document.querySelectorAll('input, select, textarea')]"
+    "      .filter(e => e.name === name)"
+    "      .find(e => (e.type === 'radio' || e.type === 'checkbox')"
+    "                 ? e.checked : true);"
+    "    group = on ? on.value : null;"
+    "  }"
+    "  return {value: el ? el.value : null,"
+    "          checked: el ? !!el.checked : null,"
+    "          group: group,"
+    "          active: a ? (a.id || a.getAttribute('value') || a.tagName) : null,"
+    "          activeIsInside: !!a && !!el && (a === el || el.contains(a)),"
+    "          activeName: a ? a.name || null : null,"
+    "          activeValue: a ? a.getAttribute('value') : null};"
+    "}")
+
+
+def _operate_with_keyboard(page, selector, keys):
+    """Drive a control with the keyboard ALONE and report what it did,
+    having measured that not one pointer event fired while doing it.
+
+    Returns {"selector", "keys", "value", "checked", "group", "active",
+    "pointer_events", "recorder_proved"}. Raises AssertionError when the
+    element cannot be focused, when a pointer event DID fire, or when the
+    recorder could not prove itself (below).
+
+    FOCUS IS TAKEN WITH `el.focus()`, NOT A CLICK. That is the DOM's own
+    focusing method — no pointer event of any kind is generated by it —
+    and it is the same reasoning `_click_control()` records for using the
+    element's own API instead of a coordinate interaction.
+
+    THE KEYS ARE PRESSED THROUGH `page.keyboard`, NOT DISPATCHED AS
+    SYNTHETIC KeyboardEvents, and this is load-bearing rather than
+    stylistic: the single most important keyboard behaviour this phase
+    depends on — arrow keys moving the selection inside a native
+    radiogroup, which is what D16's runway map and D5's carousel both
+    inherit for free — is implemented by the browser's own default action
+    and runs only for TRUSTED events. A `dispatchEvent(new
+    KeyboardEvent('keydown', {key: 'ArrowDown'}))` is untrusted, moves
+    nothing, and would make this helper report that a perfectly good
+    radiogroup is not keyboard-operable.
+
+    THE RECORDER PROVES ITSELF, IN THIS ORDER: arm, measure (must be
+    empty), then dispatch one synthetic pointer event and confirm the
+    recorder caught it (must not be empty). Without that last step the
+    pointer-free claim would be vacuous in exactly the case where it is
+    easiest to get wrong — a context where the listener never ran at all
+    would report "zero pointer events" forever.
+
+    MEASURED ON THIS TREE, AND THE REASON THIS HELPER REFUSES TO RUN
+    WITH SCRIPTS BLOCKED: in a `java_script_enabled=False` context,
+    listeners registered through `page.evaluate` are installed (the array
+    is really there and really readable afterwards) but NEVER FIRE — a
+    Tab walk moves focus and an `el.click()` still activates, and the log
+    stays empty regardless. `getComputedStyle` and CSS recalculation are
+    not gated on scripts, which is why `_set_ui_theme()` works there, but
+    listener callbacks are. So in that context the recorder's self-test
+    fails and this helper raises rather than returning a green
+    pointer-free verdict it cannot back up. Keyboard operation of a
+    control that needs no script is proven by
+    `_persist_without_js()` instead; this helper's subject is the
+    enhanced control, which has scripts by definition.
+    """
+    page.evaluate(_POINTER_RECORDER_ARM)
+
+    focus = page.evaluate(_FOCUS_PROBE, {"selector": selector})
+    if focus.get("error") == "no-element":
+        raise AssertionError(
+            "_operate_with_keyboard: no element matched %r on %s — with none, "
+            "this helper measures nothing" % (selector, page.url))
+    if not focus["focused"]:
+        raise AssertionError(
+            "_operate_with_keyboard: %r did not take focus from el.focus() — "
+            "the document element in focus is %r. A control a keyboard user "
+            "cannot focus is a control they cannot operate, whatever a mouse "
+            "can do with it" % (selector, focus["active"]))
+
+    for key in keys:
+        page.keyboard.press(key)
+
+    seen = page.evaluate(_KEYBOARD_RESULT_PROBE, {"selector": selector})
+    fired = page.evaluate(_POINTER_RECORDER_READ)
+    proved = page.evaluate(
+        _POINTER_RECORDER_SELFTEST, {"selector": selector})
+
+    if fired:
+        raise AssertionError(
+            "_operate_with_keyboard: %r was driven with %r and %d pointer "
+            "event(s) fired during the sequence — %r. A keyboard proof that "
+            "a pointer took part proves nothing about a keyboard-only "
+            "visitor" % (selector, list(keys), len(fired), fired))
+    if not proved:
+        raise AssertionError(
+            "_operate_with_keyboard: the pointer recorder never fired for its "
+            "own synthetic pointerdown on %r, so the 'zero pointer events' "
+            "result above measured nothing. Listeners do not run in a "
+            "scripts-blocked context; use _persist_without_js() there"
+            % (selector,))
+
+    return {"selector": selector, "keys": list(keys),
+            "value": seen["value"], "checked": seen["checked"],
+            "group": seen["group"], "active": seen["active"],
+            "active_is_inside": seen["activeIsInside"],
+            "active_name": seen["activeName"],
+            "active_value": seen["activeValue"],
+            "pointer_events": fired, "recorder_proved": proved}
+
+
+# ---------------------------------------------------------------------
+# 3. The hit area the browser really hit-tests, at a real viewport.
+# ---------------------------------------------------------------------
+
+# The established touch-target floor, in both axes
+# (.claude/skills/sketch-findings-skypane/references/control-density.md,
+# and the same 44 the `.copy-btn`/`.row-toggle` ::before synthesis and
+# the global `input, select` rule are both built to reach). Named once
+# here so five control plans do not each retype it.
+MIN_HIT_TARGET_PX = 44
+
+# Measure the visual box, confirm the centre is genuinely reachable, then
+# find how far past each edge the browser still resolves a hit to this
+# element.
+#
+# THE TECHNIQUE, RECORDED HERE BECAUSE A LATER READER WILL OTHERWISE
+# "SIMPLIFY" IT BACK INTO A WRONG MEASUREMENT. `getBoundingClientRect()`
+# alone is not the hit area, in either direction:
+#   * it UNDERSTATES a synthesized target. `.copy-btn` is a 22x22 box
+#     whose `::before` carries `inset: -11px`, making the real target
+#     44x44. A pseudo-element has no box of its own in the DOM and no
+#     rect to read; the only thing that knows about it is the hit-test.
+#   * it OVERSTATES an occluded one. A perfectly-sized rectangle covered
+#     by a sticky bar, an overlay or a later-painted sibling is a control
+#     nobody can press, and its rect says 44x44 regardless.
+# `document.elementFromPoint()` answers both, because it IS the browser's
+# hit-test: it returns the element that would receive a pointer
+# interaction at a point, pseudo-elements resolving to their generating
+# element. So the centre is probed first (occlusion), and then each edge
+# is pushed outwards by binary search for as long as the hit still
+# resolves to this element or a descendant of it (synthesis).
+#
+# Reading `getComputedStyle(el, '::before')`'s insets instead — which one
+# existing check in this file does by hand — measures the DECLARATION,
+# not the hit test. It cannot see an occluder, it cannot see a
+# `pointer-events: none` on the pseudo-element, and it has to know in
+# advance which pseudo-element to ask about.
+#
+# The search is bounded by `max` and monotonic by construction (an inset
+# hit area is a rectangle), and it reports `clipped` when a probe left
+# the viewport — at which point the measurement is a floor, not the
+# answer, and a caller comparing it against 44 is still safe because a
+# clipped measurement can only be too SMALL.
+_HIT_AREA_PROBE = (
+    "args => {"
+    "  const el = document.querySelector(args.selector);"
+    "  if (!el) return {error: 'no-element'};"
+    "  el.scrollIntoView({block: 'center', inline: 'center'});"
+    "  const r = el.getBoundingClientRect();"
+    "  if (!r.width || !r.height)"
+    "    return {error: 'no-box', visual: [r.width, r.height]};"
+    "  const owns = n => !!n && (n === el || el.contains(n));"
+    "  const vw = document.documentElement.clientWidth;"
+    "  const vh = document.documentElement.clientHeight;"
+    "  const inView = (x, y) => x >= 0 && y >= 0 && x < vw && y < vh;"
+    "  const cx = Math.floor(r.left + r.width / 2) + 0.5;"
+    "  const cy = Math.floor(r.top + r.height / 2) + 0.5;"
+    "  if (!inView(cx, cy))"
+    "    return {error: 'off-screen', visual: [r.width, r.height]};"
+    "  const at = document.elementFromPoint(cx, cy);"
+    "  if (!owns(at))"
+    "    return {error: 'occluded', visual: [r.width, r.height],"
+    "            by: at ? (at.className.toString().trim() || at.tagName)"
+    "                   : null};"
+    "  let clipped = false;"
+    "  const ownsAt = (x, y) =>"
+    "    inView(x, y) && owns(document.elementFromPoint(x, y));"
+    "  const reach = (dx, dy, span) => {"
+    "    const limit = Math.ceil(span / 2) + args.max;"
+    "    let lo = 0, hi = limit + 1;"
+    "    if (ownsAt(cx + dx * hi, cy + dy * hi)) return hi;"
+    "    while (hi - lo > 1) {"
+    "      const mid = (lo + hi) >> 1;"
+    "      if (ownsAt(cx + dx * mid, cy + dy * mid)) lo = mid; else hi = mid;"
+    "    }"
+    "    if (!inView(cx + dx * (lo + 1), cy + dy * (lo + 1))) clipped = true;"
+    "    return lo;"
+    "  };"
+    "  const left = reach(-1, 0, r.width), right = reach(1, 0, r.width);"
+    "  const up = reach(0, -1, r.height), down = reach(0, 1, r.height);"
+    "  return {visual: [r.width, r.height],"
+    "          reach: [left, right, up, down],"
+    "          hit: [left + right + 1, up + down + 1],"
+    "          clipped: clipped,"
+    "          viewport: [vw, vh]};"
+    "}")
+
+
+def _hit_area(page, selector, max_expand=64):
+    """The element's VISUAL box and the box the browser actually
+    hit-tests to it, both axes, at whatever viewport `page` is at.
+
+    Returns {"selector", "visual": (w, h), "hit": (w, h), "reach":
+    (left, right, up, down), "clipped", "viewport"}. Raises
+    AssertionError when the selector matches nothing, when the element
+    has no box at all, or when its own centre point hit-tests to
+    something else — an occluded control, which is the failure a
+    rectangle measurement is blind to.
+
+    Read the module comment above this function before changing it: the
+    `elementFromPoint` probing is the whole measurement, and
+    `getBoundingClientRect()` on its own would report `.copy-btn` as
+    22x22 when its real target is 44x44.
+
+    THE SEARCH COUNTS WHOLE PIXELS, OUTWARDS FROM THE CENTRE, SAMPLED AT
+    THEIR CENTRES, AND THE ANSWER IS A PIXEL COUNT. Both halves of that
+    were arrived at by measuring rather than by taste:
+      * A FRACTIONAL binary search inflates every answer by about a
+        pixel, because `elementFromPoint` resolves to the pixel grid — a
+        312.0-wide <h1> reported 312.97. On a 44px floor a systematic
+        +1 is the difference between passing a 43px target and failing
+        it, so the search is over integers.
+      * Each pixel is sampled at its own CENTRE (x + 0.5), which asks
+        the unambiguous question "does THIS pixel route a pointer to the
+        control?" rather than the ambiguous one about a box edge.
+    THE ANSWER CAN EXCEED THE CSS BOX BY ABOUT A PIXEL PER AXIS, and that
+    is the browser rather than this probe: a box whose edges land off the
+    pixel grid has its hit region snapped outwards, so the row toggle's
+    22x22 visual box and -11px `::before` inset measure 45x45 rather than
+    44x44, and a 96x44 `<input>` measures 97x45. Those pixels really do
+    route a pointer to the control — a click at them lands on it — so the
+    number is the truth about this rendering and not an error to be
+    corrected away. It does mean a floor comparison is permissive by up
+    to a pixel: a control measuring exactly 44 here could be 43 in CSS.
+    Do not trust the last pixel of this measurement; do trust the
+    difference between 22 and 44, which is what it exists to tell apart.
+
+    Probing outward FROM THE CENTRE (rather than inward from each edge)
+    is what makes the search monotonic without having to guess a starting
+    point that is definitely inside the box.
+
+    THE ELEMENT IS SCROLLED TO THE CENTRE OF THE VIEWPORT FIRST, and that
+    is a correctness measure rather than a convenience. A hit-test is
+    meaningless off-screen, and — measured here — `#wake-interval-s` at
+    360px reports its centre hit-testing to `tab-bar__pill`, the fixed
+    bottom tab bar, purely because of where the page happened to be
+    scrolled. An occlusion verdict that depends on scroll position is an
+    intermittently-red check, which is worse than no check. After
+    centring, an `occluded` result means a real overlay rather than a
+    scroll accident.
+
+    `max_expand` bounds the outward search. 64 is comfortably past the
+    44px floor and past the 11px-per-side synthesis this app uses, and
+    keeps a control that happens to sit inside a large clickable parent
+    from reporting that parent's size — the search stops at this element,
+    but only because `owns()` requires the hit to BE this element or a
+    descendant, never an ancestor.
+    """
+    seen = page.evaluate(
+        _HIT_AREA_PROBE, {"selector": selector, "max": max_expand})
+    error = seen.get("error")
+    if error == "no-element":
+        raise AssertionError(
+            "_hit_area: no element matched %r on %s — with none, this "
+            "measures nothing" % (selector, page.url))
+    if error == "no-box":
+        raise AssertionError(
+            "_hit_area: %r renders with a zero-size box %r, so there is no "
+            "hit area to measure at all — the Phase 22 P0 shape exactly (a "
+            "control rendered and unpressable)" % (selector, seen["visual"]))
+    if error == "off-screen":
+        raise AssertionError(
+            "_hit_area: %r's centre lies outside the viewport, so the browser "
+            "cannot be asked what it hit-tests there. Scroll it into view "
+            "before measuring" % (selector,))
+    if error == "occluded":
+        raise AssertionError(
+            "_hit_area: %r measures %r but its own centre point hit-tests to "
+            "%r instead — the control is not reachable by pointer where it "
+            "is drawn, and a bounding-box measurement would have reported it "
+            "as fine. Three causes measured on this tree, all of which leave "
+            "the rect intact: something painted over it; a collapsed "
+            "disclosure (`max-height: 0; overflow: hidden` clips the paint "
+            "and keeps the boxes); and `pointer-events: none` at rest (the "
+            "Flights copy buttons, revealed on `tr:hover`/`tr:focus-within`) "
+            "— for that last one, put the control into the state it is meant "
+            "to be pressed in before measuring"
+            % (selector, seen["visual"], seen["by"]))
+    return {"selector": selector,
+            "visual": tuple(seen["visual"]), "hit": tuple(seen["hit"]),
+            "reach": tuple(seen["reach"]), "clipped": seen["clipped"],
+            "viewport": tuple(seen["viewport"])}
+
+
+def _assert_hit_target(page, selector, where, minimum=MIN_HIT_TARGET_PX):
+    """`_hit_area()` plus the floor, so five control plans do not each
+    retype the comparison and get the axis or the number slightly
+    different. Returns the measurement; raises when either axis is under
+    `minimum`.
+    """
+    seen = _hit_area(page, selector)
+    w, h = seen["hit"]
+    if w < minimum or h < minimum:
+        raise AssertionError(
+            "%s: %r's hit area measures %dx%d at %dpx, under the %dpx floor "
+            "in %s (its visual box is %.1fx%.1f and it reaches %r pixels "
+            "left/right/up/down of its own centre)"
+            % (where, selector, w, h, seen["viewport"][0], minimum,
+               "both axes" if (w < minimum and h < minimum)
+               else ("the x axis" if w < minimum else "the y axis"),
+               seen["visual"][0], seen["visual"][1], seen["reach"]))
+    return seen
+
 def main():
     try:
         from playwright.sync_api import sync_playwright
