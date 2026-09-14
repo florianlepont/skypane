@@ -712,6 +712,32 @@ EXPECTED_CHECK_COUNT = 300
 # the two documented WR-11 root-sandbox failures, unrelated to this
 # plan), never by arithmetic.
 EXPECTED_CHECK_COUNT = 306
+# 25-01-PLAN.md Task 2 (CFG-46): +3 — the `.js` gate and the shared
+# control vocabulary, asserted at the RULE level so "an affordance that
+# cannot work without script does not render without script" is a
+# property of the stylesheet rather than a promise repeated in five
+# plans. One check pins the gate's DIRECTION (hidden by default,
+# revealed under `.js`, `display: none` specifically rather than
+# visibility/opacity, which leave a focusable ghost a keyboard user can
+# tab into with scripts blocked) and — the half that would actually
+# ship — that no gate rule anywhere runs the reverse direction. One
+# pins the shared hit area EQUAL, declaration by declaration, to
+# `.copy-btn`'s own registered values, with the 44px recomputed from the
+# declared box plus inset rather than restated, plus `touch-action:
+# none` on the wrapper and the handle (without it a touch drag is
+# claimed by the browser's panning gesture and the control is immovable
+# on a phone, with no error anywhere) and no colour literal in any added
+# rule. The third is a REGRESSION guard with no RED phase, and that is
+# recorded rather than manufactured: exactly one @supports
+# selector(:has(*)) block, counted on COMMENT-STRIPPED source and on the
+# opening brace, because the raw grep returns five and four of those are
+# the paragraphs explaining the rule.
+# Every scan here strips comments first, for this file's own standing
+# reason: the stylesheet's prose quotes the selectors and values being
+# measured.
+# 306 + 3 = 309, re-derived by RUNNING the harness (307/309 pass here —
+# the two documented WR-11 root-sandbox failures), never by arithmetic.
+EXPECTED_CHECK_COUNT = 309
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -6002,6 +6028,17 @@ def main():
                 return False, (
                     "the `.js .js-gate` rule declares display: %r — the reveal half must set a "
                     "rendering display value" % (revealed_display,))
+            # A consumer opts into its own display through
+            # `--js-gate-display`. Dropping the FALLBACK from that var()
+            # would make the reveal resolve to nothing for every
+            # consumer that never sets the property — the gate would
+            # stay shut and this check would still see a non-`none`
+            # declaration. Asserted explicitly for exactly that reason.
+            if revealed_display.startswith("var(") and "," not in revealed_display:
+                return False, (
+                    "the `.js .js-gate` reveal declares display: %r with no fallback — a "
+                    "consumer that never sets --js-gate-display would resolve to nothing and "
+                    "the gate would never open" % (revealed_display,))
             # THE REVERSE DIRECTION, CAUGHT EXPLICITLY. A later plan
             # writing `.js .something-gate { display: none; }` would be
             # re-introducing the flash this class exists to remove, and
@@ -6042,7 +6079,13 @@ def main():
                     "expected both a `.copy-btn` rule and a `.control-hit-area` rule in "
                     "companion/static/style.css (found %r / %r)"
                     % (source_body is not None, shared_body is not None))
-            for prop in ("width", "height", "border-radius", "padding", "position", "display"):
+            # EVERY declaration the shared class carries, not a
+            # sample: a property left out of this list is a property
+            # that can drift from .copy-btn's own silently, which is the
+            # exact failure "reused verbatim" is supposed to prevent.
+            for prop in ("width", "height", "padding", "position", "display",
+                         "align-items", "justify-content", "border", "border-radius",
+                         "background"):
                 source_value = _css_declaration(source_body, prop)
                 shared_value = _css_declaration(shared_body, prop)
                 if source_value != shared_value:
@@ -6057,11 +6100,31 @@ def main():
                     "expected both `.copy-btn::before` and `.control-hit-area::before` — the "
                     "::before IS the relocated hit area; without it the control is a 22px "
                     "target")
+            # inset alone is not enough: without `content` the
+            # pseudo-element is never generated at all, and without
+            # `position: absolute` the inset has nothing to offset
+            # from — either omission leaves a 22px target while every
+            # number in the file still reads 44.
+            for prop in ("inset", "content", "position"):
+                if _css_declaration(shared_before, prop) != _css_declaration(source_before, prop):
+                    return False, (
+                        "`.control-hit-area::before` declares %s: %r but `.copy-btn::before` "
+                        "declares %r — without all three the hit area is not synthesized at all"
+                        % (prop, _css_declaration(shared_before, prop),
+                           _css_declaration(source_before, prop)))
             inset = _css_declaration(shared_before, "inset")
-            if inset != _css_declaration(source_before, "inset"):
+            source_icon = _css_rule_body(css, ".copy-btn .icon")
+            shared_icon = _css_rule_body(css, ".control-hit-area .icon")
+            if source_icon is None or shared_icon is None:
                 return False, (
-                    "`.control-hit-area::before` declares inset: %r but `.copy-btn::before` "
-                    "declares %r" % (inset, _css_declaration(source_before, "inset")))
+                    "expected both `.copy-btn .icon` and `.control-hit-area .icon` — the 14px "
+                    "glyph scoping is part of the same register entry")
+            for prop in ("width", "height"):
+                if _css_declaration(shared_icon, prop) != _css_declaration(source_icon, prop):
+                    return False, (
+                        "`.control-hit-area .icon` declares %s: %r but `.copy-btn .icon` "
+                        "declares %r" % (prop, _css_declaration(shared_icon, prop),
+                                         _css_declaration(source_icon, prop)))
             # The arithmetic, RECOMPUTED from the declared values rather
             # than restated: box + |inset| on each side must land on 44.
             box = _css_declaration(shared_body, "width")
@@ -6087,10 +6150,18 @@ def main():
                         "`%s` declares touch-action: %r — it must be `none`, or the browser's "
                         "own panning gesture claims the drag and the control is immovable on "
                         "every touch device" % (selector, _css_declaration(body, "touch-action")))
-            if _css_declaration(_css_rule_body(css, ".value-control"), "position") != "relative":
+            for selector in (".value-control", ".value-control__track"):
+                if _css_declaration(_css_rule_body(css, selector), "position") != "relative":
+                    return False, (
+                        "`%s` must be `position: relative` — it is the positioning context an "
+                        "absolutely-placed handle is measured against; without it the handle "
+                        "resolves against whatever positioned ancestor happens to be next up "
+                        "the tree" % selector)
+            if _css_declaration(_css_rule_body(css, ".value-control__handle"),
+                                "position") != "absolute":
                 return False, (
-                    "`.value-control` must be `position: relative` — it is the positioning "
-                    "context an absolutely-placed handle is measured against")
+                    "`.value-control__handle` must be `position: absolute` — a handle placed in "
+                    "normal flow cannot be moved by the --value-fraction the script writes")
             # NO NEW COLOUR. Every declaration this task adds either
             # names no colour at all or takes one from a token.
             for selector in (".control-hit-area", ".control-hit-area::before", ".value-control",

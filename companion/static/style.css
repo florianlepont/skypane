@@ -1100,6 +1100,171 @@ a:hover {
   }
 }
 
+/* ===================================================================
+ * 25-01-PLAN.md Task 2 (CFG-46) — THE .js GATE, AND THE SHARED CONTROL
+ * VOCABULARY THE WHOLE OF PHASE 25 IS BUILT ON.
+ *
+ * Placed here, immediately after the two `.js .mobile-nav` rules above,
+ * because those are this file's other consumers of the same `.js` class
+ * (added unconditionally to <html> as nav-dropdown.js's very first
+ * statement) and all three read as one group. Placement is for
+ * READABILITY only: every selector below is unique to this block, so
+ * nothing here wins or loses on source order.
+ *
+ * --- THE DIRECTION, AND WHY THE REVERSE IS A DEFECT ----------------
+ *
+ * D-09 (22-CONTEXT.md) is a locked decision: an affordance that cannot
+ * work without script does not RENDER without script. The gate
+ * therefore HIDES BY DEFAULT and is revealed under `.js` — never the
+ * other way round.
+ *
+ * Writing it the other way round (render by default, hide under `.js`)
+ * fails twice. It flashes a dead control on every single load, in the
+ * window between first paint and the script running. And when a script
+ * genuinely fails to run — blocked, 404, a parse error — `.js` is never
+ * added at all, so the dead control does not merely flash, it stays on
+ * screen permanently with nothing behind it. This file has already paid
+ * that bill once: 19-10's `.js`-keyed fallback-hide rule (the block
+ * immediately below this one, which now keys on two liveness markers
+ * instead) hid the only working Save button whenever an unrelated
+ * script failed, and the fix was to stop keying on `.js` at all. That
+ * rule's own attribute name is deliberately NOT repeated in this
+ * paragraph: companion/test_config_page.py locates it by the FIRST
+ * occurrence of that literal in this file, so quoting it here would
+ * point the guard at a comment.
+ *
+ * `display: none` specifically, and it is not interchangeable with
+ * `visibility: hidden` or `opacity: 0`. Those two leave the element in
+ * the layout AND in the tab order, so a keyboard user with scripts
+ * blocked can tab straight into a control that cannot do anything. Out
+ * of the layout and out of the tab order is the whole requirement.
+ *
+ * --- THE REVEAL, AND WHY IT IS ONE RULE ---------------------------
+ *
+ * The revealed display value comes from `--js-gate-display`, which a
+ * consumer sets on its own rule (`--js-gate-display: flex;`) with no
+ * `.js`-scoped selector of its own. Without that indirection every
+ * consumer would have to write its own `.js .thing { display: flex; }`
+ * pair and the gate's direction would be re-decided five times. The
+ * fallback is `block`, which is what an unstyled <div> is anyway.
+ * =================================================================== */
+.js-gate {
+  display: none;
+}
+
+.js .js-gate {
+  display: var(--js-gate-display, block);
+}
+
+/* The shared hit area for a small control, in the RELOCATED category of
+ * `references/control-density.md`'s touch-target register — a 22x22px
+ * visual box with a `::before` synthesizing a real 44x44 pointer/touch
+ * target (22 + 11 + 11 = 44), which is a hit-area GAIN, never a trade.
+ *
+ * Every value here is `.copy-btn`'s own, reused VERBATIM rather than
+ * re-chosen: the 22x22 box, the zero padding, the inline-flex centring,
+ * the 6px radius, the negative-11px inset and the 14px glyph
+ * `.copy-btn .icon` already scopes its SVG down to. `.row-toggle` did
+ * exactly this in 22-09 and its own comment says so; this is the third
+ * consumer of one register entry, not a fourth set of numbers. A
+ * harness asserts every one of those declarations EQUAL to
+ * `.copy-btn`'s and recomputes the 44 from the declared box and inset,
+ * so a future density pass that shrinks one and forgets the other
+ * fails rather than drifts.
+ *
+ * NO FOCUS RULE HERE, AND THAT IS DELIBERATE. The global
+ * `a/button/input/select/summary:focus-visible` floor near the top of
+ * this file already paints every native interactive element, and a
+ * handle in this phase is a real <button>. A plan adding its own focus
+ * ring to a control is duplicating a solved problem and will end up
+ * with a second, subtly different ring. (For the record, so the next
+ * reader does not go looking in the wrong place: that floor is a
+ * top-level rule, NOT part of the one `@supports selector(:has(*))`
+ * block — what lives inside the feature query is the DELEGATED focus
+ * ring for cards wrapping a visually-hidden radio, which is a different
+ * mechanism for a different markup shape.)
+ *
+ * No background, border or content of its own on the `::before`: it is
+ * a pointer target, not a painted surface. */
+.control-hit-area {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.control-hit-area::before {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+
+.control-hit-area .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* The continuous-value control's three-part naming convention, shared
+ * by 25-04's quiet-hours dial and 25-05's wake-interval slider:
+ *
+ *   .value-control           the wrapper, and the positioning context
+ *   .value-control__track    the box companion/static/value-controls.js
+ *                            measures the pointer against
+ *   .value-control__handle   the grabbable, focusable <button>
+ *
+ * There is deliberately no `__readout` class. A control's printed value
+ * is a TIME VALUE and this file already has exactly one role for that
+ * (`.time-value`, C5's consolidation of four competing treatments,
+ * carrying `font-variant-numeric: tabular-nums` so a changing digit
+ * never reflows its neighbours). A readout wears that class. Adding a
+ * fourth numeric voice here would be reopening C5.
+ *
+ * Only the declarations that are genuinely SHARED live here — each
+ * control's own geometry (a track's length, a dial's diameter, where a
+ * handle sits for a given fraction) is that control's plan's, and
+ * guessing it now would be inventing numbers with nothing to measure
+ * them against. The two that ARE shared:
+ *
+ * `touch-action: none` is load-bearing and easy to omit: without it the
+ * browser's own panning gesture claims a press-and-drag on every touch
+ * device, `pointermove` never reaches value-controls.js, and the
+ * control is simply immovable on a phone — with no error anywhere and
+ * every string-comparison check still green. It is declared on the
+ * wrapper AND on the handle, because the handle is the element a drag
+ * actually starts on and `touch-action` does not inherit.
+ *
+ * `position: relative` on the wrapper and the track is what an
+ * absolutely-placed handle is measured against; without it the handle
+ * would resolve against the nearest positioned ancestor somewhere else
+ * on the page.
+ *
+ * The painted position arrives as the `--value-fraction` custom
+ * property, written by value-controls.js from the value it just read
+ * back off the native input — so the geometry stays in the stylesheet
+ * and the script stays out of the layout business. With scripts
+ * blocked the property is simply never set, which is correct: the
+ * control it positions is inside a `.js-gate` and is not rendered at
+ * all. */
+.value-control {
+  position: relative;
+  touch-action: none;
+}
+
+.value-control__track {
+  position: relative;
+}
+
+.value-control__handle {
+  position: absolute;
+  touch-action: none;
+}
+
 /* Unified save bar (06.6.4.1 D-04, retargeted by 19-10-PLAN.md D-09/
  * A-27, then again by 22-01-PLAN.md Task 2 D-01/B1): hides the form's
  * always-rendered bottom Save settings button once dirty-state.js has
