@@ -652,6 +652,28 @@ EXPECTED_CHECK_COUNT = 63
 # that seeds check-ins on the band's own Paris day.
 # 63 + 2 = 65, re-derived by RUNNING (65/65).
 EXPECTED_CHECK_COUNT = 65
+# 25-03-PLAN.md Task 3 (CFG-47): +3 — the runway map, measured where it
+# has to be correct, and not one of the three measures that it RENDERS.
+# One proves the runway still reaches DISK with scripts blocked, at
+# 360px and in BOTH shipped languages, through 25-02's operate-submit-
+# persist helper (which gains a `cookies` passthrough here so the one
+# java_script_enabled=False call site stays one), with the map's
+# presence on that page asserted only AFTER the save so it can never
+# stand in for it. One proves the map did not break the native
+# radiogroup: one ArrowDown moves to the registry's next entry, an
+# ArrowDown/ArrowDown/ArrowUp returns to it, zero pointer events fire,
+# the recorder proves itself, and the live :has(input:checked) card
+# follows the keyboard rather than the saved value. One measures the
+# floors at 360px: all three labels hit-tested in THEIR OWN container,
+# every drawing fitting inside its card without stretching, no sideways
+# page scroll, and the paint as a FLOOR — context/own/selected three
+# different colours, each differing between the themes — sampled only
+# once the browser's own Web Animations `finished` promise says the
+# 180ms fill transition is over, because the first version of that
+# clause read an interpolation frame and reported a theme that does not
+# invert.
+# 65 + 3 = 68, re-derived by RUNNING (68/68).
+EXPECTED_CHECK_COUNT = 68
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -1420,7 +1442,8 @@ _READ_FIELD_PROBE = (
 
 
 def _persist_without_js(browser, base_url, route, field, value, read_back,
-                        viewport=None, restore=True, shows_back=True):
+                        viewport=None, restore=True, shows_back=True,
+                        cookies=None):
     """Operate a native control with scripts blocked, submit the real
     form it belongs to, reload the route, and prove the value SURVIVED —
     on disk, not merely on the page.
@@ -1471,30 +1494,42 @@ def _persist_without_js(browser, base_url, route, field, value, read_back,
     a real setting changed would be a test that edits its own
     neighbours' subject (T-25-02-A).
 
+    `cookies` is a straight passthrough to `_no_js_page()`'s own
+    parameter, added by 25-03 for one reason: D-09's floor has to hold in
+    BOTH shipped languages, and the UI language is a cookie the FIRST
+    rendered document already has to honour. A passthrough rather than a
+    second sequence — this helper's whole value is that the five control
+    plans measure saving the same way, and a plan that needed a cookie
+    and hand-rolled its own operate-submit-reload would have re-opened
+    exactly the transcription risk `_no_js_page()` exists to close. It
+    reaches the restore pass too, so a French-language measurement puts
+    the setting back through the French page.
+
     It runs entirely inside `_no_js_page()` and opens no context of its
     own — the one scripts-blocked call site in this file stays one.
     """
     before = read_back()
     result = _persist_once(
         browser, base_url, route, field, value, read_back, viewport,
-        shows_back)
+        shows_back, cookies)
     result["before"] = before
     result["restored"] = None
     if restore and before is not None and str(before) != str(value):
         back = _persist_once(
             browser, base_url, route, field, str(before), read_back, viewport,
-            shows_back)
+            shows_back, cookies)
         result["restored"] = back["stored"]
     return result
 
 
 def _persist_once(browser, base_url, route, field, value, read_back, viewport,
-                  shows_back):
+                  shows_back, cookies=None):
     """One operate-submit-reload-verify pass. Split out only so
     `_persist_without_js()`'s restore step is the SAME sequence as its
     measurement rather than a second, hand-written one.
     """
-    with _no_js_page(browser, base_url, route, viewport=viewport) as page:
+    with _no_js_page(browser, base_url, route, viewport=viewport,
+                     cookies=cookies) as page:
         seen = page.evaluate(_OPERATE_PROBE, {"field": field, "value": value})
         error = seen.get("error")
         if error == "no-control":
@@ -9703,6 +9738,458 @@ def main():
                     "their lefts, widths and gaps and both drawings keep their boxes (CFG-44, "
                     "CFG-45, D-09, 24-08-PLAN.md Task 3)",
                     _the_heros_grouping_holds_at_both_widths_and_owes_nothing_to_a_script)
+
+                # ----------------------------------------------------------
+                # 25-03-PLAN.md Task 3 (CFG-47): the runway map, measured
+                # where it has to be correct.
+                #
+                # Three checks, and NOT ONE OF THEM MEASURES THAT THE MAP
+                # RENDERS. A check that asserted the radios are present
+                # would pass against a map that saves nothing, which is
+                # precisely the class of defect Phase 22 found; a check
+                # that read a CSS value would pass against a hit area the
+                # browser does not actually award (25-02 measured
+                # `.copy-btn`'s declared 44x44 at a real 34x26). So the
+                # subjects here are: what reaches DISK with scripts
+                # blocked, what a keyboard alone can do with zero pointer
+                # events, and what the browser's own hit test and cascade
+                # answer at 360px in both themes.
+                # ----------------------------------------------------------
+
+                def _runway_ids():
+                    return device_config.RUNWAY_IDS
+
+                # Every strip carries `transition: fill var(--motion-fast)`,
+                # so ANY sample taken right after a theme switch or a
+                # selection change reads an interpolation frame rather
+                # than the settled paint — measured, not feared: the first
+                # version of the paint check below read rgb(41, 43, 49)
+                # for a strip whose settled dark value is
+                # rgb(241, 243, 246), and reported a theme that does not
+                # invert. This waits on the Web Animations `finished`
+                # promise, the browser's OWN signal that the transition is
+                # over, and never on a timer: an element with nothing
+                # running returns an empty list and resolves at once, so
+                # this neither guesses an instant nor waits for one that
+                # will not come.
+                _SETTLE_STRIPS = (
+                    "async () => {"
+                    "  const els = [...document.querySelectorAll("
+                    "    '.runway-map__strip, .runway-map__field')];"
+                    "  await Promise.all(els.flatMap("
+                    "    e => e.getAnimations().map("
+                    "      a => a.finished.catch(() => {}))));"
+                    "  return els.length;"
+                    "}")
+
+                def _the_runway_still_saves_with_scripts_blocked_through_the_map():
+                    base_url = harness.base_url()
+
+                    def read_back():
+                        return device_config.load_device_config(
+                            harness.tmpdir)["tracked_runway"]
+
+                    before = read_back()
+                    target = next(r for r in _runway_ids() if r != before)
+                    seen = {}
+                    # BOTH SHIPPED LANGUAGES, because the UI language is a
+                    # cookie the first rendered document has to honour and
+                    # "it saves in English" is not the D-09 floor.
+                    for lang in ("en", "fr"):
+                        seen[lang] = _persist_without_js(
+                            browser, base_url, "/display", "tracked_runway",
+                            target, read_back,
+                            viewport=VIEWPORT_MIN_SUPPORTED,
+                            cookies=[{"name": auth.UI_LANG_COOKIE_NAME,
+                                      "value": lang, "url": base_url}])
+                    after = read_back()
+                    if str(after) != str(before):
+                        return False, (
+                            "the scripts-blocked save left tracked_runway at %r, it "
+                            "started at %r — a harness that changes a real setting is a "
+                            "test that edits its neighbours' subject" % (after, before))
+                    for lang, result in seen.items():
+                        if str(result["stored"]) != str(target):
+                            return False, (
+                                "lang=%s: tracked_runway did not reach disk, it reads %r"
+                                % (lang, result["stored"]))
+                        if str(result["restored"]) != str(before):
+                            return False, (
+                                "lang=%s: the restore leg did not put %r back, disk reads "
+                                "%r" % (lang, before, result["restored"]))
+
+                    # And the map itself is really on that scripts-blocked
+                    # page — asserted AFTER the save, so it can never be
+                    # mistaken for the verdict. One map per card, every
+                    # registry entry drawn on each.
+                    n = len(_runway_ids())
+                    with _no_js_page(browser, base_url, "/display",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        maps = page.locator(".runway-card .runway-map").count()
+                        strips = page.locator(".runway-card .runway-map__strip").count()
+                        if maps != n:
+                            return False, (
+                                "expected %d maps with scripts blocked, found %d — the "
+                                "drawing is server-rendered and owes nothing to a script"
+                                % (n, maps))
+                        if strips != n * n:
+                            return False, (
+                                "expected %d strips with scripts blocked, found %d"
+                                % (n * n, strips))
+                    return True, ""
+                check(
+                    "the runway still SAVES with scripts blocked through the map, at 360px and "
+                    "in BOTH shipped languages — operated natively, submitted through the real "
+                    "form, re-read FROM DISK after a fresh GET, and restored through the "
+                    "identical sequence; with the server-rendered map present on the "
+                    "scripts-blocked page itself, asserted after the save so it can never stand "
+                    "in for it (D-09/CFG-47, 25-03-PLAN.md Task 3)",
+                    _the_runway_still_saves_with_scripts_blocked_through_the_map)
+
+                def _keyboard_only_selection_survived_the_map():
+                    base_url = harness.base_url()
+                    ids = _runway_ids()
+                    if len(ids) < 2:
+                        return False, "a radiogroup of one has no arrow-key behaviour to keep"
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        saved = str(device_config.load_device_config(
+                            harness.tmpdir)["tracked_runway"])
+                        if saved not in ids:
+                            return False, (
+                                "the saved runway %r is not in the registry — this check "
+                                "would be measuring nothing" % (saved,))
+                        start = ids.index(saved)
+                        following = ids[(start + 1) % len(ids)]
+                        selector = 'input[name="tracked_runway"][value="%s"]' % saved
+                        # THE SUBJECT IS WHETHER THE MAP BROKE IT. Arrow
+                        # keys moving selection inside a native radiogroup
+                        # is the browser's own default action, measured on
+                        # the PRE-map markup by 25-02 ('3' -> '06-24' on
+                        # one ArrowDown, zero pointer events). This plan
+                        # wrapped a drawing around that control and adds
+                        # no script, so the same sequence must give the
+                        # same answer.
+                        down = _operate_with_keyboard(page, selector, ["ArrowDown"])
+                        if down["group"] != following:
+                            return False, (
+                                "one ArrowDown from %r selected %r, expected the registry's "
+                                "next entry %r — the map broke native radiogroup navigation"
+                                % (saved, down["group"], following))
+                        if down["pointer_events"]:
+                            return False, (
+                                "a pointer event fired during the keyboard sequence: %r"
+                                % (down["pointer_events"],))
+                        if not down["recorder_proved"]:
+                            return False, (
+                                "the pointer recorder never proved itself, so the empty "
+                                "pointer-event list measured nothing")
+                        # A radiogroup wraps and returns; a control that
+                        # only ever moved forwards would pass the clause
+                        # above.
+                        back = _operate_with_keyboard(
+                            page, selector, ["ArrowDown", "ArrowDown", "ArrowUp"])
+                        if back["group"] != following:
+                            return False, (
+                                "ArrowDown/ArrowDown/ArrowUp from %r landed on %r, expected "
+                                "%r — arrow navigation moves one way only"
+                                % (saved, back["group"], following))
+                        # The selection is REAL: the strip the CSS paints
+                        # follows the live checked radio, not the saved
+                        # one. Measured through the browser's own :has()
+                        # evaluation, which is the mechanism the stylesheet
+                        # relies on.
+                        live = page.eval_on_selector_all(
+                            ".runway-card:has(input:checked) input",
+                            "els => els.map(e => e.value)")
+                        if live != [following]:
+                            return False, (
+                                "after keyboard selection the live :has(input:checked) card "
+                                "is %r, expected exactly [%r] — the paint is following the "
+                                "saved value, not the visitor's choice" % (live, following))
+
+                        # AND THE PAINT REALLY MOVED WITH IT. This is the
+                        # only state in which the feature query earns its
+                        # place: at rest the saved card is also the checked
+                        # card, so the no-:has() fallback paints the
+                        # identical thing and deleting the live rule
+                        # entirely changes NOTHING a first-paint
+                        # measurement can see — that mutation was run and
+                        # failed nothing, which is why these three samples
+                        # exist. Here the two have been pulled apart: one
+                        # card is checked, a different one is saved, and a
+                        # third is neither.
+                        if not page.evaluate(_SETTLE_STRIPS):
+                            return False, "no strip matched the settle probe"
+                        chosen = _computed_paint(
+                            page,
+                            ".runway-card:has(input:checked) "
+                            ".runway-map__strip--this", props=("fill",))["fill"]
+                        was_saved = _computed_paint(
+                            page,
+                            ".runway-card--selected:not(:has(input:checked)) "
+                            ".runway-map__strip--this", props=("fill",))["fill"]
+                        neither = _computed_paint(
+                            page,
+                            ".runway-card:not(.runway-card--selected)"
+                            ":not(:has(input:checked)) "
+                            ".runway-map__strip--this", props=("fill",))["fill"]
+                        if chosen == was_saved:
+                            return False, (
+                                "the card the keyboard chose and the card that is merely "
+                                "SAVED paint their own strip identically (%r) — the live "
+                                ":has(input:checked) rule is doing nothing, and the map is "
+                                "showing the stored value rather than the visitor's choice"
+                                % (chosen,))
+                        if was_saved != neither:
+                            return False, (
+                                "the saved-but-not-live card's strip paints %r against %r "
+                                "on a card that is neither — a saved card must fall back to "
+                                "the resting weight, or two strips claim one selection"
+                                % (was_saved, neither))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "keyboard-only selection survived the map — one ArrowDown moves the native "
+                    "radiogroup to the registry's next entry and an ArrowDown/ArrowDown/ArrowUp "
+                    "returns to it, with ZERO pointer events fired and the recorder proving "
+                    "itself, and the live :has(input:checked) card follows the keyboard choice "
+                    "rather than the saved one (CFG-47, matching 25-02's pre-map measurement)",
+                    _keyboard_only_selection_survived_the_map)
+
+                def _the_map_meets_its_floors_at_360px_in_both_themes():
+                    base_url = harness.base_url()
+                    ids = _runway_ids()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+
+                        # 1. THE HIT AREA, MEASURED IN THIS CONTAINER AND
+                        # NOT INHERITED FROM A CLASS. A runway strip is
+                        # long and thin and is not the target; the wrapping
+                        # label is, and `control-density.md`'s
+                        # exempt-by-delegation category is only valid while
+                        # that label really exceeds 44px in both axes. At
+                        # 360px with three cards in one row that is not
+                        # automatic, which is why all three are measured
+                        # rather than one.
+                        hits = []
+                        for index in range(len(ids)):
+                            selector = (
+                                ".runway-row > .runway-card:nth-child(%d)" % (index + 1))
+                            hits.append(_assert_hit_target(
+                                page, selector,
+                                "the runway map's card %d of %d on /display"
+                                % (index + 1, len(ids))))
+
+                        # 2. THE DRAWING FITS THE CARD IT IS IN. The <svg>
+                        # carries intrinsic 64-user-unit width/height; a
+                        # runway card's content box at 360px is narrower
+                        # than that, so without the stylesheet's
+                        # max-width/height pair the drawing is wider than
+                        # its own card. Measured, not read off the rule.
+                        # THE COMPARISON IS AGAINST THE CARD'S CONTENT
+                        # BOX, NOT ITS BORDER BOX, AND THAT IS THE
+                        # DIFFERENCE BETWEEN A CHECK AND A DECORATION.
+                        # Measured on this tree: a runway card at 360px is
+                        # about 88px wide and carries 16px of padding on
+                        # each side plus a 1px border, so its content box
+                        # is about 54px. Comparing against the 88 lets a
+                        # 64px drawing — the map's own intrinsic size, i.e.
+                        # exactly what it renders at with the stylesheet's
+                        # max-width removed — pass while overflowing its
+                        # card by 10px. That mutation was run, passed
+                        # everything, and is the reason this reads
+                        # clientWidth minus the padding.
+                        boxes = page.eval_on_selector_all(
+                            ".runway-card .runway-map",
+                            "els => els.map(e => {"
+                            "  const r = e.getBoundingClientRect();"
+                            "  const card = e.parentElement;"
+                            "  const cs = getComputedStyle(card);"
+                            # The selected card carries transform:
+                            # scale(1.02), so its rect and the drawing's
+                            # rect are both in a scaled space while its
+                            # padding and border are not. Dividing both
+                            # rects by the card's own scale factor puts
+                            # every number in one space; clientWidth is
+                            # not usable here because it is an INTEGER,
+                            # and its rounding alone reported a 54.41px
+                            # drawing as overflowing a "53px" box.
+                            "  const k = cs.transform === 'none' ? 1"
+                            "    : (new DOMMatrixReadOnly(cs.transform).a || 1);"
+                            "  const cr = card.getBoundingClientRect();"
+                            "  const content = (cr.width / k)"
+                            "    - parseFloat(cs.paddingLeft)"
+                            "    - parseFloat(cs.paddingRight)"
+                            "    - parseFloat(cs.borderLeftWidth)"
+                            "    - parseFloat(cs.borderRightWidth);"
+                            "  const s = getComputedStyle(e);"
+                            "  return [r.width / k, r.height / k, content, s.display,"
+                            "          s.marginBottom];"
+                            "})")
+                        if len(boxes) != len(ids):
+                            return False, (
+                                "expected %d maps, measured %d" % (len(ids), len(boxes)))
+                        for width, height, card_width, display, margin in boxes:
+                            if width <= 0 or height <= 0:
+                                return False, (
+                                    "a map measured %sx%s — it has no box at all"
+                                    % (width, height))
+                            if width > card_width + 0.5:
+                                return False, (
+                                    "a map measures %.2fpx inside a %.2fpx card CONTENT "
+                                    "box — the drawing is wider than the space the card "
+                                    "has for it" % (width, card_width))
+                            if abs(width - height) > 1:
+                                return False, (
+                                    "a map measured %.2fx%.2f — the aspect-locked mark is "
+                                    "being stretched, so `height: auto` is not doing its "
+                                    "job" % (width, height))
+                            if display != "block":
+                                return False, (
+                                    "a map computes display:%s — an inline <svg> sits on a "
+                                    "text baseline and leaves a descender gap under it"
+                                    % (display,))
+                            if margin in ("0px", "", None):
+                                return False, (
+                                    "a map computes margin-bottom:%r — it would sit hard "
+                                    "against the runway name under it" % (margin,))
+
+                        # 3. THE PAGE DOES NOT SCROLL SIDEWAYS at the
+                        # narrowest supported screen. 24-02's helper, not a
+                        # second convention about what "the page" means.
+                        message = _assert_no_page_overflow(
+                            page, "the runway map on /display",
+                            VIEWPORT_MIN_SUPPORTED["width"])
+                        if message:
+                            return False, message
+
+                        # 4. THE PAINT, IN BOTH THEMES, ASSERTED AS A FLOOR
+                        # AND NOT ONLY A CEILING. "Not the SVG default" is
+                        # the ceiling and passes against a drawing where
+                        # every strip is the same flat grey; the floor is
+                        # that the three states are three different paints
+                        # and that both themes are two different paints.
+                        #
+                        # SAMPLED ONLY ONCE THE BROWSER SAYS IT HAS
+                        # FINISHED, AND THIS IS NOT A PRECAUTION — IT IS
+                        # THE DEFECT THIS CHECK ALREADY CAUGHT. The strips
+                        # carry `transition: fill var(--motion-fast)`, so
+                        # switching the theme starts a 180ms transition on
+                        # every one of them; the first version of this
+                        # check read getComputedStyle immediately after
+                        # the switch and measured rgb(41, 43, 49) for a
+                        # strip whose settled dark value is
+                        # rgb(241, 243, 246) — an interpolation frame,
+                        # reported as a theme that does not invert. The
+                        # fix is the Web Animations `finished` promise,
+                        # which is the browser's OWN signal that the
+                        # transition is over, and never a timer: an
+                        # element with nothing running returns an empty
+                        # list and resolves at once, so this neither
+                        # guesses an instant nor waits for one that will
+                        # not come.
+                        samples = {
+                            "context": (
+                                ".runway-map__strip:not(.runway-map__strip--this)",
+                                "fill"),
+                            "own": (
+                                ".runway-card:not(:has(input:checked)) "
+                                ".runway-map__strip--this", "fill"),
+                            "selected": (
+                                ".runway-card:has(input:checked) "
+                                ".runway-map__strip--this", "fill"),
+                            "field": (".runway-map__field", "stroke"),
+                        }
+                        paints = []
+                        for measured in _in_both_themes(page):
+                            if not page.evaluate(_SETTLE_STRIPS):
+                                return False, (
+                                    "%s: no strip matched the settle probe, so nothing "
+                                    "below measured anything" % (measured["theme"],))
+                            sample = {}
+                            for name, (selector, prop) in samples.items():
+                                seen = _computed_paint(page, selector, props=(prop,))
+                                if prop in seen["svg_default"]:
+                                    return False, (
+                                        "%s: the %s shape's %s is %r, indistinguishable "
+                                        "from the SVG initial value — it is taking no "
+                                        "colour from the stylesheet at all"
+                                        % (measured["theme"], name, prop, seen[prop]))
+                                sample[name] = seen[prop]
+                            if sample["context"] == sample["own"]:
+                                return False, (
+                                    "%s: a context strip and this card's own strip paint "
+                                    "identically (%r) — the map marks nothing"
+                                    % (measured["theme"], sample["own"]))
+                            if sample["own"] == sample["selected"]:
+                                return False, (
+                                    "%s: the own-runway strip paints the same selected and "
+                                    "unselected (%r) — the live selected state does nothing"
+                                    % (measured["theme"], sample["own"]))
+                            paints.append((measured["theme"], sample))
+                        if len(paints) != 2:
+                            return False, "expected a measurement in each theme, got %d" % (
+                                len(paints),)
+                        light, dark = paints[0][1], paints[1][1]
+                        for name in sorted(samples):
+                            if light[name] == dark[name]:
+                                return False, (
+                                    "the %s paint is %r in BOTH themes — it is not coming "
+                                    "from a token that inverts, so one of the two themes is "
+                                    "wrong" % (name, light[name]))
+
+                        # 5. THE TRANSITION IS REAL, measured rather than
+                        # read off the rule: a theme switch must put a
+                        # running animation on the strips. Declared-but-
+                        # inert is the failure mode this phase keeps
+                        # finding, and the only thing that can tell the
+                        # difference is the browser.
+                        running = page.evaluate(
+                            "async themes => {"
+                            "  const el = document.documentElement;"
+                            "  const strips = [...document.querySelectorAll("
+                            "    '.runway-map__strip')];"
+                            "  el.setAttribute('data-ui-theme', themes[0]);"
+                            "  await Promise.all(strips.flatMap("
+                            "    e => e.getAnimations().map("
+                            "      a => a.finished.catch(() => {}))));"
+                            "  el.setAttribute('data-ui-theme', themes[1]);"
+                            # One painted frame, awaited through the
+                            # browser's own rAF callback rather than a
+                            # timer: a transition is created during the
+                            # style recalculation that precedes a paint,
+                            # so counting before one has happened counts
+                            # a transition that does not exist yet.
+                            "  await new Promise(r => requestAnimationFrame(r));"
+                            "  return strips.reduce("
+                            "    (n, e) => n + e.getAnimations().length, 0);"
+                            "}", list(UI_THEMES_EXPLICIT))
+                        if not running:
+                            return False, (
+                                "switching the theme started no transition on any strip — "
+                                "the `transition` declared on .runway-map__strip is inert, "
+                                "so it is either dead code or the fill is not changing")
+                        _ = hits
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the map meets its floors at 360px — every one of the runway labels clears "
+                    "the 44px touch target by real hit-testing in ITS OWN container (never "
+                    "inherited from a class), each drawing fits inside the card holding it "
+                    "without stretching, the page does not scroll sideways, and the paint is a "
+                    "FLOOR not a ceiling: context/own/selected are three different colours and "
+                    "every one of them differs between the two themes, so none is the SVG "
+                    "default and none is a literal (CFG-47, 25-03-PLAN.md Task 3)",
+                    _the_map_meets_its_floors_at_360px_in_both_themes)
 
             finally:
                 browser.close()
