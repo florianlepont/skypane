@@ -6038,6 +6038,121 @@ a.airline-card {
   margin-top: var(--space-xs);
 }
 
+/* THE CHECK-IN REGULARITY GRID (CFG-43, 24-07-PLAN.md Task 1): one cell
+ * per day of OBSERVED check-in regularity, emitted by
+ * draw.regularity_grid() into Health's Screen section.
+ *
+ * FOUR RULES FOR FOUR STATES, and the fourth is why this block exists at
+ * all instead of reusing .drawing--ok/--warn/--error above. Those three
+ * carry a VERDICT about a measured interval. The fourth carries the
+ * ABSENCE of one — the record says nothing about that day, and
+ * 24-RESEARCH.md Risk 1 is that a log range the ingest lost is
+ * indistinguishable from a device that did not wake, so that state must
+ * never borrow a verdict's colour. It takes --color-border, this file's
+ * structural-ink token (the same one .drawing-axis, .drawing-ring-track
+ * and .drawing-band already spend), precisely so it cannot read as a
+ * mild warning.
+ *
+ * EACH MODIFIER SETS `color` AND NOTHING ELSE, which is what lets ONE
+ * rule paint two different kinds of element: the SVG cell follows it
+ * through .drawing-cell's `fill: currentColor`, and the HTML legend
+ * swatch beneath the grid follows the same declaration through its own
+ * `background: currentColor`. A legend whose swatches could disagree
+ * with the cells they explain is worse than no legend at all, and this
+ * is that guarantee expressed as a cascade rather than as a convention.
+ *
+ * No new colour value and no new token: the three verdicts use the app's
+ * existing --color-status-* tokens, already defined for both themes.
+ * companion/test_browser_ux.py measures all four RESOLVED colours in
+ * both themes and asserts they stay pairwise separated by the app's own
+ * MIN_SIGNAL_PERCEPTUAL_DISTANCE — because four states that collapse to
+ * three in dark mode is a defect no source scan can see. */
+.drawing-cell {
+  fill: currentColor;
+}
+
+.drawing-cell--on-cadence {
+  color: var(--color-status-ok);
+}
+
+.drawing-cell--late {
+  color: var(--color-status-warn);
+}
+
+.drawing-cell--missing {
+  color: var(--color-status-error);
+}
+
+.drawing-cell--none {
+  color: var(--color-border);
+}
+
+/* The grid's own wrapper. The two declarations below are the ONLY thing
+ * standing between this drawing and a horizontal page scrollbar on a
+ * narrow screen, and they are a deliberate, scoped exception to
+ * .drawing__figure's own "declare no width" rule — read that rule's
+ * comment first, because the exception only holds with BOTH halves.
+ *
+ * That rule forbids `width: 100%` because it would stretch an
+ * aspect-locked shape inside a letterboxed box. `max-width: 100%` paired
+ * with `height: auto` does the opposite: the intrinsic attributes still
+ * decide the size wherever there is room (the grid is drawn at exactly
+ * the 278px a Health card offers at the 360px floor, so this rule is
+ * INERT at every supported width), and below that the viewBox scales the
+ * whole drawing down uniformly — cells stay square, the grid stays
+ * inside its card. Measured: at 320px, out of contract but still
+ * measured by this repository, the canvas takes the card's 238px and the
+ * page does not scroll sideways; without these two declarations it keeps
+ * its 278px and the page does. */
+.check-in-grid .drawing__figure {
+  max-width: 100%;
+  height: auto;
+}
+
+/* The date labels beneath the grid — the same idiom and the same
+ * reasoning as .day-band__hours above, and not reusing that class for
+ * the same reason it did not reuse .drawing__x: this row is not inside
+ * that grid. `space-between` puts the oldest day's label under the first
+ * column and the newest day's under the last, which is where the grid's
+ * own scale puts those two cells, because draw.grid_cell_size() leaves
+ * the canvas exactly as wide as the card this row measures itself
+ * against. One scale, two kinds of element. */
+.check-in-grid__scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-xs);
+}
+
+/* The key. Four states painted in four colours need their four names in
+ * text: colour is the only thing distinguishing the cells from each
+ * other, and colour alone is not a reading. It wraps because four
+ * labelled swatches do not fit on one 278px line in either language —
+ * measured, not assumed. */
+.check-in-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+.check-in-key__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* The swatch takes its colour from the SAME .drawing-cell--* modifier
+ * the cell it explains does — see this block's own header. `background`
+ * rather than `fill` only because this one is an HTML <span> and not an
+ * SVG shape; the declaration it follows is the identical one. */
+.check-in-key__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: currentColor;
+  flex: none;
+}
+
 /* THE RING GAUGE (CFG-40, 24-04-PLAN.md Task 1): a full-circumference
  * track plus a value arc, emitted by draw.ring_gauge() and called at two
  * sizes — large in Health's battery section, small in Home's battery

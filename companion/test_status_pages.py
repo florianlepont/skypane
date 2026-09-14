@@ -3319,6 +3319,20 @@ def main():
         ys = sorted({round(float(r[1]), 2) for r in rects})
         if len(ys) != 3:
             return False, "expected 3 rows of cells, got %d (%r)" % (len(ys), ys)
+        # THE OTHER END OF THE SAME PROPERTY, and the reason it is here:
+        # "every cell is inside the box" is a CEILING, and a grid whose
+        # cells stopped short of the right edge would satisfy it while
+        # breaking the thing the geometry exists for. The HTML label row
+        # beneath the canvas sizes itself from the CARD, so the last
+        # label only sits under the last column while the last column
+        # reaches the canvas's own right edge. Measured against a
+        # whole-pixel cell size, which leaves exactly this 1px shortfall.
+        if abs((xs[-1] + size) - box_w) > 0.01:
+            return False, (
+                "the last column's right edge is at %.2f against a %.2fpx canvas — the "
+                "grid does not reach its own right edge, so the label row beneath it "
+                "(which measures itself against the card, not against this arithmetic) "
+                "names a column that is not there" % (xs[-1] + size, box_w))
         gaps = {round(b - a - size, 2) for a, b in zip(xs, xs[1:])}
         if gaps != {float(draw.CELL_GAP_PX)}:
             return False, (

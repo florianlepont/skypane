@@ -148,6 +148,26 @@ DRAWING_BAND_MARK_CLASS = "drawing-band-mark"
 DRAWING_RING_TRACK_CLASS = "drawing-ring-track"
 DRAWING_RING_VALUE_CLASS = "drawing-ring-value"
 
+# The check-in regularity grid's cells (CFG-43). A base class carrying
+# the paint route and FOUR state modifiers — four, not three, and the
+# fourth is the reason this is not `status_class()` above with a spare
+# value bolted on. "I have no observation of this bucket" is a different
+# KIND of statement from the three verdicts: the three are judgements
+# about a measured interval, and the fourth is the absence of one. It
+# takes structural ink rather than a status token precisely so it cannot
+# read as a mild verdict.
+#
+# The modifiers set `color` and nothing else, so the same four classes
+# paint an SVG cell (through the base class's `fill: currentColor`) and
+# an HTML legend swatch (through its own `background: currentColor`)
+# from ONE rule each. A legend that could disagree with the cells it
+# explains is worse than no legend at all.
+DRAWING_CELL_CLASS = "drawing-cell"
+DRAWING_CELL_ON_CADENCE_CLASS = "drawing-cell--on-cadence"
+DRAWING_CELL_LATE_CLASS = "drawing-cell--late"
+DRAWING_CELL_MISSING_CLASS = "drawing-cell--missing"
+DRAWING_CELL_NONE_CLASS = "drawing-cell--none"
+
 # Status colouring, for a drawing whose marks carry an ok/warn/error
 # verdict. These set `color`, so every currentColor shape beneath them
 # follows — and they use the app's existing status tokens. Deliberately
@@ -183,6 +203,11 @@ DRAWING_CLASSES = (
     DRAWING_BAND_MARK_CLASS,
     DRAWING_RING_TRACK_CLASS,
     DRAWING_RING_VALUE_CLASS,
+    DRAWING_CELL_CLASS,
+    DRAWING_CELL_ON_CADENCE_CLASS,
+    DRAWING_CELL_LATE_CLASS,
+    DRAWING_CELL_MISSING_CLASS,
+    DRAWING_CELL_NONE_CLASS,
     DRAWING_STATUS_OK_CLASS,
     DRAWING_STATUS_WARN_CLASS,
     DRAWING_STATUS_ERROR_CLASS,
@@ -1018,6 +1043,225 @@ def _day_band_mark_percents(day_start, day_seconds, instants):
             continue
         kept.append(percent)
     return kept, len(supplied) - len(kept)
+
+
+# --- the check-in regularity grid: one cell, one bucket ---------------
+#
+# CFG-43's drawing (24-07-PLAN.md Task 1), and the phase's one grid. It
+# is emitted in the UNIT scheme rather than the percentage one, which is
+# the opposite choice from the day band immediately above, so the reason
+# is worth stating: a cell is an aspect-locked mark. Percentage geometry
+# would make every cell as wide as a tenth of the card and as tall as a
+# third of a fixed canvas height, so the same drawing would be squares on
+# a phone and letterboxes on a desktop — `.drawing__figure`'s own comment
+# names exactly that distortion, and a grid of cells is the case it names.
+#
+# THE FOURTH STATE IS THE DRAWING'S SUBJECT, not an edge case it also
+# handles. 24-RESEARCH.md Risk 1: a log range `history_db.
+# ingest_caddy_battery_log()` missed leaves a hole in `device_health`
+# that no schema change can tell apart from a device that did not wake.
+# So a bucket the record says nothing about gets its own state, painted
+# in structural ink, and it is neither of the two verdicts a reader would
+# act on. Conflating it with "on cadence" would report a device as
+# healthy on the strength of no evidence; conflating it with "missing"
+# would accuse a freshly-provisioned device of failing on the same.
+
+# The width, in CSS pixels, a drawing has inside a Health card at the
+# 360px contract floor. MEASURED IN A REAL BROWSER, never estimated: a
+# `.page-section--nested` card there reports clientWidth 310 with 16px of
+# padding on each side, so its content box is exactly 278.00px — the same
+# number the day band above measured on Home by a different route.
+#
+# 24-06 planned its own spacing against "about 330px" and was wrong by
+# 52px, which made every figure derived from it wrong with it. That is
+# why this is a measurement and why companion/test_browser_ux.py reads
+# the card's real width back and re-derives this constant from it, so the
+# two cannot drift apart again.
+CARD_DRAWING_WIDTH_PX = 278
+
+# The smallest square a cell may be drawn at. WCAG 2.5.8 (Level AA)
+# target size — which .claude/skills/sketch-findings-skypane/references/
+# control-density.md names by number as the floor this app still meets
+# after trading away 2.5.5's 44px for its buttons. It is the applicable
+# floor here rather than a bare legibility guess because a cell carries a
+# <title>: it is a pointer target, and a target nobody can hit is a
+# tooltip nobody can read.
+CELL_MIN_SIZE_PX = 24
+
+# Clear ground between two cells. 2px would be the day band's own minimum
+# separation for a mark, but a cell is a filled square rather than a
+# hairline and its neighbours carry DIFFERENT colours — the gap here is
+# what stops two adjacent verdicts reading as one longer block, not what
+# stops one mark smearing into two. 3 is the smallest value that survives
+# the fractional cell size below without a rounding artefact closing it.
+CELL_GAP_PX = 3
+
+# THE ARITHMETIC, recorded the way DAY_BAND_MIN_MARK_SPACING_PERCENT
+# above records its own, because a layout constant with no derivation is
+# a number the next reader tunes:
+#
+#   a row of c cells inside CARD_DRAWING_WIDTH_PX with CELL_GAP_PX
+#   between them gives each cell (278 - 3(c - 1)) / c pixels.
+#     c = 10  ->  25.10px, clear of the 24px floor
+#     c = 11  ->  22.55px, under it
+#   so TEN is the most cells one row can hold at the 360px floor while
+#   every one of them stays a real target.
+#
+# `grid_columns()` below COMPUTES that rather than hard-coding 10, so a
+# card that gets narrower reduces the column count on its own — the
+# direction this drawing must degrade in. A grid of sub-pixel cells is a
+# texture, not a chart.
+#
+# THE ROW COUNT IS WHAT BOUNDS THE ELEMENT COUNT (T-24-07-D). Columns are
+# bounded by width; rows are not bounded by anything the geometry knows,
+# so a caller handing over a year of buckets would emit a year of rects.
+# Six rows of ten is 60 cells and about 170px tall — a drawing, not a
+# wall — and anything past that is reported to the caller rather than
+# drawn, exactly as `day_band()` reports its own collapsed marks.
+GRID_MAX_ROWS = 6
+
+# The four cell states, keyed on `wake.classify_check_in_gap()`'s own
+# CHECK_IN_* VALUES. They are re-typed here by necessity and not by
+# choice: this module is stdlib-only and may never import the server
+# package (see the module docstring), so the coupling cannot be an
+# import. companion/test_status_pages.py asserts this table's keys are
+# exactly that function's four values, which is what stops the necessity
+# becoming a drift — rename a verdict there and every cell would paint in
+# the no-observation colour with nothing else failing, drawing a device
+# that had checked in perfectly as a month of silence.
+CELL_STATE_CLASSES = {
+    "on_cadence": DRAWING_CELL_ON_CADENCE_CLASS,
+    "late": DRAWING_CELL_LATE_CLASS,
+    "missing": DRAWING_CELL_MISSING_CLASS,
+    "unknown": DRAWING_CELL_NONE_CLASS,
+}
+
+
+def cell_class(state):
+    """The cell modifier for one `wake.classify_check_in_gap()` verdict.
+    Never raises.
+
+    ANYTHING UNRECOGNISED FALLS TO THE NO-OBSERVATION CLASS, and that
+    direction is the whole point rather than a tidy default.
+    `status_class()` above returns None for a verdict it does not know,
+    because a ring with no status modifier simply inherits its
+    container's colour and says nothing. A cell has no such neutral: it
+    is going to be painted something, so an unknown verdict has to land
+    on the one state that claims nothing about the device. Falling to
+    "on cadence" would report health from a value nobody recognised;
+    falling to "missing" would accuse the device on the same.
+    """
+    return CELL_STATE_CLASSES.get(state, DRAWING_CELL_NONE_CLASS)
+
+
+def grid_columns(width=CARD_DRAWING_WIDTH_PX):
+    """The most cells one row of a `width`-pixel grid can hold while
+    every cell stays at least CELL_MIN_SIZE_PX square. At least 1, never
+    raises.
+
+    This is the "reduce the buckets, never the cells" rule as a function.
+    Solving (width - gap(c - 1)) / c >= min for c gives
+    c <= (width + gap) / (min + gap), and the floor of that is the answer.
+    """
+    if not is_number(width) or width <= 0:
+        width = CARD_DRAWING_WIDTH_PX
+    return max(1, int((width + CELL_GAP_PX) // (CELL_MIN_SIZE_PX + CELL_GAP_PX)))
+
+
+def grid_cell_size(width=CARD_DRAWING_WIDTH_PX, columns=None):
+    """The side of one square cell, in CSS pixels, for a `columns`-wide
+    grid inside `width`. Never raises.
+
+    DELIBERATELY FRACTIONAL. Rounding down to whole pixels would leave
+    the canvas narrower than the card it sits in — 10 cells of 25px plus
+    9 gaps is 277 against 278 — and that 1px would then have to be
+    absorbed somewhere: either the drawing stops filling its card, or the
+    HTML label row beneath it (which sizes itself from the card, not from
+    this arithmetic) ends one pixel wider than the cells it labels, so
+    the last label no longer sits under the last column. One scale places
+    the cells and the labels, and this is what keeps that true.
+    """
+    if not is_number(width) or width <= 0:
+        width = CARD_DRAWING_WIDTH_PX
+    if columns is None:
+        columns = grid_columns(width)
+    if not is_number(columns) or columns < 1:
+        columns = 1
+    columns = int(columns)
+    return (width - CELL_GAP_PX * (columns - 1)) / float(columns)
+
+
+def regularity_grid(cells, width=CARD_DRAWING_WIDTH_PX, label=None):
+    """`(markup, dropped)` — a grid of square cells, one per bucket, laid
+    out oldest-first left to right and top to bottom.
+
+    `cells` is an iterable of `(state, title)` pairs: `state` is a
+    `wake.classify_check_in_gap()` verdict (anything else paints as no
+    observation, see `cell_class()`), and `title` is the caller's own
+    text for that bucket.
+
+    THE <title> IS REQUIRED AND A MISSING ONE RAISES. This is the one
+    place this module refuses a VALUE rather than degrading, and the
+    reason is the same one `_require_class()` gives for a missing class:
+    a coloured cell with nothing naming what it judged is a verdict a
+    reader cannot check, and the honest failure is loud. `_attrs()`
+    escapes every one of them — these carry timestamps out of history.db.
+
+    `dropped` IS HALF THE RETURN VALUE, exactly as `day_band()`'s
+    `collapsed` is: it counts the OLDEST buckets that did not fit inside
+    GRID_MAX_ROWS rows, so a caption can say what window is actually on
+    screen instead of naming one the drawing truncated. The cells KEPT
+    are the newest — a bounded grid that kept the oldest would draw a
+    window that had already ended, which is the shape of defect 24-06
+    found in the day band's own spacing rule and which every ceiling
+    assertion in the world stays green for.
+
+    No cells at all draws NOTHING and drops nothing. The empty case is a
+    real case (a fresh deployment), but it belongs to the caller: a page
+    that knows its window can hand over a grid of no-observation cells
+    and say so, which is a truer picture than an absent section.
+    """
+    try:
+        supplied = list(cells)
+    except TypeError:
+        return "", 0
+    if not supplied:
+        return "", 0
+
+    columns = grid_columns(width)
+    size = grid_cell_size(width, columns)
+    capacity = columns * GRID_MAX_ROWS
+    kept = supplied[-capacity:]
+    dropped = len(supplied) - len(kept)
+    rows = int(math.ceil(len(kept) / float(columns)))
+
+    step = size + CELL_GAP_PX
+    shapes = []
+    for index, entry in enumerate(kept):
+        try:
+            state, text = entry
+        except (TypeError, ValueError):
+            raise ValueError(
+                "a regularity-grid cell is a (state, title) pair — a cell with no title "
+                "is a coloured verdict with nothing naming what it judged (got %r)"
+                % (entry,))
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError(
+                "a regularity-grid cell needs a title naming the bucket it judged: a "
+                "coloured cell whose reading nobody can check is a claim, not a "
+                "drawing (got %r)" % (text,))
+        column = index % columns
+        row = index // columns
+        shapes.append(rect(
+            "%s %s" % (DRAWING_CELL_CLASS, cell_class(state)),
+            round(column * step, 2), round(row * step, 2),
+            round(size, 2), round(size, 2), attrs={"title": text}))
+
+    height = rows * size + CELL_GAP_PX * (rows - 1)
+    markup = unit_canvas(
+        DRAWING_FIGURE_CLASS, shapes, round(width, 2), round(height, 2),
+        label=label, hidden=label is None)
+    return markup, dropped
 
 
 # --- internals --------------------------------------------------------

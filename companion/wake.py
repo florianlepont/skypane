@@ -8,10 +8,22 @@ arithmetic without ever importing anything under companion/ (D-27's own
 `companion.wake.*` call site (home_page.py, health_page.py,
 config_page.py) and every existing pinned test importing
 `companion.wake` keeps working unmodified against this shim.
+
+24-03-PLAN.md Task 2 (CFG-43) added `classify_check_in_gap()` and the
+`CHECK_IN_*` vocabulary to server/wake.py — deliberately there rather
+than in server/history_db.py, whose own docstring declares it a
+stdlib-only leaf that must not import `device_config` (which `wake`
+does). They join the re-export list below so the web app reaches the
+SAME classifier the Frame tile's own thresholds come from, rather than
+importing `server.wake` at one call site and this shim at every other:
+two import paths to one module is how a later reader comes to believe
+there are two definitions of "late".
 """
 from server.wake import (  # noqa: F401
     env_sleep_s, effective_wake_interval_s, device_staleness_thresholds,
     next_wake_at_iso, next_wake_status, HOLD_QUIET_HOURS,
     MISSED_WAKES_WARN, MISSED_WAKES_ERROR,
     STALE_WARN_FLOOR_S, STALE_ERROR_FLOOR_S, SLEEP_ENV_VAR,
+    classify_check_in_gap,
+    CHECK_IN_ON_CADENCE, CHECK_IN_LATE, CHECK_IN_MISSING, CHECK_IN_UNKNOWN,
 )
