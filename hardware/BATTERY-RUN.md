@@ -249,6 +249,21 @@ from `device_health` and not accumulated from these rows.*
 | Date/time (UTC) | Elapsed | Observed polls | Coverage | Latest mV | Last-poll age | `skypane-byos.service` |
 |---|---|---|---|---|---|---|
 | 2026-09-02T13:15 | 0.01 day | 9 | 2.30 (transition window, not a validity signal — see note) | 3998 | 319s | active, not restarted since the run began |
+| 2026-09-14T06:03 | 11.71 days | 3093 | 0.917 | 3338 | 158s | active throughout, per the VPS-side cloud routine's periodic checks |
+
+*Note on the 2026-09-14T06:03 row: the battery has now crossed below the
+pre-registered ~3400 mV depletion cutoff (last reading 3338 mV) while
+still polling normally — the run has entered its critical tail. The
+device has **not** stopped; Task 3 remains gated on at least an hour of
+genuine silence (or the 21-day ceiling, 2026-09-23). Coverage has held
+steady at ~0.91-0.92 — persistently below the 0.95 validity threshold
+since early in the run, but not worsening, so this reads as a standing
+characteristic of the run rather than a developing fault; worth
+investigating explicitly in Task 3's write-up before the final verdict
+relies on it. A passive cloud routine (6-hourly, tightening to hourly
+now that the run is in its tail) independently confirmed the same
+crossing via the companion web interface's Health page shortly before
+this row was captured.*
 
 *Note on the 2026-09-02T13:15 row's coverage figure: the sample window is
 only ~20 minutes and straddles the moment `SKYPANE_SLEEP_S` actually took
