@@ -1308,11 +1308,11 @@ a:hover {
    * QUIET_DIAL_RADIUS: the handle has to land on the stroke the emitter
    * drew, and two numbers that have to agree and live in two files
    * agree until one of them is edited. */
-  width: 128px;
+  width: 176px;
   /* The ring's stroke centre line, which is the circle the handles ride
    * on. Declared here rather than inside the handle's own transform so
    * the one number is written once. */
-  --quiet-dial-radius: 54px;
+  --quiet-dial-radius: 78px;
   margin: 0 auto var(--space-sm);
 }
 
@@ -1335,14 +1335,14 @@ a:hover {
   stroke: var(--color-border);
 }
 
-/* The quiet window itself. Painted from --color-text rather than a
- * literal, which is what makes it correct in dark mode: the token
- * inverts and the shape follows. 55% is this file's own existing
- * stronger-muted-ink strength, not a percentage invented for one
- * drawing — it has to out-read the day ring underneath it while staying
- * short of the full ink the readout below uses. */
+/* The quiet window itself, and the subject of the whole drawing: full
+ * ink. Painted from --color-text rather than a literal, which is what
+ * makes it correct in dark mode — the token inverts and the shape
+ * follows. It out-reads both the day ring it is drawn on and the four
+ * labels that orient it, which is the reading order this card wants: the
+ * window first, then where it sits in the day. */
 .quiet-dial__arc {
-  stroke: color-mix(in srgb, var(--color-text) 55%, transparent);
+  stroke: var(--color-text);
 }
 
 /* The four anchor hours, absolutely placed inside the ring's hole
@@ -1352,7 +1352,12 @@ a:hover {
  * the drawing, they are not part of its reading. */
 .quiet-dial__hour {
   position: absolute;
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  /* 30% is this file's own existing CONTEXT strength — the same one the
+   * airfield diagram further down uses for the runways a card is not
+   * about — because that is exactly what these are: they place the arc,
+   * they are not part of its reading. A harness asserts they stay
+   * weaker than the arc. */
+  color: color-mix(in srgb, var(--color-text) 30%, transparent);
 }
 
 /* The four quarter turns. Each label is placed by its OWN edge and then
@@ -1465,6 +1470,25 @@ a:hover {
   background: var(--color-canvas);
   border: 1px solid var(--color-text);
   border-radius: 50%;
+}
+
+/* THE ONE PLACE THIS COMPONENT OVERRIDES THE SHARED HIT-AREA REGISTER,
+ * and it is a GAIN rather than a trade: 22 + 12 + 12 = 46 against the
+ * shared entry's 22 + 11 + 11 = 44.
+ *
+ * The shared inset synthesises EXACTLY the floor, with nothing to spare,
+ * which is correct for every consumer placed on the pixel grid. This
+ * handle is not: it is carried round a circle by a rotate/translate
+ * pair, so it lands at a FRACTIONAL pixel position and the browser snaps
+ * its hit region to the grid — measured on this tree at 43x43 with the
+ * shared inset, one pixel under a floor the declared box clears. One
+ * extra pixel per side survives that snapping in either direction.
+ *
+ * Declared here rather than by loosening the shared rule, because every
+ * other consumer of that rule really is grid-aligned and does not need
+ * it. */
+.quiet-dial__handle::before {
+  inset: -12px;
 }
 
 /* Unified save bar (06.6.4.1 D-04, retargeted by 19-10-PLAN.md D-09/

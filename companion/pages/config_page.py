@@ -2309,7 +2309,7 @@ QUIET_DIAL_READOUT_CLASS = "quiet-dial__readout"
 # User units, and CSS pixels — the aspect-locked `unit_*` scheme
 # companion/draw.py documents, with an explicit intrinsic size so the
 # <svg> can never fall back to the format's own 300x150 default.
-QUIET_DIAL_SIZE = 128
+QUIET_DIAL_SIZE = 176
 # Chosen so the arithmetic below lands on whole numbers: 64 - 7 - 3 = 54.
 # A radius carrying a rounding tail would make every recomputed-from-the-
 # markup check invent a tolerance to hide it.

@@ -505,7 +505,27 @@
   // track) begins a drag; setPointerCapture keeps the subsequent moves
   // coming even when the pointer leaves the element, which is what
   // makes a drag that overshoots the end behave like a native one.
+  // A SYNTHETIC POINTER EVENT IS NOT A GESTURE, AND THIS GUARD IS NOT
+  // TEST SCAFFOLDING. An el.dispatchEvent(new PointerEvent("pointerdown"))
+  // carries clientX/clientY of 0,0 — the top-left corner of the viewport
+  // — so steering from one yanks a real, saved setting to whatever angle
+  // the corner of the screen happens to be at, from any script on the
+  // page. Measured on this tree: companion/test_browser_ux.py's pointer
+  // recorder proves itself alive by dispatching exactly that event, and
+  // it moved the quiet window by half an hour while doing it.
+  //
+  // Compared against false rather than negated, deliberately: a browser
+  // that does not implement the property leaves it undefined, and the
+  // negated form would then refuse every real drag rather than every
+  // fake one.
+  function untrusted(evt) {
+    return evt.isTrusted === false;
+  }
+
   document.addEventListener("pointerdown", function (evt) {
+    if (untrusted(evt)) {
+      return;
+    }
     var wrapper = wrapperFor(evt.target);
     if (!wrapper) {
       return;
@@ -532,7 +552,7 @@
   document.addEventListener("pointermove", function (evt) {
     // evt.buttons is 0 for a hover, so a pointer merely passing over a
     // control never moves it.
-    if (!evt.buttons) {
+    if (!evt.buttons || untrusted(evt)) {
       return;
     }
     var wrapper = wrapperFor(evt.target);
@@ -542,6 +562,51 @@
     evt.preventDefault();
     steerFromPointer(wrapper, evt.clientX, evt.clientY);
   });
+
+  // THE ONE THING THIS FILE LISTENS FOR THAT IT DID NOT CAUSE, and it
+  // is what makes "this control holds no value" true rather than merely
+  // claimed.
+  //
+  // The painted position is read off the native input. So when SOMETHING
+  // ELSE writes into that input, the handle has to follow, or it shows a
+  // value that is no longer there while the field beside it shows the
+  // real one. Three writers exist today and none of them is this file:
+  // a visitor typing into the field, a browser autofill, and — the live
+  // case — companion/static/dirty-state.js's quiet-hours preset buttons.
+  //
+  // THE PRESET IS WHY THE CLICK LISTENER IS HERE AND NOT ONLY THE OTHER
+  // TWO. Assigning to .value from script fires NO event of any kind, so
+  // a preset that fills both time inputs is completely silent; measured
+  // on this tree, clicking "Work day" moved both inputs and left both
+  // handles exactly where they were. Reacting to the click instead is
+  // ordering-safe by the DOM's own event model rather than by luck: the
+  // preset's handler is bound to the BUTTON, so it has already run by
+  // the time the click reaches document. And it is generic — this file
+  // learns nothing about presets, only that a click is a moment after
+  // which an input it paints from may hold something new.
+  //
+  // IT REPAINTS AND NEVER WRITES. The change event this file sends after
+  // its own write reaches here, finds the value already correct, and
+  // stops. There is no loop to guard against because there is no second
+  // write — and re-reading a value this file does not own is idempotent
+  // by construction.
+  //
+  // Delegated at document level, and on a page with no continuous-value
+  // control (which is most of them) it costs one selector query that
+  // matches nothing.
+  function repaintAll() {
+    var wrappers = document.querySelectorAll("[" + WRAPPER_ATTR + "]");
+    for (var i = 0; i < wrappers.length; i++) {
+      var bounds = boundsFor(wrappers[i]);
+      if (bounds) {
+        paint(wrappers[i], bounds, currentValue(wrappers[i], bounds));
+      }
+    }
+  }
+
+  document.addEventListener("change", repaintAll);
+  document.addEventListener("input", repaintAll);
+  document.addEventListener("click", repaintAll);
 
   // No DOMContentLoaded wrapper, and no load-time pass over the
   // document either. The <script> tag companion/layout.py's
