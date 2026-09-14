@@ -74,6 +74,7 @@ Usage:
     server/.venv/bin/python3 companion/test_browser_ux.py
 """
 import contextlib
+import json
 import itertools
 import os
 import re
@@ -698,6 +699,37 @@ EXPECTED_CHECK_COUNT = 68
 # edge, and all five differing between the themes.
 # 68 + 3 = 71, re-derived by RUNNING (71/71).
 EXPECTED_CHECK_COUNT = 71
+# 25-05-PLAN.md Task 3 (CFG-49/CFG-52): +3 — D18's wake-interval slider,
+# and again not one of the three measures that it RENDERS. One proves the
+# interval still reaches DISK with scripts blocked, at 360px and in both
+# shipped languages, then runs the gate in both directions, MEASURES both
+# gauges' boxes on the scripts-blocked page (a count passes against a
+# gauge moved behind the gate), and re-proves the out-of-range trap end to
+# end: with 30 s written straight into the config file — the one state
+# save_device_config() refuses to create, so the UI cannot produce it —
+# the number input carries NO value attribute, no range and no gauge
+# render at all, and the whole Settings form still saves a corrected
+# value. That last clause is the one defect on this card that takes down
+# the WHOLE page rather than one field. One drags the range and requires
+# three things to move together (the native number input, the freshness
+# sentence and the battery sentence), asserts the script's own wording
+# EQUALS the server's for the same two cadences, proves the save bar woke
+# and the dragged value reached disk, drives the same control by keyboard
+# alone (one ArrowRight is one stated step; End and Home reach
+# device_config's own ceiling and floor) with zero pointer events and the
+# recorder proving itself, types into the number input and requires the
+# range to follow, and asserts at every one of those positions that the
+# battery gauge produces NO days figure from this fixture's rising series.
+# One measures the floors at 360px: the hit area in the control's OWN
+# container, the box by getBoundingClientRect rather than clientWidth,
+# the Device page's own no-sideways-scroll baseline, and the paint as a
+# FLOOR — both gauges and the control's accent and surface all differing
+# between the themes, sampled only once the browser's own Web Animations
+# `finished` promise says the 150ms background transition the global
+# `input` rule declares is over, because the first version of that clause
+# read an interpolation frame and reported a token that does not invert.
+# 71 + 3 = 74, re-derived by RUNNING (74/74, 0 SKIPs).
+EXPECTED_CHECK_COUNT = 74
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -10864,6 +10896,603 @@ def main():
                     "has an edge, and every one of the five "
                     "differs between the two themes (CFG-48/CFG-52, 25-04-PLAN.md Task 4)",
                     _the_dial_meets_its_floors_at_360px_in_both_themes)
+
+
+                # ----------------------------------------------------------
+                # 25-05-PLAN.md Task 3 (CFG-49/CFG-52): D18's wake-interval
+                # slider, measured at 360px, from the keyboard, and with
+                # its fallback proven by SAVING rather than by rendering.
+                #
+                # None of the three checks below asserts that the slider
+                # renders. The verdicts are: what reaches DISK with
+                # scripts blocked, what a drag and a keystroke do to the
+                # native number input and to the save bar, what the
+                # battery gauge refuses to say at any drag position, and
+                # what the browser's own hit test and cascade answer at
+                # 360px in both themes.
+                #
+                # A DOM read would prove nothing here in particular: this
+                # card ECHOES a rejected submission back into its own
+                # field by design (D-07), so "the reloaded page shows the
+                # value" passes against a save that stored nothing. That
+                # is the exact case 25-02's helper was built for.
+                # ----------------------------------------------------------
+
+                WAKE_SLIDER_SEL = ".wake-slider"
+                WAKE_RANGE_SEL = ".wake-slider__input"
+                WAKE_NUMBER_SEL = 'input[name="wake_interval_s"]'
+                WAKE_FRESHNESS_SEL = "#" + config_page.WAKE_GAUGE_FRESHNESS_ID
+                WAKE_BATTERY_SEL = "#" + config_page.WAKE_GAUGE_BATTERY_ID
+
+                def _wake_interval_on_disk():
+                    config = device_config.load_device_config(harness.tmpdir)
+                    return config.get("wake_interval_s")
+
+                def _gauge_texts(page):
+                    return (page.locator(WAKE_FRESHNESS_SEL).inner_text(),
+                            page.locator(WAKE_BATTERY_SEL).inner_text())
+
+                # Set the interval through the real UI and save, so every
+                # arrangement measured below is reached the way a visitor
+                # reaches it. Raises on failure.
+                def _set_interval(page, base_url, seconds):
+                    # IDEMPOTENT, AND THAT IS NOT A CONVENIENCE. The save
+                    # bar only exists while the form differs from what
+                    # was loaded, so "set it to what it already is"
+                    # renders no Save control at all and a click on one
+                    # waits thirty seconds for an element that is
+                    # correctly absent. Measured here the hard way.
+                    page.goto(base_url + "/device")
+                    if _wake_interval_on_disk() == seconds:
+                        return
+                    page.fill(WAKE_NUMBER_SEL, str(seconds))
+                    page.eval_on_selector(
+                        WAKE_NUMBER_SEL,
+                        "el => el.dispatchEvent(new Event('change', {bubbles: true}))")
+                    with page.expect_navigation():
+                        page.locator(".dirty-bar__save").click()
+                    stored = _wake_interval_on_disk()
+                    if stored != seconds:
+                        raise AssertionError(
+                            "setting the interval to %r through the UI stored %r"
+                            % (seconds, stored))
+                    page.goto(base_url + "/device")
+
+                # A days figure in EITHER shipped language, which is what
+                # the battery gauge may not print unless this frame's own
+                # observed history supports one.
+                _DAYS_FIGURE_RE = re.compile(r"\d+\s*(?:day|jour)", re.I)
+
+                def _the_interval_still_saves_with_scripts_blocked_through_the_slider():
+                    base_url = harness.base_url()
+                    before = _wake_interval_on_disk()
+                    recorded = {}
+
+                    # 1. IT STILL REACHES DISK WITH SCRIPTS BLOCKED, at
+                    #    360px and in BOTH shipped languages. The gauges
+                    #    are asserted present only AFTER the save, so
+                    #    they can never stand in for it.
+                    saved = {}
+                    for lang in ("en", "fr"):
+                        cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
+                                    "value": lang, "url": base_url}]
+                        saved[lang] = _persist_without_js(
+                            browser, base_url, "/device", "wake_interval_s",
+                            "900", _wake_interval_on_disk,
+                            viewport=VIEWPORT_MIN_SUPPORTED, cookies=cookies)
+                    recorded["persisted"] = {
+                        lang: (r["set"], r["stored"], r["reloaded"])
+                        for lang, r in saved.items()}
+                    for lang, result in saved.items():
+                        if str(result["stored"]) != str(result["set"]):
+                            return False, (
+                                "%s: the typed interval did not reach disk, it reads %r"
+                                % (lang, result["stored"]))
+                    if _wake_interval_on_disk() != before:
+                        return False, (
+                            "the scripts-blocked saves left the interval at %r; it started at "
+                            "%r — a harness that changes a real setting is a test that edits "
+                            "its neighbours' subject" % (_wake_interval_on_disk(), before))
+
+                    # 2. THE GATE, IN BOTH DIRECTIONS. Asserting only the
+                    #    blocked half passes against a gate stuck shut;
+                    #    asserting only the enabled half is the "renders
+                    #    and does nothing" defect.
+                    gate = _assert_js_gate(
+                        browser, base_url, "/device", WAKE_SLIDER_SEL,
+                        viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded["gate"] = gate
+
+                    # 3. AND BOTH GAUGES ARE THERE WITHOUT A SCRIPT —
+                    #    which is what makes this card's fallback a
+                    #    feature rather than an absence. MEASURED, not
+                    #    counted: locator.count() counts elements
+                    #    whatever their box is, so it passes against a
+                    #    gauge moved behind the gate, which is the exact
+                    #    refactor this clause exists to notice.
+                    with _no_js_page(browser, base_url, "/device",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        boxes = {}
+                        texts = {}
+                        for name, sel in (("freshness", WAKE_FRESHNESS_SEL),
+                                          ("battery", WAKE_BATTERY_SEL)):
+                            locator = page.locator(sel)
+                            boxes[name] = locator.bounding_box() if locator.count() else None
+                            texts[name] = locator.inner_text() if locator.count() else None
+                        blocked_number = page.locator(WAKE_NUMBER_SEL).count()
+                        blocked_unit = page.locator(".field-inline-value").count()
+                        blocked_value = page.get_attribute(WAKE_NUMBER_SEL, "value")
+                    recorded["blocked_boxes"] = boxes
+                    recorded["blocked_texts"] = texts
+                    for name in ("freshness", "battery"):
+                        box = boxes[name]
+                        if not box or box["width"] <= 0 or box["height"] <= 0:
+                            return False, (
+                                "the %s gauge occupies no space with scripts blocked (%r) — "
+                                "rendered is not read, and a gauge behind the gate is the "
+                                "refactor this clause exists to notice" % (name, box))
+                    if blocked_number != 1 or blocked_unit < 1:
+                        return False, (
+                            "with scripts blocked the card renders %d number input(s) and %d "
+                            "unit sibling(s); it owes one of each"
+                            % (blocked_number, blocked_unit))
+                    if str(blocked_value) != str(before):
+                        return False, (
+                            "with scripts blocked the number input shows %r, not the saved %r"
+                            % (blocked_value, before))
+                    if "at most" not in texts["freshness"] and "au plus" not in texts["freshness"]:
+                        return False, (
+                            "the scripts-blocked freshness gauge reads %r — the bound has to be "
+                            "legible without a script" % texts["freshness"])
+
+                    # 4. THE OUT-OF-RANGE TRAP, END TO END, and it is the
+                    #    one defect on this card that takes down the
+                    #    WHOLE page rather than one field: an
+                    #    out-of-range `value` on a native numeric input
+                    #    fails HTML5 constraint validation, which blocks
+                    #    submission of the entire Settings form. A slider
+                    #    added beside that input is exactly the change
+                    #    that could reintroduce a fabricated value.
+                    #
+                    #    The below-floor state is written to the config
+                    #    file DIRECTLY — the only direct state write in
+                    #    this check, and it is unavoidable rather than a
+                    #    shortcut: save_device_config() raises on 30
+                    #    ("must be an int in [60, 3600]"), so the UI
+                    #    cannot produce the state this clause is about.
+                    #    The file's exact previous bytes are restored.
+                    config_path = device_config.device_config_path(harness.tmpdir)
+                    with open(config_path, encoding="utf-8") as fh:
+                        original_bytes = fh.read()
+                    try:
+                        doc = json.loads(original_bytes)
+                        doc["wake_interval_s"] = 30
+                        with open(config_path, "w", encoding="utf-8") as fh:
+                            json.dump(doc, fh)
+                        with _no_js_page(browser, base_url, "/device",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                            below_value = page.get_attribute(WAKE_NUMBER_SEL, "value")
+                            below_ranges = page.locator(WAKE_RANGE_SEL).count()
+                            below_gauges = page.locator(WAKE_FRESHNESS_SEL).count()
+                        recorded["below_floor"] = (below_value, below_ranges, below_gauges)
+                        if below_value is not None:
+                            return False, (
+                                "with 30 s stored the number input carries value=%r — an "
+                                "out-of-range value fails HTML5 constraint validation and "
+                                "blocks submission of the ENTIRE Settings form" % below_value)
+                        if below_ranges or below_gauges:
+                            return False, (
+                                "with 30 s stored the card rendered %d range(s) and %d gauge(s) "
+                                "— a range with no usable value sits at the midpoint of its own "
+                                "band, which is a number nobody chose"
+                                % (below_ranges, below_gauges))
+                        # AND THE WHOLE FORM STILL SUBMITS. This is the
+                        # half that matters: the page is still usable
+                        # with a below-floor value on disk.
+                        corrected = _persist_without_js(
+                            browser, base_url, "/device", "wake_interval_s", "1200",
+                            _wake_interval_on_disk, viewport=VIEWPORT_MIN_SUPPORTED,
+                            restore=False)
+                        recorded["corrected"] = (corrected["set"], corrected["stored"])
+                        if str(corrected["stored"]) != "1200":
+                            return False, (
+                                "with a below-floor value on disk the Settings form did not "
+                                "save a corrected one; disk reads %r" % (corrected["stored"],))
+                    finally:
+                        with open(config_path, "w", encoding="utf-8") as fh:
+                            fh.write(original_bytes)
+                    if _wake_interval_on_disk() != before:
+                        return False, (
+                            "this check left the interval at %r; it started at %r"
+                            % (_wake_interval_on_disk(), before))
+                    _ = recorded
+                    return True, ""
+                check(
+                    "the wake interval still SAVES with scripts blocked beside the slider — "
+                    "typed natively, submitted through the real form, re-read FROM DISK after a "
+                    "fresh GET and restored the same way, at 360px and in BOTH shipped "
+                    "languages; the gated range has zero height and no keyboard can reach into "
+                    "it with scripts blocked while it occupies space with them; both gauges are "
+                    "MEASURED (not counted) present on the scripts-blocked page, asserted after "
+                    "the save so neither can stand in for it; and the out-of-range trap is "
+                    "re-proven end to end — with 30 s on disk the number input carries NO value "
+                    "attribute, no range and no gauge render at all, and the whole Settings "
+                    "form still saves a corrected value (D-09/CFG-49/T-25-05-B, 25-05-PLAN.md "
+                    "Task 3)",
+                    _the_interval_still_saves_with_scripts_blocked_through_the_slider)
+
+                def _dragging_and_keying_the_range_reach_disk():
+                    base_url = harness.base_url()
+                    before = _wake_interval_on_disk()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    page = None
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        _set_interval(page, base_url, 600)
+                        started = _gauge_texts(page)
+                        recorded["at_600"] = started
+
+                        # 1. THE DRAG. Aimed at a point well along the
+                        #    track rather than at a value computed from
+                        #    the thumb geometry: a native range maps its
+                        #    value across (width - thumbWidth), which is
+                        #    an engine detail this check has no business
+                        #    predicting. What it asserts is what the plan
+                        #    asks — that the number input and BOTH gauge
+                        #    sentences moved together, and that what the
+                        #    script rendered is what the SERVER would
+                        #    have rendered for the same value.
+                        #
+                        #    Scrolled to the middle of the viewport
+                        #    first, for _hit_area()'s own recorded
+                        #    reason: at 360px this page is long and its
+                        #    tab bar is fixed to the bottom, so a
+                        #    coordinate gesture taken wherever the page
+                        #    happened to be scrolled lands somewhere
+                        #    else.
+                        page.eval_on_selector(
+                            WAKE_SLIDER_SEL, "el => el.scrollIntoView({block: 'center'})")
+                        box = page.evaluate(
+                            "sel => { const r = document.querySelector(sel)"
+                            "  .getBoundingClientRect();"
+                            "  return [r.left, r.top, r.width, r.height]; }", WAKE_RANGE_SEL)
+                        page.mouse.move(box[0] + box[2] * 0.25, box[1] + box[3] / 2)
+                        page.mouse.down()
+                        page.mouse.move(box[0] + box[2] * 0.8, box[1] + box[3] / 2, steps=8)
+                        page.mouse.up()
+                        dragged = page.input_value(WAKE_NUMBER_SEL)
+                        recorded["dragged_to"] = dragged
+                        if dragged == str(600):
+                            return False, (
+                                "dragging the range across %.0fpx of its own track left the "
+                                "number input at %r — the range steers the control that already "
+                                "existed, or it steers nothing" % (box[2] * 0.55, dragged))
+                        dragged_s = int(dragged)
+                        if dragged_s % config_page.WAKE_SLIDER_STEP_S:
+                            return False, (
+                                "a drag produced %r, which is not a whole number of the stated "
+                                "%d-second steps" % (dragged, config_page.WAKE_SLIDER_STEP_S))
+                        moved = _gauge_texts(page)
+                        recorded["after_drag"] = moved
+                        if moved[0] == started[0]:
+                            return False, (
+                                "the freshness gauge still reads %r after the value moved from "
+                                "600 to %s — a gauge that does not move is a gauge that is "
+                                "wrong from the first drag" % (moved[0], dragged))
+                        if moved[1] == started[1]:
+                            return False, (
+                                "the battery gauge still reads %r after the value moved from "
+                                "600 to %s" % (moved[1], dragged))
+                        # WHAT THE SCRIPT SAYS IS WHAT THE SERVER WOULD
+                        # HAVE SAID. The relative clause has exactly one
+                        # definition in Python, and this is what makes
+                        # "the script carries no copy of its own" a
+                        # measurement rather than a claim.
+                        expected_clause = config_page.wake_battery_relative_text(dragged_s, 600)
+                        recorded["expected_clause"] = expected_clause
+                        if not expected_clause or expected_clause not in moved[1]:
+                            return False, (
+                                "the battery gauge reads %r; the server's own wording for the "
+                                "same two cadences is %r" % (moved[1], expected_clause))
+                        expected_bound = config_page.wake_freshness_text(dragged_s)
+                        if moved[0] != expected_bound:
+                            return False, (
+                                "the freshness gauge reads %r; the server's own wording for %s "
+                                "seconds is %r" % (moved[0], dragged, expected_bound))
+                        # THE HONESTY CLAUSE, IN THE BROWSER. This
+                        # fixture's battery series is RISING (the device
+                        # was charged), so companion/battery.py refuses a
+                        # figure — and no drag position may produce one.
+                        if _DAYS_FIGURE_RE.search(moved[1]):
+                            return False, (
+                                "the battery gauge produced a days figure (%r) from a rising "
+                                "series — the per-wake energy cost has never been measured and "
+                                "the script has no template that could state one" % moved[1])
+                        # A CONTROL THAT CHANGES A VALUE WITHOUT WAKING
+                        # THE SAVE BAR LOSES THE EDIT SILENTLY.
+                        if page.locator("[data-dirty-bar]").is_hidden():
+                            return False, (
+                                "the save bar stayed hidden after a drag changed a settings "
+                                "value — the edit is lost the moment the visitor navigates")
+                        with page.expect_navigation():
+                            page.locator(".dirty-bar__save").click()
+                        recorded["dragged_stored"] = _wake_interval_on_disk()
+                        if recorded["dragged_stored"] != dragged_s:
+                            return False, (
+                                "the dragged value did not reach disk; it reads %r"
+                                % (recorded["dragged_stored"],))
+                        page.goto(base_url + "/device")
+                        if page.input_value(WAKE_NUMBER_SEL) != dragged:
+                            return False, "the reloaded page does not show the dragged value"
+
+                        # 2. THE KEYBOARD ALONE, with the pointer-free
+                        #    claim MEASURED rather than promised. One
+                        #    ArrowRight is one stated step — and the
+                        #    model is the one 25-04's dial recorded,
+                        #    inherited rather than re-decided.
+                        _set_interval(page, base_url, 600)
+                        keyed = _operate_with_keyboard(
+                            page, WAKE_RANGE_SEL, ["ArrowRight"])
+                        after_key = page.input_value(WAKE_NUMBER_SEL)
+                        recorded["after_arrow"] = after_key
+                        if int(after_key) != 600 + config_page.WAKE_SLIDER_STEP_S:
+                            return False, (
+                                "one ArrowRight moved the interval from 600 to %r; the stated "
+                                "step is %d seconds"
+                                % (after_key, config_page.WAKE_SLIDER_STEP_S))
+                        if keyed["pointer_events"]:
+                            return False, (
+                                "a pointer event fired during the keyboard sequence: %r"
+                                % (keyed["pointer_events"],))
+                        if not keyed["recorder_proved"]:
+                            return False, "the pointer recorder could not prove itself"
+                        # HOME AND END REACH THE CONFIGURED BAND'S OWN
+                        # ENDS — the floor as well as the ceiling.
+                        page.keyboard.press("End")
+                        recorded["after_end"] = page.input_value(WAKE_NUMBER_SEL)
+                        if int(recorded["after_end"]) != device_config.WAKE_INTERVAL_MAX_S:
+                            return False, (
+                                "End put %r into the field; the band's ceiling is %d"
+                                % (recorded["after_end"], device_config.WAKE_INTERVAL_MAX_S))
+                        recorded["at_max"] = _gauge_texts(page)
+                        page.keyboard.press("Home")
+                        recorded["after_home"] = page.input_value(WAKE_NUMBER_SEL)
+                        if int(recorded["after_home"]) != device_config.WAKE_INTERVAL_MIN_S:
+                            return False, (
+                                "Home put %r into the field; the band's floor is %d"
+                                % (recorded["after_home"], device_config.WAKE_INTERVAL_MIN_S))
+                        recorded["at_min"] = _gauge_texts(page)
+                        # THE FLOOR AND THE CEILING BOTH READ TRUE, and
+                        # neither produces a days figure.
+                        for where, texts, seconds in (
+                                ("the band's floor", recorded["at_min"],
+                                 device_config.WAKE_INTERVAL_MIN_S),
+                                ("the band's ceiling", recorded["at_max"],
+                                 device_config.WAKE_INTERVAL_MAX_S)):
+                            if texts[0] != config_page.wake_freshness_text(seconds):
+                                return False, (
+                                    "at %s the freshness gauge reads %r, not the server's own "
+                                    "%r" % (where, texts[0],
+                                            config_page.wake_freshness_text(seconds)))
+                            if _DAYS_FIGURE_RE.search(texts[1]):
+                                return False, (
+                                    "at %s the battery gauge produced a days figure: %r"
+                                    % (where, texts[1]))
+
+                        # 3. TYPING IN THE NUMBER INPUT MOVES THE RANGE,
+                        #    which is the direction a repaint has to
+                        #    cover and the one a drag test is blind to.
+                        _set_interval(page, base_url, 600)
+                        page.fill(WAKE_NUMBER_SEL, "1800")
+                        page.eval_on_selector(
+                            WAKE_NUMBER_SEL,
+                            "el => el.dispatchEvent(new Event('input', {bubbles: true}))")
+                        recorded["range_after_typing"] = page.input_value(WAKE_RANGE_SEL)
+                        if recorded["range_after_typing"] != "1800":
+                            return False, (
+                                "typing 1800 into the number input left the range at %r — the "
+                                "slider would then show a value that is no longer there while "
+                                "the field beside it shows the real one"
+                                % (recorded["range_after_typing"],))
+                        # RESTORED THROUGH THE SAME UI SEQUENCE, never a
+                        # direct write to the state directory.
+                        _set_interval(page, base_url, before)
+                        if _wake_interval_on_disk() != before:
+                            return False, (
+                                "this check left the interval at %r; it started at %r"
+                                % (_wake_interval_on_disk(), before))
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        # Best effort only, and deliberately silent: a
+                        # restore that raised here would mask the failure
+                        # it is cleaning up after.
+                        try:
+                            _set_interval(page, base_url, before)
+                        except Exception:
+                            pass
+                        context.close()
+                check(
+                    "dragging the wake-interval range moves the native <input type=\"number\"> "
+                    "the form posts, moves BOTH gauge sentences with it, raises the save bar and "
+                    "PERSISTS to disk across a submit and a reload — with the script's own "
+                    "wording asserted EQUAL to the server's for the same two cadences, so the "
+                    "script provably carries no copy of its own; one ArrowRight moves exactly "
+                    "one stated step and End/Home reach device_config's own ceiling and floor "
+                    "with zero pointer events fired and the recorder proving itself; typing into "
+                    "the number input moves the range back; and at no position — dragged, keyed, "
+                    "at the floor or at the ceiling — does the battery gauge produce a days "
+                    "figure from this fixture's RISING series (CFG-49/CFG-52/T-25-05-C, "
+                    "25-05-PLAN.md Task 3)",
+                    _dragging_and_keying_the_range_reach_disk)
+
+                def _the_slider_meets_its_floors_at_360px_in_both_themes():
+                    base_url = harness.base_url()
+                    before = _wake_interval_on_disk()
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    recorded = {}
+                    try:
+                        page = context.new_page()
+                        _login(page, base_url)
+                        page.goto(base_url + "/device")
+
+                        # 1. THE HIT TARGET, IN THIS CONTROL'S OWN
+                        #    CONTAINER. A class-level measurement is
+                        #    worth nothing: 25-02 measured `.copy-btn`'s
+                        #    declared 44x44 at a real 34x26 because its
+                        #    neighbours covered the ::before that
+                        #    synthesises it.
+                        recorded["hit"] = _assert_hit_target(
+                            page, WAKE_RANGE_SEL, "the wake-interval slider on /device")
+
+                        # 2. THE GEOMETRY, by getBoundingClientRect and
+                        #    never clientWidth — which rounds to an
+                        #    integer and can fail a correct drawing
+                        #    (54.41 in a "53.00" box).
+                        measured = page.evaluate(
+                            "sels => {"
+                            "  const el = document.querySelector(sels.range);"
+                            "  const card = el.closest('.theme-status');"
+                            "  const r = el.getBoundingClientRect();"
+                            "  const c = card.getBoundingClientRect();"
+                            "  const wrap = document.querySelector(sels.wrap);"
+                            "  const cs = getComputedStyle(wrap);"
+                            "  const cc = getComputedStyle(card);"
+                            "  const content = card.clientWidth"
+                            "    - parseFloat(cc.paddingLeft) - parseFloat(cc.paddingRight);"
+                            "  return {range: [r.width, r.height], card: [c.width, c.height],"
+                            "          content: content, marginTop: cs.marginTop,"
+                            "          number: document.querySelector(sels.number)"
+                            "                    .getBoundingClientRect().width};"
+                            "}", {"range": WAKE_RANGE_SEL, "wrap": WAKE_SLIDER_SEL,
+                                  "number": WAKE_NUMBER_SEL})
+                        recorded["measured"] = measured
+                        # COMPARED AGAINST THE CARD'S CONTENT BOX, NOT
+                        # AGAINST THE NUMBER INPUT BESIDE IT. The first
+                        # version asked only that the range was wider
+                        # than the 96px number field — which a range
+                        # with NO width rule passes, because its
+                        # intrinsic width is about 129px. Measured:
+                        # `width: auto` failed nothing at all. The
+                        # property under test is "full width", so full
+                        # width is what is measured.
+                        if measured["range"][0] < measured["content"] - 1:
+                            return False, (
+                                "the range measures %.2fpx inside a %.2fpx content box (the "
+                                "number input beside it is %.2fpx) — a range input's intrinsic "
+                                "width is about 129px, and at the 360px floor that is a sweep "
+                                "of the whole 60..3600 band in a third of the card"
+                                % (measured["range"][0], measured["content"],
+                                   measured["number"]))
+                        if measured["range"][0] <= measured["number"]:
+                            return False, (
+                                "the range (%.2fpx) is no wider than the number input it steers "
+                                "(%.2fpx)" % (measured["range"][0], measured["number"]))
+                        if measured["range"][0] > measured["card"][0]:
+                            return False, (
+                                "the range (%.2fpx) is wider than the card holding it (%.2fpx)"
+                                % (measured["range"][0], measured["card"][0]))
+                        if not measured["marginTop"].endswith("px") or float(
+                                measured["marginTop"][:-2]) <= 0:
+                            return False, (
+                                "the slider's wrapper computes margin-top %r — without it the "
+                                "range sits flush against the number input's own row"
+                                % measured["marginTop"])
+                        width_at_360 = page.evaluate(
+                            "() => [document.body.scrollWidth, document.body.clientWidth,"
+                            "       document.documentElement.scrollWidth,"
+                            "       document.documentElement.clientWidth]")
+                        recorded["page_width"] = width_at_360
+                        if width_at_360[0] > width_at_360[1] or width_at_360[2] > width_at_360[3]:
+                            return False, (
+                                "the Device page scrolls sideways at 360px: %r — a full-width "
+                                "control is the most likely cause and this is its own page's "
+                                "baseline, not the Display page's" % (width_at_360,))
+
+                        # 3. THE PAINT, IN BOTH THEMES, AND AS A FLOOR
+                        #    RATHER THAN A CEILING. A gauge is only a
+                        #    gauge if it can be read: both sentences and
+                        #    the control's own accent have to change with
+                        #    the theme, or one of the two modes is
+                        #    showing ink on ink.
+                        # THE THEME SWITCH STARTS A TRANSITION, AND THE
+                        # READ HAS TO WAIT FOR THE BROWSER'S OWN "it has
+                        # finished" SIGNAL RATHER THAN A GUESSED INSTANT.
+                        # The global `input, select` rule declares
+                        # `transition: background-color .15s ease`, so a
+                        # getComputedStyle taken straight after the
+                        # attribute flip reads an INTERPOLATION FRAME —
+                        # measured here: the range's surface reported the
+                        # LIGHT value in both themes and this check
+                        # failed, claiming a token that does not invert
+                        # when it does. 25-03 lost a paint measurement to
+                        # exactly this and fixed it the same way. Never a
+                        # timer: an element with nothing running returns
+                        # an empty list and resolves at once.
+                        _SETTLE_SLIDER = (
+                            "async () => {"
+                            "  const els = [...document.querySelectorAll("
+                            "    '.wake-slider, .wake-slider *, .wake-gauge, body')];"
+                            "  await Promise.all(els.flatMap("
+                            "    e => e.getAnimations().map("
+                            "      a => a.finished.catch(() => {}))));"
+                            "  return els.length;"
+                            "}")
+                        paints = {}
+                        for theme in UI_THEMES_EXPLICIT:
+                            _set_ui_theme(page, theme)
+                            recorded["settled_" + theme] = page.evaluate(_SETTLE_SLIDER)
+                            paints[theme] = page.evaluate(
+                                "sels => {"
+                                "  const read = (s, p) =>"
+                                "    getComputedStyle(document.querySelector(s))"
+                                "      .getPropertyValue(p).trim();"
+                                "  return {freshness: read(sels.freshness, 'color'),"
+                                "          battery: read(sels.battery, 'color'),"
+                                "          accent: read(sels.range, 'accent-color'),"
+                                "          surface: read(sels.range, 'background-color'),"
+                                "          canvas: getComputedStyle(document.body)"
+                                "            .backgroundColor};"
+                                "}", {"freshness": WAKE_FRESHNESS_SEL,
+                                      "battery": WAKE_BATTERY_SEL,
+                                      "range": WAKE_RANGE_SEL})
+                        recorded["paints"] = paints
+                        light, dark = paints["light"], paints["dark"]
+                        for key in ("freshness", "battery", "accent", "surface"):
+                            if light[key] == dark[key]:
+                                return False, (
+                                    "the slider card's %s paints identically in both themes "
+                                    "(%r) — a token that does not invert is a literal, and one "
+                                    "of the two modes is wrong" % (key, light[key]))
+                        for theme, sampled in paints.items():
+                            for key in ("freshness", "battery"):
+                                if sampled[key] == sampled["canvas"]:
+                                    return False, (
+                                        "%s: the %s gauge's text is the canvas colour (%r) — it "
+                                        "is not legible at all" % (theme, key, sampled[key]))
+                        _set_ui_theme(page, "light")
+                        if _wake_interval_on_disk() != before:
+                            return False, (
+                                "this check changed the stored interval (%r, started at %r)"
+                                % (_wake_interval_on_disk(), before))
+                        _ = recorded
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the wake-interval slider meets its floors at 360px — its hit area clears "
+                    "the 44px target by real hit-testing in ITS OWN container (never inherited "
+                    "from a class), it measures wider than the number input it steers and no "
+                    "wider than the card holding it by getBoundingClientRect rather than "
+                    "clientWidth, its wrapper keeps a real top margin off the field's own row, "
+                    "the Device page does not scroll sideways at that width (its own baseline, "
+                    "not the Display page's), and the paint is a FLOOR not a ceiling: both gauge "
+                    "sentences and the control's own accent and surface all differ between the "
+                    "two themes and neither sentence is painted in the canvas colour "
+                    "(CFG-49/CFG-52, 25-05-PLAN.md Task 3)",
+                    _the_slider_meets_its_floors_at_360px_in_both_themes)
 
             finally:
                 browser.close()
