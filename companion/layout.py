@@ -981,6 +981,38 @@ def relative_future_text(seconds_ahead, lang=None):
     return "in %d%s" % (value, unit)
 
 
+def duration_text(seconds, lang=None):
+    """A bare LENGTH of time — "5m" / "5 min", "2h" / "2 h" — over the
+    same `_age_bucket()` ladder the two relative forms above read in
+    their two directions (24-07-PLAN.md Task 2, for the check-in
+    regularity grid's caption and its per-cell titles).
+
+    THE THIRD READING OF ONE LADDER, and it exists for the same reason
+    `relative_future_text()` did: this app had two ways to say "90
+    seconds" — "90s ago" and "in 90s" — and no way at all to say "90s"
+    on its own, so the first caller needing to name a CADENCE or a
+    MEASURED GAP would otherwise have invented a fourth set of
+    boundaries in a page module. The ladder is not restated here; the
+    French unit suffixes are not restated either.
+
+    NO CONNECTOR AND NO TENSE, which is the whole difference from its
+    two siblings. "il y a 5 min" and "dans 5 min" are statements about
+    an instant relative to now; this is a quantity of time with no
+    instant attached at all, so it takes no catalogue entry and adds no
+    French string — only the same real U+00A0 between the number and
+    its unit that D-09 requires of every quantity in this app.
+
+    A negative or non-numeric input clamps to the zero bucket through
+    `_age_bucket()`, exactly as both siblings do. Never raises.
+    """
+    value, unit = _age_bucket(seconds)
+    if lang is None:
+        lang = prefs.current_lang()
+    if lang == "fr":
+        return "%d %s" % (value, _AGE_UNIT_SUFFIX_FR[unit])
+    return "%d%s" % (value, unit)
+
+
 # --- 23-05-PLAN.md Task 1 (D14/CFG-34): the ticker's copy -------------
 #
 # companion/static/relative-time.js rewrites every <time data-relative>

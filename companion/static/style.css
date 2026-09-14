@@ -6104,6 +6104,11 @@ a.airline-card {
  * measured by this repository, the canvas takes the card's 238px and the
  * page does not scroll sideways; without these two declarations it keeps
  * its 278px and the page does. */
+.check-in-grid {
+  width: max-content;
+  max-width: 100%;
+}
+
 .check-in-grid .drawing__figure {
   max-width: 100%;
   height: auto;

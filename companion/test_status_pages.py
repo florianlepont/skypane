@@ -7887,6 +7887,14 @@ def main():
             # check used to pin is now an explicit per-fixture count —
             # neither fixture below seeds a runway_event, so both are
             # 4, not 5.
+            #
+            # 24-07-PLAN.md Task 2 (CFG-43): RETARGETED IN PLACE, no
+            # count change of this check's own — both fixture counts go
+            # 4 -> 5, because Health's Screen section now carries the
+            # check-in regularity card and its own <h2>. What this check
+            # is FOR is untouched and is the half that matters: that
+            # heading carries no glyph either, and the assertion below
+            # is what says so.
             heads = re.findall(r"<h2\b.*?</h2>", rendered, re.S)
             if len(heads) != expected_heading_count:
                 return "expected Health (%s) to render %d headings, got %d" % (
@@ -7917,7 +7925,7 @@ def main():
                     "expected exactly three glyphs to carry the tile tint class — every Health-signal "
                     "glyph on this page is now a tile glyph, with none left over — got %d" % (
                         empty_rendered.count(layout.STAT_TILE_ICON_CLASS)))
-            failure = _headings_carry_no_glyph(empty_rendered, "empty render", 4)
+            failure = _headings_carry_no_glyph(empty_rendered, "empty render", 5)
             if failure:
                 return False, failure
 
@@ -7933,7 +7941,7 @@ def main():
                 return False, (
                     "expected exactly five <use occurrences on a seeded render (the same four plus "
                     "icon-search in the unresolved-prefixes filter bar), got %d" % seeded_rendered.count("<use"))
-            failure = _headings_carry_no_glyph(seeded_rendered, "seeded render", 4)
+            failure = _headings_carry_no_glyph(seeded_rendered, "seeded render", 5)
             if failure:
                 return False, failure
             return True, ""

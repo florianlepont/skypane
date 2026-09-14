@@ -286,6 +286,57 @@ CATALOG = {
         "L’opérateur a résolu à la main le préfixe de cet indicatif, "
         "depuis l’interface web companion.",
 
+    # --- 24-07-PLAN.md Task 2 (CFG-43): the check-in regularity grid ----
+    #
+    # The heading is 24-RESEARCH.md open decision 3's own wording:
+    # "Régularité des relevés", never "ponctualité". The English source
+    # already refuses the roadmap's "wake punctuality" phrasing because
+    # the expected interval is not recoverable from the record, and a
+    # French sibling that reintroduced the claim would put it back in
+    # half the app's pages. A check scans the rendered page in BOTH
+    # languages for exactly that word.
+    #
+    # "relevé" rather than "réveil" throughout, and that is the same
+    # distinction the English keeps: a check-in is something the SERVER
+    # recorded, a wake is something the FRAME did, and this grid can
+    # only report the first.
+    "Check-in regularity": "Régularité des relevés",
+    "Each cell is one day of observed check-in regularity, oldest first.":
+        "Chaque case correspond à un jour de régularité observée des "
+        "relevés, du plus ancien au plus récent.",
+    "Judged against the cadence configured now — a check-in every %s — not "
+    "necessarily the cadence in force on an earlier day.":
+        "Évaluée selon la cadence configurée actuellement — un relevé "
+        "toutes les %s — pas nécessairement celle en vigueur les jours "
+        "précédents.",
+    "This frame's cadence cannot be determined, so the grid is judged against "
+    "the fallback staleness floors rather than against a configured cadence.":
+        "La cadence de ce cadre ne peut pas être déterminée : la grille est "
+        "donc évaluée selon les seuils de repli, et non selon une cadence "
+        "configurée.",
+    "A day with no record is not proof the frame did not wake: a log rotation "
+    "this server missed leaves exactly the same gap.":
+        "Un jour sans relevé ne prouve pas que le cadre ne s’est pas "
+        "réveillé : une rotation de journal manquée par ce serveur laisse "
+        "exactement le même trou.",
+    "No check-in intervals are recorded yet, so every day below is a day the "
+    "record says nothing about.":
+        "Aucun intervalle entre relevés n’est encore enregistré : chaque jour "
+        "ci-dessous est donc un jour sur lequel l’enregistrement ne dit rien.",
+    # The four state words, and the two tooltip shapes they appear in.
+    # "Aucun relevé" is the absence of an observation, never a verdict —
+    # which is why it is not "Manquant" with a qualifier.
+    "On cadence": "Dans la cadence",
+    "Late": "En retard",
+    "Missing": "Manquant",
+    "No record": "Aucun relevé",
+    "%s — %s: longest observed gap %s": "%s — %s : plus long écart observé %s",
+    "Observed check-in regularity, one cell per day over the last %d days: "
+    "%d on cadence, %d late, %d missing, %d with no record.":
+        "Régularité observée des relevés, une case par jour sur les %d "
+        "derniers jours : %d dans la cadence, %d en retard, %d manquants, "
+        "%d sans relevé.",
+
     # --- Degrade-not-raise fallback --------------------------------------
     "Health history is temporarily unavailable — check the companion "
     "service logs.":
