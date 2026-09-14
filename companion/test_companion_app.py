@@ -686,6 +686,32 @@ EXPECTED_CHECK_COUNT = 299
 # 299 + 1 = 300, re-derived by RUNNING the harness (298/300 pass here —
 # the two documented WR-11 root-sandbox failures), never by arithmetic.
 EXPECTED_CHECK_COUNT = 300
+# 25-01-PLAN.md Task 1 (CFG-46): +6 — value-controls.js, the FIFTEENTH
+# deferred script on the authenticated shell and Phase 25's ONLY new
+# script. Five of the six are the registration block every static script
+# here carries (public-route smoke, ES5-safety/required-token scan,
+# route==src agreement, exactly-one-script-tag with no bare inline
+# script, and a REAL GET proving the served body), mirroring
+# quick-switch.js's own. The sixth is this file's specific risk, and it
+# is the one that would actually ship: a control that changes a value
+# without waking the save bar silently loses the user's edit, so the
+# notification is pinned from BOTH sides — the event name constructed
+# identically in the script's two branches, dirty-state.js's delegated
+# document-level listener for that same name, and that listener's
+# e.target.form filter (the only reason a form=-attached settings field
+# reaches the bar at all). The ES5 scan also carries point 2 of the
+# no-JS control contract as a shape pin: exactly ONE assignment to a
+# `.value` in the whole file, and at least one read of `field.value`
+# back, so the script provably holds no parallel copy of a value.
+# ONE pre-existing check was retargeted in place with no count
+# contribution: the deferred-script count, fourteen -> FIFTEEN, forced
+# by this plan's own registration, and now also naming value-controls.js
+# in the login shell's exclusion list. THIS IS THE ONLY TIME PHASE 25
+# MOVES THAT PIN.
+# 300 + 6 = 306, re-derived by RUNNING the harness (304/306 pass here —
+# the two documented WR-11 root-sandbox failures, unrelated to this
+# plan), never by arithmetic.
+EXPECTED_CHECK_COUNT = 306
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -3881,7 +3907,7 @@ def main():
         # all: the drawing arrives complete in the first response and
         # paints with scripts blocked. The page shell's own deferred-script
         # count is pinned separately and unchanged by this phase — see
-        # _fourteen_deferred_scripts_before_closing_body() below, which
+        # _fifteen_deferred_scripts_before_closing_body() below, which
         # this phase does not move.
         samples = [
             draw.rect(draw.DRAWING_AXIS_CLASS, 0, "100%", 1, 4),
@@ -5059,7 +5085,7 @@ def main():
             "=>/ let / const  (21-03-PLAN.md Task 2)",
             _real_get_flight_rows_route_serves_expected_body)
 
-        def _fourteen_deferred_scripts_before_closing_body():
+        def _fifteen_deferred_scripts_before_closing_body():
             # Retargeted in place from _ten_deferred_scripts_before_
             # closing_body() (21-03-PLAN.md Task 2, D-15/R-12):
             # flight-rows.js was the eleventh unconditional script.
@@ -5087,24 +5113,37 @@ def main():
             # Frame strip's two; Device carries the LED switch's own
             # sibling form), so a per-page include would enumerate a set
             # that is already going to grow.
+            # Retargeted a FIFTH time, in place, by 25-01-PLAN.md Task 1
+            # (CFG-46): value-controls.js is the fifteenth, and it is
+            # shell-registered rather than per-page because its two
+            # known consumers live on two DIFFERENT settings pages
+            # (25-04's quiet-hours dial on Device, 25-05's
+            # wake-interval slider) and the set is expected to grow —
+            # the same delegated-document-level-listener shape as the
+            # three above. THIS IS THE ONLY TIME PHASE 25 MOVES THIS
+            # NUMBER: the phase adds exactly one script, and the four
+            # control plans that follow add markup and checks against
+            # it, never a second file. A later plan finding itself
+            # wanting to move this pin has left 25-RESEARCH.md's
+            # Decision 1 and must say so in its own SUMMARY.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 14:
-                return False, "expected exactly 14 deferred <script src= tags before </body>, got %d" % count
+            if count != 15:
+                return False, "expected exactly 15 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
                     layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
                     layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC,
                     layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
-                    layout.QUICK_SWITCH_SCRIPT_SRC):
+                    layout.QUICK_SWITCH_SCRIPT_SRC, layout.VALUE_CONTROLS_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
-            # 22-13-PLAN.md Task 2 (X3): the app has FIFTEEN static
-            # scripts as of 23-07, but an authenticated page still loads
-            # exactly the fourteen above — login-card.js is emitted by
-            # login_shell() alone. Asserted here, in the check that
+            # 22-13-PLAN.md Task 2 (X3): the app has SEVENTEEN static
+            # scripts as of 25-01, but an authenticated page still loads
+            # exactly the fifteen above — login-card.js is emitted by
+            # login_shell() alone, and battery-trend.js is per-page. Asserted here, in the check that
             # already owns this count, so "the authenticated page's
             # script count is unchanged" is pinned by the same machine
             # that pins the count itself rather than by inspection.
@@ -5119,26 +5158,28 @@ def main():
             login = layout.login_shell("<p>login</p>")
             for shell_only in (layout.SUBMIT_GUARD_SCRIPT_SRC,
                                layout.RELATIVE_TIME_SCRIPT_SRC,
-                               layout.QUICK_SWITCH_SCRIPT_SRC):
+                               layout.QUICK_SWITCH_SCRIPT_SRC,
+                               layout.VALUE_CONTROLS_SCRIPT_SRC):
                 if shell_only in login:
                     return False, (
                         "%s is registered on the authenticated shell only — the login shell "
                         "keeps emitting exactly one deferred script (22-15-PLAN.md Task 3, "
-                        "23-05-PLAN.md Task 1, 23-07-PLAN.md Task 1)" % shell_only)
+                        "23-05-PLAN.md Task 1, 23-07-PLAN.md Task 1, 25-01-PLAN.md Task 1)"
+                        % shell_only)
             if login.count('<script src=') != 1:
                 return False, (
                     "expected the login shell to keep emitting exactly one deferred script, "
                     "got %d" % login.count('<script src='))
             return True, ""
         check(
-            "a rendered authenticated page contains exactly fourteen deferred <script src= tags "
+            "a rendered authenticated page contains exactly fifteen deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
             "poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js, "
-            "submit-guard.js, relative-time.js and quick-switch.js — and NOT login-card.js, which "
-            "login_shell() alone emits, nor submit-guard.js/relative-time.js/quick-switch.js on "
-            "that login shell, which still emits exactly one (retargeted in place by "
-            "23-07-PLAN.md Task 1)",
-            _fourteen_deferred_scripts_before_closing_body)
+            "submit-guard.js, relative-time.js, quick-switch.js and value-controls.js — and NOT "
+            "login-card.js, which login_shell() alone emits, nor submit-guard.js/"
+            "relative-time.js/quick-switch.js/value-controls.js on that login shell, which still "
+            "emits exactly one (retargeted in place by 25-01-PLAN.md Task 1)",
+            _fifteen_deferred_scripts_before_closing_body)
 
         def _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard():
             # T14 (22-AUDIT.md, 22-15-PLAN.md Task 3). One shared guard

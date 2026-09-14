@@ -224,6 +224,16 @@ RELATIVE_TIME_SCRIPT_ROUTE = "/static/relative-time.js"
 # session data of any kind and no-ops via its own guard clause on a page
 # with no [data-quick-switch] form.
 QUICK_SWITCH_SCRIPT_ROUTE = "/static/quick-switch.js"
+# 25-01-PLAN.md Task 1 (CFG-46): companion/layout.py's
+# VALUE_CONTROLS_SCRIPT_SRC must equal this exactly, mirroring every
+# pair above — the SEVENTEENTH static script, and the fifteenth emitted
+# by page_shell(). Phase 25's ONE new script: five controls are being
+# built on top of it and they share one clamp/round/keyboard model
+# rather than shipping five copies of it. Pre-auth like every one of its
+# siblings; the file carries no session data of any kind and no-ops via
+# its own guard clause on a page with no [data-value-control] wrapper,
+# which today is every page in the app.
+VALUE_CONTROLS_SCRIPT_ROUTE = "/static/value-controls.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -669,6 +679,7 @@ _LOGIN_CARD_JS_PATH = os.path.join(_HERE, "static", "login-card.js")
 _SUBMIT_GUARD_JS_PATH = os.path.join(_HERE, "static", "submit-guard.js")
 _RELATIVE_TIME_JS_PATH = os.path.join(_HERE, "static", "relative-time.js")
 _QUICK_SWITCH_JS_PATH = os.path.join(_HERE, "static", "quick-switch.js")
+_VALUE_CONTROLS_JS_PATH = os.path.join(_HERE, "static", "value-controls.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -2095,6 +2106,20 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_QUICK_SWITCH_JS_PATH)
 
+    def _serve_value_controls_script(self):
+        """Serve companion/static/value-controls.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_quick_switch_script()'s shape exactly (25-01-PLAN.md
+        Task 1, CFG-46) — the seventeenth static script, and the fourth
+        whose consumer is every page rather than one. There is no
+        catch-all /static/ handler in this module: a new script needs
+        its own route constant, its own serve method and its own branch
+        in do_GET(), and a harness does a REAL GET of it because a
+        registration whose route 404s is a control that renders and
+        silently does nothing.
+        """
+        return self._serve_script_file(_VALUE_CONTROLS_JS_PATH)
+
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
         if payload is None:
@@ -2927,6 +2952,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == QUICK_SWITCH_SCRIPT_ROUTE:
             return self._serve_quick_switch_script()
+
+        if path == VALUE_CONTROLS_SCRIPT_ROUTE:
+            return self._serve_value_controls_script()
 
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:

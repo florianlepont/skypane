@@ -231,6 +231,54 @@ RELATIVE_TIME_SCRIPT_SRC = "/static/relative-time.js"
 # carry the Frame strip's two, Device carries the LED switch's own
 # sibling form).
 QUICK_SWITCH_SCRIPT_SRC = "/static/quick-switch.js"
+# 25-01-PLAN.md Task 1 (CFG-46): the FIFTEENTH script on the
+# authenticated shell and the seventeenth in the tree, under the same
+# duplicated-not-imported contract as every SCRIPT_SRC above —
+# companion/app.py's VALUE_CONTROLS_SCRIPT_ROUTE must equal this
+# exactly, and a harness asserts it. Registered on the shell rather than
+# per page because its two known consumers (25-04's quiet-hours dial and
+# 25-05's wake-interval slider) already live on two different settings
+# pages and the set is expected to grow; its listeners are delegated at
+# document level and its guard returns before touching anything on a
+# page with no [data-value-control] wrapper.
+#
+# THIS IS PHASE 25'S ONLY NEW SCRIPT. Five controls are being built on
+# top of it; a second one would be a second copy of one clamp/round/
+# keyboard model.
+VALUE_CONTROLS_SCRIPT_SRC = "/static/value-controls.js"
+
+# 25-01-PLAN.md Task 1 (CFG-46): the registration seam value-controls.js
+# reads, defined HERE so a page module never types an attribute name and
+# so a rename cannot drift from the script that consumes it (a harness
+# asserts the served script body names every one of them). A control
+# opts in entirely by attribute — there is no per-control JavaScript,
+# which is what keeps the phase's script budget at one.
+#
+# The floor these names sit on (D-09, the no-JS control contract's
+# points 1 and 2): the wrapper is a LAYER, never the control. The value
+# is always held by the native <input>/<select> named by
+# VALUE_CONTROL_FIELD_ATTR, which the server renders unconditionally.
+VALUE_CONTROL_ATTR = "data-value-control"
+VALUE_CONTROL_FIELD_ATTR = "data-value-field"
+# The id of the form that input belongs to. Load-bearing rather than
+# convenience: this app's settings groups deliberately attach ACROSS the
+# DOM through a form= attribute (a <form> can never nest inside another
+# <form>), so an ancestor walk from the wrapper would miss the field.
+VALUE_CONTROL_FORM_ATTR = "data-value-form"
+VALUE_CONTROL_MIN_ATTR = "data-value-min"
+VALUE_CONTROL_MAX_ATTR = "data-value-max"
+VALUE_CONTROL_STEP_ATTR = "data-value-step"
+VALUE_CONTROL_HANDLE_ATTR = "data-value-handle"
+VALUE_CONTROL_TRACK_ATTR = "data-value-track"
+# The SERVER-RENDERED, already-translated aria-valuetext template, with
+# VALUE_CONTROL_TEXT_TOKEN standing in for the number. No copy of any
+# kind lives in the script: absent this attribute it writes no
+# aria-valuetext at all rather than inventing an English one.
+VALUE_CONTROL_TEXT_ATTR = "data-value-text"
+VALUE_CONTROL_TEXT_TOKEN = "{}"
+# "angular" for a dial, absent for a left-to-right track. The ONLY
+# difference between 25-04's dial and 25-05's slider.
+VALUE_CONTROL_GEOMETRY_ATTR = "data-value-geometry"
 
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
@@ -2885,6 +2933,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -2969,6 +3018,18 @@ def page_shell(
         # with no such form, and — the load-bearing part — with the file
         # absent every one of those forms still posts and still saves.
         QUICK_SWITCH_SCRIPT_SRC,
+        # 25-01-PLAN.md Task 1 (CFG-46): fifteenth script on this shell,
+        # same unconditional convention, and here for the fourth
+        # distinct shape of that reason: its listeners are DELEGATED at
+        # document level over every [data-value-control] wrapper, and
+        # its two known consumers are on two different settings pages
+        # (25-04's quiet-hours dial, 25-05's wake-interval slider) with
+        # more expected. Its guard returns before touching anything on a
+        # page with no such wrapper — which is EVERY page today — and,
+        # the load-bearing part, with the file absent every value it
+        # steers is still held by a native input the server renders and
+        # the form posts.
+        VALUE_CONTROLS_SCRIPT_SRC,
     )
 
 
