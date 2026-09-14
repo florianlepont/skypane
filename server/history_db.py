@@ -95,9 +95,16 @@ def history_db_path(state_dir):
 
 
 def init_schema(conn):
-    """Create all three tables (and their indexes/constraints) with
+    """Create all four tables (and their indexes/constraints) with
     IF NOT EXISTS, so both the poll oneshot and the companion service can
     call this safely on every connection.
+
+    That last sentence is this project's ENTIRE migration story: there is
+    no schema version stamp and no in-place table alteration anywhere in
+    the tree (a pinned property - the harness greps this file for both).
+    It is why `wake_epochs` below could be added as a fourth TABLE at no
+    cost at all, and why the same data as a new COLUMN on `device_health`
+    could not have been (24-RESEARCH.md Risk 1, Options A and C).
     """
     conn.execute(
         "CREATE TABLE IF NOT EXISTS runway_events ("
@@ -139,6 +146,41 @@ def init_schema(conn):
         "key TEXT PRIMARY KEY, "
         "value TEXT NOT NULL, "
         "updated_at TEXT NOT NULL"
+        ")"
+    )
+    # 24-03-PLAN.md Task 3 (CFG-43). One row per CHANGE in the device's
+    # effective wake interval, and the instant that new interval took
+    # effect. Three things justify it, all three load-bearing:
+    #
+    #   1. A NEW TABLE COSTS NO MIGRATION. This function runs on every
+    #      connection from both processes (see its docstring), so the
+    #      table simply exists on the next connect - for the poll oneshot
+    #      and the long-lived companion alike, with no version stamp and
+    #      no coordination between them.
+    #   2. A NEW COLUMN WOULD NOT HAVE BEEN FREE. Recording the same
+    #      thing as `device_health.expected_interval_s` would have
+    #      required inventing this project's first SQLite migration
+    #      mechanism, and getting it right for a database two processes
+    #      open concurrently under WAL. That is why the epoch is a table
+    #      and not a column.
+    #   3. NOTHING READS IT YET, deliberately. It exists so a LATER phase
+    #      can upgrade D20's metric from observed check-in regularity to a
+    #      genuine rate of wakes kept, over the window these epochs cover.
+    #      No drawing in phase 24 pretends they already exist; if any
+    #      drawing read this table it would be blank until the epochs
+    #      accrue, which is exactly the failure mode changing the metric
+    #      avoided (24-RESEARCH.md Risk 1, Option C).
+    #
+    # `wake_interval_s` is nullable ON PURPOSE: `wake.effective_wake_
+    # interval_s()` legitimately returns None when the cadence cannot be
+    # determined at all, and a NULL epoch records "from here, unknown"
+    # rather than letting a future reader infer the previous interval
+    # silently continued.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS wake_epochs ("
+        "id INTEGER PRIMARY KEY, "
+        "ts TEXT NOT NULL, "
+        "wake_interval_s INTEGER"
         ")"
     )
     conn.commit()
@@ -208,6 +250,48 @@ def record_device_health(conn, ts, battery_mv=None, fw_version=None, boot_reason
     cur = conn.execute(_DEVICE_HEALTH_INSERT_SQL, (ts, battery_mv, fw_version, boot_reason, rssi))
     conn.commit()
     return cur.rowcount
+
+
+def record_wake_epoch(conn, ts, wake_interval_s):
+    """(24-03-PLAN.md Task 3, CFG-43) Record that the device's effective
+    wake interval became `wake_interval_s` at `ts` - but ONLY when that
+    differs from the newest row already stored. Returns the number of rows
+    actually inserted (0 or 1).
+
+    The dedupe is the whole point, and it is Pitfall 1's rule applied to a
+    fourth table: the caller is a `Type=oneshot` unit under a 30-second
+    timer, so roughly 2,880 cycles a day pass through here. An
+    unconditional insert would add 2,880 rows a day carrying no
+    information whatsoever; only a CHANGE is an epoch.
+
+    `wake_interval_s=None` (the cadence cannot be determined) is a
+    DISTINCT value, not a continuation: `None` following a stored 600
+    inserts, and `None` following a stored NULL does not. A later reader
+    must not be told the frame was still on its old cadence when nothing
+    said so.
+
+    Comparison is against the newest row by `id` - insertion order - not
+    by `ts`, because `ts` here is the poll cycle's own `now_iso` and `id`
+    is the order the epochs were actually recorded. Concurrency: in
+    practice the poll oneshot is the only writer and its cycles are
+    serialised by the systemd timer, so the read-then-insert cannot
+    interleave with itself; were a second writer ever added, the worst
+    case is a duplicate epoch row, never a lost or corrupted one.
+
+    Nothing in phase 24 reads this table - see the schema comment in
+    `init_schema()` above for why it exists anyway.
+    """
+    newest = conn.execute(
+        "SELECT wake_interval_s FROM wake_epochs ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if newest is not None and newest[0] == wake_interval_s:
+        return 0
+    conn.execute(
+        "INSERT INTO wake_epochs (ts, wake_interval_s) VALUES (?, ?)",
+        (ts, wake_interval_s),
+    )
+    conn.commit()
+    return 1
 
 
 # --- Readers ---------------------------------------------------------------

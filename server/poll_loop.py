@@ -755,7 +755,17 @@ def _should_record_event(flight, confirmed_state, poll_state):
     return hex_ != last_hex or confirmed_state != last_confirmed or corroborated != last_corroborated
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None):
+# 24-03-PLAN.md Task 3 (CFG-43): the "the caller did not ask for an epoch
+# to be recorded" sentinel. It cannot be None, because None is a LEGITIMATE
+# effective wake interval meaning "the cadence cannot be determined" - an
+# epoch worth recording in its own right (history_db.record_wake_epoch()'s
+# docstring says why). Defaulting to None instead would let a call site
+# that simply forgot to pass the interval write a NULL epoch that looks
+# exactly like a real transition to an unknown cadence.
+_NO_WAKE_EPOCH = object()
+
+
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH):
     """Write this cycle's durable signals into `history.db`, in one
     connection, fully contained: a database or filesystem failure here is
     caught and logged, never allowed to fail the poll cycle or leave the
@@ -778,6 +788,18 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     unit-tested in plan 06-01 but never wired into a caller until this
     fix - a missing/unreadable log file is a no-op (0 rows), same
     catch-and-log containment as everything else in this function.
+
+    `wake_interval_s` (24-03-PLAN.md Task 3, CFG-43), when supplied,
+    records a `wake_epochs` row - but only when this cycle's effective
+    interval DIFFERS from the newest one stored, so ~2,880 cycles a day at
+    an unchanged cadence write nothing at all. The value is the one
+    `run_once()` already resolved once per cycle from `device_cfg`, not a
+    second resolution here: reading the config twice in one cycle is how a
+    mid-cycle save lands half in one cadence and half in another. The call
+    sits INSIDE this function's single `try` so its failure mode is
+    identical to every other history write's - history is an accessory to
+    the panel, not a dependency of it (T-06-10-05). Nothing in phase 24
+    reads the table; see `history_db.init_schema()`'s own schema comment.
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -803,6 +825,8 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                 history_db.set_meta(conn, history_db.META_LAST_DETECTION, now_iso)
             if caddy_log:
                 history_db.ingest_caddy_battery_log(conn, caddy_log)
+            if wake_interval_s is not _NO_WAKE_EPOCH:
+                history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
 
@@ -985,6 +1009,12 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # here.
     device_cfg = device_config.load_device_config(state_dir)
     theme_id = device_cfg["theme"]
+    # 24-03-PLAN.md Task 3 (CFG-43): the cadence in force THIS cycle,
+    # resolved ONCE here for the same reason device_cfg itself is read
+    # once - and passed down to every _record_history() call site rather
+    # than re-resolved inside it. None is a legitimate value ("cannot be
+    # determined") and is recorded as such.
+    effective_wake_interval_s = wake.effective_wake_interval_s(device_cfg)
     # D-13: a DEFAULT ASSIGNMENT, not a resolution. Every branch below -
     # including the four that display no flight - references this name, in
     # exactly the way `unknown_prefix` and `event_recorded` further down are
@@ -1125,6 +1155,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         _record_history(
             state_dir, None, None, None, None, tracked_runway_id,
             source_fault, False, now_iso, caddy_log=caddy_log,
+            wake_interval_s=effective_wake_interval_s,
         )
 
         # WR-01 fix (20-REVIEW.md): a display_off hold has no scheduled
@@ -1494,7 +1525,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         _record_history(
             state_dir, current_flight, confirmed_state, route_source, route,
             tracked_runway_id, source_fault, event_recorded, now_iso,
-            caddy_log=caddy_log,
+            caddy_log=caddy_log, wake_interval_s=effective_wake_interval_s,
         )
     elif current_flight is not None:
         # D-04: nothing NEW reached the display this cycle, but a flight was
@@ -1608,7 +1639,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         _record_history(
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
-            caddy_log=caddy_log,
+            caddy_log=caddy_log, wake_interval_s=effective_wake_interval_s,
         )
     else:
         # Nothing detected, and nothing has ever been detected since the
@@ -1637,7 +1668,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         _record_history(
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
-            caddy_log=caddy_log,
+            caddy_log=caddy_log, wake_interval_s=effective_wake_interval_s,
         )
 
     # D-27 (20-05-PLAN.md Task 2): the shared call site for the
