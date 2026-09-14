@@ -5940,6 +5940,37 @@ a.airline-card {
  * The margin moved from top-only to bottom-only, using --space-sm: the
  * spacing this element owns moved with it when it moved from below the
  * chart to above it. */
+/* 24-04-PLAN.md Task 2 (CFG-40): the row that puts the battery ring
+ * beside the readout. Emitted ONLY when there is a ring to place, so a
+ * device with no reading renders the readout exactly as it did before
+ * this wrapper existed.
+ *
+ * `min-width: 0` on the readout is load-bearing at the 360px floor and
+ * not tidy-up: a flex item's default `min-width: auto` floors it at its
+ * own min-content width, so the readout's longest unbreakable run would
+ * push this row — and therefore the page body — wider than the viewport,
+ * which is the horizontal scrollbar CFG-45 forbids. Same mechanism, same
+ * fix, as `.drawing`'s own `minmax(0, 1fr)` canvas column.
+ *
+ * The ring gets `flex: none` so it keeps the intrinsic size
+ * draw.unit_canvas() emitted: an aspect-locked figure that shrank with
+ * its container would be the letterboxing `.drawing__figure`'s own
+ * comment exists to prevent. */
+.battery-readout-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.battery-readout-row > .drawing__figure {
+  flex: none;
+}
+
+.battery-readout-row > .battery-readout {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
 .battery-readout {
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);

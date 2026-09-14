@@ -1603,9 +1603,21 @@ def main():
             # aren't permitted in a `points` list), so the redesigned
             # chart emits n - 1 <line> segments instead of one polyline;
             # for this 3-row fixture that is 2 segments.
-            non_icon_svg_count = rendered.count("<svg") - rendered.count("<use")
-            if non_icon_svg_count != 1:
-                return False, "expected exactly one non-icon <svg, got %d" % non_icon_svg_count
+            # 24-04-PLAN.md Task 2 (CFG-40): RETARGETED IN PLACE, no
+            # count contribution. "one non-icon <svg>" stopped being a
+            # proof of "one sparkline" the moment this page gained a
+            # second, deliberate non-icon drawing — the battery ring
+            # beside the readout — so the arithmetic was measuring the
+            # page's <svg> census rather than the property it was named
+            # for. It now counts the CHART'S OWN CANVAS, which is what
+            # "exactly one sparkline" always meant, and is strictly
+            # sharper: the old count would have been satisfied by the
+            # ring alone if the chart vanished. The ring's own "exactly
+            # one" is owned by the CFG-40 check above.
+            chart_canvas_count = rendered.count('<svg class="sparkline__canvas"')
+            if chart_canvas_count != 1:
+                return False, (
+                    "expected exactly one sparkline canvas, got %d" % chart_canvas_count)
             if rendered.count(health_page.SPARKLINE_LINE_CLASS) != 2:
                 return False, (
                     "expected exactly 2 trend-line segments (n - 1 for 3 points), got %d"
@@ -5306,7 +5318,17 @@ def main():
             css_source = fh.read()
 
         def _rule_body(selector_open):
-            start = css_source.index(selector_open)
+            # 24-04-PLAN.md Task 2: anchored at a LINE START, not by a
+            # bare index(). Found by this plan breaking it: adding
+            # `.battery-readout-row > .battery-readout { ... }` made the
+            # plain index() resolve `.battery-readout {` to the TAIL of
+            # that descendant rule and read the wrong body entirely —
+            # the `.drawing-axis`-inside-`.drawing-axis-label` trap, met
+            # from the other direction. Every selector these guards key
+            # on opens its own rule at column 0, so requiring the
+            # preceding newline distinguishes the rule from any rule
+            # that merely ENDS with the same selector.
+            start = css_source.index("\n" + selector_open) + 1
             brace_close = css_source.index("}", start)
             return css_source[start:brace_close]
 
@@ -11708,7 +11730,17 @@ def main():
             css_source = fh.read()
 
         def _rule_body(selector_open):
-            start = css_source.index(selector_open)
+            # 24-04-PLAN.md Task 2: anchored at a LINE START, not by a
+            # bare index(). Found by this plan breaking it: adding
+            # `.battery-readout-row > .battery-readout { ... }` made the
+            # plain index() resolve `.battery-readout {` to the TAIL of
+            # that descendant rule and read the wrong body entirely —
+            # the `.drawing-axis`-inside-`.drawing-axis-label` trap, met
+            # from the other direction. Every selector these guards key
+            # on opens its own rule at column 0, so requiring the
+            # preceding newline distinguishes the rule from any rule
+            # that merely ENDS with the same selector.
+            start = css_source.index("\n" + selector_open) + 1
             brace_close = css_source.index("}", start)
             return css_source[start:brace_close]
 

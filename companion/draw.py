@@ -173,6 +173,31 @@ PAINT_KEYWORDS = ("none", "currentColor", "transparent", "inherit")
 _INFINITY = float("inf")
 
 
+def status_class(state):
+    """The drawing status modifier for one of the app's own `"ok"` /
+    `"warn"` / `"error"` verdicts, or None for anything else. Never
+    raises.
+
+    ONE mapping, for the same reason DRAWING_STATUS_CLASSES exists above:
+    both of the ring's call sites colour their drawing from a verdict a
+    page ALREADY computed, and two `{"ok": ...}` dicts in two page
+    modules is the drift this phase keeps removing. It lives here rather
+    than in companion/layout.py because layout.py owns the page shell and
+    draw.py may not import it; the vocabulary is already encoded in this
+    module's own class names either way.
+
+    An unrecognised verdict returns None rather than a guessed class, so
+    an emitter handed one falls back to the container's own colour
+    instead of painting an arbitrary, caller-influenceable class name —
+    layout.stat_tile()'s own fixed-dict discipline, restated.
+    """
+    return {
+        "ok": DRAWING_STATUS_OK_CLASS,
+        "warn": DRAWING_STATUS_WARN_CLASS,
+        "error": DRAWING_STATUS_ERROR_CLASS,
+    }.get(state)
+
+
 # --- escaping ---------------------------------------------------------
 
 def escape(value):

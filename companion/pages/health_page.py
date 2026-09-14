@@ -55,6 +55,7 @@ from zoneinfo import ZoneInfo
 
 from companion.layout import escape_html
 import companion.battery as battery
+import companion.draw as draw
 import companion.i18n as i18n  # D-05, 20-03-PLAN.md Task 3: every
 # user-visible string on this page renders through i18n.t() — a
 # shared, page-independent module (see its own module docstring),
@@ -2367,6 +2368,78 @@ def _battery_readout_block(latest_reading, now):
         escape_html(when_text), escape_html(when_text))
 
 
+# 24-04-PLAN.md Task 2 (CFG-40): the LARGE ring's box side, in CSS
+# pixels. The number lives here and the small one lives in
+# home_page.py, because a single "sizes" table in draw.py would be one
+# rename away from reading as two named variants of one drawing — which
+# is the thing CFG-40 forbids. What must be shared is the EMITTER, and
+# it is: both pages call draw.ring_gauge(), and a change inside it moves
+# both rings.
+#
+# 72 against this card's own 312px content width at the 360px floor
+# leaves roughly 190px for the readout beside it, which still fits the
+# "≈ NN% · NNNN mV — D Mon HH:MM (Nx ago)" string on the same number of
+# lines its reserved min-height already allows for.
+BATTERY_RING_SIZE = 72
+
+
+def _battery_ring_html(latest_reading, state):
+    """The battery ring for `latest_reading`, or "" when there is
+    nothing honest to draw.
+
+    RETURNS "" RATHER THAN AN EMPTY RING when there is no reading, or
+    when the reading is one `companion/battery.py` refuses (non-numeric,
+    or non-positive — a broken sensor rather than a flat battery). An
+    empty ring reads as "0%", which is a false statement about a device
+    that has simply not checked in; `_status_tiles_html()` already
+    avoids the identical error by rendering a "no reading" verdict
+    instead of a zero.
+
+    THE RING AND THE READOUT BESIDE IT ARE ONE NUMBER IN TWO RENDERINGS.
+    The fraction handed to the emitter is the PRINTED PERCENTAGE divided
+    by 100 — not a second, finer-grained estimate — so the arc cannot
+    draw 43.4% while the text says 43%. `battery.battery_percent()` is
+    the app's ONE battery estimator (D-01/A-19, CFG-39) and this is a
+    second invocation of that same pure function on the same millivolt
+    value `_battery_reading_parts()` renders, never a second estimate;
+    companion/test_status_pages.py measures the two against each other
+    in the rendered page rather than trusting that sentence.
+
+    The colour comes from `state` — `battery_status()`'s verdict, which
+    this section has ALREADY computed for its own card edge — through
+    draw.status_class(). Never a second judgement about the same number.
+    """
+    if not latest_reading:
+        return ""
+    mv, _ts = latest_reading
+    percent = battery.battery_percent(mv)
+    if percent is None:
+        return ""
+    return draw.ring_gauge(
+        percent / 100.0, BATTERY_RING_SIZE, draw.status_class(state))
+
+
+def _battery_readout_row_html(latest_reading, now, state):
+    """The readout, with the ring beside it when there is one.
+
+    With no ring this returns `_battery_readout_block()`'s own markup
+    UNWRAPPED and therefore byte-identical to what this section rendered
+    before the ring existed — the no-reading page is not a slightly
+    different page, it is the same page.
+
+    The ring comes first in document order because it is the thing the
+    eye lands on; `companion/static/battery-trend.js` finds the readout
+    by `getElementById` and has never depended on its position in the
+    document (its own docstring records that), so wrapping it costs
+    nothing there.
+    """
+    readout_html = _battery_readout_block(latest_reading, now)
+    ring_html = _battery_ring_html(latest_reading, state)
+    if not ring_html:
+        return readout_html
+    return '<div class="battery-readout-row">%s%s</div>' % (ring_html, readout_html)
+
+
 def _battery_trend_section_html(battery_html, state, caption=None):
     """Wrap `_battery_section()`'s already-built markup in the full-width
     `BATTERY_SECTION_CLASS` card section (D-02) that replaces its old
@@ -2602,8 +2675,11 @@ def _battery_section(trend_rows, daily_rows=None):
         # last regardless, so "exactly one script tag, and zero on the
         # no-chart path" stays true unweakened.
         latest_reading = _latest_numeric_battery_reading(trend_rows)
+        # 24-04-PLAN.md Task 2 (CFG-40): the readout gained the ring
+        # beside it. With no drawable reading this is byte-identical to
+        # the _battery_readout_block() call it replaces.
         chart_block = (
-            _battery_readout_block(latest_reading, now)
+            _battery_readout_row_html(latest_reading, now, state)
             + sparkline_html
             + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
     # D-08: the chart (when present) comes before the collapsed table in
