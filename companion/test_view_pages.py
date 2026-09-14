@@ -633,6 +633,20 @@ EXPECTED_CHECK_COUNT = 161
 # hero is precisely the shape that reintroduces it.
 # 161 + 1 = 162, re-derived by RUNNING (162/162).
 EXPECTED_CHECK_COUNT = 162
+# 24-08-PLAN.md Task 2 (CFG-44): +2 — "fed by", proven. One is
+# STRUCTURAL: the hero's ring and Health's carry one class vocabulary
+# COMPUTED from the markup, the hero's band draws three shapes and not
+# one, every class either emits is a constant companion/draw.py itself
+# names, and neither the page module nor the check itself writes any of
+# those strings down — a literal keeps passing against a forked copy
+# that still uses the old one. One is BEHAVIOURAL, and is what CFG-44
+# actually asks for: a class constant inside draw.py is replaced at
+# check time and both the hero and the page the emitter was borrowed
+# from change, while the band's own mutation moves the hero and leaves
+# Health byte-identical (the mutation is targeted, not a global
+# perturbation).
+# 162 + 2 = 164, re-derived by RUNNING (164/164).
+EXPECTED_CHECK_COUNT = 164
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -7888,6 +7902,268 @@ def main():
         "the frame verdict still appears exactly once in BOTH languages (CFG-44, 24-08-PLAN.md "
         "Task 1)",
         _home_top_is_one_composition_holding_the_ring_and_the_band)
+
+    # --- 24-08-PLAN.md Task 2 (CFG-44): "fed by", proven ---------------
+    #
+    # Two checks with two different jobs, named for what they prove so a
+    # later tidy-up does not read them as duplicate coverage of the
+    # hero's markup. The first is STRUCTURAL: every class the hero's two
+    # drawings carry is one of companion/draw.py's OWN named constants,
+    # read from that module at check time and never restated here — a
+    # literal would keep passing against a forked copy that still used
+    # the old string, which is precisely the failure being tested for.
+    # The second is BEHAVIOURAL, and it is the one CFG-44 actually asks
+    # for: change a shared emitter and watch BOTH the hero and the page
+    # the emitter was borrowed from move with it.
+
+    def _classes_inside_svg(markup, opening_class):
+        """The set of class attributes emitted INSIDE the first <svg>
+        whose own class begins with `opening_class`, or None when there
+        is no such element.
+
+        Non-greedy to the first closing tag, which is correct for both
+        drawings this is asked about: neither nests an <svg>. A drawing
+        that did would need a balanced scan, the same way the hero's own
+        container does.
+        """
+        svg = re.search(
+            r'<svg class="%s[^"]*"[^>]*>(.*?)</svg>' % re.escape(opening_class),
+            markup, re.S)
+        if svg is None:
+            return None
+        return set(re.findall(r'class="([^"]*)"', svg.group(1)))
+
+    def _the_heros_ring_is_the_emitter_healths_ring_is():
+        import ast
+        import inspect
+        import textwrap
+        import companion.draw as _draw
+        from companion.pages import health_page, home_page
+        now = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("hero-vocab")
+        health_tmp = _mkstate("hero-vocab-health")
+        try:
+            ctx = _home_band_ctx(tmp, now, [
+                "2026-08-27T06:00:00+00:00",
+                "2026-08-27T10:00:00+00:00",
+            ], config={
+                "wake_interval_s": 900, "display_enabled": True,
+                "quiet_hours_enabled": True,
+                "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
+                "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
+            })
+            rendered = home_page.render(ctx)
+            hero = _home_hero_inner(rendered)
+            if hero is None:
+                return False, "expected a hero container on Home"
+            with history_db.open_db(health_tmp) as conn:
+                for minute, mv in ((50, 3600), (55, 3690)):
+                    history_db.record_device_health(
+                        conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
+            health_rendered = health_page.render({"state_dir": health_tmp, "now": now})
+
+            # ONE RING, TWO PAGES. The two rings' class vocabularies are
+            # COMPUTED from the markup rather than listed here, so this
+            # cannot drift into a hand-maintained copy of the emitter's
+            # own list — which would be the same defect one level up.
+            hero_ring = _classes_inside_svg(hero, _draw.DRAWING_FIGURE_CLASS)
+            health_ring = _classes_inside_svg(health_rendered, _draw.DRAWING_FIGURE_CLASS)
+            if not hero_ring:
+                return False, "found no ring inside Home's hero"
+            if not health_ring:
+                return False, "found no ring on Health"
+            if hero_ring != health_ring:
+                return False, (
+                    "the hero's ring and Health's carry different class vocabularies (%r "
+                    "against %r) — one drawing at two sizes emits one vocabulary; two "
+                    "vocabularies means two components"
+                    % (sorted(hero_ring), sorted(health_ring)))
+
+            # THE BAND, AND ITS FLOOR. "Every class is one of the shared
+            # module's own" is satisfied by a band that drew nothing but
+            # its frame, so the distinct-element floor is asserted
+            # alongside it: the frame, the shaded quiet-hours span and
+            # the check-in marks are three different shapes, and a band
+            # that lost two of them would still pass the vocabulary half
+            # on its own.
+            hero_band = _classes_inside_svg(hero, _draw.DRAWING_CANVAS_CLASS)
+            if not hero_band:
+                return False, "found no day band inside Home's hero"
+            if len(hero_band) < 3:
+                return False, (
+                    "the hero's band draws only %d kind(s) of shape (%r) — with a quiet-hours "
+                    "window configured and two check-ins on the day it owes three: its own "
+                    "frame, the shaded span and the marks" % (len(hero_band), sorted(hero_band)))
+
+            # EVERY ONE OF THEM A NAMED CONSTANT OF THE SHARED MODULE.
+            # A forked copy is free to emit any string it likes; this is
+            # what refuses the ones draw.py does not own.
+            for class_name in sorted(hero_ring | hero_band):
+                for token in class_name.split():
+                    if token not in _draw.DRAWING_CLASSES:
+                        return False, (
+                            "the hero emits the drawing class %r, which companion/draw.py does "
+                            "not name — a class the shared module does not own came from "
+                            "somewhere else" % (token,))
+
+            # THE PAGE MODULE RESTATES NONE OF THEM, AND NEITHER DOES
+            # THIS CHECK. That is the fork's own fingerprint: markup
+            # emitted by hand has to write these strings down somewhere.
+            #
+            # A BARE SUBSTRING SCAN CANNOT ASK THIS, and finding that out
+            # cost this check a draft: draw.DRAWING_GRID_CLASS is the
+            # single word "drawing", which appears in home_page.py's
+            # PROSE ("a drawing that implied calibration would out-claim
+            # the number it sits beside") and in this check's own failure
+            # messages. A scan that reads English as evidence is the
+            # phase's own recorded trap — check your own prose does not
+            # satisfy your own grep — so what is scanned is string
+            # LITERALS only, docstrings excluded, and each one is asked
+            # two precise questions instead of one loose one.
+            def _restated_drawing_class(source):
+                tree = ast.parse(source)
+                docs = set()
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.Module, ast.ClassDef,
+                                         ast.FunctionDef, ast.AsyncFunctionDef)):
+                        if ast.get_docstring(node, clean=False) is not None:
+                            docs.add(id(node.body[0].value))
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.Constant) or id(node) in docs:
+                        continue
+                    if not isinstance(node.value, str):
+                        continue
+                    # Question one: is the literal a class name outright
+                    # (the `'<circle class="%s"' % "..."` shape)?
+                    if node.value in _draw.DRAWING_CLASSES:
+                        return node.value
+                    # Question two: does it write one into a class
+                    # attribute (the inlined-markup shape)?
+                    for attribute in re.findall(r'class="([^"]*)"', node.value):
+                        for token in attribute.split():
+                            if token in _draw.DRAWING_CLASSES:
+                                return token
+                return None
+
+            restated = _restated_drawing_class(inspect.getsource(home_page))
+            if restated is not None:
+                return False, (
+                    "companion/pages/home_page.py writes the drawing class %r into a string "
+                    "literal — the page calls the emitters, it does not restate their markup"
+                    % (restated,))
+            restated = _restated_drawing_class(textwrap.dedent(
+                inspect.getsource(_the_heros_ring_is_the_emitter_healths_ring_is)
+                + inspect.getsource(_classes_inside_svg)))
+            if restated is not None:
+                return False, (
+                    "this check writes the drawing class %r into a literal instead of reading "
+                    "it from companion/draw.py — rename the constant and a literal here goes "
+                    "on passing against the fork" % (restated,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            shutil.rmtree(health_tmp, ignore_errors=True)
+    check(
+        "the hero's battery ring is the same emitter Health's ring is — the two pages' rings "
+        "carry one class vocabulary, computed from the markup rather than listed; the hero's "
+        "day band draws three different shapes and not one; every class either of them emits is "
+        "a constant companion/draw.py itself names; and neither companion/pages/home_page.py nor "
+        "this check writes any of those strings down, because a literal goes on passing against "
+        "a forked copy that still uses the old one (CFG-44, 24-08-PLAN.md Task 2)",
+        _the_heros_ring_is_the_emitter_healths_ring_is)
+
+    def _breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_from():
+        import companion.draw as _draw
+        from companion.pages import health_page, home_page
+        now = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("hero-link")
+        health_tmp = _mkstate("hero-link-health")
+        # Not a member of DRAWING_CLASSES and not a substring of one, so
+        # "the sentinel arrived" and "the original left" are two
+        # independent readings rather than one.
+        sentinel = "skypane-emitter-under-mutation"
+        try:
+            ctx = _home_band_ctx(tmp, now, [
+                "2026-08-27T06:00:00+00:00",
+                "2026-08-27T10:00:00+00:00",
+            ])
+            with history_db.open_db(health_tmp) as conn:
+                for minute, mv in ((50, 3600), (55, 3690)):
+                    history_db.record_device_health(
+                        conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
+            health_ctx = {"state_dir": health_tmp, "now": now}
+            home_before = home_page.render(ctx)
+            health_before = health_page.render(health_ctx)
+
+            def _mutated(attr):
+                """Both pages rendered with one of draw.py's class
+                constants replaced, the constant restored afterwards
+                whatever happens."""
+                original = getattr(_draw, attr)
+                setattr(_draw, attr, sentinel)
+                try:
+                    return original, home_page.render(ctx), health_page.render(health_ctx)
+                finally:
+                    setattr(_draw, attr, original)
+
+            # THE RING: one definition, two pages. A hero built from its
+            # own copy would still carry the ORIGINAL class here while
+            # Health carried the sentinel — which is exactly the drift
+            # CFG-44 is about, and is invisible to any check that only
+            # looks at the markup as shipped.
+            original, home_after, health_after = _mutated("DRAWING_RING_VALUE_CLASS")
+            for label, before, after in (("the hero", home_before, home_after),
+                                         ("Health", health_before, health_after)):
+                if sentinel not in after:
+                    return False, (
+                        "a change inside the shared ring emitter did not reach %s — it draws "
+                        "its own ring, not the shared one" % (label,))
+                if 'class="%s"' % original in after:
+                    return False, (
+                        "%s still carries the ring's original class after the emitter was "
+                        "changed — part of that drawing is a copy" % (label,))
+                if after == before:
+                    return False, "%s rendered identically under the mutation" % (label,)
+
+            # THE MUTATION WAS TARGETED, not a global perturbation: the
+            # band is Home's alone, so changing it must move the hero and
+            # leave Health BYTE-IDENTICAL. Without this, "both pages
+            # changed" above would be worth much less.
+            original, home_after, health_after = _mutated("DRAWING_BAND_MARK_CLASS")
+            if sentinel not in home_after:
+                return False, (
+                    "a change inside the shared band emitter did not reach the hero — its band "
+                    "is a copy")
+            if 'class="%s"' % original in home_after:
+                return False, (
+                    "the hero still carries the band mark's original class after the emitter "
+                    "was changed — part of that drawing is a copy")
+            if health_after != health_before:
+                return False, (
+                    "changing the band emitter also changed Health, which draws no band — the "
+                    "mutation is not measuring what it names")
+
+            # THE RESTORE IS PART OF THE CHECK. A mutation left behind
+            # would make every later check in this file measure a
+            # sabotaged module, and the failure would land somewhere
+            # else entirely.
+            if home_page.render(ctx) != home_before:
+                return False, "Home did not return to its pre-mutation markup"
+            if health_page.render(health_ctx) != health_before:
+                return False, "Health did not return to its pre-mutation markup"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            shutil.rmtree(health_tmp, ignore_errors=True)
+    check(
+        "breaking a shared emitter breaks the hero WITH the page it borrowed it from: one class "
+        "constant inside companion/draw.py's ring emitter is replaced at check time and both "
+        "Home's hero and Health's readout change, neither keeping the original string (a hero "
+        "built from its own copy would); the band emitter's own mutation reaches the hero and "
+        "leaves Health byte-identical, proving the mutation is targeted rather than a global "
+        "perturbation; and both pages return to their pre-mutation markup (CFG-44, "
+        "24-08-PLAN.md Task 2)",
+        _breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_from)
 
     # --- 19-12-PLAN.md Task 3 (D-13/S-02): the "Next wake ≈ HH:MM" figure --
 
