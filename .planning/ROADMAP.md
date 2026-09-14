@@ -1253,9 +1253,9 @@ Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 
 **Goal:** The developer reviewed phases 23, 24 and 25 on the deployed app and found one real defect and six things that are simply wrong for the product. This phase fixes them. It adds no new capability.
 
-**Requirements**: TBD (assign at planning)
+**Requirements**: CFG-62, CFG-63, CFG-64, CFG-65, CFG-66, CFG-67, CFG-68, CFG-69, CFG-70, CFG-71 (all new, all unticked; CFG-47 retired in place by this phase)
 **Depends on:** Phases 23, 24 and 25 (all merged and deployed)
-**Plans:** 0 plans
+**Plans:** 9 plans across 9 waves
 
 **The one real defect, diagnosed from a screen recording before this entry was written.** D17's quiet-hours dial: the handles follow a drag AND a preset correctly, but **the arc and the caption never move**. Measured on the recording — after dragging the end handle the fields read `08:00`/`18:00` and both handles sit at 8 and 18, while the arc still draws 23:00→07:00 and the caption still reads `23:00 → 07:00 · 8 h`. The cause is structural: `value-controls.js` models ONE value per wrapper and `paint()` writes a per-handle CSS fraction, but an arc and a span sentence are functions of BOTH values, and nothing in the script models the pair. The arc is server-rendered SVG (correct, and what keeps the no-JS floor) and is never repainted client-side.
 
@@ -1274,5 +1274,14 @@ Cross-cutting constraints (appearing in two or more plans' `must_haves`):
 
 **Also carried in, from earlier phases' own findings rather than the review:** `departing_index == arriving_index` for 18 of 18 themes, so the shipped "Departures · Arrivals" legend names two swatches that are never different; and `.copy-btn`'s measured 34×26 hit area in a Flights detail row.
 
-Plans:
-- [ ] TBD (run /gsd-plan-phase 27 to break down)
+Plans (nine, one per wave — nearly every plan writes `config_page.py`, `style.css` and the two
+browser harnesses, so the waves are serial by file ownership rather than by choice):
+- [ ] 27-01 — the instrumentation: a surface-agreement helper, a rendered-geometry decoder, and the shortening/inventory helpers. ZERO net checks (CFG-71)
+- [ ] 27-02 — the dial defect: the pair in the model, the arc still server-authoritative, the caption that blanks rather than lies, and THE one agreement check (CFG-62, CFG-71)
+- [ ] 27-03 — the no-JS floor made structural, BEFORE the save bar is retired, proven by saving to disk (CFG-64, CFG-71)
+- [ ] 27-04 — auto-save: `dirty-state.js` repurposed from bar to driver, the one existing failure vocabulary reused, the leave-guard and "Annuler" retired (CFG-63, CFG-71)
+- [ ] 27-05 — D16's runway map removed, every removed check named, the radios and the photographs untouched; CFG-47's retirement verified (CFG-66, CFG-71)
+- [ ] 27-06 — one title form (inventory runs before the choice) and the three texts cut without weakening D18's refusal (CFG-65, CFG-67, CFG-71)
+- [ ] 27-07 — the carousel extended to arrivals and calendar with per-usage ids, the disclosure moved below, the legend fixed, and Display's height PREDICTED before measurement (CFG-68, CFG-70, CFG-71)
+- [ ] 27-08 — the Frame strip's Quiet hours link, written once in the shared component; `.copy-btn` and `.row-toggle` measured in their own containers (CFG-69, CFG-70, CFG-71)
+- [ ] 27-09 — the gate: every count re-derived by running, the five baseline failures named, Display measured against 27-07's prediction, the ledger written against the code (CFG-68, CFG-71)
