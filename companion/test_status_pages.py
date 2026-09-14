@@ -32,6 +32,7 @@ Usage:
 """
 import inspect
 import io
+import math
 import os
 import re
 import shutil
@@ -53,7 +54,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import companion.app as app  # noqa: E402
-from companion import auth, illustration_normalize, layout, prefs  # noqa: E402
+from companion import auth, draw, illustration_normalize, layout, prefs  # noqa: E402
 import companion.i18n_fr.health as i18n_fr_health  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 import companion.wake as wake  # noqa: E402
@@ -849,6 +850,20 @@ EXPECTED_CHECK_COUNT = 285
 # class added through classList and never removed, and no markup sink.
 # 285 + 2 = 287, recomputed by RUNNING.
 EXPECTED_CHECK_COUNT = 287
+# 24-04-PLAN.md Task 2 (CFG-40): +1 — Health's large battery ring. The
+# check is deliberately not "a ring appears": it recovers the drawn
+# fraction from the ring's OWN emitted radius and dash array (the two
+# attributes a browser paints from) and compares it against the
+# percentage the readout PRINTS, so the picture and the number are
+# measured against each other rather than each against the input. The
+# seeded reading lands on 43%, a fraction no plausible constant
+# coincides with. It also pins the absence case as an ABSENCE (an empty
+# ring reads as 0%, a false statement about a device that has simply not
+# checked in), the <h2> still carrying no glyph, and no ring class
+# anywhere inside battery_sparkline_svg()'s own output — plan 24-05 owns
+# the chart, and this plan must be provably beside it.
+# 287 + 1 = 288, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 288
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1438,6 +1453,130 @@ def main():
     check(
         "zero battery rows render the good-news empty state and no sparkline",
         _battery_empty_state_no_sparkline)
+
+    def _health_battery_ring_agrees_with_its_own_readout():
+        """CFG-40 (24-04-PLAN.md Task 2): the large ring, in Health's
+        battery section.
+
+        The property that matters is not "a ring appears" — it is that
+        the PICTURE AND THE NUMBER CANNOT DISAGREE. So the fraction is
+        recovered from the ring's own emitted geometry (its radius and
+        its dash array, the two attributes a browser actually paints
+        from) and compared against the percentage the readout PRINTS.
+        Reading the input back out of the page would pass for a ring
+        that ignored it.
+
+        THE NO-READING CASE IS ASSERTED AS AN ABSENCE, not as an empty
+        ring. An empty ring reads as "0%", which is a false statement
+        about a device that has simply not checked in — the same class
+        of error _status_tiles_html() already avoids by rendering a "no
+        reading" verdict instead of a zero.
+
+        The chart is asserted UNTOUCHED from this side too: no ring
+        class may appear inside battery_sparkline_svg()'s own output.
+        This plan adds a ring BESIDE the chart; plan 24-05 owns the
+        chart itself, and a chart change attributed to the wrong plan is
+        a debugging cost nobody needs.
+        """
+        tmp = _mkstate("h-battery-ring")
+        empty = _mkstate("h-battery-ring-none")
+        try:
+            base = _now().replace(hour=12, minute=0, second=0, microsecond=0)
+            # 3690 mV is deliberately NOT a round percentage of the
+            # 3300-4200 estimate span: it lands on 43%, so a ring drawn
+            # from a plausible-but-wrong constant (half, full, empty)
+            # cannot coincide with the right answer.
+            readings = [
+                (_iso(base - timedelta(minutes=2)), 3600),
+                (_iso(base - timedelta(minutes=1)), 3650),
+                (_iso(base), 3690),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+
+            # Exactly one ring on the whole page: one track, one value arc.
+            tracks = re.findall(
+                r'<circle class="%s"[^>]*/>' % re.escape(draw.DRAWING_RING_TRACK_CLASS),
+                rendered)
+            values = re.findall(
+                r'<circle class="%s"[^>]*/>' % re.escape(draw.DRAWING_RING_VALUE_CLASS),
+                rendered)
+            if len(tracks) != 1 or len(values) != 1:
+                return False, (
+                    "expected exactly one ring on Health (one track, one value arc), got "
+                    "%d track(s) and %d value arc(s)" % (len(tracks), len(values)))
+
+            radius = float(re.search(r' r="([0-9.]+)"', values[0]).group(1))
+            dash = re.search(r'stroke-dasharray="([0-9.]+) ', values[0])
+            drawn = float(dash.group(1)) if dash else 2 * math.pi * radius
+            drawn_fraction = drawn / (2 * math.pi * radius)
+
+            # The number the page actually PRINTS, read back out of the
+            # readout element rather than recomputed here.
+            readout = re.search(
+                r'<span class="battery-readout__value mono">([^<]*)</span>', rendered)
+            if readout is None:
+                return False, "expected the battery readout's value span to be present"
+            printed = re.search(r"(\d+)%", readout.group(1))
+            if printed is None:
+                return False, (
+                    "expected the readout to print a percentage, got %r" % (readout.group(1),))
+            printed_fraction = int(printed.group(1)) / 100.0
+            if abs(drawn_fraction - printed_fraction) > 0.0005:
+                return False, (
+                    "the ring draws %.4f of its circumference while the readout beside it "
+                    "prints %r — the picture and the number are telling different stories "
+                    "(CFG-40)" % (drawn_fraction, readout.group(1)))
+            if drawn_fraction in (0.0, 0.5, 1.0):
+                return False, (
+                    "the seeded reading was chosen to land on no round fraction, so %r "
+                    "means the ring is drawing a constant rather than the reading"
+                    % (drawn_fraction,))
+
+            # The ring is a NEW ELEMENT INSIDE the existing card, not a
+            # new card, and the <h2> still carries no glyph — a rule this
+            # page has broken once before (quick task 260902-j8w).
+            heading = re.search(r"<h2[^>]*>.*?</h2>", rendered, re.S)
+            if heading is None:
+                return False, "expected Health to render an <h2>"
+            for match in re.findall(r"<h2[^>]*>.*?</h2>", rendered, re.S):
+                if "<svg" in match:
+                    return False, (
+                        "a Health <h2> carries an <svg> — the battery heading's glyph was "
+                        "removed on the developer's own instruction and the ring must not "
+                        "reintroduce one: %r" % (match[:160],))
+
+            # The chart itself is untouched: no ring class inside
+            # battery_sparkline_svg()'s own output.
+            chart = health_page.battery_sparkline_svg(
+                [{"ts": ts, "battery_mv": mv} for ts, mv in reversed(readings)],
+                now=_iso(base))
+            for class_name in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
+                if class_name in chart:
+                    return False, (
+                        "battery_sparkline_svg()'s own output carries %r — this plan adds a "
+                        "ring BESIDE the chart and leaves the chart to plan 24-05"
+                        % (class_name,))
+
+            # No reading at all: no ring, and no empty one either.
+            blank = health_page.render(_ctx(empty, now=_iso(base)))
+            for class_name in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
+                if class_name in blank:
+                    return False, (
+                        "a device with no battery reading rendered %r — an empty ring reads "
+                        "as 0%%, which is a false statement about a device that has simply "
+                        "not checked in" % (class_name,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            shutil.rmtree(empty, ignore_errors=True)
+    check(
+        "Health's battery section draws exactly one ring whose drawn fraction — recovered from "
+        "its own emitted radius and dash array — equals the percentage the readout beside it "
+        "PRINTS; the <h2> still carries no glyph, battery_sparkline_svg()'s own output carries "
+        "no ring class, and a device with no reading renders no ring at all rather than an "
+        "empty one (CFG-40)",
+        _health_battery_ring_agrees_with_its_own_readout)
 
     def _battery_trend_shows_all_readings_and_one_sparkline():
         tmp = _mkstate("h-battery-trend")
