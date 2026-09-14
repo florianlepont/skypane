@@ -7494,13 +7494,16 @@ a.airline-card {
  * the parts (the tiles go one-across to three-across, the strip's cells
  * column to row). A hero that split into columns of its own would have
  * to put the band in one of them, and the numbers refuse it: this
- * container measures 928px at a 1280px viewport (read off Chromium
- * while a `2fr 1fr` mutation of this very rule was in place), so a
- * one-third column is 304px — against the 310px a band CARD needs to
- * keep its canvas at 278 (278 plus .page-section's own 2 x --space-md
- * of padding). The band would come out NARROWER inside a wide desktop
- * hero than it is at the 360px floor, which is the "fits by shrinking
- * its parts" failure this requirement exists to refuse. */
+ * container measures 880.00px at a 1280px viewport (read off Chromium
+ * directly, not inferred from a mutation's own message — a first draft
+ * of this comment read 928 off MC8's child offset, which was that
+ * child's LEFT EDGE and not this box's width, and was wrong by 48px).
+ * A one-third column of 880 less this rule's own 16px gap is 288px —
+ * against the 310px a band CARD needs to keep its canvas at 278 (278
+ * plus .page-section's own 2 x --space-md of padding), so the canvas
+ * would come out at 256. The band would be NARROWER inside a wide
+ * desktop hero than it is at the 360px floor, which is the "fits by
+ * shrinking its parts" failure this requirement exists to refuse. */
 .home-overview {
   display: grid;
   gap: var(--space-md);
