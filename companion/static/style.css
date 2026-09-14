@@ -1302,8 +1302,17 @@ a:hover {
   position: relative;
   /* The drawing's own intrinsic size, restated so the block that holds
    * it is exactly as wide as the ring and `margin: auto` therefore
-   * centres the ring rather than a wider box. */
+   * centres the ring rather than a wider box. Both this and the radius
+   * below are pinned by a harness against
+   * companion/pages/config_page.py's own QUIET_DIAL_SIZE and
+   * QUIET_DIAL_RADIUS: the handle has to land on the stroke the emitter
+   * drew, and two numbers that have to agree and live in two files
+   * agree until one of them is edited. */
   width: 128px;
+  /* The ring's stroke centre line, which is the circle the handles ride
+   * on. Declared here rather than inside the handle's own transform so
+   * the one number is written once. */
+  --quiet-dial-radius: 54px;
   margin: 0 auto var(--space-sm);
 }
 
@@ -1385,6 +1394,77 @@ a:hover {
 .quiet-dial__readout {
   margin: 0 0 var(--space-md);
   text-align: center;
+}
+
+/* 25-04-PLAN.md Task 3 (CFG-48) — THE TWO DRAG HANDLES, AND THE ONLY
+ * PART OF THIS COMPONENT BEHIND THE `.js` GATE.
+ *
+ * The layer is one per handle, each covering the ring exactly, so the
+ * pointer angle value-controls.js measures is measured about the ring's
+ * own centre. It is a FRAME AND NEVER A TARGET: `pointer-events: none`
+ * here (and on the measurement box inside it) is what stops the upper
+ * of the two stacked layers from swallowing every press meant for the
+ * ring or for the other handle. Without it the whole dial would steer
+ * whichever end happened to be emitted last, from any press anywhere on
+ * it, with nothing else in this codebase noticing.
+ *
+ * `inset: 0` rather than a repeated width/height: the layer is the
+ * drawing's box by definition, and restating 128px twice more is two
+ * more numbers to keep in step. */
+.quiet-dial__handles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.quiet-dial__handle-track {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The grabbable end itself. Its `position: absolute` and its
+ * `touch-action: none` both come from the shared .value-control__handle
+ * rule above, and its 22x22 box with the 44x44 pointer target
+ * synthesised by a -11px inset ::before comes from the shared
+ * .control-hit-area rule above that — three classes on one element, each
+ * contributing what it owns. A harness pins the SOURCE ORDER of those
+ * two shared rules, because they both declare `position` at equal
+ * specificity and the absolute one has to win.
+ *
+ * POLAR PLACEMENT WITHOUT ANY TRIGONOMETRY, and that is why the
+ * transform reads the way it does. Starting from the ring's centre:
+ * pull the button back by half of itself so its own centre sits there,
+ * rotate the frame by the value's fraction of a turn, walk outwards to
+ * the ring's stroke line, then rotate the same amount BACK so the
+ * button is carried round the circle without being spun on the way.
+ * The alternative is a CSS sin()/cos() pair, which buys nothing here and
+ * costs a browser-support argument.
+ *
+ * The fraction falls back to 0 rather than being required: an unset
+ * custom property in a calc() invalidates the whole declaration, which
+ * would drop the centring translate too and leave the handle in the
+ * corner of the ring.
+ *
+ * Repainted rather than inherited: .control-hit-area is transparent and
+ * borderless by design (it is a hit target for a glyph, and the Copy
+ * button supplies its own glyph), so a handle wearing it and nothing
+ * else would be invisible. Canvas fill with a full-ink edge reads as a
+ * grip in both themes from one rule, and uses no accent — the header
+ * comment's accent-reservation list is exhaustive and a dial is not on
+ * it. */
+.quiet-dial__handle {
+  top: 50%;
+  left: 50%;
+  transform:
+    translate(-50%, -50%)
+    rotate(calc(var(--value-fraction, 0) * 1turn))
+    translateY(calc(-1 * var(--quiet-dial-radius)))
+    rotate(calc(var(--value-fraction, 0) * -1turn));
+  pointer-events: auto;
+  background: var(--color-canvas);
+  border: 1px solid var(--color-text);
+  border-radius: 50%;
 }
 
 /* Unified save bar (06.6.4.1 D-04, retargeted by 19-10-PLAN.md D-09/

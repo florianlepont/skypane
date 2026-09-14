@@ -2454,6 +2454,153 @@ def quiet_dial_html(span, handles_html=""):
         escape_html(QUIET_DIAL_CLASS), quiet_dial_svg(span), hours_html, handles_html)
 
 
+# --- 25-04-PLAN.md Task 3 (CFG-48): the two handles, gated ------------
+#
+# Everything below renders INSIDE 25-01's `.js` gate and nothing else
+# does. The ring, the readout, the three presets and both time inputs
+# all survive with scripts blocked; only the dragging is script, and
+# only the dragging is hidden when script does not run.
+QUIET_DIAL_HANDLE_LAYER_CLASS = "quiet-dial__handles"
+QUIET_DIAL_HANDLE_CLASS = "quiet-dial__handle"
+# The box value-controls.js measures the pointer angle against. It is the
+# ring's own square, so the angle is measured about the ring's centre.
+QUIET_DIAL_HANDLE_TRACK_CLASS = "quiet-dial__handle-track"
+
+# The steering range, in minutes since local midnight.
+#
+# THE MAXIMUM IS 1439, NOT 1440, and the difference is a real one: 1440
+# would make 00:00 and "24:00" two values for one instant, and the End
+# key would write a time no <input type="time"> accepts. 1439 is 23:59 —
+# the last minute of the day — and `clampToStep()`'s round-then-clamp
+# order reaches it exactly even though it is not on a step boundary.
+QUIET_DIAL_HANDLE_MIN = 0
+QUIET_DIAL_HANDLE_MAX = QUIET_WINDOW_MINUTES_PER_DAY - 1
+
+# THE KEYBOARD MODEL, AND IT IS THE NATIVE <input type="range"> ONE
+# RATHER THAN A NEW INVENTION. value-controls.js owns it: arrows move one
+# step, Page keys move ten steps, Home and End go to the two ends. With
+# this step that is arrows ±15 min, Page ±150 min and Home/End to
+# 00:00/23:59.
+#
+# 25-04-PLAN.md's own behaviour line asked for Page ±60. It is ±150 here,
+# deliberately, because the same plan's binding constraint — "it must
+# match the native <input type="range"> model 25-05 will inherit" — is
+# the stronger of the two, and the two cannot both hold: ten steps of 15
+# minutes is 10.4% of the day, which is exactly what a native range
+# control's Page keys do. A per-control page size would have been a
+# second keyboard model on the second settings page, which is the drift
+# this phase's one script exists to prevent.
+QUIET_DIAL_HANDLE_STEP = 15
+
+# The two ends, each with the field it steers and the accessible name
+# that says WHICH end it is. aria-valuetext carries the time itself and
+# nothing else (layout.VALUE_CONTROL_TEXT_TOKEN alone, no sentence around
+# it): a screen reader reading "one thousand three hundred and eighty"
+# instead of "23:00" is the whole reason aria-valuetext exists, and
+# repeating the label on every arrow press is noise, not information.
+QUIET_DIAL_START_LABEL = "Quiet hours start"
+QUIET_DIAL_END_LABEL = "Quiet hours end"
+
+
+def quiet_dial_handle_fraction(minute):
+    """`minute` as the 0..1 fraction of a turn the stylesheet positions
+    the handle from — and DELIBERATELY the same formula
+    value-controls.js's own `paint()` uses, `(value - min) / (max - min)`,
+    rather than the `minute / 1440` the arc is drawn from.
+
+    The two differ by at most 0.25 degrees (1439/1440 of a turn against
+    1439/1439 at the far end), which is a quarter of a pixel at this
+    ring's radius. Matching the script exactly is worth that: the server
+    paints the handle once and the script repaints it on every step, and
+    two formulas that agree in theory are how a handle comes to JUMP
+    imperceptibly on the first arrow press and then never quite line up
+    with the arc it is steering.
+    """
+    return minute / float(QUIET_DIAL_HANDLE_MAX)
+
+
+def quiet_dial_handles_html(start_hm, end_hm):
+    """The two drag handles, each in its own `.js`-gated wrapper.
+
+    EACH HANDLE IS A REAL `<button type="button">`, never a bare `<div>`.
+    A button is focusable, activatable and announced with no ARIA at all;
+    everything below only refines it. `type="button"` because a bare
+    `<button>` inside a form defaults to submit, and a handle that posted
+    the settings form on Enter would save on a keystroke meant to adjust
+    a value.
+
+    DRIVEN FROM THE TWO NATIVE INPUTS, NEVER FROM STATE OF ITS OWN. The
+    server renders each handle's position from the same effective value
+    the matching input is populated with, and value-controls.js re-reads
+    that input on every steer. That is what makes the three existing
+    presets move the handles with no code at all — they already write
+    into these two fields — and it is the cheapest available proof that
+    there is one source of truth.
+
+    NO HANDLE AT ALL for an end that does not parse: a handle at a
+    fabricated position claims a value that was never set, which is the
+    same omit-don't-fabricate rule `_normalised_time_html()` and
+    `quiet_dial_svg()` already follow.
+
+    WHEN THE TWO ENDS ARE CLOSE ENOUGH TO OVERLAP, WHICH IS A DECISION
+    AND NOT AN EMERGENT BEHAVIOUR:
+
+      * There is NO minimum separation in the value. A zero-length window
+        is a real, defined state — `server.device_config`'s own
+        arithmetic calls it never-active and means it — and refusing it
+        here would make a state reachable by typing unreachable by
+        dragging, which is a worse card, not a safer one.
+      * Z-ORDER IS DOCUMENT ORDER, and document order is paint order in
+        HTML: the END handle is emitted second and therefore sits above
+        the start handle. Neither carries a `z-index`.
+      * SO THE END HANDLE WINS A POINTER-DOWN IN THE OVERLAP. That is
+        sufficient rather than arbitrary: recovering from an overlap
+        needs only ONE end to be draggable, and moving it separates the
+        pair, after which both are independently grabbable again. The
+        start handle is never unreachable meanwhile — it stays its own
+        tab stop whatever it is painted under, and both times stay
+        typable in the two native inputs below.
+      * The separation at which BOTH handles are independently grabbable
+        is a measured consequence of the shared 44px hit target rather
+        than a number chosen here: the targets stop overlapping at about
+        22px of chord, which on this ring is about 94 minutes.
+        companion/test_browser_ux.py measures both handles at a window
+        narrower than that and records the result.
+    """
+    handles = []
+    for value, field, label in ((start_hm, "quiet_hours_start", QUIET_DIAL_START_LABEL),
+                                (end_hm, "quiet_hours_end", QUIET_DIAL_END_LABEL)):
+        minute = quiet_window_minute_of_day(value)
+        if minute is None:
+            continue
+        handles.append((
+            '<div class="value-control %s %s" %s %s="%s" %s="%s" %s="%d" %s="%d" %s="%d"'
+            ' %s="angular" %s="%s" %s="%s" style="--value-fraction: %.6f">'
+            '<span class="value-control__track %s" %s></span>'
+            '<button type="button" class="value-control__handle control-hit-area %s" %s'
+            ' role="slider" aria-valuemin="%d" aria-valuemax="%d" aria-valuenow="%d"'
+            ' aria-valuetext="%s" aria-label="%s"></button>'
+            "</div>"
+        ) % (
+            escape_html(QUIET_DIAL_HANDLE_LAYER_CLASS), escape_html(layout.JS_GATE_CLASS),
+            layout.VALUE_CONTROL_ATTR,
+            layout.VALUE_CONTROL_FIELD_ATTR, escape_html(field),
+            layout.VALUE_CONTROL_FORM_ATTR, escape_html(SETTINGS_FORM_ID),
+            layout.VALUE_CONTROL_MIN_ATTR, QUIET_DIAL_HANDLE_MIN,
+            layout.VALUE_CONTROL_MAX_ATTR, QUIET_DIAL_HANDLE_MAX,
+            layout.VALUE_CONTROL_STEP_ATTR, QUIET_DIAL_HANDLE_STEP,
+            layout.VALUE_CONTROL_GEOMETRY_ATTR,
+            layout.VALUE_CONTROL_FORMAT_ATTR, escape_html(layout.VALUE_CONTROL_FORMAT_CLOCK),
+            layout.VALUE_CONTROL_TEXT_ATTR, escape_html(layout.VALUE_CONTROL_TEXT_TOKEN),
+            quiet_dial_handle_fraction(minute),
+            escape_html(QUIET_DIAL_HANDLE_TRACK_CLASS), layout.VALUE_CONTROL_TRACK_ATTR,
+            escape_html(QUIET_DIAL_HANDLE_CLASS), layout.VALUE_CONTROL_HANDLE_ATTR,
+            QUIET_DIAL_HANDLE_MIN, QUIET_DIAL_HANDLE_MAX, minute,
+            escape_html(value), escape_html(i18n.t(label)),
+        ))
+    return "".join(handles)
+
+
 def quiet_dial_readout_html(start_hm, end_hm, span):
     """"23:00 → 07:00 · 8h" — the window in words, or nothing at all when
     `span` is None.
@@ -2653,7 +2800,8 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     # what is stored, or the picture and the fields disagree on exactly
     # the screen where a mistake is being fixed.
     dial_span = quiet_window_span(effective_start, effective_end)
-    dial_html = quiet_dial_html(dial_span)
+    dial_html = quiet_dial_html(
+        dial_span, quiet_dial_handles_html(effective_start, effective_end))
     readout_html = quiet_dial_readout_html(effective_start, effective_end, dial_span)
 
     site_lang = prefs.current_lang()

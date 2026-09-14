@@ -204,6 +204,17 @@ CATALOG = {
     # produced now — see that module's own comment for the pattern.
     "Start": "Début",
     "End": "Fin",
+    # 25-04-PLAN.md Task 3 (CFG-48): the two quiet-hours dial handles'
+    # accessible names. Each handle is a real <button> carrying
+    # role="slider", and its aria-valuetext is the time ITSELF and
+    # nothing else (the server writes the bare "{}" token, so the script
+    # substitutes "23:00" and never a sentence) — which is why only the
+    # two names below need a French sibling and the announced value does
+    # not. Deliberately not composed from "Quiet hours" + "Start": a
+    # French accessible name is a phrase, not two catalogue keys joined
+    # with a space, and "Heures calmes Début" is not one.
+    "Quiet hours start": "Début des heures calmes",
+    "Quiet hours end": "Fin des heures calmes",
     "Night (%s–%s)": "Nuit (%s–%s)",
     "Work day (%s–%s)": "Journée de travail (%s–%s)",
     # 20-12-PLAN.md Task 1: the workday preset's own pre-baked label

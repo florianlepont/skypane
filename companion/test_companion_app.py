@@ -789,6 +789,15 @@ EXPECTED_CHECK_COUNT = 311
 # 311 + 2 = 313, re-derived by RUNNING the harness (311/313 pass here —
 # the two documented WR-11 root-sandbox failures), never by arithmetic.
 EXPECTED_CHECK_COUNT = 313
+# 25-04-PLAN.md Task 3 (CFG-48): +0, RE-DERIVED BY RUNNING (313/313
+# registered, 311 passing — the same two documented WR-11 root-sandbox
+# failures and no others). This plan adds no check here and retargets two
+# in place: _NO_JS_CONTROL_REGISTRY gains its first rows (D17's two
+# quiet-hours handles, two rows because a row names one FIELD and this
+# control holds two), and the served-body seam loop gains the tenth
+# VALUE_CONTROL_* name, the clock codec 25-04 had to add to steer a
+# native <input type="time">. Both are edits to existing checks, so the
+# number below does not move.
 
 # ==========================================================================
 # 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
@@ -840,7 +849,39 @@ EXPECTED_CHECK_COUNT = 313
 #                that form
 #   render       a zero-argument callable returning the group builder's
 #                own output
-_NO_JS_CONTROL_REGISTRY = ()
+# 25-04-PLAN.md Task 3 (CFG-48): the FIRST two rows, and two rather than
+# the "exactly one row" the registry's own comment above anticipates.
+# That is the registry's row shape rather than a control counted twice: a
+# row names ONE field, and D17's dial holds TWO values in two separate
+# native <input type="time"> elements, each steered by its own gated
+# wrapper. Registering one of them would leave the other end's contract —
+# is it native? does it post? is its wrapper gated? — entirely unproven,
+# which is the opposite of what this registry is for.
+#
+# `form_assoc` is "attribute": both time inputs carry
+# form="{SETTINGS_FORM_ID}" themselves, because this card is a SIBLING of
+# the settings form and never a descendant of it (a <form> cannot nest
+# inside another <form>).
+_NO_JS_CONTROL_REGISTRY = (
+    {
+        "control": "the quiet-hours dial's start handle (D17)",
+        "plan": "25-04-PLAN.md Task 3",
+        "wrapper_attr": layout.VALUE_CONTROL_ATTR,
+        "field": "quiet_hours_start",
+        "form": config_page.SETTINGS_FORM_ID,
+        "form_assoc": "attribute",
+        "render": lambda: config_page.quiet_hours_group("23:00", "07:00"),
+    },
+    {
+        "control": "the quiet-hours dial's end handle (D17)",
+        "plan": "25-04-PLAN.md Task 3",
+        "wrapper_attr": layout.VALUE_CONTROL_ATTR,
+        "field": "quiet_hours_end",
+        "form": config_page.SETTINGS_FORM_ID,
+        "form_assoc": "attribute",
+        "render": lambda: config_page.quiet_hours_group("23:00", "07:00"),
+    },
+)
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -5999,11 +6040,18 @@ def main():
             # and nothing else; a rename on the Python side alone would
             # otherwise be a control that renders and steers nothing,
             # invisible to every other check in this file.
+            # 25-04-PLAN.md Task 3 (CFG-48): the tenth name joins in
+            # place — VALUE_CONTROL_FORMAT_ATTR, the codec that makes
+            # this script able to steer a native <input type="time">
+            # (which holds "HH:MM" and silently discards a number) rather
+            # than only a numeric input. A seam attribute nothing pins is
+            # a seam attribute a rename can quietly break, which is the
+            # whole point of this loop.
             for attr in (layout.VALUE_CONTROL_ATTR, layout.VALUE_CONTROL_FIELD_ATTR,
                          layout.VALUE_CONTROL_FORM_ATTR, layout.VALUE_CONTROL_MIN_ATTR,
                          layout.VALUE_CONTROL_MAX_ATTR, layout.VALUE_CONTROL_STEP_ATTR,
                          layout.VALUE_CONTROL_HANDLE_ATTR, layout.VALUE_CONTROL_TRACK_ATTR,
-                         layout.VALUE_CONTROL_TEXT_ATTR):
+                         layout.VALUE_CONTROL_TEXT_ATTR, layout.VALUE_CONTROL_FORMAT_ATTR):
                 if ('"%s"' % attr) not in text:
                     return False, (
                         "expected the served body to name %r — the registration seam 25-04 and "
@@ -6012,7 +6060,7 @@ def main():
             return True, ""
         check(
             "a real GET of /static/value-controls.js returns 200 with the served steering body — "
-            "all nine of layout's VALUE_CONTROL_* seam attributes named, and none of innerHTML/"
+            "all ten of layout's VALUE_CONTROL_* seam attributes named, and none of innerHTML/"
             "insertAdjacentHTML/document.write/eval/=>/ let / const /backtick (CFG-46, "
             "25-01-PLAN.md Task 1)",
             _real_get_value_controls_route_serves_the_registration_seam)

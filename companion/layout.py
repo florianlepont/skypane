@@ -275,10 +275,48 @@ VALUE_CONTROL_TRACK_ATTR = "data-value-track"
 # kind lives in the script: absent this attribute it writes no
 # aria-valuetext at all rather than inventing an English one.
 VALUE_CONTROL_TEXT_ATTR = "data-value-text"
-VALUE_CONTROL_TEXT_TOKEN = "{}"
-# "angular" for a dial, absent for a left-to-right track. The ONLY
-# difference between 25-04's dial and 25-05's slider.
+# 25-04-PLAN.md Task 3 (CFG-48): "#", AND IT USED TO BE "{}" — corrected
+# in place the moment this seam got its first consumer, because the
+# original choice could not be used by one.
+#
+# These templates reach the browser as ATTRIBUTE VALUES on a rendered
+# page, and companion/test_i18n.py's Check 3 scans every French render
+# for a stray "%s"/"%d"/"{}" — the real failure mode of a mistyped
+# catalogue key. Measured on this tree: the dial's first
+# `data-value-text` attribute failed that check on GET /display?lang=fr,
+# with nothing wrong with it. RELATIVE_QUANTITY_MARK below already
+# records this exact reasoning and already chose "#" for it; this is the
+# same decision applied to the same problem, not a new convention.
+VALUE_CONTROL_TEXT_TOKEN = "#"
+# "angular" for a dial, absent for a left-to-right track. One of the two
+# differences between 25-04's dial and 25-05's slider.
 VALUE_CONTROL_GEOMETRY_ATTR = "data-value-geometry"
+
+# 25-04-PLAN.md Task 3 (CFG-48): the other difference — the codec between
+# the NUMBER value-controls.js steers and the TEXT the native input
+# holds. Absent, the number is written straight in, which is what a
+# numeric input wants. VALUE_CONTROL_FORMAT_CLOCK makes the script read
+# and write "HH:MM" instead, which is what an <input type="time">
+# requires: a time input silently DISCARDS anything else, so a minute
+# count written into one empties the field the form posts, with no error
+# anywhere. That is the difference between a dial that steers a native
+# time input and a dial that quietly deletes the visitor's quiet hours.
+VALUE_CONTROL_FORMAT_ATTR = "data-value-format"
+VALUE_CONTROL_FORMAT_CLOCK = "clock"
+
+# THE PAINTED POSITION HAS NO CONSTANT HERE, AND THAT IS DELIBERATE. It
+# travels on the `--value-fraction` custom property, written by the
+# SERVER once (so the handle renders in the right place before any
+# script has run) and rewritten by value-controls.js on every steer. A
+# module-level constant for it was written and removed: a CSS custom
+# property's name begins with two hyphens, which matches none of
+# companion/test_i18n.py's identifier exclusions, so the D-05 scan reads
+# it as untranslated user-facing copy and fails — measured. The name
+# therefore lives inline in the one markup template that emits it (the
+# same place `style="background:%s"` already lives), in
+# value-controls.js's own FRACTION_PROPERTY, and in style.css; a harness
+# pins all three to one string, which is a stronger guard than a constant
+# two of the three could not have read anyway.
 
 # 25-01-PLAN.md Task 4 (CFG-46/D-09): the class companion/static/
 # style.css hides by default and reveals under `.js`. Defined here so a

@@ -136,7 +136,40 @@
   // The token below is replaced with the number. No template, no
   // aria-valuetext — never an English sentence invented here.
   var TEXT_ATTR = "data-value-text";
-  var TEXT_TOKEN = "{}";
+  // "#" and not "{}": these templates reach the browser as attribute
+  // values on a rendered page, and companion/test_i18n.py scans every
+  // French render for a stray "%s"/"%d"/"{}" — the real failure mode
+  // of a mistyped catalogue key. Corrected in place by 25-04 when the
+  // first consumer of this seam tripped that check. companion/
+  // layout.py's RELATIVE_QUANTITY_MARK already records the reasoning.
+  var TEXT_TOKEN = "#";
+  // The CODEC between the NUMBER this file steers and the TEXT the
+  // native input holds — 25-04-PLAN.md Task 3 (CFG-48), and the second
+  // of exactly two places this file's consumers differ (the first is
+  // GEOMETRY_ATTR above).
+  //
+  // WHY IT HAD TO EXIST. 25-04's dial steers the two native
+  // <input type="time"> fields the quiet-hours form already posts, and
+  // a time input holds "HH:MM" and silently DISCARDS anything else.
+  // Writing a minute count straight into one would empty the field the
+  // form posts, on the first arrow press, with no error anywhere — the
+  // "changes a value and loses the edit" failure this file's own header
+  // spends its longest paragraph on. The alternative (a hidden numeric
+  // input beside the visible time input) was refused by 25-04's plan
+  // outright: the time inputs stay visible AND stay what the form
+  // posts, because typing 23:00 beats dragging to it and they are the
+  // only controls on that card a visitor can type into at all.
+  //
+  // Compared inline against a bare lowercase word rather than held in a
+  // named ALL_CAPS constant, for the reason GEOMETRY_ATTR's own comment
+  // records: a bare lowercase word in a named JS constant is what this
+  // project's translation scanner reads as untranslated user-facing
+  // copy, and a value FORMAT is not copy.
+  var FORMAT_ATTR = "data-value-format";
+  var MINUTES_PER_HOUR = 60;
+  var HOURS_PER_DAY = 24;
+  var CLOCK_RE = /^(\d{1,2}):(\d{2})$/;
+
   // The painted position, as a 0..1 fraction, handed to the stylesheet
   // as a custom property so every bit of geometry stays in the CSS.
   var FRACTION_PROPERTY = "--value-fraction";
@@ -238,13 +271,51 @@
     return Math.max(bounds.min, Math.min(bounds.max, stepped));
   }
 
+  function isClockFormat(wrapper) {
+    return wrapper.getAttribute(FORMAT_ATTR) === "clock";
+  }
+
+  // The field's TEXT as this file's number, or null. Total by
+  // construction and deliberately stricter than the shape alone:
+  // "99:99" matches the pattern and is minute 5,999 of a 1,440-minute
+  // day, which would send the geometry off the dial.
+  function fieldToNumber(wrapper, raw) {
+    if (!isClockFormat(wrapper)) {
+      return numberOrNull(raw);
+    }
+    var parts = CLOCK_RE.exec(String(raw));
+    if (!parts) {
+      return null;
+    }
+    var hours = numberOrNull(parts[1]);
+    var minutes = numberOrNull(parts[2]);
+    if (hours === null || minutes === null
+        || hours > HOURS_PER_DAY - 1 || minutes > MINUTES_PER_HOUR - 1) {
+      return null;
+    }
+    return hours * MINUTES_PER_HOUR + minutes;
+  }
+
+  // This file's number as the field's TEXT. Zero-padded both halves,
+  // because "7:0" is not a value a native time input accepts and a
+  // rejected write is an emptied field.
+  function numberToField(wrapper, value) {
+    if (!isClockFormat(wrapper)) {
+      return String(value);
+    }
+    var whole = Math.max(0, Math.round(value));
+    var hours = Math.floor(whole / MINUTES_PER_HOUR) % HOURS_PER_DAY;
+    var minutes = whole % MINUTES_PER_HOUR;
+    return (hours < 10 ? "0" : "") + hours + ":" + (minutes < 10 ? "0" : "") + minutes;
+  }
+
   // The control's CURRENT value: read back off the native input, never
   // from anything this file remembers. A field holding something
   // unusable falls back to the minimum, which is a defined answer
   // rather than a NaN travelling into the geometry.
   function currentValue(wrapper, bounds) {
     var field = fieldFor(wrapper);
-    var value = field ? numberOrNull(field.value) : null;
+    var value = field ? fieldToNumber(wrapper, field.value) : null;
     if (value === null) {
       return bounds.min;
     }
@@ -273,11 +344,28 @@
   // The announced state. aria-valuenow is the number and needs no
   // translation; aria-valuetext is written ONLY when the server put a
   // translated template on the wrapper.
+  //
+  // THE ANNOUNCED ELEMENT IS THE FOCUSABLE HANDLE when the wrapper has
+  // one, and the wrapper itself otherwise. role="slider" and its
+  // aria-value* belong on the element a keyboard visitor actually lands
+  // on: a wrapper holding them while a <button> inside it takes the
+  // focus announces a value that never changes, which is worse than
+  // announcing none — a screen reader would read the saved time on
+  // every step of a drag that had already moved somewhere else.
+  //
+  // aria-valuetext carries the value in the FIELD's own notation
+  // (25-04's dial announces "23:00", not "one thousand three hundred
+  // and eighty", which is the whole reason aria-valuetext exists),
+  // through the same codec the field write below goes through — one
+  // conversion, so the announcement and the stored value cannot
+  // disagree.
   function paint(wrapper, bounds, value) {
-    wrapper.setAttribute("aria-valuenow", String(value));
+    var announce = wrapper.querySelector("[" + HANDLE_ATTR + "]") || wrapper;
+    announce.setAttribute("aria-valuenow", String(value));
     var text = wrapper.getAttribute(TEXT_ATTR);
     if (text) {
-      wrapper.setAttribute("aria-valuetext", text.split(TEXT_TOKEN).join(String(value)));
+      announce.setAttribute(
+        "aria-valuetext", text.split(TEXT_TOKEN).join(numberToField(wrapper, value)));
     }
     if (wrapper.style && wrapper.style.setProperty) {
       var span = bounds.max - bounds.min;
@@ -300,7 +388,7 @@
       return null;
     }
     var value = clampToStep(raw, bounds);
-    var next = String(value);
+    var next = numberToField(wrapper, value);
     if (field.value !== next) {
       field.value = next;
       notify(field);

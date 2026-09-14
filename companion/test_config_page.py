@@ -801,6 +801,28 @@ EXPECTED_CHECK_COUNT = 246
 # would beat the derived presentation attribute.
 # 246 + 3 = 249, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 249
+# 25-04-PLAN.md Task 3 (CFG-48/CFG-52): +2 — the two handles. One check
+# holds them as a LAYER: both are real <button type="button"> sliders
+# inside 25-01's .js gate and nowhere else (asserted in BOTH directions —
+# every element carrying the wrapper attribute carries the gate class
+# itself, AND every element carrying the handle attribute is inside a
+# wrapper, which a wrapper-only scan is blind to); each announces through
+# aria-valuetext in its own input's HH:MM rather than a minute count, and
+# the two agree; each wrapper carries layout's own steering attributes
+# including the clock codec and is painted at the fraction its input's
+# value implies; --value-fraction is pinned in all three files it travels
+# through, because it deliberately has no Python constant; the
+# aria-valuetext token is not one of the format artefacts the i18n
+# harness scans French renders for (it was "{}" and had to stop being);
+# and an end that does not parse gets no handle. One check holds the
+# geometry: the stylesheet's dial width and handle radius equal the
+# emitter's own constants, the two shared rules keep the source order
+# that makes the absolute `position` win at equal specificity, both
+# stacked layers are pointer-transparent while the handle is not, the
+# transform reads both custom properties, and no z-index re-decides the
+# document-order overlap rule.
+# 249 + 2 = 251, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 251
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2960,8 +2982,13 @@ def main():
         with open(os.path.join(HERE, "static", "style.css")) as fh:
             source = fh.read()
         markup = config_page.quiet_hours_group("23:00", "07:00")
+        # From the dial's own opening tag to the end of its readout —
+        # the whole component, handle layer included, so a class added
+        # inside the gate is scanned on exactly the same terms as one
+        # outside it.
         dial = markup[markup.index('<div class="%s"' % config_page.QUIET_DIAL_CLASS):]
-        dial = dial[:dial.index("</div>") + len("</div>")]
+        dial = dial[:dial.index("</p>", dial.index(
+            config_page.QUIET_DIAL_READOUT_CLASS)) + len("</p>")]
 
         # NO COLOUR DECIDED IN PYTHON. A literal here is correct in one
         # theme and invisible in the other, and invisible to the contrast
@@ -3048,6 +3075,292 @@ def main():
         "CSS where it would beat the derived presentation attribute (CFG-48/CFG-52, "
         "25-04-PLAN.md Task 2)",
         _the_dials_paint_resolves_and_decides_nothing_in_python)
+
+    # ------------------------------------------------------------------
+    # 25-04-PLAN.md Task 3 (CFG-48): the two handles, gated,
+    # keyboard-first, holding no value of their own.
+    # ------------------------------------------------------------------
+
+    _WRAPPER_RE = re.compile(
+        r'<div class="([^"]*)"([^>]*\bdata-value-control\b[^>]*)>(.*?)</div>', re.DOTALL)
+
+    def _the_two_handles_are_gated_and_hold_no_value_of_their_own():
+        """CFG-48 (25-04-PLAN.md Task 3): two real `<button>` sliders,
+        inside the gate and nowhere else, announcing the value the two
+        native inputs already hold.
+
+        The point every clause below defends: the handles are a LAYER.
+        Delete the script and both times are still rendered, still
+        validated, still posted and still saved by the two
+        `<input type="time">` fields underneath.
+        """
+        with open(os.path.join(HERE, "static", "value-controls.js")) as fh:
+            script = fh.read()
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            css = fh.read()
+        markup = config_page.quiet_hours_group("23:00", "07:00")
+
+        wrappers = _WRAPPER_RE.findall(markup)
+        if len(wrappers) != 2:
+            return False, "expected exactly two gated handle wrappers, got %d" % len(wrappers)
+
+        # EVERY element carrying the wrapper attribute carries the gate
+        # class ITSELF. A wrapper rendered outside the gate is the
+        # control that renders and does nothing: visible with scripts
+        # blocked, inert, and competing with the input that works.
+        for tag in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", markup):
+            text = tag.group(0)
+            if not re.search(r"(?<![-\w])%s(?![-\w])"
+                             % re.escape(layout.VALUE_CONTROL_ATTR), text):
+                continue
+            class_match = re.search(r'\bclass="([^"]*)"', text)
+            classes = class_match.group(1).split() if class_match else []
+            if layout.JS_GATE_CLASS not in classes:
+                return False, (
+                    "an element carries %s outside the %r gate: %s"
+                    % (layout.VALUE_CONTROL_ATTR, layout.JS_GATE_CLASS, text))
+
+        # AND NO HANDLE MARKUP OUTSIDE A WRAPPER. The converse of the
+        # clause above, and the one a wrapper-only scan is blind to: a
+        # <button data-value-handle> rendered beside the gate rather than
+        # inside it is a grabbable thing that steers nothing.
+        inside = "".join(body for _classes, _attrs, body in wrappers)
+        if markup.count(layout.VALUE_CONTROL_HANDLE_ATTR) != inside.count(
+                layout.VALUE_CONTROL_HANDLE_ATTR):
+            return False, (
+                "%d element(s) carry %s but only %d are inside a gated wrapper"
+                % (markup.count(layout.VALUE_CONTROL_HANDLE_ATTR),
+                   layout.VALUE_CONTROL_HANDLE_ATTR,
+                   inside.count(layout.VALUE_CONTROL_HANDLE_ATTR)))
+
+        expected = (("quiet_hours_start", "23:00", 1380, config_page.QUIET_DIAL_START_LABEL),
+                    ("quiet_hours_end", "07:00", 420, config_page.QUIET_DIAL_END_LABEL))
+        for (classes, attrs, body), (field, clock, minute, label) in zip(wrappers, expected):
+            if layout.JS_GATE_CLASS not in classes.split():
+                return False, "the %s wrapper is not gated: %r" % (field, classes)
+            # THE STEERING CONTRACT, read off the wrapper. Every name
+            # here is companion/layout.py's, never a literal typed twice.
+            for attr, value in ((layout.VALUE_CONTROL_FIELD_ATTR, field),
+                                (layout.VALUE_CONTROL_FORM_ATTR, config_page.SETTINGS_FORM_ID),
+                                (layout.VALUE_CONTROL_MIN_ATTR, "0"),
+                                (layout.VALUE_CONTROL_MAX_ATTR, "1439"),
+                                (layout.VALUE_CONTROL_STEP_ATTR, "15"),
+                                (layout.VALUE_CONTROL_GEOMETRY_ATTR, "angular"),
+                                (layout.VALUE_CONTROL_FORMAT_ATTR,
+                                 layout.VALUE_CONTROL_FORMAT_CLOCK),
+                                (layout.VALUE_CONTROL_TEXT_ATTR,
+                                 layout.VALUE_CONTROL_TEXT_TOKEN)):
+                if ('%s="%s"' % (attr, value)) not in attrs:
+                    return False, (
+                        "the %s wrapper does not carry %s=%r: %s" % (field, attr, value, attrs))
+            # THE SERVER-PAINTED INITIAL POSITION, without which the
+            # handle renders at the top of the ring until something
+            # touches it.
+            fraction = re.search(r"--value-fraction: ([\d.]+)", attrs)
+            if not fraction:
+                return False, "the %s wrapper paints no initial position: %s" % (field, attrs)
+            if abs(float(fraction.group(1))
+                   - config_page.quiet_dial_handle_fraction(minute)) > 1e-6:
+                return False, (
+                    "the %s handle is painted at %s of a turn; the %d minutes its input holds is "
+                    "%.6f" % (field, fraction.group(1), minute,
+                              config_page.quiet_dial_handle_fraction(minute)))
+
+            # A REAL <button type="button">, never a bare <div>: a button
+            # is focusable, activatable and announced with no ARIA at
+            # all, and `type="button"` is what stops Enter on a handle
+            # from submitting the settings form.
+            handle = re.search(r'<button\b[^>]*%s[^>]*>'
+                               % re.escape(layout.VALUE_CONTROL_HANDLE_ATTR), body)
+            if not handle:
+                return False, "the %s wrapper's handle is not a <button>: %r" % (field, body)
+            for needed in ('type="button"', 'role="slider"', 'aria-valuemin="0"',
+                           'aria-valuemax="1439"', 'aria-valuenow="%d"' % minute,
+                           'aria-valuetext="%s"' % clock,
+                           'aria-label="%s"' % escape_html(label)):
+                if needed not in handle.group(0):
+                    return False, (
+                        "the %s handle is missing %r — %s" % (field, needed, handle.group(0)))
+            # THE ANNOUNCED VALUE IS THE TIME, NOT THE MINUTE COUNT. A
+            # screen reader reading "one thousand three hundred and
+            # eighty" instead of "23:00" is the whole reason
+            # aria-valuetext exists.
+            if 'aria-valuetext="%d"' % minute in handle.group(0):
+                return False, "the %s handle announces its minute count, not its time" % field
+            # AND IT IS THE VALUE THE INPUT ACTUALLY HOLDS.
+            tag = re.search(r'<input type="time" name="%s"[^>]*>' % field, markup)
+            if ('value="%s"' % clock) not in tag.group(0):
+                return False, (
+                    "the %s handle announces %r while its own input holds something else: %s"
+                    % (field, clock, tag.group(0)))
+
+        # BOTH ENDS OF THE SEAM, PINNED. A rename on either side alone is
+        # a control that renders and steers nothing, and nothing else in
+        # this tree would notice.
+        if ('"%s"' % layout.VALUE_CONTROL_FORMAT_ATTR) not in script:
+            return False, "value-controls.js does not name %r" % layout.VALUE_CONTROL_FORMAT_ATTR
+        for wire in ('=== "%s"' % layout.VALUE_CONTROL_FORMAT_CLOCK, '=== "angular"'):
+            if wire not in script:
+                return False, (
+                    "value-controls.js never compares against %r, so the markup's own value is "
+                    "read by nothing" % wire)
+        # THE PAINTED POSITION, PINNED IN ALL THREE FILES IT TRAVELS
+        # THROUGH — the server writes it, the script rewrites it, the
+        # stylesheet reads it. It has no Python constant (see
+        # companion/layout.py for why), so this is the guard instead.
+        for where, source, needle in (
+                ("the emitted markup", markup, "--value-fraction:"),
+                ("value-controls.js", script, '"--value-fraction"'),
+                ("style.css", css, "var(--value-fraction")):
+            if needle not in source:
+                return False, (
+                    "%s does not name --value-fraction (%r) — the handle's position travels on "
+                    "that property through all three, and a rename in one leaves it pinned at "
+                    "the start of its own range" % (where, needle))
+        # THE TOKEN THAT REACHES A RENDERED PAGE. "{}" here fails
+        # companion/test_i18n.py's French-render artefact scan, which is
+        # why it is not "{}" any more.
+        if layout.VALUE_CONTROL_TEXT_TOKEN in ("{}", "%s", "%d"):
+            return False, (
+                "layout.VALUE_CONTROL_TEXT_TOKEN is %r, which is one of the format artefacts the "
+                "i18n harness scans every French render for — it reaches the browser as an "
+                "attribute value on a rendered page" % layout.VALUE_CONTROL_TEXT_TOKEN)
+        if ('"%s"' % layout.VALUE_CONTROL_TEXT_TOKEN) not in script:
+            return False, "value-controls.js does not name the token %r" % (
+                layout.VALUE_CONTROL_TEXT_TOKEN,)
+
+        # THE FRENCH ACCESSIBLE NAMES. A handle whose only name is
+        # English is a control a French screen-reader user cannot tell
+        # apart from the other one.
+        prefs.set_request_prefs(lang="fr")
+        try:
+            french = config_page.quiet_hours_group("23:00", "07:00")
+        finally:
+            prefs.set_request_prefs(lang="en")
+        for label in (config_page.QUIET_DIAL_START_LABEL, config_page.QUIET_DIAL_END_LABEL):
+            translated = i18n_fr.CATALOG.get(label)
+            if not translated or translated == label:
+                return False, "%r has no French sibling" % label
+            if ('aria-label="%s"' % escape_html(translated)) not in french:
+                return False, "the French render does not name the handle %r" % translated
+
+        # OMIT, DON'T FABRICATE: an end that does not parse gets no
+        # handle, because a handle at an invented position claims a value
+        # that was never set.
+        for start, end, expected_handles in (("23:00", "", 1), ("", "", 0), ("zz", "07:00", 1)):
+            partial = config_page.quiet_hours_group(start, end)
+            got = len(_WRAPPER_RE.findall(partial))
+            if got != expected_handles:
+                return False, (
+                    "%r→%r emitted %d handle(s), expected %d"
+                    % (start, end, got, expected_handles))
+        return True, ""
+    check(
+        "the quiet dial's two handles are real <button type=\"button\"> sliders INSIDE 25-01's "
+        ".js gate and nowhere else (every element carrying the wrapper attribute carries the "
+        "gate class itself, and every element carrying the handle attribute is inside a "
+        "wrapper); each carries role/aria-valuemin/aria-valuemax/aria-valuenow and an "
+        "aria-valuetext that is the HH:MM its own input holds rather than a minute count, plus a "
+        "translated aria-label in both languages; each wrapper carries layout's own steering "
+        "attributes including the clock codec, is painted at the fraction its input's value "
+        "implies, and names --value-fraction in all three files it travels through; the "
+        "aria-valuetext token is not one of the format artefacts the i18n harness scans French "
+        "renders for; and an end that does not parse gets no handle at all (CFG-48, "
+        "25-04-PLAN.md Task 3)",
+        _the_two_handles_are_gated_and_hold_no_value_of_their_own)
+
+    def _the_handle_rides_the_ring_the_emitter_drew():
+        """CFG-48 (25-04-PLAN.md Task 3): the handle's geometry and the
+        two stacked layers' pointer discipline.
+
+        Two numbers have to agree across two files here — the dial's
+        rendered width and the radius the handle is thrown out to — and
+        two numbers that have to agree and live in two files agree until
+        one of them is edited.
+        """
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            source = fh.read()
+
+        def rule(selector):
+            found = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", source)
+            return found.group(1) if found else None
+
+        dial_rule = rule(".quiet-dial")
+        if dial_rule is None:
+            return False, "no .quiet-dial rule in style.css"
+        width = re.search(r"width:\s*(\d+)px", dial_rule)
+        radius = re.search(r"--quiet-dial-radius:\s*(\d+)px", dial_rule)
+        if not width or int(width.group(1)) != config_page.QUIET_DIAL_SIZE:
+            return False, (
+                "the dial's CSS width is %r and its emitter draws a %dpx canvas — the handle is "
+                "positioned against the CSS box and the arc is drawn in the canvas, so a "
+                "mismatch puts the grip off the stroke it steers"
+                % (width and width.group(0), config_page.QUIET_DIAL_SIZE))
+        if not radius or int(radius.group(1)) != config_page.QUIET_DIAL_RADIUS:
+            return False, (
+                "the handle rides a radius of %r; the ring's own stroke centre line is %dpx"
+                % (radius and radius.group(0), config_page.QUIET_DIAL_RADIUS))
+
+        # THE SOURCE-ORDER PIN. The handle wears three classes and two of
+        # them declare `position` at equal (0,1,0) specificity, so the
+        # later rule wins — and the one that must win is the absolute
+        # one, or the handle stops being positioned against the ring at
+        # all.
+        hit_at = source.index(".control-hit-area {")
+        handle_at = source.index(".value-control__handle {")
+        if handle_at < hit_at:
+            return False, (
+                "the shared .value-control__handle rule now precedes the shared hit-area rule; "
+                "both declare `position` at equal specificity, so the relative one would win and "
+                "the handle would sit wherever the text flow put it")
+
+        # THE POINTER DISCIPLINE. Two full-size layers are stacked over
+        # the ring; without these three declarations the upper one
+        # swallows every press meant for the ring or for the other end.
+        for selector, expected in ((".quiet-dial__handles", "none"),
+                                   (".quiet-dial__handle-track", "none"),
+                                   (".quiet-dial__handle", "auto")):
+            body = rule(selector)
+            if body is None:
+                return False, "no %s rule in style.css" % selector
+            if ("pointer-events: %s" % expected) not in body:
+                return False, (
+                    "%s does not declare `pointer-events: %s` — with two full-size layers "
+                    "stacked over one ring, the upper one otherwise claims every press"
+                    % (selector, expected))
+
+        handle_rule = rule(".quiet-dial__handle")
+        for needed in ("var(--value-fraction", "var(--quiet-dial-radius"):
+            if needed not in handle_rule:
+                return False, "the handle's transform does not read %r: %s" % (
+                    needed, handle_rule)
+        # Z-ORDER IS DOCUMENT ORDER, WHICH IS THE STATED DECISION: the
+        # END handle is emitted second and therefore wins a pointer-down
+        # in an overlap. A z-index on either would silently re-decide it.
+        if "z-index" in handle_rule:
+            return False, (
+                "the handle declares a z-index; the overlap decision this control records is "
+                "document order, and a z-index re-decides it somewhere nobody is looking")
+        # Paint from tokens, and no accent — the header comment's
+        # reservation list is exhaustive and a dial is not on it.
+        if "--color-accent" in handle_rule:
+            return False, "the handle paints accent"
+        for token in ("var(--color-canvas)", "var(--color-text)"):
+            if token not in handle_rule:
+                return False, (
+                    "the handle does not paint from %s — the shared hit-area class is "
+                    "transparent and borderless by design, so a handle wearing it and nothing "
+                    "else is invisible" % token)
+        return True, ""
+    check(
+        "the quiet dial's handle rides the ring the emitter drew — the stylesheet's dial width "
+        "and handle radius equal config_page.QUIET_DIAL_SIZE and QUIET_DIAL_RADIUS, the shared "
+        "handle rule still follows the shared hit-area rule so the absolute `position` wins at "
+        "equal specificity, both stacked layers are pointer-transparent while the handle itself "
+        "is not, the transform reads both custom properties, no z-index re-decides the "
+        "document-order overlap rule, and the grip paints from theme tokens with no accent "
+        "(CFG-48/CFG-52, 25-04-PLAN.md Task 3)",
+        _the_handle_rides_the_ring_the_emitter_drew)
 
     # ------------------------------------------------------------------
     # 06.6.4.1 Task 1 (D-01, D-02, D-05 form half, D-26): the new
