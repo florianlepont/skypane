@@ -44,9 +44,283 @@
  * in the stylesheet, on the trigger's own rule, never here. The harness
  * pins this by grepping this file's whole source for the two browser
  * APIs such a decision would require.
+ *
+ * 25-07-PLAN.md Task 2 (CFG-51/D19) grew this file rather than adding a
+ * new one, and the block at the top of the IIFE below states why in
+ * full: Phase 25's budget was one new script and 25-01 spent it, and a
+ * second file here would pay a route, a shell registration and a move
+ * of the deferred-script pin for one listener on forms this file
+ * already owns. It adds a THIRD standing constraint, as absolute as the
+ * two above: this file contains no canvas code of any kind, because
+ * companion/illustration_normalize.py's own docstring forbids a second
+ * implementation of the crop measurement it owns. The three original
+ * constraints are unchanged by that growth — no network call, no timer,
+ * no persistent state, and nothing written through a raw-markup sink.
  */
 (function () {
   "use strict";
+
+  // ===================================================================
+  // 25-07-PLAN.md Task 2 (CFG-51/D19): DRAG-AND-DROP OVER THE TWO
+  // UPLOAD FORMS, AND THE FRAMING PREVIEW BESIDE THEM.
+  //
+  // WHY THIS FILE GREW RATHER THAN A NEW ONE APPEARING. Phase 25's
+  // budget was ONE new script and 25-01 spent it on value-controls.js.
+  // A second file here would pay the three taxes again — a route in
+  // companion/app.py, a src in companion/layout.py, and a move of the
+  // deferred-script pin — for one listener on forms this file ALREADY
+  // owns: it rewrites both upload forms' action attributes on every
+  // trigger click, further down. Drop handling on those same forms is
+  // this file's own subject.
+  //
+  // WHY THIS BLOCK SITS ABOVE THE DIALOG GUARD. The drop affordance is
+  // revealed by 25-01's .js gate, and that class is set by
+  // nav-dropdown.js, entirely independently of this file. An early
+  // return below would therefore leave a VISIBLE, inert drop target on
+  // any page that reveals one without rendering the dialog — the exact
+  // "renders and does nothing" defect the gate exists to prevent. The
+  // one hook that genuinely needs the dialog (clearing a preview when
+  // it closes) is wired down inside the guarded region instead.
+  //
+  // THE MECHANISM, AND WHY IT IS THIS ONE. A drop builds a
+  // DataTransfer, adds the dropped File to it, and assigns it to the
+  // form's OWN <input type="file"> element. From there the bytes travel
+  // the identical path a picked file travels: the same multipart POST,
+  // companion/app.py's 4 MB cap enforced before the body is read, its
+  // parse_single_uploaded_file() discarding the client-declared
+  // filename, and companion/illustration_normalize.py doing the crop.
+  // The bytes are NEVER read and posted by this file — that would be a
+  // second upload path with a second set of limits to keep in step.
+  //
+  // NO CANVAS CODE ANYWHERE IN THIS FILE, and the absence is the point.
+  // companion/illustration_normalize.py's own docstring records that a
+  // SECOND, differently-thresholded measurement silently drifting from
+  // the first is the debug session that created it, and forbids that
+  // module ever becoming a second implementation of the measurement. A
+  // browser-side crop that "matches" it is exactly that second
+  // implementation, written where the server can neither check it nor
+  // trust the machine it ran on. companion/test_companion_app.py
+  // asserts this file free of every canvas entry point.
+  //
+  // This block still makes no network call, starts no timer and holds
+  // no state beyond the element handles the rest of this file already
+  // holds. A FileReader is none of those three: it reads a file the
+  // visitor themselves handed to this document, for the preview and
+  // for nothing else.
+  // ===================================================================
+
+  var uploadDropZones = document.querySelectorAll("[data-upload-drop]");
+
+  function uploadZoneInput(zone) {
+    // getElementById of a SERVER-RENDERED id, never an ancestor walk:
+    // this file is written to an ES5-safe subset with no
+    // Element.closest(), and an exact lookup beats a guess.
+    var inputId = zone.getAttribute("data-upload-drop-input") || "";
+    return inputId ? document.getElementById(inputId) : null;
+  }
+
+  function setUploadMessage(zone, text) {
+    var target = zone.querySelector(".upload-drop__message");
+    if (target) {
+      // textContent, never a raw-markup sink — the same rule the whole
+      // of this file follows. The text itself is server-rendered onto
+      // the zone ALREADY TRANSLATED (see the data-upload-drop-*-error
+      // attributes): this file writes no copy of its own, so a French
+      // visitor never reads an English sentence invented in a .js file.
+      target.textContent = text;
+    }
+  }
+
+  function clearUploadPreview(zone) {
+    var image = zone.querySelector(".upload-drop__image");
+    if (image) {
+      image.hidden = true;
+      // Dropping the src drops the data URL with it. An <img> left
+      // holding one keeps the whole decoded file alive for as long as
+      // the document does, which is the same leak an unrevoked object
+      // URL would have been.
+      image.removeAttribute("src");
+    }
+  }
+
+  function clearAllUploadPreviews() {
+    for (var i = 0; i < uploadDropZones.length; i += 1) {
+      clearUploadPreview(uploadDropZones[i]);
+      setUploadMessage(uploadDropZones[i], "");
+    }
+  }
+
+  // THE ONE VALIDATOR, AND IT IS ONE ON PURPOSE. Both paths into this
+  // control — a drop and a pick — call this and nothing else, so the
+  // two cannot disagree about what is acceptable. They cannot diverge
+  // by construction rather than by review.
+  //
+  // IT IS A COURTESY, NOT A CONTROL, AND A LATER READER MUST NOT RELAX
+  // A SERVER CHECK ON THE STRENGTH OF IT. Everything that actually
+  // decides whether an upload is stored lives in companion/app.py and
+  // companion/illustration_normalize.py, unchanged by this plan: the
+  // size cap is enforced BEFORE the request body is read, the PNG is
+  // identified by parsing its real header rather than by a MIME string
+  // the browser guessed, and the client-declared filename is discarded
+  // outright. This function only saves a round trip.
+  //
+  // It refuses ONLY what it positively knows is wrong. A browser that
+  // reports no type at all for a file hands the decision to the server,
+  // which is the only gate anyway — failing open toward the real check
+  // is the correct direction for a courtesy, and it is what keeps this
+  // from refusing a legitimate PNG the picker would have accepted.
+  function uploadRefusal(zone, files) {
+    if (!files || files.length === 0) {
+      // Zero files is a drag of something that is not a file at all —
+      // a link, a selection, a browser tab. "Only PNG images" is the
+      // true thing to say about it.
+      return zone.getAttribute("data-upload-drop-type-error") || "";
+    }
+    if (files.length !== 1) {
+      return zone.getAttribute("data-upload-drop-multiple-error") || "";
+    }
+    var file = files[0];
+    if (file.type && file.type !== "image/png") {
+      return zone.getAttribute("data-upload-drop-type-error") || "";
+    }
+    var maxBytes = parseInt(zone.getAttribute("data-upload-drop-max-bytes") || "", 10);
+    if (maxBytes > 0 && file.size > maxBytes) {
+      return zone.getAttribute("data-upload-drop-size-error") || "";
+    }
+    return "";
+  }
+
+  // The preview is a plain <img> that the STYLESHEET frames
+  // (object-fit: contain, inside a box reserved at
+  // illustration_normalize.py's own output ratio). Nothing here
+  // resizes, crops or re-encodes anything.
+  //
+  // FileReader rather than an object URL, and this was MEASURED, not
+  // assumed: this app's own Content-Security-Policy is
+  // img-src 'self' data:, and Chromium refuses a blob: image under it
+  // with "Loading the image 'blob:...' violates the following Content
+  // Security Policy directive". Widening a security header so a
+  // thumbnail can render is the wrong trade in the one control on this
+  // page that accepts bytes from outside the app, and a data: URL is
+  // already allowed for the inline favicon. There is therefore no
+  // object URL to leak and none to revoke; the src is dropped instead,
+  // on replacement and when the dialog closes.
+  function showUploadPreview(zone, file) {
+    var image = zone.querySelector(".upload-drop__image");
+    if (!image || !file) {
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function () {
+      image.src = reader.result;
+      image.hidden = false;
+    };
+    reader.onerror = function () {
+      clearUploadPreview(zone);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // THE DROP PATH. The refusal happens BEFORE anything is assigned:
+  // this function is the only place in this file that ever writes an
+  // input's files, and it has already returned by then.
+  function applyDroppedFiles(zone, files) {
+    var input = uploadZoneInput(zone);
+    if (!input) {
+      return;
+    }
+    var refusal = uploadRefusal(zone, files);
+    if (refusal) {
+      setUploadMessage(zone, refusal);
+      clearUploadPreview(zone);
+      return;
+    }
+    try {
+      var transfer = new DataTransfer();
+      transfer.items.add(files[0]);
+      input.files = transfer.files;
+    } catch (err) {
+      // A browser without a constructible DataTransfer degrades to no
+      // drop handling at all rather than to a JavaScript error — the
+      // file picker underneath is untouched and still works. The same
+      // fail-silently posture as this file's showModal() feature gate.
+      return;
+    }
+    setUploadMessage(zone, "");
+    showUploadPreview(zone, files[0]);
+  }
+
+  // THE PICKER PATH. It runs the SAME validator and says the same
+  // thing, so the two paths agree about what is acceptable — but it
+  // deliberately never touches input.files.
+  //
+  // That asymmetry is principled, not an oversight. A drop is this
+  // script's own act, so declining to perform it is the script doing
+  // nothing. A pick is the visitor's act through the browser's own
+  // control, and silently discarding their choice would be this script
+  // undoing a person's input to spare them a server error it is not
+  // entitled to predict. In both cases the bytes that reach the server
+  // reach it through the identical form, and the server decides.
+  function reviewChosenFile(zone) {
+    var input = uploadZoneInput(zone);
+    if (!input) {
+      return;
+    }
+    var files = input.files;
+    if (!files || files.length === 0) {
+      setUploadMessage(zone, "");
+      clearUploadPreview(zone);
+      return;
+    }
+    var refusal = uploadRefusal(zone, files);
+    setUploadMessage(zone, refusal);
+    if (refusal) {
+      clearUploadPreview(zone);
+      return;
+    }
+    showUploadPreview(zone, files[0]);
+  }
+
+  function wireUploadDropZone(zone) {
+    var input = uploadZoneInput(zone);
+    if (!input) {
+      return;
+    }
+
+    // Assigning to a .value (or to .files) from script fires NO event,
+    // so the picker's own preview has to be driven by the browser's
+    // "change" — the event a real pick actually emits.
+    input.addEventListener("change", function () {
+      reviewChosenFile(zone);
+    });
+
+    zone.addEventListener("dragover", function (evt) {
+      // preventDefault on dragover is what makes this element a drop
+      // target at all; without it the browser navigates to the file.
+      evt.preventDefault();
+      zone.setAttribute("data-upload-drop-active", "");
+    });
+    zone.addEventListener("dragleave", function () {
+      zone.removeAttribute("data-upload-drop-active");
+    });
+    zone.addEventListener("drop", function (evt) {
+      evt.preventDefault();
+      zone.removeAttribute("data-upload-drop-active");
+      // 25-01's value-controls.js refuses an untrusted event for its
+      // own control and this one has the same exposure: a script
+      // running in this document can dispatch a drop carrying a
+      // DataTransfer it built itself. Refusing it keeps the only way
+      // into this handler the gesture a person performed.
+      if (!evt.isTrusted) {
+        return;
+      }
+      applyDroppedFiles(zone, evt.dataTransfer ? evt.dataTransfer.files : null);
+    });
+  }
+
+  for (var zoneIndex = 0; zoneIndex < uploadDropZones.length; zoneIndex += 1) {
+    wireUploadDropZone(uploadDropZones[zoneIndex]);
+  }
 
   var dialog = document.getElementById("panel-lookup-dialog");
   if (!dialog) {
@@ -311,6 +585,15 @@
       dialog.close();
     }
   });
+
+  // 25-07-PLAN.md Task 2 (CFG-51/D19): the one upload-drop hook that
+  // genuinely needs the dialog, and therefore the one that lives inside
+  // its guard rather than in the block at the top of this file. A
+  // closed dialog still holding a preview is a decoded copy of the
+  // visitor's file kept alive for the life of the document, and the
+  // next trigger click opens the dialog on a different airline — so a
+  // stale preview would also be a picture of the wrong aircraft.
+  dialog.addEventListener("close", clearAllUploadPreviews);
 
   // No Escape handler and no focus-management code is added here on
   // purpose: the native <dialog> element already provides Escape-to-

@@ -61,7 +61,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import auth, draw, layout, theme_preview  # noqa: E402
-from companion.pages import config_page, health_page  # noqa: E402
+from companion.pages import airlines_page, config_page, health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import calendar_rules  # noqa: E402
 from server.plane import colour_rules  # noqa: E402
@@ -807,6 +807,25 @@ EXPECTED_CHECK_COUNT = 313
 # existing theme-preview.js ES5/forbidden-sink guard and the
 # deferred-script pin (still fifteen) both cover this plan's script
 # growth unchanged — no new file appeared, which is why neither moved.
+# 25-07-PLAN.md Task 2 (CFG-51/D19): +1, and it is a check for an
+# ABSENCE, which is worth stating: the plan's central constraint is that
+# no client-side crop was written, and an absence is exactly what stops
+# being noticed once the diff that introduced it scrolls away. The one
+# check asserts panel-lookup.js names no canvas API and no object URL,
+# assigns the dropped file to the form's OWN file input through exactly
+# one `new DataTransfer()`, routes BOTH the drop and the picker through
+# exactly ONE shared validator called exactly twice, consults it BEFORE
+# assigning, and refuses an untrusted drop event.
+# This plan also retargets _NO_JS_CONTROL_REGISTRY in place: it gains
+# D19's drop zone, ONE row because a row names one field and this
+# control holds exactly one (`image`) however many copies of the form
+# carry a zone. The existing panel-lookup.js ES5/forbidden-sink guard,
+# the static-script count and the deferred-script pin (still fifteen)
+# all cover this plan's script growth unchanged — no new file appeared.
+# 313 + 1 = 314, re-derived by RUNNING the harness (312/314 pass here —
+# the same two documented WR-11 root-sandbox failures and no others),
+# never by arithmetic.
+EXPECTED_CHECK_COUNT = 314
 
 # ==========================================================================
 # 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
@@ -932,6 +951,36 @@ _NO_JS_CONTROL_REGISTRY = (
         "form": config_page.SETTINGS_FORM_ID,
         "form_assoc": "attribute",
         "render": lambda: config_page._frame_colours_card_html({}, "white", None, None),
+    },
+    # 25-07-PLAN.md Task 2 (CFG-51): ONE row. A row names one FIELD, and
+    # D19's drop zone holds exactly one — `image` — however many copies
+    # of the form carry a zone (three on a Step-B edit-mode render).
+    # Registering each copy would claim this page uploads three
+    # illustrations, which it does not.
+    #
+    # The registered render is the DIALOG copy, and that is a deliberate
+    # choice between two honest ones. The dialog's copy is emitted on
+    # every single /airlines render, so `page_route: "/airlines"` needs
+    # no fixture at all; the unsuffixed fallback copy is the SAME
+    # function's output with a real action, and only appears under a
+    # ?resolve= deep link into a Step-B entry. That copy is not left
+    # unproven — 25-07-PLAN.md Task 3 uploads through it with scripts
+    # blocked and reads the stored artwork back off the illustration
+    # route, which is a stronger proof than this registry can make.
+    #
+    # `form_assoc` is "enclosing" rather than "attribute": the file
+    # input carries no form= at all. It is rendered INSIDE the upload
+    # <form> — which gained its id for exactly this reason — and that is
+    # verified here against a real authenticated render of /airlines.
+    {
+        "control": "the artwork drop zone (D19)",
+        "plan": "25-07-PLAN.md Task 2",
+        "wrapper_attr": airlines_page.UPLOAD_DROP_ATTR,
+        "field": "image",
+        "form": airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog",
+        "form_assoc": "enclosing",
+        "page_route": "/airlines",
+        "render": lambda: airlines_page._resolve_upload_form_html("", "-dialog"),
     },
 )
 
@@ -4981,6 +5030,105 @@ def main():
             "dialog from viewport dimensions or device orientation (no matchMedia/innerWidth) — that "
             "gate is CSS-only, on the Airlines trigger's own rule (quick task 260902-tli)",
             _panel_lookup_script_es5_safe_and_no_html_write)
+
+        def _panel_lookup_drop_handling_writes_the_form_s_own_input_and_no_canvas():
+            # 25-07-PLAN.md Task 2 (CFG-51/D19). This check exists for
+            # an ABSENCE, which is unusual enough to state plainly: the
+            # plan's central constraint is that no client-side crop was
+            # written, and an absence is precisely what a reviewer stops
+            # noticing after the diff that introduced it scrolls away.
+            #
+            # companion/illustration_normalize.py's own docstring records
+            # that a SECOND, differently-thresholded measurement silently
+            # drifting from the first is the debug session that created
+            # it, and that the module "must never become a second
+            # implementation for that same measurement to drift against".
+            # A browser-side crop is that second implementation, in a
+            # language the server cannot check.
+            js_path = os.path.join(HERE, "static", "panel-lookup.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            # Scanned over the WHOLE source, comments included, on
+            # purpose: a comment naming one of these is a reader being
+            # told the file does something it must not, and the file's
+            # own prose is written to avoid every one of them.
+            for token in ("getContext", "drawImage", "toBlob", "toDataURL",
+                          "OffscreenCanvas", "createImageBitmap"):
+                if token in src:
+                    return False, (
+                        "panel-lookup.js names %r — no canvas API may appear in this file. The "
+                        "crop belongs to companion/illustration_normalize.py alone, whose own "
+                        "docstring forbids a second implementation of the measurement it owns"
+                        % (token,))
+            # The object URL the plan originally called for is absent
+            # too, and for a measured reason: this app's own
+            # Content-Security-Policy is img-src 'self' data:, under
+            # which Chromium refuses a blob: image outright. The preview
+            # is a data: URL, which that policy already allows for the
+            # inline favicon, so no security header was widened for a
+            # thumbnail.
+            if "createObjectURL" in src:
+                return False, (
+                    "panel-lookup.js names createObjectURL — an object URL is a blob: URL, and "
+                    "this app's Content-Security-Policy (img-src 'self' data:) blocks a blob: "
+                    "image. Either the preview is broken or the policy was widened for it")
+            # THE MECHANISM, pinned from both ends. The drop must reach
+            # the server through the form's OWN input, never through a
+            # second request this file makes itself.
+            if "input.files = transfer.files" not in src:
+                return False, (
+                    "panel-lookup.js never assigns a DataTransfer's files to the form's own file "
+                    "input — that assignment IS the design: it is what makes a dropped file and "
+                    "a picked file travel one path, with one size cap and one parser")
+            if src.count("new DataTransfer()") != 1:
+                return False, (
+                    "expected exactly one `new DataTransfer()` in panel-lookup.js, got %d — two "
+                    "would be two ways into the same input" % src.count("new DataTransfer()"))
+            # ONE VALIDATOR, TWO CALLERS. This is the whole answer to
+            # "can the drop path and the picker path diverge?": they
+            # cannot, because neither has a validation branch of its
+            # own. A second definition, or a caller that skips it, is
+            # the defect this clause catches.
+            if src.count("function uploadRefusal(") != 1:
+                return False, (
+                    "expected exactly one uploadRefusal() definition in panel-lookup.js, got %d — "
+                    "the drop path and the picker path must share ONE validator or they can "
+                    "disagree about what is acceptable" % src.count("function uploadRefusal("))
+            # `= uploadRefusal(...)`, never a bare `uploadRefusal(...)`:
+            # the DEFINITION line matches the bare form too, so the
+            # first version of this clause counted three and failed a
+            # correct implementation.
+            callers = re.findall(r"= uploadRefusal\(zone, files\);", src)
+            if len(callers) != 2:
+                return False, (
+                    "expected uploadRefusal() to be called exactly twice (once from the drop "
+                    "path, once from the picker path), got %d — a path that reaches the input "
+                    "without passing through it is a path that validates differently"
+                    % (len(callers),))
+            # The refusal precedes the assignment, textually, in the
+            # drop path. A courtesy applied after the file is already in
+            # the input is not a courtesy.
+            if src.index("var refusal = uploadRefusal(zone, files);") \
+                    > src.index("input.files = transfer.files"):
+                return False, (
+                    "panel-lookup.js assigns the dropped file BEFORE consulting the validator — "
+                    "the refusal has to happen first or it refuses nothing")
+            # And the drop refuses a synthetic event, the same exposure
+            # 25-01's value-controls.js closes for its own control.
+            if "if (!evt.isTrusted)" not in src:
+                return False, (
+                    "panel-lookup.js's drop handler does not refuse an untrusted event — a script "
+                    "running in this document could otherwise dispatch a drop carrying a "
+                    "DataTransfer it built itself")
+            return True, ""
+        check(
+            "panel-lookup.js's drop handling names NO canvas API and no object URL, assigns the "
+            "dropped file to the form's own <input type=\"file\"> through exactly one `new "
+            "DataTransfer()` (so dropped and picked bytes travel one path, with one size cap and "
+            "one parser), routes BOTH the drop and the picker through exactly one shared "
+            "uploadRefusal() called exactly twice, consults it BEFORE assigning, and refuses an "
+            "untrusted drop event (CFG-51/D19, 25-07-PLAN.md Task 2)",
+            _panel_lookup_drop_handling_writes_the_form_s_own_input_and_no_canvas)
 
         def _panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard():
             # new (quick task 260903-btu): pins the single line that
