@@ -5565,6 +5565,41 @@ a.airline-card {
   justify-content: space-between;
 }
 
+/* THE AREA UNDER THE TREND LINE (CFG-41/CFG-45, 24-05-PLAN.md Task 1).
+ * `currentColor` at a reduced `fill-opacity` is the whole mechanism and
+ * the reason there is no second colour here: the area takes the LINE's
+ * own resolved colour (`.sparkline-line` below is `stroke: currentColor`
+ * against the same inherited `color`), so light and dark mode are
+ * correct by exactly the mechanism the line already is, and a palette
+ * change moves both together or neither.
+ *
+ * NOT a <linearGradient>. A gradient would be the nicer fade and it can
+ * only be referenced as `fill="url(#id)"` — health_page.py's
+ * `battery_sparkline_svg()` carries a standing guarantee, asserted
+ * against its own return value, that it emits no `url(` at all (D-09,
+ * no external reference of any kind). A flat translucent fill keeps that
+ * guarantee unweakened; a gradient would have required relaxing a
+ * security-shaped assertion for decoration.
+ *
+ * 0.14 is the measured floor, not a taste value: it is the lowest
+ * opacity at which the composited area separates from the card surface
+ * by more than the ~2% luminance difference the eye stops resolving at
+ * this size in BOTH themes (dark mode is the binding side — the card is
+ * nearly black and the ink nearly white, so the same alpha buys less
+ * separation there). companion/test_browser_ux.py measures the
+ * composited result against the card's own resolved background rather
+ * than trusting this number.
+ *
+ * No `stroke` declaration, deliberately: the SVG initial value is
+ * already `none`, nothing in this file sets a `stroke` on an ancestor
+ * for it to inherit, and a declaration that changes nothing is a comment
+ * pretending to be code. The area's edge IS `.sparkline-line`, drawn
+ * over it. */
+.sparkline-area {
+  fill: currentColor;
+  fill-opacity: 0.14;
+}
+
 /* The trend line: one <line> per consecutive pair of points (percentages
  * are not permitted inside a <polyline>'s points list, which is why this
  * is n - 1 line segments rather than one polyline). stroke-linecap:

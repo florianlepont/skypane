@@ -456,6 +456,19 @@ SPARKLINE_DOT_CLASS = "sparkline-dot"
 # convenience, not a JS cross-file contract like the two above.
 SPARKLINE_LINE_CLASS = "sparkline-line"
 SPARKLINE_AXIS_CLASS = "sparkline-axis"
+# 24-05-PLAN.md Task 1 (CFG-41/CFG-45): the area under the trend line,
+# in two classes because it is two elements — a nested <svg> LAYER that
+# owns the coordinate system, and the filled <polygon> inside it.
+# `sparkline__area` follows this chart's BEM-ish element convention
+# (`sparkline__canvas`, `sparkline__y`, `sparkline__x`) because it is a
+# structural part of the drawing; `sparkline-area` follows the shape
+# convention (`sparkline-line`, `sparkline-dot`, `sparkline-axis`)
+# because it is ink. Neither name is a substring of the other, or of any
+# class above — several harness checks count a class's occurrences with
+# a plain `str.count()`, and `sparkline-dot--mark` (say) would have been
+# counted as a `sparkline-dot`.
+SPARKLINE_AREA_LAYER_CLASS = "sparkline__area"
+SPARKLINE_AREA_CLASS = "sparkline-area"
 # Must equal companion/app.py's SCRIPT_ROUTE — duplicated, not imported,
 # because companion/pages/__init__.py's contract forbids a page module
 # importing companion.app (app.py imports pages, so importing back would
@@ -972,6 +985,40 @@ _SPARKLINE_DENSE_POINT_THRESHOLD = _sparkline_dense_threshold(_SPARKLINE_NARROWE
 # human-verification list.
 _SPARKLINE_DENSE_HIT_RADIUS_PX = 4
 
+
+def sparkline_point_y(value):
+    """The y position `value` gets on the battery chart, as a percentage
+    of the canvas height.
+
+    24-05-PLAN.md Task 1 PROMOTED this out of `battery_sparkline_svg()`'s
+    own local closure, unchanged in behaviour, for one reason: the chart
+    now draws things that are not readings — an area baseline and a
+    low-battery threshold — and every one of them must be placed by the
+    SAME function the readings are, or it will sit at a different level
+    from the readings it is drawn to be compared against. A threshold
+    with its own arithmetic drifts from the plotted line by exactly the
+    vertical inset, which is the class of defect this promotion makes
+    unavailable rather than merely unlikely. It is also what lets
+    companion/test_status_pages.py compute the expected position from
+    the same function rather than hard-coding a number.
+
+    D-04 (A-22): every value is clamped into the fixed
+    [SPARKLINE_Y_MIN_MV, SPARKLINE_Y_MAX_MV] range before its y position
+    is computed, so an out-of-range reading draws pinned at the canvas
+    edge rather than escaping it or silently rescaling the axis (there is
+    no axis left to rescale — the range is a constant, not derived from
+    `value` at all). `_SPARKLINE_VERTICAL_INSET_PERCENT` on both top and
+    bottom keeps every marker's radius fully inside the canvas (see that
+    constant's own derivation above); the y-axis is inverted (higher mV
+    -> smaller y%) to match SVG's top-down coordinate direction.
+    """
+    inset = _SPARKLINE_VERTICAL_INSET_PERCENT
+    clamped = max(SPARKLINE_Y_MIN_MV, min(SPARKLINE_Y_MAX_MV, value))
+    return inset + (
+        1 - (clamped - SPARKLINE_Y_MIN_MV) / _SPARKLINE_Y_SPAN_MV
+    ) * (100 - 2 * inset)
+
+
 # Phase 21 polish: the hover/tap readout's own text, as constants so the
 # French catalogue (companion/i18n_fr/health.py) carries them.
 BATTERY_AVERAGE_WHEN_ONE_TEMPLATE = "%s — daily average (%d reading)"
@@ -1259,7 +1306,6 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     if len(pairs) < 2:
         return ""
     point_count = len(pairs)
-    inset = _SPARKLINE_VERTICAL_INSET_PERCENT
     # 260902-l0b: the density rule — see _SPARKLINE_DENSE_POINT_THRESHOLD's
     # own derivation for why 50. Keyed on point_count alone (never on
     # `daily`), so the same protection would apply to any future dense
@@ -1272,21 +1318,14 @@ def battery_sparkline_svg(rows, now=None, daily=False):
         # its card" is a property of this formula, not a tuned margin.
         return index / (point_count - 1) * 100
 
-    def _point_y(value):
-        # D-04 (A-22): every value is clamped into the fixed
-        # [SPARKLINE_Y_MIN_MV, SPARKLINE_Y_MAX_MV] range before its y
-        # position is computed, so an out-of-range reading draws pinned
-        # at the canvas edge rather than escaping it or silently
-        # rescaling the axis (there is no axis left to rescale — the
-        # range is now a constant, not derived from `value` at all).
-        # `inset` on both top and bottom keeps every marker's 3-unit
-        # radius fully inside the canvas (see _SPARKLINE_VERTICAL_INSET_
-        # PERCENT's own derivation above); the y-axis is inverted (higher
-        # mV -> smaller y%) to match SVG's top-down coordinate direction.
-        clamped = max(SPARKLINE_Y_MIN_MV, min(SPARKLINE_Y_MAX_MV, value))
-        return inset + (
-            1 - (clamped - SPARKLINE_Y_MIN_MV) / _SPARKLINE_Y_SPAN_MV
-        ) * (100 - 2 * inset)
+    # 24-05-PLAN.md Task 1: the module-level `sparkline_point_y()` IS
+    # this function — promoted out of here, behaviour unchanged, so the
+    # area's baseline, the low-battery threshold and the harness can all
+    # place a level with the same arithmetic the readings use. See its
+    # own docstring for the D-04/A-22 clamp reasoning that used to live
+    # in this comment. The local name is kept because every call below
+    # reads better as `_point_y(...)` beside `_point_x(...)`.
+    _point_y = sparkline_point_y
 
     # Axis chrome first (paint order — see the note below the point loop
     # for why order matters at all). Filled <rect> elements, not stroked
@@ -1331,10 +1370,12 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     # file's own prior comment already established here.
     line_segments = []
     circles = []
+    plotted = []
     prev_x = prev_y = None
     for index, (value, ts, reading_count) in enumerate(pairs):
         x = _point_x(index)
         y = _point_y(value)
+        plotted.append((x, y))
         if prev_x is not None:
             line_segments.append(
                 '<line class="%s" x1="%.2f%%" y1="%.2f%%" x2="%.2f%%" y2="%.2f%%"/>'
@@ -1394,6 +1435,75 @@ def battery_sparkline_svg(rows, now=None, daily=False):
             % (SPARKLINE_HIT_CLASS, x, y, hit_radius, tabindex, value, escape_html(ts),
                escaped_when, escaped_when, escaped_when))
 
+    # THE AREA UNDER THE LINE (24-05-PLAN.md Task 1, CFG-41/CFG-45),
+    # and the geometry experiment that produced it, recorded here because
+    # the obvious simplification is unavailable rather than merely worse:
+    #
+    # Percentages are not permitted inside a <polygon>/<polyline>
+    # `points` list, or inside a <path> `d` — the SAME rule this
+    # function's own docstring already records as the reason the trend
+    # line is n - 1 <line> segments rather than one polyline. So the area
+    # cannot be a sibling <polygon> of those segments. It cannot be a
+    # stack of per-segment quadrilaterals either: nothing but <rect>
+    # accepts percentage geometry, and a trapezoid is not a rect. And the
+    # outer canvas's no-viewBox scheme is not available to trade away for
+    # an easier area — a viewBox there would reintroduce a scale factor
+    # and shrink every stroke, marker radius and hit target at 360px,
+    # which is the regression the scheme exists to prevent.
+    #
+    # What is left, and what is used: a NESTED <svg> carrying its own
+    # viewBox="0 0 100 100" and preserveAspectRatio="none". A nested svg
+    # establishes its own viewport; with that viewBox and that
+    # preserveAspectRatio, user unit N maps to exactly N% of the same box
+    # in each axis INDEPENDENTLY — so the polygon's plain user-unit
+    # vertices land on the identical coordinates the outer scheme's
+    # percentage attributes produce, and the area's top edge follows the
+    # line exactly. Nothing outside this element changes coordinate
+    # system. Verified in Chromium at 360px before it was built on.
+    #
+    # The layer carries NO size attributes and NO CSS rule of its own:
+    # style.css's `.battery-trend-section svg:not(.icon)` matches EVERY
+    # <svg> in the section, including this one, so the layer's box comes
+    # from the same single width/height declaration the canvas's does and
+    # the two cannot be sized differently. A rule on
+    # SPARKLINE_AREA_LAYER_CLASS would be a second size route — and at
+    # (0,1,0) one that silently loses to that selector's (0,2,1) besides.
+    #
+    # The baseline is the SCALE's own floor — `_point_y(
+    # SPARKLINE_Y_MIN_MV)`, the level the "3000 mV" label names — never
+    # y=100 (the canvas edge, where the drawn X axis sits). Closing at
+    # the edge would add the vertical inset to every reading as a
+    # constant, so the filled height would no longer BE the value above
+    # the axis minimum, which is the only thing an area under a line
+    # means.
+    #
+    # The fill is `currentColor` at a `fill-opacity` (style.css), the
+    # line's own colour reduced — so the area is correct in dark mode by
+    # the same mechanism the line already is, and no colour value is
+    # introduced. A <linearGradient> would have been the nicer fade and
+    # is deliberately NOT used: it can only be referenced as
+    # `fill="url(#id)"`, and this function's own no-external-reference
+    # guarantee (asserted against its return value in
+    # companion/test_status_pages.py) forbids the substring `url(`
+    # outright. That guarantee is D-09's, and weakening a security-shaped
+    # assertion to buy a gradient is not a trade this plan is willing to
+    # make.
+    #
+    # Paint order: SVG paints in document order, so the area is emitted
+    # FIRST — before the axis chrome, the line segments and the points —
+    # and can therefore never cover any of them. (See the point loop's
+    # own paint-order note above, which this extends.)
+    area_baseline_y = _point_y(SPARKLINE_Y_MIN_MV)
+    area_points = " ".join(
+        "%.2f,%.2f" % (x, y) for x, y in plotted
+    ) + " %.2f,%.2f %.2f,%.2f" % (
+        plotted[-1][0], area_baseline_y, plotted[0][0], area_baseline_y)
+    area_layer = (
+        '<svg class="%s" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'
+        '<polygon class="%s" points="%s"/>'
+        "</svg>"
+    ) % (SPARKLINE_AREA_LAYER_CLASS, SPARKLINE_AREA_CLASS, area_points)
+
     # Y-axis pair: max label first, min label second — .sparkline__y
     # (style.css) is a flex column with justify-content: space-between,
     # so document order top-to-bottom is what places max above min. X-axis
@@ -1424,10 +1534,10 @@ def battery_sparkline_svg(rows, now=None, daily=False):
 
     svg_html = (
         '<svg class="sparkline__canvas" role="group" aria-label="%s">'
-        "%s%s%s"
+        "%s%s%s%s"
         "</svg>"
     ) % (escape_html(i18n.t(BATTERY_SECTION_HEADING)),
-         axis_chrome, "".join(line_segments), "".join(circles))
+         area_layer, axis_chrome, "".join(line_segments), "".join(circles))
 
     # Grid document order: the Y-label column first (grid column 1, row
     # 1), then the canvas (auto-placed into column 2, row 1 — the only
