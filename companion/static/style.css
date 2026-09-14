@@ -6140,9 +6140,17 @@ a.airline-card {
   margin-top: var(--space-sm);
 }
 
+/* `align-items: center` is deliberately ABSENT, and like the swatch's
+ * own missing `flex: none` above this is a measurement. It was declared
+ * here; removing it changed no rendered box, because the swatch is 12px
+ * tall and .drawing-axis-label's line box is 10px x 1.2 = 12px too, so
+ * cross-start and centre are the same place. A check now measures the
+ * two centres against each other (it passed with and without the
+ * declaration, which is what proved the declaration inert rather than
+ * the check blind) — so the day either of those two sizes moves, the
+ * alignment becomes visible and that check is what says so. */
 .check-in-key__item {
   display: inline-flex;
-  align-items: center;
   gap: var(--space-xs);
 }
 
@@ -6150,12 +6158,19 @@ a.airline-card {
  * the cell it explains does — see this block's own header. `background`
  * rather than `fill` only because this one is an HTML <span> and not an
  * SVG shape; the declaration it follows is the identical one. */
+/* `flex: none` is deliberately ABSENT, and its absence is a measurement
+ * rather than an oversight. It was declared here first, on the ordinary
+ * reasoning that a flex item with a fixed box needs protecting from
+ * being shrunk; removing it changed nothing at 360px in either language,
+ * because each key item is its own inline-flex box whose content fits,
+ * so this swatch is never the thing a flex line has to take width from.
+ * A declaration no check can see is a declaration a later reader trusts
+ * instead of measuring, so it is gone. The 12px box below IS measured,
+ * in both languages, at the 360px floor. */
 .check-in-key__swatch {
   width: 12px;
   height: 12px;
-  border-radius: 2px;
   background: currentColor;
-  flex: none;
 }
 
 /* THE RING GAUGE (CFG-40, 24-04-PLAN.md Task 1): a full-circumference
