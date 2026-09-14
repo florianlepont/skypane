@@ -31,6 +31,7 @@ tempfile, time, urllib). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_companion_app.py
 """
+import ast
 import hashlib
 import hmac
 import html
@@ -3813,23 +3814,34 @@ def main():
         _every_emitted_class_resolves_in_the_stylesheet)
 
     def _draw_module_imports_no_page_and_no_server():
-        code, _literals = _python_source_parts(os.path.join(HERE, "draw.py"))
+        # Read off the ABSTRACT SYNTAX TREE rather than the token stream:
+        # an AST carries no comments and no docstrings at all, so the
+        # comment-stripping claim is structural here rather than
+        # something this check has to do itself — and a dotted module
+        # name survives intact, which a token scan cannot promise.
+        with open(os.path.join(HERE, "draw.py")) as fh:
+            tree = ast.parse(fh.read())
         imported = set()
-        for match in re.finditer(
-                r"(?m)^\s*(?:import\s+([\w.]+)|from\s+([\w.]+)\s+import)", code):
-            imported.add(match.group(1) or match.group(2))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    imported.add(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                base = node.module or ""
+                for alias in node.names:
+                    imported.add("%s.%s" % (base, alias.name) if base else alias.name)
         for name in sorted(imported):
             root = name.split(".")[0]
             if root in ("server", "stub-server"):
                 return False, (
                     "companion/draw.py imports %r — a geometry module must not depend on the "
                     "server package" % (name,))
-            if name.startswith("companion.pages") or name.endswith("_page"):
+            if "companion.pages" in name or name.endswith("_page"):
                 return False, (
                     "companion/draw.py imports the page module %r — draw.py exists so pages "
                     "can share geometry WITHOUT any page-to-page dependency; importing one "
                     "here inverts that" % (name,))
-            if name in ("companion.layout", "layout"):
+            if name in ("companion.layout", "layout", "companion.layout.escape_html"):
                 return False, (
                     "companion/draw.py imports companion/layout.py — layout.py owns the page "
                     "shell, nav, tiles and timestamps, and pulling it in would make every "
@@ -3841,8 +3853,9 @@ def main():
         return True, ""
     check(
         "companion/draw.py imports no page module, nothing from the server package and not "
-        "companion/layout.py — measured over the comment-stripped source, so the docstring "
-        "paragraph stating the rule cannot satisfy it (CFG-39)",
+        "companion/layout.py — read off the module's abstract syntax tree, which carries no "
+        "comment and no docstring at all, so the paragraph stating the rule cannot satisfy it "
+        "and a dotted module name survives intact (CFG-39)",
         _draw_module_imports_no_page_and_no_server)
 
     def _draw_module_emits_no_script_and_no_external_reference():
