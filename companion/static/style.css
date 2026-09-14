@@ -9788,6 +9788,72 @@ input:checked + .frame-colours__row {
   scroll-snap-align: start;
 }
 
+/* 25-06-PLAN.md Task 3 (CFG-50): the "See all themes" disclosure, and
+ * the ONE rule that is the whole reason it is a <details> sitting BEFORE
+ * the strip rather than around it.
+ *
+ * There is exactly one set of eighteen radios on this page. A <details>
+ * hides its own non-summary children when closed, so a disclosure
+ * CONTAINING the grid would hide every theme whenever it was shut and
+ * there would be no strip at all. Governing the adjacent sibling's
+ * layout is what keeps the strip and the full grid the same eighteen
+ * native radios — see config_page._theme_carousel_html() for the
+ * rejected two-set alternative.
+ *
+ * An adjacent-sibling combinator and an attribute selector, so no
+ * `:has()` is involved and this file's single feature query is not
+ * touched. (0,3,0) against the strip rule's own (0,1,0), so source
+ * order decides nothing here. */
+.theme-carousel__all {
+  margin-bottom: var(--space-sm);
+}
+
+.theme-carousel__all[open] + .theme-chip-grid--strip {
+  flex-wrap: wrap;
+}
+
+/* The two pagers. `--js-gate-display` is how a consumer picks its own
+ * display without re-deciding 25-01's gate direction.
+ *
+ * THE GAP IS `--space-lg`, NOT `--space-sm`, AND IT IS A HIT-TARGET
+ * NUMBER RATHER THAN A SPACING ONE. `.control-hit-area::before` reaches
+ * 11px beyond its button on every side; two of them 8px apart overlap
+ * in the 8px between, and the later one in document order wins the hit
+ * test. MEASURED AT 360px WITH `--space-sm`: the Previous pager's real
+ * hit area came out 30x45 — it reached 23px left of its centre and only
+ * 6px right, because the Next pager's own ::before covered the rest —
+ * which is under the 44px floor in the x axis and is exactly the defect
+ * 25-02 recorded for `.copy-btn` (a declared 44x44 hit-testing at
+ * 34x26 because its neighbours covered the ::before that synthesises
+ * it). At 24px the two ::befores stop 2px short of each other and both
+ * buttons hit-test at a real 44x44. A future density pass shrinking
+ * this to --space-md (16px) would silently put them back under the
+ * floor; the browser harness measures it rather than trusting it. */
+.theme-carousel__pagers {
+  --js-gate-display: flex;
+  gap: var(--space-lg);
+  margin-top: var(--space-sm);
+}
+
+/* ::after, not ::before — `.control-hit-area::before` is already the
+ * 44x44 pointer target and must stay empty. Pure geometry, no glyph:
+ * `summary::before`'s own 6px box and 2px edges, reused verbatim for
+ * that rule's own two recorded reasons — a `content` string is the
+ * hard-coded-English hazard T10 unpicked, and an arrow character's
+ * rendering varies by installed font. */
+.theme-carousel__pager::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.theme-carousel__pager--prev::after {
+  transform: rotate(135deg);
+}
+
 /* The dots row: one dot per theme, in that theme's own departing ink,
  * carried by the SAME `.theme-chip__dot` rule and the same
  * `.theme-chip__swatches` row the chips' own swatches use — no new

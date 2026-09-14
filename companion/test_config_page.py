@@ -896,6 +896,27 @@ EXPECTED_CHECK_COUNT = 256
 # kind.
 # 256 + 2 = 258, re-derived by RUNNING (258/258).
 EXPECTED_CHECK_COUNT = 258
+# 25-06-PLAN.md Task 3 (CFG-50): +1 — the disclosure and the two pagers.
+# It answers the duplication question on the WHOLE rendered Display page
+# rather than on the card: exactly len(THEME_IDS) radios named `theme`,
+# so the strip and the full grid are provably one set and the page can
+# never show one setting in two places that disagree (T-25-06-B). It
+# pins the disclosure as a native <details>/<summary> and asserts NO
+# <dialog> anywhere, because a dialog has no way to open without script
+# and eighteen themes behind one is eighteen themes behind a dead
+# control. It pins the disclosure BEFORE the strip, which is not a
+# preference: the stylesheet reaches the strip through an
+# adjacent-sibling [open] rule that only matches in that order. It pins
+# both pagers inside 25-01's gate and zero pager markup outside it, each
+# with a real aria-label (they draw their arrow in CSS and have no text
+# of their own) and an aria-controls naming the strip — which is also
+# how theme-preview.js finds the element to scroll, so one contract
+# rather than two. And it asserts the script registers NO key listener
+# and calls NO preventDefault at all, because a pager capturing an arrow
+# key would take the native radiogroup selection away from the
+# scripts-blocked path that depends on it.
+# 258 + 1 = 259, re-derived by RUNNING (259/259).
+EXPECTED_CHECK_COUNT = 259
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -11583,6 +11604,177 @@ def main():
         "the dots row's own wrap and top margin — with .theme-chip--compact still declaring no "
         "selected-state rule of any kind (CFG-50/CFG-52, 25-06-PLAN.md Task 2)",
         _the_carousel_dots_are_real_colours_and_the_strip_rules_are_declared)
+
+    def _the_full_grid_sits_behind_a_native_details_and_the_pagers_behind_the_gate():
+        # THE DUPLICATION QUESTION, ASSERTED RATHER THAN ASSUMED. The
+        # whole page — not merely the card — must carry exactly
+        # len(THEME_IDS) radios named `theme`. Two sets would share a
+        # name and a form and so still post one value, but the page
+        # would show a selection in two places, carry two --selected
+        # chips and two copies of every chip image, for a setting with
+        # one value (T-25-06-B).
+        # SCOPE_DISPLAY, not the default SCOPE_ALL: the Frame colours
+        # card is Display's, and the legacy SCOPE_ALL render (never
+        # served) carries no theme radio at all — measured, and a page
+        # with zero of them would make every count below pass for the
+        # wrong reason.
+        page = config_page.render({
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        }, scope=config_page.SCOPE_DISPLAY)
+        theme_count = len(device_config.THEME_IDS)
+        posted = len(re.findall(r'<input type="radio" name="theme" ', page))
+        if posted != theme_count:
+            return False, (
+                "the Display page renders %d radios named 'theme', expected exactly %d — the "
+                "strip and the full grid are ONE set of radios, and a second set is two places "
+                "showing one setting" % (posted, theme_count))
+
+        # A NATIVE <details>, AND NOT A <dialog>. A dialog has no way to
+        # open without script, so eighteen themes behind one is eighteen
+        # themes behind a dead control — the exact defect this phase
+        # exists to prevent.
+        if "<dialog" in page:
+            return False, (
+                "the Display page renders a <dialog> — a dialog cannot be opened without "
+                "script, and this disclosure is deliberately a native <details> instead "
+                "(25-RESEARCH.md Decision 4)")
+        disclosure = re.search(
+            r'<details class="theme-carousel__all"><summary>([^<]*)</summary>', page)
+        if not disclosure:
+            return False, "no <details class=\"theme-carousel__all\"><summary> is rendered"
+        if disclosure.group(1) != html.escape(
+                config_page.THEME_CAROUSEL_SUMMARY, quote=False):
+            return False, (
+                "the disclosure's summary reads %r, expected %r"
+                % (disclosure.group(1), config_page.THEME_CAROUSEL_SUMMARY))
+        strip_at = page.index('id="%s"' % config_page.THEME_CAROUSEL_STRIP_ID)
+        if disclosure.start() > strip_at:
+            return False, (
+                "the disclosure renders AFTER the strip — the stylesheet reaches the strip "
+                "through an adjacent-sibling combinator on the disclosure's [open] state, "
+                "which only matches when the disclosure comes first")
+
+        # BOTH PAGERS INSIDE THE GATE, AND ZERO PAGER MARKUP OUTSIDE IT.
+        gate = re.search(
+            r'<div class="theme-carousel__pagers ([^"]*)" (%s)>(.*?)</div>'
+            % re.escape(config_page.THEME_CAROUSEL_WRAPPER_ATTR), page, re.DOTALL)
+        if not gate:
+            return False, "no .theme-carousel__pagers wrapper carrying the wrapper attribute"
+        if layout.JS_GATE_CLASS not in gate.group(1).split():
+            return False, (
+                "the pager wrapper's classes are %r — without %r it renders permanently with "
+                "scripts blocked, which is a control that shows and does nothing"
+                % (gate.group(1), layout.JS_GATE_CLASS))
+        inside = gate.group(3)
+        total_pagers = page.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="')
+        if inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="') != 2:
+            return False, (
+                "expected exactly two pagers inside the gate, found %d"
+                % inside.count(config_page.THEME_CAROUSEL_PAGER_ATTR + '="'))
+        if total_pagers != 2:
+            return False, (
+                "the page carries %d pager attributes but only two are inside the gate — a "
+                "pager rendered outside it is inert with scripts blocked" % total_pagers)
+        for direction, label in (
+                (config_page.THEME_CAROUSEL_PAGER_PREV, config_page.THEME_CAROUSEL_PREV_LABEL),
+                (config_page.THEME_CAROUSEL_PAGER_NEXT, config_page.THEME_CAROUSEL_NEXT_LABEL)):
+            button = re.search(
+                r'<button type="button"([^>]*%s="%s"[^>]*)>'
+                % (re.escape(config_page.THEME_CAROUSEL_PAGER_ATTR), direction), inside)
+            if not button:
+                return False, "no <button> carries the %r pager attribute" % direction
+            attrs = button.group(1)
+            if 'aria-label="%s"' % html.escape(label, quote=True) not in attrs:
+                return False, (
+                    "the %s pager carries no aria-label=%r — it draws its arrow in CSS and "
+                    "has no text of its own, so without one it announces nothing at all: %r"
+                    % (direction, label, attrs))
+            if ('aria-controls="%s"' % config_page.THEME_CAROUSEL_STRIP_ID) not in attrs:
+                return False, (
+                    "the %s pager's aria-controls does not name the strip — and that is not "
+                    "only an announcement: theme-preview.js resolves the element to scroll "
+                    "through this very attribute: %r" % (direction, attrs))
+            if "aria-hidden" in attrs:
+                return False, (
+                    "the %s pager is aria-hidden — these are real controls with real labels, "
+                    "not decorations" % direction)
+            if "control-hit-area" not in attrs and "control-hit-area" not in button.group(0):
+                return False, (
+                    "the %s pager does not carry .control-hit-area, 25-01's shared "
+                    "22px-box-plus-44px-::before synthesis (.copy-btn's own values verbatim)"
+                    % direction)
+
+        # THE SCRIPT SIDE OF THE SAME SEAM, AND THE ONE THING IT MUST
+        # NOT DO. A pager that listened for a key would take
+        # ArrowLeft/ArrowRight away from the native radiogroup, which is
+        # precisely the selection the scripts-blocked path depends on.
+        script = _read_static("theme-preview.js")
+        # ON A BOUNDARY, NEVER AS A BARE SUBSTRING. Measured: the first
+        # version of this clause asked `attr not in script`, and a
+        # mutation renaming the script's own constant to
+        # "data-theme-pagerr" — which matches nothing in the markup and
+        # leaves both pagers inert — passed it, because the typo
+        # CONTAINS the real name. The same boundary discipline
+        # test_companion_app.py's own gate-class pin records.
+        if not re.search(
+                r"(?<![-\w])%s(?![-\w])"
+                % re.escape(config_page.THEME_CAROUSEL_PAGER_ATTR), script):
+            return False, (
+                "companion/static/theme-preview.js never names %r, so the two pagers it is "
+                "supposed to own are two buttons that do nothing"
+                % config_page.THEME_CAROUSEL_PAGER_ATTR)
+        code = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", " ", script, flags=re.DOTALL))
+        for key_event in ("keydown", "keyup", "keypress"):
+            if key_event in code:
+                return False, (
+                    "theme-preview.js registers a %r listener — a pager that captures an arrow "
+                    "key breaks the native radiogroup selection the no-JS path depends on"
+                    % key_event)
+        if "preventDefault" in code:
+            return False, (
+                "theme-preview.js calls preventDefault — this file drives a native radio group "
+                "and a native scroll container, and the browser owns both models")
+
+        source = _read_static("style.css")
+        rules = {
+            ".theme-carousel__all[open] + .theme-chip-grid--strip {": ("flex-wrap: wrap;",),
+            ".theme-carousel__pagers {": (
+                "--js-gate-display: flex;", "gap: var(--space-lg);",
+                "margin-top: var(--space-sm);"),
+            ".theme-carousel__pager::after {": (
+                'content: "";', "width: 6px;", "height: 6px;",
+                "border-right: 2px solid currentColor;",
+                "border-bottom: 2px solid currentColor;",
+                "transform: rotate(-45deg);"),
+            ".theme-carousel__pager--prev::after {": ("transform: rotate(135deg);",),
+            ".theme-carousel__all {": ("margin-bottom: var(--space-sm);",),
+        }
+        for selector, declarations in rules.items():
+            if selector not in source:
+                return False, "style.css declares no %s rule" % selector.rstrip(" {")
+            body = source[source.index(selector) + len(selector):]
+            body = body[:body.index("}")]
+            for declaration in declarations:
+                if declaration not in body:
+                    return False, (
+                        "%s does not declare %r — %r"
+                        % (selector.rstrip(" {"), declaration, body.strip()))
+        return True, ""
+    check(
+        "the full grid sits behind a native <details>/<summary> and never a <dialog> (a dialog "
+        "cannot be opened without script, which would put eighteen themes behind a dead "
+        "control), the disclosure renders BEFORE the strip because the stylesheet reaches it "
+        "through an adjacent-sibling [open] rule, the whole Display page carries exactly "
+        "len(THEME_IDS) radios named 'theme' (ONE set, so the page can never show one setting "
+        "in two disagreeing places), both pagers render inside 25-01's gate wrapper and zero "
+        "pager markup renders outside it, each carries a real aria-label and an aria-controls "
+        "naming the strip — which is also how theme-preview.js finds it — neither is "
+        "aria-hidden, both wear .control-hit-area, and theme-preview.js registers no key "
+        "listener and calls no preventDefault at all, because a pager capturing an arrow key "
+        "would break the native radiogroup selection the no-JS path depends on (CFG-50/D-09, "
+        "25-06-PLAN.md Task 3)",
+        _the_full_grid_sits_behind_a_native_details_and_the_pagers_behind_the_gate)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

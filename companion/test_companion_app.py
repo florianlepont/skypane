@@ -798,6 +798,15 @@ EXPECTED_CHECK_COUNT = 313
 # VALUE_CONTROL_* name, the clock codec 25-04 had to add to steer a
 # native <input type="time">. Both are edits to existing checks, so the
 # number below does not move.
+# 25-06-PLAN.md Task 3 (CFG-50): +0, RE-DERIVED BY RUNNING (313/313
+# registered, 311 passing — the same two documented WR-11 root-sandbox
+# failures and no others). This plan adds no check here either and
+# retargets one in place: _NO_JS_CONTROL_REGISTRY gains D5's theme
+# carousel, ONE row because a row names one FIELD and this control holds
+# exactly one (`theme`) however many affordances surround it. The
+# existing theme-preview.js ES5/forbidden-sink guard and the
+# deferred-script pin (still fifteen) both cover this plan's script
+# growth unchanged — no new file appeared, which is why neither moved.
 
 # ==========================================================================
 # 25-01-PLAN.md Task 4 (CFG-46/D-09) — THE NO-JS CONTROL CONTRACT, AS A
@@ -896,6 +905,33 @@ _NO_JS_CONTROL_REGISTRY = (
         "form_assoc": "enclosing",
         "page_route": "/device",
         "render": lambda: config_page.wake_interval_group(600),
+    },
+    # 25-06-PLAN.md Task 3 (CFG-50): ONE row, not two, and the reason is
+    # the opposite of 25-04's. A row names one FIELD, and D5's carousel
+    # holds exactly one — `theme` — however many affordances surround it.
+    # The two pagers are two BUTTONS steering one native radio group;
+    # registering them separately would claim this card saves two
+    # settings, which it does not.
+    #
+    # The registered wrapper attribute is the PAGER WRAPPER's, because
+    # the pagers are the only part of this control that cannot work
+    # without a script. Everything else the carousel adds — the strip's
+    # scroll-snap layout, the "See all themes" <details>, the dots row —
+    # is native or server-rendered and is deliberately NOT gated: gating
+    # any of it would hide working affordances from a scripts-blocked
+    # visitor, which is the mirror of the defect this registry catches.
+    #
+    # `form_assoc` is "attribute": the Frame colours card is a SIBLING of
+    # <form id="settings-form"> (a <form> cannot nest inside another
+    # <form>), so every theme radio carries form= itself.
+    {
+        "control": "the theme carousel's two pagers (D5)",
+        "plan": "25-06-PLAN.md Task 3",
+        "wrapper_attr": config_page.THEME_CAROUSEL_WRAPPER_ATTR,
+        "field": "theme",
+        "form": config_page.SETTINGS_FORM_ID,
+        "form_assoc": "attribute",
+        "render": lambda: config_page._frame_colours_card_html({}, "white", None, None),
     },
 )
 

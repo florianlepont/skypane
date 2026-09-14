@@ -1515,6 +1515,15 @@ def _theme_carousel_html(grid_html):
     never a colour literal in the stylesheet — and the row is
     `aria-hidden`, because the chips themselves already announce all of
     this in real text and eighteen dots after eighteen radios is noise.
+
+    MEASURED WHILE WRITING THIS, AND RECORDED BECAUSE IT SURPRISED:
+    every one of the eighteen themes has `departing_index ==
+    arriving_index`, and the eighteen resolve to only SEVEN distinct
+    hexes. So this row is a palette overview, not an identifier of
+    individual themes, and the chips' own two swatch dots — the ones the
+    "Departures · Arrivals" legend names — are the same colour as each
+    other in every theme this app ships. That is a registry fact, not a
+    defect introduced here, and nothing in this plan changes it.
     """
     dots = "".join(
         '<span class="theme-chip__dot" style="background:%s"></span>' % escape_html(
@@ -1523,7 +1532,90 @@ def _theme_carousel_html(grid_html):
     dots_html = (
         '<div class="theme-carousel__dots theme-chip__swatches" aria-hidden="true">%s</div>'
         % dots)
-    return '<div class="theme-carousel">%s%s</div>' % (grid_html, dots_html)
+    # A NATIVE <details>, NOT A <dialog>, AND THAT IS A DELIBERATE
+    # DEVIATION FROM 22-AUDIT.md's OWN WORDING (D5: "full grid behind
+    # 'See all themes' in a dialog"). A <dialog> has no way to open
+    # without script — `showModal()` is the only thing that opens one —
+    # so eighteen themes behind a dialog is eighteen themes behind a
+    # control that does nothing whatever with scripts blocked, which is
+    # the exact defect this phase exists to prevent. <details> opens
+    # natively, already has this app's shipped chevron treatment
+    # (22-15 T3) and already sits in the harness's disclosure sweep.
+    #
+    # AND IT GOVERNS THE GRID THAT FOLLOWS IT RATHER THAN CONTAINING
+    # ONE. This is the part a later reader will want explained, so:
+    # there is exactly ONE set of eighteen radios on this page, and the
+    # strip and the full grid are the same set. That forces this shape.
+    # A <details> hides its own non-summary children when closed, so a
+    # disclosure that CONTAINED the grid would hide all eighteen themes
+    # whenever it was shut — there would be no strip at all — and the
+    # only way to have both an always-visible strip and a full-grid
+    # disclosure while keeping one set of radios is for the disclosure
+    # to change the layout of the grid that follows it. Its `[open]`
+    # state selects that adjacent sibling in style.css; no `:has()` is
+    # involved and this file's one feature query is untouched.
+    #
+    # The alternative — two sets of eighteen radios — was rejected, and
+    # not on tidiness grounds: they would share a name and a form, so a
+    # browser would treat them as ONE radio group and keep exactly one
+    # checked, but the page would then carry two places showing a
+    # selection, two `--selected` chips, and two copies of every chip
+    # image, for a setting that has one value (T-25-06-B).
+    #
+    # Nothing is hidden behind this control at any time, so the body
+    # says so in real, translated text rather than leaving a reader to
+    # discover it.
+    disclosure_html = (
+        '<details class="theme-carousel__all">'
+        "<summary>%s</summary>"
+        '<p class="text-body">%s</p>'
+        "</details>"
+    ) % (
+        escape_html(i18n.t(THEME_CAROUSEL_SUMMARY)),
+        escape_html(
+            i18n.t(THEME_CAROUSEL_DISCLOSURE_BODY_TEMPLATE)
+            % len(device_config.THEME_IDS)),
+    )
+    # The two pagers, and NOTHING ELSE, sit behind 25-01's `.js` gate —
+    # they are the only part of this control that cannot work without a
+    # script. The gate class is on the wrapper ITSELF (not an ancestor),
+    # which is what companion/test_companion_app.py's no-JS control
+    # registry asserts for every element carrying
+    # THEME_CAROUSEL_WRAPPER_ATTR.
+    #
+    # Real <button>s with real labels, never aria-hidden decorations,
+    # and `aria-controls` naming the strip — which is also how
+    # theme-preview.js finds the element to scroll, so the accessibility
+    # contract and the script contract are ONE contract. Neither button
+    # listens for a key of any kind: a pager that captured ArrowLeft
+    # would break the native radiogroup selection the whole no-JS path
+    # depends on.
+    #
+    # `.control-hit-area` is 25-01's shared 22x22-box-plus-44x44-::before
+    # synthesis, which is `.copy-btn`'s own values verbatim — not a
+    # fourth set of numbers. The glyph is drawn in CSS rather than
+    # written as a "◀"/"▶" character, following `summary::before`'s own
+    # recorded reasoning: a `content` string is the hard-coded-English
+    # hazard T10 had to unpick, and an arrow glyph's rendering varies by
+    # installed font.
+    pager_template = (
+        '<button type="button" class="control-hit-area theme-carousel__pager%s"'
+        ' %s="%s" aria-controls="%s" aria-label="%s"></button>')
+    pagers_html = (
+        '<div class="theme-carousel__pagers %s" %s>%s%s</div>'
+    ) % (
+        escape_html(layout.JS_GATE_CLASS), THEME_CAROUSEL_WRAPPER_ATTR,
+        pager_template % (
+            " theme-carousel__pager--prev", THEME_CAROUSEL_PAGER_ATTR,
+            THEME_CAROUSEL_PAGER_PREV, escape_html(THEME_CAROUSEL_STRIP_ID),
+            escape_html(i18n.t(THEME_CAROUSEL_PREV_LABEL))),
+        pager_template % (
+            "", THEME_CAROUSEL_PAGER_ATTR, THEME_CAROUSEL_PAGER_NEXT,
+            escape_html(THEME_CAROUSEL_STRIP_ID),
+            escape_html(i18n.t(THEME_CAROUSEL_NEXT_LABEL))),
+    )
+    return '<div class="theme-carousel">%s%s%s%s</div>' % (
+        disclosure_html, grid_html, pagers_html, dots_html)
 
 
 def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
