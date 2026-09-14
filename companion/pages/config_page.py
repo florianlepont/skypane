@@ -2290,6 +2290,211 @@ def _normalised_time_html(value):
         value)
 
 
+# --- 25-04-PLAN.md Task 2 (CFG-48): the server-drawn 24 h ring --------
+#
+# Class names as constants rather than literals at the emission site,
+# the same reason RUNWAY_MAP_* above gives: a class that exists in Python
+# and nowhere in companion/static/style.css paints nothing at all, and a
+# check scans the EMITTED markup's classes against the stylesheet for
+# exactly that.
+QUIET_DIAL_CLASS = "quiet-dial"
+QUIET_DIAL_RING_CLASS = "quiet-dial__ring"
+# The full circumference: the whole 24 hours, always drawn.
+QUIET_DIAL_DAY_CLASS = "quiet-dial__day"
+# The quiet window itself, drawn on top of the day.
+QUIET_DIAL_ARC_CLASS = "quiet-dial__arc"
+QUIET_DIAL_HOUR_CLASS = "quiet-dial__hour"
+QUIET_DIAL_READOUT_CLASS = "quiet-dial__readout"
+
+# User units, and CSS pixels — the aspect-locked `unit_*` scheme
+# companion/draw.py documents, with an explicit intrinsic size so the
+# <svg> can never fall back to the format's own 300x150 default.
+QUIET_DIAL_SIZE = 128
+# Chosen so the arithmetic below lands on whole numbers: 64 - 7 - 3 = 54.
+# A radius carrying a rounding tail would make every recomputed-from-the-
+# markup check invent a tolerance to hide it.
+QUIET_DIAL_STROKE = 14
+# Clear space between the stroke's OUTER edge and the viewBox edge. A
+# stroked arc extends half its stroke width past the nominal radius,
+# which is the usual way a ring clips itself on its own box.
+QUIET_DIAL_CLEARANCE = 3
+QUIET_DIAL_RADIUS = QUIET_DIAL_SIZE // 2 - QUIET_DIAL_STROKE // 2 - QUIET_DIAL_CLEARANCE
+
+# The four anchor hours, and four rather than twenty-four on purpose.
+# These are the quarter turns: they are the only hours whose position a
+# reader resolves at a GLANCE rather than by counting round from one that
+# is labelled, and twenty-four labels on a 128px ring is illegible at the
+# 360px contract floor either way. 00 is the one that has to be there —
+# the whole defect this control's arithmetic exists to prevent is about
+# what happens at midnight, so midnight is marked.
+#
+# Each hour is PAIRED with the modifier class that places it rather than
+# templated from a single "quiet-dial__hour--%d" constant. That is not a
+# stylistic choice: companion/test_i18n.py strips a literal's format
+# specs before deciding whether it is a bare identifier, so the templated
+# form reads to the D-05 scanner as untranslated user-facing copy and
+# fails Check 1 — measured on this tree. A class name is not copy, and
+# the paired form is the shape that says so.
+QUIET_DIAL_LABELLED_HOURS = (
+    (0, "quiet-dial__hour--0"),
+    (6, "quiet-dial__hour--6"),
+    (12, "quiet-dial__hour--12"),
+    (18, "quiet-dial__hour--18"),
+)
+
+# "23:00 → 07:00 · 8h". No letters of its own (the duration's unit comes
+# from layout.duration_text(), which speaks both languages), so it needs
+# no catalogue entry — see quiet_dial_readout_html() below.
+QUIET_DIAL_READOUT_TEMPLATE = "%s → %s · %s"
+
+# A full turn in degrees, and the quarter turn that moves <circle>'s own
+# three-o'clock dash origin to twelve o'clock — the same correction
+# companion/draw.py's ring_gauge() applies, restated here because this
+# drawing additionally rotates by the window's own start.
+_QUIET_DIAL_FULL_TURN_DEG = 360.0
+_QUIET_DIAL_TWELVE_OCLOCK_DEG = -90.0
+
+
+def quiet_dial_svg(span):
+    """The 24 h ring as one `<svg>`: a full-circumference day, plus the
+    quiet arc when `span` describes one. Never raises.
+
+    SERVER-DRAWN, AND THAT IS THE POINT OF THE WHOLE CONTROL. With
+    scripts blocked the visitor still sees a correct picture of the saved
+    window — only the DRAGGING is script, and only the dragging is behind
+    the `.js` gate. A dial whose arc needed a script would be a card that
+    renders an empty ring to anybody whose script failed.
+
+    `span` is `quiet_window_span()`'s return value, which already decided
+    the wrap; this function does no window arithmetic of its own and must
+    not grow any. The arc's sweep is `span.sweep_fraction` and its start
+    is `span.start_fraction`, both read straight off the one triple, so
+    the drawing cannot disagree with the duration printed beside it.
+
+    NO ARC AT ALL for `span is None` (nothing parseable is stored) and
+    for a zero-length window. Those are two different facts with the same
+    drawing, and that is correct: neither is a window, and neither may be
+    drawn as one. The empty-dash case is refused for
+    `ring_gauge()`'s own recorded reason — a zero-length dash renders as
+    a DOT under a round cap, so "no window" would read as "a few
+    minutes".
+
+    THE DASH ROUTE, NOT AN ARC PATH, again following `ring_gauge()`: an
+    arc <path> whose sweep is the whole circle is degenerate in SVG and
+    draws nothing. This control cannot reach a full turn (see
+    `quiet_window_span()`'s docstring), but the dash route also needs no
+    large-arc-flag reasoning and no trigonometry, and
+    `draw.unit_circle_dash_array()` already owns it.
+
+    `aria-hidden="true" focusable="false"`, and hand-written rather than
+    `draw.unit_canvas()` for the one reason `runway_map_svg()` above
+    records: that helper emits the viewBox, the intrinsic size and
+    `aria-hidden`, but not `focusable`. Every SHAPE still comes from
+    draw.py's own primitives, so the escaping and the
+    refuse-a-paint-decided-in-Python guard apply to all of them.
+
+    Both shapes carry `fill="none"` as a presentation ATTRIBUTE: a
+    stroked circle with no fill declared takes the format's default
+    black, which is a filled black disc over the middle of the card.
+    `stroke-width` is a presentation attribute too, and deliberately not
+    a stylesheet declaration — a CSS stroke-width of any specificity
+    beats a presentation attribute, which would flatten the geometry the
+    constants above derive.
+    """
+    centre = QUIET_DIAL_SIZE // 2
+    shapes = [draw.circle(QUIET_DIAL_DAY_CLASS, centre, centre, QUIET_DIAL_RADIUS, attrs={
+        "fill": "none",
+        "stroke-width": QUIET_DIAL_STROKE,
+    })]
+    if span is not None and span.minutes > 0:
+        shapes.append(draw.circle(
+            QUIET_DIAL_ARC_CLASS, centre, centre, QUIET_DIAL_RADIUS, attrs={
+                "fill": "none",
+                "stroke-width": QUIET_DIAL_STROKE,
+                "stroke-dasharray": draw.unit_circle_dash_array(
+                    span.sweep_fraction, QUIET_DIAL_RADIUS),
+                # Twelve o'clock plus the window's own start, clockwise —
+                # <circle>'s dash origin is three o'clock and grows
+                # clockwise already.
+                "transform": "rotate(%.4f %d %d)" % (
+                    _QUIET_DIAL_TWELVE_OCLOCK_DEG
+                    + _QUIET_DIAL_FULL_TURN_DEG * span.start_fraction,
+                    centre, centre),
+            }))
+    return (
+        '<svg class="%s" viewBox="0 0 %d %d" width="%d" height="%d" '
+        'aria-hidden="true" focusable="false">%s</svg>'
+    ) % (
+        escape_html(QUIET_DIAL_RING_CLASS), QUIET_DIAL_SIZE, QUIET_DIAL_SIZE,
+        QUIET_DIAL_SIZE, QUIET_DIAL_SIZE, "".join(shapes),
+    )
+
+
+def quiet_dial_html(span, handles_html=""):
+    """The ring and its four anchor-hour labels, as one positioned block.
+
+    THE LABELS ARE HTML OUTSIDE THE `<svg>`, NOT `<text>` INSIDE IT, and
+    that is structural rather than stylistic: companion/draw.py's
+    drawing contract owes a viewBox that contains the bounding box of any
+    text drawn inside it, and the only honest way to prove that in this
+    codebase is a real browser measurement. Keeping the labels out of the
+    canvas makes the defect unreachable by construction, and keeps them
+    at a constant CSS size instead of scaling with the box — the same
+    reason `draw.label_span()`'s own docstring gives.
+
+    `handles_html` is the `.js`-gated handle layer (25-04 Task 3) and is
+    empty for every caller that has none. It is rendered LAST so document
+    order is paint order: the handles sit above the ring they steer.
+    """
+    hours_html = "".join(
+        '<span class="text-label %s %s" aria-hidden="true">%02d</span>' % (
+            escape_html(QUIET_DIAL_HOUR_CLASS), escape_html(modifier_class), hour)
+        for hour, modifier_class in QUIET_DIAL_LABELLED_HOURS)
+    return '<div class="%s">%s%s%s</div>' % (
+        escape_html(QUIET_DIAL_CLASS), quiet_dial_svg(span), hours_html, handles_html)
+
+
+def quiet_dial_readout_html(start_hm, end_hm, span):
+    """"23:00 → 07:00 · 8h" — the window in words, or nothing at all when
+    `span` is None.
+
+    `aria-hidden="true"`, AND THAT IS THE SAME REASONING
+    `_normalised_time_html()` ABOVE ALREADY RECORDS, written out here so
+    a later reader does not "fix" it into a live region. Both time inputs
+    announce their own values natively, in the visitor's own notation;
+    repeating them here would say the same thing twice with nothing
+    added. The visual duplication is this element's whole job and the
+    aural duplication is not.
+
+    IT IS SPECIFICALLY NOT A `role="status"` / `aria-live` REGION, and
+    that is CFG-52 rather than a preference. Dragging a handle fires
+    continuously, and a live region would re-announce the identical
+    phrase on every step — the exact defect Phase 23 hit with its three
+    switches. The focused handle's own `aria-valuetext` is the native,
+    debounced announcement path and it is enough.
+
+    The duration comes from `layout.duration_text()`, this app's ONE
+    length-of-time ladder, rather than a second set of boundaries
+    invented here. It is COARSE by construction — it names the largest
+    unit that fits, so a 90-minute window reads "1h" — and that is
+    accepted rather than worked around: the two exact endpoints are
+    printed immediately beside it, and a second duration ladder in a page
+    module is precisely the drift that ladder exists to prevent.
+
+    Escaped once, after formatting, matching this file's
+    "translate first, escape once" convention. Both times are already
+    known to be real HH:MM here (a `span` exists), so this escaping is
+    the convention holding rather than a live need — T-25-04-B.
+    """
+    if span is None:
+        return ""
+    return '<p class="time-value %s" aria-hidden="true">%s</p>' % (
+        escape_html(QUIET_DIAL_READOUT_CLASS),
+        escape_html(QUIET_DIAL_READOUT_TEMPLATE % (
+            start_hm, end_hm, layout.duration_text(span.minutes * 60))),
+    )
+
+
 def quiet_hours_group(current_start, current_end, errors=None, submitted=None, delay_sentence=None):
     """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md;
     restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1; its own on/off
@@ -2430,6 +2635,27 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     # level request, and the visible sibling below is the fix that
     # actually holds when a browser ignores it (a Chromium in en-US
     # renders "11:00 PM" either way).
+    # 25-04-PLAN.md Task 2 (CFG-48): the server-drawn ring, rendered
+    # between the caption and the presets. WHERE IT GOES, AND WHY IT IS
+    # NOT A REORDERING: 10-UI-SPEC.md locks the order of the four
+    # CONTROLS — presets, then Start, then End, each on its own
+    # full-width line — and all four keep their positions and their
+    # adjacency. The ring is not a control; it is a picture of what is
+    # currently set, so it reads before the things that change it
+    # (what this is now, then how to change it), and putting it after
+    # the End field would separate the picture from the caption that
+    # introduces it while pushing it below the fold at 360px.
+    #
+    # Drawn from the SAME effective values the two inputs are populated
+    # from, never from `current_start`/`current_end` directly. That is
+    # D-07's echo rule, which the inputs already follow: on a rejected
+    # save the arc must show what the visitor actually submitted, not
+    # what is stored, or the picture and the fields disagree on exactly
+    # the screen where a mistake is being fixed.
+    dial_span = quiet_window_span(effective_start, effective_end)
+    dial_html = quiet_dial_html(dial_span)
+    readout_html = quiet_dial_readout_html(effective_start, effective_end, dial_span)
+
     site_lang = prefs.current_lang()
     effective_delay_sentence = (
         delay_sentence if delay_sentence is not None else i18n.t(frame_state.DELAY_UNKNOWN))
@@ -2438,6 +2664,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
+        "%s%s"
         "%s"
         '<label>%s <input type="time" name="quiet_hours_start" value="%s" required'
         ' lang="%s" form="%s"%s>%s</label>'
@@ -2451,6 +2678,7 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
         escape_html(i18n.t(QUIET_HOURS_SECTION_HEADING)),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
         escape_html(caption_html),
+        dial_html, readout_html,
         preset_row_html,
         escape_html(i18n.t("Start")),
         escape_html(effective_start), escape_html(site_lang), SETTINGS_FORM_ID, start_error_attrs,

@@ -776,6 +776,31 @@ EXPECTED_CHECK_COUNT = 245
 # rather than raising (T-25-04-C) or fabricating a zero.
 # 245 + 1 = 246, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 246
+# 25-04-PLAN.md Task 2 (CFG-48/CFG-52): +3 — the server-drawn ring, above
+# the unchanged inputs. One check recomputes the arc from the ATTRIBUTES
+# THE SERVER EMITTED (a third of the emitted circle for 23:00→07:00 and
+# two thirds for its complement, a dash pattern that adds up to that
+# circle's own circumference, and a rotation of a quarter turn plus the
+# window's own start about its own centre — because an eight-hour arc
+# drawn from the wrong hour is the same length and a different window),
+# plus the readout against both the times and the duration at once, the
+# absence of any role="status"/aria-live region on the card (CFG-52), the
+# no-window floor (the day ring still draws, the arc and the words do
+# not) and T-25-04-B. One check holds the card's four controls as an
+# ADDITION: both time inputs keep every locked attribute and are never
+# disabled, B14's visible 24h sibling still renders beside each, the
+# three presets keep the data attributes dirty-state.js writes through,
+# the one caption keeps its computed delay sentence, the order is
+# caption → ring → presets → Start → End, and the arc echoes the
+# SUBMITTED window on a rejected save (D-07). One check holds the paint:
+# every emitted class resolves to a real boundary-anchored selector,
+# every shape has a class, an explicit fill="none" and a stroke width,
+# the canvas has viewBox/intrinsic size/aria-hidden/focusable, nothing is
+# coloured in Python, each rule paints from a theme token, no accent
+# appears anywhere, and no rule declares stroke-width in CSS where it
+# would beat the derived presentation attribute.
+# 246 + 3 = 249, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 249
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2605,6 +2630,424 @@ def main():
         "render-nothing signal rather than raising or fabricating a zero "
         "(CFG-48, 25-04-PLAN.md Task 1)",
         _the_quiet_window_wraps_midnight_the_short_way_round)
+
+    # ------------------------------------------------------------------
+    # 25-04-PLAN.md Task 2 (CFG-48): the server-drawn ring, above the
+    # unchanged inputs.
+    # ------------------------------------------------------------------
+
+    _DIAL_CIRCLE_RE = re.compile(r"<circle\b[^>]*/>")
+
+    def _dial_circle(markup, class_name):
+        """The one `<circle>` in `markup` carrying exactly `class_name`,
+        as a dict of its attributes, or None.
+
+        Matched on a whole `class="..."` ATTRIBUTE rather than a
+        substring, because this component's day-ring class is not a
+        prefix of its arc's but a substring test is how a check comes to
+        count two shapes as one anyway.
+        """
+        for tag in _DIAL_CIRCLE_RE.finditer(markup):
+            attrs = dict(re.findall(r'([a-zA-Z-]+)="([^"]*)"', tag.group(0)))
+            if attrs.get("class") == class_name:
+                return attrs
+        return None
+
+    def _the_ring_draws_the_saved_window_from_the_emitted_attributes():
+        """CFG-48 (25-04-PLAN.md Task 2): the arc's DRAWN length,
+        recomputed from the attributes the server emitted rather than
+        from the input that produced them.
+
+        Recomputing from the input would pass against an emitter that
+        ignored its own arithmetic entirely and drew a fixed arc.
+        """
+        import math
+        for start, end, expected_turns in (
+                ("23:00", "07:00", 1 / 3.0),
+                ("07:00", "23:00", 2 / 3.0),
+                ("00:00", "06:00", 0.25),
+                ("23:59", "00:00", 1 / 1440.0)):
+            markup = config_page.quiet_hours_group(start, end)
+            day = _dial_circle(markup, config_page.QUIET_DIAL_DAY_CLASS)
+            arc = _dial_circle(markup, config_page.QUIET_DIAL_ARC_CLASS)
+            if day is None:
+                return False, "%s→%s: the dial emits no full-day ring at all" % (start, end)
+            if arc is None:
+                return False, "%s→%s: the dial emits no quiet arc" % (start, end)
+            if day["r"] != arc["r"] or day["cx"] != arc["cx"] or day["cy"] != arc["cy"]:
+                return False, (
+                    "%s→%s: the arc is not drawn on the day ring — day %r, arc %r"
+                    % (start, end, day, arc))
+            circumference = 2 * math.pi * float(arc["r"])
+            drawn = float(arc["stroke-dasharray"].split()[0])
+            gap = float(arc["stroke-dasharray"].split()[1])
+            if abs(drawn + gap - circumference) > 0.01:
+                return False, (
+                    "%s→%s: the dash pattern %r does not add up to the circumference %.4f of the "
+                    "r=%s circle it is painted on" % (start, end, arc["stroke-dasharray"],
+                                                      circumference, arc["r"]))
+            if abs(drawn / circumference - expected_turns) > 1e-4:
+                return False, (
+                    "%s→%s draws %.4f of the ring, not the %.4f its %d-minute span asks for — "
+                    "recomputed from the emitted r=%s and stroke-dasharray=%r"
+                    % (start, end, drawn / circumference, expected_turns,
+                       config_page.quiet_window_span(start, end).minutes,
+                       arc["r"], arc["stroke-dasharray"]))
+            # WHERE THE ARC STARTS, WHICH A LENGTH CHECK IS BLIND TO. An
+            # eight-hour arc drawn from 07:00 instead of 23:00 is the
+            # same length and a different window.
+            span = config_page.quiet_window_span(start, end)
+            rotation = re.match(
+                r"rotate\((-?[\d.]+) (\d+) (\d+)\)", arc["transform"])
+            if not rotation:
+                return False, "%s→%s: unreadable arc transform %r" % (start, end, arc["transform"])
+            if abs(float(rotation.group(1)) - (-90.0 + 360.0 * span.start_fraction)) > 1e-3:
+                return False, (
+                    "%s→%s: the arc is rotated %s°, but a window starting at %.6f of the way "
+                    "round from twelve o'clock needs %.4f° (a quarter turn back from <circle>'s "
+                    "own three-o'clock dash origin, plus the window's own start)"
+                    % (start, end, rotation.group(1), span.start_fraction,
+                       -90.0 + 360.0 * span.start_fraction))
+            if (rotation.group(2), rotation.group(3)) != (arc["cx"], arc["cy"]):
+                return False, (
+                    "%s→%s: the arc rotates about %r, not its own centre %r"
+                    % (start, end, rotation.group(2, 3), (arc["cx"], arc["cy"])))
+
+        # THE READOUT SAYS WHAT THE ARC DRAWS, asserted against BOTH at
+        # once: the two times it names and the duration the span implies.
+        markup = config_page.quiet_hours_group("23:00", "07:00")
+        readout = re.search(
+            r'<p class="time-value %s"([^>]*)>([^<]*)</p>'
+            % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), markup)
+        if not readout:
+            return False, "the card renders no dial readout"
+        span = config_page.quiet_window_span("23:00", "07:00")
+        expected_text = "23:00 → 07:00 · %s" % layout.duration_text(span.minutes * 60)
+        if readout.group(2) != expected_text:
+            return False, (
+                "the readout says %r; the span it is drawn from is %d minutes, which this app's "
+                "one duration ladder names %r"
+                % (readout.group(2), span.minutes, expected_text))
+        if 'aria-hidden="true"' not in readout.group(1):
+            return False, (
+                "the readout is not aria-hidden — both time inputs already announce their own "
+                "values natively and this would say the same thing twice (%r)" % readout.group(1))
+
+        # CFG-52: NOTHING ON THIS CARD IS A LIVE REGION. Dragging fires
+        # continuously and a role="status" here would re-announce the
+        # identical phrase on every step — the defect Phase 23 hit with
+        # its three switches, and the one this plan exists to avoid.
+        for banned in ('role="status"', "aria-live", 'role="alert"', 'role="log"'):
+            if banned in markup:
+                return False, (
+                    "the Quiet hours card carries %r — the focused handle's own aria-valuetext "
+                    "is the native, debounced announcement path and a live region beside it "
+                    "re-announces the same phrase on every drag step (CFG-52)" % banned)
+
+        # THE FLOOR: NO WINDOW MEANS NO ARC AND NO WORDS, never a full
+        # ring and never a zero-length dash (which renders as a dot under
+        # a round cap and would read as "a few minutes").
+        for start, end, why in (
+                ("", "", "nothing stored"),
+                ("23:00", "", "half stored"),
+                ("99:99", "07:00", "an unparseable start")):
+            markup = config_page.quiet_hours_group(start, end)
+            if _dial_circle(markup, config_page.QUIET_DIAL_DAY_CLASS) is None:
+                return False, "%s: the full-day ring must still draw" % why
+            if _dial_circle(markup, config_page.QUIET_DIAL_ARC_CLASS) is not None:
+                return False, (
+                    "%s (%r→%r): an arc was emitted anyway — a drawn window claims one is "
+                    "configured" % (why, start, end))
+            if config_page.QUIET_DIAL_READOUT_CLASS in markup:
+                return False, "%s (%r→%r): a readout was emitted anyway" % (why, start, end)
+        zero = config_page.quiet_hours_group("23:00", "23:00")
+        if _dial_circle(zero, config_page.QUIET_DIAL_ARC_CLASS) is not None:
+            return False, (
+                "a zero-length window emitted an arc — a zero-length dash is a DOT under a round "
+                "cap, so 'no window' would read as a few minutes")
+        if config_page.QUIET_DIAL_READOUT_CLASS not in zero:
+            return False, (
+                "a zero-length window is a real, stored state (server.device_config calls it "
+                "never-active) and its readout must still say so")
+
+        # T-25-04-B: a hostile stored value reaching the arc or readout.
+        hostile = config_page.quiet_hours_group(
+            "23:00", "07:00",
+            submitted={"quiet_hours_start": '"><script>alert(1)</script>',
+                       "quiet_hours_end": "07:00"})
+        if "<script>" in hostile:
+            return False, "an unescaped <script> reached the Quiet hours card"
+        if _dial_circle(hostile, config_page.QUIET_DIAL_ARC_CLASS) is not None:
+            return False, "a value that is not a time drew an arc"
+        return True, ""
+    check(
+        "the quiet dial's arc is recomputed from the attributes the SERVER emitted — 23:00→07:00 "
+        "draws a third of the emitted circle and 07:00→23:00 its two thirds, the dash pattern "
+        "adds up to that circle's own circumference, and the arc is rotated by a quarter turn "
+        "plus the window's own start about its own centre (an eight-hour arc drawn from the "
+        "wrong hour is the same length and a different window); the readout names both times and "
+        "the duration the same span implies and is aria-hidden; nothing on the card is a "
+        "role=\"status\"/aria-live region (CFG-52); nothing stored draws no arc and no words "
+        "while the full-day ring still draws; and a hostile submitted value reaches neither "
+        "(T-25-04-B) (CFG-48, 25-04-PLAN.md Task 2)",
+        _the_ring_draws_the_saved_window_from_the_emitted_attributes)
+
+    def _the_ring_is_an_addition_and_the_four_controls_are_untouched():
+        """CFG-48 (25-04-PLAN.md Task 2): B14 has been broken once
+        already, and the two time inputs are the only controls on this
+        card a visitor can TYPE into.
+
+        The byte-identical diff against the pre-task builder was taken
+        once, by hand, across five argument shapes (recorded in the
+        SUMMARY). What lives here is the durable half: the properties
+        that diff proved, asserted in a form that keeps holding.
+        """
+        for start, end, submitted in (
+                ("23:00", "07:00", None),
+                ("08:00", "18:00", None),
+                ("", "", None),
+                ("23:00", "07:00", {"quiet_hours_start": "07:30",
+                                    "quiet_hours_end": "zz"})):
+            markup = config_page.quiet_hours_group(
+                start, end, submitted=submitted,
+                errors={"quiet_hours_end": "Bad"} if submitted else None)
+            effective_start = config_page._submitted_or_current(
+                submitted, "quiet_hours_start", start)
+            effective_end = config_page._submitted_or_current(
+                submitted, "quiet_hours_end", end)
+
+            # BOTH NATIVE TIME INPUTS, with every attribute the card's
+            # own docstring locks — and NEVER `disabled`, which
+            # 10-RESEARCH.md's Open Question 2 settled in the affirmative
+            # (a window may be pre-configured whether or not quiet hours
+            # is currently on).
+            for field, effective in (("quiet_hours_start", effective_start),
+                                     ("quiet_hours_end", effective_end)):
+                tag = re.search(r'<input type="time" name="%s"[^>]*>' % field, markup)
+                if not tag:
+                    return False, (
+                        "%r→%r: no <input type=\"time\" name=%r> — the dial is an ADDITION and "
+                        "the native input is what the form posts" % (start, end, field))
+                element = tag.group(0)
+                for needed in ('value="%s"' % escape_html(effective), " required",
+                               'lang="%s"' % prefs.current_lang(),
+                               'form="%s"' % config_page.SETTINGS_FORM_ID):
+                    if needed not in element:
+                        return False, (
+                            "%r→%r: %s lost %r — %s" % (start, end, field, needed, element))
+                if "disabled" in element:
+                    return False, (
+                        "%r→%r: %s is disabled; neither time input may ever be, whatever the "
+                        "on/off state is — %s" % (start, end, field, element))
+
+            # B14's VISIBLE 24h SIBLING, present verbatim beside each
+            # input. A browser in en-US renders the stored "23:00" as
+            # "11:00 PM" directly beside a preset labelled
+            # "Night (23:00-07:00)"; this element is the fix, and a dial
+            # that removed it would reopen a closed defect.
+            for field, effective in (("quiet_hours_start", effective_start),
+                                     ("quiet_hours_end", effective_end)):
+                sibling = config_page._normalised_time_html(effective)
+                if sibling and sibling not in markup:
+                    return False, (
+                        "%r→%r: B14's visible 24h sibling for %s (%r) is gone from the card"
+                        % (start, end, field, sibling))
+                if sibling and markup.count(sibling) < 1:
+                    return False, "%r→%r: %s's 24h sibling is not rendered" % (start, end, field)
+
+            # THE THREE PRESETS, and the data attributes dirty-state.js
+            # writes into the two fields from. The dial reads FROM those
+            # same fields, which is what makes a preset move the handles
+            # with no code at all.
+            presets = re.findall(r'<button type="button" %s[^>]*>'
+                                 % re.escape(config_page.QUIET_HOURS_PRESET_ATTR), markup)
+            if len(presets) != 3:
+                return False, (
+                    "%r→%r: expected the three presets, got %d" % (start, end, len(presets)))
+            for needed in ('data-preset-start="%s"' % config_page.QUIET_HOURS_PRESET_NIGHT_START,
+                           'data-preset-end="%s"' % config_page.QUIET_HOURS_PRESET_NIGHT_END,
+                           'data-preset-start="%s"' % config_page.QUIET_HOURS_PRESET_WORKDAY_START,
+                           'data-preset-end="%s"' % config_page.QUIET_HOURS_PRESET_WORKDAY_END,
+                           'data-preset-enabled="0"'):
+                if needed not in markup:
+                    return False, "%r→%r: the preset row lost %r" % (start, end, needed)
+
+            # THE CAPTION, INCLUDING ITS ONE COMPUTED DELAY SENTENCE, and
+            # exactly one caption element — the one-caption-per-section
+            # rule, which a drawing is the obvious way to break.
+            caption = re.search(
+                r'<p class="text-label section-caption" id="%s">([^<]*)</p>'
+                % re.escape(config_page.QUIET_HOURS_SECTION_CAPTION_ID), markup)
+            if not caption:
+                return False, "%r→%r: the section caption is gone" % (start, end)
+            if markup.count('class="text-label section-caption"') != 1:
+                return False, (
+                    "%r→%r: the card renders %d section captions; one section, one caption"
+                    % (start, end, markup.count('class="text-label section-caption"')))
+            if not caption.group(1).startswith(
+                    escape_html(config_page.QUIET_HOURS_SECTION_CAPTION)):
+                return False, "%r→%r: the caption's first sentence changed" % (start, end)
+            if len(caption.group(1)) <= len(escape_html(config_page.QUIET_HOURS_SECTION_CAPTION)):
+                return False, (
+                    "%r→%r: the caption lost its computed delay sentence — the SAME triple the "
+                    "Frame strip reads, never a second one computed here" % (start, end))
+
+            # THE LOCKED ORDER, AND WHERE THE RING JOINS IT. The four
+            # controls keep their positions and their adjacency; the ring
+            # is an addition between the caption and the presets, so the
+            # picture reads before the things that change it.
+            positions = [
+                ("caption", markup.index('class="text-label section-caption"')),
+                ("dial", markup.index('class="%s"' % config_page.QUIET_DIAL_CLASS)),
+                ("presets", markup.index('class="runway-row"')),
+                ("start", markup.index('name="quiet_hours_start"')),
+                ("end", markup.index('name="quiet_hours_end"')),
+            ]
+            if [name for name, _ in sorted(positions, key=lambda pair: pair[1])] != [
+                    "caption", "dial", "presets", "start", "end"]:
+                return False, (
+                    "%r→%r: the card's order is %r — 10-UI-SPEC.md locks presets, then Start, "
+                    "then End, and the ring is an addition between the caption and the presets, "
+                    "never a reordering"
+                    % (start, end, sorted(positions, key=lambda pair: pair[1])))
+
+            # NOT SIDE BY SIDE. 10-UI-SPEC.md rejects that explicitly, to
+            # keep two native time pickers from wrapping at 360px.
+            if "theme-status__row" in markup:
+                return False, "%r→%r: the two time fields were put side by side" % (start, end)
+
+        # THE D-07 ECHO, WHICH IS WHY THE ARC READS THE EFFECTIVE VALUES.
+        # On a rejected save the picture must show what the visitor
+        # submitted, not what is stored, or the two disagree on exactly
+        # the screen where a mistake is being fixed.
+        echoed = config_page.quiet_hours_group(
+            "23:00", "07:00", errors={"quiet_hours_end": "Bad"},
+            submitted={"quiet_hours_start": "09:00", "quiet_hours_end": "17:00"})
+        submitted_span = config_page.quiet_window_span("09:00", "17:00")
+        arc = _dial_circle(echoed, config_page.QUIET_DIAL_ARC_CLASS)
+        if arc is None:
+            return False, "the rejected-save render drew no arc at all"
+        drawn = float(arc["stroke-dasharray"].split()[0])
+        import math
+        if abs(drawn / (2 * math.pi * float(arc["r"])) - submitted_span.sweep_fraction) > 1e-4:
+            return False, (
+                "the rejected-save render drew %.4f of the ring; the SUBMITTED 09:00→17:00 "
+                "window is %.4f, and the stored 23:00→07:00 one is %.4f — the arc must echo the "
+                "submission, the same D-07 rule the two inputs already follow"
+                % (drawn / (2 * math.pi * float(arc["r"])), submitted_span.sweep_fraction,
+                   config_page.quiet_window_span("23:00", "07:00").sweep_fraction))
+        if "09:00 → 17:00" not in echoed:
+            return False, "the rejected-save readout does not echo the submitted window"
+        return True, ""
+    check(
+        "the ring is an ADDITION: both native <input type=\"time\"> fields keep their value/"
+        "required/lang/form attributes and are never disabled, B14's visible 24h sibling still "
+        "renders beside each, the three presets keep the data attributes dirty-state.js writes "
+        "through, the one section caption keeps its computed delay sentence, the card's order is "
+        "caption → ring → presets → Start → End with the four controls' own order and adjacency "
+        "untouched and no side-by-side row, and the arc echoes the SUBMITTED window on a "
+        "rejected save rather than the stored one (B14/D-07/CFG-48, 25-04-PLAN.md Task 2)",
+        _the_ring_is_an_addition_and_the_four_controls_are_untouched)
+
+    def _the_dials_paint_resolves_and_decides_nothing_in_python():
+        """CFG-48/CFG-52 (25-04-PLAN.md Task 2): the dial's paint,
+        asserted as one thing because the parts fail together.
+
+        A class that exists in Python and nowhere in the stylesheet
+        paints nothing at all, and nothing else in this codebase would
+        notice.
+        """
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            source = fh.read()
+        markup = config_page.quiet_hours_group("23:00", "07:00")
+        dial = markup[markup.index('<div class="%s"' % config_page.QUIET_DIAL_CLASS):]
+        dial = dial[:dial.index("</div>") + len("</div>")]
+
+        # NO COLOUR DECIDED IN PYTHON. A literal here is correct in one
+        # theme and invisible in the other, and invisible to the contrast
+        # harness too.
+        colours = re.findall(r"#[0-9a-fA-F]{3,8}|rgba?\(", dial + " " + markup[
+            markup.index(config_page.QUIET_DIAL_READOUT_CLASS):][:400])
+        if colours:
+            return False, "the dial's emitted markup carries colour literals %r" % (colours,)
+
+        # EVERY CLASS THE EMITTED MARKUP CARRIES RESOLVES TO A REAL
+        # SELECTOR, scanned off the markup rather than off a list of
+        # constants — the failure being defended against is a class that
+        # exists in Python and nowhere in the stylesheet, which a list
+        # written by the same hand would share. Boundary-anchored, so one
+        # class is never reported as resolved by a longer one's rule.
+        emitted = set()
+        for attr in re.findall(r'class="([^"]*)"', dial):
+            emitted.update(attr.split())
+        emitted.add(config_page.QUIET_DIAL_READOUT_CLASS)
+        for class_name in sorted(emitted):
+            if not re.search(r"\.%s(?![-\w])" % re.escape(class_name), source):
+                return False, (
+                    "the dial emits the class %r, which has no selector in style.css — it paints "
+                    "nothing at all and nothing else in this codebase would notice" % class_name)
+
+        # EVERY SHAPE HAS A PAINT ROUTE, and the canvas has a size route.
+        for tag in re.finditer(r"<circle\b[^>]*>", dial):
+            element = tag.group(0)
+            if 'class="' not in element:
+                return False, (
+                    "an unclassed shape: %r — with neither a class nor a fill it takes the SVG "
+                    "default black, correct in one theme and invisible in the other" % element)
+            if 'fill="none"' not in element:
+                return False, (
+                    "a stroked shape with no explicit fill: %r — the SVG default is a filled "
+                    "black disc across the middle of the card" % element)
+            if "stroke-width=" not in element:
+                return False, "a stroked shape with no stroke width: %r" % element
+        svg = re.search(r"<svg\b[^>]*>", dial).group(0)
+        for needed in ('viewBox="0 0 %d %d"' % (config_page.QUIET_DIAL_SIZE,
+                                                config_page.QUIET_DIAL_SIZE),
+                       'width="%d"' % config_page.QUIET_DIAL_SIZE,
+                       'height="%d"' % config_page.QUIET_DIAL_SIZE,
+                       'aria-hidden="true"', 'focusable="false"'):
+            if needed not in svg:
+                return False, (
+                    "the dial's canvas is missing %r — an <svg> with neither an intrinsic "
+                    "attribute nor a CSS rule renders at the format's own 300x150 default: %r"
+                    % (needed, svg))
+
+        # THE PAINT ITSELF: a theme token, never a literal, so both
+        # themes are correct from one rule. Accent is reserved (this
+        # file's header comment keeps an exhaustive list) and a dial is
+        # not on it, so the ring says what it says in INK.
+        for selector, token in ((".quiet-dial__day", "--color-border"),
+                                (".quiet-dial__arc", "--color-text"),
+                                (".quiet-dial__hour", "--color-text")):
+            rule = re.search(r"\%s\s*\{([^}]*)\}" % selector, source)
+            if not rule:
+                return False, "no %s rule in style.css" % selector
+            if token not in rule.group(1):
+                return False, (
+                    "%s paints from %r rather than %s — a paint that does not come from a theme "
+                    "token is correct in one theme only" % (selector, rule.group(1), token))
+            if "--color-accent" in rule.group(1):
+                return False, (
+                    "%s paints accent; the header comment's accent-reservation list is "
+                    "exhaustive and a dial is not on it" % selector)
+            # The presentation attributes must stay presentation
+            # attributes: a CSS stroke-width of any specificity beats
+            # one, which would flatten the geometry the constants derive.
+            if "stroke-width" in rule.group(1):
+                return False, (
+                    "%s declares stroke-width in CSS, which beats the presentation attribute the "
+                    "emitter derives from its own size constants" % selector)
+        return True, ""
+    check(
+        "the quiet dial's paint resolves — every class the EMITTED markup carries has a real "
+        "selector (scanned off the markup, boundary-anchored), every shape carries a class, an "
+        "explicit fill=\"none\" and a stroke width, the canvas declares its viewBox, its "
+        "intrinsic size, aria-hidden and focusable, no colour is decided in Python, the day "
+        "ring/arc/hour labels each paint from a theme token so both themes are correct from one "
+        "rule, no accent appears anywhere in the component, and no rule declares stroke-width in "
+        "CSS where it would beat the derived presentation attribute (CFG-48/CFG-52, "
+        "25-04-PLAN.md Task 2)",
+        _the_dials_paint_resolves_and_decides_nothing_in_python)
 
     # ------------------------------------------------------------------
     # 06.6.4.1 Task 1 (D-01, D-02, D-05 form half, D-26): the new
