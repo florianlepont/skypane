@@ -7886,11 +7886,20 @@ a.airline-card {
  * theme token or a color-mix() over one, and each WR-02 fallback falls
  * back to the token at full strength rather than to a hard-coded rgba(),
  * which can only ever raise contrast, never lower it. */
+/* NO `width: 100%` HERE, AND ITS ABSENCE IS A MEASUREMENT RATHER THAN
+ * an oversight. This wrapper is a block-level <section> inside the
+ * upload form, so it already fills that form's content box; removing
+ * the declaration moved the rendered width by 0.00px at 1280 and left
+ * it exactly equal to the form's inner width, while a
+ * comment-only null mutation moved the same measurement by 0.01px. A
+ * declaration that cannot be told from the null control is dead code,
+ * which is what `references/accessibility-contrast.md` already says
+ * about per-rule reduced-motion blocks. The preview box below DOES
+ * declare one, and there the same mutation moved the rendering. */
 .upload-drop {
   --js-gate-display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  width: 100%;
   padding: var(--space-sm);
   border-radius: var(--radius-control);
 }

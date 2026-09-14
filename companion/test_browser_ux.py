@@ -74,11 +74,14 @@ Usage:
     server/.venv/bin/python3 companion/test_browser_ux.py
 """
 import contextlib
+import io
 import json
 import itertools
 import os
 import re
+import shutil
 import sys
+import tempfile
 from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -96,9 +99,10 @@ from companion.contrast_check import (  # noqa: E402
     perceptual_distance,
 )
 from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
-from companion.pages import config_page, health_page  # noqa: E402
+from companion.pages import airlines_page, config_page, health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
-from server.plane import colour_rules, manual_resolutions  # noqa: E402
+from companion import illustration_normalize  # noqa: E402
+from server.plane import colour_rules, illustrations, manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
 EXPECTED_CHECK_COUNT = 6  # 22-01-PLAN.md Task 1: one check (the Flights
@@ -777,6 +781,44 @@ EXPECTED_CHECK_COUNT = 75
 # 75 + 3 = 78, re-derived by RUNNING the harness (78/78, 0 SKIPs), never
 # by arithmetic.
 EXPECTED_CHECK_COUNT = 78
+# 25-07-PLAN.md Task 3 (CFG-51/D19): +3 — D19's artwork drop zone, on
+# its OWN isolated Harness() seeded with a Step-B manual entry (name
+# saved, no artwork yet), which is the one state where BOTH copies of
+# the upload form render at once. Every one of the three restores that
+# fixture as its last act.
+#
+# One is the no-JS floor, and it is the only one in this phase whose
+# scriptless proof is an UPLOAD rather than a field save:
+# `_persist_without_js()` operates by assigning to `.value`, which the
+# browser forbids on `<input type="file">`, so this task adds the stated
+# variant `_upload_without_js()` beside it — same `_no_js_page()`, same
+# read-the-verdict-off-disk discipline, plus the clause the field case
+# has no counterpart for (the illustration route SERVES the artwork back
+# afterwards, as an image at illustration_normalize's own frame size).
+# It also asserts the gate in both directions on the fallback panel's
+# own zone.
+#
+# One is the equivalence that proves the whole design: the same source
+# file stored BYTE-IDENTICALLY whether picked or dropped, with the
+# stored file deleted between the two uploads so a drop that never
+# reached the server could not pass on the picked file left behind. The
+# drop is dispatched through Chromium's DevTools protocol rather than
+# synthesised in the page, because panel-lookup.js refuses an untrusted
+# drop — so the same check measures BOTH the real gesture and the
+# refusal of the fake one. Its floor clauses are measured against the
+# INPUT, never against a message: zero files, a wrong type, several at
+# once and an oversized file each assign nothing and each say something
+# DIFFERENT, with the oversized fixture proved over the app's own cap
+# before it is used.
+#
+# One is the 360px/both-themes floor: the hit target measured in this
+# control's own container, no sideways page scroll, the preview box's
+# reserved ASPECT RATIO (by getBoundingClientRect, never clientWidth)
+# read out of illustration_normalize.py, and the paint as a floor rather
+# than a ceiling in both themes.
+# 78 + 3 = 81, re-derived by RUNNING the harness (81/81, 0 SKIPs), never
+# by arithmetic.
+EXPECTED_CHECK_COUNT = 81
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -1625,6 +1667,97 @@ def _persist_without_js(browser, base_url, route, field, value, read_back,
     return result
 
 
+def _upload_without_js(browser, base_url, route, input_selector, submit_selector,
+                       source_path, read_back, serve_path, viewport=None,
+                       cookies=None):
+    """`_persist_without_js()`'s FILE-INPUT VARIANT, added by 25-07 and
+    stated as a variant rather than smuggled in as a second sequence.
+
+    WHY A VARIANT AT ALL, since the whole point of 25-02's helper is that
+    five control plans measure saving the same way. `_persist_without_js()`
+    operates its control by ASSIGNING TO `.value` through `_OPERATE_PROBE`,
+    and `<input type="file">` is the one native control in this app whose
+    `.value` a script may not write — that restriction is the browser's,
+    not this app's, and no amount of parameterising gets around it. The
+    file is put in through the browser's own file-chooser plumbing
+    (`page.set_input_files()`, which is CDP's `DOM.setFileInputFiles` and
+    works perfectly well with scripts blocked) and the form is submitted
+    by clicking its real submit button.
+
+    EVERYTHING ELSE IS 25-02'S DISCIPLINE, DELIBERATELY UNCHANGED:
+
+      * It runs entirely inside `_no_js_page()` and opens no context of
+        its own, so this file's one scripts-blocked call site stays one.
+      * THE VERDICT IS READ BACK FROM DISK, never from the page. A POST
+        the server rejected on validation redirects straight back to a
+        page that looks exactly like success — this app even has a named
+        flash key for it (`illustration_rejected`) — so "the browser
+        navigated" proves nothing at all.
+      * It additionally fetches `serve_path` BY NAVIGATING TO IT and
+        reading the navigation response's own body, and returns those
+        bytes too. For an upload that is the clause that matters and it
+        has no counterpart in the field case: an illustration that is
+        stored but not SERVED is a setting nobody can see, and D19's
+        whole promise is a picture on a card.
+
+        BY NAVIGATION, AND NOT THROUGH `page.request`, WHICH WAS
+        MEASURED WRONG HERE. `page.request` is documented as sharing the
+        browser context's cookie jar; on this tree's Playwright it does
+        not send `sp_session`, so an authenticated fetch through it
+        follows the redirect to /login and comes back **200 with a
+        1493-byte HTML page**. A check asserting "200" on that would
+        have passed against the login screen. A navigation carries the
+        session cookie and reports the route's real status, so that is
+        what this helper uses.
+
+    Returns {"before_len", "landed", "stored", "stored_len",
+    "served_status", "served", "served_len", "gate"}. RAISES
+    AssertionError on every failure, `_persist_without_js()`'s shape and
+    for its reason.
+
+    `read_back` is a zero-argument callable returning the stored BYTES,
+    or None when nothing is stored — a caller-supplied reader going to
+    the real state directory, exactly as in the field case.
+    """
+    before = read_back()
+    with _no_js_page(browser, base_url, route, viewport=viewport,
+                     cookies=cookies) as page:
+        found = page.locator(input_selector).count()
+        if found != 1:
+            raise AssertionError(
+                "_upload_without_js: %r matches %d element(s) on %s with scripts blocked — the "
+                "file input must be rendered UNCONDITIONALLY, and with none this helper measures "
+                "nothing" % (input_selector, found, route))
+        page.set_input_files(input_selector, source_path)
+        with page.expect_navigation():
+            page.click(submit_selector)
+        landed = page.url
+        served = page.goto(base_url + serve_path)
+        result = {
+            "before_len": None if before is None else len(before),
+            "landed": landed,
+            "served_status": served.status,
+            "served": served.body(),
+        }
+    result["served_len"] = len(result["served"])
+    stored = read_back()
+    if stored is None:
+        raise AssertionError(
+            "_upload_without_js: nothing was stored after a scripts-blocked upload of %r through "
+            "%r on %s — the browser navigated to %r, which is exactly what a REJECTED upload "
+            "looks like from outside. A control that renders without scripts and stores nothing "
+            "is the D-09 defect this helper exists to catch"
+            % (source_path, input_selector, route, result["landed"]))
+    if result["served_status"] != 200:
+        raise AssertionError(
+            "_upload_without_js: %r stored %d bytes but %s answers %d — an illustration that is "
+            "saved and not served is a picture nobody can see"
+            % (source_path, len(stored), serve_path, result["served_status"]))
+    result["stored"] = stored
+    result["stored_len"] = len(stored)
+    return result
+
+
 def _persist_once(browser, base_url, route, field, value, read_back, viewport,
                   shows_back, cookies=None):
     """One operate-submit-reload-verify pass. Split out only so
@@ -2077,6 +2210,122 @@ def _hit_area(page, selector, max_expand=64):
             "visual": tuple(seen["visual"]), "hit": tuple(seen["hit"]),
             "reach": tuple(seen["reach"]), "clipped": seen["clipped"],
             "viewport": tuple(seen["viewport"])}
+
+
+# 25-07-PLAN.md Task 3 (CFG-51/D19): a REAL, TRUSTED file drop.
+#
+# WHY CDP AND NOT page.dispatch_event(). panel-lookup.js's drop handler
+# refuses an event whose `isTrusted` is false — 25-01's value-controls.js
+# closes the same exposure for its own control — and every drop a page
+# script can construct is untrusted by definition. The obvious harness
+# recipe (build a DataTransfer in the page, dispatch a synthetic "drop")
+# therefore measures the refusal and nothing else.
+#
+# Chromium's DevTools protocol dispatches drag events through the same
+# input pipeline a real pointer uses, with a `files` list the browser
+# turns into genuine File objects. Measured on this tree: the handler
+# sees `isTrusted: true` and `dataTransfer.files.length === 1`. So the
+# guard stays, AND the gesture is measured end to end — which is the
+# only combination that proves both.
+#
+# The drag-over state is sampled BETWEEN dragOver and drop, i.e. while
+# the browser is genuinely in the state, rather than at a guessed
+# instant after a sleep. An intermittently-red check is worse than none.
+def _drop_files(page, selector, paths):
+    """Dispatch a trusted file drop of `paths` onto `selector`'s centre.
+
+    Returns {"active_during_drag", "active_after_drop", "paint_during_drag",
+    "paint_at_rest"} — the attribute the stylesheet keys its drag state
+    on, sampled on both sides of the drop, plus the resolved paint in
+    each state so "the state is visible" is a measurement rather than a
+    class name.
+    """
+    box = page.locator(selector).bounding_box()
+    if not box or not box["height"]:
+        raise AssertionError(
+            "_drop_files: %r has no box on %s, so there is nowhere to drop — a drop target that "
+            "is not drawn is not a drop target" % (selector, page.url))
+    x = box["x"] + box["width"] / 2
+    y = box["y"] + box["height"] / 2
+    data = {"items": [], "files": list(paths), "dragOperationsMask": 1}
+    client = page.context.new_cdp_session(page)
+    seen = {"paint_at_rest": _drop_zone_paint(page, selector)}
+    for kind in ("dragEnter", "dragOver"):
+        client.send("Input.dispatchDragEvent",
+                    {"type": kind, "x": x, "y": y, "data": data})
+    seen["active_during_drag"] = page.locator(selector).get_attribute(
+        "data-upload-drop-active") is not None
+    seen["paint_during_drag"] = _drop_zone_paint(page, selector)
+    client.send("Input.dispatchDragEvent",
+                {"type": "drop", "x": x, "y": y, "data": data})
+    seen["active_after_drop"] = page.locator(selector).get_attribute(
+        "data-upload-drop-active") is not None
+    return seen
+
+
+def _drop_zone_paint(page, selector):
+    """The zone's own resolved background plus its preview frame's
+    resolved border, as the browser computed them — never the class."""
+    return page.evaluate(
+        "sel => { const z = document.querySelector(sel);"
+        "  const p = z.querySelector('.upload-drop__preview');"
+        "  const zs = getComputedStyle(z), ps = getComputedStyle(p);"
+        "  return {background: zs.backgroundColor,"
+        "          borderStyle: ps.borderTopStyle,"
+        "          borderColor: ps.borderTopColor}; }", selector)
+
+
+def _await_upload_zone(page, selector):
+    """Wait for a gated drop zone to become genuinely visible, and when
+    it does not, say WHY rather than reporting a rectangle.
+
+    A zone can be invisible for four unrelated reasons that a bare
+    `wait_for_selector` timeout cannot tell apart: the `.js` gate never
+    opened (nav-dropdown.js did not run), the shared dialog never opened
+    (no matching resolve trigger), panel-lookup.js hid the upload zone
+    because the card's mode is not `needs-artwork`, or the element is
+    genuinely absent. Each one has a different fix, so each one gets
+    named here.
+    """
+    try:
+        page.wait_for_selector(selector, state="visible", timeout=10000)
+        return
+    except Exception:
+        pass
+    seen = page.evaluate(
+        "sel => { const d = document.getElementById('panel-lookup-dialog');"
+        "  const z = document.querySelector(sel);"
+        "  const zone = z ? z.closest('.resolve-upload-zone') : null;"
+        "  return {htmlClass: document.documentElement.className,"
+        "          dialogOpen: d ? d.open : null,"
+        "          zoneHidden: zone ? zone.hidden : null,"
+        "          gateDisplay: z ? getComputedStyle(z).display : null,"
+        "          resolvePrefixes: [...document.querySelectorAll("
+        "            '[data-view-panel-resolve-prefix]')].map(e =>"
+        "              e.getAttribute('data-view-panel-resolve-prefix') + ':' +"
+        "              e.getAttribute('data-view-panel-mode'))"
+        "            .filter(s => !s.startsWith(':'))}; }", selector)
+    raise AssertionError(
+        "_await_upload_zone: %r never became visible on %s — %r"
+        % (selector, page.url, seen))
+
+
+def _upload_zone_state(page, selector):
+    """Everything about one drop zone a check ever wants to assert."""
+    return page.evaluate(
+        "sel => { const z = document.querySelector(sel);"
+        "  const i = document.getElementById(z.getAttribute('data-upload-drop-input'));"
+        "  const im = z.querySelector('.upload-drop__image');"
+        "  const pv = z.querySelector('.upload-drop__preview').getBoundingClientRect();"
+        "  return {files: i.files ? i.files.length : -1,"
+        "          name: i.files && i.files[0] ? i.files[0].name : null,"
+        "          size: i.files && i.files[0] ? i.files[0].size : null,"
+        "          message: z.querySelector('.upload-drop__message').textContent,"
+        "          imageHidden: im.hidden,"
+        "          imageScheme: (im.getAttribute('src') || '').split(':')[0],"
+        "          natural: [im.naturalWidth, im.naturalHeight],"
+        "          preview: [pv.width, pv.height],"
+        "          action: i.form.getAttribute('action')}; }", selector)
 
 
 def _assert_hit_target(page, selector, where, minimum=MIN_HIT_TARGET_PX):
@@ -12247,6 +12496,502 @@ def main():
                     "neither the summary nor the chevron is the canvas colour (CFG-50/CFG-52, "
                     "25-06-PLAN.md Task 4)",
                     _the_carousel_meets_its_floors_at_360px_in_both_themes)
+
+                # ==========================================================
+                # 25-07-PLAN.md Task 3 (CFG-51/D19): THE ARTWORK DROP ZONE.
+                #
+                # ITS OWN ISOLATED Harness(), for the reason 25-02's own
+                # helper docstring gives about T-25-02-A: these checks
+                # UPLOAD an illustration and add a manual resolution, and
+                # the shared fixture is the subject of forty other checks
+                # in this file. Every one of them below also deletes the
+                # override file it wrote, so the block leaves its own
+                # fixture as it found it too.
+                #
+                # THE SUBJECT IS A MANUAL ENTRY WITH NO ARTWORK YET —
+                # Step B — because that is the one state where BOTH copies
+                # of the upload form render at once: the in-page no-JS
+                # fallback panel (a real action, the scriptless floor) and
+                # the dialog's copy (the placeholder action panel-lookup.js
+                # rewrites). The two are the same builder's output.
+                # ==========================================================
+                artwork_harness = Harness()
+                seed_state_dir(artwork_harness.tmpdir)
+                ARTWORK_PREFIX = "NEW"
+                ARTWORK_NAME = "Totally Novel Airline"
+                if manual_resolutions.add_entry(
+                        artwork_harness.tmpdir, ARTWORK_PREFIX,
+                        ARTWORK_NAME) != manual_resolutions.ADD_OK:
+                    raise AssertionError("could not seed the Step-B manual entry")
+                ARTWORK_KEY = manual_resolutions.illustration_key_for_name(ARTWORK_NAME)
+                ARTWORK_ROUTE = "/airlines?resolve=" + ARTWORK_PREFIX
+                ARTWORK_SERVE = "/illustration/%s.png" % ARTWORK_KEY
+                FALLBACK_ZONE = "[data-resolve-fallback] [data-upload-drop]"
+                DIALOG_ZONE = "#panel-lookup-dialog [data-upload-drop]"
+
+                art_dir = tempfile.mkdtemp(prefix="skypane-browser-ux-artwork-")
+                artwork_harness.start()
+                try:
+                    from PIL import Image as _ArtImage
+
+                    # A real, plausible illustration: a landscape PNG with
+                    # transparent padding, the shape every vendored file
+                    # has and the shape illustration_normalize.py crops.
+                    art_path = os.path.join(art_dir, "artwork.png")
+                    art = _ArtImage.new("RGBA", (1200, 300), (0, 0, 0, 0))
+                    for ax in range(200, 1000):
+                        for ay in range(80, 220):
+                            art.putpixel((ax, ay), (200, 40, 40, 255))
+                    art.save(art_path)
+
+                    # Not an image at all, and over the server's own cap.
+                    # The oversized one is INCOMPRESSIBLE NOISE on purpose:
+                    # a large flat PNG compresses to nothing and would sail
+                    # under a cap this check exists to reach.
+                    not_png_path = os.path.join(art_dir, "not-an-image.txt")
+                    with open(not_png_path, "wb") as fh:
+                        fh.write(b"this is not a png\n")
+                    oversized_path = os.path.join(art_dir, "oversized.png")
+                    _ArtImage.frombytes(
+                        "RGBA", (1200, 1200), os.urandom(1200 * 1200 * 4)
+                    ).save(oversized_path)
+                    OVERSIZED_BYTES = os.path.getsize(oversized_path)
+                    ART_BYTES = os.path.getsize(art_path)
+
+                    def _override_path():
+                        return illustrations.override_path_for_key(
+                            ARTWORK_KEY, artwork_harness.tmpdir)
+
+                    def _stored_artwork():
+                        """The stored override's BYTES, or None. The
+                        verdict for every upload below, read off the real
+                        state directory rather than off the page — a POST
+                        this app rejected redirects to a page that looks
+                        exactly like success."""
+                        path = _override_path()
+                        if not path or not os.path.isfile(path):
+                            return None
+                        with open(path, "rb") as fh:
+                            return fh.read()
+
+                    def _clear_stored_artwork():
+                        path = _override_path()
+                        if path and os.path.isfile(path):
+                            os.unlink(path)
+
+                    def _artwork_uploads_and_is_served_with_scripts_blocked():
+                        try:
+                            # BOTH DIRECTIONS OF THE GATE FIRST, because
+                            # a successful upload moves this entry out of
+                            # Step B and the fallback panel stops
+                            # rendering the zone at all.
+                            #
+                            # `prepare` un-hides the in-page fallback on
+                            # BOTH pages, and that is not a poke to make a
+                            # check pass: a ?resolve= deep link auto-opens
+                            # the dialog and panel-lookup.js hides the
+                            # in-page copy as a duplicate sitting behind
+                            # the backdrop (Phase 18 audit). Without this
+                            # the two directions would measure two
+                            # different elements. It is applied identically
+                            # to both pages, which is the helper's own
+                            # stated requirement.
+                            def unhide_fallback(page):
+                                page.evaluate(
+                                    "() => { const f = document.querySelector("
+                                    "'[data-resolve-fallback]'); if (f) f.hidden = false; }")
+                            gate = _assert_js_gate(
+                                browser, artwork_harness.base_url(), ARTWORK_ROUTE,
+                                FALLBACK_ZONE, viewport=VIEWPORT_MIN_SUPPORTED,
+                                prepare=unhide_fallback)
+                            if gate["blocked"]["candidates"] != 0:
+                                return False, (
+                                    "the drop zone holds %d focusable descendant(s) — it is a "
+                                    "hint, a preview and a message, and nothing in it should be "
+                                    "reachable at all" % gate["blocked"]["candidates"])
+
+                            before = _stored_artwork()
+                            if before is not None:
+                                return False, (
+                                    "the fixture already has stored artwork for %r, so an upload "
+                                    "could not be told from the state before it" % ARTWORK_KEY)
+                            seen = _upload_without_js(
+                                browser, artwork_harness.base_url(), ARTWORK_ROUTE,
+                                "#%s" % airlines_page.MANUAL_UPLOAD_INPUT_ID,
+                                "#%s button[type=\"submit\"]" % airlines_page.MANUAL_UPLOAD_FORM_ID,
+                                art_path, _stored_artwork, ARTWORK_SERVE,
+                                viewport=VIEWPORT_MIN_SUPPORTED)
+                            # "Stored and served" is two claims. The
+                            # second one is what a visitor sees, so it is
+                            # measured as an IMAGE rather than as 200 plus
+                            # a byte count: the route normalises on the
+                            # way out, and the size it normalises to is
+                            # illustration_normalize.py's own frame.
+                            served = _ArtImage.open(io.BytesIO(seen["served"]))
+                            if served.size != illustration_normalize.ILLUSTRATION_TARGET_SIZE:
+                                return False, (
+                                    "%s serves a %r image after a scripts-blocked upload, but "
+                                    "companion/illustration_normalize.py's frame is %r — the "
+                                    "route is not the normaliser's output"
+                                    % (ARTWORK_SERVE, served.size,
+                                       illustration_normalize.ILLUSTRATION_TARGET_SIZE))
+                            _ = (seen["stored_len"], gate)
+                            return True, ""
+                        finally:
+                            _clear_stored_artwork()
+                    check(
+                        "with scripts blocked at 360px, an artwork file chosen through the native "
+                        "<input type=\"file\"> and submitted through the fallback panel's own form "
+                        "is STORED (read back off the real state directory, never off the page — a "
+                        "rejected upload redirects to a page that looks like success) and SERVED "
+                        "back by the illustration route as an image at "
+                        "illustration_normalize.ILLUSTRATION_TARGET_SIZE; and the drop zone beside "
+                        "it measures zero height and holds zero focusable descendants with scripts "
+                        "blocked while occupying a real box with them on (CFG-51/D-09, "
+                        "25-07-PLAN.md Task 3)",
+                        _artwork_uploads_and_is_served_with_scripts_blocked)
+
+                    def _dropped_and_picked_files_are_stored_identically():
+                        context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                        try:
+                            if _stored_artwork() is not None:
+                                return False, (
+                                    "stored artwork for %r was already on disk when this check "
+                                    "started — the previous check did not restore the fixture, "
+                                    "and this entry would render as `art` rather than "
+                                    "`needs-artwork`, hiding the upload zone entirely"
+                                    % (ARTWORK_KEY,))
+                            page = context.new_page()
+                            _login(page, artwork_harness.base_url())
+                            page.goto(artwork_harness.base_url() + ARTWORK_ROUTE)
+                            _await_upload_zone(page, DIALOG_ZONE)
+                            submit = "#%s button[type=\"submit\"]" % (
+                                airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog")
+
+                            def upload_current_selection():
+                                """Submit, then read the stored bytes and
+                                put the fixture BACK into Step B.
+
+                                The reset is not tidiness, it is what
+                                makes the next upload possible at all: a
+                                successful upload moves this entry from
+                                `needs-artwork` to `art`, and
+                                panel-lookup.js hides the dialog's upload
+                                zone in every mode but the first. It is
+                                also what makes the byte comparison mean
+                                anything — with the previous file left in
+                                place, a drop that never reached the
+                                server would leave it there and compare
+                                equal to itself.
+                                """
+                                with page.expect_navigation():
+                                    page.click(submit)
+                                written = _stored_artwork()
+                                _clear_stored_artwork()
+                                page.goto(artwork_harness.base_url() + ARTWORK_ROUTE)
+                                _await_upload_zone(page, DIALOG_ZONE)
+                                return written
+
+                            # THE FIXTURES, PROVED NON-VACUOUS AGAINST THE
+                            # APP'S OWN NUMBER before anything is dropped.
+                            # An "oversized" file that is not actually
+                            # over the cap tests nothing while reading
+                            # exactly like a passing check, and the cap is
+                            # companion/app.py's, rendered into the page,
+                            # never retyped here.
+                            cap = int(page.locator(DIALOG_ZONE).get_attribute(
+                                "data-upload-drop-max-bytes"))
+                            if OVERSIZED_BYTES <= cap:
+                                return False, (
+                                    "the oversized fixture is %d bytes and the app's own cap is "
+                                    "%d — the oversized case would be measuring nothing"
+                                    % (OVERSIZED_BYTES, cap))
+                            if ART_BYTES >= cap:
+                                return False, (
+                                    "the valid-artwork fixture is %d bytes, at or over the app's "
+                                    "own %d cap — every acceptance below would be measuring the "
+                                    "wrong thing" % (ART_BYTES, cap))
+
+                            # --- THE FLOOR, MEASURED BEFORE THE CEILING ---
+                            # A drop zone that silently accepts what the
+                            # picker would reject is a defect, so every
+                            # refusal is measured against the INPUT, not
+                            # against a message: the question is whether
+                            # anything was assigned.
+                            floor = {}
+                            _drop_files(page, DIALOG_ZONE, [])
+                            floor["zero-files"] = _upload_zone_state(page, DIALOG_ZONE)
+                            _drop_files(page, DIALOG_ZONE, [not_png_path])
+                            floor["wrong-type"] = _upload_zone_state(page, DIALOG_ZONE)
+                            _drop_files(page, DIALOG_ZONE, [art_path, art_path])
+                            floor["several"] = _upload_zone_state(page, DIALOG_ZONE)
+                            _drop_files(page, DIALOG_ZONE, [oversized_path])
+                            floor["oversized"] = _upload_zone_state(page, DIALOG_ZONE)
+                            for label, state in floor.items():
+                                if state["files"] != 0:
+                                    return False, (
+                                        "a %s drop assigned %d file(s) to the form's input — the "
+                                        "refusal has to happen BEFORE the assignment or it "
+                                        "refuses nothing (%r)" % (label, state["files"], state))
+                                if not state["message"]:
+                                    return False, (
+                                        "a %s drop was refused silently — a drop target that "
+                                        "declines without saying so is indistinguishable from one "
+                                        "that is broken (%r)" % (label, state))
+                                if not state["imageHidden"]:
+                                    return False, (
+                                        "a %s drop still rendered a preview (%r)" % (label, state))
+                                # AND THE SRC IS GONE, not merely hidden.
+                                # A hidden <img> still holding a data:
+                                # URL keeps the whole decoded file alive
+                                # for the life of the document — the same
+                                # leak an unrevoked object URL would have
+                                # been, and invisible to a check that only
+                                # asks whether the preview is showing.
+                                if state["imageScheme"] != "":
+                                    return False, (
+                                        "after a %s drop the preview <img> still holds a %r src — "
+                                        "hidden is not released, and the whole decoded file stays "
+                                        "in the document (%r)"
+                                        % (label, state["imageScheme"], state))
+                            if floor["oversized"]["message"] == floor["wrong-type"]["message"]:
+                                return False, (
+                                    "the oversized drop and the wrong-type drop say the same "
+                                    "thing (%r) — the visitor cannot tell which rule they hit"
+                                    % (floor["oversized"]["message"],))
+                            if floor["several"]["message"] == floor["wrong-type"]["message"]:
+                                return False, (
+                                    "a several-files drop and a wrong-type drop say the same "
+                                    "thing (%r)" % (floor["several"]["message"],))
+
+                            # REPLACING A PREVIEW AND THEN BEING REFUSED,
+                            # which is the only sequence in which "the
+                            # preview is released" can be measured at
+                            # all: every drop above was refused with no
+                            # preview on screen to release, so an <img>
+                            # that never let go of its data: URL would
+                            # have passed all four of them.
+                            _drop_files(page, DIALOG_ZONE, [art_path])
+                            page.wait_for_function(
+                                "sel => { const im = document.querySelector(sel)"
+                                ".querySelector('.upload-drop__image');"
+                                " return !im.hidden && !!im.getAttribute('src'); }",
+                                arg=DIALOG_ZONE, timeout=5000)
+                            shown = _upload_zone_state(page, DIALOG_ZONE)
+                            _drop_files(page, DIALOG_ZONE, [not_png_path])
+                            after = _upload_zone_state(page, DIALOG_ZONE)
+                            if after["imageScheme"] != "":
+                                return False, (
+                                    "a refused drop left the previous preview's %r src on the "
+                                    "<img> (%r) — the decoded file stays in the document for as "
+                                    "long as the page does"
+                                    % (after["imageScheme"], after))
+                            if after["files"] != 1 or after["size"] != shown["size"]:
+                                return False, (
+                                    "a refused drop discarded the file the visitor had already "
+                                    "chosen (%r was holding %r, now %r) — declining to perform "
+                                    "its own act is the script doing nothing; removing somebody "
+                                    "else's choice is the script doing harm"
+                                    % (shown["name"], shown["size"], after))
+                            page.goto(artwork_harness.base_url() + ARTWORK_ROUTE)
+                            _await_upload_zone(page, DIALOG_ZONE)
+
+                            # --- THE EQUIVALENCE, WHICH IS THE WHOLE POINT ---
+                            # The same source file, uploaded twice: once
+                            # picked, once dropped. The stored result must
+                            # be byte-identical, because the ONLY thing
+                            # between the file and the route is a
+                            # DataTransfer assignment — no crop, no
+                            # resize, no re-encode.
+                            _clear_stored_artwork()
+                            page.set_input_files(
+                                "#%s" % (airlines_page.MANUAL_UPLOAD_INPUT_ID + "-dialog"),
+                                art_path)
+                            page.wait_for_function(
+                                "sel => { const im = document.querySelector(sel)"
+                                ".querySelector('.upload-drop__image');"
+                                " return !im.hidden && !!im.getAttribute('src'); }",
+                                arg=DIALOG_ZONE, timeout=5000)
+                            picked_state = _upload_zone_state(page, DIALOG_ZONE)
+                            picked_bytes = upload_current_selection()
+                            if picked_bytes is None:
+                                return False, (
+                                    "picking the file and submitting stored nothing — before "
+                                    "comparing two paths, one of them has to work")
+                            if _stored_artwork() is not None:
+                                return False, "could not clear the stored artwork between uploads"
+                            dragged = _drop_files(page, DIALOG_ZONE, [art_path])
+                            page.wait_for_function(
+                                "sel => { const im = document.querySelector(sel)"
+                                ".querySelector('.upload-drop__image');"
+                                " return !im.hidden && !!im.getAttribute('src'); }",
+                                arg=DIALOG_ZONE, timeout=5000)
+                            dropped_state = _upload_zone_state(page, DIALOG_ZONE)
+                            if dropped_state["files"] != 1:
+                                return False, (
+                                    "a trusted drop of a valid PNG assigned %d file(s) (%r)"
+                                    % (dropped_state["files"], dropped_state))
+                            dropped_bytes = upload_current_selection()
+                            if dropped_bytes is None:
+                                return False, (
+                                    "dropping the same file and submitting stored NOTHING, while "
+                                    "picking it stored %d bytes — the drop path does not reach "
+                                    "the server the picked file reaches" % (len(picked_bytes),))
+                            if dropped_bytes != picked_bytes:
+                                return False, (
+                                    "the SAME source file stored %d bytes when picked and %d when "
+                                    "dropped — a second transform crept into the drop path, which "
+                                    "is exactly the drift no client-side crop was written to "
+                                    "avoid" % (len(picked_bytes), len(dropped_bytes)))
+                            if picked_state["size"] != dropped_state["size"]:
+                                return False, (
+                                    "the picked file measured %r bytes in the input and the "
+                                    "dropped one %r — the script altered the file on the way in"
+                                    % (picked_state["size"], dropped_state["size"]))
+                            if dropped_state["imageScheme"] != "data":
+                                return False, (
+                                    "the preview's src scheme is %r — this app's own "
+                                    "Content-Security-Policy is img-src 'self' data:, under which "
+                                    "a blob: preview is blocked outright"
+                                    % (dropped_state["imageScheme"],))
+                            if dropped_state["natural"] != [1200, 300]:
+                                return False, (
+                                    "the preview decoded to %r, not the source file's own "
+                                    "1200x300 — the preview is the file, not a redrawing of it"
+                                    % (dropped_state["natural"],))
+
+                            # A SYNTHETIC drop, the one a page script can
+                            # construct, must change nothing.
+                            _clear_stored_artwork()
+                            page.evaluate(
+                                "sel => { const z = document.querySelector(sel);"
+                                "  const dt = new DataTransfer();"
+                                "  const ev = new DragEvent('drop',"
+                                "    {bubbles: true, cancelable: true, dataTransfer: dt});"
+                                "  z.dispatchEvent(ev); }", DIALOG_ZONE)
+                            synthetic = _upload_zone_state(page, DIALOG_ZONE)
+                            if synthetic["message"]:
+                                return False, (
+                                    "a synthetic (isTrusted: false) drop reached the handler and "
+                                    "produced %r — the only way into it should be a gesture a "
+                                    "person performed" % (synthetic["message"],))
+
+                            # And the drag state was really on, DURING the
+                            # drag, and really off after it.
+                            if not dragged["active_during_drag"]:
+                                return False, (
+                                    "the drag-over state never appeared while the browser was in "
+                                    "a drag — sampled between dragOver and drop, %r" % (dragged,))
+                            if dragged["active_after_drop"]:
+                                return False, "the drag-over state survived the drop (%r)" % (dragged,)
+                            if dragged["paint_during_drag"] == dragged["paint_at_rest"]:
+                                return False, (
+                                    "the zone paints identically at rest and mid-drag (%r) — the "
+                                    "state is set but invisible, which is the same as not having "
+                                    "one" % (dragged["paint_at_rest"],))
+                            return True, ""
+                        finally:
+                            _clear_stored_artwork()
+                            context.close()
+                    check(
+                        "the SAME source file stored byte-identically whether it was PICKED or "
+                        "DROPPED (with the stored file deleted between the two uploads, so a drop "
+                        "that never reached the server could not pass on the picked file left "
+                        "behind), the preview decoding to the source's own 1200x300 through a "
+                        "data: URL (a blob: one is blocked by this app's own CSP); and the FLOOR "
+                        "measured against the INPUT rather than against a message — zero files, a "
+                        "wrong type, several at once and an oversized file each assign nothing, "
+                        "each say something, and each say something different, while a synthetic "
+                        "drop changes nothing at all and the drag-over state is sampled visible "
+                        "BETWEEN dragOver and drop (CFG-51/D19, 25-07-PLAN.md Task 3)",
+                        _dropped_and_picked_files_are_stored_identically)
+
+                    def _drop_zone_meets_its_floors_at_360px_in_both_themes():
+                        context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                        try:
+                            page = context.new_page()
+                            _login(page, artwork_harness.base_url())
+                            page.goto(artwork_harness.base_url() + ARTWORK_ROUTE)
+                            _await_upload_zone(page, DIALOG_ZONE)
+
+                            # THE HIT TARGET, MEASURED IN THIS CONTROL'S
+                            # OWN CONTAINER rather than inherited from a
+                            # class — 25-06's pagers measured 30x45 in
+                            # theirs while the same class measured 45x45
+                            # elsewhere.
+                            hit = _assert_hit_target(
+                                page, DIALOG_ZONE, "the artwork drop zone on Airlines at 360px")
+                            msg = _assert_no_page_overflow(
+                                page, "the artwork drop zone on Airlines",
+                                VIEWPORT_MIN_SUPPORTED["width"])
+                            if msg:
+                                return False, msg
+
+                            # THE RESERVED BOX, before any image exists.
+                            # A ratio, not a size: the box is fluid and
+                            # the promise is its SHAPE. getBoundingClientRect,
+                            # never clientWidth, which rounds to an integer
+                            # and can fail a correct drawing.
+                            at_rest = _upload_zone_state(page, DIALOG_ZONE)
+                            want = (illustration_normalize.ILLUSTRATION_TARGET_WIDTH
+                                    / illustration_normalize.ILLUSTRATION_TARGET_HEIGHT)
+                            got = at_rest["preview"][0] / at_rest["preview"][1]
+                            if abs(got - want) > 0.02:
+                                return False, (
+                                    "the preview box reserves %.4f:1 (%r) before any image "
+                                    "exists, but illustration_normalize.py's frame is %.4f:1 — a "
+                                    "box reserved at the wrong shape still makes the card jump"
+                                    % (got, at_rest["preview"], want))
+                            if not at_rest["imageHidden"]:
+                                return False, (
+                                    "the preview <img> is showing before a file was chosen (%r)"
+                                    % (at_rest,))
+
+                            painted = []
+                            for measured in _in_both_themes(page):
+                                paint = page.evaluate(
+                                    "sel => { const z = document.querySelector(sel);"
+                                    "  const n = z.querySelector('.upload-drop__note');"
+                                    "  const p = z.querySelector('.upload-drop__preview');"
+                                    "  return {note: getComputedStyle(n).color,"
+                                    "          frame: getComputedStyle(p).borderTopColor,"
+                                    "          surface: getComputedStyle(p).backgroundColor}; }",
+                                    DIALOG_ZONE)
+                                if paint["note"] == measured["canvas"]:
+                                    return False, (
+                                        "%s: the drop zone's hint text is the canvas colour (%r) "
+                                        "— an invisible instruction is no instruction"
+                                        % (measured["theme"], paint["note"]))
+                                if paint["frame"] == paint["surface"]:
+                                    return False, (
+                                        "%s: the preview frame (%r) is its own fill, so the "
+                                        "reserved box has no visible edge before an image arrives"
+                                        % (measured["theme"], paint["frame"]))
+                                painted.append((measured["theme"], paint))
+                            if painted[0][1] == painted[1][1]:
+                                return False, (
+                                    "the drop zone paints identically in both themes (%r) — one "
+                                    "of them is not reading the theme's tokens"
+                                    % (painted[0][1],))
+                            _set_ui_theme(page, "light")
+                            _ = hit
+                            return True, ""
+                        finally:
+                            context.close()
+                    check(
+                        "the artwork drop zone clears the 44px target by real hit-testing in ITS "
+                        "OWN container at 360px, the Airlines page does not scroll sideways there, "
+                        "the preview box reserves illustration_normalize.py's own aspect ratio "
+                        "(by getBoundingClientRect, never clientWidth) BEFORE any image exists "
+                        "with the <img> still hidden, and the paint is a FLOOR not a ceiling: the "
+                        "hint text is never the canvas colour, the preview frame is never its own "
+                        "fill, and the whole zone paints differently in the two themes (CFG-51/"
+                        "CFG-52, 25-07-PLAN.md Task 3)",
+                        _drop_zone_meets_its_floors_at_360px_in_both_themes)
+                finally:
+                    artwork_harness.stop()
+                    artwork_harness.cleanup()
+                    shutil.rmtree(art_dir, ignore_errors=True)
 
             finally:
                 browser.close()
