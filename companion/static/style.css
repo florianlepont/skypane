@@ -5645,6 +5645,196 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* Phase 24 (CFG-39, 24-01-PLAN.md Task 3): the SHARED drawing
+ * vocabulary. Four new server-rendered SVG drawings arrive across this
+ * phase's later plans — a battery ring gauge, a battery area chart, a
+ * day timeline and a check-in regularity grid — and every one of them
+ * paints through the classes below, emitted from companion/draw.py's own
+ * named class constants. A check in companion/test_companion_app.py
+ * asserts that every class that module can emit resolves to a selector
+ * here, because a class that exists in Python and nowhere in CSS paints
+ * nothing at all, and nothing else in this codebase would notice.
+ *
+ * Placed HERE, beside the .sparkline* block above rather than at the end
+ * of the file, because that block is this idiom's existing consumer and
+ * has been since 06.5. It is deliberately left untouched by this plan —
+ * plan 24-05 owns the battery chart's own appearance. A FIFTH
+ * near-identical block is the specific failure this one exists to
+ * prevent: five drawings, five ways for a shape to end up invisible in
+ * one theme.
+ *
+ * The paint idiom, copied rather than re-derived: currentColor plus a
+ * theme token. The SVG inherits `color` from its container, the
+ * container's colour is a token, and the drawing is correct in BOTH
+ * themes with no second rule and no media query. A literal colour value
+ * would be correct in one theme only — a defect, not a polish item —
+ * and it would be invisible to companion/test_contrast_check.py
+ * besides, which is why companion/draw.py refuses to emit one at all.
+ *
+ * This block introduces no colour value and no colour pair. Structural
+ * ink is --color-border, this file's existing "structural only, never an
+ * interactive-state signal" token, the same one .sparkline-axis uses;
+ * status colouring uses the three --color-status-* tokens already
+ * defined for both themes. It introduces no accent use either, and this
+ * phase does not broaden the header comment's reservation list: a chart
+ * mark is not on that list, the same reasoning .sparkline-hit:hover
+ * above already records for a chart-point highlight.
+ *
+ * It also declares no transition and no animation. This phase's drawings
+ * do not move; the motion budget stays exactly where phase 23 left it. */
+
+/* The label grid: an auto-sized label column beside the canvas, a label
+ * row beneath it. This is the mechanism that keeps a time series' labels
+ * OUTSIDE the SVG, which makes viewBox overflow unreachable for those
+ * drawings rather than merely avoided, and keeps every label at a
+ * constant CSS size instead of shrinking with the box.
+ *
+ * `minmax(0, 1fr)` on the canvas column is load-bearing, not decoration:
+ * a plain `1fr` takes its content's min-content width as a floor, so the
+ * canvas could not shrink at the 360px minimum viewport and the page
+ * body would grow the horizontal scrollbar CFG-45 forbids. Same columns,
+ * same gaps as .sparkline above, copied on purpose so a second drawing
+ * never invents a third grid. */
+.drawing {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-sm);
+  row-gap: var(--space-xs);
+}
+
+/* Column 1, row 1 explicit; the canvas and the x-label row auto-place
+ * into the two cells left open, exactly as .sparkline__y/.sparkline__x
+ * do. A flex column with space-between, so document order top-to-bottom
+ * places the first label at the top of the canvas and the last at the
+ * bottom, each one's optical centre on the level it names — which is
+ * what the caller's own vertical inset arithmetic (draw.percent_y()'s
+ * `inset_percent`) is derived from. */
+.drawing__y {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+/* Column 2 explicit; auto-placed into row 2, the only cell left in that
+ * column. A flex row with the same space-between, so document order
+ * left-to-right places oldest under the left edge and newest under the
+ * right. */
+.drawing__x {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* THE SIZE ROUTE, and the reason every drawing must have one:
+ * companion/layout.py's icon_html() docstring records the trap that an
+ * <svg> carrying neither a size attribute nor a CSS rule renders at the
+ * SVG default 300x150 and blows the layout apart. This is the
+ * percentage-scheme half of the answer — a canvas with no viewBox, sized
+ * from CSS. The viewBox half is .drawing__figure below.
+ *
+ * The height is a custom property with a default rather than a bare
+ * length, so a drawing that needs a different height sets it on its own
+ * wrapper instead of adding a second rule that would then have to win a
+ * specificity fight with this one. Every percentage y-coordinate a
+ * drawing emits is a percentage OF this height, which is why it is
+ * declared once, here, and must never be varied inside a media query: a
+ * responsive height would silently move every point on the drawing with
+ * no other visual signal that anything broke. That hazard is the same
+ * one `.battery-trend-section svg:not(.icon)` above carries, stated
+ * again because this rule now carries it for four more drawings.
+ *
+ * `overflow: visible` lets an axis tick poke outside the canvas into the
+ * grid's own column gap, which is where .sparkline's y ticks already
+ * live. */
+.drawing__canvas {
+  display: block;
+  width: 100%;
+  height: var(--drawing-canvas-height, 160px);
+  overflow: visible;
+}
+
+/* The viewBox half of the size route, for an intrinsically aspect-locked
+ * mark (a ring gauge, a grid cell). It deliberately sets NO width and NO
+ * height: draw.unit_canvas() emits intrinsic width/height attributes in
+ * CSS pixels alongside the viewBox, and a `width: 100%` here would
+ * override them, stretch the box and letterbox the aspect-locked shape
+ * inside it. `display: block` is the whole rule — an inline <svg>
+ * otherwise sits on the text baseline and reserves a descender's worth
+ * of space beneath itself. The two canvas classes are separate for the
+ * same reason draw.py's two coordinate schemes are two separately-named
+ * helper families: one class with a modifier is how the two get mixed
+ * inside one drawing. */
+.drawing__figure {
+  display: block;
+}
+
+/* Structural ink: axis lines and ticks, drawn as filled rects rather
+ * than stroked lines. An axis-aligned integer-width filled rect has no
+ * stroke-centring and no half-pixel rounding to reason about, and a rect
+ * can pair a percentage position with an absolute size, which no stroked
+ * line can and which the percentage scheme needs for every tick. */
+.drawing-axis {
+  fill: var(--color-border);
+}
+
+/* A stroked trend segment or arc. `fill: none` is declared explicitly
+ * and is not a tidy-up: it is the "deliberately unfilled" half of the
+ * rule that every drawn shape must have an explicit fill route, so this
+ * shape cannot fall back to the SVG default fill — which is black,
+ * correct in one theme and invisible in the other. stroke-linecap: round
+ * makes consecutive segments read as one continuous line rather than
+ * mitred gaps. */
+.drawing-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* A filled mark: a data point, a tick, a grid cell. currentColor, so it
+ * follows whatever colour its container sets — including the three
+ * status modifiers below. */
+.drawing-mark {
+  fill: currentColor;
+}
+
+/* An axis label, an HTML <span> outside the canvas rather than an SVG
+ * text node, so `color` sets the visible ink and the label stays the
+ * same size at every container width. 10px and line-height 1.2 are not
+ * new numbers: they are exactly .sparkline-axis-label's, which sits in
+ * this file's already-documented sub-scale exception tier and whose
+ * line-height the callers' inset arithmetic depends on being a known
+ * value rather than an inherited one. A drawing label at a different
+ * size would be a new type tier and needs an argument, not a value. */
+.drawing-axis-label {
+  font-size: 10px;
+  font-weight: var(--weight-regular);
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Status colouring for a drawing that carries an ok/warn/error verdict.
+ * These set `color` rather than `fill`, so every currentColor shape
+ * beneath them follows with no per-shape rule — and so a drawing can put
+ * the modifier on a group or on a single shape without two different
+ * mechanisms. The tokens are the app's existing status tokens, already
+ * defined for both themes and already contrast-pinned against the card
+ * surface, so no new colour pair is introduced here. */
+.drawing--ok {
+  color: var(--color-status-ok);
+}
+
+.drawing--warn {
+  color: var(--color-status-warn);
+}
+
+.drawing--error {
+  color: var(--color-status-error);
+}
+
 /* Reserves a fixed-height line so the first reveal never shifts the page
  * (06.5-RESEARCH.md, Open Question 1's recommendation — the layout-jump
  * pitfall on mobile). min-height stays in `em` so it scales with the

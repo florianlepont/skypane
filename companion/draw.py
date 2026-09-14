@@ -96,6 +96,14 @@ DRAWING_X_LABELS_CLASS = "drawing__x"
 # unit_canvas() below — so neither scheme can reach that default.
 DRAWING_CANVAS_CLASS = "drawing__canvas"
 
+# The unit scheme's own canvas class. Separate from the one above, and
+# separate for the same reason the two coordinate schemes are two
+# separately-named helper families: .drawing__canvas declares a width and
+# a height, which would override a unit canvas's intrinsic attributes and
+# letterbox the aspect-locked shape inside a stretched box. One class
+# with a modifier is how the two schemes get mixed inside one drawing.
+DRAWING_FIGURE_CLASS = "drawing__figure"
+
 # Structural ink: axis lines and ticks, drawn as filled rects.
 DRAWING_AXIS_CLASS = "drawing-axis"
 # A stroked path or line segment. Its rule declares `fill: none`, which is
@@ -120,6 +128,7 @@ DRAWING_CLASSES = (
     DRAWING_Y_LABELS_CLASS,
     DRAWING_X_LABELS_CLASS,
     DRAWING_CANVAS_CLASS,
+    DRAWING_FIGURE_CLASS,
     DRAWING_AXIS_CLASS,
     DRAWING_LINE_CLASS,
     DRAWING_MARK_CLASS,
@@ -333,6 +342,11 @@ def percent_canvas(class_name, children, label=None, hidden=False):
 def unit_canvas(class_name, children, width, height, label=None, hidden=False):
     """An <svg> in the user-unit scheme: a viewBox of `width` x `height`
     user units PLUS intrinsic width/height attributes in CSS pixels.
+
+    `class_name` is normally DRAWING_FIGURE_CLASS, never
+    DRAWING_CANVAS_CLASS: the latter declares a width and a height, which
+    would override the intrinsic attributes emitted here and letterbox
+    this aspect-locked shape inside a stretched box.
 
     The intrinsic attributes are this scheme's size route — the other
     half of the trap companion/layout.py's icon_html() records, where an
