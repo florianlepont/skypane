@@ -823,7 +823,8 @@ def _login(page, base_url):
 
 
 @contextlib.contextmanager
-def _no_js_page(browser, base_url, route, viewport=None, sign_in=True):
+def _no_js_page(browser, base_url, route, viewport=None, sign_in=True,
+                cookies=None):
     """A scripts-blocked browser context, signed in, landed on `route`.
 
     The one place in this file that blocks scripts. Three checks each
@@ -846,12 +847,23 @@ def _no_js_page(browser, base_url, route, viewport=None, sign_in=True):
     nothing at all. Pass VIEWPORT_MIN_SUPPORTED to measure a
     scripts-blocked control at the 360px contract floor.
 
+    `cookies` is applied to the context BEFORE the sign-in navigation,
+    which is the only order that works for a cookie the first rendered
+    document already has to honour — the UI-language cookie being the
+    live case. It exists because 23-05's freshness check needed exactly
+    that and, lacking it, opened this file's SECOND
+    `java_script_enabled=False` context by hand, quietly undoing the one
+    property the paragraph above claims. 25-02 added the parameter and
+    converted that check back rather than let the claim stay untrue.
+
     `context.close()` runs in a finally, the discipline every check in
     this file already follows by hand.
     """
     extra = {} if viewport is None else {"viewport": viewport}
     context = browser.new_context(java_script_enabled=False, **extra)
     try:
+        if cookies:
+            context.add_cookies(cookies)
         page = context.new_page()
         if sign_in:
             page.goto(base_url + "/login")
@@ -1277,6 +1289,276 @@ def _assert_no_page_overflow(page, where, expected_width=None):
             % (where, seen["cw"], seen["sw"], seen["cw"], seen["escaped"]))
     return ""
 
+
+# --- 25-02-PLAN.md (CFG-52): the four control-contract helpers the five
+# control plans (25-03..25-07) each need, written ONCE, before any of the
+# five controls exists. Helpers only: this plan registers no check of its
+# own and EXPECTED_CHECK_COUNT is unchanged at 65.
+#
+# Why they are here at all, and why the FIRST of them is the one that
+# matters. Phase 25 replaces five bare fields with richer controls, and
+# every one of them owes the same four proofs: it is operable with
+# scripts blocked, it is operable from the keyboard with no pointer at
+# all, its hit target survives the 360px floor, and it is legible in both
+# themes. Written out five times by hand, that is five chances to
+# transcribe a sequence WRONG — which is the exact argument
+# `_no_js_page()`'s own docstring already makes about the flag it owns.
+#
+# THE NO-JS PROOF FOR A CONTROL IS NOT "IT RENDERS". A control can render
+# perfectly with scripts blocked and save nothing whatsoever: Phase 22
+# found exactly that (a fallback Save that was rendered and had a
+# zero-size box), and a phase that replaces five inputs can ship it five
+# times over. So the first helper below operates the control, submits the
+# real form it belongs to, reloads, and reads the value back FROM DISK.
+# Reading it back from the reloaded DOM alone would still pass against a
+# server that echoed the submission straight back without storing it, and
+# stopping at "the page navigated" would pass against a control that
+# saves nothing at all.
+
+
+# ---------------------------------------------------------------------
+# 1. Operate, submit, PERSIST — with scripts blocked.
+# ---------------------------------------------------------------------
+
+# Locate every form control posting under one `name`, set it by the
+# browser's OWN mechanism, and report what happened — never a
+# Playwright coordinate interaction.
+#
+# The kind is dispatched on the control's own `type`, so a call site says
+# what it means ("this field must end up holding this value") and the
+# helper picks `el.click()` for a radio/checkbox and a `.value`
+# assignment for everything else. `_click_control()`'s docstring is the
+# precedent and its reasoning carries verbatim: the radios this phase's
+# controls are built over are `clip-path: inset(50%)` visually-hidden,
+# which clips their hit-testable area to nothing, so a coordinate click
+# lands on whatever the hit-test resolves to instead. The DOM's own
+# activation behaviour is what every keyboard/assistive path already
+# uses for this pattern and is what works here.
+#
+# Controls are collected by comparing `.name` rather than through a
+# `[name="..."]` attribute selector, so a field name needing CSS escaping
+# can never turn a real subject into a silent zero-match.
+_OPERATE_PROBE = (
+    "args => {"
+    "  const all = [...document.querySelectorAll('input, select, textarea')]"
+    "    .filter(e => e.name === args.field);"
+    "  if (!all.length) return {error: 'no-control',"
+    "    names: [...new Set([...document.querySelectorAll("
+    "      'input, select, textarea')].map(e => e.name).filter(Boolean))]};"
+    "  const kind = (all[0].type || '').toLowerCase();"
+    "  let target;"
+    "  if (kind === 'radio' || kind === 'checkbox') {"
+    "    target = all.find(e => e.value === args.value);"
+    "    if (!target) return {error: 'no-option',"
+    "      options: all.map(e => e.value), kind: kind};"
+    "    if (!target.checked) target.click();"
+    "  } else {"
+    "    target = all[0];"
+    "    target.value = args.value;"
+    "  }"
+    "  const held = (kind === 'radio' || kind === 'checkbox')"
+    "    ? ((all.find(e => e.checked) || {}).value === undefined ? null"
+    "       : all.find(e => e.checked).value)"
+    "    : target.value;"
+    "  const form = target.form;"
+    "  if (!form) return {error: 'no-form', kind: kind, held: held};"
+    "  const invalid = [...form.elements]"
+    "    .filter(e => e.willValidate && !e.checkValidity())"
+    "    .map(e => (e.name || e.id || e.tagName) + ': ' + e.validationMessage);"
+    "  const submits = [...document.querySelectorAll("
+    "      'button, input[type=submit], input[type=image]')]"
+    "    .filter(b => b.form === form"
+    "      && (b.type || '').toLowerCase() === 'submit' && !b.disabled);"
+    "  const visible = submits.filter(b => b.getClientRects().length);"
+    "  return {kind: kind, held: held, invalid: invalid,"
+    "          action: form.getAttribute('action'),"
+    "          submits: submits.length, visible: visible.length};"
+    "}")
+
+# The submission itself, re-resolving the form from the same field name
+# so nothing has to be carried across the two evaluations.
+#
+# A VISIBLE submit button is preferred over `form.requestSubmit()`, and
+# that preference is the point rather than an implementation detail: the
+# button a scripts-blocked visitor can actually press is the always-
+# rendered fallback Save, and Phase 22's P0 was precisely that button
+# being rendered with a zero-size box. Going through it means this helper
+# exercises the control AND the one affordance that submits it. `click()`
+# is the DOM's activation behaviour, so it carries the submitter's own
+# name/value (which several of this app's forms post) and still runs
+# native constraint validation — `form.submit()` would skip both, and is
+# deliberately not used anywhere here.
+_SUBMIT_PROBE = (
+    "args => {"
+    "  const all = [...document.querySelectorAll('input, select, textarea')]"
+    "    .filter(e => e.name === args.field);"
+    "  const form = all.length && all[0].form;"
+    "  if (!form) return 'no-form';"
+    "  const submits = [...document.querySelectorAll("
+    "      'button, input[type=submit], input[type=image]')]"
+    "    .filter(b => b.form === form"
+    "      && (b.type || '').toLowerCase() === 'submit' && !b.disabled);"
+    "  const chosen = submits.filter(b => b.getClientRects().length)[0]"
+    "    || submits[0];"
+    "  if (chosen) { chosen.click(); return 'submitter'; }"
+    "  form.requestSubmit();"
+    "  return 'requestSubmit';"
+    "}")
+
+_READ_FIELD_PROBE = (
+    "args => {"
+    "  const all = [...document.querySelectorAll('input, select, textarea')]"
+    "    .filter(e => e.name === args.field);"
+    "  if (!all.length) return null;"
+    "  const kind = (all[0].type || '').toLowerCase();"
+    "  if (kind === 'radio' || kind === 'checkbox') {"
+    "    const on = all.find(e => e.checked);"
+    "    return on ? on.value : '';"
+    "  }"
+    "  return all[0].value;"
+    "}")
+
+
+def _persist_without_js(browser, base_url, route, field, value, read_back,
+                        viewport=None, restore=True, shows_back=True):
+    """Operate a native control with scripts blocked, submit the real
+    form it belongs to, reload the route, and prove the value SURVIVED —
+    on disk, not merely on the page.
+
+    Returns {"field", "set", "held", "reloaded", "stored", "before",
+    "submitted_via", "restored"} on success. RAISES AssertionError on
+    every failure, `_set_ui_theme()`'s shape and for its reason: a helper
+    that returned a verdict string would hand five calling plans a guard
+    each of them has to REMEMBER, and `check()` turns a raised
+    AssertionError into a named FAIL that nobody can forget.
+
+    THE ASSERTION IS ON THE RELOADED, RE-READ VALUE — NEVER THE POSTED
+    ONE, and that is the entire reason this helper exists rather than the
+    three-line sequence it replaces. Three weaker sequences all pass
+    against a broken control:
+      * "the input is present with scripts blocked" passes against a
+        control that saves nothing — the Phase 22 defect exactly;
+      * "the page navigated after submit" passes against a POST the
+        server rejected on validation and redirected straight back from;
+      * "the reloaded page shows the value" passes against a server that
+        echoes a rejected submission back into the field (which
+        `wake_interval_group()` deliberately DOES, by design, for D-07).
+    So the verdict is `read_back()` — a caller-supplied reader that goes
+    to the real state directory through the app's own loader. The
+    reloaded DOM is measured too, and reported, but it is corroboration.
+
+    `read_back` is a zero-argument callable returning the stored value;
+    it is compared as text (`str()`), because a field posts "300" and
+    `device_config` stores `300`, and a helper that failed on that would
+    only teach its callers to pre-stringify.
+
+    `shows_back=True` (the default) additionally corroborates that the
+    reloaded page SHOWS the saved value back, which is what makes a
+    setting visible to the visitor who made it. It is a parameter rather
+    than an always-on clause because this app has a deliberate,
+    documented exception: `notifications_topic_url` is write-only by
+    design (T-20-12 — never echoed, never masked, in any state), so it
+    stores correctly and renders empty forever. Measured on this tree:
+    with the default it raises on that field and with `shows_back=False`
+    it passes, which is the right answer in both cases. The DISK read is
+    never optional — it is the verdict.
+
+    `restore=True` (the default) puts the setting back the way it found
+    it as this helper's LAST act, through the identical operate-submit
+    sequence — never a direct write to the state directory, which would
+    be a second way of changing settings living in a harness. The
+    fixture is shared by every check in this file and a helper that left
+    a real setting changed would be a test that edits its own
+    neighbours' subject (T-25-02-A).
+
+    It runs entirely inside `_no_js_page()` and opens no context of its
+    own — the one scripts-blocked call site in this file stays one.
+    """
+    before = read_back()
+    result = _persist_once(
+        browser, base_url, route, field, value, read_back, viewport,
+        shows_back)
+    result["before"] = before
+    result["restored"] = None
+    if restore and before is not None and str(before) != str(value):
+        back = _persist_once(
+            browser, base_url, route, field, str(before), read_back, viewport,
+            shows_back)
+        result["restored"] = back["stored"]
+    return result
+
+
+def _persist_once(browser, base_url, route, field, value, read_back, viewport,
+                  shows_back):
+    """One operate-submit-reload-verify pass. Split out only so
+    `_persist_without_js()`'s restore step is the SAME sequence as its
+    measurement rather than a second, hand-written one.
+    """
+    with _no_js_page(browser, base_url, route, viewport=viewport) as page:
+        seen = page.evaluate(_OPERATE_PROBE, {"field": field, "value": value})
+        error = seen.get("error")
+        if error == "no-control":
+            raise AssertionError(
+                "_persist_without_js: no form control posts under name %r on "
+                "%s with scripts blocked — with none, this helper measures "
+                "nothing. The names that page does post are %r"
+                % (field, route, seen["names"]))
+        if error == "no-option":
+            raise AssertionError(
+                "_persist_without_js: the %r group on %s has no option with "
+                "value %r; its options are %r"
+                % (field, route, value, seen["options"]))
+        if error == "no-form":
+            raise AssertionError(
+                "_persist_without_js: the %r control on %s belongs to no "
+                "<form>, so with scripts blocked there is nothing that can "
+                "post it at all" % (field, route))
+        if str(seen["held"]) != str(value):
+            raise AssertionError(
+                "_persist_without_js: the browser refused to put %r into %r "
+                "on %s — it holds %r after the native set, so the submission "
+                "below would have measured the wrong value"
+                % (value, field, route, seen["held"]))
+        if seen["invalid"]:
+            raise AssertionError(
+                "_persist_without_js: %r cannot be submitted with %r in %r — "
+                "native constraint validation rejects %r, and a browser "
+                "silently refuses to submit an invalid form rather than "
+                "reporting an error"
+                % (seen["action"], value, field, seen["invalid"]))
+        if not seen["submits"]:
+            raise AssertionError(
+                "_persist_without_js: the form posting %r on %s renders no "
+                "enabled submit control at all, so a visitor with scripts "
+                "blocked has no way to save it (D-09)" % (field, route))
+
+        with page.expect_navigation():
+            via = page.evaluate(_SUBMIT_PROBE, {"field": field})
+
+        # A genuine second GET, not page.reload() — the redirect the save
+        # lands on is not necessarily the route under test, and what the
+        # next visitor sees is this route fetched fresh.
+        page.goto(base_url + route)
+        reloaded = page.evaluate(_READ_FIELD_PROBE, {"field": field})
+
+    stored = read_back()
+    if stored is None or str(stored) != str(value):
+        raise AssertionError(
+            "_persist_without_js: %r did NOT persist with scripts blocked — "
+            "it was set to %r and submitted (via the %s), and the stored "
+            "value still reads back as %r (the reloaded page shows %r). A "
+            "control that renders without scripts and saves nothing is the "
+            "D-09 defect this helper exists to catch"
+            % (field, value, via, stored, reloaded))
+    if shows_back and (reloaded is None or str(reloaded) != str(value)):
+        raise AssertionError(
+            "_persist_without_js: %r stored %r but the reloaded %s does not "
+            "show it back — the field reads %r with scripts blocked, so the "
+            "saved setting is invisible to the visitor who made it"
+            % (field, stored, route, reloaded))
+    return {"field": field, "set": value, "held": seen["held"],
+            "submitted_via": via, "visible_submits": seen["visible"],
+            "reloaded": reloaded, "stored": stored}
 
 def main():
     try:
@@ -4896,18 +5178,21 @@ def main():
                 def _the_relative_age_is_server_rendered_and_static_without_scripts():
                     base_url = harness.base_url()
                     for lang in ("en", "fr"):
-                        context = browser.new_context(
-                            java_script_enabled=False, viewport=VIEWPORT_MIN_SUPPORTED)
-                        try:
-                            context.add_cookies([{
-                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
-                                "url": base_url}])
-                            page = context.new_page()
-                            page.goto(base_url + "/login")
-                            page.fill("#password", TEST_PASSWORD)
-                            page.click('button[type="submit"]')
-                            page.wait_for_load_state("load")
-                            page.goto(base_url + "/health")
+                        # 25-02-PLAN.md: this used to open the file's
+                        # SECOND java_script_enabled=False context by
+                        # hand, because it needs the UI-language cookie
+                        # set before the first navigation and
+                        # `_no_js_page()` had no way to take one. It does
+                        # now, so this composes with the one call site
+                        # again. The sequence is otherwise unchanged:
+                        # same viewport, same cookie, same sign-in, same
+                        # landing route.
+                        with _no_js_page(
+                                browser, base_url, "/health",
+                                viewport=VIEWPORT_MIN_SUPPORTED,
+                                cookies=[{
+                                    "name": auth.UI_LANG_COOKIE_NAME,
+                                    "value": lang, "url": base_url}]) as page:
                             found = page.locator(FRESHNESS_AGE).count()
                             if found != 1:
                                 return False, (
@@ -4976,8 +5261,6 @@ def main():
                                     "rewriting it" % (lang, first, second))
                             if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
                                 return False, "expected the measurement at the 360px contract floor"
-                        finally:
-                            context.close()
                     return True, ""
                 check(
                     "with scripts blocked at 360px, in BOTH languages, the freshness line still "
