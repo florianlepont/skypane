@@ -30,6 +30,8 @@ import socket
 import subprocess
 import sys
 import tempfile
+import tokenize
+import io
 import time
 import urllib.error
 import urllib.parse
@@ -41,6 +43,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import app as companion_app  # noqa: E402
+from companion import battery  # noqa: E402
+from companion import i18n  # noqa: E402
 from companion import auth  # noqa: E402
 import companion.i18n_fr as i18n_fr  # noqa: E402
 import companion.layout as layout  # noqa: E402
@@ -823,6 +827,28 @@ EXPECTED_CHECK_COUNT = 249
 # document-order overlap rule.
 # 249 + 2 = 251, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 251
+# 25-05-PLAN.md Task 1 (CFG-49): +3 — D18's two gauges, and not one of
+# the three asserts that they RENDER. One holds what they may CLAIM: the
+# freshness sentence is a BOUND ("at most", rounded UP, because "at most
+# 1 min" is FALSE for a 90-second cadence) naming the same whole minutes
+# the interval implies at both ends of the configured band; the battery
+# sentence prints an absolute figure ONLY when companion/battery.py's own
+# estimate supports one — recomputed from the estimator rather than
+# restated, singular and plural both, and the fixture is checked to
+# actually produce a figure first or the clause would be vacuous — and
+# renders the NAMED "not enough history yet" state with no digit anywhere
+# in it for a RISING series (the device was charged), a one-day span and
+# an empty one. One is the source scan: no days-remaining arithmetic
+# anywhere under companion/pages/, asserted over NAME tokens so that
+# reading the estimator's own key back out of its dict (a STRING) is the
+# one permitted shape, plus the qualified-call rule and the "#" quantity
+# mark. One holds that all of this is an ADDITION: across six argument
+# shapes the <input type="number"> is byte-identical to its pre-plan
+# output — including the value-attribute guard's two directions, which
+# matter more here than on any other field, because an out-of-range value
+# on a native numeric input blocks submission of the ENTIRE Settings form.
+# 251 + 3 = 254, re-derived by RUNNING (254/254).
+EXPECTED_CHECK_COUNT = 254
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -960,6 +986,26 @@ def _write_device_config(state_dir, theme, tracked_runway, led_enabled=None):
         doc["led_enabled"] = led_enabled
     with open(device_config.device_config_path(state_dir), "w") as fh:
         json.dump(doc, fh)
+
+
+def _python_identifiers(path):
+    """Every NAME token in the Python file at `path`, as a set.
+
+    25-05-PLAN.md Task 1 (CFG-49). Tokenised rather than grepped, for
+    this project's own standing reason, and the tokeniser gives it for
+    free in BOTH directions: a NAME token can never come from a comment,
+    a docstring or a string literal, so the prose explaining a rule can
+    neither satisfy nor break it — and reading a key back out of a dict
+    (`estimate["days_remaining"]`) is a STRING token, which is exactly
+    the one shape a page module is allowed to use.
+    """
+    with open(path, encoding="utf-8") as fh:
+        source = fh.read()
+    names = set()
+    for token in tokenize.generate_tokens(io.StringIO(source).readline):
+        if token.type == tokenize.NAME:
+            names.add(token.string)
+    return names
 
 
 def main():
@@ -10647,6 +10693,386 @@ def main():
         "freshness line above them in the page header — a swap landing on this page's form is the "
         "P0 Phase 22 existed to fix (B1/D1, 23-06-PLAN.md Task 2)",
         _the_display_form_is_untouched_by_the_refresh_loop)
+
+    # ------------------------------------------------------------------
+    # 25-05-PLAN.md Task 1 (CFG-49): D18's two gauges, server-rendered.
+    #
+    # The card showed neither side of the trade-off it exists for. These
+    # three checks are about what the two new sentences may CLAIM, not
+    # about whether they render: one of them can be true today and the
+    # other one cannot, and the whole subject here is that the second
+    # one says so.
+    # ------------------------------------------------------------------
+
+    # A daily-average battery series in server/history_db.py's own row
+    # shape, oldest first (order does not matter — battery.py sorts).
+    def _battery_series(*pairs):
+        return [{"ts": ts, "battery_mv": mv, "reading_count": 3}
+                for ts, mv in pairs]
+
+    # Six shapes, each named for the answer it must produce. The three
+    # that support NO figure are the point of the fixture: a series that
+    # is rising (the device was charged), one whose span is a single day
+    # (inside this series' own noise) and one with nothing in it at all.
+    _FALLING = _battery_series(
+        ("2026-09-01", 4100), ("2026-09-04", 3800), ("2026-09-07", 3600))
+    _FALLING_ONE_DAY_LEFT = _battery_series(
+        ("2026-09-05", 3600), ("2026-09-07", 3400))
+    _RISING = _battery_series(
+        ("2026-09-01", 3400), ("2026-09-04", 3700), ("2026-09-07", 4100))
+    _ONE_DAY_SPAN = _battery_series(("2026-09-06", 4100), ("2026-09-07", 3900))
+    _EMPTY = []
+
+    def _the_two_gauges_claim_exactly_what_the_data_supports():
+        """CFG-49 (25-05-PLAN.md Task 1): the freshness sentence is a
+        BOUND and the battery sentence is an OBSERVATION — and the
+        second one has to be able to say that it has nothing to say.
+
+        The audit asked for "estimated battery life ≈ 38 days". That
+        figure does not exist anywhere in this codebase: computing it
+        needs a per-wake energy cost this project has never measured
+        (DEVICE-05's discharge run is still open), so the only absolute
+        figure permitted here is one derived from this device's OWN
+        observed discharge slope, and every other case renders a named
+        state instead.
+        """
+        min_s = device_config.WAKE_INTERVAL_MIN_S
+        max_s = device_config.WAKE_INTERVAL_MAX_S
+
+        # 1. THE BOUND, at both ends of the configured band and in the
+        #    middle — and the words "at most" are part of the claim, not
+        #    decoration: without them the sentence becomes a statement
+        #    about TYPICAL behaviour, which nothing measures.
+        bound_words = config_page.WAKE_FRESHNESS_TEXT.split(
+            layout.VALUE_CONTROL_TEXT_TOKEN)[0].strip()
+        if "at most" not in bound_words:
+            return False, (
+                "the freshness wording %r does not say 'at most' before its quantity — a bound "
+                "stated without it is a claim about typical behaviour, and nothing in this "
+                "project measures that" % config_page.WAKE_FRESHNESS_TEXT)
+        for seconds, minutes in ((min_s, 1), (max_s, 60), (600, 10), (90, 2), (1800, 30)):
+            said = config_page.wake_freshness_text(seconds)
+            if bound_words not in said:
+                return False, "wake_freshness_text(%d) = %r drops the bound" % (seconds, said)
+            numbers = re.findall(r"\d+", said)
+            if numbers != [str(minutes)]:
+                return False, (
+                    "wake_freshness_text(%d) names %r; %d seconds is %d whole minutes — and it "
+                    "must round UP, because 'at most 1 min' is FALSE for a 90-second cadence"
+                    % (seconds, numbers, seconds, minutes))
+
+        # 2. THE ABSOLUTE FIGURE, AND IT IS battery.py's OWN. Recomputed
+        #    from the estimator and required to appear verbatim, so a
+        #    second days-remaining computation in the page module would
+        #    have to agree with the first one to pass — and the fixture
+        #    is checked to actually PRODUCE a figure first, or this
+        #    whole clause would be vacuous.
+        estimate = battery.battery_life_estimate(_FALLING, 600, 600)
+        days = estimate["days_remaining"]
+        if estimate["trend"] != battery.LIFE_TREND_FALLING or not isinstance(days, int):
+            return False, (
+                "the falling fixture no longer produces a figure (%r) — the clause below would "
+                "pass against a card that never prints one" % (estimate,))
+        said = config_page.wake_battery_observed_text(600, _FALLING)
+        if str(days) not in re.findall(r"\d+", said):
+            return False, (
+                "the battery sentence %r does not carry battery_life_estimate()'s own figure "
+                "(%d days) — the one estimate lives in companion/battery.py" % (said, days))
+        if "≈" not in said:
+            return False, (
+                "the battery sentence %r drops the ≈ honesty marker this app already wears on "
+                "the battery percentage — an observed projection is not a datasheet figure"
+                % said)
+
+        # THE SINGULAR, which is reachable (a nearly-empty battery) and
+        # is the plural defect this project's i18n harness has caught
+        # before.
+        one_day = battery.battery_life_estimate(_FALLING_ONE_DAY_LEFT, 600, 600)
+        if one_day["days_remaining"] != 1:
+            return False, (
+                "the one-day fixture reports %r days — the singular wording below would never "
+                "be exercised" % (one_day["days_remaining"],))
+        singular = config_page.wake_battery_observed_text(600, _FALLING_ONE_DAY_LEFT)
+        if singular != i18n.t(config_page.WAKE_BATTERY_DAY_TEXT).replace(
+                layout.VALUE_CONTROL_TEXT_TOKEN, "1"):
+            return False, (
+                "a one-day estimate renders %r rather than the singular wording — '1 days' is "
+                "the missing-plural defect" % singular)
+
+        # 3. THE THREE SHAPES THAT SUPPORT NO FIGURE AT ALL, each
+        #    required to render the NAMED state — a real sentence, never
+        #    a blank, and never a number.
+        unknown = i18n.t(config_page.WAKE_BATTERY_UNKNOWN_TEXT)
+        for name, rows in (("rising (the device was charged)", _RISING),
+                           ("a one-day span", _ONE_DAY_SPAN),
+                           ("no history at all", _EMPTY)):
+            said = config_page.wake_battery_observed_text(600, rows)
+            if said != unknown:
+                return False, (
+                    "with %s the battery sentence reads %r; it owes the named 'not enough "
+                    "history yet' state, which is a rendered sentence rather than a blank"
+                    % (name, said))
+            if re.search(r"\d", said):
+                return False, (
+                    "with %s the battery sentence carries a number (%r) — a figure the data "
+                    "cannot support is the dishonest state Phase 22 spent a phase removing"
+                    % (name, said))
+            if "-" in said.replace("—", "") and re.search(r"-\d", said):
+                return False, "with %s the battery sentence carries a negative (%r)" % (name, said)
+
+        # 4. NEITHER SENTENCE INVENTS A SUBJECT. No saved interval, no
+        #    gauges — the same omit-don't-fabricate rule the `value`
+        #    attribute and 25-04's handles already follow.
+        for absent in (None, 0, True, "", "300"):
+            if config_page.wake_gauge_interval_s(absent) is not None:
+                return False, (
+                    "wake_gauge_interval_s(%r) resolved to an interval — only a real int inside "
+                    "the configured band is one" % (absent,))
+        if config_page.wake_gauges_html(None, _FALLING) != "":
+            return False, "the gauges rendered with no interval to describe"
+        for out_of_band in (min_s - 1, max_s + 1):
+            if config_page.wake_gauge_interval_s(out_of_band) is not None:
+                return False, (
+                    "wake_gauge_interval_s(%d) accepted a value outside [%d, %d]"
+                    % (out_of_band, min_s, max_s))
+
+        # 5. D-07's ECHO, AND ITS FLOOR. A rejected save's raw string is
+        #    what the gauges describe — but only when it is a usable
+        #    interval, because "at most 0 min" for a submitted "7" would
+        #    describe a cadence this device cannot be configured to use.
+        if config_page.wake_gauge_interval_s(600, {"wake_interval_s": "900"}) != 900:
+            return False, (
+                "a rejected save's echoed 900 is not what the gauges describe — the picture and "
+                "the field must not disagree on the screen where a mistake is being fixed")
+        for junk in ("7", "", "abc", "99999", "60.5", None):
+            if config_page.wake_gauge_interval_s(600, {"wake_interval_s": junk}) is not None:
+                return False, (
+                    "an echoed %r produced a gauge subject — a gauge about a value this device "
+                    "cannot use is a gauge about nothing" % (junk,))
+
+        # 6. THE SCREEN-OFF CLAUSE, which is what keeps BOTH sentences
+        #    from over-claiming: neither is in force while the screen is
+        #    off, because server/wake.py pins DISPLAY_OFF_SLEEP_S ahead
+        #    of this field entirely.
+        off = config_page.wake_screen_off_text()
+        if layout.duration_text(device_config.DISPLAY_OFF_SLEEP_S) not in off:
+            return False, (
+                "the screen-off clause %r does not name device_config.DISPLAY_OFF_SLEEP_S (%d s) "
+                "through the app's own duration ladder"
+                % (off, device_config.DISPLAY_OFF_SLEEP_S))
+        card = config_page.wake_gauges_html(600, _FALLING)
+        if escape_html(off) not in card:
+            return False, (
+                "the rendered gauges do not carry the screen-off clause — a visitor who has "
+                "turned the screen off reads a battery claim that does not apply to their frame")
+        return True, ""
+    check(
+        "the freshness gauge states a BOUND (\"at most\", rounded UP) naming the same whole "
+        "minutes the interval implies at the band's minimum, its maximum and in between; the "
+        "battery gauge prints an absolute figure ONLY when companion/battery.py's own estimate "
+        "supports one — recomputed from the estimator, singular and plural both — and renders "
+        "the NAMED \"not enough history yet\" sentence with no number at all for a rising, a "
+        "one-day and an empty series; neither gauge renders without a usable interval, D-07's "
+        "echo is honoured only where it is usable, and the screen-off cadence is stated "
+        "(CFG-49, 25-05-PLAN.md Task 1)",
+        _the_two_gauges_claim_exactly_what_the_data_supports)
+
+    def _no_days_remaining_arithmetic_lives_outside_companion_battery():
+        """CFG-49 (25-05-PLAN.md Task 1): the page module CALLS the
+        estimate; it never computes one.
+
+        `test_companion_app.py`'s one-home guard already catches a second
+        estimate by NAME and by the millivolt-endpoint pair. This is the
+        third net and the narrow one: the arithmetic itself — a division
+        by an observed slope, or a distance to the empty endpoint —
+        appearing anywhere under `companion/pages/`. Comments and
+        docstrings are stripped first, for this file's own standing
+        reason: the prose that explains the rule must neither satisfy
+        nor break it.
+        """
+        banned = ("days_remaining", "mv_per_day", "BATTERY_EMPTY_MV",
+                  "BATTERY_FULL_MV", "observed_span_days")
+        pages_dir = os.path.join(HERE, "pages")
+        for name in sorted(os.listdir(pages_dir)):
+            if not name.endswith(".py"):
+                continue
+            for used in _python_identifiers(os.path.join(pages_dir, name)):
+                if used in banned:
+                    return False, (
+                        "companion/pages/%s uses %r as an IDENTIFIER — the days-remaining "
+                        "arithmetic has exactly one home and companion/pages is not it. "
+                        "(Reading the estimator's own returned key back out of its dict is a "
+                        "STRING, not an identifier, and is the one permitted shape.)"
+                        % (name, used))
+        # And the call itself is QUALIFIED, per references/
+        # data-density.md: a bare `from companion.battery import
+        # battery_life_estimate` makes the estimate read as the page's
+        # own, which is the drift the shared module exists to prevent.
+        names = _python_identifiers(os.path.join(HERE, "pages", "config_page.py"))
+        if "battery_life_estimate" not in names:
+            return False, (
+                "config_page.py never names battery_life_estimate() — the battery gauge would "
+                "then be reading its figure from somewhere else")
+        import ast
+        with open(os.path.join(HERE, "pages", "config_page.py"), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and (node.module or "").endswith("battery"):
+                return False, (
+                    "config_page.py imports %r OUT of companion.battery — the estimator is "
+                    "called QUALIFIED so it can never read as this page's own "
+                    "(references/data-density.md)"
+                    % [alias.name for alias in node.names])
+        # Every template this plan added carries the quantity mark the
+        # script substitutes into, and is a real catalogue key.
+        for template in (config_page.WAKE_FRESHNESS_TEXT,
+                         config_page.WAKE_BATTERY_DAY_TEXT,
+                         config_page.WAKE_BATTERY_DAYS_TEXT,
+                         config_page.WAKE_BATTERY_INSTEAD_TEXT):
+            if layout.VALUE_CONTROL_TEXT_TOKEN not in template:
+                return False, (
+                    "the template %r carries no %r — the script substitutes the quantity into it "
+                    "and would render the sentence unchanged"
+                    % (template, layout.VALUE_CONTROL_TEXT_TOKEN))
+            for artefact in ("%s", "{}"):
+                if artefact in template:
+                    return False, (
+                        "the template %r carries %r — these reach the browser as attribute "
+                        "values and companion/test_i18n.py's Check 3 scans every French render "
+                        "for exactly that artefact" % (template, artefact))
+            if template not in i18n_fr.CATALOG:
+                return False, "the template %r has no French sibling" % template
+        return True, ""
+    check(
+        "no days-remaining arithmetic exists anywhere under companion/pages/ — every one of "
+        "days_remaining/mv_per_day/observed_span_days/the two millivolt endpoints appears only "
+        "as a read of the estimator's own returned dict, comments and docstrings stripped first "
+        "— the estimate is called QUALIFIED off companion.battery, and every quantity template "
+        "this card adds carries the \"#\" mark rather than a format artefact and has a French "
+        "sibling (CFG-49/D-27, 25-05-PLAN.md Task 1)",
+        _no_days_remaining_arithmetic_lives_outside_companion_battery)
+
+    def _the_gauges_are_an_addition_and_the_number_input_is_untouched():
+        """CFG-49 (25-05-PLAN.md Task 1): the `<input type="number">` is
+        the ONLY thing on this card that posts, and its `value`-attribute
+        guard is load-bearing in a way no other field's is.
+
+        An out-of-range `value` on a native numeric input fails HTML5
+        constraint validation, which blocks submission of the ENTIRE
+        Settings form — not just this field. That is live rather than
+        hypothetical: `deploy/skypane.env.example` ships
+        SKYPANE_SLEEP_S=30, below the 60 s floor, and plan 11-04 feeds
+        that value in as the pre-fill fallback.
+
+        The byte-identical diff against the pre-task builder was taken
+        once, by hand, across four argument shapes (recorded in the
+        SUMMARY). What lives here is the durable half.
+        """
+        min_s = device_config.WAKE_INTERVAL_MIN_S
+        max_s = device_config.WAKE_INTERVAL_MAX_S
+        expected_head = (
+            '<input type="number" id="%s" name="wake_interval_s" min="%d" max="%d"'
+            ' placeholder="%s"' % (
+                escape_html(config_page.WAKE_INTERVAL_INPUT_ID), min_s, max_s,
+                escape_html(i18n.t(config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT))))
+        # The fifth column is whether the gauges are owed at all: they
+        # describe the value the FIELD will hold, so every shape where
+        # the field deliberately shows nothing is a shape where the
+        # gauges must show nothing either.
+        cases = (
+            ("saved, in band", 600, None, ' value="600"', True),
+            ("stored BELOW the floor", 30, None, "", False),
+            ("stored above the ceiling", max_s + 1, None, "", False),
+            ("never set", None, None, "", False),
+            ("a rejected save's raw echo", 600, {"wake_interval_s": "7"},
+             ' value="7"', False),
+            ("a rejected save echoing a usable value", 600,
+             {"wake_interval_s": "900"}, ' value="900"', True),
+        )
+        for name, current, submitted, value_attr, owes_gauges in cases:
+            markup = config_page.wake_interval_group(
+                current, submitted=submitted, battery_rows=_FALLING)
+            tag = re.search(r'<input type="number"[^>]*>', markup)
+            if not tag:
+                return False, "%s: no <input type=\"number\"> at all" % name
+            element = tag.group(0)
+            if not element.startswith(expected_head):
+                return False, (
+                    "%s: the number input is no longer byte-identical to its pre-plan output.\n"
+                    "  expected it to start %r\n  got %r" % (name, expected_head, element))
+            if value_attr and value_attr not in element:
+                return False, "%s: expected %r in %s" % (name, value_attr, element)
+            if not value_attr and " value=" in element:
+                return False, (
+                    "%s: the number input carries a value attribute (%s) — an out-of-range value "
+                    "fails HTML5 constraint validation and blocks submission of the WHOLE "
+                    "Settings form, not just this field" % (name, element))
+            # THE LABEL, THE UNIT SIBLING AND THE ERROR BLOCK, in their
+            # B17 order: label ABOVE the control, unit sibling directly
+            # after it. The gauges are APPENDED after all of them.
+            label = '<label for="%s">%s</label>' % (
+                escape_html(config_page.WAKE_INTERVAL_INPUT_ID),
+                escape_html(i18n.t("Wake interval (seconds)")))
+            unit = ('<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
+                    % escape_html(config_page.WAKE_INTERVAL_UNIT_LABEL))
+            if label not in markup or unit not in markup:
+                return False, "%s: the B17 label or the unit sibling changed" % name
+            if markup.index(label) > markup.index(element):
+                return False, "%s: the label is no longer ABOVE the control (B17)" % name
+            if markup.index(unit) != markup.index(element) + len(element):
+                return False, (
+                    "%s: the unit sibling no longer sits immediately after the input — something "
+                    "was inserted between them" % name)
+            gauge_at = markup.find('id="%s"' % config_page.WAKE_GAUGE_FRESHNESS_ID)
+            if owes_gauges and gauge_at == -1:
+                return False, "%s: the gauges did not render" % name
+            if not owes_gauges and gauge_at != -1:
+                return False, (
+                    "%s: a gauge rendered for a value the field itself refuses to show — that "
+                    "is the card inventing a subject" % name)
+            if gauge_at != -1 and gauge_at < markup.index(unit):
+                return False, (
+                    "%s: a gauge renders BEFORE the control it describes — they are appended "
+                    "after the error block, which is what makes the rest of the card an "
+                    "untouched prefix" % name)
+        # A STORED value below the floor still renders both gauges off
+        # the value the FIELD will hold, which is nothing — so nothing
+        # claims a cadence that was never set.
+        # The error block still attaches to the field, with the gauges
+        # after it.
+        with_error = config_page.wake_interval_group(
+            600, errors={"wake_interval_s": "Enter a whole number of seconds."},
+            submitted={"wake_interval_s": "900"}, battery_rows=_FALLING)
+        # LOCATED BY ITS OWN ELEMENT, never by the bare id string: the
+        # input's aria-describedby NAMES that id too, and the first
+        # version of this clause found THAT — so it read a position
+        # inside the input tag and passed against the gauges rendered
+        # between the input and its error message, which is the one
+        # arrangement it exists to refuse (measured; see the SUMMARY's
+        # vacuity section).
+        error_block = re.search(
+            r'<p class="field-error[^"]*" id="wake-interval-s-error"', with_error)
+        if not error_block:
+            return False, "the field error block no longer renders"
+        gauge_at = with_error.find('id="%s"' % config_page.WAKE_GAUGE_BATTERY_ID)
+        if gauge_at == -1:
+            return False, "the gauges did not render beside a rejected save's usable echo"
+        if gauge_at < error_block.start():
+            return False, (
+                "a gauge renders between the input and its own error message (gauge at %d, "
+                "error block at %d) — the message has to read as attached to the control it is "
+                "about" % (gauge_at, error_block.start()))
+        return True, ""
+    check(
+        "the two gauges are an ADDITION: across five argument shapes (in band, stored below the "
+        "60s floor, stored above the ceiling, never set, and a rejected save's raw echo) the "
+        "<input type=\"number\"> is byte-identical to its pre-plan output — same id, name, min, "
+        "max and placeholder, the value attribute present exactly when the guard admits it and "
+        "absent otherwise (an out-of-range value blocks submission of the ENTIRE form) — with "
+        "B17's label still above it, the unit sibling still immediately after it, the error "
+        "block still attached, and both gauges appended after all of them "
+        "(CFG-49/D-07/B17, 25-05-PLAN.md Task 1)",
+        _the_gauges_are_an_addition_and_the_number_input_is_untouched)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

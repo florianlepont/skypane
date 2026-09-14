@@ -15,12 +15,21 @@ import collections  # 25-04-PLAN.md Task 1 (CFG-48): QuietWindowSpan, the
 # named triple the quiet dial's duration text and its drawn sweep are
 # BOTH read off, so the words and the picture cannot disagree.
 import re
+from datetime import timedelta  # 25-05-PLAN.md Task 1 (CFG-49): the
+# battery sentence's own look-back window, the same shape health_page's
+# _cutoff_iso() uses for the identical read.
 from urllib.parse import urlsplit
 
 from companion import i18n  # D-05, 20-07-PLAN.md Task 1: the Display page's
 # three supersection headings/intros render through i18n.t() (Task 3
 # widens this to every user-visible string in this file).
 from companion import theme_preview
+from companion import battery  # 25-05-PLAN.md Task 1 (CFG-49): the ONE
+# battery estimator (references/data-density.md's two-allow-listed-homes
+# rule). Imported as a MODULE and called qualified — a bare
+# `from companion.battery import battery_life_estimate` would make the
+# estimate read as this page's own, which is the drift 19-01 created
+# that module to prevent.
 from companion import draw  # 25-03-PLAN.md Task 1 (CFG-47): the shared
 # SVG geometry/emission primitives the runway map's shapes come from.
 # stdlib-only by its own contract, so importing it here adds no
@@ -496,6 +505,111 @@ WAKE_INTERVAL_INPUT_ID = "wake-interval-s"
 # 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
 # comment above.
 WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
+
+# --- 25-05-PLAN.md Task 1 (CFG-49): THE TWO GAUGES --------------------
+#
+# The wake interval is a trade-off the card never showed either side of:
+# a smaller number means the frame notices a plane sooner AND that the
+# battery empties sooner. These two sentences are those two sides, and
+# the interesting thing about them is that ONLY ONE OF THEM CAN BE
+# HONEST TODAY.
+#
+# FRESHNESS is true by construction, as long as it says "at most". The
+# frame learns about a plane at its next wake, so a plane that passes
+# one instant after a wake shows up one whole interval later and no
+# later than that. State it as a BOUND and it is the interval restated
+# the way a person experiences it; drop the "at most" and it becomes a
+# claim about TYPICAL behaviour, which nothing in this project measures.
+#
+# BATTERY LIFE cannot state an absolute figure from first principles,
+# and this is the constraint the whole card is built around. Computing
+# "≈ 38 days remaining" needs a per-wake energy cost, and this project
+# has NEVER MEASURED ONE — DEVICE-05's multi-day discharge run is still
+# open. A number invented from an assumed cost, printed next to a
+# control a person will act on, is exactly the dishonest state Phase 22
+# spent a whole phase removing. So the figure here comes out of
+# companion/battery.py's `battery_life_estimate()`, which derives it
+# from this device's OWN OBSERVED discharge slope or refuses to derive
+# it at all — and when it refuses, WAKE_BATTERY_UNKNOWN_TEXT is a real
+# rendered state, not a blank.
+#
+# NO DAYS-REMAINING ARITHMETIC LIVES IN THIS MODULE. Every figure below
+# is `battery.battery_life_estimate()`'s own return, called QUALIFIED
+# (`references/data-density.md`: a bare `from companion.battery import
+# ...` makes the estimator read as the page's own). 19-01 created that
+# module to stop exactly this drift.
+WAKE_GAUGE_CLASS = "wake-gauge"
+WAKE_GAUGE_FRESHNESS_ID = "wake-gauge-freshness"
+WAKE_GAUGE_BATTERY_ID = "wake-gauge-battery"
+# The gauges speak in minutes; the field holds seconds. One name, so the
+# ceiling division below and the scale attribute the script reads are
+# provably the same number.
+WAKE_GAUGE_SECONDS_PER_MINUTE = 60
+# How much history the battery sentence is allowed to look back over.
+# Deliberately SHORTER than health_page's own 3-month trend window: this
+# sentence says "recent", and a slope measured from a point three months
+# and one charge ago is not recent behaviour. Two weeks is comfortably
+# more than battery.LIFE_MIN_OBSERVED_SPAN_DAYS and still recent enough
+# for the word to be true.
+WAKE_BATTERY_WINDOW_DAYS = 14
+# THE QUANTITY'S PLACE IS "#", never "%s"/"%d"/"{}" — every template
+# below reaches the browser as an ATTRIBUTE VALUE on a rendered page
+# (companion/static/value-controls.js substitutes into it live), and
+# companion/test_i18n.py's Check 3 scans every French render for a stray
+# format artefact. layout.VALUE_CONTROL_TEXT_TOKEN and
+# layout.RELATIVE_QUANTITY_MARK both record that lesson; this is the
+# third consumer of it, and a check asserts every template here carries
+# that exact token.
+#
+# THE UNIT IS "min" AND THE QUANTITY IS WHOLE MINUTES, which keeps these
+# sentences free of a plural form in both languages and free of the
+# s/m/h/d ladder: the configured band is 60..3600 s, which is 1..60 min,
+# so the unit never changes mid-sweep. layout.duration_text() is the
+# app's one ladder and is used below for the ONE fixed cadence that is
+# not the field's own value (the screen-off one), where no live update
+# has to reproduce it in a second language of source.
+WAKE_FRESHNESS_TEXT = (
+    "A plane reaches the frame at most # min after it passes.")
+# The two absolute-figure wordings. Only ever rendered when
+# battery.battery_life_estimate() says the OBSERVED history supports a
+# figure, and carrying this app's own "≈" honesty marker (the battery
+# percentage already wears it) plus the source of the claim, so it can
+# never be read as a datasheet number.
+WAKE_BATTERY_DAY_TEXT = (
+    "≈ # day of battery left at this interval, from this frame's own "
+    "recent readings.")
+WAKE_BATTERY_DAYS_TEXT = (
+    "≈ # days of battery left at this interval, from this frame's own "
+    "recent readings.")
+# THE NAMED "NOT ENOUGH HISTORY YET" STATE. A rendered sentence, never a
+# blank and never a zero: a card that silently drops the battery half
+# whenever it cannot compute one reads as a card that has nothing to say
+# about battery at all.
+WAKE_BATTERY_UNKNOWN_TEXT = (
+    "Not enough battery history yet to say how long a charge lasts — "
+    "this frame has never measured what one wake costs.")
+# The clause that keeps BOTH sentences from over-claiming: neither the
+# bound nor the battery figure is in force while the screen is off,
+# because device_config.DISPLAY_OFF_SLEEP_S is pinned independently of
+# this field then (server/wake.py's effective_wake_interval_s(),
+# precedence rule 1). A visitor who has turned the screen off would
+# otherwise read a claim that does not apply to their frame.
+WAKE_BATTERY_SCREEN_OFF_TEXT = (
+    "While the screen is off the frame wakes every %s instead, whatever "
+    "this is set to.")
+# The RELATIVE half, and the only half companion/static/value-controls.js
+# may recompute while the slider moves. It names TWO CADENCES and no
+# ratio: it is arithmetic on the two cadences and nothing else, which is
+# the one thing battery.battery_life_estimate()'s `relative_factor`
+# docstring is emphatic can be said honestly on day one — and it is
+# carefully NOT a multiplier on the lifetime, which those two would only
+# be if every joule this device spends went into waking.
+#
+# "%d" is the SAVED cadence, written in server-side and fixed for the
+# life of the page; "#" is the proposed one, which is the only thing
+# that moves and therefore the only thing the script substitutes.
+WAKE_BATTERY_INSTEAD_TEXT = (
+    "This setting wakes the frame every # min instead of every %d min.")
 
 # 20-11-PLAN.md Task 1 (D-26/D-28, 20-UI-SPEC.md Section Anatomy J/copy
 # table G): the Notifications group's own copy — a Device-only sixth
@@ -2839,7 +2953,305 @@ def quiet_hours_group(current_start, current_end, errors=None, submitted=None, d
     )
 
 
-def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, next_wake_clock=None):
+def wake_gauge_interval_s(current_wake_interval_s, submitted=None):
+    """The interval the two gauges describe, as an int inside
+    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]`, or `None` when there is
+    no such value — in which case NOTHING this plan adds renders at all.
+
+    THE SAME OMIT-DON'T-FABRICATE RULE THE `value` ATTRIBUTE BELOW
+    ALREADY FOLLOWS, and the same one `quiet_dial_handles_html()` applies
+    to a handle whose end does not parse: a gauge for a value that was
+    never set claims a fact about the frame that is not true (D-07), and
+    a slider pre-positioned at a fabricated point is worse still,
+    because dragging it saves that fabrication.
+
+    D-07's ECHO RULE IS HONOURED WHERE IT CAN BE, AND ONLY THERE. On a
+    rejected save `submitted` carries the raw string the visitor typed,
+    and the gauges describe THAT rather than the stored value — the
+    identical rule 25-04 applied to the quiet arc, for the identical
+    reason: on exactly the screen where a mistake is being fixed, the
+    picture and the field must not disagree. But a raw submission is
+    where the out-of-range values live ("7", "99999", "abc"), and a
+    gauge for 7 seconds would describe a cadence this device cannot be
+    configured to use. So an echo that is not a usable interval renders
+    no gauge rather than a gauge about nothing.
+
+    Total by construction: a non-string, a non-numeric string, a float
+    string, a bool and `None` all resolve to `None` and nothing raises.
+    """
+    if submitted is not None and "wake_interval_s" in submitted:
+        raw = submitted["wake_interval_s"]
+        try:
+            candidate = int(str(raw).strip())
+        except (TypeError, ValueError):
+            return None
+    elif isinstance(current_wake_interval_s, int) and not isinstance(
+            current_wake_interval_s, bool):
+        candidate = current_wake_interval_s
+    else:
+        return None
+    if device_config.WAKE_INTERVAL_MIN_S <= candidate <= device_config.WAKE_INTERVAL_MAX_S:
+        return candidate
+    return None
+
+
+def _wake_minutes(interval_s):
+    """`interval_s` as a whole number of minutes, ROUNDED UP.
+
+    The ONE expression both gauges and companion/static/value-controls.js
+    read the minute count off — the script divides by the same scale the
+    markup hands it and takes the same ceiling, so the sentence and the
+    field cannot disagree by construction rather than by agreement.
+
+    Up rather than down, because both sentences are claims about a
+    BOUND: a 90-second cadence bounds the wait at a minute and a half,
+    and `90 // 60` would print "at most 1 min", which is FALSE. The
+    ceiling prints "at most 2 min", which is true and merely loose.
+    Every value this control can produce is a whole number of minutes
+    anyway (its step is a minute); the ceiling exists for the values
+    already ON DISK from before this control existed.
+    """
+    return -(-int(interval_s) // WAKE_GAUGE_SECONDS_PER_MINUTE)
+
+
+def wake_freshness_text(interval_s):
+    """"A plane reaches the frame at most 5 min after it passes." — the
+    bound, or `""` when there is no interval to bound.
+
+    THE WORD "AT MOST" IS THE WHOLE SENTENCE. The frame learns about a
+    plane at its next wake, so a plane that passes one instant after a
+    wake appears one whole interval later and never later than that —
+    true for every interval, by construction. Drop those two words and
+    the same sentence becomes a claim about TYPICAL behaviour, which
+    nothing in this project measures.
+
+    The minute count is `_wake_minutes()`'s, shared with the relative
+    clause and with the script, so the sentence and the field cannot
+    disagree.
+    """
+    if interval_s is None:
+        return ""
+    return i18n.t(WAKE_FRESHNESS_TEXT).replace(
+        layout.VALUE_CONTROL_TEXT_TOKEN, str(_wake_minutes(interval_s)))
+
+
+def wake_battery_observed_text(interval_s, battery_rows=None):
+    """The battery half: an absolute figure ONLY when this frame's own
+    observed history supports one, and the named "not enough history
+    yet" sentence in every other case. `""` when there is no interval.
+
+    NAMED FOR WHAT IT IS — a SENTENCE about the observed series, not a
+    life computation — and the name matters beyond taste. The first
+    draft was called `wake_battery_life_text()` and
+    `test_companion_app.py`'s one-home guard failed it by name:
+    *"companion/pages/config_page.py defines wake_battery_life_text() —
+    a second battery-LIFE computation"*. That guard is deliberately
+    blunt and it was right to object to the NAME; the answer is not to
+    allow-list the name (which would let a real second estimate in under
+    it later), it is to stop claiming to compute a lifetime. Nothing
+    here computes one: the only arithmetic in this function is choosing
+    between a singular and a plural wording.
+
+    THE FIGURE IS `battery.battery_life_estimate()`'s, NEVER THIS
+    MODULE'S. There is no division anywhere in this file that could
+    produce a days-remaining number, deliberately, and a check scans
+    `companion/pages/` for one. Four of that function's five named
+    trends carry no figure at all (no reading, not enough history, a
+    RISING series — a charged device has a positive slope and dividing
+    by it yields a negative or infinite lifetime — and a flat one), and
+    all four land on the same honest sentence here.
+
+    `battery_rows` is a daily-average series in
+    `server/history_db.py`'s row shape; `None`/`()` is the ordinary
+    state of a fresh deployment and produces the unknown sentence rather
+    than an empty card.
+    """
+    if interval_s is None:
+        return ""
+    estimate = battery.battery_life_estimate(
+        battery_rows or (), interval_s, interval_s)
+    days = estimate["days_remaining"]
+    if (estimate["trend"] == battery.LIFE_TREND_FALLING
+            and isinstance(days, int) and not isinstance(days, bool)):
+        template = WAKE_BATTERY_DAY_TEXT if days == 1 else WAKE_BATTERY_DAYS_TEXT
+        return i18n.t(template).replace(
+            layout.VALUE_CONTROL_TEXT_TOKEN, str(days))
+    return i18n.t(WAKE_BATTERY_UNKNOWN_TEXT)
+
+
+def wake_screen_off_text():
+    """"While the screen is off the frame wakes every 5m instead,
+    whatever this is set to."
+
+    Rendered unconditionally beside the battery sentence rather than
+    hidden behind a `display_enabled` read: the clause is true whichever
+    way that switch is set, and a qualifier that appears only once the
+    screen is already off is a qualifier nobody reads in time.
+
+    The cadence goes through `layout.duration_text()` — this app's ONE
+    duration ladder — because it is a fixed constant no script has to
+    reproduce. The two sentences above deliberately do not, for the
+    opposite reason: their number changes as the slider moves, and a
+    ladder that switches unit at an hour cannot be recomputed in the
+    browser without a second copy of it in JavaScript.
+    """
+    return i18n.t(WAKE_BATTERY_SCREEN_OFF_TEXT) % layout.duration_text(
+        device_config.DISPLAY_OFF_SLEEP_S)
+
+
+def wake_battery_relative_template(saved_interval_s):
+    """The relative clause's TEMPLATE, with the saved cadence already
+    written into it and `#` left standing for the proposed one — or `""`
+    when there is no usable saved cadence to compare against.
+
+    "This setting wakes the frame every # min instead of every 10 min."
+
+    TWO CADENCES NAMED IN FULL, NOT A RATIO, and the reason is a
+    language one rather than a taste one. A ratio needs a decimal
+    ("≈ 1.5× more often"), a decimal needs a decimal MARK, and French
+    writes it with a comma — so a ratio recomputed in the browser would
+    either print an English decimal on a French page or need the mark
+    handed to the script as one more attribute. Two whole minute counts
+    need neither: they are integers in both languages, the "instead of"
+    says the direction without a second wording for each side, and the
+    reader does not have to remember what the saved value was in order
+    to read the sentence. The half-up/half-to-even rounding trap that a
+    shared decimal would have carried between Python and JavaScript
+    disappears with it.
+
+    THE SAVED CADENCE IS BAKED IN HERE, server-side, because it is fixed
+    for the life of the page: only the PROPOSED one moves, so only the
+    proposed one is left as the quantity mark. That is what keeps the
+    script to one substitution and keeps this sentence out of
+    JavaScript.
+
+    Routed through `battery.battery_life_estimate()`'s own
+    `relative_factor` for its GUARD rather than for a number: that
+    function already refuses a bool cadence, a non-numeric one, a
+    non-positive one and an absurd one, and a clause built on a cadence
+    it would have refused is a clause about nothing.
+    """
+    estimate = battery.battery_life_estimate(
+        (), saved_interval_s, saved_interval_s)
+    if estimate["relative_factor"] is None:
+        return ""
+    return i18n.t(WAKE_BATTERY_INSTEAD_TEXT) % _wake_minutes(saved_interval_s)
+
+
+def wake_battery_relative_text(proposed_interval_s, saved_interval_s):
+    """The relative clause as the SERVER would render it for a given
+    proposal — `""` when the two cadences are the same, which is what
+    every real page render produces.
+
+    The clause exists for companion/static/value-controls.js to fill
+    while a drag is in flight; the server renders the saved interval
+    against itself, and "this setting wakes the frame every 10 min
+    instead of every 10 min" would be noise on every page load. `""`
+    rather than a hidden element, so there is nothing to un-hide and no
+    second visibility mechanism.
+
+    It is nonetheless a real function with a real return, because it is
+    the ONE definition of this sentence in Python: companion/
+    test_browser_ux.py drives the slider in a browser and compares the
+    script's own output against this, so "the script says what the
+    server would have said" is measured rather than assumed.
+
+    IT NEVER CARRIES A DAYS FIGURE, and that is the whole division of
+    labour with `wake_battery_observed_text()` above. This half is
+    arithmetic on two cadences and is therefore always available and
+    always live; the absolute half comes out of observed history and is
+    server-rendered once. A script that could recompute the absolute
+    half would be a script that could invent one — which is the defect
+    this split makes unreachable rather than merely unlikely.
+    """
+    template = wake_battery_relative_template(saved_interval_s)
+    if not template:
+        return ""
+    estimate = battery.battery_life_estimate(
+        (), saved_interval_s, proposed_interval_s)
+    factor = estimate["relative_factor"]
+    if factor is None or factor == 1.0:
+        return ""
+    return template.replace(
+        layout.VALUE_CONTROL_TEXT_TOKEN, str(_wake_minutes(proposed_interval_s)))
+
+
+def wake_battery_rows(state_dir, now=None):
+    """`WAKE_BATTERY_WINDOW_DAYS` of daily battery averages for the
+    battery sentence, or `()` on any read failure or absent state dir.
+
+    Never raises, matching `_rule_suggestion_chips_html()`'s and
+    `_theme_live_preview_html()`'s own fail-soft contract for the
+    identical class of read in this same module: a settings page that
+    500s because a battery history table could not be opened would be a
+    far worse defect than a card that says it has no history yet — which
+    is exactly what `wake_battery_observed_text()` renders from `()`.
+
+    Read here rather than threaded through `ctx`: this is the only card
+    in the app that needs the series, it renders on one scope of one
+    page, and `companion/app.py`'s `page_context()` runs on EVERY
+    authenticated render.
+    """
+    if not state_dir:
+        return ()
+    try:
+        with history_db.open_db(state_dir) as conn:
+            return history_db.daily_battery_averages(
+                conn, since=_wake_battery_cutoff_iso(now))
+    except Exception:
+        return ()
+
+
+def _wake_battery_cutoff_iso(now):
+    """The `since=` bound for the read above, or `None` when `now` does
+    not parse — in which case `daily_battery_averages()` degrades to an
+    UNBOUNDED read, health_page's own documented choice for the one
+    input it does not control: more history rather than none.
+    """
+    parsed = layout.parse_iso(now)
+    if parsed is None:
+        return None
+    return (parsed - timedelta(days=WAKE_BATTERY_WINDOW_DAYS)).isoformat(
+        timespec="seconds")
+
+
+def wake_gauges_html(interval_s, battery_rows=None):
+    """The two gauges, as two muted sentences — or `""` when there is no
+    interval for them to describe.
+
+    SERVER-RENDERED, AND OUTSIDE THE `.js` GATE ENTIRELY. This is the
+    same split 25-04's dial made: with scripts blocked a visitor can
+    still type an interval, still read what it means for freshness and
+    for battery, and still save it. Only the slider is gated, because a
+    slider with no script is a control that drags and shows nothing.
+    Rendering these server-side is also what gives the script something
+    to UPDATE rather than something to create — so a failed script
+    leaves correct sentences rather than empty ones.
+
+    Both wear `.text-label .section-caption`, the app's existing muted
+    voice, and neither is a live region: they change on every step of a
+    drag, and an `aria-live` region here would re-announce the same
+    phrase continuously — the defect Phase 23 hit with its three
+    switches, and the same call 25-04 made for its readout (CFG-52). The
+    range announces itself natively instead, and points at these two by
+    `aria-describedby`.
+    """
+    if interval_s is None:
+        return ""
+    return (
+        '<p class="text-label section-caption %s" id="%s">%s</p>'
+        '<p class="text-label section-caption %s" id="%s">%s %s</p>'
+    ) % (
+        escape_html(WAKE_GAUGE_CLASS), escape_html(WAKE_GAUGE_FRESHNESS_ID),
+        escape_html(wake_freshness_text(interval_s)),
+        escape_html(WAKE_GAUGE_CLASS), escape_html(WAKE_GAUGE_BATTERY_ID),
+        escape_html(wake_battery_observed_text(interval_s, battery_rows)),
+        escape_html(wake_screen_off_text()),
+    )
+
+
+def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, next_wake_clock=None,
+                        battery_rows=None):
     """The Wake interval settings group (11-UI-SPEC.md, 11-RESEARCH.md
     Pattern 4): a fifth sibling of the Theme/Runway/Diagnostic LED/Quiet
     hours groups inside the single merged `<form action="{SETTINGS_ROUTE}">`,
@@ -2895,6 +3307,16 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
     validation still applies on the user's NEXT submit attempt (nothing
     here suppresses it) — that is a feature, not a bug: it is what
     prompts them to fix the value before it can be saved.
+
+    25-05-PLAN.md Task 1 (CFG-49): `battery_rows` is the daily-average
+    battery series the battery gauge is derived from, `()` by default —
+    every pre-existing call site keeps producing its previous output for
+    the input, the label, the unit sibling and the error block, which
+    are UNTOUCHED by this plan and asserted so. The two gauges are
+    APPENDED after the error block, never interleaved with it: they are
+    what the setting MEANS, so they read after the control that sets it,
+    and appending is also what makes "the rest of the card is
+    byte-identical" a structural fact rather than a careful edit.
     """
     if submitted is not None and "wake_interval_s" in submitted:
         raw_submitted = submitted["wake_interval_s"]
@@ -2932,6 +3354,10 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         # _normalised_time_html()'s own sibling (B14).
         '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
         "%s"
+        # 25-05-PLAN.md Task 1 (CFG-49): the two gauges, APPENDED. Every
+        # element above this line is byte-identical to its pre-plan
+        # output, in all four argument shapes, and a check diffs them.
+        "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
@@ -2945,6 +3371,8 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         value_attr, error_attrs,
         escape_html(WAKE_INTERVAL_UNIT_LABEL),
         error_html,
+        wake_gauges_html(
+            wake_gauge_interval_s(current_wake_interval_s, submitted), battery_rows),
     )
 
 
@@ -4208,9 +4636,15 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         screens.GROUP_QUIET_HOURS: lambda: quiet_hours_group(
             current_quiet_start, current_quiet_end,
             errors=errors, submitted=submitted, delay_sentence=quiet_hours_delay_sentence),
+        # 25-05-PLAN.md Task 1 (CFG-49): the battery series is read
+        # INSIDE the lambda, so it is read only on a scope that actually
+        # renders this group (Device and the legacy SCOPE_ALL) and never
+        # on Display — `builders` is a dict of thunks precisely so an
+        # entry costs nothing until its group is in scope.
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
             current_wake_interval_s, errors=errors, submitted=submitted,
-            next_wake_clock=next_wake_clock),
+            next_wake_clock=next_wake_clock,
+            battery_rows=wake_battery_rows(ctx.get("state_dir"), ctx.get("now"))),
         # 22-05-PLAN.md Task 1 (X1/D-04/D-12.1): screens.GROUP_DISPLAY has
         # no entry here any more — display_group() is retired outright,
         # matching screens.GROUP_THEME/screens.GROUP_CALENDAR's own

@@ -260,6 +260,48 @@ CATALOG = {
         "en un coup d’œil. S’applique lors de la prochaine "
         "vérification programmée.",
     "Wake interval (seconds)": "Intervalle de réveil (secondes)",
+    # 25-05-PLAN.md Task 1 (CFG-49): the two gauges. "#" is the
+    #     quantity's place in every one of these (layout.
+    #     VALUE_CONTROL_TEXT_TOKEN) — never "%s"/"%d"/"{}", which
+    #     Check 3 of this harness scans every French render for.
+    #     The unit is "min" and the quantity is WHOLE MINUTES in
+    #     both languages, which is what keeps these sentences free
+    #     of a plural form and free of the s/m/h/d ladder — the
+    #     configured band is 1..60 minutes, so the unit never
+    #     changes mid-sweep. U+00A0 between the number and its
+    #     unit, per D-09, exactly as layout.duration_text() already
+    #     does for its own French branch.
+    "A plane reaches the frame at most # min after it passes.":
+        "Un avion apparaît sur le cadre au plus # min après son passage.",
+    # The two absolute-figure wordings, SINGULAR and PLURAL both —
+    #     a days count of 1 is reachable (a nearly empty battery)
+    #     and "1 jours" is the missing-plural defect this harness
+    #     has caught before.
+    "≈ # day of battery left at this interval, from this frame's own "
+    "recent readings.":
+        "≈ # jour d’autonomie restante à cet intervalle, d’après les "
+        "relevés récents de ce cadre.",
+    "≈ # days of battery left at this interval, from this frame's own "
+    "recent readings.":
+        "≈ # jours d’autonomie restante à cet intervalle, d’après les "
+        "relevés récents de ce cadre.",
+    "Not enough battery history yet to say how long a charge lasts — "
+    "this frame has never measured what one wake costs.":
+        "Pas encore assez d’historique de batterie pour dire combien de "
+        "temps dure une charge — ce cadre n’a jamais mesuré ce que coûte "
+        "un réveil.",
+    "While the screen is off the frame wakes every %s instead, whatever "
+    "this is set to.":
+        "Quand l’écran est éteint, le cadre se réveille toutes les %s à la "
+        "place, quel que soit ce réglage.",
+    # The relative clause names both cadences rather than a ratio, so it
+    #     carries no decimal at all — which is what keeps it out of the
+    #     French decimal-comma question entirely. "%d" is the SAVED
+    #     cadence, filled server-side; "#" is the proposed one, filled
+    #     by companion/static/value-controls.js as the slider moves.
+    "This setting wakes the frame every # min instead of every %d min.":
+        "Ce réglage réveille le cadre toutes les # min au lieu de toutes "
+        "les %d min.",
     "Uses server default": "Utilise la valeur par défaut du serveur",
     "Manual refresh": "Actualisation manuelle",
     "Manually trigger an immediate poll cycle instead of waiting for "
