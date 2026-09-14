@@ -5689,6 +5689,211 @@ def main():
             "rather than silently disabling the D1-races-D2 rule (T-23-26, 23-07-PLAN.md Task 1)",
             _quick_switch_pending_marker_is_layouts_own_name)
 
+        # --- 25-01-PLAN.md Task 1 (CFG-46): value-controls.js, the
+        # FIFTEENTH deferred script on this shell and the seventeenth
+        # static script in the tree — and the ONLY new script Phase 25
+        # is allowed. The same five-check registration block
+        # quick-switch.js already carries, plus the one pin that is this
+        # file's own specific risk: it must wake the save bar through
+        # the ONE mechanism dirty-state.js actually listens for, because
+        # a control that changes a value without waking the save bar
+        # silently loses the user's edit.
+
+        check(
+            "GET /static/value-controls.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/value-controls.js"))
+
+        def _value_controls_script_es5_safe_and_never_holds_the_value():
+            js_path = os.path.join(HERE, "static", "value-controls.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            # No reviewed exception of any kind here. Unlike
+            # freshness.js's loop, relative-time.js's timer and
+            # quick-switch.js's fetch, this file makes no network call,
+            # runs no timer and takes no navigation — it reads
+            # attributes, writes one input value and paints one wrapper.
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(",
+                "XMLHttpRequest", "fetch(", "setInterval", "setTimeout",
+                "location.href", "location.assign", "location.replace")
+            for token in banned:
+                if token in src:
+                    return False, "value-controls.js must not contain %r" % token
+            required = (
+                "preventDefault", "getAttribute", "dispatchEvent",
+                "aria-valuenow", "aria-valuetext", "parseFloat",
+                "Math.round", "Math.max", "Math.min")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in value-controls.js" % token
+            # POINT 2 OF THE NO-JS CONTROL CONTRACT, PINNED BY SHAPE.
+            # "The enhancement writes into that control; it never holds
+            # the value." The only place this file may write a value is
+            # the native input's own `.value`, and the control's current
+            # state must be read back off that same input — so there is
+            # nothing for a later paint to be fed from except the field
+            # the form actually posts. A SECOND assignment is a parallel
+            # copy; ZERO reads means the paint is fed from somewhere
+            # else. Boundary-guarded on the left so a hyphenated or
+            # dotted longer name cannot satisfy either half.
+            value_writes = re.findall(r"(?<![-\w.])\w+\.value\s*=(?!=)", src)
+            if len(value_writes) != 1:
+                return False, (
+                    "expected exactly ONE assignment to a `.value` in value-controls.js (the "
+                    "write into the native input the form posts), found %d: %r — a second one "
+                    "is a parallel copy of a value this file is forbidden to hold"
+                    % (len(value_writes), value_writes))
+            if not re.search(r"(?<![-\w.])field\.value(?!\s*=)", src):
+                return False, (
+                    "expected value-controls.js to READ the native input back through "
+                    "`field.value` — a file that never reads the input it wrote is holding the "
+                    "value somewhere else, which is point 2 of the no-JS control contract")
+            return True, ""
+        check(
+            "value-controls.js stays ES5-safe and sink-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/XHR/fetch/timer and no "
+            "URL-taking navigation), carries the steering contract (preventDefault, "
+            "getAttribute, dispatchEvent, aria-valuenow, aria-valuetext, parseFloat and the "
+            "three Math clamps) and NEVER holds the value — exactly one `.value` assignment and "
+            "at least one read of `field.value` back (CFG-46, 25-01-PLAN.md Task 1)",
+            _value_controls_script_es5_safe_and_never_holds_the_value)
+
+        def _value_controls_script_route_src_agree():
+            import companion.app as app_module
+            if layout.VALUE_CONTROLS_SCRIPT_SRC != app_module.VALUE_CONTROLS_SCRIPT_ROUTE:
+                return False, "value-controls script route drift: %r vs %r" % (
+                    layout.VALUE_CONTROLS_SCRIPT_SRC, app_module.VALUE_CONTROLS_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.VALUE_CONTROLS_SCRIPT_SRC equals companion.app.VALUE_CONTROLS_SCRIPT_ROUTE",
+            _value_controls_script_route_src_agree)
+
+        def _value_controls_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.VALUE_CONTROLS_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one value-controls.js <script> tag "
+            "and no inline <script> without a src (D-32, 25-01-PLAN.md Task 1)",
+            _value_controls_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _real_get_value_controls_route_serves_the_registration_seam():
+            # Served over real HTTP, because a registration whose route
+            # 404s is a control that renders and does nothing — and the
+            # deferred-script count check above would still pass.
+            status, headers, body = http_request(base + "/static/value-controls.js")
+            if status != 200:
+                return False, "expected 200 from GET /static/value-controls.js, got %d" % status
+            text = body.decode("utf-8")
+            for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
+                           "=>", " let ", " const ", "`"):
+                if banned in text:
+                    return False, "did not expect %r in the served value-controls.js body" % banned
+            # THE REGISTRATION SEAM, asserted on the SERVED body. 25-04's
+            # dial and 25-05's slider opt in by writing these attributes
+            # and nothing else; a rename on the Python side alone would
+            # otherwise be a control that renders and steers nothing,
+            # invisible to every other check in this file.
+            for attr in (layout.VALUE_CONTROL_ATTR, layout.VALUE_CONTROL_FIELD_ATTR,
+                         layout.VALUE_CONTROL_FORM_ATTR, layout.VALUE_CONTROL_MIN_ATTR,
+                         layout.VALUE_CONTROL_MAX_ATTR, layout.VALUE_CONTROL_STEP_ATTR,
+                         layout.VALUE_CONTROL_HANDLE_ATTR, layout.VALUE_CONTROL_TRACK_ATTR,
+                         layout.VALUE_CONTROL_TEXT_ATTR):
+                if ('"%s"' % attr) not in text:
+                    return False, (
+                        "expected the served body to name %r — the registration seam 25-04 and "
+                        "25-05 opt into by attribute, so a rename on the Python side alone is a "
+                        "control that renders and steers nothing" % attr)
+            return True, ""
+        check(
+            "a real GET of /static/value-controls.js returns 200 with the served steering body — "
+            "all nine of layout's VALUE_CONTROL_* seam attributes named, and none of innerHTML/"
+            "insertAdjacentHTML/document.write/eval/=>/ let / const /backtick (CFG-46, "
+            "25-01-PLAN.md Task 1)",
+            _real_get_value_controls_route_serves_the_registration_seam)
+
+        def _value_controls_wakes_the_save_bar_through_dirty_states_own_listener():
+            # THE DEFECT THIS EXISTS TO CATCH: a control that changes a
+            # value without waking the save bar silently loses the
+            # user's edit — it looks saved and is not.
+            #
+            # dirty-state.js's own preset handler reaches its bar by
+            # calling a PRIVATE notifyDirty(), a closure inside that
+            # file's IIFE that a separate file cannot reach. So
+            # value-controls.js has to use the one PUBLIC surface
+            # between a control and the save bar: the DELEGATED
+            # document-level listener dirty-state.js registers. Pinned
+            # from BOTH sides, the way the PENDING_ATTR pin above is.
+            #
+            # The event name is read out of the two CONSTRUCTION sites
+            # rather than a named constant (a bare lowercase word in a
+            # named JS constant is what companion/test_i18n.py Check 6
+            # reads as untranslated copy — quick-switch.js documents the
+            # same reason for its own inline wire values). Reading both
+            # sites also pins them equal to each other, which is a real
+            # defect shape: a file whose modern branch dispatches
+            # "change" and whose legacy branch dispatches "input" wakes
+            # the save bar on one browser and loses the edit on another.
+            js_path = os.path.join(HERE, "static", "value-controls.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            modern = re.findall(r'new window\.Event\("([a-z]+)"', src)
+            legacy = re.findall(r'\.initEvent\("([a-z]+)"', src)
+            if len(modern) != 1 or len(legacy) != 1:
+                return False, (
+                    "expected value-controls.js to construct its notification exactly once each "
+                    "way — new window.Event(\"...\") for browsers that have it and "
+                    ".initEvent(\"...\") otherwise — found %r and %r" % (modern, legacy))
+            if modern[0] != legacy[0]:
+                return False, (
+                    "value-controls.js constructs %r in its modern branch and %r in its legacy "
+                    "branch — one of the two browsers would never wake the save bar"
+                    % (modern[0], legacy[0]))
+            event_name = modern[0]
+            if "bubbles: true" not in src:
+                return False, (
+                    "expected value-controls.js's notification event to be constructed as a "
+                    "BUBBLING event — dirty-state.js listens on `document`, so an event that "
+                    "does not bubble never reaches it")
+            if not re.search(r"(?<![-\w.])\w+\.dispatchEvent\(", src):
+                return False, (
+                    "expected value-controls.js to dispatch its notification — writing "
+                    "field.value alone leaves the save bar asleep and the edit unsaveable")
+            dirty_path = os.path.join(HERE, "static", "dirty-state.js")
+            with open(dirty_path) as fh:
+                dirty = fh.read()
+            listener = 'document.addEventListener("%s"' % event_name
+            if listener not in dirty:
+                return False, (
+                    "value-controls.js notifies with %r but dirty-state.js registers no "
+                    "document-level listener for it (%r not found) — the save bar would never "
+                    "wake and the user's edit would be silently lost" % (event_name, listener))
+            if "e.target.form === form" not in dirty:
+                return False, (
+                    "dirty-state.js's delegated listener no longer filters on "
+                    "`e.target.form === form` — the filter that is the only reason a "
+                    "form=-attached settings field (which is what every one of them is) reaches "
+                    "the bar at all")
+            return True, ""
+        check(
+            "value-controls.js wakes the save bar through the ONE public surface — a bubbling "
+            "event constructed identically in both its branches, whose name is dirty-state.js's "
+            "own delegated document-level listener, pinned from both sides together with that "
+            "listener's e.target.form filter, because a control that changes a value without "
+            "waking the save bar silently loses the user's edit (CFG-46, 25-01-PLAN.md Task 1)",
+            _value_controls_wakes_the_save_bar_through_dirty_states_own_listener)
+
 
         # --- 23-01-PLAN.md Task 2 (D3/CFG-32): the motion budget, made
         # executable. A budget that is only a document is a budget a
