@@ -75,6 +75,7 @@ Usage:
 """
 import contextlib
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -84,6 +85,11 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import auth, i18n, layout  # noqa: E402
+# 24-05-PLAN.md Task 3: the app's OWN contrast formula, so the chart
+# area's composite-over-the-card measurement is judged by the same
+# arithmetic every other colour pair this project pins is judged by —
+# never a second implementation living in a harness.
+from companion.contrast_check import contrast_ratio  # noqa: E402
 from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
 from companion.pages import config_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
@@ -573,6 +579,27 @@ EXPECTED_CHECK_COUNT = 54
 # neither.
 # 54 + 3 = 57, re-derived by RUNNING (57/57).
 EXPECTED_CHECK_COUNT = 57
+# 24-05-PLAN.md Task 3 (CFG-41/CFG-45/D-09): +2 — the battery chart's
+# area, marked reading and low-battery threshold, measured rather than
+# read. One resolves all four shapes' paint in both themes and asks three
+# different questions of them (not the SVG default; the area/line/mark
+# sharing one currentColor ink while the threshold deliberately does not;
+# every one of them moving when the theme does), then COMPOSITES the
+# translucent area over the card's own resolved background and runs the
+# result through the app's own contrast formula — "present but invisible"
+# is this feature's specific failure mode and a resolved fill alone
+# cannot see it. One pins the 360px floor in BOTH languages (French is
+# the longer copy), the legend's box against all four axis labels, its
+# swatch's real 12x1 measurement — which is what proves the legend's flex
+# context is doing something, since an inline <span> ignores width and
+# height — the canvas's share of the grid (the legend claiming the
+# auto-sized Y-label column squeezes the drawing from 229.97px to ~109px
+# while overflowing nothing, and the first version of this check could
+# not see it), the mark's edge-hung ink staying inside the card, and all
+# four elements rendering and painting dark-mode tokens with scripts
+# blocked.
+# 57 + 2 = 59, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 59
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -6942,6 +6969,321 @@ def main():
                     "still paint a dark-mode token — with scripts blocked through _no_js_page() "
                     "(CFG-45, D-09)",
                     _the_ring_costs_no_width_no_height_and_no_script)
+
+                # 24-05-PLAN.md Task 3 (CFG-41/CFG-45/D-09): the battery
+                # chart's three additions, measured where they have to be
+                # correct. The selectors are literals here rather than
+                # imported constants, matching RING_VALUE above.
+                CHART_AREA = ".sparkline-area"
+                CHART_LINE = ".sparkline-line"
+                CHART_MARK = ".sparkline-mark"
+                CHART_THRESHOLD = ".sparkline-threshold"
+                CHART_LEGEND = ".sparkline-legend"
+                CHART_SWATCH = ".sparkline-swatch"
+
+                # The area is a TRANSLUCENT fill, so its resolved `fill`
+                # is not what lands on screen — what lands is that colour
+                # composited over the card behind it at the resolved
+                # `fill-opacity`. Composite it here, in the open, and
+                # compare the result against the card's own resolved
+                # background through the app's OWN contrast formula
+                # (companion/contrast_check.py, already the source of
+                # truth for every colour pair this project pins).
+                #
+                # THE FLOOR IS 1.20:1, AND IT IS NOT WCAG's 3:1. That
+                # figure is for a UI component a user must find and
+                # identify; this is a wash under a line that already
+                # carries the data, and at 3:1 it would be a block of
+                # ink. What it must not be is PRESENT BUT INVISIBLE —
+                # technically painted, visually absent — which is this
+                # feature's specific failure mode. Measured on this tree
+                # at the shipped 0.14: light 1.33:1, dark 1.50:1; the
+                # 1.20 floor is first missed between fill-opacity 0.08
+                # (1.17 light) and 0.09 (1.20 light), so it bites at
+                # roughly two thirds of the shipped value rather than
+                # sitting decoratively below it.
+                CHART_AREA_MIN_CONTRAST = 1.20
+
+                def _composite_over(fg_text, alpha, bg_text):
+                    fg = [float(v) for v in re.findall(r"[\d.]+", fg_text)[:3]]
+                    bg = [float(v) for v in re.findall(r"[\d.]+", bg_text)[:3]]
+                    if len(fg) != 3 or len(bg) != 3:
+                        raise AssertionError(
+                            "expected two rgb() colours to composite, got %r over %r"
+                            % (fg_text, bg_text))
+                    return "#%02X%02X%02X" % tuple(
+                        int(round(alpha * f + (1 - alpha) * b)) for f, b in zip(fg, bg))
+
+                def _as_hex(text):
+                    return "#%02X%02X%02X" % tuple(
+                        int(round(float(v))) for v in re.findall(r"[\d.]+", text)[:3])
+
+                def _the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes():
+                    # Four shapes x two themes, resolved by the browser
+                    # after the cascade has run — the only thing in this
+                    # repository that can tell a shape painted by a token
+                    # from a shape painted by the SVG default.
+                    #
+                    # Three DIFFERENT questions are asked, because "not
+                    # the default" alone would be green for a shape that
+                    # is the same in both themes, and "differs between
+                    # themes" alone would be green for a shape painted
+                    # the wrong colour consistently:
+                    #   - the area, the line and the mark must resolve to
+                    #     the SAME ink, because all three are
+                    #     currentColor and that IS the mechanism CFG-45
+                    #     asks for (the area is the line's own colour, so
+                    #     dark mode is correct by the same route the line
+                    #     already is);
+                    #   - the threshold must resolve to something ELSE,
+                    #     because a judgement painted in the data's own
+                    #     ink is a judgement nobody can see;
+                    #   - every one of them must move when the theme
+                    #     does, or the token is not reaching it at all.
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/health")
+                        page.wait_for_selector(CHART_AREA)
+                        seen = {}
+                        for theme in UI_THEMES_EXPLICIT:
+                            _set_ui_theme(page, theme)
+                            area = _computed_paint(page, CHART_AREA, ("fill", "fill-opacity"))
+                            line = _computed_paint(page, CHART_LINE, ("stroke",))
+                            mark = _computed_paint(page, CHART_MARK, ("fill",))
+                            threshold = _computed_paint(page, CHART_THRESHOLD, ("fill",))
+                            swatch = page.evaluate(
+                                "s => getComputedStyle(document.querySelector(s)).backgroundColor",
+                                CHART_SWATCH)
+                            card = page.evaluate(
+                                "() => getComputedStyle(document.querySelector("
+                                "'.battery-trend-section')).backgroundColor")
+                            for name, paint, prop in (
+                                    ("area", area, "fill"), ("line", line, "stroke"),
+                                    ("mark", mark, "fill"), ("threshold", threshold, "fill")):
+                                if prop in paint["svg_default"]:
+                                    return False, (
+                                        "in %s the chart's %s resolves %s to the SVG default (%r) — it "
+                                        "inherited no colour at all" % (theme, name, prop, paint[prop]))
+                            if not (area["fill"] == line["stroke"] == mark["fill"]):
+                                return False, (
+                                    "in %s the area (%r), the line (%r) and the mark (%r) are three "
+                                    "different inks — all three are meant to be currentColor, which is "
+                                    "what makes dark mode correct by construction rather than by a "
+                                    "second colour value"
+                                    % (theme, area["fill"], line["stroke"], mark["fill"]))
+                            if threshold["fill"] == line["stroke"]:
+                                return False, (
+                                    "in %s the threshold resolves to the trend line's own ink (%r) — a "
+                                    "judgement painted in the data's colour is not a judgement anyone "
+                                    "can read" % (theme, threshold["fill"]))
+                            if swatch != threshold["fill"]:
+                                return False, (
+                                    "in %s the legend's swatch (%r) and the drawn threshold (%r) are "
+                                    "different colours — the legend would be describing a line the "
+                                    "chart does not draw" % (theme, swatch, threshold["fill"]))
+
+                            alpha = float(area["fill-opacity"])
+                            if not (0.0 < alpha < 1.0):
+                                return False, (
+                                    "in %s the area's fill-opacity is %r — an opaque area hides the "
+                                    "axis and the threshold beneath it" % (theme, alpha))
+                            composite = _composite_over(area["fill"], alpha, card)
+                            ratio = contrast_ratio(composite, _as_hex(card))
+                            if ratio < CHART_AREA_MIN_CONTRAST:
+                                return False, (
+                                    "in %s the area composites to %s over the card's %s for a contrast "
+                                    "of %.3f:1, under this check's %.2f:1 floor — at that opacity the "
+                                    "area is painted and invisible, which is the exact failure mode of "
+                                    "this feature" % (theme, composite, _as_hex(card), ratio,
+                                                      CHART_AREA_MIN_CONTRAST))
+                            seen[theme] = {
+                                "ink": area["fill"], "alpha": alpha, "threshold": threshold["fill"],
+                                "card": card, "composite": composite, "ratio": ratio}
+
+                        first, second = UI_THEMES_EXPLICIT
+                        for token in ("ink", "threshold", "card"):
+                            if seen[first][token] == seen[second][token]:
+                                return False, (
+                                    "the chart's %s resolves to %r in BOTH %s and %s — the theme token "
+                                    "is not reaching it, and every paint assertion above is comparing a "
+                                    "value to itself"
+                                    % (token, seen[first][token], first, second))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the battery chart's area, line, mark and threshold each resolve to a real theme "
+                    "token in BOTH themes — never the SVG default, the area/line/mark sharing one "
+                    "currentColor ink while the threshold deliberately does not, the legend's swatch "
+                    "equal to the drawn threshold, and the area's COMPOSITE over the card clearing a "
+                    "1.20:1 floor so it is visible and not merely painted (CFG-41/CFG-45, 24-05-PLAN.md "
+                    "Task 3)",
+                    _the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes)
+
+                def _the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script():
+                    # The 360px floor, in both languages, because French
+                    # is the longer copy here ("Batterie faible — 3480 mV
+                    # (≈ 20 %)") and this file already carries several
+                    # checks that exist because French overflowed where
+                    # English did not.
+                    #
+                    # WHAT THE LABEL-OVERLAP ASSERTION IS AND IS NOT. The
+                    # legend sits in its own full-width grid row, so no
+                    # overlap with the axis labels is STRUCTURAL rather
+                    # than lucky — and that is precisely why the check is
+                    # written as a box comparison instead of "the legend
+                    # is in its own row": it keeps measuring the property
+                    # that matters if the row is ever traded for the
+                    # absolute positioning a third Y-axis tick would have
+                    # needed. What it is NOT is the only thing measured
+                    # here; the swatch's own box is, and that one is not
+                    # structural at all (see below).
+                    for lang in ("en", "fr"):
+                        context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                        try:
+                            page = context.new_page()
+                            base_url = harness.base_url()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+                            page.goto(base_url + "/health")
+                            page.wait_for_selector(CHART_LEGEND)
+                            message = _assert_no_page_overflow(
+                                page, "/health in %s" % lang, VIEWPORT_MIN_SUPPORTED["width"])
+                            if message:
+                                return False, message
+
+                            boxes = page.evaluate(
+                                "() => {"
+                                "  const r = el => { const b = el.getBoundingClientRect();"
+                                "    return {l: b.left, t: b.top, r: b.right, b: b.bottom,"
+                                "            w: b.width, h: b.height}; };"
+                                "  const legend = document.querySelector('.sparkline-legend');"
+                                "  return {legend: r(legend),"
+                                "          text: legend.textContent.trim(),"
+                                "          font: getComputedStyle(legend).fontSize,"
+                                "          swatch: r(document.querySelector('.sparkline-swatch')),"
+                                "          card: r(document.querySelector('.battery-trend-section')),"
+                                "          grid: r(document.querySelector('.sparkline')),"
+                                "          canvas: r(document.querySelector('.sparkline__canvas')),"
+                                "          mark: r(document.querySelector('.sparkline-mark')),"
+                                "          axis: [...document.querySelectorAll('.sparkline-axis-label')]"
+                                "                  .map(r)};}")
+                            if len(boxes["axis"]) != 4:
+                                return False, (
+                                    "expected the chart's four axis labels in %s, got %d — with another "
+                                    "number this overlap check measures nothing"
+                                    % (lang, len(boxes["axis"])))
+                            legend = boxes["legend"]
+                            for index, axis in enumerate(boxes["axis"]):
+                                overlaps = (legend["l"] < axis["r"] and axis["l"] < legend["r"]
+                                            and legend["t"] < axis["b"] and axis["t"] < legend["b"])
+                                if overlaps:
+                                    return False, (
+                                        "in %s at 360px the threshold's legend %r overlaps axis label %d "
+                                        "%r" % (lang, legend, index, axis))
+
+                            # THE LEGEND MUST NOT CLAIM THE Y-LABEL
+                            # COLUMN, and this is the assertion that
+                            # makes `.sparkline__legend`'s
+                            # `grid-column: 1 / -1` measurable. Without
+                            # it the legend auto-places into column 1 —
+                            # the `auto` column sized to the widest
+                            # Y-axis label — and that column grows to fit
+                            # a whole sentence: measured at 360px, the
+                            # canvas drops from 229.97px to ~109px inside
+                            # the same 278px grid, with NO overflow and
+                            # no other signal. Every other assertion in
+                            # this check stayed green through that
+                            # mutation, which is how the gap was found.
+                            # The 0.70 share separates 0.827 (shipped)
+                            # from 0.39 (mutated) with room on both sides
+                            # and is not a layout number anyone would
+                            # otherwise tune.
+                            share = boxes["canvas"]["w"] / boxes["grid"]["w"]
+                            if share < 0.70:
+                                return False, (
+                                    "in %s at 360px the chart's canvas is %.2fpx of its %.2fpx grid "
+                                    "(%.2f) — the legend has claimed the auto-sized Y-label column and "
+                                    "squeezed the drawing, which overflows nothing and so shows up "
+                                    "nowhere else" % (lang, boxes["canvas"]["w"], boxes["grid"]["w"], share))
+
+                            # A bare inline <span> ignores width and
+                            # height, so the swatch would compute to a
+                            # zero-sized box and the legend would
+                            # describe a colour it never shows. This box
+                            # is what proves `.sparkline-legend`'s
+                            # inline-flex is doing something: measured
+                            # with `display: inline` instead, the swatch
+                            # is 0.00x11.00.
+                            swatch = boxes["swatch"]
+                            if round(swatch["w"], 2) != 12.0 or round(swatch["h"], 2) != 1.0:
+                                return False, (
+                                    "in %s at 360px the legend's swatch measures %.2fx%.2f, not the "
+                                    "12x1 it declares — an inline <span> ignores width/height, so this "
+                                    "is what proves the legend's flex context is doing something"
+                                    % (lang, swatch["w"], swatch["h"]))
+                            if boxes["font"] != "10px":
+                                return False, (
+                                    "in %s the legend renders at %s, not the 10px micro-label tier its "
+                                    "neighbours use" % (lang, boxes["font"]))
+                            if legend["r"] > boxes["card"]["r"] or legend["l"] < boxes["card"]["l"]:
+                                return False, (
+                                    "in %s at 360px the legend %r escapes its own card %r"
+                                    % (lang, legend, boxes["card"]))
+
+                            # The mark is the one new shape drawn AT the
+                            # canvas's own edge (cx=100%), so its radius
+                            # hangs outside the plot area exactly as the
+                            # existing dot and hit target already do. What
+                            # must hold is that the card absorbs it.
+                            mark = boxes["mark"]
+                            if mark["r"] > boxes["card"]["r"] or mark["t"] < boxes["card"]["t"]:
+                                return False, (
+                                    "in %s at 360px the mark's ink %r escapes the card %r — the chart's "
+                                    "x scale runs edge to edge, so the newest point's radius overhangs "
+                                    "the canvas by design and the card's padding is what must absorb it"
+                                    % (lang, mark, boxes["card"]))
+                        finally:
+                            context.close()
+
+                    # D-09, through the shared helper: all three
+                    # additions are server-rendered SVG and owe nothing
+                    # to a script. Measured in the theme+no-JS
+                    # combination most likely to be wrong.
+                    with _no_js_page(browser, harness.base_url(), "/health",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+                        for label, selector in (("area", CHART_AREA), ("mark", CHART_MARK),
+                                                ("threshold", CHART_THRESHOLD),
+                                                ("legend", CHART_LEGEND)):
+                            if blocked.locator(selector).count() != 1:
+                                return False, (
+                                    "with scripts blocked: expected exactly one %s, got %d"
+                                    % (label, blocked.locator(selector).count()))
+                        _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
+                        for label, selector, props in (
+                                ("area", CHART_AREA, ("fill",)),
+                                ("mark", CHART_MARK, ("fill",)),
+                                ("threshold", CHART_THRESHOLD, ("fill",))):
+                            paint = _computed_paint(blocked, selector, props)
+                            if paint["svg_default"]:
+                                return False, (
+                                    "with scripts blocked, in %s: the chart's %s resolves %r to the SVG "
+                                    "default" % (UI_THEMES_EXPLICIT[1], label, paint["svg_default"]))
+                    return True, ""
+                check(
+                    "at the 360px floor the battery chart's additions cost nothing they must not: the "
+                    "page body does not scroll sideways in EITHER language, the threshold's legend "
+                    "overlaps none of the four axis labels and stays inside its card at the 10px "
+                    "micro-label tier, its swatch measures a real 12x1 box (which an inline <span> could "
+                    "not), the canvas keeps its share of the grid rather than being squeezed by a legend "
+                    "that claimed the Y-label column, the mark's edge-hung ink stays inside the card, "
+                    "and the area, mark, threshold "
+                    "and legend all still render — and still paint dark-mode tokens — with scripts "
+                    "blocked (CFG-45, D-09, 24-05-PLAN.md Task 3)",
+                    _the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script)
             finally:
                 browser.close()
     finally:

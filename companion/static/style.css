@@ -5677,10 +5677,16 @@ a.airline-card {
 }
 
 /* The threshold's label, in its own full-width row at the bottom of the
- * chart's grid. `1 / -1` is load-bearing rather than tidy: without it
- * the browser auto-places this into column 1 — the `auto` column sized
- * to the widest Y-axis label — and that column would then grow to fit a
- * whole sentence, squeezing the canvas beside it. */
+ * chart's grid. `1 / -1` is load-bearing rather than tidy, and measured
+ * rather than asserted: without it the browser auto-places this into
+ * column 1 — the `auto` column sized to the widest Y-axis label — and
+ * that column grows to fit a whole sentence instead. Measured at 360px
+ * with `grid-column: auto`, the canvas drops from 229.97px to roughly
+ * 109px inside the same 278px grid, with no overflow and no other
+ * visible signal that anything broke. companion/test_browser_ux.py
+ * measures the canvas's share of the grid for exactly that reason; the
+ * first version of that check did not, and this declaration could be
+ * deleted with every assertion still green. */
 .sparkline__legend {
   grid-column: 1 / -1;
 }
@@ -5688,10 +5694,18 @@ a.airline-card {
 /* `inline-flex` is what makes the swatch exist at all: a bare inline
  * <span> ignores width and height, so the swatch would compute to a
  * zero-sized box and the legend would describe a colour it never showed.
- * `flex: none` on the swatch is the 360px half of the same property —
- * as a flex item it would otherwise shrink below its 12px when the line
- * is tight, which is exactly where the French copy puts it. Both are
- * measured in companion/test_browser_ux.py rather than trusted.
+ * Measured in companion/test_browser_ux.py rather than trusted —
+ * `display: inline` here takes the swatch to 0.00x11.00.
+ *
+ * A `flex: none` on the swatch was written here first, on the reasoning
+ * that a flex item shrinks when its line is tight and French is the
+ * tight case. It was REMOVED after measuring: at 360px the legend's line
+ * is 161px inside a 278px row in both languages, so there is no
+ * overflow to shrink against and the declaration changed nothing in
+ * either. A property whose comment claims to prevent something it
+ * demonstrably does not prevent is worse than no property, so it is
+ * gone. If the copy ever grows past its row, the assertion that catches
+ * it is already in place — the swatch's measured box.
  *
  * The type is not a new tier: 10px / line-height 1.2 / the 70% text mix
  * are exactly `.sparkline-axis-label`'s own values, restated here (the
@@ -5713,7 +5727,6 @@ a.airline-card {
  * legend size, so the legend cannot come to describe a colour or a
  * weight the chart does not use. */
 .sparkline-swatch {
-  flex: none;
   width: 12px;
   height: 1px;
   background: var(--color-status-warn);
