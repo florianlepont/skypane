@@ -7509,8 +7509,24 @@ a.airline-card {
  * does not collapse into the gap — it ADDS to it, so without this rule
  * the hero's internal rhythm would be 40px and its own bottom margin
  * 48px. One owner of the spacing, which is what "one composition"
- * means in CSS. */
-.home-overview > * {
+ * means in CSS.
+ *
+ * THE DOUBLED SELECTOR IS LOAD-BEARING AND WAS MEASURED, not a
+ * precaution. `.home-overview > *` is (0,1,0) — the universal selector
+ * contributes nothing — which TIES `.frame-strip`'s own (0,1,0)
+ * `margin-bottom: var(--space-lg)` and leaves the outcome to source
+ * order; that rule is declared ~360 lines further down this file, so it
+ * won. Measured in Chromium before the fix: the strip and the status
+ * tiles sat 40.00px apart at 360px while the tiles and the band sat at
+ * the intended 16, because `.home-section` and `.page-section` are both
+ * declared ABOVE this rule and lost while `.frame-strip` did not. The
+ * doubled form is (0,2,0) and wins deterministically wherever the parts'
+ * own rules happen to sit — the same cascade hazard, and the same fix,
+ * that `.page-section.banner--anomaly` and the
+ * `.battery-trend-section` status borders already document above. The
+ * universal child is kept rather than a hand-list of the three parts, so
+ * a fourth part added to the hero later surrenders its margin too. */
+.home-overview.home-overview > * {
   margin-bottom: 0;
 }
 
