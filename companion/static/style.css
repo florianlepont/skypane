@@ -7140,6 +7140,36 @@ a.airline-card {
   align-items: stretch;
 }
 
+/* 24-04-PLAN.md Task 3 (CFG-40): the Battery tile's ring, BESIDE its two
+ * text lines rather than above them. Emitted only when there is a ring,
+ * so a device with no reading renders this tile exactly as it did before
+ * this wrapper existed.
+ *
+ * Beside, not stacked, for a measured reason: `.dashboard-grid` stretches
+ * every tile in a row to the tallest sibling, so a taller Battery tile
+ * does not merely grow itself — it pushes the whole row down. The ring's
+ * box (36px) is smaller than the two text lines it sits next to (24px
+ * verdict + 4px gap + 19.6px detail = 47.6px, measured at the 360px
+ * floor), so this row contributes no height at all.
+ *
+ * `min-width: 0` on the text column is the same load-bearing declaration
+ * `.battery-readout-row` carries and for the same reason: a flex item's
+ * default `min-width: auto` floors it at its own min-content width, which
+ * at 360px is how a tile grows the page a horizontal scrollbar. */
+.stat-tile__gauge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.stat-tile__gauge > .drawing__figure {
+  flex: none;
+}
+
+.stat-tile__gauge-text {
+  min-width: 0;
+}
+
 .widget-verdict {
   margin: 0 0 var(--space-xs);
   font-weight: var(--weight-semibold);

@@ -32,6 +32,7 @@ import html
 import re
 
 import companion.battery as battery
+import companion.draw as draw
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
@@ -315,6 +316,45 @@ def _tile_content_html(verdict, detail, detail_class=None):
     return verdict_html + '<p class="text-label widget-detail">%s</p>' % detail_text
 
 
+# 24-04-PLAN.md Task 3 (CFG-40): the SMALL ring's box side, in CSS
+# pixels. The LARGE one lives in health_page.py, because a shared
+# "sizes" table would be one rename away from reading as two named
+# variants of one drawing — and a variant name is how two drawings hide
+# inside one function. What is shared is the EMITTER
+# (draw.ring_gauge()), and it is shared for real: a change inside it
+# moves both pages, which is what CFG-40 actually asks for.
+#
+# 36 is half health_page.BATTERY_RING_SIZE, and it has to stay under the
+# height of the two text lines it sits beside (a 24px verdict, a 4px
+# gap and a 19.6px detail = 47.6px measured at the 360px floor) —
+# `stat_tile()`'s box is shared by three tiles, and a taller Battery
+# tile would make the row ragged.
+BATTERY_RING_SIZE = 36
+
+
+def _battery_tile_content_html(verdict, detail, ring_html):
+    """`_tile_content_html()`'s output with the battery ring beside it.
+
+    With NO ring this returns `_tile_content_html()`'s own markup
+    UNWRAPPED, so a device with no reading renders this tile
+    byte-identically to what it rendered before the ring existed. The
+    "omit rather than fabricate" contract this module already follows
+    for a missing `detail`, applied one level up.
+
+    The ring sits BESIDE the text rather than above it, and that is a
+    height decision rather than a taste one: `stat_tile()`'s box is
+    shared by three tiles in one row, and stacking the ring would push
+    this tile taller than its two neighbours.
+    """
+    content_html = _tile_content_html(verdict, detail)
+    if not ring_html:
+        return content_html
+    return (
+        '<div class="stat-tile__gauge">%s'
+        '<div class="stat-tile__gauge-text">%s</div></div>'
+    ) % (ring_html, content_html)
+
+
 def _status_tiles_html(ctx):
     """D-04/R-06 (21-CONTEXT.md, 21-04-PLAN.md Task 3): restores the
     phase-19 three-tile LAYOUT (`git show 614d41e~1:companion/pages/
@@ -376,16 +416,29 @@ def _status_tiles_html(ctx):
     frame_html = _tile_content_html(frame_verdict, frame_detail, detail_class=frame_detail_class)
 
     reading = _safe_query(ctx.get("state_dir"), _latest_battery)
+    battery_ring_html = ""
     if reading and reading.get("battery_mv"):
         pct = battery.battery_percent(reading["battery_mv"])
         pct_text = ("≈ %d%%" % pct) if pct is not None else ""
         mv_text = "%s mV" % reading["battery_mv"]
         battery_verdict = i18n.t(BATTERY_STATE_TEXT.get(battery_state, BATTERY_STATE_TEXT["warn"]))
         battery_detail = "%s · %s" % (pct_text, mv_text) if pct_text else mv_text
+        if pct is not None:
+            # 24-04-PLAN.md Task 3 (CFG-40): the ring draws THE NUMBER
+            # PRINTED BESIDE IT — `pct` itself, over 100 — not a second,
+            # finer-grained estimate off the same millivolt value. One
+            # call into companion/battery.py, two renderings of its
+            # result, so the picture and the number cannot round to
+            # different stories. The colour is `battery_state`, the
+            # verdict this tile has ALREADY chosen its own border from;
+            # never a second judgement about the same reading.
+            battery_ring_html = draw.ring_gauge(
+                pct / 100.0, BATTERY_RING_SIZE, draw.status_class(battery_state))
     else:
         battery_verdict = i18n.t(NO_READING_TEXT)
         battery_detail = ""
-    battery_html = _tile_content_html(battery_verdict, battery_detail)
+    battery_html = _battery_tile_content_html(
+        battery_verdict, battery_detail, battery_ring_html)
 
     data_verdict = i18n.t(DATA_STATE_TEXT.get(pipeline_state, DATA_STATE_TEXT["warn"]))
     data_detail = _plain_text_from_markup(health.get("pipeline_detail_html"))
