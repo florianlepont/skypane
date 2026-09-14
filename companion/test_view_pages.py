@@ -611,6 +611,15 @@ EXPECTED_CHECK_COUNT = 154
 # class vocabulary and the absence of any colour literal.
 # 154 + 4 = 158, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 158
+# 24-06-PLAN.md Task 2 (CFG-42): +3 - the band on Home. One draws it
+# for the Paris day with its caption, and covers the empty day and the
+# unreadable database (T-24-06-D). One shades the configured
+# quiet-hours window and nothing at all when it is off. One pins the
+# Paris/UTC boundary in BOTH directions plus a real 25-hour Paris day,
+# counts render()'s history.db reads (2 before this plan, 3 after) and
+# re-checks that the frame verdict still appears exactly once.
+# 158 + 3 = 161, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 161
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -7319,6 +7328,327 @@ def main():
         "supplied with a label announces itself as a named group rather than being hidden "
         "(CFG-39/CFG-42, 24-06-PLAN.md Task 1)",
         _day_band_emits_only_registered_classes_and_no_colour)
+
+    # --- 24-06-PLAN.md Task 2 (CFG-42): the day band on Home -------------
+    #
+    # The band's three risks, one check each: that it shows the wrong DAY
+    # (the Paris/UTC boundary), that it shows the wrong WINDOW (quiet
+    # hours), and that it disappears rather than degrades (an empty day,
+    # an absent database). The "no check-ins" case is a distinct STATE and
+    # not an error: an absent section is indistinguishable from an unbuilt
+    # feature, and this page already draws that distinction elsewhere (the
+    # battery tile's "No reading yet" verdict rather than a zero).
+
+    def _home_day_band_section(rendered):
+        """The day band's <section> only, or None.
+
+        Sliced out rather than searched for in the whole page because two
+        of the assertions below are about what the caption does NOT say,
+        and "quiet hours" appears elsewhere on this page in the frame
+        strip's own switch. A page-wide `"quiet" not in rendered` would be
+        green only on a page that had lost the strip.
+        """
+        opened = re.search(r'<section class="[^"]*\bday-band\b[^"]*"', rendered)
+        if opened is None:
+            return None
+        end = rendered.index("</section>", opened.start())
+        return rendered[opened.start():end + len("</section>")]
+
+    def _home_band_marks(section):
+        return re.findall(r'<rect class="drawing-band-mark"[^>]*/>', section)
+
+    def _home_band_spans(section):
+        return re.findall(r'<rect class="drawing-band-span"[^>]*/>', section)
+
+    def _home_band_ctx(tmp, now, checkins, config=None):
+        from server import history_db as _hdb
+        with _hdb.open_db(tmp) as conn:
+            for ts in checkins:
+                _hdb.record_device_health(conn, ts, battery_mv=3750)
+        return {
+            "state_dir": tmp, "now": now,
+            "last_checkin_ts": checkins[-1] if checkins else None,
+            "device_config": config or {"wake_interval_s": 900, "display_enabled": True},
+            "health_state": {"device_state": "ok", "pipeline_state": "ok",
+                             "battery_state": "ok", "device_detail_html": "",
+                             "pipeline_html": ""},
+            "simple_mode": False,
+        }
+
+    def _home_day_band_renders_the_day_and_says_what_it_shows():
+        from companion.pages import home_page
+        # Paris 14:00 on 2026-08-27 (CEST, UTC+2), so the band's day runs
+        # 2026-08-26T22:00Z .. 2026-08-27T22:00Z.
+        now = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("band-day")
+        try:
+            # 08:00, 12:00 and 13:00 Paris — two of them an hour apart, so
+            # the time scale's own property is visible on the real page and
+            # not only in the unit check above.
+            ctx = _home_band_ctx(tmp, now, [
+                "2026-08-27T06:00:00+00:00",
+                "2026-08-27T10:00:00+00:00",
+                "2026-08-27T11:00:00+00:00",
+            ])
+            rendered = home_page.render(ctx)
+            section = _home_day_band_section(rendered)
+            if section is None:
+                return False, "expected a day-band section on Home, got none"
+            marks = _home_band_marks(section)
+            if len(marks) != 3:
+                return False, "expected one mark per check-in (3), got %d" % (len(marks),)
+            xs = sorted(float(re.search(r'x="([\d.]+)%"', el).group(1)) for el in marks)
+            hour = 100.0 / 24
+            for got, want_hour in zip(xs, (8, 12, 13)):
+                if abs(got - want_hour * hour) > 0.02:
+                    return False, (
+                        "expected the %02d:00 Paris check-in at %.2f%%, got %.2f%% — the band's "
+                        "marks are placed by the PARIS clock, which is what every other date on "
+                        "this page uses" % (want_hour, want_hour * hour, got))
+            # The caption names the day it is showing. A band captioned
+            # only "today" cannot be checked against the row beneath it.
+            if "2026-08-27" not in section:
+                return False, "expected the caption to name the Paris day it draws, got %r" % (
+                    section,)
+            if "3" not in re.sub(r"<[^>]*>", " ", section):
+                return False, "expected the caption to state the check-in count as text"
+
+            # THE EMPTY DAY IS A STATE, NOT AN ABSENCE.
+            empty = _mkstate("band-empty")
+            try:
+                empty_ctx = _home_band_ctx(empty, now, [])
+                # A check-in on a DIFFERENT day, so the table is not empty
+                # and the emptiness is the band's bucketing rather than an
+                # unreadable database.
+                from server import history_db as _hdb
+                with _hdb.open_db(empty) as conn:
+                    _hdb.record_device_health(conn, "2026-08-20T10:00:00+00:00", battery_mv=3700)
+                rendered_empty = home_page.render(empty_ctx)
+                empty_section = _home_day_band_section(rendered_empty)
+                if empty_section is None:
+                    return False, (
+                        "expected the band section to survive a day with no check-ins — an "
+                        "absent section reads as an unbuilt feature, an empty band reads as "
+                        "no activity, and those are different statements")
+                if _home_band_marks(empty_section):
+                    return False, "expected no marks on an empty day, got %r" % (
+                        _home_band_marks(empty_section),)
+                if 'class="drawing-band"' not in empty_section:
+                    return False, "expected the band's own frame to render on an empty day"
+                if "2026-08-27" not in empty_section:
+                    return False, "expected the empty band's caption to name the day too"
+            finally:
+                shutil.rmtree(empty, ignore_errors=True)
+
+            # NO DATABASE AT ALL: no band, no raise, a page that still
+            # renders (T-24-06-D).
+            absent = _mkstate("band-nodb")
+            try:
+                absent_ctx = _home_band_ctx(absent, now, [])
+                for name in os.listdir(absent):
+                    os.remove(os.path.join(absent, name))
+                os.chmod(absent, 0o500)
+                try:
+                    rendered_absent = home_page.render(absent_ctx)
+                finally:
+                    os.chmod(absent, 0o700)
+                if '<h1 class="page-title">' not in rendered_absent:
+                    return False, "expected Home to render with history.db absent"
+                if _home_day_band_section(rendered_absent) is not None:
+                    return False, (
+                        "expected NO band with history.db unreadable — an empty band there "
+                        "would claim the device made no check-ins when nothing was read")
+            finally:
+                shutil.rmtree(absent, ignore_errors=True)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home's day band draws one mark per check-in at its PARIS clock position, captions the "
+        "Paris day it shows and states the count as text; a day with no check-ins still renders "
+        "the band and its frame with a caption naming the day (an absent section would read as "
+        "an unbuilt feature, an empty band reads as no activity); and with history.db unreadable "
+        "the page renders with no band at all rather than an empty one claiming no check-ins "
+        "(CFG-42, T-24-06-D, 24-06-PLAN.md Task 2)",
+        _home_day_band_renders_the_day_and_says_what_it_shows)
+
+    def _home_day_band_shades_quiet_hours_only_when_configured():
+        from companion.pages import home_page
+        now = "2026-08-27T12:00:00+00:00"
+        checkins = ["2026-08-27T10:00:00+00:00"]
+        hour = 100.0 / 24
+        tmp = _mkstate("band-quiet")
+        try:
+            # The DEFAULT night window, and the case a naive span renders
+            # inverted: 23:00-07:00 wraps midnight.
+            ctx = _home_band_ctx(tmp, now, checkins, config={
+                "wake_interval_s": 900, "display_enabled": True,
+                "quiet_hours_enabled": True,
+                "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
+                "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
+            })
+            section = _home_day_band_section(home_page.render(ctx))
+            if section is None:
+                return False, "expected a day-band section"
+            spans = _home_band_spans(section)
+            if len(spans) != 2:
+                return False, (
+                    "expected the default 23:00-07:00 quiet hours to shade TWO spans on a "
+                    "one-day band, got %d — one span would shade the middle of the DAY and "
+                    "leave the night clear" % (len(spans),))
+            widths = [float(re.search(r'width="([\d.]+)%"', el).group(1)) for el in spans]
+            if abs(sum(widths) - 8 * hour) > 0.05:
+                return False, (
+                    "expected the shaded spans to cover the window's eight hours (%.2f%%), got "
+                    "%.2f%%" % (8 * hour, sum(widths)))
+            text = re.sub(r"<[^>]*>", " ", section)
+            if "23:00" not in text or "07:00" not in text:
+                return False, (
+                    "expected the caption to name the shaded window's own hours, got %r" % (text,))
+
+            # DISABLED: nothing shaded, and the caption does not mention a
+            # window the device is not honouring.
+            off = _mkstate("band-quiet-off")
+            try:
+                off_ctx = _home_band_ctx(off, now, checkins, config={
+                    "wake_interval_s": 900, "display_enabled": True,
+                    "quiet_hours_enabled": False,
+                    "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
+                    "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
+                })
+                off_section = _home_day_band_section(home_page.render(off_ctx))
+                if off_section is None:
+                    return False, "expected the band to render with quiet hours disabled"
+                if _home_band_spans(off_section):
+                    return False, (
+                        "expected zero shaded spans with quiet hours disabled, got %r"
+                        % (_home_band_spans(off_section),))
+                off_text = re.sub(r"<[^>]*>", " ", off_section).lower()
+                if "quiet" in off_text or "23:00" in off_text:
+                    return False, (
+                        "expected the band's caption to say nothing about quiet hours when they "
+                        "are off — a legend for a span that is not drawn describes a band the "
+                        "reader is not looking at. Got %r" % (off_text,))
+                if not _home_band_marks(off_section):
+                    return False, "expected the check-in marks to survive quiet hours being off"
+            finally:
+                shutil.rmtree(off, ignore_errors=True)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home's day band shades the CONFIGURED quiet-hours window — the default 23:00-07:00 "
+        "wrapping night window as two spans covering its eight hours, named in the caption — and "
+        "with quiet hours disabled shades nothing and says nothing about them, while still "
+        "drawing the day's check-ins (CFG-42/D-03, 24-06-PLAN.md Task 2)",
+        _home_day_band_shades_quiet_hours_only_when_configured)
+
+    def _home_day_band_buckets_by_paris_day_and_costs_one_read():
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        now = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("band-boundary")
+        try:
+            # THE BOUNDARY THIS BREAKS AT IF IT BREAKS. Paris is UTC+1/+2
+            # and so never BEHIND UTC — 24-06-PLAN.md Task 2's own
+            # acceptance criterion names "23:30 Paris on a date whose UTC
+            # instant falls on the next day", which cannot occur for
+            # Europe/Paris. The real case is its mirror, and it is the
+            # same defect: 00:30 Paris is 22:30 UTC on the PREVIOUS day,
+            # so a band bucketed by the UTC date drops it from today and
+            # picks up tomorrow's 00:30 instead. Both directions below.
+            ctx = _home_band_ctx(tmp, now, [
+                "2026-08-26T21:30:00+00:00",  # Paris 2026-08-26 23:30 — yesterday
+                "2026-08-26T22:30:00+00:00",  # Paris 2026-08-27 00:30 — TODAY
+                "2026-08-27T22:30:00+00:00",  # Paris 2026-08-28 00:30 — tomorrow
+            ])
+            section = _home_day_band_section(home_page.render(ctx))
+            if section is None:
+                return False, "expected a day-band section"
+            marks = _home_band_marks(section)
+            if len(marks) != 1:
+                return False, (
+                    "expected exactly ONE of the three check-ins on the 2026-08-27 Paris band, "
+                    "got %d — under a UTC date bucket the 22:30Z check-in (Paris 00:30 today) "
+                    "drops off and the 2026-08-27T22:30Z one (Paris 00:30 TOMORROW) appears "
+                    "instead, which is the same count from the wrong rows" % (len(marks),))
+            got = float(re.search(r'x="([\d.]+)%"', marks[0]).group(1))
+            want = 0.5 * (100.0 / 24)  # 00:30 Paris
+            if abs(got - want) > 0.02:
+                return False, (
+                    "expected the 00:30 Paris check-in at %.2f%%, got %.2f%%" % (want, got))
+
+            # A 25-HOUR PARIS DAY. 2026-10-25 is the EU autumn transition,
+            # so the band is 25 hours wide and midday sits at 52.00%, not
+            # at the 54.17% a hardcoded 86400 would put it at.
+            dst = _mkstate("band-dst")
+            try:
+                dst_ctx = _home_band_ctx(
+                    dst, "2026-10-25T12:00:00+00:00", ["2026-10-25T11:00:00+00:00"])
+                dst_section = _home_day_band_section(home_page.render(dst_ctx))
+                dst_marks = _home_band_marks(dst_section or "")
+                if len(dst_marks) != 1:
+                    return False, "expected one mark on the DST band, got %d" % (len(dst_marks),)
+                dst_got = float(re.search(r'x="([\d.]+)%"', dst_marks[0]).group(1))
+                if abs(dst_got - 52.0) > 0.02:
+                    return False, (
+                        "on the 25-hour Paris day 2026-10-25 the 12:00 check-in belongs at "
+                        "52.00%% of the band, got %.2f%% — a hardcoded 86400 puts it at 54.17%% "
+                        "and leaves an hour of the band unreachable" % (dst_got,))
+            finally:
+                shutil.rmtree(dst, ignore_errors=True)
+
+            # ONE READ, REUSED (D-20), MEASURED. render() made two
+            # history.db reads before this plan; the band adds exactly
+            # one, and a band that re-queried per section would show up
+            # here as three or more.
+            counted = _mkstate("band-reads")
+            try:
+                read_ctx = _home_band_ctx(counted, now, ["2026-08-27T10:00:00+00:00"])
+                opened = []
+                real_open = _hdb.open_db
+                def _counting_open(state_dir):
+                    opened.append(state_dir)
+                    return real_open(state_dir)
+                _hdb.open_db = _counting_open
+                try:
+                    rendered = home_page.render(read_ctx)
+                finally:
+                    _hdb.open_db = real_open
+                if len(opened) != 3:
+                    return False, (
+                        "expected render() to make exactly 3 history.db reads — the 2 it made "
+                        "before this plan (recent flights, latest battery) plus the band's one "
+                        "— got %d. 'One read, reused' is measured here, not assumed"
+                        % (len(opened),))
+                # The frame verdict still appears exactly once on the page
+                # (_status_tiles_html()'s own recorded property, which a
+                # new section carrying a state word could quietly break).
+                verdicts = [v for v in home_page.FRAME_STATE_TEXT.values()
+                            if rendered.count(v)]
+                for verdict in verdicts:
+                    if rendered.count(verdict) != 1:
+                        return False, (
+                            "expected the frame verdict %r exactly once on Home, got %d"
+                            % (verdict, rendered.count(verdict)))
+                if len(verdicts) != 1:
+                    return False, (
+                        "expected exactly one frame verdict rendered on Home, got %r" % (
+                            verdicts,))
+            finally:
+                shutil.rmtree(counted, ignore_errors=True)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home's day band buckets check-ins by the PARIS day — a 22:30Z check-in (Paris 00:30 "
+        "today) is on the band and a 2026-08-27T22:30Z one (Paris 00:30 tomorrow) is not, the "
+        "mirror of the boundary 24-06-PLAN.md Task 2 named since Paris is never behind UTC — "
+        "and spans a real 25-hour Paris day so midday lands at 52.00% rather than the 54.17% a "
+        "hardcoded 86400 would give; it costs render() exactly one history.db read more than "
+        "the two it made before, measured, and the frame verdict still appears exactly once "
+        "(CFG-42/D-20, 24-06-PLAN.md Task 2)",
+        _home_day_band_buckets_by_paris_day_and_costs_one_read)
 
     # --- 19-12-PLAN.md Task 3 (D-13/S-02): the "Next wake ≈ HH:MM" figure --
 
