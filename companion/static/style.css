@@ -2751,6 +2751,94 @@ button:disabled {
   display: inline-flex;
 }
 
+/* The schematic Orly map inside each runway card (CFG-47,
+ * 25-03-PLAN.md Task 2). Server-rendered SVG, one per card, every
+ * registry entry drawn at the bearing its own designator states.
+ *
+ * THE SIZE ROUTE IS DECLARED IN BOTH DIRECTIONS AND BOTH HALVES ARE
+ * LOAD-BEARING. The <svg> carries intrinsic width/height attributes
+ * (companion/draw.py's unit scheme), which is what keeps it off the SVG
+ * default 300x150 with no stylesheet at all; the max-width/height pair
+ * here is what keeps those intrinsic 64 user units from overflowing a
+ * card that is narrower than 64px. At the 360px contract floor three
+ * cards share one row and each one's content box measures about 54px,
+ * so the intrinsic size is the WIDER of the two and `max-width: 100%`
+ * is the declaration standing between this drawing and a page that
+ * scrolls sideways. `height: auto` is what stops that shrink from
+ * squashing an aspect-locked mark.
+ *
+ * No accent anywhere in this component, in any state. The header
+ * comment's accent-reservation list is an exhaustive list and this
+ * drawing is not on it — the card's own border, ring, wash and check
+ * glyph already carry the selection signal in accent, and a fifth
+ * accent property on the same component would be a broadening of that
+ * list rather than a reuse of it. What the map says instead is said in
+ * INK: a strip gets darker as it becomes more relevant. */
+.runway-map {
+  display: block;
+  width: 100%;
+  max-width: 64px;
+  height: auto;
+  margin-bottom: var(--space-sm);
+}
+
+/* The airfield outline: structural ink, the same --color-border token
+ * every hairline card edge in this file already uses, so it recedes
+ * behind the strips in both themes without a second rule. Stroke-only
+ * on purpose — `fill: none` is companion/draw.py's contract rule 4
+ * "deliberately unfilled" case stated out loud rather than left to the
+ * SVG default. Deliberately declares NO `stroke-width`: 1 user unit is
+ * the SVG default already, so a declaration of it would be inert — it
+ * was written, mutated, measured to break nothing, and deleted rather
+ * than left behind with a comment claiming it mattered. */
+.runway-map__field {
+  fill: none;
+  stroke: var(--color-border);
+}
+
+/* Context: the runways this card is NOT about. Faint, because their
+ * job is to place the one strip that matters, not to compete with it.
+ *
+ * Painted from --color-text rather than a literal, which is what makes
+ * the drawing correct in dark mode for the same reason the battery
+ * chart already is: the token inverts with the theme and the shape
+ * follows for free. 30% is this file's own existing muted-ink strength,
+ * not an eighth wash percentage invented for one drawing.
+ *
+ * The transition lives HERE, on the base rule, and never inside the
+ * feature query — the identical discipline the card's own transition
+ * follows, and the reason this file's ONE feature query is asserted to
+ * declare no transition at all. Declaring it once here animates the
+ * live selected state and its no-:has() fallback identically. A plain
+ * transition on a real element is already covered by the global
+ * reduced-motion block, so this rule declares no per-rule
+ * prefers-reduced-motion block (that would be dead code, not a safety
+ * net) and no new @keyframes. */
+.runway-map__strip {
+  fill: color-mix(in srgb, var(--color-text) 30%, transparent);
+  transition: fill var(--motion-fast) ease;
+}
+
+/* The runway this card IS about — present on exactly one strip of every
+ * map, selected or not. It says "this card's runway", never "the chosen
+ * runway", which is what lets a page with nothing selected render with
+ * nothing claimed. 55% is likewise an existing strength in this file. */
+.runway-map__strip--this {
+  fill: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* The no-:has() FALLBACK half of this drawing's selected state, keyed to
+ * the server-rendered modifier, sitting outside the feature query and
+ * declaring the same value its live twin inside the query does — the
+ * identical parity contract the border, the ring, the wash and the
+ * scale already hold on this component, for the identical reason: a
+ * browser without :has() must not render a different-looking selected
+ * card. Full ink, no accent: the strip that matters goes from 55% to
+ * solid, which reads at a glance without borrowing a reserved colour. */
+.runway-card--selected .runway-map__strip--this {
+  fill: var(--color-text);
+}
+
 /* Theme picker chip (06.6.4.1.1-05, sketch 004 variant B — the
  * developer-confirmed winner, UIR-01/UIR-02). This is a second
  * selectable-card component, deliberately placed as a neighbour of
@@ -3189,6 +3277,28 @@ button:disabled {
     display: inline-flex;
   }
 
+  /* CFG-47/CFG-52 (25-03-PLAN.md Task 2): the map's own live selected
+   * state JOINS this block rather than opening a second one. Two named
+   * checks assert this file holds exactly one such block, and an
+   * unsupported :has() invalidates the whole selector list it appears
+   * in — which is why every rule needing it is quarantined here.
+   *
+   * Specificity, using the arithmetic recorded above this block and
+   * deliberately not re-derived: this is (0,1,0)+(0,1,1)+(0,1,0) =
+   * (0,3,1), against the fallback rule's (0,2,0). The live rule wins,
+   * which is the required direction.
+   *
+   * The property is `fill` and the value is plain ink. No accent: this
+   * component's accent budget is already spent on the card's border,
+   * ring, wash and check glyph, all four of which are on the header
+   * comment's reservation list, and a drawing that also painted accent
+   * would be a new entry on an exhaustive list rather than a reuse of
+   * one. The transition that animates this lives on the strip's own
+   * base rule outside this query, never in here. */
+  .runway-card:has(input:checked) .runway-map__strip--this {
+    fill: var(--color-text);
+  }
+
   /* T6 (22-15-PLAN.md Task 1): the same positive-restore reconciliation
    * the chip's own hover rule above documents in full — `none` would
    * now erase the selection ring rather than suppress the hover
@@ -3213,6 +3323,17 @@ button:disabled {
 
   .runway-card--selected:not(:has(input:checked)) .runway-card__check {
     display: none;
+  }
+
+  /* CFG-47 (25-03-PLAN.md Task 2): saved-but-not-live CLEARS the map's
+   * full-ink strip back to its resting weight, for exactly the reason
+   * the rules above clear the ring, the wash, the glyph and the scale —
+   * a card can be SAVED at the very moment its neighbour is the LIVE
+   * choice, and two solid-ink strips would claim two selections. The
+   * value is the resting strength restated, so it can never drift from
+   * the base rule it restores. */
+  .runway-card--selected:not(:has(input:checked)) .runway-map__strip--this {
+    fill: color-mix(in srgb, var(--color-text) 55%, transparent);
   }
 
   /* Top-right here (unlike the chip's bottom-right): .runway-card has no

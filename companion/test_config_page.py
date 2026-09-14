@@ -744,6 +744,21 @@ EXPECTED_CHECK_COUNT = 240
 # the session-gated route and still on disk.
 # 240 + 4 = 244, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 244
+# 25-03-PLAN.md Task 2 (CFG-47/CFG-52): +1 — the map's paint, asserted as
+# one thing because the parts fail together. Every class the EMITTED
+# markup carries resolves to a real selector (scanned off the markup, not
+# off a constant list, with a boundary lookahead so one class is never
+# reported as resolved by a longer one's rule); every colour comes from a
+# theme token so both themes are correct from one rule; the max-width/
+# height pair that keeps an intrinsic 64px drawing inside a ~54px card at
+# the 360px floor is declared; the transition sits on the base rule and
+# spends an existing motion token; the live selected strip JOINS the ONE
+# feature query with its no-:has() fallback outside it declaring the
+# IDENTICAL paint; no accent appears anywhere in the component; and the
+# @keyframes and prefers-reduced-motion counts are pinned at the
+# baselines this plan measured before touching the file.
+# 244 + 1 = 245, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 245
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2245,6 +2260,165 @@ def main():
         "the three runway photographs still render from the session-gated route and still exist "
         "on disk (CFG-47, 25-03-PLAN.md Task 1)",
         _the_map_changed_the_presentation_and_not_the_control)
+
+    def _runway_map_paint_resolves_and_joins_the_one_feature_query():
+        # Read directly rather than through _read_static(): that helper
+        # is defined further down this same main(), so it is unbound at
+        # the moment this check runs.
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            source = fh.read()
+        rendered = config_page.runway_fieldset("3")
+        svg = rendered[rendered.index("<svg"):rendered.index("</svg>")]
+
+        # EVERY CLASS THE MAP EMITS MUST RESOLVE TO A REAL SELECTOR,
+        # scanned off the EMITTED markup rather than off a list of
+        # constants, because the failure being defended against is a
+        # class that exists in Python and nowhere in the stylesheet — it
+        # paints nothing at all and nothing else in this codebase would
+        # notice. The boundary is a negative lookahead, not a substring
+        # test: ".runway-map__strip" is a substring of
+        # ".runway-map__strip--this" and a plain `in` would report the
+        # first as resolved by the second's rule.
+        emitted = set()
+        for attribute in re.findall(r'class="([^"]*)"', svg):
+            emitted.update(attribute.split())
+        if not emitted:
+            return False, "the emitted map carries no class at all"
+        for class_name in sorted(emitted):
+            if not re.search(r"\.%s(?![\w-])" % re.escape(class_name), source):
+                return False, (
+                    "the map emits class %r and companion/static/style.css declares no "
+                    "selector for it — a class with no rule paints nothing at all"
+                    % (class_name,))
+
+        def _body(selector):
+            if selector not in source:
+                return None, "expected style.css to declare %r" % (selector,)
+            start = source.index(selector) + len(selector)
+            return source[start:source.index("}", start)], ""
+
+        # The paint route: a theme token, never a literal, so the
+        # drawing is correct in BOTH themes from one rule.
+        for selector, token in (
+                (".runway-map__strip {", "var(--color-text)"),
+                (".runway-map__strip--this {", "var(--color-text)"),
+                (".runway-map__field {", "var(--color-border)")):
+            body, err = _body(selector)
+            if body is None:
+                return False, err
+            if token not in body:
+                return False, (
+                    "%s must take its colour from %s — a literal is correct in one theme "
+                    "only and is invisible to companion/test_contrast_check.py"
+                    % (selector, token))
+            found = re.search(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", body)
+            if found is not None:
+                return False, "%s carries the colour literal %r" % (selector, found.group(0))
+
+        # The overflow floor's DECLARED half. Three cards share one row
+        # at 360px and each content box is narrower than the map's own
+        # intrinsic 64 user units, so without these the drawing is wider
+        # than the card that holds it. The RENDERED half is measured in
+        # companion/test_browser_ux.py at 360px.
+        body, err = _body(".runway-map {")
+        if body is None:
+            return False, err
+        for declaration in ("max-width:", "height: auto;"):
+            if declaration not in body:
+                return False, (
+                    ".runway-map must declare %r — its intrinsic size is wider than a "
+                    "runway card at the 360px contract floor, and an SVG that overflows "
+                    "its card scrolls the page sideways" % (declaration,))
+
+        # The transition is on the BASE rule and nowhere else — the same
+        # discipline the card's own transition follows, and the reason
+        # the ONE feature query is separately asserted to declare none.
+        strip_body, _err = _body(".runway-map__strip {")
+        if "transition:" not in strip_body:
+            return False, (
+                ".runway-map__strip must declare the transition on its base rule, where "
+                "it animates the live selected state and its no-:has() fallback from one "
+                "declaration")
+        if "var(--motion-fast)" not in strip_body:
+            return False, (
+                "the strip's transition must spend from the existing motion tokens, not a "
+                "new duration")
+
+        # NO NEW ACCENT CONSUMER, anywhere in this component. The header
+        # comment's reservation list is exhaustive and this drawing is
+        # not on it.
+        for match in re.finditer(r"\.runway-map[^{]*\{([^}]*)\}", source):
+            if "var(--color-accent)" in match.group(1):
+                return False, (
+                    "a .runway-map rule paints accent — this component's accent budget is "
+                    "already spent on the card's border, ring, wash and check glyph, all "
+                    "four of which are on the header comment's reservation list, and a "
+                    "fifth would be a broadening of an exhaustive list: %r"
+                    % (match.group(0)[:120],))
+
+        # CFG-52: the live selected strip JOINS the one feature query;
+        # its no-:has() fallback stays outside it; the saved-but-not-live
+        # clear joins it too. Asserted by position against the block,
+        # which is the same mechanism this file's existing :has() checks
+        # use.
+        supports_marker = "@supports selector(:has(*)) {"
+        if source.count(supports_marker) != 1:
+            return False, (
+                "expected exactly one %r block, got %d — a second block fails two named "
+                "checks and forces re-derivation of specificity arithmetic marked "
+                "verified, not to be re-derived"
+                % (supports_marker, source.count(supports_marker)))
+        supports_idx = source.index(supports_marker)
+        for selector, inside in (
+                (".runway-card:has(input:checked) .runway-map__strip--this {", True),
+                (".runway-card--selected .runway-map__strip--this {", False),
+                (".runway-card--selected:not(:has(input:checked)) "
+                 ".runway-map__strip--this {", True)):
+            body, err = _body(selector)
+            if body is None:
+                return False, err
+            at = source.index(selector)
+            if inside and at < supports_idx:
+                return False, "expected %r to live inside the feature query" % (selector,)
+            if not inside and at > supports_idx:
+                return False, "expected %r to live outside the feature query" % (selector,)
+            if "var(--color-accent)" in body:
+                return False, "%r must stay accent-free" % (selector,)
+        # Parity: the live rule and its no-:has() fallback must paint the
+        # SAME thing, or a browser without :has() renders a different
+        # selected card — the identical contract T6 already holds for the
+        # border, the ring, the wash and the scale.
+        live, _err = _body(".runway-card:has(input:checked) .runway-map__strip--this {")
+        fallback, _err = _body(".runway-card--selected .runway-map__strip--this {")
+        if live.strip() != fallback.strip():
+            return False, (
+                "the live selected strip and its --selected fallback must declare the "
+                "same paint, got %r against %r" % (live.strip(), fallback.strip()))
+
+        # The motion budget, pinned by count. Both figures are the
+        # baselines measured on this tree before this plan touched the
+        # file; the map declares no keyframes and no per-rule
+        # reduced-motion block, which the design system records as dead
+        # code rather than a safety net.
+        keyframes = len(re.findall(r"^@keyframes\b", source, flags=re.MULTILINE))
+        if keyframes != 4:
+            return False, (
+                "expected the @keyframes count to stay at 4, got %d" % keyframes)
+        reduced = source.count("@media (prefers-reduced-motion: reduce)")
+        if reduced != 3:
+            return False, (
+                "expected the prefers-reduced-motion block count to stay at 3, got %d"
+                % reduced)
+        return True, ""
+    check(
+        "the runway map's paint resolves — every class the emitted markup carries has a real "
+        "selector, every colour comes from a theme token so both themes are correct from one "
+        "rule, the map declares the max-width/height pair that keeps its intrinsic size inside a "
+        "360px card, its transition sits on the base rule and spends an existing motion token, "
+        "and the live selected strip JOINS the one @supports selector(:has(*)) block with its "
+        "no-:has() fallback outside it declaring the identical paint — with no accent anywhere "
+        "in the component and the keyframe/reduced-motion counts unmoved (CFG-47/CFG-52)",
+        _runway_map_paint_resolves_and_joins_the_one_feature_query)
 
     # ------------------------------------------------------------------
     # 06.6.4.1 Task 1 (D-01, D-02, D-05 form half, D-26): the new
