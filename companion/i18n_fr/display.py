@@ -114,10 +114,18 @@ CATALOG = {
 
     # --- Runway card (config_page.py's runway_fieldset()) --------------
     "Runway": "Piste",
-    "Which Orly runway the device watches. Applies on the next "
-    "scheduled poll, not immediately.":
-        "Quelle piste d’Orly l’appareil surveille. S’applique "
-        "lors de la prochaine vérification programmée, pas immédiatement.",
+    # 25-03-PLAN.md Task 1 (CFG-47): the schematic clause, because the
+    # group now draws a map. "indicatif" / "pas à l'échelle" carry the
+    # same refusal-to-claim-a-survey the English does — a French visitor
+    # given an unqualified diagram would be given a claim the drawing
+    # cannot back up.
+    "Which Orly runway the device watches. The diagram is schematic: "
+    "relative bearings only, north up, not to scale. Applies on the "
+    "next scheduled poll, not immediately.":
+        "Quelle piste d’Orly l’appareil surveille. Le schéma est "
+        "indicatif : orientations relatives seulement, nord en haut, "
+        "pas à l’échelle. S’applique lors de la prochaine vérification "
+        "programmée, pas immédiatement.",
     "Airport diagram for %s": "Schéma de l’aéroport pour %s",
 
     # --- Calendar card (config_page.py's merged calendar_group()/

@@ -728,6 +728,22 @@ EXPECTED_CHECK_COUNT = 239
 # crossfade rather than around it.
 # 239 + 1 = 240, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 240
+# 25-03-PLAN.md Task 1 (CFG-47): +4 — the schematic Orly runway map. One
+# check that the drawing follows device_config.RUNWAY_IDS and nothing
+# else (proved by adding a fourth entry to the registry alone and
+# demanding a fourth radio AND a fourth strip on every map); one that
+# every strip's bearing is DERIVED from the designator in its own
+# registry label rather than pinned, including the id-first trap that
+# would draw Orly's ADP-numbered "3" at 030 while its label says 07/25,
+# a non-reciprocal pair refused, and T-25-03-D's stated fallback for an
+# entry that parses as nothing; one that the emitted markup carries no
+# colour literal, gives every shape a paint route, is aria-hidden with
+# an explicit size route, and escapes registry text (T-25-03-B); and one
+# that the CONTROL is untouched — same radiogroup ids, nothing marked
+# with nothing selected, and the three photographs still rendered from
+# the session-gated route and still on disk.
+# 240 + 4 = 244, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 244
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1907,6 +1923,328 @@ def main():
     check(
         "runway_fieldset('3', images_available=('3', '06-24')) renders an <img> inside exactly those two cards, none in the third (D-05)",
         _runway_fieldset_cards_image_rendering_per_card)
+
+    # ------------------------------------------------------------------
+    # 25-03-PLAN.md Task 1 (CFG-47): the schematic Orly runway map.
+    #
+    # Four checks, and the thing they are collectively defending is that
+    # the DRAWING cannot disagree with the LABELS a visitor reads beside
+    # it. Every number in the geometry is derived from a runway
+    # designator that is already in the registry, so there is no second
+    # list of coordinates to fall out of step — and the checks below
+    # assert the derivation rather than the resulting angles, because a
+    # pinned angle is exactly the second list wearing a harness costume.
+    # ------------------------------------------------------------------
+
+    def _temporary_registry(entries):
+        """Swap device_config.RUNWAYS/RUNWAY_IDS for `entries` and put
+        them back. A context manager rather than a try/finally at four
+        call sites: this fixture mutates a module-level registry every
+        other check in this file reads, and one missed restore would
+        make an unrelated neighbour fail in a way nobody would trace
+        back to here.
+        """
+        import contextlib
+
+        @contextlib.contextmanager
+        def _swap():
+            was_runways = device_config.RUNWAYS
+            was_ids = device_config.RUNWAY_IDS
+            device_config.RUNWAYS = entries
+            device_config.RUNWAY_IDS = tuple(entries)
+            try:
+                yield
+            finally:
+                device_config.RUNWAYS = was_runways
+                device_config.RUNWAY_IDS = was_ids
+        return _swap()
+
+    def _runway_entry(label):
+        return {"label": label, "tag_text": label, "empty_heading": label}
+
+    _MAP_STRIP_ATTR = 'class="%s' % config_page.RUNWAY_MAP_STRIP_CLASS
+
+    def _runway_map_is_drawn_from_the_registry_never_a_typed_list():
+        # Every count here is len(RUNWAY_IDS), never the literal 3. The
+        # registry has held exactly three entries since Phase 6 and a
+        # harness that pinned the 3 would pass forever while the drawing
+        # silently stopped following the registry.
+        ids = device_config.RUNWAY_IDS
+        n = len(ids)
+        rendered = config_page.runway_fieldset("3")
+        radios = rendered.count('name="tracked_runway"')
+        if radios != n:
+            return False, (
+                "expected one radio per registry entry (%d), got %d" % (n, radios))
+        if rendered.count('class="visually-hidden"') < n:
+            return False, (
+                "expected every radio to keep class=\"visually-hidden\" — display:none "
+                "would drop it from the tab order and break keyboard selection")
+        if rendered.count('form="%s"' % config_page.SETTINGS_FORM_ID) < n:
+            return False, "expected every radio to keep its explicit form= association"
+        maps = rendered.count('<svg class="%s"' % config_page.RUNWAY_MAP_CLASS)
+        if maps != n:
+            return False, "expected one map per card (%d), got %d" % (n, maps)
+        # Every card draws the WHOLE airfield — n strips on each of n
+        # maps — which is what makes this a map rather than n unrelated
+        # single-strip marks. Counted on the class ATTRIBUTE prefix
+        # because "runway-map__strip--this" contains "runway-map__strip".
+        strips = rendered.count(_MAP_STRIP_ATTR)
+        if strips != n * n:
+            return False, (
+                "expected %d strips (%d cards x %d registry entries), got %d"
+                % (n * n, n, n, strips))
+        this = rendered.count(config_page.RUNWAY_MAP_THIS_STRIP_CLASS)
+        if this != n:
+            return False, (
+                "expected exactly one own-runway strip per card (%d), got %d"
+                % (n, this))
+
+        # THE MUTATION: a fourth entry, added to the registry only. If
+        # the drawing followed a typed list, this produces a fourth radio
+        # and no fourth strip.
+        grown = dict(device_config.RUNWAYS)
+        grown["09-27"] = _runway_entry("Runway 5 (09/27)")
+        with _temporary_registry(grown):
+            after = config_page.runway_fieldset("3")
+            if after.count('name="tracked_runway"') != n + 1:
+                return False, (
+                    "a fourth registry entry produced %d radios, expected %d"
+                    % (after.count('name="tracked_runway"'), n + 1))
+            if after.count('<svg class="%s"' % config_page.RUNWAY_MAP_CLASS) != n + 1:
+                return False, "a fourth registry entry produced no fourth map"
+            if after.count(_MAP_STRIP_ATTR) != (n + 1) * (n + 1):
+                return False, (
+                    "a fourth registry entry produced %d strips, expected %d — the "
+                    "drawing is following something other than the registry"
+                    % (after.count(_MAP_STRIP_ATTR), (n + 1) * (n + 1)))
+            if "rotate(90" not in after:
+                return False, (
+                    "the fourth entry's label says 09/27 and no strip is drawn at 090 — "
+                    "the drawing is not reading the designator it was given")
+        if device_config.RUNWAY_IDS != ids:
+            return False, "the registry mutation did not restore itself"
+        return True, ""
+    check(
+        "the runway map is drawn from device_config.RUNWAY_IDS and nothing else — one map per "
+        "card, one strip per registry entry on EVERY map, exactly one own-runway strip per card, "
+        "and a fourth entry added to the registry alone produces a fourth radio AND a fourth "
+        "strip on every map with no edit to runway_fieldset() (CFG-47, 25-03-PLAN.md Task 1)",
+        _runway_map_is_drawn_from_the_registry_never_a_typed_list)
+
+    def _runway_strip_bearings_come_from_the_designators():
+        # A designator IS a bearing in tens of degrees, so the drawing's
+        # angles are ASSERTED AGAINST THE LABELS rather than against
+        # pinned numbers. Both sides of every comparison below are read
+        # out of the registry at run time.
+        def designator(runway_id):
+            found = re.search(
+                r"\((\d{1,2})/(\d{1,2})\)", device_config.runway_label(runway_id))
+            if found is None:
+                return None
+            return int(found.group(1)) * 10 % 180
+
+        for runway_id in device_config.RUNWAY_IDS:
+            stated = designator(runway_id)
+            if stated is None:
+                continue
+            drawn = config_page.runway_bearing_deg(runway_id)
+            if drawn != stated:
+                return False, (
+                    "%r is labelled %r — its designator states %d degrees and the strip "
+                    "is drawn at %d"
+                    % (runway_id, device_config.runway_label(runway_id), stated, drawn))
+
+        # The relationship, not a magic number: two runways whose
+        # designators differ by 4 tens are drawn 40 degrees apart.
+        a, b = "06-24", "02-20"
+        if a in device_config.RUNWAY_IDS and b in device_config.RUNWAY_IDS:
+            expected_gap = designator(a) - designator(b)
+            drawn_gap = (config_page.runway_bearing_deg(a)
+                         - config_page.runway_bearing_deg(b))
+            if drawn_gap != expected_gap or expected_gap == 0:
+                return False, (
+                    "%r and %r are labelled %r and %r, a %d-degree difference, and are "
+                    "drawn %d degrees apart"
+                    % (a, b, device_config.runway_label(a),
+                       device_config.runway_label(b), expected_gap, drawn_gap))
+
+        # THE TRAP THIS PARSE EXISTS FOR. Orly's first entry is keyed
+        # "3" — an ADP runway NUMBER — and labelled "Runway 3 (07/25)".
+        # An id-first parse draws it at 030 while its own label says
+        # 07/25. The label is read first precisely so this cannot happen.
+        if "3" in device_config.RUNWAY_IDS:
+            if config_page.runway_bearing_deg("3") == 3 * 10:
+                return False, (
+                    "runway '3' is drawn at 030 — that is its ADP NUMBER parsed as a "
+                    "designator, and its own label says 07/25")
+        # ...and the clause above is NOT on its own enough to pin the
+        # label-before-id order, which is why this second case exists.
+        # Measured on the shipped registry: swapping the two sources
+        # changes no angle at all, because "3" parses as nothing under
+        # either order and the other two ids carry the same designators
+        # their labels do. So the order is proven on a registry where
+        # the two sources DISAGREE — a label of 07/25 against an id
+        # reading 31-13 — and the label has to win, because the label is
+        # what a visitor reads beside the drawing.
+        with _temporary_registry({"31-13": _runway_entry("Runway 9 (07/25)")}):
+            from_label = designator("31-13")
+            drawn = config_page.runway_bearing_deg("31-13")
+            if drawn != from_label:
+                return False, (
+                    "an entry keyed %r and labelled %r is drawn at %d — its LABEL states "
+                    "%d, and a drawing that contradicts the label printed beside it is "
+                    "the whole defect this parse exists to make unreachable"
+                    % ("31-13", "Runway 9 (07/25)", drawn, from_label))
+
+        # T-25-03-D: an entry carrying no parseable designator anywhere
+        # falls back to a stated angle and renders, rather than raising
+        # and taking the whole Display page down with it.
+        with _temporary_registry({"north-field": _runway_entry("The north field")}):
+            fallback = config_page.runway_bearing_deg("north-field")
+            if fallback != config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG:
+                return False, (
+                    "an unparseable entry gave %r, expected the stated fallback %r"
+                    % (fallback, config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG))
+            rendered = config_page.runway_fieldset("north-field")
+            if _MAP_STRIP_ATTR not in rendered:
+                return False, "an unparseable entry rendered no strip at all"
+        # A pair that is not reciprocal is not a designator pair: 12/2024
+        # would otherwise parse as 120 degrees.
+        with _temporary_registry({"x": _runway_entry("Rebuilt 12/19")}):
+            if config_page.runway_bearing_deg("x") != config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG:
+                return False, (
+                    "12/19 is not a reciprocal designator pair (they differ by 7, not 18) "
+                    "and was parsed as a bearing anyway")
+        return True, ""
+    check(
+        "every runway strip's bearing is DERIVED from the designator in its own registry label "
+        "(a designator is a magnetic bearing in tens of degrees) — asserted against the labels "
+        "rather than against pinned angles, with the id read only second so Orly's ADP-numbered "
+        "'3' cannot be drawn at 030 while its label says 07/25, a non-reciprocal pair refused, "
+        "and an unparseable entry falling back to a stated angle rather than raising (T-25-03-D)",
+        _runway_strip_bearings_come_from_the_designators)
+
+    def _runway_map_paints_through_classes_and_announces_nothing_twice():
+        svg = config_page.runway_map_svg("3")
+        found = re.search(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", svg)
+        if found is not None:
+            return False, (
+                "the map emits the colour %r — a colour decided in Python is correct in "
+                "ONE theme and is invisible to companion/test_contrast_check.py"
+                % (found.group(0),))
+        shapes = re.findall(
+            r"<(rect|circle|line|path|polygon|polyline|ellipse)\b([^>]*)", svg)
+        if not shapes:
+            return False, "the map emits no drawn shape at all"
+        for tag, attributes in shapes:
+            if ("class=" not in attributes and "fill=" not in attributes
+                    and "stroke=" not in attributes):
+                return False, (
+                    "the map emits a <%s> with neither a class nor an explicit "
+                    "fill/stroke — it paints SVG-default black, which is invisible "
+                    "against a dark card" % (tag,))
+        # EVERY ATTRIBUTE ASSERTION BELOW IS SCOPED TO THE OPENING <svg>
+        # TAG, and that is not tidiness. Measured on this tree: a scan
+        # over the whole markup for "width=" passes against an <svg>
+        # carrying no size at all, because every <rect> child declares
+        # its own width — so the unscoped form of this check reported a
+        # size route that was not there.
+        opening = svg[:svg.index(">") + 1]
+        # The accessible names come from the three labels, exactly as
+        # before this drawing existed; a labelled graphic would announce
+        # the runways a second time.
+        for attribute in ('aria-hidden="true"', 'focusable="false"'):
+            if attribute not in opening:
+                return False, (
+                    "expected the map's own <svg> tag to carry %s, got %r"
+                    % (attribute, opening))
+        # The size route. companion/layout.py's icon_html() docstring
+        # records what an <svg> with neither an attribute nor a CSS rule
+        # does: 300x150 and a blown layout.
+        for attribute in ("viewBox=", "width=", "height="):
+            if attribute not in opening:
+                return False, (
+                    "expected the map's own <svg> tag to carry an explicit size route "
+                    "(%s), got %r" % (attribute, opening))
+        # T-25-03-B: registry text reaching the page. The map itself
+        # interpolates no registry string at all — only integers derived
+        # from it — and the card's label text goes through escape_html().
+        hostile = 'Runway <script>"x"</script> (07/25)'
+        with _temporary_registry({"h": _runway_entry(hostile)}):
+            rendered = config_page.runway_fieldset("h")
+            if "<script>" in rendered:
+                return False, (
+                    "a registry label containing markup reached the page unescaped")
+            if "&lt;script&gt;" not in rendered:
+                return False, (
+                    "expected the hostile registry label to render escaped, not dropped")
+            if "<script>" in config_page.runway_map_svg("h"):
+                return False, "the map itself interpolated a registry label unescaped"
+        return True, ""
+    check(
+        "the runway map takes every colour from a class bound to a theme token (no literal "
+        "anywhere in its emitted markup), gives every drawn shape a paint route, carries "
+        "aria-hidden/focusable=\"false\" plus an explicit size route so it neither announces the "
+        "runways a second time nor renders at the SVG default 300x150, and escapes registry text "
+        "that reaches the page (CFG-47, T-25-03-B)",
+        _runway_map_paints_through_classes_and_announces_nothing_twice)
+
+    def _the_map_changed_the_presentation_and_not_the_control():
+        # The radiogroup's semantics are the control. This check is the
+        # one that fails if a later edit "tidies" the map by moving,
+        # renaming or re-wrapping any of them.
+        rendered = config_page.runway_fieldset("3")
+        for fragment in (
+                'role="radiogroup"',
+                'aria-labelledby="%s"' % config_page.RUNWAY_GROUP_HEADING_ID,
+                'aria-describedby="%s"' % config_page.RUNWAY_SECTION_CAPTION_ID):
+            if fragment not in rendered:
+                return False, "expected the row to keep %s" % (fragment,)
+        # Nothing selected means nothing marked. A map that defaulted to
+        # highlighting one runway would be stating a saved value the
+        # config does not hold.
+        none_selected = config_page.runway_fieldset(None)
+        if "runway-card--selected" in none_selected:
+            return False, (
+                "current_runway_id=None still marked a card selected")
+        if " checked" in none_selected:
+            return False, "current_runway_id=None still left a radio checked"
+        # ...but every card still draws its OWN runway, because that
+        # class says "this card's runway", not "the chosen runway".
+        if none_selected.count(config_page.RUNWAY_MAP_THIS_STRIP_CLASS) != len(
+                device_config.RUNWAY_IDS):
+            return False, (
+                "with nothing selected the own-runway strips vanished — that class "
+                "marks which runway a card IS, never which one is chosen")
+        # The photographs are an addition's neighbour, not its casualty.
+        empty = config_page.runway_fieldset("3", images_available=())
+        if "<img" in empty:
+            return False, "images_available=() still rendered an <img>"
+        with_images = config_page.runway_fieldset(
+            "3", images_available=device_config.RUNWAY_IDS)
+        if with_images.count("<img") != len(device_config.RUNWAY_IDS):
+            return False, (
+                "expected one <img> per available runway image, got %d"
+                % with_images.count("<img"))
+        if config_page.RUNWAY_IMAGE_ROUTE_PREFIX not in with_images:
+            return False, (
+                "expected the session-gated runway-image route to still be the src")
+        for runway_id in device_config.RUNWAY_IDS:
+            path = os.path.join(HERE, "static", "runway-%s.png" % runway_id)
+            if not os.path.exists(path):
+                return False, (
+                    "%s is gone from disk — the map is an ADDITION, and deleting real "
+                    "imagery for a schematic is irreversible in a way adding is not"
+                    % (path,))
+        return True, ""
+    check(
+        "the map changed the presentation and NOT the control — the row keeps role=\"radiogroup\" "
+        "with the same aria-labelledby/aria-describedby ids, current_runway_id=None marks nothing "
+        "selected and leaves no radio checked while every card still draws its own runway, and "
+        "the three runway photographs still render from the session-gated route and still exist "
+        "on disk (CFG-47, 25-03-PLAN.md Task 1)",
+        _the_map_changed_the_presentation_and_not_the_control)
 
     # ------------------------------------------------------------------
     # 06.6.4.1 Task 1 (D-01, D-02, D-05 form half, D-26): the new
