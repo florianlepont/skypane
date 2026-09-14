@@ -260,6 +260,11 @@ CATALOG = {
         "en un coup d’œil. S’applique lors de la prochaine "
         "vérification programmée.",
     "Wake interval (seconds)": "Intervalle de réveil (secondes)",
+    # 25-05-PLAN.md Task 2 (CFG-52): the range input's OWN accessible
+    #     name. It needs one distinct from the number input's label
+    #     above — two controls sharing one accessible name is how a
+    #     screen-reader visitor loses track of which they are on.
+    "Wake interval slider": "Curseur d’intervalle de réveil",
     # 25-05-PLAN.md Task 1 (CFG-49): the two gauges. "#" is the
     #     quantity's place in every one of these (layout.
     #     VALUE_CONTROL_TEXT_TOKEN) — never "%s"/"%d"/"{}", which

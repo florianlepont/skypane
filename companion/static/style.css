@@ -21,7 +21,12 @@
  * hamburger toggle's active state, a stat tile's icon tint and top
  * accent when no ok/warn/error status applies, the skip link's fill,
  * the selected runway card's border and check glyph, the native
- * `accent-color` of radios/checkboxes, a `<summary>` disclosure's marker
+ * `accent-color` of radios/checkboxes AND (25-05-PLAN.md Task 2 — a
+ * genuine broadening rather than a clarification, recorded because
+ * this list is kept exhaustive on purpose) of the wake-interval
+ * range input, which inherits it from the same global `input,
+ * select` declaration and is a selection affordance of exactly the
+ * kind this reservation is for, a `<summary>` disclosure's marker
  * (260902-ep7: this is a genuine broadening, not a clarification — the
  * marker pseudo-element was already on this list; its own label text
  * was not, and is now added too), the neutral (non-anomaly) banner's
@@ -1489,6 +1494,48 @@ a:hover {
  * it. */
 .quiet-dial__handle::before {
   inset: -12px;
+}
+
+/* ===================================================================
+ * 25-05-PLAN.md Task 2 (CFG-49/CFG-52) — D18'S WAKE-INTERVAL SLIDER.
+ *
+ * TWO DECLARATIONS, AND THE SHORTNESS OF THIS BLOCK IS THE POINT. The
+ * control is a NATIVE <input type="range">, so the browser supplies the
+ * track, the thumb, the drag, the keyboard model and the accessible
+ * value; the global `input, select` rule above already supplies the
+ * 44px floor, the padding, the surface, the 1px structural edge, the
+ * radius and the `accent-color` every other native control in this app
+ * wears. Re-declaring any of that here would be re-choosing values the
+ * file has already chosen.
+ *
+ * IT DELIBERATELY DOES NOT WEAR `.value-control`. That class is the
+ * wrapper vocabulary for a control whose absolutely-placed handle is
+ * positioned from `--value-fraction` — it declares `position: relative`
+ * as that handle's containing block and `touch-action: none` so a touch
+ * drag is not claimed by the browser's panning gesture. A native range
+ * has no such handle to contain, and `touch-action: none` on an
+ * ancestor of one would be this plan taking a position on a gesture
+ * the browser already implements, with no way to measure the result in
+ * a headless harness. Both declarations would be inert at best here,
+ * and the second could be worse than inert. (Recorded rather than left
+ * silent: a later reader will notice the phase's other control uses the
+ * shared class and wonder.)
+ *
+ * WHY `width: 100%` IS THE ONE GEOMETRY DECLARATION: a range input's
+ * intrinsic width is about 129px in this engine, which at the 360px
+ * floor would be a third of the card and a sweep of the whole 60..3600
+ * band in about 120 pixels. It is a full-width control or it is not
+ * worth having.
+ *
+ * The wrapper needs no `--js-gate-display`: `block` is the gate's own
+ * fallback and a <div> is block anyway, so declaring it would be inert.
+ * =================================================================== */
+.wake-slider {
+  margin-top: var(--space-sm);
+}
+
+.wake-slider__input {
+  width: 100%;
 }
 
 /* Unified save bar (06.6.4.1 D-04, retargeted by 19-10-PLAN.md D-09/

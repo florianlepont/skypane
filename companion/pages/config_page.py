@@ -538,6 +538,12 @@ WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
 # (`references/data-density.md`: a bare `from companion.battery import
 # ...` makes the estimator read as the page's own). 19-01 created that
 # module to stop exactly this drift.
+# The name the form posts this setting under, in ONE place: the number
+# input's own `name`, the gauges' `data-value-readout`, the slider's
+# `data-value-field` and the no-JS control contract's registry row all
+# have to be the same string, and three of those four are attributes a
+# string comparison would never catch drifting.
+WAKE_INTERVAL_FIELD_NAME = "wake_interval_s"
 WAKE_GAUGE_CLASS = "wake-gauge"
 WAKE_GAUGE_FRESHNESS_ID = "wake-gauge-freshness"
 WAKE_GAUGE_BATTERY_ID = "wake-gauge-battery"
@@ -610,6 +616,19 @@ WAKE_BATTERY_SCREEN_OFF_TEXT = (
 # that moves and therefore the only thing the script substitutes.
 WAKE_BATTERY_INSTEAD_TEXT = (
     "This setting wakes the frame every # min instead of every %d min.")
+
+# --- 25-05-PLAN.md Task 2 (CFG-49/CFG-52): the gated range -----------
+WAKE_SLIDER_CLASS = "wake-slider"
+WAKE_SLIDER_INPUT_CLASS = "wake-slider__input"
+# One minute, which is WAKE_INTERVAL_MIN_S itself and the unit both
+# gauges speak in — so every position the slider can reach is a whole
+# number of minutes and neither sentence ever has to round.
+WAKE_SLIDER_STEP_S = 60
+# The range's own accessible name. It needs one of its own: the number
+# input's label ("Wake interval (seconds)") names THAT control, and two
+# controls sharing one accessible name is how a screen-reader visitor
+# loses track of which of them they are on.
+WAKE_SLIDER_LABEL = "Wake interval slider"
 
 # 20-11-PLAN.md Task 1 (D-26/D-28, 20-UI-SPEC.md Section Anatomy J/copy
 # table G): the Notifications group's own copy — a Device-only sixth
@@ -3238,15 +3257,100 @@ def wake_gauges_html(interval_s, battery_rows=None):
     """
     if interval_s is None:
         return ""
+    # THE FRESHNESS SENTENCE IS ENTIRELY LIVE and the battery one is
+    # only PARTLY live, and that split is the honesty rule made
+    # structural. The freshness paragraph is itself the readout: its
+    # whole text is arithmetic on the value, so the script may rewrite
+    # all of it. The battery paragraph's figure came out of observed
+    # history, so the script may not touch it — only the trailing span,
+    # whose template names two cadences and contains no days figure at
+    # all. A script cannot become braver than the server was, because
+    # there is no template here through which it could.
     return (
-        '<p class="text-label section-caption %s" id="%s">%s</p>'
-        '<p class="text-label section-caption %s" id="%s">%s %s</p>'
+        '<p class="text-label section-caption %s" id="%s" %s="%s" %s="%s" %s="%d">%s</p>'
+        '<p class="text-label section-caption %s" id="%s">%s %s '
+        '<span %s="%s" %s="%s" %s="%d" %s="%d">%s</span></p>'
     ) % (
         escape_html(WAKE_GAUGE_CLASS), escape_html(WAKE_GAUGE_FRESHNESS_ID),
+        layout.VALUE_CONTROL_READOUT_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
+        layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        escape_html(i18n.t(WAKE_FRESHNESS_TEXT)),
+        layout.VALUE_CONTROL_READOUT_SCALE_ATTR, WAKE_GAUGE_SECONDS_PER_MINUTE,
         escape_html(wake_freshness_text(interval_s)),
+
         escape_html(WAKE_GAUGE_CLASS), escape_html(WAKE_GAUGE_BATTERY_ID),
         escape_html(wake_battery_observed_text(interval_s, battery_rows)),
         escape_html(wake_screen_off_text()),
+        layout.VALUE_CONTROL_READOUT_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
+        layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+        escape_html(wake_battery_relative_template(interval_s)),
+        layout.VALUE_CONTROL_READOUT_SCALE_ATTR, WAKE_GAUGE_SECONDS_PER_MINUTE,
+        # THE BASE: the readout says nothing at all while the proposed
+        # value is the saved one, which is every page load and every
+        # scripts-blocked render.
+        layout.VALUE_CONTROL_READOUT_BASE_ATTR, interval_s,
+        escape_html(wake_battery_relative_text(interval_s, interval_s)),
+    )
+
+
+def wake_slider_html(interval_s):
+    """The range input, inside 25-01's `.js` gate — or `""` when there is
+    no saved interval for it to start from.
+
+    IT CARRIES NO `name`, AND THAT IS THE WHOLE DESIGN. "Why does this
+    input have no name" is exactly the question a later editor answers
+    wrongly by adding one, so: a named range would post a SECOND value
+    for `wake_interval_s` on every save, and whichever arrived last
+    would win, silently. The `<input type="number">` above is the only
+    control on this card that posts, and this one only ever writes into
+    it through companion/static/value-controls.js.
+
+    NO `role="slider"` EITHER. A native range input already exposes
+    slider semantics, a native `aria-valuenow` and the keyboard model
+    (arrows one step, Page ten, Home and End to the ends) that
+    value-controls.js implements by hand for a `<div>` handle — adding
+    the role on top is the classic double-role error. It gets an
+    `aria-label` naming it (the number input's own label already names
+    that control) and an `aria-describedby` pointing at the two gauges,
+    which is what makes the trade-off audible rather than only visible.
+
+    GATED, because a range with no script is a control that drags and
+    shows the visitor nothing — 25-RESEARCH.md's "renders but does
+    nothing", in its purest form. The two gauges and the number input
+    are NOT gated: with scripts blocked a visitor still reads what the
+    interval means and still types and saves one.
+
+    `min`/`max` come from `device_config`, never re-typed — the same
+    cross-file convention the number input already follows, so one
+    control can never accept what the other (and
+    `save_device_config()`'s own server-side re-check) rejects.
+
+    NO INITIAL `--value-fraction`, unlike 25-04's handles: a native
+    range paints its own thumb from its own value, so there is no
+    geometry here for the stylesheet to place. The property is still
+    written by the script's shared paint and is simply unused.
+    """
+    if interval_s is None:
+        return ""
+    return (
+        '<div class="%s %s" %s %s="%s" %s="%s" %s="%d" %s="%d" %s="%d">'
+        '<input type="range" class="%s" %s value="%d" min="%d" max="%d" step="%d"'
+        ' aria-label="%s" aria-describedby="%s %s">'
+        "</div>"
+    ) % (
+        escape_html(WAKE_SLIDER_CLASS), escape_html(layout.JS_GATE_CLASS),
+        layout.VALUE_CONTROL_ATTR,
+        layout.VALUE_CONTROL_FIELD_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
+        layout.VALUE_CONTROL_FORM_ATTR, SETTINGS_FORM_ID,
+        layout.VALUE_CONTROL_MIN_ATTR, device_config.WAKE_INTERVAL_MIN_S,
+        layout.VALUE_CONTROL_MAX_ATTR, device_config.WAKE_INTERVAL_MAX_S,
+        layout.VALUE_CONTROL_STEP_ATTR, WAKE_SLIDER_STEP_S,
+        escape_html(WAKE_SLIDER_INPUT_CLASS), layout.VALUE_CONTROL_INPUT_ATTR,
+        interval_s,
+        device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
+        WAKE_SLIDER_STEP_S,
+        escape_html(i18n.t(WAKE_SLIDER_LABEL)),
+        escape_html(WAKE_GAUGE_FRESHNESS_ID), escape_html(WAKE_GAUGE_BATTERY_ID),
     )
 
 
@@ -3332,6 +3436,11 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
     error_attrs = _field_error_attrs(
         errors, "wake_interval_s", "wake-interval-s", hint_id=WAKE_INTERVAL_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "wake_interval_s", "wake-interval-s")
+    # ONE resolution of the gauges' and the slider's subject, so the
+    # three of them can never describe different values — and so
+    # "everything this plan adds renders together or not at all" is a
+    # property of the code rather than of three matching conditions.
+    gauge_interval_s = wake_gauge_interval_s(current_wake_interval_s, submitted)
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
@@ -3354,10 +3463,17 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         # _normalised_time_html()'s own sibling (B14).
         '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
         "%s"
-        # 25-05-PLAN.md Task 1 (CFG-49): the two gauges, APPENDED. Every
-        # element above this line is byte-identical to its pre-plan
-        # output, in all four argument shapes, and a check diffs them.
-        "%s"
+        # 25-05-PLAN.md Tasks 1 and 2 (CFG-49): the gated slider and then
+        # the two gauges, APPENDED. Every element above this line is
+        # byte-identical to its pre-plan output, in all six argument
+        # shapes, and a check diffs them.
+        #
+        # The slider sits AFTER the field's own error message rather than
+        # between the two: an error has to read as attached to the
+        # control it is about, and a control inserted between them breaks
+        # that adjacency. The gauges come last because they are what the
+        # setting MEANS — the control first, its consequences after.
+        "%s%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(WAKE_INTERVAL_SECTION_HEADING)),
@@ -3371,8 +3487,8 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         value_attr, error_attrs,
         escape_html(WAKE_INTERVAL_UNIT_LABEL),
         error_html,
-        wake_gauges_html(
-            wake_gauge_interval_s(current_wake_interval_s, submitted), battery_rows),
+        wake_slider_html(gauge_interval_s),
+        wake_gauges_html(gauge_interval_s, battery_rows),
     )
 
 

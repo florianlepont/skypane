@@ -304,6 +304,62 @@ VALUE_CONTROL_GEOMETRY_ATTR = "data-value-geometry"
 VALUE_CONTROL_FORMAT_ATTR = "data-value-format"
 VALUE_CONTROL_FORMAT_CLOCK = "clock"
 
+# --- 25-05-PLAN.md Task 2 (CFG-49/CFG-52): the MIRROR, and the READOUTS
+#
+# THE MIRROR is a NATIVE control inside the wrapper that carries the
+# same value as the field and posts NOTHING — 25-05's
+# `<input type="range">`, which has no `name` and therefore cannot
+# submit. It is the third and last way the five controls of this phase
+# differ from one another, after the geometry and the codec.
+#
+# WHY A NATIVE RANGE RATHER THAN ANOTHER TRACK-AND-HANDLE. A range input
+# is ALREADY a slider: it has the keyboard model this script implements
+# (arrows one step, Page ten, Home/End to the ends), a native
+# aria-valuenow, native touch dragging, and a thumb every platform draws
+# the way its users expect. Re-implementing that on a <div> to avoid one
+# attribute would be the classic case of building what the platform
+# ships. It also means role="slider" must NOT be added to it — the
+# element already has those semantics, and a redundant role is the
+# double-role error.
+#
+# AND IT IS WHY THE POINTER AND KEYBOARD PATHS BELOW STAND ASIDE. A
+# wrapper carrying a mirror gets NO preventDefault and no steering from
+# this file's own gesture handlers: `preventDefault()` on a pointerdown
+# over a native range cancels the browser's own thumb drag outright, and
+# a keydown handler that both prevents the default AND steps the value
+# would move the control twice per arrow press. The script's job with a
+# mirror is only to SYNC — which is a smaller job than steering, and the
+# reason this seam is four lines of script rather than a second control.
+VALUE_CONTROL_INPUT_ATTR = "data-value-input"
+
+# A READOUT is an element whose whole text is a sentence ABOUT the
+# value, rendered by the server and rewritten by the script as the value
+# moves. It carries the field's own name, so a readout can live anywhere
+# in the document — which it must, because a readout is NOT gated (it
+# has to be correct with scripts blocked) while the control that moves
+# it is.
+#
+# THE SENTENCE IS SERVER-RENDERED AND ALREADY TRANSLATED, exactly like
+# VALUE_CONTROL_TEXT_ATTR above and for the identical reason: no copy of
+# any kind lives in the script. It substitutes a number into a template
+# it was handed and writes nothing else, so a French reader can never be
+# dropped into English by moving a slider.
+VALUE_CONTROL_READOUT_ATTR = "data-value-readout"
+VALUE_CONTROL_READOUT_TEXT_ATTR = "data-value-readout-text"
+# What the value is DIVIDED BY before it is substituted, rounded UP —
+# 60 for a readout that speaks in whole minutes about a field that holds
+# seconds. Absent or unusable, the value is substituted as it stands.
+# The ceiling rather than the floor because every consumer of this seam
+# so far states a BOUND, and "at most 1 min" is false for a 90-second
+# cadence.
+VALUE_CONTROL_READOUT_SCALE_ATTR = "data-value-readout-scale"
+# The value at which the readout says NOTHING AT ALL. A readout that
+# compares the proposed value against the saved one has nothing to say
+# while they are equal, which is every page load — and an empty string
+# is a better answer there than a sentence comparing a value with
+# itself. Absent, the readout always speaks.
+VALUE_CONTROL_READOUT_BASE_ATTR = "data-value-readout-base"
+
 # THE PAINTED POSITION HAS NO CONSTANT HERE, AND THAT IS DELIBERATE. It
 # travels on the `--value-fraction` custom property, written by the
 # SERVER once (so the handle renders in the right place before any

@@ -881,6 +881,22 @@ _NO_JS_CONTROL_REGISTRY = (
         "form_assoc": "attribute",
         "render": lambda: config_page.quiet_hours_group("23:00", "07:00"),
     },
+    # 25-05-PLAN.md Task 2 (CFG-49/CFG-52). form_assoc is "enclosing"
+    # rather than "attribute" and that is not an oversight: unlike the
+    # quiet-hours fields, the wake interval's <input type="number">
+    # carries no form= at all — it is rendered INSIDE
+    # <form id="settings-form"> by the page, which this guard then
+    # verifies against a real authenticated render of /device.
+    {
+        "control": "the wake-interval slider (D18)",
+        "plan": "25-05-PLAN.md Task 2",
+        "wrapper_attr": layout.VALUE_CONTROL_ATTR,
+        "field": config_page.WAKE_INTERVAL_FIELD_NAME,
+        "form": config_page.SETTINGS_FORM_ID,
+        "form_assoc": "enclosing",
+        "page_route": "/device",
+        "render": lambda: config_page.wake_interval_group(600),
+    },
 )
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
@@ -5984,6 +6000,40 @@ def main():
                     "write into the native input the form posts), found %d: %r — a second one "
                     "is a parallel copy of a value this file is forbidden to hold"
                     % (len(value_writes), value_writes))
+            # 25-05-PLAN.md Task 2 (CFG-49): THE COUNT ALONE STOPPED
+            # BEING THE WHOLE PROPERTY, AND SAYING SO HERE IS THE POINT.
+            # That single assignment now lives inside a write helper with
+            # TWO callers: the native input the form posts, and a MIRROR
+            # (25-05's nameless <input type="range">, which posts
+            # nothing). Funnelling both through one helper would satisfy
+            # the count above while quietly reopening exactly what it
+            # guards, so the shape is pinned instead of the arithmetic:
+            # the write lives in writeValue(), the field write goes
+            # through it, and the mirror write goes through it FROM
+            # INSIDE paint() — i.e. strictly downstream of a value read
+            # back off the field. A mirror written anywhere else would be
+            # a second source of truth whatever the count said.
+            if not re.search(r"function writeValue\(el, text\)", src):
+                return False, (
+                    "value-controls.js's one `.value` assignment is not inside writeValue() — "
+                    "the single write helper is what makes 'one assignment' a shape rather than "
+                    "a coincidence")
+            for caller, why in (
+                    ("writeValue(field,", "the native input the form posts"),
+                    ("writeValue(mirrorFor(wrapper),",
+                     "the mirror, which posts nothing and is written only from paint()")):
+                if src.count(caller) != 1:
+                    return False, (
+                        "expected exactly one `%s` in value-controls.js (%s), found %d"
+                        % (caller, why, src.count(caller)))
+            paint_at = src.index("function paint(wrapper, bounds, value)")
+            mirror_at = src.index("writeValue(mirrorFor(wrapper),")
+            steer_at = src.index("function steer(wrapper, raw)")
+            if not paint_at < mirror_at < steer_at:
+                return False, (
+                    "the mirror write is not inside paint() (paint at %d, write at %d, steer at "
+                    "%d) — written anywhere else it stops being downstream of the field and "
+                    "becomes a second value" % (paint_at, mirror_at, steer_at))
             if not re.search(r"(?<![-\w.])field\.value(?!\s*=)", src):
                 return False, (
                     "expected value-controls.js to READ the native input back through "
@@ -5995,8 +6045,11 @@ def main():
             "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/XHR/fetch/timer and no "
             "URL-taking navigation), carries the steering contract (preventDefault, "
             "getAttribute, dispatchEvent, aria-valuenow, aria-valuetext, parseFloat and the "
-            "three Math clamps) and NEVER holds the value — exactly one `.value` assignment and "
-            "at least one read of `field.value` back (CFG-46, 25-01-PLAN.md Task 1)",
+            "three Math clamps) and NEVER holds the value — exactly one `.value` assignment, "
+            "inside the one write helper, reached by exactly two callers (the native input the "
+            "form posts, and the nameless MIRROR written only from inside paint(), strictly "
+            "downstream of a read off that field), and at least one read of `field.value` back "
+            "(CFG-46, 25-01-PLAN.md Task 1; the mirror clause 25-05-PLAN.md Task 2)",
             _value_controls_script_es5_safe_and_never_holds_the_value)
 
         def _value_controls_script_route_src_agree():
@@ -6047,11 +6100,23 @@ def main():
             # than only a numeric input. A seam attribute nothing pins is
             # a seam attribute a rename can quietly break, which is the
             # whole point of this loop.
+            # 25-05-PLAN.md Task 2 (CFG-49/CFG-52): five more join in
+            # place — the MIRROR (a native control inside the wrapper
+            # that carries the same value and posts nothing, which is
+            # what lets a real <input type="range"> be the slider
+            # instead of a re-implementation of one) and the four
+            # READOUT names (a sentence beside the control restating
+            # what its value MEANS, rewritten from a server-rendered
+            # translated template as the value moves).
             for attr in (layout.VALUE_CONTROL_ATTR, layout.VALUE_CONTROL_FIELD_ATTR,
                          layout.VALUE_CONTROL_FORM_ATTR, layout.VALUE_CONTROL_MIN_ATTR,
                          layout.VALUE_CONTROL_MAX_ATTR, layout.VALUE_CONTROL_STEP_ATTR,
                          layout.VALUE_CONTROL_HANDLE_ATTR, layout.VALUE_CONTROL_TRACK_ATTR,
-                         layout.VALUE_CONTROL_TEXT_ATTR, layout.VALUE_CONTROL_FORMAT_ATTR):
+                         layout.VALUE_CONTROL_TEXT_ATTR, layout.VALUE_CONTROL_FORMAT_ATTR,
+                         layout.VALUE_CONTROL_INPUT_ATTR, layout.VALUE_CONTROL_READOUT_ATTR,
+                         layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+                         layout.VALUE_CONTROL_READOUT_SCALE_ATTR,
+                         layout.VALUE_CONTROL_READOUT_BASE_ATTR):
                 if ('"%s"' % attr) not in text:
                     return False, (
                         "expected the served body to name %r — the registration seam 25-04 and "
@@ -6060,7 +6125,7 @@ def main():
             return True, ""
         check(
             "a real GET of /static/value-controls.js returns 200 with the served steering body — "
-            "all ten of layout's VALUE_CONTROL_* seam attributes named, and none of innerHTML/"
+            "all FIFTEEN of layout's VALUE_CONTROL_* seam attributes named, and none of innerHTML/"
             "insertAdjacentHTML/document.write/eval/=>/ let / const /backtick (CFG-46, "
             "25-01-PLAN.md Task 1)",
             _real_get_value_controls_route_serves_the_registration_seam)

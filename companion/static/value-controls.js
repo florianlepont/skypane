@@ -34,10 +34,21 @@
  * validates, still posts and still saves. Specifically:
  *
  *   1. This file never holds a value. There is exactly one assignment
- *      to a .value in it (the write into the native input), and every
- *      read of the control's current state is a read of that same
- *      input. There is no parallel state anywhere here — no map keyed
- *      by element, no cached number, nothing to fall out of step.
+ *      to a .value in it — writeValue(), the single write helper — and
+ *      every read of the control's current state is a read of the
+ *      native input the form posts. There is no parallel state anywhere
+ *      here: no map keyed by element, no cached number, nothing to fall
+ *      out of step.
+ *
+ *      25-05 gave that helper a SECOND call site and it is worth being
+ *      precise about why it is not a second source of truth. A wrapper
+ *      may declare a MIRROR — another native control holding the same
+ *      value and posting nothing at all (a range input with no name).
+ *      The mirror is written only inside paint(), from the value just
+ *      read back off the field, so it is strictly downstream: the field
+ *      is what the form posts, what this file reads, and what the
+ *      server rendered. The mirror can no more disagree with it than a
+ *      painted handle position can.
  *   2. This file never renders an affordance. An affordance that cannot
  *      work without script lives inside companion/static/style.css's
  *      .js-gated wrapper, which HIDES by default and reveals under
@@ -46,8 +57,22 @@
  *   3. This file writes no copy. aria-valuetext is filled from a
  *      SERVER-RENDERED, already-translated template on the wrapper; if
  *      no template is there, no aria-valuetext is written at all and
- *      the numeric aria-valuenow stands alone. A French reader can
- *      therefore never be dropped into English by touching a handle.
+ *      the numeric aria-valuenow stands alone. The same rule governs
+ *      25-05's READOUTS — the sentences beside a control that restate
+ *      what its value MEANS: the wording is a translated template the
+ *      server put in an attribute, and this file substitutes one number
+ *      into it and writes nothing else. A French reader can therefore
+ *      never be dropped into English by touching a control.
+ *
+ *      THE HONESTY COROLLARY, because this is the one place it could be
+ *      quietly lost. 25-05's battery gauge prints an absolute
+ *      "days left" figure only when the device's OWN observed history
+ *      supports one, and that sentence is rendered by the server,
+ *      OUTSIDE every readout, and never touched here. What a readout
+ *      holds is a statement about the two CADENCES, which is arithmetic
+ *      on the value itself. If the server declined to state a figure,
+ *      nothing in this file can invent one — not by policy, but because
+ *      no template here contains one.
  *
  * --- HOW THE SAVE BAR IS WOKEN, AND WHY IT IS THIS WAY --------------
  *
@@ -89,8 +114,9 @@
  * declarations, no template literals) so no transpiler is ever needed.
  * Unlike three of its siblings it claims NO reviewed exception: no
  * network call, no timer, no navigation, and no HTML-writing sink of
- * any kind. It writes attributes, one custom property and one input
- * value, and nothing else.
+ * any kind. It writes attributes, one custom property, one input value
+ * through one helper, and the text of readouts whose wording the server
+ * wrote — and nothing else.
  *
  * It is served by companion/app.py's VALUE_CONTROLS_SCRIPT_ROUTE and
  * registered once on the authenticated shell by companion/layout.py's
@@ -166,6 +192,48 @@
   // project's translation scanner reads as untranslated user-facing
   // copy, and a value FORMAT is not copy.
   var FORMAT_ATTR = "data-value-format";
+  // THE MIRROR — 25-05-PLAN.md Task 2 (CFG-49/CFG-52), and the third
+  // and last way this file's consumers differ from one another.
+  //
+  // A NATIVE control inside the wrapper holding the same value as the
+  // field and posting NOTHING (25-05's <input type="range"> carries no
+  // "name" attribute, so it cannot submit and can never become a second
+  // source of truth). It is not a second value: it is repainted FROM
+  // the field on every paint, and the field is the only thing read back.
+  //
+  // A WRAPPER WITH A MIRROR TAKES NO GESTURES FROM THIS FILE AT ALL.
+  // The three listeners at the bottom stand aside for it, and that is
+  // load-bearing rather than tidy: preventDefault() on a pointerdown
+  // over a native range CANCELS the browser's own thumb drag, and a
+  // keydown that both prevents the default and steps the value moves
+  // the control twice per arrow press. A native range already has this
+  // file's exact keyboard model, its own aria-valuenow and its own
+  // touch handling; the job here is to SYNC, never to steer.
+  var INPUT_ATTR = "data-value-input";
+  // THE READOUTS — an element whose whole text is a sentence ABOUT the
+  // value. Found by the FIELD's name rather than by containment,
+  // because a readout is deliberately NOT inside the wrapper: the
+  // wrapper is gated (it cannot work without script) and the readouts
+  // are not (they have to be correct with scripts blocked).
+  //
+  // The sentence is a SERVER-RENDERED, already-translated template with
+  // TEXT_TOKEN standing in for the number, exactly like the
+  // aria-valuetext template above and for the identical reason: this
+  // file writes no copy. It substitutes one number and nothing else.
+  //
+  // AND IT CAN NEVER BECOME BRAVER THAN THE SERVER WAS. This is the one
+  // place the honesty rule of 25-05's battery gauge could be quietly
+  // lost, so it is stated here: the sentence that carries an absolute
+  // battery figure is rendered by the SERVER, outside every readout,
+  // and is never touched by this file. What a readout holds is only
+  // ever a statement about the two CADENCES — arithmetic on the value
+  // itself. If the server declined to print a days figure (because this
+  // device's observed history does not support one), nothing here can
+  // invent it, because nothing here has a template containing one.
+  var READOUT_ATTR = "data-value-readout";
+  var READOUT_TEXT_ATTR = "data-value-readout-text";
+  var READOUT_SCALE_ATTR = "data-value-readout-scale";
+  var READOUT_BASE_ATTR = "data-value-readout-base";
   var MINUTES_PER_HOUR = 60;
   var HOURS_PER_DAY = 24;
   var CLOCK_RE = /^(\d{1,2}):(\d{2})$/;
@@ -359,14 +427,87 @@
   // through the same codec the field write below goes through — one
   // conversion, so the announcement and the stored value cannot
   // disagree.
+  // The mirror this wrapper declares, or null. Queried every time for
+  // the same reason fieldFor() is: a cache would be state this file is
+  // forbidden to hold.
+  function mirrorFor(wrapper) {
+    return wrapper.querySelector("[" + INPUT_ATTR + "]");
+  }
+
+  // THE ONLY PLACE IN THIS FILE THAT ASSIGNS TO A .value, and both of
+  // its callers go through it: the write into the native input the form
+  // posts (steer, below) and the write into the mirror that posts
+  // nothing (paint, below). Returns whether anything actually changed,
+  // which is what keeps a write during a drag from fighting the thumb
+  // the visitor is holding, and what keeps steer() from dispatching a
+  // notification for a value that did not move.
+  function writeValue(el, text) {
+    if (!el || el.value === text) {
+      return false;
+    }
+    el.value = text;
+    return true;
+  }
+
+  // A readout's own quantity: the value divided by the scale its markup
+  // declares, ROUNDED UP, because every consumer of this seam states a
+  // BOUND ("at most 2 min" is true of a 90-second cadence and "at most
+  // 1 min" is false). No scale, no division.
+  function readoutQuantity(readout, value) {
+    var scale = numberOrNull(readout.getAttribute(READOUT_SCALE_ATTR));
+    if (scale === null || scale <= 0) {
+      return value;
+    }
+    return Math.ceil(value / scale);
+  }
+
+  // Every readout for this wrapper's field, rewritten from its own
+  // server-rendered template. A readout whose value equals its declared
+  // base says NOTHING — that is the state every page load renders, and
+  // a sentence comparing a value with itself would be noise.
+  function paintReadouts(wrapper, value) {
+    var name = wrapper.getAttribute(FIELD_ATTR);
+    if (!name) {
+      return;
+    }
+    var readouts = document.querySelectorAll(
+      "[" + READOUT_ATTR + "=\"" + name + "\"]");
+    for (var i = 0; i < readouts.length; i++) {
+      var readout = readouts[i];
+      var template = readout.getAttribute(READOUT_TEXT_ATTR);
+      if (template === null) {
+        continue;
+      }
+      var base = numberOrNull(readout.getAttribute(READOUT_BASE_ATTR));
+      if (base !== null && base === value) {
+        readout.textContent = "";
+        continue;
+      }
+      readout.textContent = template.split(TEXT_TOKEN).join(
+        String(readoutQuantity(readout, value)));
+    }
+  }
+
   function paint(wrapper, bounds, value) {
-    var announce = wrapper.querySelector("[" + HANDLE_ATTR + "]") || wrapper;
+    // THE ANNOUNCING ELEMENT IS THE ONE A VISITOR LANDS ON: an explicit
+    // handle first, then the native mirror (which IS the focusable
+    // control when there is one), and the wrapper only when there is
+    // neither. A wrapper holding aria-value* while something inside it
+    // takes the focus announces a value that never changes.
+    var announce = wrapper.querySelector("[" + HANDLE_ATTR + "]")
+        || mirrorFor(wrapper) || wrapper;
     announce.setAttribute("aria-valuenow", String(value));
     var text = wrapper.getAttribute(TEXT_ATTR);
     if (text) {
       announce.setAttribute(
         "aria-valuetext", text.split(TEXT_TOKEN).join(numberToField(wrapper, value)));
     }
+    // THE MIRROR FOLLOWS THE FIELD, NEVER THE OTHER WAY ROUND. It is
+    // written here, in the paint, from the value just read back off the
+    // field — so typing into the native input moves the slider for
+    // free, and the slider can never hold a value the field does not.
+    writeValue(mirrorFor(wrapper), numberToField(wrapper, value));
+    paintReadouts(wrapper, value);
     if (wrapper.style && wrapper.style.setProperty) {
       var span = bounds.max - bounds.min;
       wrapper.style.setProperty(
@@ -388,9 +529,7 @@
       return null;
     }
     var value = clampToStep(raw, bounds);
-    var next = numberToField(wrapper, value);
-    if (field.value !== next) {
-      field.value = next;
+    if (writeValue(field, numberToField(wrapper, value))) {
       notify(field);
     }
     paint(wrapper, bounds, value);
@@ -481,9 +620,18 @@
     return null;
   }
 
+  // A WRAPPER WITH A MIRROR IS NOT STEERED FROM HERE. Its native input
+  // already implements exactly this model, and a handler that both
+  // prevented the default AND stepped the value would move the control
+  // twice on every arrow press. The mirror's own change/input event
+  // reaches the sync path below instead.
+  function steeredHere(wrapper) {
+    return wrapper && !mirrorFor(wrapper);
+  }
+
   document.addEventListener("keydown", function (evt) {
     var wrapper = wrapperFor(evt.target);
-    if (!wrapper) {
+    if (!steeredHere(wrapper)) {
       return;
     }
     var bounds = boundsFor(wrapper);
@@ -527,7 +675,12 @@
       return;
     }
     var wrapper = wrapperFor(evt.target);
-    if (!wrapper) {
+    // The mirror guard again, and here it is the load-bearing one:
+    // preventDefault() below cancels a native range's own thumb drag
+    // outright, so without this the slider would be immovable by
+    // pointer while every string comparison in every harness stayed
+    // green.
+    if (!steeredHere(wrapper)) {
       return;
     }
     var handle = ancestorWith(evt.target, HANDLE_ATTR)
@@ -556,7 +709,7 @@
       return;
     }
     var wrapper = wrapperFor(evt.target);
-    if (!wrapper) {
+    if (!steeredHere(wrapper)) {
       return;
     }
     evt.preventDefault();
@@ -604,8 +757,30 @@
     }
   }
 
-  document.addEventListener("change", repaintAll);
-  document.addEventListener("input", repaintAll);
+  // THE SYNC, AND IT IS THE ONE DIRECTION THE REPAINT ABOVE CANNOT DO.
+  // A repaint writes the mirror FROM the field; this writes the field
+  // from the mirror, which is what a drag on a native range has to do
+  // to reach the form at all. It is the same steer() every other path
+  // goes through — one clamp, one write, one notification, one paint —
+  // so a value dragged past the end is clamped exactly as a typed one
+  // is, and the save bar wakes the same way.
+  function onValueEvent(evt) {
+    var target = evt.target;
+    if (target && target.hasAttribute && target.hasAttribute(INPUT_ATTR)) {
+      var wrapper = wrapperFor(target);
+      if (wrapper) {
+        // steer() paints, so there is nothing left for the repaint to
+        // do — and returning here is what keeps the visitor's own
+        // in-flight drag from being written back over mid-gesture.
+        steer(wrapper, target.value);
+        return;
+      }
+    }
+    repaintAll();
+  }
+
+  document.addEventListener("change", onValueEvent);
+  document.addEventListener("input", onValueEvent);
   document.addEventListener("click", repaintAll);
 
   // No DOMContentLoaded wrapper, and no load-time pass over the

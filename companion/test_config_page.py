@@ -849,6 +849,29 @@ EXPECTED_CHECK_COUNT = 251
 # on a native numeric input blocks submission of the ENTIRE Settings form.
 # 251 + 3 = 254, re-derived by RUNNING (254/254).
 EXPECTED_CHECK_COUNT = 254
+# 25-05-PLAN.md Task 2 (CFG-49/CFG-52): +2 — the gated range and the
+# seam it shares with the phase's one script. One holds what the range
+# may never become: it carries NO name (a named range would post a
+# second value for the same setting and the last to arrive would win,
+# silently), no role="slider" on top of an element that already is one,
+# bounds read from server.device_config rather than restated, a step
+# equal to the minute both gauges speak in, an accessible name of its
+# own, an aria-describedby pointing at the gauges, and no rendering at
+# all either outside 25-01's gate or without a saved interval to start
+# from — a range with no value attribute sits at the midpoint of its own
+# band, which is a number nobody chose and which one drag would save.
+# One pins the readout seam from BOTH sides, because a rename on either
+# side alone is a gauge that is correct at load and stale for ever
+# after, which no comparison against a rendered page would notice: every
+# attribute named in both files, the same CEILING in both (a floor would
+# print "at most 1 min" for a 90-second cadence, which is false), all
+# three gesture listeners standing aside for a wrapper holding a native
+# mirror, the relative clause rendering EMPTY at the saved value, and —
+# the honesty clause, made structural — no readout template containing
+# the days wording at all, so a script that only substitutes into
+# templates cannot invent a figure the server declined to state.
+# 254 + 2 = 256, re-derived by RUNNING (256/256).
+EXPECTED_CHECK_COUNT = 256
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -11073,6 +11096,219 @@ def main():
         "block still attached, and both gauges appended after all of them "
         "(CFG-49/D-07/B17, 25-05-PLAN.md Task 1)",
         _the_gauges_are_an_addition_and_the_number_input_is_untouched)
+
+    # ------------------------------------------------------------------
+    # 25-05-PLAN.md Task 2 (CFG-49/CFG-52): the gated range, and the
+    # seam it shares with the one script.
+    # ------------------------------------------------------------------
+
+    def _the_range_is_gated_nameless_and_bounded_by_device_config():
+        """CFG-49/CFG-52 (25-05-PLAN.md Task 2): the range may never
+        become a second source of truth, and it may never widen what the
+        number input enforces.
+
+        `name` is the attribute a future editor adds by reflex — it is
+        what every other input on this page carries — and a named range
+        would post a SECOND `wake_interval_s` on every save, with
+        whichever arrived last winning, silently. So it is asserted
+        directly rather than inferred from "the form posts one value".
+        """
+        markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
+        tag = re.search(r'<input type="range"[^>]*>', markup)
+        if not tag:
+            return False, "no <input type=\"range\"> renders on the card"
+        element = tag.group(0)
+        if re.search(r"\bname=", element):
+            return False, (
+                "the range carries a name (%s) — it would post a second value for the same "
+                "setting and whichever arrived last would win, silently" % element)
+        if "role=" in element:
+            return False, (
+                "the range carries a role (%s) — a native range input IS a slider, with its own "
+                "aria-valuenow and its own keyboard model; role=\"slider\" on top of that is the "
+                "double-role error" % element)
+        # THE BOUNDS ARE READ FROM THE MODULE, never restated: one
+        # control must not accept what the other, and
+        # save_device_config()'s own server-side re-check, reject.
+        for attr, expected in (("min", device_config.WAKE_INTERVAL_MIN_S),
+                               ("max", device_config.WAKE_INTERVAL_MAX_S),
+                               ("step", config_page.WAKE_SLIDER_STEP_S),
+                               ("value", 600)):
+            if ('%s="%d"' % (attr, expected)) not in element:
+                return False, (
+                    "the range's %s is not %d — %s" % (attr, expected, element))
+        if config_page.WAKE_SLIDER_STEP_S != config_page.WAKE_GAUGE_SECONDS_PER_MINUTE:
+            return False, (
+                "the slider steps by %d s while the gauges speak in %d-second minutes — every "
+                "position the slider can reach has to be a whole number of minutes, or the "
+                "sentences round and the reader sees a number that does not match the field"
+                % (config_page.WAKE_SLIDER_STEP_S, config_page.WAKE_GAUGE_SECONDS_PER_MINUTE))
+        # The accessible name is its OWN, and it points at the gauges.
+        for needed in ('aria-label="%s"' % escape_html(i18n.t(config_page.WAKE_SLIDER_LABEL)),
+                       'aria-describedby="%s %s"' % (config_page.WAKE_GAUGE_FRESHNESS_ID,
+                                                     config_page.WAKE_GAUGE_BATTERY_ID)):
+            if needed not in element:
+                return False, "the range is missing %r — %s" % (needed, element)
+        if i18n.t(config_page.WAKE_SLIDER_LABEL) == i18n.t("Wake interval (seconds)"):
+            return False, (
+                "the range and the number input share one accessible name — a screen-reader "
+                "visitor cannot tell which of the two they are on")
+        # EVERY element carrying the wrapper attribute carries the gate
+        # class, AND the range itself lives inside one. The second half
+        # is what a wrapper-only scan is blind to.
+        for tag_match in re.finditer(r"<[a-zA-Z][-\w]*\b[^>]*>", markup):
+            text = tag_match.group(0)
+            if layout.VALUE_CONTROL_ATTR not in text:
+                continue
+            if layout.JS_GATE_CLASS not in text:
+                return False, (
+                    "an element carries %s outside the %r gate: %s"
+                    % (layout.VALUE_CONTROL_ATTR, layout.JS_GATE_CLASS, text))
+        gate_at = markup.find(layout.JS_GATE_CLASS)
+        gate_end = markup.find("</div>", gate_at)
+        if not (gate_at != -1 and gate_at < markup.index(element) < gate_end):
+            return False, (
+                "the range is rendered outside the gated wrapper (gate at %d, range at %d, "
+                "wrapper closes at %d) — a script-only affordance rendered without the gate "
+                "shows permanently whenever the script does not run"
+                % (gate_at, markup.index(element), gate_end))
+        if markup.count('<input type="range"') != 1:
+            return False, "the card renders %d ranges" % markup.count('<input type="range"')
+        # NOT A LIVE REGION, anywhere on this card (CFG-52): the gauges
+        # change on every step of a drag, and a live region would
+        # re-announce the identical phrase continuously — the defect
+        # Phase 23 hit with its three switches.
+        # (`role="alert"` is deliberately NOT in this list: the field's
+        # own error message wears it, renders only on a rejected save,
+        # and says something once rather than on every step.)
+        for banned in ("aria-live", 'role="status"'):
+            if banned in markup:
+                return False, (
+                    "the wake-interval card carries %r — the gauges move on every step of a "
+                    "drag and would flood a screen reader" % banned)
+        # AND NOTHING AT ALL when there is no saved interval: the range
+        # would otherwise default to the midpoint of its own band, which
+        # is a fabricated position a drag would then SAVE.
+        empty = config_page.wake_interval_group(None, battery_rows=_FALLING)
+        if "<input type=\"range\"" in empty or layout.VALUE_CONTROL_ATTR in empty:
+            return False, (
+                "a range renders with no saved interval — a range with no value attribute sits "
+                "at the midpoint of its band, which is a number nobody chose and which one drag "
+                "would save")
+        return True, ""
+    check(
+        "the wake-interval range is NAMELESS (a named one would post a second value for the "
+        "same setting and the last to arrive would win), carries no role=\"slider\" on top of a "
+        "native slider, takes its min/max from server.device_config rather than a literal, steps "
+        "by exactly the minute both gauges speak in, has its own accessible name and describes "
+        "itself by the two gauges, renders ONLY inside 25-01's .js gate and only when there is a "
+        "saved interval to start from, and nothing on the card is a live region "
+        "(CFG-49/CFG-52/T-25-05-D, 25-05-PLAN.md Task 2)",
+        _the_range_is_gated_nameless_and_bounded_by_device_config)
+
+    def _the_readout_seam_this_card_declares_is_the_one_the_script_reads():
+        """CFG-49 (25-05-PLAN.md Task 2): both halves of a seam, pinned
+        together — the markup this page emits and the script that
+        consumes it.
+
+        A rename on either side alone is a gauge that renders once and
+        then never moves again, which no string comparison on the
+        rendered page would notice: the sentence would be perfectly
+        correct at load and permanently stale afterwards.
+        """
+        markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
+        with open(os.path.join(HERE, "static", "value-controls.js"),
+                  encoding="utf-8") as fh:
+            script = fh.read()
+        # 1. Every attribute this card emits is one the script names.
+        for attr in (layout.VALUE_CONTROL_INPUT_ATTR, layout.VALUE_CONTROL_READOUT_ATTR,
+                     layout.VALUE_CONTROL_READOUT_TEXT_ATTR,
+                     layout.VALUE_CONTROL_READOUT_SCALE_ATTR,
+                     layout.VALUE_CONTROL_READOUT_BASE_ATTR):
+            if attr not in markup:
+                return False, "the card emits no %r" % attr
+            if ('"%s"' % attr) not in script:
+                return False, (
+                    "value-controls.js never names %r, so the markup's own attribute is read by "
+                    "nothing and the gauge is correct at load and stale for ever after" % attr)
+        # 2. The readouts name the field the form actually posts.
+        for match in re.finditer(
+                r'%s="([^"]*)"' % re.escape(layout.VALUE_CONTROL_READOUT_ATTR), markup):
+            if match.group(1) != config_page.WAKE_INTERVAL_FIELD_NAME:
+                return False, (
+                    "a readout describes %r, which is not the field this form posts (%r)"
+                    % (match.group(1), config_page.WAKE_INTERVAL_FIELD_NAME))
+        # 3. THE SCRIPT ROUNDS THE SAME WAY THE SERVER DOES. Both state
+        #    a BOUND, so both take the CEILING; a floor on either side
+        #    would print "at most 1 min" for a 90-second cadence, which
+        #    is false.
+        if "Math.ceil(value / scale)" not in script:
+            return False, (
+                "value-controls.js does not take the CEILING of value/scale — the server does "
+                "(_wake_minutes()), and a script that floored it would print a bound that is "
+                "not true")
+        # 4. A WRAPPER WITH A MIRROR TAKES NO GESTURES FROM THE SCRIPT.
+        #    Without this the pointerdown handler's own preventDefault()
+        #    cancels the native thumb drag and the slider is immovable by
+        #    pointer, with every string comparison still green.
+        if "function steeredHere(wrapper)" not in script:
+            return False, (
+                "value-controls.js has no mirror guard — its pointerdown handler calls "
+                "preventDefault(), which cancels a native range's own thumb drag outright")
+        for listener in ("keydown", "pointerdown", "pointermove"):
+            block = script[script.index('document.addEventListener("%s"' % listener):]
+            block = block[:block.index("});")]
+            if "steeredHere(wrapper)" not in block:
+                return False, (
+                    "value-controls.js's %s listener does not stand aside for a wrapper with a "
+                    "mirror — a native range would be stepped twice per key or pinned in place "
+                    "by a prevented default" % listener)
+        # 5. The BASE is the saved interval, so the relative clause says
+        #    nothing at all until the visitor proposes something else —
+        #    which is what every page load and every scripts-blocked
+        #    render is.
+        base = re.search(r'%s="(\d+)"' % re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR),
+                         markup)
+        if not base or int(base.group(1)) != 600:
+            return False, (
+                "the relative readout's base is %r, not the saved interval — a readout with no "
+                "base compares the saved value with itself on every page load"
+                % (base.group(1) if base else None,))
+        span = re.search(
+            r'<span %s="[^"]*"[^>]*></span>' % re.escape(layout.VALUE_CONTROL_READOUT_ATTR),
+            markup)
+        if not span:
+            return False, (
+                "the relative clause is not EMPTY at the saved value — the server renders the "
+                "saved interval against itself, and 'every 10 min instead of every 10 min' "
+                "would be noise on every page load")
+        # 6. THE HONESTY CLAUSE, structural: no readout template on this
+        #    card contains a days figure or its wording, so no script
+        #    that only substitutes into templates can invent one.
+        days_words = [w for w in (i18n.t(config_page.WAKE_BATTERY_DAYS_TEXT),
+                                  i18n.t(config_page.WAKE_BATTERY_DAY_TEXT))]
+        for match in re.finditer(
+                r'%s="([^"]*)"' % re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR), markup):
+            template = html.unescape(match.group(1))
+            for wording in days_words:
+                stem = wording.split(layout.VALUE_CONTROL_TEXT_TOKEN)[-1].strip()
+                if stem and stem in template:
+                    return False, (
+                        "a readout template carries the days wording (%r) — the absolute figure "
+                        "is server-rendered from observed history, and a template containing it "
+                        "is a script that can invent one" % template)
+        return True, ""
+    check(
+        "the readout seam is pinned from BOTH sides: every attribute this card emits is named in "
+        "companion/static/value-controls.js and vice versa, every readout describes the field "
+        "the form actually posts, the script takes the same CEILING the server does (a floor "
+        "would print a bound that is false), all three gesture listeners stand aside for a "
+        "wrapper holding a native mirror (without which preventDefault cancels the thumb drag), "
+        "the relative clause's base is the saved interval so it renders EMPTY until something "
+        "else is proposed, and no readout template contains the days wording at all — so a "
+        "script that only substitutes into templates cannot invent a figure the server declined "
+        "to state (CFG-49/T-25-05-C, 25-05-PLAN.md Task 2)",
+        _the_readout_seam_this_card_declares_is_the_one_the_script_reads)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
