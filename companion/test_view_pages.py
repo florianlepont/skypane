@@ -7844,9 +7844,11 @@ def main():
                         "either has started a second copy" % (token,))
             if re.search(r"(?<![-\w.])battery_percent\s*\(", source) is not None:
                 return False, (
-                    "companion/pages/home_page.py calls battery_percent() unqualified — the "
-                    "estimator has exactly two allowed homes and this module is not one of "
-                    "them; it may only call through companion/battery.py")
+                    "companion/pages/home_page.py names battery_percent( with no module "
+                    "qualifier — either a local definition or a bare `from companion.battery "
+                    "import` — and both make the estimator read as this page's own. It has "
+                    "exactly two allowed homes and this module is not one of them, so every "
+                    "call site here says so")
             for call in ("draw.ring_gauge(", "draw.day_band("):
                 if call not in source:
                     return False, (
