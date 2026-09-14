@@ -7440,18 +7440,68 @@ def main():
             finally:
                 shutil.rmtree(empty, ignore_errors=True)
 
+            # THE COLLAPSE, CAPTIONED (T-24-06-B). The band above drew
+            # three well-separated marks and must NOT carry the merge
+            # sentence — a caption that always admitted a collapse would
+            # be as untrue as one that never did. A day at a one-minute
+            # cadence must carry it, because at that density the band
+            # genuinely cannot show each check-in separately and a reader
+            # counting marks would otherwise conclude it lost some.
+            if home_page.DAY_BAND_COLLAPSED_TEXT in section:
+                return False, (
+                    "the band collapsed nothing (3 marks for 3 check-ins) yet its caption said "
+                    "marks were merged — a caption that always admits a collapse tells the "
+                    "reader nothing and is untrue on every sparse day")
+            dense = _mkstate("band-dense")
+            try:
+                from server import history_db as _hdb
+                minutes = ["2026-08-27T%02d:%02d:00+00:00" % (6 + i // 60, i % 60)
+                           for i in range(300)]
+                dense_ctx = _home_band_ctx(dense, now, minutes)
+                dense_section = _home_day_band_section(home_page.render(dense_ctx))
+                if dense_section is None:
+                    return False, "expected a band on a dense day"
+                dense_marks = _home_band_marks(dense_section)
+                if len(dense_marks) >= len(minutes):
+                    return False, (
+                        "expected a one-minute cadence to collapse (300 check-ins cannot be 300 "
+                        "distinguishable marks in ~330px), got %d marks" % (len(dense_marks),))
+                if home_page.DAY_BAND_COLLAPSED_TEXT not in dense_section:
+                    return False, (
+                        "the band drew %d marks for %d check-ins and its caption did not say "
+                        "they were merged — the drawing dropping marks silently and the caption "
+                        "printing a total are the two halves of one lie (T-24-06-B)"
+                        % (len(dense_marks), len(minutes)))
+                dense_text = re.sub(r"<[^>]*>", " ", dense_section)
+                if str(len(minutes)) not in dense_text:
+                    return False, (
+                        "expected the true total still printed as TEXT beside the merge "
+                        "sentence — the count is honest, only the COUNTING of marks is not")
+            finally:
+                shutil.rmtree(dense, ignore_errors=True)
+
             # NO DATABASE AT ALL: no band, no raise, a page that still
             # renders (T-24-06-D).
+            #
+            # The unreadable database is made unreadable by putting a
+            # DIRECTORY where history.db belongs, not by chmod: this
+            # harness runs as root in its container, where a 0o500 state
+            # dir is not read-only at all (the same reason the four WR-11
+            # checks in companion/test_companion_app.py fail here and
+            # pass in CI). sqlite cannot open a directory whoever you
+            # are, so this check measures the same degradation in both
+            # environments.
             absent = _mkstate("band-nodb")
             try:
                 absent_ctx = _home_band_ctx(absent, now, [])
                 for name in os.listdir(absent):
-                    os.remove(os.path.join(absent, name))
-                os.chmod(absent, 0o500)
-                try:
-                    rendered_absent = home_page.render(absent_ctx)
-                finally:
-                    os.chmod(absent, 0o700)
+                    path = os.path.join(absent, name)
+                    if os.path.isdir(path):
+                        shutil.rmtree(path)
+                    else:
+                        os.remove(path)
+                os.mkdir(os.path.join(absent, "history.db"))
+                rendered_absent = home_page.render(absent_ctx)
                 if '<h1 class="page-title">' not in rendered_absent:
                     return False, "expected Home to render with history.db absent"
                 if _home_day_band_section(rendered_absent) is not None:

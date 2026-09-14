@@ -30,6 +30,7 @@ Everything dynamic passes through `layout.escape_html()`.
 """
 import html
 import re
+from datetime import datetime, time, timedelta
 
 import companion.battery as battery
 import companion.draw as draw
@@ -38,7 +39,7 @@ import companion.i18n as i18n
 import companion.layout as layout
 import companion.wake as wake
 from companion.layout import escape_html
-from server import history_db
+from server import device_config, history_db
 from server.plane import illustrations
 # 22-07-PLAN.md Task 1 (X4): the SAME presentation-only airline alias
 # Flights already applies via `companion/pages/history_page.py`'s own
@@ -62,6 +63,41 @@ NO_FLIGHTS_BODY = (
     "The first aircraft the frame detects on the watched runway will "
     "appear here.")
 FLIGHTS_ROUTE = "/flights"
+
+# --- the day band (CFG-42, 24-06-PLAN.md Task 2) -----------------------
+#
+# Home tells you what the frame will do NEXT. The band is the only thing
+# on this page that says what it has been DOING, and it is a whole day of
+# it at a glance: has it been waking normally, and when was it asleep.
+#
+# The read is bounded, and the bound is a correctness constraint rather
+# than a performance one. `recent_device_health()` returns the newest N
+# rows, so a limit smaller than a day's check-ins would silently hand the
+# band the last few HOURS and let it caption them as the day. 3000 is a
+# 60-second cadence's 1 440 rows with room for the previous day's tail
+# (this reads the newest rows, not a day's worth) and better than double
+# the headroom besides; `_day_band_html()` below also detects the
+# truncation case and stops the caption claiming a total.
+DAY_BAND_ROW_LIMIT = 3000
+
+DAY_BAND_HEADING = "Today"
+# The canvas's accessible name. The band IS the only statement of this
+# data — the caption beneath it says the count, not the shape — so it is
+# a named group rather than aria-hidden (draw.percent_canvas()'s own
+# two-way contract).
+DAY_BAND_LABEL = "The frame's check-ins through the day, midnight to midnight"
+DAY_BAND_HOUR_LABELS = ("00:00", "12:00", "24:00")
+DAY_BAND_EMPTY_TEXT = "No check-ins recorded on %s."
+DAY_BAND_ONE_TEXT = "1 check-in on %s."
+DAY_BAND_COUNT_TEXT = "%s check-ins on %s."
+# The honest half of T-24-06-B. The count above is printed as TEXT, which
+# is fine and stays true; this sentence is what stops the reader trying
+# to COUNT the marks and concluding the band lost some. It is appended
+# only when draw.day_band() actually reported a collapse.
+DAY_BAND_COLLAPSED_TEXT = (
+    "Some marks are merged — check-ins closer together than the band can "
+    "separate are drawn as one.")
+DAY_BAND_QUIET_TEXT = "Shaded: quiet hours, %s to %s."
 
 # D-17.2: the recent-flights thumbnail. Literal here, not imported from
 # companion/pages/airlines_page.py — companion/pages/__init__.py forbids
@@ -625,6 +661,173 @@ def _recent_flights_html(rows, now, state_dir):
         FLIGHTS_ROUTE, escape_html(i18n.t(RECENT_FLIGHTS_LINK_TEXT)))
 
 
+def _day_checkins(conn):
+    return history_db.recent_device_health(conn, limit=DAY_BAND_ROW_LIMIT)
+
+
+def _paris_day_bounds(now):
+    """`(day, day_start_epoch, day_seconds)` for the Europe/Paris day
+    `now` falls in, or None when `now` does not parse.
+
+    `day_seconds` IS MEASURED between two real Paris midnights and never
+    assumed to be 86 400: a Europe/Paris day is 23 or 25 hours twice a
+    year, and on 2026-10-25 a band assuming 86 400 would put midday at
+    54.17% instead of 52.00% and leave an hour of its own width
+    unreachable. `draw.percent_time()` takes the length as a parameter
+    for exactly this reason.
+
+    `layout.LOCAL_TZ` is this app's one Europe/Paris constant and the
+    same one every timestamp on this page is already formatted through,
+    so the band and the row beneath it cannot disagree about which day
+    it is.
+    """
+    parsed = history_db._instant_or_none(now)
+    if parsed is None:
+        return None
+    day = parsed.astimezone(layout.LOCAL_TZ).date()
+    start = datetime.combine(day, time(0), tzinfo=layout.LOCAL_TZ)
+    end = datetime.combine(day + timedelta(days=1), time(0), tzinfo=layout.LOCAL_TZ)
+    return day, start.timestamp(), end.timestamp() - start.timestamp()
+
+
+def _day_band_instants(rows, day):
+    """The epoch seconds of every row in `rows` whose stored `ts` falls
+    on the Europe/Paris calendar day `day`.
+
+    Bucketed through `history_db._paris_day_or_none()` — the ONE date
+    path, the same one `check_in_gaps()` and `daily_battery_averages()`
+    use, so a mark on this band and a row in Health's own day-bucketed
+    data can never disagree about which day a check-in belongs to. It is
+    a private name and reached across a package boundary knowingly:
+    server/history_db.py exposes no public equivalent, and it is not
+    this plan's file to add one to. A local re-derivation would be the
+    second date path this band exists to avoid.
+
+    THE BUCKETING IS THE WHOLE POINT AND NOT A FILTER. Paris is UTC+1 or
+    UTC+2, so a check-in at 00:30 Paris is stored as 22:30 UTC on the
+    PREVIOUS date; a band that compared UTC dates would drop it from
+    today and pick up tomorrow's 00:30 instead — the same number of
+    marks drawn from the wrong rows, which is the shape of defect
+    nothing downstream would notice.
+    """
+    instants = []
+    for row in rows or ():
+        ts = row.get("ts") if isinstance(row, dict) else None
+        if history_db._paris_day_or_none(ts) != day:
+            continue
+        parsed = history_db._instant_or_none(ts)
+        if parsed is not None:
+            instants.append(parsed.timestamp())
+    return instants
+
+
+def _quiet_hours_window(config, day_start, day_seconds):
+    """`((start_epoch, end_epoch), start_hm, end_hm)` for the configured
+    quiet-hours window placed on the band's own day, or `(None, None,
+    None)` when quiet hours are not enabled or the config is unusable.
+
+    The enabled test is `is True` and not truthiness, byte-for-byte what
+    `device_config.quiet_hours_status()` itself applies, and both time
+    strings go back through `device_config.normalise_quiet_hours_time()`
+    — the one normaliser — so a hand-edited config cannot put an
+    unvalidated string into the arithmetic. No "23:00" literal appears
+    here; the defaults are the module's own constants.
+
+    `quiet_hours_status()` itself is deliberately NOT the source, and
+    this is a correction to 24-06-PLAN.md Task 2's stated interface: it
+    returns `(seconds_remaining, end_hm)`, which answers "are quiet
+    hours active right now and when do they end" — an ACTIVITY status.
+    The band needs the window's two ENDS regardless of whether it is
+    active, which that accessor cannot give. What it can give is its own
+    derivation path, and this function reuses exactly that path one
+    level down rather than inventing a second one.
+
+    The end may precede the start; that is a night window, the normal
+    configuration, and `draw.day_band()` is where it becomes two spans.
+    """
+    if not isinstance(config, dict) or config.get("quiet_hours_enabled") is not True:
+        return None, None, None
+    try:
+        start_hm = device_config.normalise_quiet_hours_time(
+            config.get("quiet_hours_start"), device_config.DEFAULT_QUIET_HOURS_START)
+        end_hm = device_config.normalise_quiet_hours_time(
+            config.get("quiet_hours_end"), device_config.DEFAULT_QUIET_HOURS_END)
+        start = day_start + _hm_seconds(start_hm)
+        end = day_start + _hm_seconds(end_hm)
+    except (TypeError, ValueError):
+        return None, None, None
+    if start > day_start + day_seconds or end > day_start + day_seconds:
+        # A DST day is 23 or 25 hours long, so an "HH:MM" offset counted
+        # from midnight can land past the band's own right edge. Rather
+        # than clamp — which would silently redraw the window the user
+        # configured — the shading is dropped and the caption with it.
+        return None, None, None
+    return (start, end), start_hm, end_hm
+
+
+def _hm_seconds(hm):
+    """Seconds from midnight for a normalised "HH:MM" string."""
+    hours, _, minutes = hm.partition(":")
+    return int(hours) * 3600 + int(minutes) * 60
+
+
+def _day_band_html(ctx, rows):
+    """The day band's <section>, or "" when there is no day to draw.
+
+    `rows` is the ONE device_health read render() makes (D-20) — this
+    function re-queries nothing. An unreadable history.db arrives here
+    as `rows is None` and renders NOTHING AT ALL, which is the one case
+    an empty band would be dishonest in: an empty band says "no
+    check-ins today", and a failed read knows nothing of the sort. A day
+    that genuinely holds no check-ins renders the band empty, because an
+    absent section reads as an unbuilt feature and this page already
+    makes that distinction (the battery tile's "No reading yet" verdict
+    rather than a zero).
+    """
+    if rows is None:
+        return ""
+    bounds = _paris_day_bounds(ctx.get("now"))
+    if bounds is None:
+        return ""
+    day, day_start, day_seconds = bounds
+    instants = _day_band_instants(rows, day)
+    window, start_hm, end_hm = _quiet_hours_window(
+        ctx.get("device_config"), day_start, day_seconds)
+    canvas, collapsed = draw.day_band(
+        day_start, day_seconds, instants, window=window,
+        label=i18n.t(DAY_BAND_LABEL))
+    day_text = day.isoformat()
+
+    # The caption is written from `collapsed`, not from the row count
+    # alone (T-24-06-B). The total stays printed as TEXT — that number is
+    # true and useful — but when the band merged anything it says so, so
+    # a reader who counts the marks and gets fewer is not being told the
+    # drawing lost some silently.
+    total = len(instants)
+    if not total:
+        caption = i18n.t(DAY_BAND_EMPTY_TEXT) % (day_text,)
+    elif total == 1:
+        caption = i18n.t(DAY_BAND_ONE_TEXT) % (day_text,)
+    else:
+        caption = i18n.t(DAY_BAND_COUNT_TEXT) % (total, day_text)
+    sentences = [escape_html(caption)]
+    if collapsed or len(rows) >= DAY_BAND_ROW_LIMIT:
+        sentences.append(escape_html(i18n.t(DAY_BAND_COLLAPSED_TEXT)))
+    if window is not None:
+        sentences.append(escape_html(i18n.t(DAY_BAND_QUIET_TEXT) % (start_hm, end_hm)))
+    hours = "".join(
+        "<span>%s</span>" % escape_html(label) for label in DAY_BAND_HOUR_LABELS)
+    return (
+        '<section class="page-section home-section day-band" '
+        'aria-labelledby="home-day-band">'
+        '<h2 class="text-heading" id="home-day-band">%s</h2>'
+        '%s'
+        '<p class="day-band__hours text-label mono">%s</p>'
+        '<p class="text-label">%s</p>'
+        "</section>"
+    ) % (escape_html(i18n.t(DAY_BAND_HEADING)), canvas, hours, " ".join(sentences))
+
+
 def render(ctx):
     """D-04 (21-CONTEXT.md, 21-04-PLAN.md Task 3): strip -> three tiles
     -> a two-column picture/recent-flights row. `_hero_figure_html()`/
@@ -638,6 +841,14 @@ def render(ctx):
     # never two independent queries for what is the same data.
     rows = _safe_query(ctx.get("state_dir"), _recent_flights)
     current_flight_row = rows[0] if rows else None
+    # 24-06-PLAN.md Task 2 (CFG-42): the day band's own single read, and
+    # the second application of D-20's rule rather than an exception to
+    # it — `device_health` is a DIFFERENT table from the runway events
+    # above, so this is one more read and not a duplicate one. It is
+    # made HERE and passed down for the same reason `rows` is: a builder
+    # that queried for itself would make the page's cost depend on how
+    # many sections happen to want the data.
+    checkin_rows = _safe_query(ctx.get("state_dir"), _day_checkins)
     # 23-06-PLAN.md Task 2 (D1/CFG-35): Home refreshes itself. The
     # freshness line is the shared builder's — one definition site,
     # three call sites — and it is what carries `data-loaded-at`, the
@@ -663,6 +874,7 @@ def render(ctx):
         header
         + layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE, next_wake_iso=next_wake_iso)
         + _status_tiles_html(ctx)
+        + _day_band_html(ctx, checkin_rows)
         + '<div class="home-columns home-picture-row">'
         + _hero_figure_html(ctx, current_flight_row)
         + _recent_flights_html(rows, now, ctx.get("state_dir"))
