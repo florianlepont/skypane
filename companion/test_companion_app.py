@@ -37,6 +37,7 @@ import hmac
 import html
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -668,6 +669,23 @@ EXPECTED_CHECK_COUNT = 291
 # two documented WR-11 root-sandbox failures, unrelated to this plan),
 # never by arithmetic.
 EXPECTED_CHECK_COUNT = 299
+# 24-04-PLAN.md Task 1 (CFG-40): +1 — draw.ring_gauge(), the ONE battery
+# ring emitter. It lands HERE rather than in a page harness on purpose:
+# Section 2.8 is already this phase's single home for the drawing
+# contract, and a second home for "what draw.py must emit" is the exact
+# two-copies-that-drift failure CFG-40 itself names. The check measures
+# the size parameter moving the RADIUS and the STROKE WIDTH together (a
+# size that only swapped a class is the CSS-only "small variant" the
+# requirement forbids), both degenerate fractions asserted exactly (no
+# value arc at 0, a dash-free complete circle at 1), the drawn length at
+# 0.5 recomputed from the EMITTED radius and dash array rather than from
+# the input, an explicit fill route and a class on every arc with no
+# colour literal, the viewBox-plus-intrinsic-size route, aria-hidden,
+# and totality against None/a bool/a negative/an out-of-range fraction
+# (T-24-04-A).
+# 299 + 1 = 300, re-derived by RUNNING the harness (298/300 pass here —
+# the two documented WR-11 root-sandbox failures), never by arithmetic.
+EXPECTED_CHECK_COUNT = 300
 
 # 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
 # two numbers a plan has to edit deliberately rather than drift past.
@@ -3998,6 +4016,173 @@ def main():
         "row itself, and no helper raises on None/a bool/a negative/a string/a NaN (T-24-04, "
         "D-04/A-22)",
         _draw_module_scales_clamp_and_never_raise)
+
+    def _ring_gauge_is_one_emitter_whose_size_drives_the_geometry():
+        """CFG-40 (24-04-PLAN.md Task 1): the battery ring gauge.
+
+        The requirement is ONE emitter called at two sizes, so what is
+        measured here is exactly what makes a second, drifting copy
+        unavailable — and what makes a "CSS-only small variant"
+        (identical geometry, a thinner class) fail.
+
+        The SIZE PARAMETER MUST MOVE THE GEOMETRY. Two sizes have to
+        produce a different radius AND a different stroke width in the
+        emitted markup. A size that only swapped a class would leave the
+        small ring's stroke proportionally twice as thick as the large
+        one's, and the two would read as different components — which is
+        the drift CFG-40 names, arriving through the back door.
+
+        THE TWO DEGENERATE FRACTIONS. 0 and 1 are where BOTH arc
+        mechanisms fail and are therefore asserted exactly, not near:
+        a zero-length dash renders as a DOT under a round line cap, so
+        "empty" would read as a few percent; and an <path> arc whose
+        sweep is the whole circle is degenerate in SVG and draws
+        NOTHING, so "full" would read as empty — the worst possible
+        value to be wrong at. The emitter answers the first by emitting
+        no value arc at all at 0, and the second by emitting a plain
+        complete circle with no dash pattern at 1.
+
+        The drawn length at 0.5 is recomputed FROM THE EMITTED
+        ATTRIBUTES (the radius and the dash array the markup actually
+        carries), never from the input fraction — a check that reads the
+        input back is a check that passes for an emitter that ignores it.
+        """
+        def _arc(markup, class_name):
+            # An EXACT class-attribute match, not a substring test: this
+            # file has been bitten by `.drawing-axis` matching inside
+            # `.drawing-axis-label`, and the same trap is one rename away
+            # here ("drawing-ring-value" / "drawing-ring-value--full").
+            for element in re.findall(r"<circle[^>]*/>", markup):
+                if re.search(r'class="%s"' % re.escape(class_name), element):
+                    return element
+            return None
+
+        def _attr(element, name):
+            found = re.search(r'\b%s="([^"]*)"' % re.escape(name), element or "")
+            return found.group(1) if found else None
+
+        for constant in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
+            if constant not in draw.DRAWING_CLASSES:
+                return False, (
+                    "the ring's class %r is not in draw.DRAWING_CLASSES, so the "
+                    "class-resolution guard above never checks it against style.css — "
+                    "a class that exists in Python and nowhere in CSS paints nothing"
+                    % (constant,))
+
+        large = draw.ring_gauge(0.5, 72)
+        small = draw.ring_gauge(0.5, 36)
+
+        # 1. The size parameter drives geometry, both halves of it.
+        for name in ("r", "stroke-width"):
+            big_value = _attr(_arc(large, draw.DRAWING_RING_VALUE_CLASS), name)
+            small_value = _attr(_arc(small, draw.DRAWING_RING_VALUE_CLASS), name)
+            if big_value is None or small_value is None:
+                return False, (
+                    "the ring's value arc carries no %r attribute at one of the two "
+                    "sizes (%r / %r)" % (name, big_value, small_value))
+            if big_value == small_value:
+                return False, (
+                    "two sizes emitted the same %r (%r) — the size parameter is not "
+                    "driving the geometry, which is the CSS-only 'small variant' "
+                    "CFG-40 forbids" % (name, big_value))
+
+        # 2. Fraction 0: NO value arc at all, not a zero-length one.
+        empty = draw.ring_gauge(0.0, 72)
+        if _arc(empty, draw.DRAWING_RING_VALUE_CLASS) is not None:
+            return False, (
+                "a fraction of 0 emitted a value arc: %r — a zero-length dash renders "
+                "as a dot under a round cap, so empty would read as a few percent"
+                % (_arc(empty, draw.DRAWING_RING_VALUE_CLASS),))
+        if _arc(empty, draw.DRAWING_RING_TRACK_CLASS) is None:
+            return False, "a fraction of 0 must still draw the full track"
+
+        # 3. Fraction 1: a complete circle, carrying no dash pattern.
+        full_arc = _arc(draw.ring_gauge(1.0, 72), draw.DRAWING_RING_VALUE_CLASS)
+        if full_arc is None:
+            return False, "a fraction of 1 emitted no value arc at all"
+        if _attr(full_arc, "stroke-dasharray") is not None:
+            return False, (
+                "a fraction of 1 emitted a dash pattern (%r) — a complete circle is "
+                "emitted complete, so no rounding of the circumference can leave a "
+                "seam at 100%%" % (_attr(full_arc, "stroke-dasharray"),))
+
+        # 4. Fraction 0.5: half the circumference, recomputed from the
+        #    emitted radius and dash array.
+        half_arc = _arc(draw.ring_gauge(0.5, 72), draw.DRAWING_RING_VALUE_CLASS)
+        dash = _attr(half_arc, "stroke-dasharray")
+        radius = _attr(half_arc, "r")
+        if dash is None or radius is None:
+            return False, "the half-full ring carries no dash array / radius: %r" % (half_arc,)
+        drawn = float(dash.split()[0])
+        circumference = 2 * math.pi * float(radius)
+        if abs(drawn - circumference / 2) > 0.01:
+            return False, (
+                "the half-full ring draws %.4f of its own %.4f circumference, not half"
+                % (drawn, circumference))
+
+        # 5. Every arc: an explicit fill route, a class, and no colour
+        #    literal anywhere in the emitted markup.
+        for markup, label in ((large, "0.5"), (empty, "0.0"),
+                              (draw.ring_gauge(1.0, 72), "1.0")):
+            for element in re.findall(r"<circle[^>]*/>", markup):
+                if 'fill="none"' not in element:
+                    return False, (
+                        "a ring arc at fraction %s carries no explicit fill=\"none\": %r "
+                        "— a stroked shape with no fill route takes the SVG default "
+                        "black, correct in one theme and invisible in the other"
+                        % (label, element))
+                if not re.search(r'class="[^"]+"', element):
+                    return False, "a ring arc at fraction %s carries no class: %r" % (label, element)
+            literals = re.findall(r"#[0-9a-fA-F]{3,8}|rgb\(", markup)
+            if literals:
+                return False, (
+                    "the ring emitted colour literals %r at fraction %s — every colour "
+                    "comes from a class bound to a theme token" % (literals, label))
+
+        # 6. The size route: a viewBox AND intrinsic width/height, so the
+        #    SVG default 300x150 (layout.icon_html()'s recorded trap) is
+        #    unreachable even with no stylesheet at all.
+        opening = large[:large.index(">") + 1]
+        for name in ("viewBox", "width", "height"):
+            if _attr(opening, name) is None:
+                return False, (
+                    "the ring's <svg> carries no %r — with neither a size attribute nor "
+                    "a CSS rule an <svg> renders at the SVG default 300x150 and blows "
+                    "the layout apart" % (name,))
+        if 'aria-hidden="true"' not in opening:
+            return False, (
+                "the ring must be aria-hidden: the percentage is already text beside it "
+                "at both call sites, so a labelled graphic would be read twice")
+
+        # 7. Total. The fraction reaches this emitter from a stored
+        #    millivolt reading (T-24-04-A), so every shape of junk has to
+        #    produce a DEFINED drawing rather than an exception that
+        #    takes the whole page down with it.
+        for hostile in (None, True, False, -0.5, 1.5, float("nan"), "", "abc", {}, []):
+            try:
+                junk = draw.ring_gauge(hostile, 72)
+                draw.ring_gauge(0.5, hostile)
+            except Exception as exc:
+                return False, (
+                    "draw.ring_gauge() raised %r on the fraction %r — a drawing that "
+                    "crashes has broken the whole page rather than just itself"
+                    % (exc, hostile))
+            if _arc(junk, draw.DRAWING_RING_TRACK_CLASS) is None:
+                return False, (
+                    "the fraction %r produced no track at all: %r" % (hostile, junk))
+        if _arc(draw.ring_gauge(-0.5, 72), draw.DRAWING_RING_VALUE_CLASS) is not None:
+            return False, "a negative fraction must pin at empty, drawing no value arc"
+        if draw.ring_gauge(1.5, 72) != draw.ring_gauge(1.0, 72):
+            return False, "a fraction above 1 must pin at exactly a full ring, never wrap"
+        return True, ""
+    check(
+        "draw.ring_gauge() is ONE size-parameterised emitter whose size moves the radius AND "
+        "the stroke width (never a CSS-only small variant), draws no value arc at all at 0 and "
+        "a complete dash-free circle at 1, draws half its own emitted circumference at 0.5, "
+        "gives every arc an explicit fill route and a class with no colour literal, carries a "
+        "viewBox plus intrinsic width/height and aria-hidden, and never raises (CFG-40, "
+        "T-24-04-A)",
+        _ring_gauge_is_one_emitter_whose_size_drives_the_geometry)
     # ==================================================================
     # Section 3: companion/app.py (plan 06-05) — a real companion/app.py
     # subprocess, launched on a free local port, driven with
