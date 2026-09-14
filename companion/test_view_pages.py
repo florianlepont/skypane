@@ -7199,6 +7199,51 @@ def main():
                     "at a %ds cadence two kept marks sit %.2f%% apart, under the %.2f%% "
                     "minimum — they would paint as one smear and the band would show fewer "
                     "things than it appears to" % (cadence, tight[0][1] - tight[0][0], spacing))
+            # THE LOWER BOUND, and the half of this check the three
+            # assertions above cannot see. They are all CEILINGS — at
+            # most `ceiling` marks, none closer than the minimum — and
+            # every one of them is satisfied perfectly by a band that
+            # draws ONE mark at 00:00 and nothing else. That is not a
+            # hypothetical: it is what this emitter does if its forward
+            # pass compares each position against its immediate
+            # PREDECESSOR rather than against the last KEPT mark, since
+            # at a sub-minimum cadence every consecutive gap is under
+            # the minimum and so nothing after the first is ever kept.
+            # A day of 1 440 check-ins would then draw as one check-in
+            # at midnight and an empty day after it — the band saying
+            # the device died at 00:00 — with `collapsed` dutifully
+            # reporting 1 439 and every ceiling above still green. The
+            # mutation is recorded in 24-06-SUMMARY.md; these two
+            # assertions are what it now fails.
+            #
+            # Both are consequences of the greedy rule rather than
+            # chosen thresholds: a candidate lying a full
+            # minimum-spacing past the last kept mark is kept BY
+            # DEFINITION, so neither an interior gap nor the unmarked
+            # tail at the band's end can reach the minimum plus one
+            # cadence step. The 0.011 is the same allowance the `tight`
+            # assertion above carries and is not slack in the rule: this
+            # check reads POSITIONS OFF THE DRAWING, and an x attribute
+            # carries two decimals, so a gap between two rounded
+            # endpoints can differ from the true one by up to 0.01.
+            step_percent = cadence / float(day) * 100
+            last_instant = (instants[-1] - _BAND_DAY_START) / float(day) * 100
+            if last_instant - positions[-1] >= spacing + 0.011:
+                return False, (
+                    "at a %ds cadence the kept marks stop at %.2f%% while the instants run to "
+                    "%.2f%% — a tail of %.2f%% carrying %d check-ins drew nothing, though the "
+                    "greedy rule keeps anything a full %.2f%% past the last kept mark. The band "
+                    "would say the device stopped checking in"
+                    % (cadence, positions[-1], last_instant, last_instant - positions[-1],
+                       int((last_instant - positions[-1]) / step_percent), spacing))
+            slack = [(a, b) for a, b in zip(positions, positions[1:])
+                     if b - a > spacing + step_percent + 0.011]
+            if slack:
+                return False, (
+                    "at a %ds cadence two kept marks sit %.2f%% apart, over the %.2f%% the "
+                    "greedy rule allows — instants that had room for a mark of their own were "
+                    "dropped, so the band shows a gap where the device was checking in "
+                    "normally" % (cadence, slack[0][1] - slack[0][0], spacing + step_percent))
 
         # An instant the band cannot place counts as not-individually-
         # visible too, so a caller captioning from this number can never

@@ -57,6 +57,16 @@ mixed inside one drawing:
                  label — so a drawing that can keep its labels outside
                  the SVG should use the percentage scheme instead.
 
+A THIRD DOMAIN LIVES INSIDE THE FIRST SCHEME, and it is a domain rather
+than a third scheme: `percent_time()` emits percentages into the same
+no-viewBox canvas `percent_x()` does, so the two may share a drawing.
+What differs is what an x percentage MEANS — an index's share of a
+series, or an instant's position inside a named day. They are separately
+named for the same reason the two schemes are: an index scale
+distributes points evenly whenever they happened, so under it a six-hour
+outage draws as one ordinary step, and a flag on one helper is precisely
+how a drawing ends up measuring the wrong thing.
+
 Every value interpolated into emitted markup goes through `escape()`.
 There is no "this value is always safe" exception: the drawings in this
 phase carry timestamps, firmware strings and airline names out of
@@ -114,6 +124,19 @@ DRAWING_MARK_CLASS = "drawing-mark"
 # An HTML label sitting outside the canvas in the grid above.
 DRAWING_AXIS_LABEL_CLASS = "drawing-axis-label"
 
+# The day band's three shapes (CFG-42). Three classes rather than one
+# with modifiers, because the three are three different KINDS of thing
+# and they take their colour from three different places: the frame is
+# the day itself (structural ink, faint), the shaded span is a
+# configured window the device honours (structural ink, solid) and a
+# mark is a thing that HAPPENED (currentColor, the page's own text ink).
+# Collapsing them into one class plus modifiers would make "the day",
+# "asleep" and "a check-in" the same kind of statement, which is exactly
+# what this drawing must not say.
+DRAWING_BAND_CLASS = "drawing-band"
+DRAWING_BAND_SPAN_CLASS = "drawing-band-span"
+DRAWING_BAND_MARK_CLASS = "drawing-band-mark"
+
 # The ring gauge's two arcs (CFG-40). Two classes, not one class with a
 # modifier, because the two arcs take their colour from two different
 # places on purpose: the track is structural ink (--color-border, the
@@ -155,6 +178,9 @@ DRAWING_CLASSES = (
     DRAWING_LINE_CLASS,
     DRAWING_MARK_CLASS,
     DRAWING_AXIS_LABEL_CLASS,
+    DRAWING_BAND_CLASS,
+    DRAWING_BAND_SPAN_CLASS,
+    DRAWING_BAND_MARK_CLASS,
     DRAWING_RING_TRACK_CLASS,
     DRAWING_RING_VALUE_CLASS,
     DRAWING_STATUS_OK_CLASS,
@@ -341,6 +367,81 @@ def percent_y(value, domain_min, domain_max, inset_percent=0.0):
     return inset_percent + (
         1 - (clamped - domain_min) / span
     ) * (100 - 2 * inset_percent)
+
+
+# --- the time domain, inside the percentage scheme --------------------
+#
+# A THIRD DOMAIN, NOT A THIRD SCHEME, and the distinction is the reason
+# `percent_time()` sits here beside `percent_x()` rather than in a
+# family of its own: it emits percentages into the same no-viewBox
+# canvas, so a drawing may mix it with `percent_y()` freely. What
+# differs is what a percentage MEANS on the x axis.
+#
+#   percent_x()     maps an INDEX to a position. Point 4 of 7 sits at
+#                   50% because it is the fourth of seven, whenever it
+#                   happened. Right for a series whose readings arrive
+#                   on a fixed cadence, where the ordinal IS the story —
+#                   the shipped battery chart is exactly that.
+#
+#   percent_time()  maps an INSTANT to a position inside a NAMED day.
+#                   An hour with no data still occupies its hour of
+#                   width.
+#
+# The difference is not cosmetic, and it is the whole reason the second
+# one exists. Under an index scale a six-hour outage is ONE STEP, the
+# same width as the fifteen minutes either side of it, so the picture
+# says "the frame checked in, then checked in again". Under a time scale
+# the same outage is a quarter of the band with nothing in it. The time
+# scale is what makes an outage look like an outage.
+
+SECONDS_PER_DAY = 24 * 60 * 60
+
+
+def percent_time(instant, day_start, day_seconds=SECONDS_PER_DAY):
+    """The x position of `instant` inside the day that begins at
+    `day_start` and runs for `day_seconds`, as a percentage in
+    [0, 100] — or None when `instant` falls outside that day, or when
+    any argument is unusable. Never raises.
+
+    `instant` and `day_start` are plain numbers in the SAME unit (epoch
+    seconds at every call site in this app). Geometry takes numbers
+    rather than datetimes deliberately: this module may not import the
+    server package, the one Paris-day conversion lives in
+    server/history_db.py's own `_paris_day_or_none()`, and a scale that
+    parsed timestamps would be a second place for a day boundary to be
+    decided.
+
+    `day_seconds` IS A PARAMETER AND NOT THE CONSTANT ABOVE, because a
+    Europe/Paris day is 23 or 25 hours twice a year. A band that assumed
+    86 400 would place every mark on a DST day at the wrong position and
+    leave an hour of its own width unreachable; the caller subtracts two
+    real tz-aware midnights and passes the answer.
+
+    OUT OF RANGE IS REJECTED, NOT CLAMPED, and this is the one place
+    this helper deliberately disagrees with `percent_y()` above it.
+    Clamping is right for a VALUE: a battery reading under the domain is
+    still a real reading of this device, and pinning it at the floor
+    says "at or below this". Clamping is wrong for an INSTANT on a named
+    day: pinning yesterday's check-in at 0% would make today's band
+    claim a check-in at midnight that never happened, and a drawing that
+    invents data is worse than one that omits it (T-24-06-A). A caller
+    must therefore handle the None — which is also why a returned
+    percentage can be trusted to be ON the band.
+
+    Both endpoints are INCLUSIVE: `day_start` is 0% and `day_start +
+    day_seconds` is 100%, because that instant is the band's own right
+    edge. Which DAY a timestamp belongs to is a bucketing question, and
+    it is answered by `_paris_day_or_none()` before anything reaches
+    here — not by this function's endpoint convention.
+    """
+    if not is_number(instant) or not is_number(day_start):
+        return None
+    if not is_number(day_seconds) or day_seconds <= 0:
+        return None
+    offset = instant - day_start
+    if offset < 0 or offset > day_seconds:
+        return None
+    return offset / day_seconds * 100
 
 
 def percent_attr(value):
@@ -724,6 +825,189 @@ def ring_gauge(fraction, size, status_class=None):
     if status_class in DRAWING_STATUS_CLASSES:
         class_name += " " + status_class
     return unit_canvas(class_name, shapes, size, size, hidden=True)
+
+
+# --- the day band: a day, drawn at its real width ----------------------
+#
+# CFG-42's drawing, and the only one in this phase whose x axis is TIME
+# rather than index (see `percent_time()` above for what that buys). It
+# is emitted in the percentage scheme: a no-viewBox canvas whose height
+# comes from CSS, percentage positions, absolute pixel sizes.
+
+# The drawn width of one check-in mark, in CSS pixels. 2 and not 1: a
+# 1px rect landing on a half-pixel boundary at device pixel ratio 1
+# paints as two half-covered columns of grey rather than one column of
+# ink, so the mark would be present and unreadable — this drawing's own
+# version of the "painted but invisible" defect 24-05 had to composite
+# an area over a card to see.
+DAY_BAND_MARK_WIDTH_PX = 2
+
+# The closest two marks may sit and still read as TWO marks, as a
+# percentage of the band's width. THE ARITHMETIC, recorded here the way
+# health_page._SPARKLINE_DENSE_POINT_THRESHOLD records its own, because
+# a spacing constant with no derivation is a number the next reader
+# tunes:
+#
+#   at the 360px contract floor the band measures about 330px (the
+#   viewport less the page gutters and the card's own padding), so 1% of
+#   the band is ~3.3px. Two DAY_BAND_MARK_WIDTH_PX marks need their 2px
+#   of ink each plus a clear pixel between them to be two things rather
+#   than one smear: 4px centre to centre, and 4 / 330 = 1.21%.
+#
+# 1.2 is that figure rounded DOWN, so the constant is the honest floor
+# rather than a hair above it. Two consequences a caller captions from:
+# the band can hold at most int(100 / 1.2) + 1 = 84 marks whatever the
+# row count (T-24-06-C), and the finest interval it can resolve on a
+# 24-hour day is 1.2% of it, about 17 minutes. A 30-minute cadence is
+# comfortably above that; a 60-second cadence is 1 440 instants and most
+# of them WILL be collapsed, which is what `day_band()` reports rather
+# than hides.
+DAY_BAND_MIN_MARK_SPACING_PERCENT = 1.2
+
+
+def day_band(day_start, day_seconds, instants, window=None, label=None):
+    """`(markup, collapsed)` — one day drawn as a horizontal band: the
+    day's own frame, a shaded span for `window`, and one mark per
+    instant of `instants` that has room for a mark of its own. Never
+    raises.
+
+    `day_start`/`day_seconds`/`instants`/`window` are all plain numbers
+    in one unit, exactly as `percent_time()` above takes them;
+    `window` is a `(start, end)` pair of instants or None.
+
+    `collapsed` IS HALF THE DRAWING AND NOT A DIAGNOSTIC. It counts
+    every supplied instant that did NOT become a mark of its own —
+    squeezed out by the minimum spacing, outside the day, or unusable.
+    One number with one meaning: how many of the instants you gave me
+    are not individually visible. A caller that captions "37 check-ins"
+    over a band drawing 22 marks has told the reader they can count
+    something they cannot, and a drawing that silently drops marks
+    beside a caption claiming a total is the two halves of one lie
+    (T-24-06-B). Returning this is what lets the caption say something
+    true instead.
+
+    THE ELEMENT COUNT IS BOUNDED BY THE BAND'S WIDTH, NEVER BY THE ROW
+    COUNT (T-24-06-C): at most 84 marks leave this function however many
+    thousand rows a day holds, because the minimum spacing is what
+    decides, and the frame and the spans are at most three more.
+
+    Marks are CENTRED on their instants — see the transform below — and
+    carry no <title> each. A per-mark tooltip on up to 84 elements would
+    be 84 accessible names for one statement; the canvas takes a single
+    `label` instead, and a band with no `label` is aria-hidden because
+    the only honest reason to have none is that the page already states
+    the same thing in text beside it.
+    """
+    shapes = [rect(DRAWING_BAND_CLASS, 0, 0, "100%", "100%")]
+    for start_percent, end_percent in _day_band_spans(
+            day_start, day_seconds, window):
+        shapes.append(rect(
+            DRAWING_BAND_SPAN_CLASS, percent_attr(start_percent), 0,
+            percent_attr(end_percent - start_percent), "100%"))
+    kept, collapsed = _day_band_mark_percents(day_start, day_seconds, instants)
+    # Centred on the instant, not hung to the right of it. A mark whose
+    # LEFT edge were its instant would say every check-in happened up to
+    # DAY_BAND_MARK_WIDTH_PX later than it did, and would put the whole
+    # of a 23:59 mark outside the canvas. A transform is the only way to
+    # pair a PERCENTAGE position with an ABSOLUTE half-width offset —
+    # the same constraint `rect()`'s own docstring records from the
+    # other side, and the reason the offset is a transform rather than
+    # arithmetic on the percentage (which would need the band's rendered
+    # pixel width, a number Python does not have).
+    offset = "translate(%s 0)" % _number(-DAY_BAND_MARK_WIDTH_PX / 2.0)
+    for percent in kept:
+        shapes.append(rect(
+            DRAWING_BAND_MARK_CLASS, percent_attr(percent), 0,
+            DAY_BAND_MARK_WIDTH_PX, "100%", attrs={"transform": offset}))
+    markup = percent_canvas(
+        DRAWING_CANVAS_CLASS, shapes, label=label, hidden=label is None)
+    return markup, collapsed
+
+
+def _day_band_spans(day_start, day_seconds, window):
+    """The `[(start_percent, end_percent), ...]` a shaded window occupies
+    on the band — TWO of them when the window wraps past the end of the
+    day, which for a night window is the NORMAL case and not an edge
+    case. Never raises; an unusable window shades nothing.
+
+    A quiet-hours window of 22:00-07:00 under a naive "start percent to
+    end percent" rect renders INVERTED: from 91.7% back to 29.2% is a
+    negative width, and the obvious repair — swap the two — shades 07:00
+    to 22:00, which is the whole of the day and none of the night. That
+    repair looks entirely plausible in code and entirely wrong on
+    screen, which is why the wrap is handled here once rather than left
+    to each caller.
+
+    A ZERO-WIDTH WINDOW SHADES NOTHING, deliberately:
+    server/device_config.py's `seconds_until_quiet_hours_end()` states
+    that a window whose start equals its end is never active and that
+    this is intentional rather than a bug to fix. A hairline of shade
+    would claim a window the device does not honour.
+    """
+    if window is None:
+        return []
+    try:
+        start, end = window
+    except (TypeError, ValueError):
+        return []
+    start_percent = percent_time(start, day_start, day_seconds)
+    end_percent = percent_time(end, day_start, day_seconds)
+    if start_percent is None or end_percent is None:
+        return []
+    if start_percent == end_percent:
+        return []
+    if end_percent > start_percent:
+        return [(start_percent, end_percent)]
+    # Document order is left to right, so the leading span first.
+    return [(0.0, end_percent), (start_percent, 100.0)]
+
+
+def _day_band_mark_percents(day_start, day_seconds, instants):
+    """`(kept_percents, collapsed)` — the positions the band can draw
+    one mark each for, in chronological order, and the count of supplied
+    instants that get none. Never raises.
+
+    The rule is a single forward pass over the sorted positions, each
+    compared against the LAST KEPT one rather than against its own
+    predecessor. The difference is not the T-24-06-C ceiling — that
+    ceiling holds under either comparison, because the positions are
+    sorted, so a gap of at least the minimum to the immediate
+    predecessor is also a gap of at least the minimum to every earlier
+    mark. The difference is the FLOOR, and it is the whole of why the
+    comparison is against the last kept mark:
+
+    at a cadence finer than the minimum spacing, EVERY consecutive gap
+    is under the minimum, so a predecessor comparison keeps the first
+    position and then never keeps another. A day of 1 440 check-ins
+    would draw as one mark at 00:00 and an empty band after it — the
+    device rendered as having died at midnight — while `collapsed`
+    reported 1 439 and every ceiling stayed satisfied. Re-basing on each
+    kept mark instead makes the run walk the band at the minimum
+    spacing, so a busy day reads as busy: the same 1 440 check-ins draw
+    80 marks spread from 0.00% to 98.75%.
+
+    That failure passed all four of this band's original checks, which
+    were ceilings to a one. `companion/test_view_pages.py` now asserts
+    the floor too: no interior gap and no tail at the band's end may
+    reach the minimum spacing, both exact consequences of the greedy
+    rule rather than tolerances.
+    """
+    try:
+        supplied = list(instants)
+    except TypeError:
+        return [], 0
+    positions = []
+    for instant in supplied:
+        percent = percent_time(instant, day_start, day_seconds)
+        if percent is not None:
+            positions.append(percent)
+    positions.sort()
+    kept = []
+    for percent in positions:
+        if kept and percent - kept[-1] < DAY_BAND_MIN_MARK_SPACING_PERCENT:
+            continue
+        kept.append(percent)
+    return kept, len(supplied) - len(kept)
 
 
 # --- internals --------------------------------------------------------

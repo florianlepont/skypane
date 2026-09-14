@@ -5967,6 +5967,77 @@ a.airline-card {
   color: var(--color-status-error);
 }
 
+/* THE DAY BAND (CFG-42, 24-06-PLAN.md Task 1): the day the frame has
+ * had, drawn at its real width — a frame for the whole day, a shaded
+ * span for the configured quiet-hours window, and one mark per
+ * check-in, all emitted by draw.day_band().
+ *
+ * THREE RULES FOR THREE KINDS OF STATEMENT, and the split is the
+ * drawing's meaning rather than its decoration. The frame is the day
+ * itself; the shaded span is a window the device HONOURS; a mark is
+ * something that HAPPENED. Paint all three from one token and the band
+ * says those are the same kind of fact.
+ *
+ * THE SHADED SPAN IS STRUCTURAL INK, NOT A STATUS. Quiet hours is a
+ * setting working as configured — not a warning, not an error, and
+ * certainly not accent (this file's header comment keeps an exhaustive
+ * list of accent's reserved uses and a shaded time window is not on
+ * it). --color-border is the structural token .drawing-axis and
+ * .drawing-ring-track already spend, for the same reason.
+ *
+ * The frame takes the SAME token at 40%, so the two can never disagree
+ * about their hue and the span reads as "more of the same surface"
+ * rather than as a second colour. 40 rather than a smaller share
+ * because the pair has to stay distinguishable in BOTH themes against
+ * the card behind them, which companion/test_browser_ux.py composites
+ * and measures rather than asserting from this file. */
+.drawing-band {
+  fill: color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.drawing-band-span {
+  fill: var(--color-border);
+}
+
+/* A check-in. currentColor, so it is the page's own text ink and moves
+ * with the theme by the same route every other drawing's data does —
+ * and so it stays legible where it crosses the shaded span, which is
+ * where most of a night's check-ins land. */
+.drawing-band-mark {
+  fill: currentColor;
+}
+
+/* The page-level half: the section wrapper Home renders the band
+ * inside. Two declarations, and neither is decoration —
+ * companion/test_browser_ux.py measures both, because a property that
+ * no check can see is a property a later reader trusts instead of
+ * measuring.
+ *
+ * The height override is the whole reason this wrapper exists.
+ * .drawing__canvas's height is a custom property with a default
+ * precisely so a drawing that needs a different one sets it on its own
+ * wrapper instead of adding a second rule that would then have to win a
+ * specificity fight. 24px is a band, not a chart: it carries no y axis
+ * at all, every mark spans its full height, and at the 160px default
+ * the day would be a block. */
+.day-band {
+  --drawing-canvas-height: 24px;
+}
+
+/* The hour labels beneath the band. `space-between` on three
+ * equal-width labels puts the first flush left, the last flush right
+ * and the middle one centred — which is exactly where the band's own
+ * scale puts 00:00, 24:00 and 12:00, so the labels and the marks are
+ * placed by one scale and not two. The same idiom, and the same
+ * reasoning, as .drawing__x above; it is not reusing that class because
+ * this row is not inside .drawing's grid and `grid-column: 2` would be
+ * an inert declaration here. */
+.day-band__hours {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-xs);
+}
+
 /* THE RING GAUGE (CFG-40, 24-04-PLAN.md Task 1): a full-circumference
  * track plus a value arc, emitted by draw.ring_gauge() and called at two
  * sizes — large in Health's battery section, small in Home's battery
