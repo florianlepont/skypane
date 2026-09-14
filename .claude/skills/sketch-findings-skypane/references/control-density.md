@@ -104,7 +104,86 @@ This resolves C4 without touching either of the two geometries this file protect
 
 2. **`.history-card__summary` — a whole card face as the activation target.** The Flights phone card's `<details>` now opens from the card's own primary line, secondary line and airline line rather than from a separate control. Measured at 360px, the summary's box is the card's: **312 × ~120px**, which clears 44px many times over in both axes. Two declarations are load-bearing rather than cosmetic: `min-height: 0` (the global 44px floor would otherwise fight a box that is already several lines tall — and unlike case 1 above, here the floor is the thing that must yield), and `margin: calc(var(--space-md) * -1)` paired with `padding: var(--space-md)`, which is the entire "anywhere on the card" property — `.history-card` carries `var(--space-md)` of padding, and without pulling the summary out by exactly that amount a tap on the card's rim lands on the `<li>` and does nothing, **which reads as a broken control rather than as a boundary**. That is asserted by measurement, not by inspection: removing the pair drops the summary to 278px inside a 312px card and the check fails naming both numbers. `color: inherit` keeps the flight's own data out of the accent colour; the chevron keeps it, moved to the trailing edge by `order: 1` on the **shared** `summary::before` — reused, never redrawn, so the global disclosure marker, its rotation and its reduced-motion reasoning all still apply.
 
-**One register entry this phase did NOT close, restated so it does not silently age out:** `.airline-card__chip`'s 20px interactive consumer (Phase 22, X7) is still the app's one control below the WCAG 2.5.8 Level AA 24px floor, still unmeasured against 2.5.8's spacing exception, and its stated disposition — re-examine the height before adding a second interactive consumer — is unchanged. Phase 23 added no consumer of that class.
+**One register entry this phase did NOT close, restated so it does not silently age out:** `.airline-card__chip`'s 20px interactive consumer (Phase 22, X7) is still the app's one control below the WCAG 2.5.8 Level AA 24px floor, still unmeasured against 2.5.8's spacing exception, and its stated disposition — re-examine the height before adding a second interactive consumer — is unchanged. Phase 23 added no consumer of that class. **Phase 25 added none either, and it measured a second instance of the same defect class in passing:** `.copy-btn`'s *real* hit area inside a Flights detail row is **34 × 26**, not the 44 × 44 its rule synthesizes (see "Hit targets are measured, never declared" below). Both are still open and both are still nobody's.
+
+### Phase 25 — the app's first continuous-value controls (D16/D17/D18/D5/D19, CFG-46..CFG-52)
+
+Five controls shipped: a schematic runway map, a 24-hour quiet-hours dial, a wake-interval slider with two gauges, a scroll-snap theme carousel, and an artwork drop zone. What follows is what they taught, filed where the next control plan will look for it.
+
+**The script budget, and how it was kept: five controls, ONE new script.** `companion/static/value-controls.js` (25-01) is the phase's whole script spend — it steers a continuous value, writes it into the native input the form already posts, and holds no value of its own (exactly **one** `.value =` assignment in the file, pinned by shape rather than by count after 25-05 added a mirror). The other four controls paid nothing: **D16 needed ZERO scripts** — its three native radios *are* the control, so the map is their presentation and it uses none of the `.js` gate; **D5 grew `theme-preview.js`** (+71 lines) because that file already owns the theme radio group; **D19 grew `panel-lookup.js`** (+283 lines) because that file already rewrites both upload forms' `action` attributes. The deferred-script pin moved **14 → 15 once**, in 25-01, and did not move again; `ls companion/static/*.js | wc -l` went **16 → 17** and stopped. The rule this establishes: **a second script file is a cost with three named taxes (a route in `app.py`, a src in `layout.py`, a move of the deferred-script pin) — grow the file that already owns the subject instead, and say so in that file's own header.**
+
+**The no-JS control contract, as a named pattern.** A control is not "usable" because it is *rendered*. Phase 22's own P0 was a fallback Save that was rendered and had a **zero-size box**, and this app deliberately **echoes a rejected submission back into the field** (D-07), so "the reloaded page shows the value" passes against a server that stored nothing. The contract therefore has one verdict and it is **the value read back FROM DISK** after a real operate-submit round trip with scripts blocked — never the DOM, never a navigation, never a render.
+
+Two shapes, and a control uses one of them:
+
+1. **A hidden native input inside a whole-element label** — the idiom `.runway-card`, `.theme-chip` and `.frame-colours__row` already share. The radio is the control; a drawing, a chip or a row is its presentation. Arrow-key navigation, the selected state and form submission are all the browser's.
+2. **A `type="button"` that writes into the form** — a handle, a pager, a drop target. It carries no value; it writes into a native input that does.
+
+**The `.js` gate, and its direction.** `.js-gate { display: none }` / `.js .js-gate { display: var(--js-gate-display, block) }`. Three properties are load-bearing: **`display: none` specifically**, because `visibility` and `opacity` both leave a focusable ghost a keyboard visitor can tab into with scripts blocked; **the gate hides by default and reveals under `.js`, never the reverse**, because the reverse flashes a dead control on every load and shows it permanently when a script fails; and **the `var()` fallback**, because a consumer that never sets `--js-gate-display` would otherwise resolve to nothing and the gate would never open at all. **The gate class goes on the gated element ITSELF, never an ancestor** — "this wrapper is somewhere inside a gated ancestor" cannot be checked from rendered markup without parsing the whole tree, and making them one element removes the nesting mistake rather than detecting it.
+
+**Only the part that cannot work without a script is gated, and that is the harder half of the rule.** The quiet dial's **arc is server-drawn and outside the gate** — so the scripts-blocked reader gets a correct picture of the saved window rather than an absence — and only the two handles are gated. The carousel gates only its two **pagers**: the strip's scroll-snap layout, the `<details>` and the dots row are native or server-rendered and are deliberately *not* gated, because gating them would hide working affordances from a scripts-blocked visitor, which is the mirror of the defect the gate exists to catch.
+
+**The contract is executable.** `companion/test_companion_app.py`'s `_NO_JS_CONTROL_REGISTRY` carries one row per FIELD (six rows for five controls — D17 holds two) and asserts, per row, that the field is present in the group builder's own output, is a native `<input>`/`<select>`, is really associated with the form that posts it (`form_assoc` is **declared**, `"attribute"` or `"enclosing"`, never guessed — the enclosing case is verified against a real authenticated render), and that **every** element carrying the control's wrapper attribute also carries `layout.JS_GATE_CLASS`. It proved itself against four deliberately-wrong fixtures on the day it landed, with zero controls registered.
+
+**Native controls own their own model — do not re-implement it and do not `preventDefault` it.** This is the clause 25-05 paid for. `value-controls.js` stands aside from **all three** of its gesture listeners for a wrapper declaring a native mirror (`data-value-input`), because `preventDefault()` on a `pointerdown` over a native range cancels the browser's own thumb drag outright, and a `keydown` handler that both prevents the default and steps the value moves the control **twice per arrow press**. The script's job on a native control shrinks from steering to syncing.
+
+**The continuous-value keyboard model, recorded once so a third slider cannot invent a third set of keys.** The model is the native `<input type="range">` one: **arrows one step, Home/End to the band's own ends, and Page a percentage of the band.** 25-04's dial matched it **deliberately** rather than taking its plan's `Page ±60`, because a per-control page size would have been a second keyboard model on a second settings page.
+
+- **Page keys move 10 % of the BAND, not ten steps** — measured in Chromium on the shipped range (60–3600 s, step 60): `PageUp` from 60 lands on **420**, i.e. six steps, which is 3540/10 rounded to the step. The "ten steps" phrasing 25-04 recorded is only right when the band happens to be about 100 steps wide; the dial's band is ~96 steps, which is why its 150 min looked like both. **Correction of record, kept in place rather than rewritten: the native rule is the percentage.**
+- **No script Page handling was added to the range, and that is the same rule as above** — handling it would mean preventing the default on a native control's key press.
+- **Do NOT add `role="slider"` to an `<input type="range">`.** It is already a slider with its own `aria-valuenow` and its own keyboard model; a role on top of that is the classic double-role error, and a harness check refuses it by name. The rule flips for the dial's handles, which are real `<button>`s and have no native role to double: `role="slider"` and the `aria-value*` belong **on the element a keyboard visitor lands on**, never on the wrapper around it — with them on the wrapper, a screen reader reads the *saved* value on every step of a drag that has already moved somewhere else.
+
+**`.value-control` is not worn by every value control, and declining it is the right call.** 25-05 deliberately left the shared class off `.wake-slider`: its `position: relative` is the containing block for an absolutely-placed handle and this control has none, and its `touch-action: none` is a position on a gesture a native range already implements itself. Recorded in the stylesheet at the point a later reader will wonder.
+
+#### The touch-target register's Phase 25 entries
+
+Every one of these is a **measured** number from `_assert_hit_target()` in that control's own container at the 360 px contract floor — never `.control-hit-area`'s declared arithmetic borrowed from elsewhere. **Nothing was traded. No control landed below 44 px in either axis. The four categories are unchanged and no fifth was needed.**
+
+**EXEMPT-BY-DELEGATION — precondition re-measured, no new entry.**
+
+- **The three runway radios (25-03).** Their wrapping `.runway-card` labels measure **90 × 201 / 89 × 197 / 88 × 197**. That is *larger* than 25-02's pre-map baseline of 88 × 138, and the reason is the map's own design decision: every card draws the **whole** airfield with its own runway picked out, so the cards got taller. The category's precondition holds with room to spare.
+- **The eighteen theme-chip radios inside the carousel strip (25-06).** The wrapping `.theme-chip--compact` labels measure **106 × 71** (first and last chip alike). The strip re-lays the same radios out; it does not shrink their labels.
+
+**RELOCATED — three new consumers of the shared `.control-hit-area` entry, at `.copy-btn`'s own values verbatim.**
+
+`.control-hit-area` (25-01) lifts every value from `.copy-btn` — the 22 × 22 box, `padding: 0`, `border: none`, `background: transparent`, the 6 px radius, the `::before` at `inset: -11px`, the 14 px glyph — and a harness asserts them **equal, declaration by declaration**, with the 44 recomputed from the declared box and inset rather than restated.
+
+| Consumer | Plan | Visual box | **Measured hit area** |
+|---|---|---|---|
+| the quiet dial's start handle | 25-04 | 22 × 22 | **45 × 45** |
+| the quiet dial's end handle | 25-04 | 22 × 22 | **45 × 45** |
+| the carousel's Previous pager | 25-06 | 22 × 22 | **45 × 45** |
+| the carousel's Next pager | 25-06 | 22 × 22 | **45 × 45** |
+
+**One override, and it goes UPWARD.** `.quiet-dial__handle::before { inset: -12px }` — 46 declared, 45 × 45 measured. `.control-hit-area` synthesizes **exactly** 44 (22 + 11 + 11), which is right for every grid-aligned consumer; this handle is carried round a circle by a `rotate`/`translate` pair, lands at a **fractional** pixel position, and the browser snaps its hit region to the grid. At the shared `-11px` it measured **43 × 43**, one pixel under the floor. **This is the rule: a shared hit-area register entry may be overridden upward, never downward, and the override is scoped to the component rather than loosening the shared entry for everybody.**
+
+**KEPT — the wake-interval range, at the global floor unmodified (25-05).**
+
+`.wake-slider__input` measures **279 × 45** at 360 px (visual box 278 × 44). It takes the 44 px floor from the global `input, select` rule with **no** type-specific override, joining `<input type="time">` (10-05) and `<input type="number">` (11-03) as the third native input shape in this category. The extra pixel per axis is the browser's own grid snapping, which `_hit_area()`'s docstring records.
+
+**MET-DIRECTLY — the artwork drop zone (25-07).**
+
+`.upload-drop` measures **241 × 154** at 360 px (visual box 240.25 × 154.26), unclipped. Nothing was traded: it is a `<section>` layered over two upload forms that did not change, and it clears the floor many times over in both axes as a side effect of its own content — the same way `.frame-colours__row` and `.tab-bar__link` do.
+
+#### Hit targets are MEASURED, never declared — three proofs, one phase
+
+`.control-hit-area` asserts **arithmetic**. The browser resolves something else, and it did so three separate times in this phase:
+
+1. **`.copy-btn` measures 34 × 26 inside a Flights detail row** (25-02), against 45 × 45 for the identical class in the row toggle's position. The `::before` genuinely reaches the hit test — every axis exceeds the 22 px visual box — but neighbours inside `.flight-detail-row__grid` cover 12 of the 22 px available on the left and 20 of the 22 below. **The rule is fine and the placement is what eats it.** Pre-existing, logged, still open (see the `.airline-card__chip` entry above).
+2. **The dial's handle measured 43 × 43** before its `-12px` override — a fractional pixel position, described above.
+3. **The carousel's Previous pager measured 30 × 45** with the two pagers `--space-sm` (8 px) apart: the **Next** pager's own `::before` reaches 11 px left and wins the hit test inside that gap, eating the Previous pager's right side. **The pager gap is `--space-lg` (24 px) and that is a hit-target number, not a spacing one** — at 24 px the two `::before` boxes stop 2 px short of each other and both pagers measure a real 45 × 45. Do not "tidy" that gap down to `--space-sm` for rhythm.
+
+The general form, and it is the register's own standing rule made concrete: **44 is what the rule synthesizes, not necessarily what the browser resolves. Measure every control with `_assert_hit_target()` in its OWN container, and never inherit a number from a class.**
+
+#### Scroll-snap and the keyboard must be made to agree (25-06)
+
+A scroll container whose focus target is a **1 px visually-hidden input** does not scroll the way a reader expects. Arrow-keying moves focus to the next *radio*, which is a 1 px box at its chip's top-left corner; the browser scrolls that 1 px target into view, is satisfied the instant the chip's left edge appears, and leaves the chip the visitor just selected hanging off the right edge. Measured at 360 px: **six ArrowDowns left the focused chip 50 px outside a 278 px strip**, `inView: false`.
+
+Four candidate fixes were measured against 1, 3, 6, 10 and 17 steps. `scroll-margin-right` on the radio did nothing; `scroll-snap-align: center` halved the problem; **`scroll-padding-right` on the scroll container fixed every position.** The reserved width is **one item's own width** — `scroll-padding-right: 104px` against `.theme-chip--compact { width: 104px }` — and `test_config_page.py` reads **both** numbers out of the stylesheet and requires them equal, so a future density pass cannot change one and silently re-break the keyboard. **The transferable rule: a scroll container needs `scroll-padding` at its end edge whenever the focus target inside it is a visually-hidden input, and the reserved value is one item's width, pinned equal to it.**
+
+#### A grid blowout takes TWO declarations to close when a `<fieldset>` is in the chain (25-06)
+
+With the nowrap strip in place and nothing else changed, `documentElement.scrollWidth` read **2049 against a client width of 360** — the page itself scrolling sideways by 1689 px. Two declarations close it, and **each was measured alone and each alone leaves the entire blowout in place**: `.frame-colours__layout { grid-template-columns: minmax(0, 1fr) }` (`1fr` is `minmax(auto, 1fr)`, and an `auto` minimum is the item's min-content width — about 2000 px with eighteen nowrap chips) and `.frame-colours__usage-panel { min-width: 0 }` (the panel is a `<fieldset>`, and the UA stylesheet's `min-inline-size: min-content` re-introduces the same minimum one level down). Both are pinned with the measurement in the comment, so neither can be "tidied" away on the grounds that the other exists.
 
 ## CSS Patterns
 
@@ -234,6 +313,58 @@ button:active { transform: translateY(1px); }
   pointer-events: none;
   box-shadow: inherit;
 }
+
+/* Phase 25 (25-01, CFG-46): the .js gate. Hidden by DEFAULT, revealed
+ * under .js — never the reverse, which flashes a dead control on every
+ * load and shows it permanently when a script fails. `display: none`
+ * specifically: visibility/opacity leave a focusable ghost a keyboard
+ * visitor can tab into with scripts blocked. The var() fallback is
+ * load-bearing — without it a consumer that never sets the property
+ * resolves to nothing and the gate never opens. The class goes on the
+ * GATED ELEMENT ITSELF, never an ancestor. */
+.js-gate { display: none; }
+.js .js-gate { display: var(--js-gate-display, block); }
+/* A consumer picks its own display without re-deciding the direction: */
+.theme-carousel__pagers { --js-gate-display: flex; }
+
+/* Phase 25 (25-01): the relocated hit area, shared. Every value is
+ * .copy-btn's own, reused verbatim and asserted declaration-by-
+ * declaration against it; the 44 is recomputed from the box and the
+ * inset rather than restated. */
+.control-hit-area {
+  width: 22px; height: 22px; padding: 0;
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 6px; background: transparent;
+}
+.control-hit-area::before { content: ""; position: absolute; inset: -11px; }
+.control-hit-area .icon { width: 14px; height: 14px; }
+
+/* Phase 25 (25-04): the one override, and it goes UPWARD. A handle
+ * carried round a circle by a rotate/translate pair lands at a
+ * FRACTIONAL pixel position and the browser snaps its hit region to the
+ * grid — at the shared -11px this measured 43x43, one pixel under the
+ * floor. 46 declared, 45x45 measured. Scoped to the component; never
+ * loosen the shared entry to accommodate one consumer. */
+.quiet-dial__handle::before { inset: -12px; }
+
+/* Phase 25 (25-06): scroll-padding equal to ONE ITEM'S WIDTH, because
+ * the focus target inside this container is a 1px visually-hidden
+ * radio and the browser stops scrolling the moment its chip's left edge
+ * appears. Measured without it: six ArrowDowns left the selected chip
+ * 50px outside a 278px strip. The harness reads BOTH numbers out of
+ * this file and requires them equal. */
+.theme-chip-grid--strip {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-right: 104px;     /* == .theme-chip--compact's width */
+}
+/* The disclosure GOVERNS the layout of the grid that follows it — an
+ * adjacent-sibling combinator, no :has(), so the one feature query is
+ * untouched. A <details> CONTAINING the grid is impossible: a closed
+ * <details> hides its own children, so there would be no strip at all. */
+.theme-carousel__all[open] + .theme-chip-grid--strip { flex-wrap: wrap; }
 ```
 
 ## What to Avoid
@@ -258,6 +389,14 @@ button:active { transform: translateY(1px); }
 - **Adding a second interactive consumer of `.airline-card__chip` at its 20px height** without first relocating the hit area — see the register entry above; that class is a label voice, and its one interactive consumer is recorded as an open exception, not as a precedent.
 - **Disabling a submit button INLINE in a submit handler** (Phase 22, T14, recorded here because this is where a future double-submission guard will be written). The app has one shared `submit-guard.js`, a delegated document-level listener registered once on the authenticated shell, and it disables the submitting control from a **zero-delay timer** — deliberately, not incidentally. A submit button's `name`/`value` joins the form data set only *after* the listeners return, and this app's **theme and language pickers are named submit buttons whose name/value is the entire request**: disabling inline would strip the payload and turn every theme switch into a no-op. The guard also changes no label, so nothing shifts under the pointer. Do not write a per-form guard, and do not "simplify" the timer away.
 - **Re-rejecting the icon-only pattern for `.row-toggle` by citing the Phase 21 entry** — that entry is SUPERSEDED in place above, and its stated ground (the control carries visible text) stopped being true when X5 removed the label. Re-reversing it requires a new argument, not the old one.
+- **Reading a hit area off `.control-hit-area`'s arithmetic instead of measuring it** (Phase 25) — 22 + 11 × 2 = 44 is what the rule *synthesizes*. The browser resolved 34 × 26, 43 × 43 and 30 × 45 for three different consumers of that same arithmetic in one phase, for three different reasons (an occluding neighbour, a fractional pixel position, a sibling's own `::before` winning the gap). Measure with `_assert_hit_target()` in the control's own container, every time.
+- **Loosening the shared `.control-hit-area` entry to accommodate one consumer** — override **upward** in that component's own rule instead (`.quiet-dial__handle::before { inset: -12px }`), which is a hit-area gain for one control rather than a floor reduction for four.
+- **Narrowing `.theme-carousel__pagers`' `gap: var(--space-lg)` for rhythm** — that 24 px is a *hit-target* number. At `--space-sm` the two synthesised 44 px `::before` boxes overlap and the Previous pager measures 30 × 45, under the floor in one axis.
+- **Adding `role="slider"` (or any `aria-value*`) to an `<input type="range">`** — it is already a slider with its own `aria-valuenow` and its own keyboard model; a role on top is the classic double-role error and a harness check refuses it by name. The mirror rule: on a real `<button>` handle those attributes belong on the **focusable element**, never on the wrapper around it.
+- **Preventing the default on a native control's key or pointer event** — `preventDefault()` on a `pointerdown` over a native range cancels the browser's own thumb drag, and a `keydown` handler that prevents and then steps moves the value twice per press. A shared script must **stand aside** for a wrapper declaring a native mirror, on all three gesture listeners.
+- **Inventing a third set of keys for a continuous-value control** — the model is the native range's: arrows one step, Home/End to the band's ends, Page a **percentage of the band** (measured: `PageUp` 60 → 420 on a 60–3600/step-60 range). Do not add a page-size attribute and do not re-derive it per control.
+- **Gating anything that already works without a script** — the `.js` gate covers only the part that cannot work at all (the dial's handles, the carousel's pagers, the drop target). Gating the server-drawn arc, the scroll-snap strip, the `<details>` or the dots row would hide *working* affordances from a scripts-blocked visitor, which is the mirror of the defect the gate exists to catch.
+- **Proving a control "works without scripts" by asserting it RENDERS** — the verdict is the value read back **from disk** after a real operate-submit round trip. A DOM read passes against a control that saves nothing, and on this app it passes twice over, because a rejected submission is deliberately echoed back into the field (D-07).
 
 ## Origin
-Synthesized from: 06.6.4-companion-sober-visual-refinement-linear-inspired-sobriety-p (D-01 through D-09), and `companion/static/style.css` read live at execution time (quick task 260901-t00). Updated 06.6.4.1.1-06 (D-18 sub-960px button growth as a D-01 extension; the selected-card background-wash addition on `.runway-card--selected`/`.theme-chip--selected`, a developer-checkpoint follow-up fix). Updated quick task 260904-bbi (this is a quick task on the unmerged `claude/sketch-theme-typography-direction` branch, NOT a phase closure — `.planning/ROADMAP.md` does not show 06.6.4.1 or 06.6.4.1.1 closing as a result of this work): the strong selected-card treatment re-keyed from the server-rendered `--selected` class to live `:has(input:checked)` state, with `--selected` demoted to the no-`:has()` fallback plus a quiet "this is what is saved" marker (dashed 70%-muted ring + English "Current" `::after` tag) for when the saved value is no longer the live choice. Updated Phase 20 (20-04-PLAN.md, D-14d/D-15b): the size-only `.theme-chip--compact` modifier, and the native-radio segmented "Match by" control built on `.theme-form`'s own geometry — neither needs a new touch-target register entry. Updated Phase 21 (21-05/21-07/21-03-PLAN.md, D-08/R-09/D-15): the small grey `.calendar-disconnect-btn` secondary button (the first named secondary-button treatment in a codebase with no `.btn` family), `.frame-colours__row`'s directly-met 44px row-as-label, and the Flights table's 30px row-toggle button as an existing-trade register entry, not a new one. Updated Phase 22 (22-companion-audit-round-4, C4/T6/T9/X3/X5/X6/X7/X9, CFG-31): the composition rule with its two worked examples; the selected-card treatment's 2px border SUPERSEDED by a constant 1px border plus an inset ring across three selectable surfaces and both dashed saved-state markers, with `.theme-chip`'s `box-shadow: inherit` overlay; the card hover contract amended to three edges and scoped off the Frame strip; the bottom tab bar and `.login-card button[type="submit"]` joining the met-directly/kept categories; `.calendar-disconnect-btn`'s two new call sites and its load-bearing element qualifier; the compact chip becoming Display's only chip density; and — the one recorded rejection this phase reverses — the icon-only pattern for `.row-toggle`, marked SUPERSEDED in place with its reasoning rather than rewritten, moving that control from the traded-away category to the relocated one. Updated Phase 23 (23-companion-dynamism, D2/D7, CFG-36/CFG-37, 23-07/23-08/23-11): the `role="switch"` component (one builder, three consumers, the 44px floor on the button and not on the track, the cleared hover/active wash, `.settings-switch-row`) and the Flights phone card's whole face as its own `<summary>`, both joining the met-directly category; `.airline-card__chip`'s 20px exception restated as still open and still unmeasured. Every measurement re-read from `companion/static/style.css` or from a real-browser assertion in `companion/test_browser_ux.py` at execution time.
+Synthesized from: 06.6.4-companion-sober-visual-refinement-linear-inspired-sobriety-p (D-01 through D-09), and `companion/static/style.css` read live at execution time (quick task 260901-t00). Updated 06.6.4.1.1-06 (D-18 sub-960px button growth as a D-01 extension; the selected-card background-wash addition on `.runway-card--selected`/`.theme-chip--selected`, a developer-checkpoint follow-up fix). Updated quick task 260904-bbi (this is a quick task on the unmerged `claude/sketch-theme-typography-direction` branch, NOT a phase closure — `.planning/ROADMAP.md` does not show 06.6.4.1 or 06.6.4.1.1 closing as a result of this work): the strong selected-card treatment re-keyed from the server-rendered `--selected` class to live `:has(input:checked)` state, with `--selected` demoted to the no-`:has()` fallback plus a quiet "this is what is saved" marker (dashed 70%-muted ring + English "Current" `::after` tag) for when the saved value is no longer the live choice. Updated Phase 20 (20-04-PLAN.md, D-14d/D-15b): the size-only `.theme-chip--compact` modifier, and the native-radio segmented "Match by" control built on `.theme-form`'s own geometry — neither needs a new touch-target register entry. Updated Phase 21 (21-05/21-07/21-03-PLAN.md, D-08/R-09/D-15): the small grey `.calendar-disconnect-btn` secondary button (the first named secondary-button treatment in a codebase with no `.btn` family), `.frame-colours__row`'s directly-met 44px row-as-label, and the Flights table's 30px row-toggle button as an existing-trade register entry, not a new one. Updated Phase 22 (22-companion-audit-round-4, C4/T6/T9/X3/X5/X6/X7/X9, CFG-31): the composition rule with its two worked examples; the selected-card treatment's 2px border SUPERSEDED by a constant 1px border plus an inset ring across three selectable surfaces and both dashed saved-state markers, with `.theme-chip`'s `box-shadow: inherit` overlay; the card hover contract amended to three edges and scoped off the Frame strip; the bottom tab bar and `.login-card button[type="submit"]` joining the met-directly/kept categories; `.calendar-disconnect-btn`'s two new call sites and its load-bearing element qualifier; the compact chip becoming Display's only chip density; and — the one recorded rejection this phase reverses — the icon-only pattern for `.row-toggle`, marked SUPERSEDED in place with its reasoning rather than rewritten, moving that control from the traded-away category to the relocated one. Updated Phase 23 (23-companion-dynamism, D2/D7, CFG-36/CFG-37, 23-07/23-08/23-11): the `role="switch"` component (one builder, three consumers, the 44px floor on the button and not on the track, the cleared hover/active wash, `.settings-switch-row`) and the Flights phone card's whole face as its own `<summary>`, both joining the met-directly category; `.airline-card__chip`'s 20px exception restated as still open and still unmeasured. Updated Phase 25 (25-companion-dynamism-iii-controls, D16/D17/D18/D5/D19, CFG-46..CFG-52, 25-01 through 25-08): the app's first continuous-value controls — the one-script budget and the three taxes that justify it, the no-JS control contract as a named pattern with its two shapes and its operate-submit-persist verdict, the `.js` gate and its hide-by-default direction, the continuous-value keyboard model recorded once (with the native Page rule corrected in place to a **percentage of the band**), the register's Phase 25 entries in four categories with their **measured** numbers and the one upward override, the three separate proofs that a synthesized hit area is not the resolved one, the `scroll-padding`-equals-one-item's-width rule, and the two-declaration grid blowout. Every measurement re-read from `companion/static/style.css` or from a real-browser assertion in `companion/test_browser_ux.py` at execution time.
