@@ -5945,29 +5945,35 @@ a.airline-card {
  * device with no reading renders the readout exactly as it did before
  * this wrapper existed.
  *
- * `min-width: 0` on the readout is load-bearing at the 360px floor and
- * not tidy-up: a flex item's default `min-width: auto` floors it at its
- * own min-content width, so the readout's longest unbreakable run would
- * push this row — and therefore the page body — wider than the viewport,
- * which is the horizontal scrollbar CFG-45 forbids. Same mechanism, same
- * fix, as `.drawing`'s own `minmax(0, 1fr)` canvas column.
+ * `align-items: center` is the one declaration here that is doing work
+ * on the figure: a flex row's default `stretch` would pull the
+ * aspect-locked <svg> to the row's full height and letterbox it, which
+ * is the distortion `.drawing__figure`'s own comment exists to prevent.
  *
- * The ring gets `flex: none` so it keeps the intrinsic size
- * draw.unit_canvas() emitted: an aspect-locked figure that shrank with
- * its container would be the letterboxing `.drawing__figure`'s own
- * comment exists to prevent. */
+ * WHAT IS DELIBERATELY NOT HERE, because it was written, measured and
+ * found inert: `flex: none` on the figure and `min-width: 0` on the
+ * readout. Both are the reflexive flex-row incantations, and the
+ * reasoning for both sounded right — an aspect-locked figure must not
+ * shrink; a flex item's automatic minimum size floors it at its
+ * min-content width and grows the page a scrollbar. Measured at 360px
+ * with a 60-character unbreakable run forced into the readout: the
+ * figure stayed exactly 72px wide with and without `flex: none` (a
+ * replaced element's own automatic minimum size already floors it), and
+ * documentElement.scrollWidth was the identical 707px with and without
+ * `min-width: 0` (nothing in the ancestor chain clips, so the run
+ * overflows either way). Dead declarations with confident comments are
+ * worse than none — they are what a later reader trusts instead of
+ * measuring. The bottom margin below IS load-bearing: it moves the
+ * readout's own 8px gap to the chart onto this new wrapper, so the
+ * spacing between the readout and the sparkline is unchanged. */
 .battery-readout-row {
   display: flex;
   align-items: center;
   gap: var(--space-md);
-}
-
-.battery-readout-row > .drawing__figure {
-  flex: none;
+  margin-bottom: var(--space-sm);
 }
 
 .battery-readout-row > .battery-readout {
-  min-width: 0;
   margin-bottom: 0;
 }
 
@@ -7152,22 +7158,16 @@ a.airline-card {
  * verdict + 4px gap + 19.6px detail = 47.6px, measured at the 360px
  * floor), so this row contributes no height at all.
  *
- * `min-width: 0` on the text column is the same load-bearing declaration
- * `.battery-readout-row` carries and for the same reason: a flex item's
- * default `min-width: auto` floors it at its own min-content width, which
- * at 360px is how a tile grows the page a horizontal scrollbar. */
+ * `align-items: center` is what keeps the aspect-locked <svg> at its own
+ * emitted size — a flex row's default `stretch` would pull it to the
+ * row's full height and letterbox it. No `flex: none` and no
+ * `min-width: 0` here either, for the reason measured and recorded
+ * against `.battery-readout-row` above: both were written, both were
+ * measured at 360px, and both changed nothing. */
 .stat-tile__gauge {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-}
-
-.stat-tile__gauge > .drawing__figure {
-  flex: none;
-}
-
-.stat-tile__gauge-text {
-  min-width: 0;
 }
 
 .widget-verdict {

@@ -549,6 +549,30 @@ EXPECTED_CHECK_COUNT = 53
 # promise makes this measurement meaningless. 53 + 1 = 54, re-derived by
 # RUNNING.
 EXPECTED_CHECK_COUNT = 54
+# 24-04-PLAN.md Task 4 (CFG-40/CFG-45/D-09): +3 — the battery ring,
+# measured where it actually has to be correct. One reads the RESOLVED
+# paint of the value arc on both pages in both themes through 24-02's
+# theme and computed-paint helpers, and refuses the SVG default, the
+# track's own paint, and an unchanged value across the theme switch.
+# One reads each arc's bounding box back from the browser, expands it by
+# half its RESOLVED stroke width — the half-stroke overhang is the single
+# most common way a ring gets clipped, so it is added in the open rather
+# than hidden inside a getBBox() option dictionary whose support would
+# have to be assumed — and asserts it lies inside the emitter's own
+# viewBox. One pins the 360px floor: no body overflow on either page,
+# Home's Battery tile exactly as tall as the Frame tile beside it, and
+# both rings still rendering AND still painting a dark-mode token with
+# scripts blocked through _no_js_page().
+#
+# The tile assertion is deliberately NOT "all three tiles are equal
+# height". Measured on this tree: at 360px `.dashboard-grid` collapses
+# to one column and the three are 111.59 / 111.59 / 131.19, so "all
+# equal" is FALSE; at 1280px they share a row under `align-items:
+# stretch`, so "all equal" is VACUOUS. Comparing Battery against the
+# untouched Frame tile's own content height is the property that is
+# neither.
+# 54 + 3 = 57, re-derived by RUNNING (57/57).
+EXPECTED_CHECK_COUNT = 57
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -1091,6 +1115,44 @@ _PAGE_OVERFLOW_PROBE = (
     "          cw: vw,"
     "          escaped: [...new Set(escaped)].slice(0, 12)};"
     "}")
+
+
+# 24-04-PLAN.md Task 4: the ring's own INK, in viewBox user units.
+# getBBox() reports the shape's geometry box and deliberately EXCLUDES
+# the stroke, so the resolved stroke-width is read alongside it and half
+# of it added on every side here, in the open — that half-stroke is the
+# whole property under test, and hiding it inside a getBBox() option
+# dictionary would also mean assuming that dictionary is supported.
+_RING_INK_PROBE = (
+    "args => {"
+    "  const svg = document.querySelector(args.selector);"
+    "  if (!svg) return null;"
+    "  const vb = svg.viewBox.baseVal;"
+    "  const shapes = [];"
+    "  svg.querySelectorAll('circle, path, rect, line').forEach(el => {"
+    "    const b = el.getBBox();"
+    "    const w = parseFloat(getComputedStyle(el).strokeWidth) || 0;"
+    "    shapes.push({cls: el.getAttribute('class'), strokeWidth: w,"
+    "                 inked: [b.x - w / 2, b.y - w / 2,"
+    "                         b.x + b.width + w / 2, b.y + b.height + w / 2]});"
+    "  });"
+    "  return {viewBox: [vb.width, vb.height], shapes: shapes};"
+    "}")
+
+# Each Home status tile's own box, the height its CONTENT actually needs
+# (the union of its children's rects, which `.dashboard-grid`'s stretch
+# cannot inflate), and whether it holds a ring.
+_TILE_CONTENT_PROBE = (
+    "() => [...document.querySelectorAll('.home-status-grid .stat-tile')].map(t => {"
+    "  const r = t.getBoundingClientRect();"
+    "  let min = Infinity, max = -Infinity;"
+    "  [...t.children].forEach(c => {"
+    "    const k = c.getBoundingClientRect();"
+    "    min = Math.min(min, k.top); max = Math.max(max, k.bottom);"
+    "  });"
+    "  return {height: r.height, contentH: max - min,"
+    "          hasRing: t.querySelectorAll('.drawing-ring-value').length};"
+    "})")
 
 
 def _assert_no_page_overflow(page, where, expected_width=None):
@@ -6644,6 +6706,242 @@ def main():
                     "saves to disk — B1's floor re-asserted in the plan that animates the "
                     "component sitting on top of it (B1/CFG-38, 23-09-PLAN.md Task 3)",
                     _with_no_script_there_is_no_bar_and_the_fallback_save_is_the_only_way)
+
+                # ==========================================================
+                # 24-04-PLAN.md Task 4 (CFG-40/CFG-45/D-09): the battery
+                # ring, measured where it actually has to be correct — a
+                # real browser, both themes, the narrowest supported
+                # screen, and with scripts off. Every one of these uses
+                # 24-02's helpers rather than inventing a second
+                # mechanism for the same job.
+                # ==========================================================
+
+                RING_FIGURE = "svg.drawing__figure"
+                RING_VALUE = "svg.drawing__figure .drawing-ring-value"
+                RING_TRACK = "svg.drawing__figure .drawing-ring-track"
+                RING_PAGES = (("Home", "/"), ("Health", "/health"))
+
+                def _the_ring_paints_a_theme_token_in_both_themes_on_both_pages():
+                    # WHY A BROWSER AT ALL: a source scan can see that the
+                    # arc carries class="drawing-ring-value". It cannot
+                    # see what that class RESOLVES to. getComputedStyle
+                    # has already run the cascade, resolved currentColor
+                    # against the inherited colour and substituted the
+                    # theme's custom property — so this is the only thing
+                    # in the repository that can tell a token-painted
+                    # shape from one that fell through to the SVG default.
+                    #
+                    # A drawing correct in light mode only is a defect,
+                    # not a polish item, and until 24-02 this harness had
+                    # no way to say so. Both themes are sampled on BOTH
+                    # pages, because the two rings are two sizes of one
+                    # emitter and a single sample would not notice if only
+                    # one of them inherited its colour.
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        seen = {}
+                        for label, route in RING_PAGES:
+                            page.goto(harness.base_url() + route)
+                            for theme in UI_THEMES_EXPLICIT:
+                                _set_ui_theme(page, theme)
+                                value = _computed_paint(page, RING_VALUE)
+                                track = _computed_paint(page, RING_TRACK)
+                                if "stroke" in value["svg_default"]:
+                                    return False, (
+                                        "%s in %s: the ring's value arc resolves stroke to the "
+                                        "SVG default %r — it inherited no colour from the "
+                                        "cascade and is painting nothing a theme chose"
+                                        % (label, theme, value["stroke"]))
+                                if "fill" in value["svg_default"]:
+                                    return False, (
+                                        "%s in %s: the ring's value arc resolves fill to the SVG "
+                                        "default black, which is correct in one theme and "
+                                        "invisible in the other" % (label, theme))
+                                if value["stroke"] == track["stroke"]:
+                                    return False, (
+                                        "%s in %s: the value arc and the track resolve to the "
+                                        "same paint (%r), so the gauge reads as a plain circle "
+                                        "with no reading in it"
+                                        % (label, theme, value["stroke"]))
+                                seen[(label, theme)] = value["stroke"]
+                        for label, _route in RING_PAGES:
+                            light = seen[(label, UI_THEMES_EXPLICIT[0])]
+                            dark = seen[(label, UI_THEMES_EXPLICIT[1])]
+                            if light == dark:
+                                return False, (
+                                    "%s: the ring's value arc resolves to %r in BOTH themes. The "
+                                    "status token it paints through is declared separately for "
+                                    "light and dark, so an unchanged value means the arc is not "
+                                    "reaching that token at all" % (label, light))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the battery ring's value arc resolves to a real theme token on BOTH pages in "
+                    "BOTH themes — never the SVG default fill or stroke, never the same paint as "
+                    "its own track, and never the same value in light and dark (CFG-40, "
+                    "24-02's theme and computed-paint helpers)",
+                    _the_ring_paints_a_theme_token_in_both_themes_on_both_pages)
+
+                def _the_rings_viewbox_contains_its_own_stroked_geometry():
+                    # CONTRACT RULE 5, MEASURED RATHER THAN DERIVED. A
+                    # stroked arc extends half its stroke width beyond the
+                    # nominal radius, which is the single most common way
+                    # a ring gets clipped by its own box — and arithmetic
+                    # on the emitter's constants would only re-derive what
+                    # the emitter already believes. So the geometry comes
+                    # back from the browser: getBBox() for the path's own
+                    # box and the RESOLVED stroke-width from
+                    # getComputedStyle, expanded by half on every side.
+                    #
+                    # getBBox() deliberately excludes the stroke (SVG 1.1
+                    # behaviour, and the option dictionary that would
+                    # include it is exactly the thing whose support would
+                    # have to be assumed) — so the half-stroke is added
+                    # here, in the open, because that half-stroke IS the
+                    # property under test.
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        for label, route in RING_PAGES:
+                            page.goto(harness.base_url() + route)
+                            box = page.evaluate(_RING_INK_PROBE, {"selector": RING_FIGURE})
+                            if box is None:
+                                return False, (
+                                    "%s: no %s on the page — with none, this check measures "
+                                    "nothing" % (label, RING_FIGURE))
+                            if not box["shapes"]:
+                                return False, "%s: the ring figure holds no drawn shape" % label
+                            side = box["viewBox"]
+                            for shape in box["shapes"]:
+                                if shape["strokeWidth"] <= 0:
+                                    return False, (
+                                        "%s: %s resolves a stroke-width of %r — an arc with no "
+                                        "stroke draws nothing at all"
+                                        % (label, shape["cls"], shape["strokeWidth"]))
+                                left, top, right, bottom = shape["inked"]
+                                if (left < -0.01 or top < -0.01
+                                        or right > side[0] + 0.01 or bottom > side[1] + 0.01):
+                                    return False, (
+                                        "%s: %s inks [%.3f, %.3f, %.3f, %.3f], outside its own "
+                                        "viewBox 0 0 %g %g — the stroke is clipped at the box "
+                                        "edge, which is the ring's own half-stroke overhang "
+                                        "going unaccounted for"
+                                        % (label, shape["cls"], left, top, right, bottom,
+                                           side[0], side[1]))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the battery ring's viewBox contains its own STROKED geometry on both pages — "
+                    "each arc's browser-reported bounding box, expanded by half its resolved "
+                    "stroke width on every side, lies inside the box the emitter declared "
+                    "(CFG-45, contract rule 5)",
+                    _the_rings_viewbox_contains_its_own_stroked_geometry)
+
+                def _the_ring_costs_no_width_no_height_and_no_script():
+                    # THREE PROPERTIES THE RING COULD PLAUSIBLY BREAK, all
+                    # at the 360px floor.
+                    #
+                    # THE TILE ASSERTION IS DELIBERATELY NOT "all three
+                    # tiles are equal height", and that is the whole
+                    # reason it is written this way. Measured on this tree
+                    # BEFORE the ring existed: at 360px the three tiles
+                    # are 111.59 / 111.59 / 131.19 — `.dashboard-grid`
+                    # collapses to ONE COLUMN there, so each tile is its
+                    # own grid row at its own intrinsic height, and the
+                    # Data tile is legitimately taller because its detail
+                    # wraps to a second line. An "all equal" assertion
+                    # would simply be false. At 1280px, where the three
+                    # DO share a row, `align-items: stretch` makes them
+                    # equal no matter what, so "all equal" would be
+                    # VACUOUS there. Neither width can carry the property
+                    # this plan actually owes.
+                    #
+                    # What it owes is that the RING ADDED NO HEIGHT, and
+                    # that is measured against the tile the ring did not
+                    # touch: the Frame tile carries the same two text
+                    # lines in the same box, so Battery's own content
+                    # height must still equal it exactly. A ring stacked
+                    # above the text instead of beside it fails here.
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        for label, route in RING_PAGES:
+                            page.goto(harness.base_url() + route)
+                            if page.locator(RING_VALUE).count() != 1:
+                                return False, (
+                                    "%s: expected exactly one ring value arc at 360px, got %d"
+                                    % (label, page.locator(RING_VALUE).count()))
+                            message = _assert_no_page_overflow(
+                                page, label, VIEWPORT_MIN_SUPPORTED["width"])
+                            if message:
+                                return False, message
+
+                        page.goto(harness.base_url() + "/")
+                        tiles = page.evaluate(_TILE_CONTENT_PROBE)
+                        if len(tiles) != 3:
+                            return False, (
+                                "expected Home's three status tiles, got %d — with another "
+                                "number this check is measuring the wrong row" % (len(tiles),))
+                        frame_tile, battery_tile = tiles[0], tiles[1]
+                        if battery_tile["hasRing"] != 1 or frame_tile["hasRing"] != 0:
+                            return False, (
+                                "expected the ring in the SECOND tile (Battery) and nowhere else "
+                                "in the row, got ring counts %r"
+                                % ([t["hasRing"] for t in tiles],))
+                        if abs(battery_tile["contentH"] - frame_tile["contentH"]) > 0.5:
+                            return False, (
+                                "Home's Battery tile's own content is %.2fpx tall against its "
+                                "Frame neighbour's %.2fpx at 360px — the ring pushed the tile "
+                                "down, and `.dashboard-grid`'s stretch would push the whole row "
+                                "with it" % (battery_tile["contentH"], frame_tile["contentH"]))
+                        if abs(battery_tile["height"] - frame_tile["height"]) > 0.5:
+                            return False, (
+                                "Home's Battery tile is %.2fpx tall against its Frame "
+                                "neighbour's %.2fpx at 360px, where the two are separate grid "
+                                "rows carrying the same two text lines"
+                                % (battery_tile["height"], frame_tile["height"]))
+
+                        # D-09, THROUGH THE SHARED HELPER. The ring is
+                        # complete markup in the first response, so it
+                        # must arrive whole with scripts blocked — and
+                        # asking through _no_js_page() is what makes this
+                        # compose with the existing no-JS floor instead of
+                        # being a second, private way to turn scripts off.
+                        for label, route in RING_PAGES:
+                            with _no_js_page(browser, harness.base_url(), route,
+                                             viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+                                if blocked.locator(RING_VALUE).count() != 1:
+                                    return False, (
+                                        "%s with scripts blocked: expected exactly one ring "
+                                        "value arc, got %d — the ring is server-rendered SVG "
+                                        "and owes nothing to a script (D-09)"
+                                        % (label, blocked.locator(RING_VALUE).count()))
+                                _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
+                                paint = _computed_paint(blocked, RING_VALUE)
+                                if paint["svg_default"]:
+                                    return False, (
+                                        "%s with scripts blocked, in %s: the ring resolves %r to "
+                                        "the SVG default — 'correct in dark mode with scripts "
+                                        "off' is the combination most likely to be wrong, which "
+                                        "is why it is the one measured"
+                                        % (label, UI_THEMES_EXPLICIT[1], paint["svg_default"]))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "at the 360px floor the ring costs nothing it must not: neither page's body "
+                    "scrolls sideways, Home's Battery tile stays exactly as tall as the Frame "
+                    "tile beside it (measured against a neighbour, because 'all three equal' is "
+                    "false at 360px and vacuous at 1280px), and both rings still render — and "
+                    "still paint a dark-mode token — with scripts blocked through _no_js_page() "
+                    "(CFG-45, D-09)",
+                    _the_ring_costs_no_width_no_height_and_no_script)
             finally:
                 browser.close()
     finally:
