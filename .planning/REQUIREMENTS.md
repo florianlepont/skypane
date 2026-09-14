@@ -882,7 +882,9 @@ Re-derived by **running**, at this phase's close, never trusted from a plan.
 
 **The full suite: exactly the 5 documented sandbox baseline failures, verified BY NAME
 and by no other measure** (`PYTHON=server/.venv/bin/python3 bash scripts/run-all-tests.sh`,
-run twice — before and after this plan's documentation edits, with identical results):
+run **three times** — before this plan's edits, after the design-system commit, and
+again on the final tree — with identical results every time, and exactly five `FAIL`
+lines in the whole output on each:
 
 1. `POST /airlines/resolve redirects with the manual_save_failed flash key … the state dir is read-only … (WR-11)` — `companion/test_companion_app.py`
 2. `POST /airlines/manual-resolutions/{prefix}/delete redirects with the manual_delete_failed flash key … (WR-11)` — `companion/test_companion_app.py`
@@ -893,11 +895,12 @@ run twice — before and after this plan's documentation edits, with identical r
 **No sixth.** These five fail only because this container runs as root; they pass in CI.
 
 **`companion/test_browser_ux.py` did NOT skip, and the wall clock is the proof it ran.**
-`grep -c SKIP` over the whole suite output is **0**. **81/81 checks pass in 275.9 s**
-inside the suite and in **4 m 30.5 s standalone** — a skipped harness returns in under a
+`grep -c SKIP` over the whole suite output is **0**, and over the harness's own standalone
+output it is **0**. **81/81 checks pass, 0 FAIL, in 274.8 s inside the suite and in
+270 s (4 m 30 s) standalone** on the final tree — a skipped harness returns in under a
 second, and this phase is almost entirely interaction, so a SKIP would have meant every
 control contract in it went unchecked. It is the slowest file in the suite by a factor
-of nine.
+of nine, and it is the whole suite's critical path (total wall time 274.8 s at JOBS=4).
 
 **Structural pins, re-verified from the code against the phase's base commit `f7d25d9`:**
 
