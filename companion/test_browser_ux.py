@@ -1960,6 +1960,241 @@ def _assert_hit_target(page, selector, where, minimum=MIN_HIT_TARGET_PX):
                seen["visual"][0], seen["visual"][1], seen["reach"]))
     return seen
 
+
+# ---------------------------------------------------------------------
+# 4. The `.js` gate, asserted in BOTH directions.
+# ---------------------------------------------------------------------
+
+# The tabbable-candidate vocabulary, in one place. `[tabindex]` is
+# included and then filtered on its resolved value rather than matched as
+# `[tabindex="-1"]` in the selector, because a programmatically-set
+# `el.tabIndex = -1` leaves no attribute to match.
+_FOCUSABLE_CANDIDATE_SELECTOR = (
+    "a[href], area[href], button, input, select, textarea, summary, "
+    "iframe, object, embed, audio[controls], video[controls], "
+    "[tabindex], [contenteditable]")
+
+_GATE_BOX_PROBE = (
+    "args => {"
+    "  const els = [...document.querySelectorAll(args.selector)];"
+    "  if (!els.length) return {error: 'no-element'};"
+    "  const boxes = els.map(e => {"
+    "    const r = e.getBoundingClientRect();"
+    "    return [r.width, r.height];"
+    "  });"
+    "  const candidates = els.reduce((n, e) =>"
+    "    n + e.querySelectorAll(args.focusable).length"
+    "      + (e.matches(args.focusable) ? 1 : 0), 0);"
+    "  return {boxes: boxes, count: els.length, candidates: candidates,"
+    "          tabbable: document.querySelectorAll(args.focusable).length};"
+    "}")
+
+# Where focus currently is, and whether it is inside the gated wrapper.
+# Read after every single Tab press, because a `focusin` recorder — the
+# obvious optimisation — does not fire at all in a scripts-blocked
+# context, which is the only context this walk is ever taken in.
+# The walk's own cycle detector MARKS THE ELEMENT rather than comparing a
+# name, because names collide: the first version stopped after 24 of a
+# page's 44 tab stops, having decided it had come back round when two
+# different controls merely shared a class string. A mark is identity,
+# and a walk that stops early is a walk that never reaches the stops it
+# was looking for.
+_ACTIVE_PROBE = (
+    "args => {"
+    "  const a = document.activeElement;"
+    "  if (!a || a === document.body)"
+    "    return {where: null, inside: false, seen: false};"
+    "  const seen = a.hasAttribute('data-skypane-tab-seen');"
+    "  a.setAttribute('data-skypane-tab-seen', '');"
+    "  const inside = [...document.querySelectorAll(args.selector)]"
+    "    .some(e => e === a || e.contains(a));"
+    "  return {where: (a.id || a.name || a.className.toString().trim()"
+    "                  || a.tagName), inside: inside, seen: seen};"
+    "}")
+
+
+def _assert_js_gate(browser, base_url, route, selector, viewport=None,
+                    prepare=None, arm=None, tab_budget=None):
+    """Prove a `.js`-gated wrapper in BOTH directions: it occupies no
+    space and holds nothing a keyboard can reach when scripts are
+    blocked, AND it occupies space when they are not.
+
+    Returns {"blocked": {...}, "enabled": {...}}; raises AssertionError
+    on either direction.
+
+    BOTH DIRECTIONS, BECAUSE ONLY ONE OF THEM IS THE DEFECT PEOPLE
+    REMEMBER. Asserting only the blocked half passes perfectly against a
+    gate that is stuck shut and never reveals anything at all — a control
+    that is invisible to everybody rather than to nobody. Asserting only
+    the enabled half is the defect 25-RESEARCH.md's finding 2 names: an
+    affordance that renders and does nothing without its script. A gate
+    is a two-state thing and a one-state assertion is half a check.
+
+    "HOLDS NOTHING FOCUSABLE" IS THE CLAUSE THAT MATTERS, AND IT IS
+    ASSERTED BY WALKING THE TAB ORDER RATHER THAN BY READING THE
+    COMPUTED `display`. `display: none` does remove its subtree from the
+    tab order, so a computed-style read agrees with the tab walk TODAY —
+    and would keep agreeing, wrongly, the moment somebody refactors the
+    rule to `visibility: hidden` on the wrapper with an inner override,
+    or to `opacity: 0`, both of which leave a keyboard visitor able to
+    Tab into a control that does nothing. The property under test is
+    reachability, so reachability is what is measured.
+
+    The walk is skipped, and `candidates: 0` recorded instead, when the
+    wrapper contains no focusable candidate in the first place — that is
+    not a short cut around the assertion, it is the assertion already
+    answered: a wrapper with nothing focusable in it cannot put anything
+    in the tab order. The walk runs exactly when it can find something,
+    which is the case it exists for.
+
+    TWO HOOKS, AND THE DIFFERENCE BETWEEN THEM IS THE POINT.
+
+    `prepare` runs on BOTH pages, right after the route loads and before
+    anything is measured, and it is for putting the subject into the
+    state it is meant to be judged in — opening the disclosure the gated
+    wrapper lives inside, or (as 25-02 used it) rendering a wrapper that
+    carries the gate class at all, so the STYLESHEET's rule can be
+    measured in a real browser before any page renders one. Whatever it
+    does, it must do to both pages identically, or the two directions
+    stop being the same measurement taken twice.
+
+    `arm` runs on the scripts-ENABLED page only, after `prepare`, and it
+    is for the state change that does the revealing. A plain `.js` gate
+    needs none (the class is on <html> from the first script statement),
+    but the same two-state shape covers a wrapper revealed by a script's
+    own logic — `.dirty-bar`, revealed by dirty-state.js only once the
+    form is dirty, is the live precedent and one of the two subjects this
+    helper was demonstrated against.
+
+    `tab_budget` bounds the walk; it defaults to the page's own count of
+    focusable candidates plus two, so it is derived from the document
+    rather than guessed, and a page that grows a control does not
+    silently start walking too few steps.
+    """
+    probe_args = {"selector": selector,
+                  "focusable": _FOCUSABLE_CANDIDATE_SELECTOR}
+    with _no_js_page(browser, base_url, route, viewport=viewport) as page:
+        if prepare is not None:
+            prepare(page)
+        seen = page.evaluate(_GATE_BOX_PROBE, probe_args)
+        if seen.get("error"):
+            raise AssertionError(
+                "_assert_js_gate: no element matched %r on %s with scripts "
+                "blocked — the gated wrapper must be RENDERED and merely "
+                "collapsed, so with none this helper measures nothing"
+                % (selector, route))
+        painted = [box for box in seen["boxes"] if box[1] > 0]
+        if painted:
+            raise AssertionError(
+                "_assert_js_gate: %r occupies space with scripts blocked on "
+                "%s — %r of the %d wrapper(s) measured %r. The gate must hide "
+                "by default and REVEAL under .js, never the reverse, which "
+                "shows a dead affordance permanently when a script fails to "
+                "run (D-09)"
+                % (selector, route, len(painted), seen["count"], painted))
+
+        reached = None
+        steps = 0
+        if seen["candidates"]:
+            budget = tab_budget or (seen["tabbable"] + 2)
+            for steps in range(1, budget + 1):
+                page.keyboard.press("Tab")
+                at = page.evaluate(_ACTIVE_PROBE, probe_args)
+                if at["inside"]:
+                    reached = at["where"]
+                    break
+                if at["seen"]:
+                    break  # the tab order has cycled; every stop was seen
+        if reached is not None:
+            raise AssertionError(
+                "_assert_js_gate: %r on %s collapses to zero height with "
+                "scripts blocked but a keyboard visitor still tabs INTO it — "
+                "%r took focus after %d Tab presses. A gate that hides by "
+                "`visibility`/opacity rather than `display: none` leaves "
+                "exactly this focusable ghost, operating nothing"
+                % (selector, route, reached, steps))
+        blocked = {"boxes": seen["boxes"], "candidates": seen["candidates"],
+                   "tab_steps": steps, "tabbable_on_page": seen["tabbable"]}
+
+    extra = {} if viewport is None else {"viewport": viewport}
+    context = browser.new_context(**extra)
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+        page.goto(base_url + route)
+        page.wait_for_load_state("load")
+        if prepare is not None:
+            prepare(page)
+        if arm is not None:
+            arm(page)
+        seen = page.evaluate(_GATE_BOX_PROBE, probe_args)
+        if seen.get("error"):
+            raise AssertionError(
+                "_assert_js_gate: no element matched %r on %s with scripts "
+                "ENABLED" % (selector, route))
+        revealed = [box for box in seen["boxes"] if box[1] > 0]
+        if not revealed:
+            raise AssertionError(
+                "_assert_js_gate: %r never reveals on %s — every one of the "
+                "%d wrapper(s) still measures zero height WITH scripts "
+                "running (%r). A gate asserted in the blocked direction "
+                "alone passes against exactly this: an affordance hidden "
+                "from everybody"
+                % (selector, route, seen["count"], seen["boxes"]))
+        enabled = {"boxes": seen["boxes"], "revealed": len(revealed),
+                   "candidates": seen["candidates"]}
+    finally:
+        context.close()
+
+    return {"blocked": blocked, "enabled": enabled}
+
+
+# ---------------------------------------------------------------------
+# 5. Both themes, and the page-overflow floor — both already owned.
+# ---------------------------------------------------------------------
+
+def _in_both_themes(page):
+    """Yield `_set_ui_theme(page, t)`'s measurement for each of this
+    app's explicit themes, in order, so "assert this in both themes" is
+    one `for` line at a control plan's call site.
+
+    THIS IS COMPOSITION, NOT A SECOND THEME MECHANISM. 24-02 owns the
+    theme switch and every one of its guarantees lives in
+    `_set_ui_theme()` — the explicit `data-ui-theme` attribute rather
+    than `emulate_media`, the both-themes sampling, and the refusal to
+    return unless `--color-canvas` and `--color-text` genuinely differ
+    between them. This generator adds a loop and nothing else. A control
+    plan that reached for `context.new_context(color_scheme="dark")`
+    instead would be building the second theme switch this project keeps
+    paying for.
+
+    The page is left on the LAST theme yielded, which is
+    `UI_THEMES_EXPLICIT`'s last entry — a caller that cares should call
+    `_set_ui_theme()` again itself rather than depend on that order.
+    """
+    for theme in UI_THEMES_EXPLICIT:
+        yield _set_ui_theme(page, theme)
+
+
+# THE 360px BODY-OVERFLOW MEASUREMENT IS `_assert_no_page_overflow()`
+# ABOVE, AND THIS PLAN ADDS NOTHING BESIDE IT. 24-02 already exposed it
+# as one call taking a page and a name, already settled which box means
+# "the page" (documentElement, matching the two page-level checks this
+# file carried before it), already established that a deliberately
+# scrollable `.data-table-wrap` is not a page overflow, and already
+# carries the optional `expected_width` guard that proves the
+# measurement was taken at the viewport the caller believes it built.
+# Every control plan in this phase calls it as:
+#
+#     msg = _assert_no_page_overflow(
+#         page, "the dial on /device", VIEWPORT_MIN_SUPPORTED["width"])
+#     if msg:
+#         return False, msg
+#
+# A second overflow helper would be a third convention in one file about
+# what "the page" means, which is how three checks come to disagree.
+
+
 def main():
     try:
         from playwright.sync_api import sync_playwright
