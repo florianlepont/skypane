@@ -620,6 +620,19 @@ EXPECTED_CHECK_COUNT = 158
 # re-checks that the frame verdict still appears exactly once.
 # 158 + 3 = 161, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 161
+# 24-08-PLAN.md Task 1 (CFG-44): +1 — D4's hero. One check, written
+# against the ONE failure mode the requirement has: a hero that looks
+# composed but carries its own copies of the ring and the band. It pins
+# a single hero container holding the shared Frame strip (rendered once,
+# never inlined a second time), the tiles and the day band; the picture
+# row OUTSIDE it; exactly one ring and exactly one band, both inside it,
+# matched on whole class attributes because the band frame's own name is
+# a prefix of the span's and the mark's; no geometry and no unqualified
+# battery_percent( in the page module; and the recorded
+# frame-verdict-exactly-once bug re-asked in BOTH languages, since a
+# hero is precisely the shape that reintroduces it.
+# 161 + 1 = 162, re-derived by RUNNING (162/162).
+EXPECTED_CHECK_COUNT = 162
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -6274,12 +6287,12 @@ def main():
             "callsign": "AFR1380", "airline": "Air France", "origin": "ORY",
             "destination": "TLS", "confirmed_state": "departing",
         }
-        hero_with_flight = home_page._hero_figure_html(hero_ctx, current_flight_row)
+        hero_with_flight = home_page._current_picture_html(hero_ctx, current_flight_row)
         if "preview-frame__flight" not in hero_with_flight:
             return False, "expected the flight one-liner when the current flight is known"
         if '<span class="mono">AFR1380</span> · Air France · ORY → TLS' not in hero_with_flight:
             return False, "expected the callsign/airline/route flight one-liner text"
-        hero_without_flight = home_page._hero_figure_html(hero_ctx, None)
+        hero_without_flight = home_page._current_picture_html(hero_ctx, None)
         if "preview-frame__flight" in hero_without_flight:
             return False, "expected no flight one-liner when there is no current flight"
 
@@ -7699,6 +7712,180 @@ def main():
         "the two it made before, measured, and the frame verdict still appears exactly once "
         "(CFG-42/D-20, 24-06-PLAN.md Task 2)",
         _home_day_band_buckets_by_paris_day_and_costs_one_read)
+
+    # --- 24-08-PLAN.md Task 1 (CFG-44): D4's hero, assembled from calls -
+    #
+    # "The Home hero the others feed" is a STRUCTURAL claim with exactly
+    # one failure mode: a hero that looks composed but carries its own
+    # copies of the ring and the band, which then drift from the
+    # originals the first time either is fixed. This codebase has already
+    # paid for that once (companion/battery.py exists because
+    # battery_percent() had been copied), so the checks here are written
+    # against that failure rather than against the markup's shape.
+
+    def _home_hero_inner(rendered):
+        """The hero container's own inner markup, or None when the page
+        renders no hero at all.
+
+        A BALANCED SCAN, never `rendered.index("</div>")`: the hero holds
+        sections that hold divs of their own, so the first closing tag
+        after the opening one belongs to a descendant. A slicer that took
+        it would return a fragment that happened to start with the strip
+        and stop somewhere inside the tiles, and every "is inside the
+        hero" assertion below would then be measuring a shorter string
+        than its own message names — green for the wrong reason, which is
+        the one way a containment check fails silently.
+        """
+        from companion.pages import home_page
+        opened = re.search(
+            r'<div class="[^"]*\b%s\b[^"]*">' % re.escape(home_page.HERO_CLASS), rendered)
+        if opened is None:
+            return None
+        depth = 0
+        for token in re.finditer(r"<div\b|</div>", rendered[opened.start():]):
+            depth += 1 if token.group(0) == "<div" else -1
+            if depth == 0:
+                return rendered[opened.end():opened.start() + token.start()]
+        return None
+
+    def _home_top_is_one_composition_holding_the_ring_and_the_band():
+        import inspect
+        import companion.draw as _draw
+        import companion.i18n as _i18n
+        import companion.prefs as _prefs
+        from companion.pages import home_page
+        now = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("hero-compose")
+        try:
+            ctx = _home_band_ctx(tmp, now, [
+                "2026-08-27T06:00:00+00:00",
+                "2026-08-27T10:00:00+00:00",
+            ])
+            ctx["gallery_entries"] = ["2026-08-27T11-50-00+00-00.png"]
+            rendered = home_page.render(ctx)
+
+            # ONE hero. Two containers would be the phase-20 collision
+            # back in a new costume (22-07 had to rename a second thing
+            # called "Frame" on this very page).
+            opens = len(re.findall(
+                r'<div class="[^"]*\b%s\b[^"]*">' % re.escape(home_page.HERO_CLASS), rendered))
+            if opens != 1:
+                return False, (
+                    "expected exactly one hero container on Home, got %d" % (opens,))
+            inner = _home_hero_inner(rendered)
+            if inner is None:
+                return False, "expected the hero container to open and close"
+
+            # Its three parts, each still rendered by the builder that
+            # owns it. The strip is matched on the class the SHARED
+            # helper emits, so a hero that inlined a second rendering of
+            # it would have to reproduce that class to pass — and would
+            # then fail the count below.
+            for label, pattern in (
+                    ("the shared Frame strip",
+                     r'class="frame-strip stat-tile stat-tile--accent"'),
+                    ("the three status tiles",
+                     r'class="dashboard-grid home-status-grid"'),
+                    ("the day band", r'<section class="[^"]*\bday-band\b')):
+                if re.search(pattern, inner) is None:
+                    return False, (
+                        "expected %s inside the hero — a composition that does not contain "
+                        "its parts is a wrapper, not a hero (looked for %r)"
+                        % (label, pattern))
+            if rendered.count('class="frame-strip stat-tile stat-tile--accent"') != 1:
+                return False, (
+                    "expected the shared Frame strip rendered exactly once — the hero wraps "
+                    "the shared component, it never inlines a second rendering of it")
+
+            # What the hero is NOT. The picture row is the page's own
+            # second half and sits after it; a hero that swallowed it
+            # would make every 360px stacking measurement below about
+            # the whole page instead of the composition.
+            for absent in ("home-picture-row", "preview-frame", "recent-flight"):
+                if absent in inner:
+                    return False, (
+                        "expected %r outside the hero — the hero is Home's TOP, not its "
+                        "whole body" % (absent,))
+            if rendered.index('class="home-columns home-picture-row"') < rendered.index(
+                    '<div class="%s"' % home_page.HERO_CLASS):
+                return False, "expected the hero to precede the picture row"
+
+            # EXACTLY ONE RING AND EXACTLY ONE BAND, both the hero's.
+            # The needles are whole class ATTRIBUTES rather than bare
+            # class names: the band frame's own name is a prefix of the
+            # span's and the mark's, so a substring test would count
+            # three things as the frame (the trap
+            # companion/test_companion_app.py:4134 records from the
+            # other direction).
+            for label, needle in (
+                    ("battery ring value arc",
+                     'class="%s"' % _draw.DRAWING_RING_VALUE_CLASS),
+                    ("day band frame", 'class="%s"' % _draw.DRAWING_BAND_CLASS)):
+                if rendered.count(needle) != 1:
+                    return False, (
+                        "expected exactly one %s on Home, got %d"
+                        % (label, rendered.count(needle)))
+                if needle not in inner:
+                    return False, (
+                        "expected the %s INSIDE the hero — CFG-44's hero is the composition "
+                        "the drawings feed, not a container beside them" % (label,))
+
+            # NO GEOMETRY AND NO SECOND ESTIMATE IN THIS MODULE. The
+            # boundary regex on the estimator is the point: a bare
+            # `battery_percent(` is a local copy, while the qualified
+            # call through companion/battery.py is the one home the
+            # allow-list permits.
+            source = inspect.getsource(home_page)
+            for token in ("stroke-dasharray", "BATTERY_FULL_MV", "4200", "3300"):
+                if token in source:
+                    return False, (
+                        "companion/pages/home_page.py contains %r — geometry and battery "
+                        "arithmetic belong to the shared modules, and a page that carries "
+                        "either has started a second copy" % (token,))
+            if re.search(r"(?<![-\w.])battery_percent\s*\(", source) is not None:
+                return False, (
+                    "companion/pages/home_page.py calls battery_percent() unqualified — the "
+                    "estimator has exactly two allowed homes and this module is not one of "
+                    "them; it may only call through companion/battery.py")
+            for call in ("draw.ring_gauge(", "draw.day_band("):
+                if call not in source:
+                    return False, (
+                        "expected %r in home_page.py — the hero is assembled from CALLS into "
+                        "the shared emitters" % (call,))
+
+            # THE RECORDED FIXED BUG (20-RESEARCH.md Pitfall 3), re-asked
+            # in BOTH languages because a hero is precisely the shape
+            # that reintroduces it and French is a separate string table
+            # that could disagree.
+            for lang in ("en", "fr"):
+                _prefs.set_request_prefs(lang=lang)
+                try:
+                    page = home_page.render(ctx)
+                    seen = [_i18n.t(v) for v in home_page.FRAME_STATE_TEXT.values()
+                            if page.count(_i18n.t(v))]
+                    if len(seen) != 1:
+                        return False, (
+                            "in %s expected exactly one frame verdict on Home, got %r"
+                            % (lang, seen))
+                    if page.count(seen[0]) != 1:
+                        return False, (
+                            "in %s expected the frame verdict %r exactly once on Home, got "
+                            "%d — the duplicated verdict 21-04 deleted a whole status-card "
+                            "builder to remove" % (lang, seen[0], page.count(seen[0])))
+                finally:
+                    _prefs.set_request_prefs(lang="en")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home's top is ONE composition: a single hero container holds the shared Frame strip "
+        "(rendered once, unforked), the three status tiles carrying the battery ring, and the "
+        "day band — the picture row stays outside it, the ring and the band each appear exactly "
+        "once and both inside the hero, home_page.py carries no ring geometry and no second "
+        "battery estimate (an unqualified battery_percent( is refused by a boundary regex), and "
+        "the frame verdict still appears exactly once in BOTH languages (CFG-44, 24-08-PLAN.md "
+        "Task 1)",
+        _home_top_is_one_composition_holding_the_ring_and_the_band)
 
     # --- 19-12-PLAN.md Task 3 (D-13/S-02): the "Next wake ≈ HH:MM" figure --
 
