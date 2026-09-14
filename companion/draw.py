@@ -114,6 +114,17 @@ DRAWING_MARK_CLASS = "drawing-mark"
 # An HTML label sitting outside the canvas in the grid above.
 DRAWING_AXIS_LABEL_CLASS = "drawing-axis-label"
 
+# The ring gauge's two arcs (CFG-40). Two classes, not one class with a
+# modifier, because the two arcs take their colour from two different
+# places on purpose: the track is structural ink (--color-border, the
+# same token .drawing-axis uses) and the value arc is currentColor, so
+# the status modifier below reaches the VALUE and leaves the track alone.
+# A single class plus a modifier would make "the unfilled remainder" and
+# "the reading" the same kind of thing, which is exactly what a gauge
+# must not say.
+DRAWING_RING_TRACK_CLASS = "drawing-ring-track"
+DRAWING_RING_VALUE_CLASS = "drawing-ring-value"
+
 # Status colouring, for a drawing whose marks carry an ok/warn/error
 # verdict. These set `color`, so every currentColor shape beneath them
 # follows — and they use the app's existing status tokens. Deliberately
@@ -122,6 +133,17 @@ DRAWING_AXIS_LABEL_CLASS = "drawing-axis-label"
 DRAWING_STATUS_OK_CLASS = "drawing--ok"
 DRAWING_STATUS_WARN_CLASS = "drawing--warn"
 DRAWING_STATUS_ERROR_CLASS = "drawing--error"
+
+# The three, as a set an emitter can VALIDATE a caller's argument
+# against. An emitter that interpolated whatever status string it was
+# handed would emit an arbitrary, caller-influenceable class name — the
+# same reason layout.stat_tile() maps its own `status` through a fixed
+# dict instead of formatting it into the class attribute.
+DRAWING_STATUS_CLASSES = (
+    DRAWING_STATUS_OK_CLASS,
+    DRAWING_STATUS_WARN_CLASS,
+    DRAWING_STATUS_ERROR_CLASS,
+)
 
 DRAWING_CLASSES = (
     DRAWING_GRID_CLASS,
@@ -133,6 +155,8 @@ DRAWING_CLASSES = (
     DRAWING_LINE_CLASS,
     DRAWING_MARK_CLASS,
     DRAWING_AXIS_LABEL_CLASS,
+    DRAWING_RING_TRACK_CLASS,
+    DRAWING_RING_VALUE_CLASS,
     DRAWING_STATUS_OK_CLASS,
     DRAWING_STATUS_WARN_CLASS,
     DRAWING_STATUS_ERROR_CLASS,
@@ -529,6 +553,152 @@ def label_grid(y_labels_html, canvas_html, x_labels_html):
     """
     return '<div class="%s">%s%s%s</div>' % (
         escape(DRAWING_GRID_CLASS), y_labels_html, canvas_html, x_labels_html)
+
+
+# --- the ring gauge: ONE emitter, every size ---------------------------
+#
+# CFG-40's requirement is not "a ring appears" — it is ONE emitter with
+# TWO call sites. The predictable failure is two functions that start
+# identical and drift: one gains a threshold marker, the other does not;
+# one is fixed at 4px stroke, the other at 2; six months later they
+# disagree about what 20% looks like. companion/battery.py exists because
+# that exact drift happened once with the percentage itself. These
+# constants are the picture's half of the same fix.
+#
+# They are RATIOS OF THE BOX SIDE, not pixel values, and that is the
+# whole mechanism: every size is the same drawing scaled, so the small
+# ring's stroke is proportionally identical to the large one's and the
+# two read as one component. A CSS-only "small variant" — same geometry,
+# a thinner stroke class — would make the small ring's stroke
+# proportionally twice as thick, which is a second component wearing the
+# first one's name.
+
+# The stroke, as a fraction of the box side. 0.12 is thick enough to read
+# as a gauge at the small size (36px -> 4.32px of ink) without closing
+# the hole at the large one.
+RING_STROKE_RATIO = 0.12
+
+# Clear space between the stroke's OUTER edge and the viewBox edge, again
+# as a fraction of the side. It exists because a stroked arc extends half
+# its stroke width beyond the nominal radius, which is the single most
+# common way a ring gets clipped by its own box — contract rule 5, and
+# the property companion/test_browser_ux.py measures in a real browser
+# rather than deriving here.
+RING_CLEARANCE_RATIO = 0.02
+
+# Below this the ring is no longer a ring. A size at or under it is
+# CLAMPED rather than refused: this is a primitive, and a primitive that
+# raises has broken the whole page rather than just itself.
+RING_MIN_SIZE = 8
+
+
+def ring_gauge(fraction, size, status_class=None):
+    """A ring gauge: a full-circumference track plus a value arc, `size`
+    CSS pixels square, drawn for `fraction` of a turn. Never raises.
+
+    THE ONE RING EMITTER (CFG-40). There is no `variant` parameter and
+    there must never be one — a variant name is how two drawings hide
+    inside one function, and it would defeat the requirement this
+    function exists to satisfy. What varies is `size`, and `size` moves
+    the GEOMETRY: the radius, the stroke width and the viewBox all scale
+    from it together.
+
+    `fraction` IS A FRACTION, NOT A MILLIVOLT READING. This module
+    deliberately does not import companion/battery.py (see the module
+    docstring): geometry has no business knowing what it is plotting, and
+    a ring that took millivolts could not draw a check-in rate or a
+    punctuality share without growing a second domain. The caller reads
+    the estimate from companion/battery.py — the ONE home for it — and
+    hands the result here.
+
+    DIRECTION, STATED SO A LATER CALLER CANNOT SILENTLY MIRROR IT: the
+    value arc starts at TWELVE O'CLOCK and advances CLOCKWISE, matching
+    `unit_point_on_circle()`'s own zero above so a tick or an endpoint
+    marker added later lands on the arc rather than a quarter-turn off
+    it. Mechanically that is a `rotate(-90)` about the centre on top of
+    <circle>'s own three-o'clock, clockwise dash origin.
+
+    THE DASH ROUTE, NOT AN ARC PATH, and the two degenerate cases it
+    still owes explicitly:
+
+      fraction 1.0 emits a COMPLETE CIRCLE with no dash pattern at all.
+      An arc <path> whose sweep is the whole circle is degenerate in SVG
+      — start and end coincide and the renderer draws nothing — so a
+      gauge built from an arc path reads 100% as EMPTY, the worst
+      possible value to be wrong at. Emitting the complete circle
+      complete also means no rounding of the circumference can leave a
+      hairline seam at the top.
+
+      fraction 0.0 emits NO VALUE ARC AT ALL. A zero-length dash is not
+      nothing: under a round line cap it renders as a DOT, so empty would
+      read as a few percent. The element is omitted rather than emitted
+      empty, which is the same "omit rather than fabricate" contract the
+      pages already follow for a missing reading.
+
+    TOTALITY, because the fraction arrives from a stored integer
+    (T-24-04-A): None, a bool, a NaN, a string and a negative all pin at
+    empty; anything above 1 pins at exactly a full ring and never wraps
+    round to a second lap. An unusable or too-small `size` clamps to
+    RING_MIN_SIZE. Nothing here raises.
+
+    `status_class` is validated against DRAWING_STATUS_CLASSES and
+    IGNORED when it is anything else, so this function can never emit an
+    arbitrary, caller-influenceable class name. It sets `color` on the
+    <svg>, which the value arc follows through currentColor; the track
+    keeps its own structural token either way.
+
+    ARIA-HIDDEN, and that is a positive choice rather than a shortcut:
+    the percentage is already printed in text beside this drawing at BOTH
+    of its call sites, so a labelled graphic would make a screen reader
+    announce the reading twice — the same reasoning `label_span()`'s own
+    default already records for axis labels. A call site with no text
+    percentage beside it would need a label instead, and would be a
+    different function's problem.
+
+    No tick marks and no gradient are emitted, and none may be added: the
+    reading is an estimate, printed with an "approximately" marker, and a
+    drawing that implied calibration would out-claim the number it sits
+    beside.
+    """
+    if not is_number(size) or size < RING_MIN_SIZE:
+        size = RING_MIN_SIZE
+    if not is_number(fraction):
+        fraction = 0.0
+    fraction = max(0.0, min(1.0, fraction))
+
+    # Rounded HERE, once, so the dash arithmetic below runs on exactly
+    # the numbers the attributes carry — a dash length computed from an
+    # unrounded radius and printed beside a rounded one is a drawing that
+    # disagrees with its own markup by a hair, and a harness that
+    # recomputes the arc from the emitted attributes would have to invent
+    # a tolerance to hide it.
+    centre = round(size / 2.0, 2)
+    stroke = round(size * RING_STROKE_RATIO, 2)
+    radius = round(size * (0.5 - RING_STROKE_RATIO / 2.0 - RING_CLEARANCE_RATIO), 2)
+
+    shapes = [circle(DRAWING_RING_TRACK_CLASS, centre, centre, radius, attrs={
+        "fill": "none",
+        # A presentation ATTRIBUTE, never a stylesheet declaration: a CSS
+        # stroke-width of any specificity beats a presentation attribute,
+        # so a rule in style.css would flatten every size to one
+        # thickness and quietly turn `size` back into a CSS-only variant.
+        "stroke-width": _number(stroke),
+    })]
+    if fraction > 0:
+        value_attrs = {
+            "fill": "none",
+            "stroke-width": _number(stroke),
+            "transform": "rotate(-90 %s %s)" % (_number(centre), _number(centre)),
+        }
+        if fraction < 1:
+            value_attrs["stroke-dasharray"] = unit_circle_dash_array(fraction, radius)
+        shapes.append(circle(
+            DRAWING_RING_VALUE_CLASS, centre, centre, radius, attrs=value_attrs))
+
+    class_name = DRAWING_FIGURE_CLASS
+    if status_class in DRAWING_STATUS_CLASSES:
+        class_name += " " + status_class
+    return unit_canvas(class_name, shapes, size, size, hidden=True)
 
 
 # --- internals --------------------------------------------------------

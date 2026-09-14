@@ -4125,7 +4125,13 @@ def main():
         for markup, label in ((large, "0.5"), (empty, "0.0"),
                               (draw.ring_gauge(1.0, 72), "1.0")):
             for element in re.findall(r"<circle[^>]*/>", markup):
-                if 'fill="none"' not in element:
+                # A BOUNDARY match, not `'fill="none"' in element`. Found
+                # by mutation: renaming the attribute to `data-fill` left
+                # the plain substring test green, because `data-fill=
+                # "none"` CONTAINS `fill="none"`. This file has the same
+                # trap recorded from the other direction for
+                # `.drawing-axis` inside `.drawing-axis-label`.
+                if not re.search(r'(?<![-\w])fill="none"', element):
                     return False, (
                         "a ring arc at fraction %s carries no explicit fill=\"none\": %r "
                         "— a stroked shape with no fill route takes the SVG default "
@@ -4138,6 +4144,26 @@ def main():
                 return False, (
                     "the ring emitted colour literals %r at fraction %s — every colour "
                     "comes from a class bound to a theme token" % (literals, label))
+
+        # 5b. THE DIRECTION, MEASURED RATHER THAN MERELY DOCUMENTED.
+        #     Found by mutation: the docstring states "twelve o'clock,
+        #     clockwise", and mirroring the arc with an extra
+        #     `scale(-1 1)` left every other assertion here green — so
+        #     the one property a later caller is most likely to get
+        #     silently wrong was the one property nothing measured. The
+        #     transform IS the mechanism: <circle>'s own dash origin is
+        #     three o'clock and its direction is clockwise, so exactly
+        #     one rotation about the ring's own centre, and nothing
+        #     else, puts the start at the top without mirroring it.
+        for markup, centre in ((large, "36.00"), (small, "18.00")):
+            arc = _arc(markup, draw.DRAWING_RING_VALUE_CLASS)
+            expected = "rotate(-90 %s %s)" % (centre, centre)
+            if _attr(arc, "transform") != expected:
+                return False, (
+                    "the value arc's transform is %r, not %r — that one attribute is "
+                    "what puts the arc's start at twelve o'clock and leaves it running "
+                    "clockwise, so anything else here is a silently mirrored or "
+                    "re-based gauge" % (_attr(arc, "transform"), expected))
 
         # 6. The size route: a viewBox AND intrinsic width/height, so the
         #    SVG default 300x150 (layout.icon_html()'s recorded trap) is

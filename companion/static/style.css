@@ -5835,6 +5835,82 @@ a.airline-card {
   color: var(--color-status-error);
 }
 
+/* THE RING GAUGE (CFG-40, 24-04-PLAN.md Task 1): a full-circumference
+ * track plus a value arc, emitted by draw.ring_gauge() and called at two
+ * sizes — large in Health's battery section, small in Home's battery
+ * tile. ONE emitter, two call sites; these two rules are its paint and
+ * nothing else.
+ *
+ * NEITHER RULE DECLARES A stroke-width, AND THAT OMISSION IS THE WHOLE
+ * MECHANISM rather than a gap somebody should close. draw.ring_gauge()
+ * emits stroke-width as a presentation ATTRIBUTE scaled from the ring's
+ * own size, and a CSS declaration of any specificity beats a
+ * presentation attribute — so a stroke-width here would flatten both
+ * sizes to one thickness, make the small ring's stroke proportionally
+ * twice as thick as the large one's, and turn the size parameter back
+ * into the CSS-only "small variant" CFG-40 exists to forbid. Do not add
+ * one. The same goes for `r`, `cx` and `cy`, which are geometry for the
+ * same reason.
+ *
+ * No gradient and no tick marks, here or in the emitter: the reading is
+ * a linear estimate printed with an "approximately" marker beside this
+ * drawing, and a gauge that implied calibration would out-claim the
+ * number it sits next to. No accent either — a battery verdict is not on
+ * this file's header comment's reserved accent list, the same reasoning
+ * `.sparkline-hit:hover` already records. */
+
+/* The unfilled remainder. --color-border is this file's structural-ink
+ * token, the same one .drawing-axis and .sparkline-axis already spend,
+ * and it is deliberately NOT currentColor: the track must stay
+ * structural when the status modifier on the <svg> turns the value arc
+ * amber or rose, or the ring would read as entirely full in a warning
+ * state. */
+.drawing-ring-track {
+  fill: none;
+  stroke: var(--color-border);
+}
+
+/* The reading. currentColor, so the .drawing--ok/--warn/--error modifier
+ * the page sets on the <svg> from the battery_state it ALREADY computed
+ * reaches this arc and nothing else — never a second judgement about the
+ * same number.
+ *
+ * `stroke-linecap: butt` is declared explicitly even though it is the
+ * SVG initial value, because the comment is the point: a round cap adds
+ * half a stroke width of ink at EACH end of the arc, so at the small
+ * size a 5% reading would draw roughly 12% of the circle and the picture
+ * would disagree with the number printed beside it — which is the exact
+ * failure CFG-40 is about, arriving through a line cap. */
+.drawing-ring-value {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: butt;
+}
+
+/* The ring lives INSIDE .battery-trend-section on Health, where
+ * `.battery-trend-section svg:not(.icon)` above matches every descendant
+ * <svg> and would stretch this aspect-locked figure to 100% width and a
+ * flat 160px. That rule is the CHART's size route and is left exactly as
+ * it is — plan 24-05 owns the chart, and a harness check in
+ * test_status_pages.py pins its single declared height.
+ *
+ * `width: auto; height: auto` restores draw.unit_canvas()'s own
+ * intrinsic width/height attributes rather than reaching the SVG default
+ * — measured in Chromium before it was written here (72x72 and 36x36
+ * back, not 300x150 and not 150x150), because the reasoning could have
+ * gone either way and the 300x150 trap is the one layout.icon_html()'s
+ * docstring already records.
+ *
+ * The `:not(.icon)` filters NOTHING — a ring is never an icon. It is
+ * there so this selector carries one more class than the rule it has to
+ * outrank, making it win on SPECIFICITY rather than on source order: two
+ * equally-specific rules would leave the ring's size depending on which
+ * block a later edit happens to move first. */
+.battery-trend-section svg.drawing__figure:not(.icon) {
+  width: auto;
+  height: auto;
+}
+
 /* Reserves a fixed-height line so the first reveal never shifts the page
  * (06.5-RESEARCH.md, Open Question 1's recommendation — the layout-jump
  * pitfall on mobile). min-height stays in `em` so it scales with the
