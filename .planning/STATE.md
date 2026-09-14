@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 23-11-PLAN.md — Phase 23 executed 11/11; awaiting the developer's visual review (the six checklists in 23-11-SUMMARY.md). PR not marked ready, not merged.
-last_updated: "2026-09-14T00:05:36.802Z"
+stopped_at: Completed 24-09-PLAN.md — Phase 24 executed 9/9 (Phase 23 executed 11/11 before it). CFG-40/41/43/44/45 ticked with per-clause evidence; CFG-39 and CFG-42 deliberately left unticked, and CFG-34/CFG-37 from Phase 23 likewise — each names the unmet clause and the decision it needs. Awaiting the developer's visual review for both phases. Phases 25 and 26 are planned and NOT executed, by the developer's instruction. PR #67 not marked ready, not merged.
+last_updated: "2026-09-14T07:55:00.000Z"
 last_activity: 2026-09-14
 progress:
   total_phases: 38
-  completed_phases: 33
+  completed_phases: 34
   total_plans: 240
-  completed_plans: 213
-  percent: 87
+  completed_plans: 222
+  percent: 92
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
