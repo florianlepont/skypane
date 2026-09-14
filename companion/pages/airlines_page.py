@@ -219,6 +219,97 @@ MANUAL_RESOLVE_FORM_ID = "manual-resolve-form"
 RESOLVE_UPLOAD_ZONE_CLASS = "resolve-upload-zone"
 RESOLVE_CONTEXT_CLASS = "resolve-context"
 
+# =====================================================================
+# 25-07-PLAN.md Task 1 (CFG-51/D19): the drag-and-drop affordance and
+# the framing preview, layered OVER the two upload forms below without
+# changing either of them.
+#
+# The whole point of this vocabulary is that it steers an affordance,
+# never a parser. A drop assigns the dropped File to the form's own
+# `<input type="file">` through a DataTransfer, so the bytes travel the
+# identical path a picked file travels: companion/app.py's 4 MB
+# pre-read cap, its `parse_single_uploaded_file()` filename discard and
+# `companion/illustration_normalize.py`'s crop all apply unchanged,
+# with no second upload path to keep in step.
+#
+# Three clauses the D19 audit asked for are deliberately NOT built, each
+# for a stated reason (25-RESEARCH.md Decision 5, restated in
+# 25-07-SUMMARY.md so a later developer can reverse any of them
+# knowingly):
+#   * NO client-side canvas crop. `companion/illustration_normalize.py`'s
+#     own docstring records that a SECOND, differently-thresholded
+#     measurement silently drifting from the first is the debug session
+#     that created it, and forbids that module ever becoming a second
+#     implementation. A canvas crop in the browser is that same second
+#     implementation, in a language the server cannot check, on a
+#     machine it cannot trust.
+#   * NO progress bar. companion/static/submit-guard.js already disables
+#     a form's submit button app-wide on submit; a 4 MB cap against a
+#     household server needs the word "Uploading…", not
+#     XMLHttpRequest.upload.onprogress.
+#   * NO hover-only aircraft types. Hover is unreachable by touch — the
+#     ground CFG-28 already used when it moved this app's tooltips
+#     behind copy controls.
+#
+# Every name below is duplicated (not imported) into
+# companion/static/style.css and companion/static/panel-lookup.js — a
+# page module has no import path to a static asset — and cross-file
+# guards in companion/test_status_pages.py pin the pairs.
+UPLOAD_DROP_CLASS = "upload-drop"
+# The wrapper attribute 25-01's _NO_JS_CONTROL_REGISTRY registers this
+# control under, and the one companion/static/panel-lookup.js finds the
+# zones by. It is carried by the SAME element as layout.JS_GATE_CLASS,
+# never by an ancestor — see that constant's own comment for why.
+UPLOAD_DROP_ATTR = "data-upload-drop"
+# The id of the file input a drop writes into. Named explicitly rather
+# than discovered by walking the DOM: panel-lookup.js is written to an
+# ES5-safe subset with no Element.closest(), and getElementById() of a
+# server-rendered id is exact where an ancestor walk is a guess.
+UPLOAD_DROP_INPUT_ATTR = "data-upload-drop-input"
+# companion/app.py's own MAX_ILLUSTRATION_UPLOAD_BYTES, rendered into
+# the page rather than retyped in JavaScript — see _max_upload_bytes().
+UPLOAD_DROP_MAX_BYTES_ATTR = "data-upload-drop-max-bytes"
+# The three refusal messages, server-rendered ALREADY TRANSLATED. The
+# script writes no copy of its own (25-01's value-controls.js set this
+# precedent): an English sentence invented inside a .js file is a string
+# companion/test_i18n.py's Check 6 can only catch by accident, and a
+# French visitor would read it in English.
+UPLOAD_DROP_TYPE_ERROR_ATTR = "data-upload-drop-type-error"
+UPLOAD_DROP_SIZE_ERROR_ATTR = "data-upload-drop-size-error"
+UPLOAD_DROP_MULTIPLE_ERROR_ATTR = "data-upload-drop-multiple-error"
+# The drag-over state, set and removed by panel-lookup.js. An ATTRIBUTE
+# rather than a `:hover` rule, and that is the whole point: a state that
+# exists only under `:hover` is invisible on a phone, which is where
+# people most want the card to answer them (CFG-28's own ground).
+UPLOAD_DROP_ACTIVE_ATTR = "data-upload-drop-active"
+UPLOAD_DROP_PREVIEW_CLASS = "upload-drop__preview"
+UPLOAD_DROP_IMAGE_CLASS = "upload-drop__image"
+UPLOAD_DROP_NOTE_CLASS = "upload-drop__note"
+UPLOAD_DROP_MESSAGE_CLASS = "upload-drop__message"
+# The preview box's aspect ratio travels on the `--upload-preview-ratio`
+# custom property, written inline by _upload_drop_html() and read by
+# style.css. That NAME is deliberately an inline literal inside the
+# markup string rather than a module constant, following config_page.py's
+# own `--value-fraction` precedent (25-04): companion/test_i18n.py's D-05
+# scan treats a top-level string constant as page copy, and a leading
+# "--" is the one shape its lowercase-identifier exclusion cannot match.
+# Its VALUE is computed from companion/illustration_normalize.py's own
+# output frame, never typed as a literal, so the reserved box and the
+# frame the server actually produces cannot drift.
+
+# The copy. "Framed", never "look": the preview shows the whole chosen
+# image inside the frame it will occupy (object-fit: contain), and the
+# server may still crop differently — it is the only authority on that.
+# Promising a visitor what the result will LOOK like is precisely the
+# promise a client-side canvas would have had to keep.
+UPLOAD_DROP_HINT_TEXT = "Or drag an image onto this card."
+UPLOAD_PREVIEW_CAPTION_TEXT = (
+    "Framing preview — how it will be framed. The server does the final crop.")
+UPLOAD_PREVIEW_ALT_TEXT = "Framing preview of the image you chose"
+UPLOAD_DROP_TYPE_ERROR_TEXT = "Only PNG images can be dropped here."
+UPLOAD_DROP_MULTIPLE_ERROR_TEXT = "Drop one image at a time."
+UPLOAD_DROP_SIZE_ERROR_TEMPLATE = "That image is larger than the %d MB limit."
+
 ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
 
 # quick task 260902-tli: went through two rounds of live developer
@@ -401,6 +492,15 @@ RESOLVE_ALREADY_DONE_TEMPLATE = (
 
 MANUAL_NAME_INPUT_ID = "manual-airline-name"
 MANUAL_UPLOAD_INPUT_ID = "manual-illustration-input"
+# 25-07-PLAN.md Task 1 (CFG-51): the upload form's own id, suffixed by
+# the SAME `id_suffix` its input already carries — the discipline
+# _resolve_upload_form_html()'s docstring states, applied to the one
+# thing this plan adds that names an id. It exists so 25-01's
+# _NO_JS_CONTROL_REGISTRY can declare this control's form association
+# ("enclosing", verified against a real authenticated render) rather
+# than guess it; nothing submits through it that did not submit before,
+# and the form's method/enctype/action are untouched.
+MANUAL_UPLOAD_FORM_ID = "manual-illustration-form"
 MANUAL_DATALIST_ID = "known-airlines"
 
 # Phase 13 (13-04-PLAN.md Task 2, D-06/D-07). Phase 14 plan 14-06 Task 2
@@ -494,6 +594,13 @@ MANUAL_SUMMARY_TEMPLATE_NONE_SINGULAR = "%d manual resolution"
 REPLACE_LABEL_TEXT = "Replace this illustration"
 REPLACE_BUTTON_TEXT = "Upload"
 REPLACE_INPUT_ID = "airline-replace-input"
+# 25-07-PLAN.md Task 1 (CFG-51): the replace form's own id. A single
+# static id, for the identical reason REPLACE_INPUT_ID above is one —
+# this form is emitted exactly once per page, so there is nothing to
+# disambiguate and no `id_suffix` parameter to add. (Contrast
+# _manual_delete_form_html(), which names no id at all and must not
+# grow a suffix parameter it does not need.)
+REPLACE_FORM_ID = "airline-replace-form"
 
 # quick task 260903-df3: forward-looking guidance, stating the app's own
 # real validation rule before the upload rather than only after it — the
@@ -587,6 +694,106 @@ def _illustration_cache_buster(key, state_dir):
     return "?v=%d" % mtime
 
 
+def _max_upload_bytes():
+    """`companion/app.py`'s `MAX_ILLUSTRATION_UPLOAD_BYTES` — the cap the
+    route enforces BEFORE the request body is read — read from that
+    module rather than retyped here.
+
+    Imported inside the function on purpose, and this is not stylistic:
+    `companion/app.py` imports THIS module at its own import time, so a
+    module-level import would be a cycle. By the time any page is
+    rendered `companion.app` is fully loaded, so the lookup is a
+    dictionary hit.
+
+    Retyping the number instead would create exactly the shape
+    `companion/illustration_normalize.py`'s docstring forbids for the
+    crop: a second copy of one measurement, free to drift from the
+    first. The client-side refusal this value feeds is a COURTESY that
+    saves a round trip — the server's own pre-read cap is unchanged and
+    is the only gate — but a courtesy that disagrees with the gate is
+    worse than no courtesy at all.
+    """
+    from companion.app import MAX_ILLUSTRATION_UPLOAD_BYTES
+    return MAX_ILLUSTRATION_UPLOAD_BYTES
+
+
+def _upload_drop_html(input_id):
+    """25-07-PLAN.md Task 1 (CFG-51/D19): the drag-and-drop affordance
+    and framing preview for the file input with id `input_id`, wrapped
+    in 25-01's `.js` gate.
+
+    One definition, three call sites — both copies of
+    `_resolve_upload_form_html()` and the single
+    `_lightbox_replace_form_html()` — because a drop zone rendered twice
+    from two definitions is two drop zones that can disagree.
+
+    GATED, AND THE GATE CLASS IS ON THIS ELEMENT ITSELF. A drop target
+    that cannot receive a drop must not advertise one: with scripts
+    blocked `layout.JS_GATE_CLASS`'s `display: none` removes this
+    subtree from the layout AND from the tab order, and the visitor sees
+    exactly today's form. The class sits on the same element as
+    `UPLOAD_DROP_ATTR` so "is this wrapper gated?" is an exact question
+    about one tag rather than a question about its ancestry — 25-01's
+    `_NO_JS_CONTROL_REGISTRY` checks precisely that, on EVERY element
+    carrying the attribute.
+
+    THE PREVIEW BOX RESERVES ITS BOX BEFORE ANY IMAGE EXISTS, at the
+    aspect ratio `companion/illustration_normalize.py` actually
+    produces — `ILLUSTRATION_TARGET_WIDTH / ILLUSTRATION_TARGET_HEIGHT`,
+    already imported at the top of this module for the gallery's own
+    `<img>` dimensions, never a second hand-typed ratio. The value rides
+    in on an inline `--upload-preview-ratio` custom property rather than
+    a literal in `style.css`, which is the only way a stylesheet with no
+    import path to Python can hold a number Python owns.
+    (`config_page.py`'s own `style="--value-fraction: …"` is this
+    phase's precedent, and the app's Content-Security-Policy already
+    allows `style-src 'unsafe-inline'` for the theme swatches.) The rule
+    in `style.css` deliberately gives that property NO fallback value: a
+    fallback would quietly keep the box the right shape if this
+    attribute ever stopped being rendered, which is the same masking
+    trap a `:has()` fallback plays on a first-paint measurement.
+
+    NO `<div>` ANYWHERE IN THIS MARKUP, and that is load-bearing:
+    `companion/test_status_pages.py`'s replace-zone contract matches
+    `<div class="lightbox__replace-zone">.*?</div>` NON-GREEDILY, so a
+    nested `<div>` inside that zone would truncate its capture and make
+    a correct page fail a check about element order. `<section>`,
+    `<figure>` and `<p>` say more about this markup anyway.
+
+    The refusal messages are rendered here, already translated, and the
+    script only ever copies one of them into `textContent`. It writes no
+    copy of its own — the property 25-01's `value-controls.js`
+    established and the reason `companion/i18n_fr/common.py` needed no
+    change for that file either.
+    """
+    max_bytes = _max_upload_bytes()
+    size_message = i18n.t(UPLOAD_DROP_SIZE_ERROR_TEMPLATE) % (max_bytes // (1024 * 1024))
+    return (
+        '<section class="%s %s" %s %s="%s" %s="%d" %s="%s" %s="%s" %s="%s">'
+        '<p class="%s">%s</p>'
+        '<figure class="%s" style="--upload-preview-ratio: %d / %d">'
+        '<img class="%s" alt="%s" hidden>'
+        "</figure>"
+        '<p class="%s">%s</p>'
+        '<p class="%s" role="status"></p>'
+        "</section>"
+    ) % (
+        UPLOAD_DROP_CLASS, layout.JS_GATE_CLASS,
+        UPLOAD_DROP_ATTR,
+        UPLOAD_DROP_INPUT_ATTR, escape_html(input_id),
+        UPLOAD_DROP_MAX_BYTES_ATTR, max_bytes,
+        UPLOAD_DROP_TYPE_ERROR_ATTR, escape_html(i18n.t(UPLOAD_DROP_TYPE_ERROR_TEXT)),
+        UPLOAD_DROP_SIZE_ERROR_ATTR, escape_html(size_message),
+        UPLOAD_DROP_MULTIPLE_ERROR_ATTR, escape_html(i18n.t(UPLOAD_DROP_MULTIPLE_ERROR_TEXT)),
+        UPLOAD_DROP_NOTE_CLASS, escape_html(i18n.t(UPLOAD_DROP_HINT_TEXT)),
+        UPLOAD_DROP_PREVIEW_CLASS,
+        ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
+        UPLOAD_DROP_IMAGE_CLASS, escape_html(i18n.t(UPLOAD_PREVIEW_ALT_TEXT)),
+        UPLOAD_DROP_NOTE_CLASS, escape_html(i18n.t(UPLOAD_PREVIEW_CAPTION_TEXT)),
+        UPLOAD_DROP_MESSAGE_CLASS,
+    )
+
+
 def _lightbox_replace_form_html():
     """The replace-image control (originally quick task 260902-v26,
     relocated here by quick task 260903-btu): a plain, JavaScript-free
@@ -636,20 +843,33 @@ def _lightbox_replace_form_html():
     wrapper, not a markup or route change. The upload glyph is produced
     only via `layout.icon_html("icon-upload", ...)`; this module hand-rolls
     no glyph markup of its own.
+
+    25-07-PLAN.md Task 1 (CFG-51/D19): two additions, neither of which
+    touches what this form posts. The form gained an `id`
+    (`REPLACE_FORM_ID`), so 25-01's no-JS control registry can DECLARE
+    this control's form association rather than guess it; and
+    `_upload_drop_html()`'s gated drop affordance is appended as the
+    zone's last child. The `<input type="file">`, the `<button
+    type="submit">`, `method`, `enctype`, the `action=""` placeholder
+    and the hint text are byte-identical to their pre-25-07 output. The
+    drop zone contains no `<div>` — see `_upload_drop_html()`'s own
+    docstring for why that is load-bearing here specifically.
     """
     icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
     return (
-        '<form class="%s" method="post" enctype="multipart/form-data" action="">'
+        '<form class="%s" id="%s" method="post" enctype="multipart/form-data" action="">'
         '<div class="%s">'
         "%s"
         '<label for="%s">%s</label>'
         '<p class="%s">%s</p>'
         '<input type="file" id="%s" name="image" accept="image/png" required>'
         '<button type="submit">%s</button>'
+        "%s"
         "</div>"
         "</form>"
     ) % (
         LIGHTBOX_REPLACE_FORM_CLASS,
+        REPLACE_FORM_ID,
         LIGHTBOX_REPLACE_ZONE_CLASS,
         icon_html,
         REPLACE_INPUT_ID,
@@ -658,6 +878,7 @@ def _lightbox_replace_form_html():
         i18n.t(REPLACE_HINT_TEXT),
         REPLACE_INPUT_ID,
         i18n.t(REPLACE_BUTTON_TEXT),
+        _upload_drop_html(REPLACE_INPUT_ID),
     )
 
 
@@ -1795,6 +2016,18 @@ def _resolve_upload_form_html(action, id_suffix):
     own spacing is `.resolve-upload-zone`'s existing rule, shared
     verbatim across all three consumers per 14-UI-SPEC.md's Component
     Inventory.
+
+    25-07-PLAN.md Task 1 (CFG-51/D19): the form gained an `id`
+    (`MANUAL_UPLOAD_FORM_ID + id_suffix` — the id_suffix discipline
+    above, applied to the one new id this plan names), and
+    `_upload_drop_html()`'s gated drop affordance is appended as the
+    form's last child. The `<input type="file">`, the `<button
+    type="submit">`, `method`, `enctype`, the `action` (including the
+    dialog copy's empty placeholder) and the hint text are
+    byte-identical to their pre-25-07 output in BOTH copies. The drop
+    zone is placed inside the `<form>` rather than beside it because
+    what it writes into is that form's own input; it contains no
+    `<div>`, for the reason `_upload_drop_html()`'s docstring records.
     """
     upload_input_id = MANUAL_UPLOAD_INPUT_ID + id_suffix
     icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
@@ -1803,9 +2036,10 @@ def _resolve_upload_form_html(action, id_suffix):
         "%s"
         '<label for="%s">%s</label>'
         '<p class="%s">%s</p>'
-        '<form method="post" enctype="multipart/form-data" action="%s">'
+        '<form id="%s" method="post" enctype="multipart/form-data" action="%s">'
         '<input type="file" id="%s" name="image" accept="image/png" required>'
         '<button type="submit">%s</button>'
+        "%s"
         "</form>"
         "</div>"
     ) % (
@@ -1813,9 +2047,11 @@ def _resolve_upload_form_html(action, id_suffix):
         icon_html,
         upload_input_id, i18n.t("Choose an image"),
         REPLACE_HINT_CLASS, i18n.t(REPLACE_HINT_TEXT),
+        MANUAL_UPLOAD_FORM_ID + id_suffix,
         action,
         upload_input_id,
         i18n.t(REPLACE_BUTTON_TEXT),
+        _upload_drop_html(upload_input_id),
     )
 
 

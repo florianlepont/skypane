@@ -7857,6 +7857,121 @@ a.airline-card {
   background: color-mix(in srgb, var(--color-text) 7%, var(--color-secondary));
 }
 
+/* =====================================================================
+ * 25-07-PLAN.md Task 1 (CFG-51/D19): the drag-and-drop affordance and
+ * the framing preview, layered over the two upload zones above.
+ *
+ * Every element styled below is emitted by
+ * companion/pages/airlines_page.py's _upload_drop_html() INSIDE 25-01's
+ * `.js` gate, so with scripts blocked none of it is in the layout or in
+ * the tab order and the visitor sees exactly the form the six rules
+ * above already paint. `--js-gate-display: flex` is how this consumer
+ * picks its own revealed display without writing a `.js`-scoped
+ * selector of its own — see the gate's own comment for why that
+ * indirection exists.
+ *
+ * NO `:hover` RULE ANYWHERE IN THIS BLOCK, and that is the point. The
+ * drag state is carried by `[data-upload-drop-active]`, an attribute
+ * companion/static/panel-lookup.js sets and removes, because a state
+ * that exists only under `:hover` is invisible on a phone — the same
+ * ground CFG-28 used when it moved this app's tooltips out from behind
+ * hover. No new animation at-rule, no transition and so no per-rule
+ * reduced-motion block: the state change is instantaneous, which is the
+ * one motion budget nobody has to police. (The at-rule's own keyword is
+ * deliberately not spelled out here — several guards in this tree locate
+ * a rule by the FIRST occurrence of a literal in this file, and a
+ * comment that quotes one points the guard at prose.)
+ *
+ * NO COLOUR LITERAL ANYWHERE IN THIS BLOCK either — every value is a
+ * theme token or a color-mix() over one, and each WR-02 fallback falls
+ * back to the token at full strength rather than to a hard-coded rgba(),
+ * which can only ever raise contrast, never lower it. */
+.upload-drop {
+  --js-gate-display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-sm);
+  border-radius: var(--radius-control);
+}
+
+/* The drag-over state. A background wash on the wrapper plus the
+ * preview frame going solid: two signals rather than one, because the
+ * wash alone is a small step against this zone's own tint. */
+.upload-drop[data-upload-drop-active] {
+  background: var(--color-secondary);
+}
+
+/* The hint and the framing-preview caption share one voice — the same
+ * sub-scale muted tier `.lightbox__replace-hint` above already occupies,
+ * restated against tokens rather than reusing that class, so
+ * test_status_pages.py's replace-zone contract keeps matching exactly
+ * one `<p class="lightbox__replace-hint">` per zone. */
+.upload-drop__note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text); /* fallback for browsers without color-mix() (WR-02) */
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The reserved box. `aspect-ratio` is fed by the `--upload-preview-ratio`
+ * custom property _upload_drop_html() writes inline from
+ * companion/illustration_normalize.py's own ILLUSTRATION_TARGET_WIDTH /
+ * ILLUSTRATION_TARGET_HEIGHT — DELIBERATELY WITH NO FALLBACK VALUE. A
+ * `var(--upload-preview-ratio, 450 / 132)` here would keep the box the
+ * right shape even if the inline property stopped being rendered, which
+ * is a fallback masking the deletion of the live value rather than a
+ * safety net. `margin: 0` is load-bearing: this is a <figure>, and the
+ * UA stylesheet gives it `margin: 1em 40px`. */
+.upload-drop__preview {
+  margin: 0;
+  width: 100%;
+  aspect-ratio: var(--upload-preview-ratio);
+  overflow: hidden;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-dominant);
+}
+
+.upload-drop[data-upload-drop-active] .upload-drop__preview {
+  border-style: solid;
+  border-color: var(--color-text);
+}
+
+/* `:not([hidden])` is not decoration. The preview <img> is rendered
+ * `hidden` until a file is chosen, and a bare `display: block` here
+ * would win its specificity tie against the UA stylesheet's
+ * `[hidden] { display: none }` and paint an empty image box forever —
+ * the identical trap the `.resolve-upload-zone:not([hidden])` rule
+ * above documents for the zone itself.
+ *
+ * `object-fit: contain` shows the WHOLE chosen image inside the frame it
+ * will occupy. That is the honest thing to draw: the server may crop
+ * differently and this preview is not the authority — which is exactly
+ * why no canvas crop was written to make it one. */
+.upload-drop__image:not([hidden]) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* The refusal message. Its text is server-rendered onto the wrapper and
+ * only copied into this element by the script, so it is already
+ * translated; the element is present and empty at rest, and `:empty`
+ * collapses it — the same idiom `.lightbox__note:empty` already uses,
+ * and the reason no `hidden` attribute is juggled here. */
+.upload-drop__message {
+  margin: 0;
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  color: var(--color-status-error);
+}
+
+.upload-drop__message:empty {
+  display: none;
+}
+
 /* 06.6.4.1.1-03 (D-18b, UIR-26): buttons grow to 14px/36px specifically
  * below 960px — a phone-only extension of 06.6.4 D-01's 30px desktop
  * button decision, NOT a reopening of it. This is the file's FIRST
