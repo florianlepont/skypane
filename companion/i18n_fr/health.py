@@ -165,6 +165,12 @@ CATALOG = {
     "%s — daily average (%d reading)": "%s — moyenne quotidienne (%d relevé)",
     "%s — daily average (%d readings)": "%s — moyenne quotidienne (%d relevés)",
     "%s — daily average": "%s — moyenne quotidienne",
+    # 24-05-PLAN.md Task 2 (CFG-41): the drawn low-battery threshold's
+    # legend. The connector stays the "—" every other label in this
+    # section uses, and D-09's real U+00A0 sits before the "%%" exactly
+    # as "%.1f %% résolus" above already does.
+    "Low battery \u2014 %d mV (\u2248 %d%%)":
+        "Batterie faible \u2014 %d mV (\u2248 %d\u00a0%%)",
     "Latest %d readings": "%d derniers relevés",
     "No battery readings yet.": "Aucun relevé de batterie pour l’instant.",
     "No battery telemetry recorded yet — check back after the "

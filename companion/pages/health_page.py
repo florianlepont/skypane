@@ -469,6 +469,24 @@ SPARKLINE_AXIS_CLASS = "sparkline-axis"
 # counted as a `sparkline-dot`.
 SPARKLINE_AREA_LAYER_CLASS = "sparkline__area"
 SPARKLINE_AREA_CLASS = "sparkline-area"
+# 24-05-PLAN.md Task 2 (CFG-41): the marked current reading, the drawn
+# low-battery threshold, and the threshold's own legend. Same two
+# conventions as above (`__` for a structural part of the grid, `-` for
+# ink), and again no name is a substring of another — `sparkline-swatch`
+# rather than `sparkline-legend__swatch` for exactly that reason.
+#
+# SPARKLINE_MARK_CLASS is NOT a modifier on SPARKLINE_DOT_CLASS, and that
+# is the density rule's exception expressed as a class name: above
+# `_SPARKLINE_DENSE_POINT_THRESHOLD` the cosmetic dots stop being
+# emitted, and the mark must not stop with them — marking the current
+# reading is the whole reason it is drawn. A `sparkline-dot
+# sparkline-mark` pair would have made "suppress the dots" and "keep the
+# mark" the same instruction.
+SPARKLINE_MARK_CLASS = "sparkline-mark"
+SPARKLINE_THRESHOLD_CLASS = "sparkline-threshold"
+SPARKLINE_LEGEND_ROW_CLASS = "sparkline__legend"
+SPARKLINE_LEGEND_CLASS = "sparkline-legend"
+SPARKLINE_LEGEND_SWATCH_CLASS = "sparkline-swatch"
 # Must equal companion/app.py's SCRIPT_ROUTE — duplicated, not imported,
 # because companion/pages/__init__.py's contract forbids a page module
 # importing companion.app (app.py imports pages, so importing back would
@@ -906,6 +924,18 @@ _SPARKLINE_Y_SPAN_MV = SPARKLINE_Y_MAX_MV - SPARKLINE_Y_MIN_MV  # no `or 1`
 _SPARKLINE_DOT_RADIUS_PX = 3
 _SPARKLINE_HIT_RADIUS_PX = 8
 
+# 24-05-PLAN.md Task 2 (CFG-41): the marked current reading's own radius.
+# Bounded from both sides rather than chosen: it must be strictly larger
+# than `_SPARKLINE_DOT_RADIUS_PX` or the mark does not read as a mark,
+# and no larger than the canvas's vertical inset in CSS pixels
+# (`_SPARKLINE_VERTICAL_INSET_PERCENT` of `_SPARKLINE_CANVAS_HEIGHT_PX`
+# = 6px) or a mark on a full or flat-empty battery would be clipped at
+# the canvas edge — the same reasoning that derived the inset against the
+# 3px dot in the first place. 5 sits inside both bounds with a pixel to
+# spare; re-derive it if either the inset or the canvas height changes.
+# A harness check asserts both bounds rather than the value.
+_SPARKLINE_MARK_RADIUS_PX = 5
+
 # The point count at which the 90-day daily chart's cosmetic dots stop
 # reading as separate marks and start reading as a continuous caterpillar
 # — a different visual language from the thin line the developer asked
@@ -1024,6 +1054,20 @@ def sparkline_point_y(value):
 BATTERY_AVERAGE_WHEN_ONE_TEMPLATE = "%s — daily average (%d reading)"
 BATTERY_AVERAGE_WHEN_MANY_TEMPLATE = "%s — daily average (%d readings)"
 BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = "%s — daily average"
+
+# 24-05-PLAN.md Task 2 (CFG-41, T-24-05-B): the drawn low-battery
+# threshold's own label. It names what the line MEANS and only then what
+# it is worth — a bare millivolt number floating on a chart says nothing
+# about why that level is drawn, and this line is a judgement about the
+# device, not a second axis tick.
+#
+# It prints the percentage beside the level on purpose: the level IS the
+# millivolt reading at which `companion/battery.py`'s estimate returns
+# that percentage (see LOW_BATTERY_DISPLAY_MV's own derivation), so the
+# label ties the drawn line to the "≈ NN%" the readout and the ring
+# already print above the chart, instead of introducing a number the rest
+# of the section never mentions.
+BATTERY_THRESHOLD_LABEL_TEMPLATE = "Low battery — %d mV (≈ %d%%)"
 
 # Phase 21 polish: the chart's month abbreviation now comes from
 # layout.month_abbr() — the same fixed, locale-independent tables
@@ -1254,6 +1298,20 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     reference guarantee (asserted directly against its return value by
     `companion/test_status_pages.py`) stays true unweakened.
 
+    24-05-PLAN.md (CFG-41/CFG-45) adds three things and removes none.
+    An AREA under the line, filled from the same plotted coordinates, in
+    a nested `<svg>` that owns its own viewBox so the outer canvas's
+    percentage scheme is untouched (see the emission site for the full
+    geometry experiment and the two candidates it ruled out). A MARK on
+    the newest plotted point — the same element in the same loop, one
+    class and one radius different, exempt from the density rule because
+    it is not a cosmetic dot. And a low-battery THRESHOLD, a filled rect
+    placed by the same `_point_y()` the readings are, whose value is read
+    from `companion/battery.py` and whose label is a `<span>` legend in
+    the grid below the canvas rather than a fifth axis tick. All three
+    derive from the SAME single-pass filtered `pairs` list the points and
+    the X-axis labels already come from; none of them re-reads `rows`.
+
     Returns `""` (no sparkline at all) when fewer than two rows carry a
     numeric `battery_mv` — a single point cannot show a trend. Rows with
     a missing/non-numeric `battery_mv` are dropped rather than plotted,
@@ -1310,6 +1368,17 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     # own derivation for why 50. Keyed on point_count alone (never on
     # `daily`), so the same protection would apply to any future dense
     # non-daily series too.
+    #
+    # 24-05-PLAN.md Task 2 (CFG-41) — THE RULE'S ONE EXCEPTION, written
+    # here beside the rule itself so the two cannot be read as
+    # contradicting each other: the rule suppresses COSMETIC dots, and
+    # the newest plotted point's MARK is not a cosmetic dot. It is the
+    # chart's statement of the current reading, which is exactly what a
+    # 90-day daily series most needs to keep — the denser the series, the
+    # harder "where is it now" is to find. So the mark is emitted at
+    # every density (and carries SPARKLINE_MARK_CLASS, not
+    # SPARKLINE_DOT_CLASS, so "suppress the dots" and "keep the mark"
+    # cannot become the same instruction).
     dense = point_count >= _SPARKLINE_DENSE_POINT_THRESHOLD
     hit_radius = _SPARKLINE_DENSE_HIT_RADIUS_PX if dense else _SPARKLINE_HIT_RADIUS_PX
 
@@ -1382,12 +1451,35 @@ def battery_sparkline_svg(rows, now=None, daily=False):
                 % (SPARKLINE_LINE_CLASS, prev_x, prev_y, x, y))
         prev_x, prev_y = x, y
 
+        # D-13/UXA-11 (and 24-05's mark): `pairs` is already in
+        # chronological order and _point_x() places the last index
+        # rightmost, so this one condition identifies "chronologically
+        # latest", "rightmost" and "the current reading" simultaneously.
+        # It is computed from `pairs` — the SAME single-pass filtered
+        # list every point, the area and the X-axis labels come from —
+        # and never from `rows`: the newest stored row may carry no
+        # battery_mv at all, and a mark derived from it would point at a
+        # reading the chart never plotted.
+        is_latest = index == point_count - 1
+
         # 260902-l0b: above the density threshold, the cosmetic marker is
         # not emitted at all (see _SPARKLINE_DENSE_POINT_THRESHOLD's own
         # derivation) — the hit target below still is, at its own reduced
         # radius, so every point stays reachable even though it is no
         # longer individually visible as a dot.
-        if not dense:
+        # 24-05-PLAN.md Task 2: the latest point gets the MARK instead of
+        # a cosmetic dot — a different class and a larger radius, emitted
+        # at every density (see the density rule's own exception note
+        # above). It is the same element in the same place in the same
+        # loop, not a second circle appended afterwards: a separate
+        # marker circle would double the point's ink, and any element
+        # emitted after the loop would land outside the roving-tabindex
+        # sequence the hit targets below establish.
+        if is_latest:
+            circles.append(
+                '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" aria-hidden="true"/>'
+                % (SPARKLINE_MARK_CLASS, x, y, _SPARKLINE_MARK_RADIUS_PX))
+        elif not dense:
             circles.append(
                 '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" aria-hidden="true"/>'
                 % (SPARKLINE_DOT_CLASS, x, y, _SPARKLINE_DOT_RADIUS_PX))
@@ -1422,11 +1514,11 @@ def battery_sparkline_svg(rows, now=None, daily=False):
         # (rightmost) point is a normal Tab stop; every other point is
         # removed from the natural Tab order (tabindex="-1") and instead
         # reachable via companion/static/battery-trend.js's arrow-key
-        # moveFocusTo() handler. `pairs` is already in chronological
-        # order and the x-coordinate math above already places the last
-        # index rightmost, so this one condition identifies both
-        # "latest" and "rightmost" simultaneously.
-        is_latest = index == point_count - 1
+        # moveFocusTo() handler. `is_latest` is computed once above (it
+        # was computed here before 24-05-PLAN.md Task 2 needed it
+        # earlier in the same iteration), so the point that is MARKED and
+        # the point that is the Tab stop are the same point by
+        # construction rather than by two matching expressions.
         tabindex = "0" if is_latest else "-1"
         circles.append(
             '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" tabindex="%s" '
@@ -1434,6 +1526,89 @@ def battery_sparkline_svg(rows, now=None, daily=False):
             "<title>%s</title></circle>"
             % (SPARKLINE_HIT_CLASS, x, y, hit_radius, tabindex, value, escape_html(ts),
                escaped_when, escaped_when, escaped_when))
+
+    # THE LOW-BATTERY THRESHOLD (24-05-PLAN.md Task 2, CFG-41,
+    # T-24-05-A/T-24-05-B).
+    #
+    # The value is READ from companion/battery.py and never re-typed
+    # here. That module's LOW_BATTERY_DISPLAY_MV is the COMPANION's
+    # DISPLAY threshold — where this app draws a line on a chart — and it
+    # is a different number from server/poll_loop.py's
+    # BATTERY_LOW_THRESHOLD_MV, which is the DEVICE's own hysteretic
+    # decision about when the frame warns on glass. They are two numbers
+    # for two jobs; battery.py's own comment says so at length, and a
+    # millivolt literal typed into this file would be the start of them
+    # quietly becoming one.
+    #
+    # Placed by `_point_y()` — the same function every reading is placed
+    # by. A threshold with its own arithmetic would sit
+    # `_SPARKLINE_VERTICAL_INSET_PERCENT` away from the readings it
+    # exists to be compared against, which is a chart that lies by 3.75%
+    # of its own height.
+    #
+    # Drawn as a filled <rect>, not a stroked <line>, for the reason the
+    # axis chrome above already records: an axis-aligned integer-width
+    # filled rect has no stroke-centring or half-pixel rounding to reason
+    # about, and a rect can pair a percentage position with an absolute
+    # size. Its own class, not SPARKLINE_AXIS_CLASS: the axis is
+    # structure and is painted with the structural border token; this is
+    # a judgement about the device and is painted with the app's existing
+    # status-warn token (style.css). Accent stays reserved.
+    #
+    # SUPPRESSED ENTIRELY when the value falls outside the chart's fixed
+    # range. `_point_y()` clamps, so an out-of-range threshold would draw
+    # pinned to the axis edge and read as "low starts at the bottom of
+    # the chart", which is a false statement rather than a clipped one.
+    # 24-01 chose a value strictly inside the range on purpose, so this
+    # is a guard against a later change rather than a case expected
+    # today — and the legend below goes with it, because a label for a
+    # line that is not drawn is worse than neither.
+    threshold_mv = battery.LOW_BATTERY_DISPLAY_MV
+    threshold_visible = (
+        isinstance(threshold_mv, int) and not isinstance(threshold_mv, bool)
+        and SPARKLINE_Y_MIN_MV < threshold_mv < SPARKLINE_Y_MAX_MV)
+    threshold_rect = ""
+    legend_html = ""
+    if threshold_visible:
+        threshold_rect = (
+            '<rect class="%s" x="0" y="%.2f%%" width="100%%" height="1" aria-hidden="true"/>'
+        ) % (SPARKLINE_THRESHOLD_CLASS, _point_y(threshold_mv))
+        # The label is a <span> in the chart's own grid, OUTSIDE the
+        # canvas, exactly as the four axis labels are — an SVG <text>
+        # node inside a canvas with no viewBox is the overflow defect the
+        # wrapper grid was built to remove.
+        #
+        # It is a LEGEND in its own full-width row, not a third entry in
+        # the Y-label column, and that is a deliberate choice rather than
+        # the easy one: `.sparkline__y` is a flex column with
+        # `justify-content: space-between`, which can only place labels
+        # at the top, the bottom and (for three) the middle — the
+        # threshold sits at 59.25% of the canvas, so a third label there
+        # would name a level it does not sit beside. Pinning it to its
+        # real level instead would need an inline `style` attribute on a
+        # drawing element, which this codebase's drawing vocabulary
+        # refuses outright (companion/draw.py's REFUSED_ATTRIBUTES). A
+        # legend claims no position, so it cannot claim a wrong one; the
+        # swatch beside it carries the same paint as the drawn line, so
+        # the connection is made by colour rather than by proximity.
+        #
+        # NOT aria-hidden, unlike every axis label. Those are hidden
+        # because each point's own aria-label already announces its
+        # value, so reading them too would say the chart's extremes
+        # twice. Nothing anywhere on this page announces where "low"
+        # starts — this label is the only statement of it, and hiding it
+        # would be information sighted users get and screen-reader users
+        # do not.
+        legend_html = (
+            '<div class="%s">'
+            '<span class="%s"><span class="%s" aria-hidden="true"></span>%s</span>'
+            "</div>"
+        ) % (
+            SPARKLINE_LEGEND_ROW_CLASS, SPARKLINE_LEGEND_CLASS,
+            SPARKLINE_LEGEND_SWATCH_CLASS,
+            escape_html(i18n.t(BATTERY_THRESHOLD_LABEL_TEMPLATE)
+                        % (threshold_mv, battery.LOW_BATTERY_DISPLAY_PERCENT)),
+        )
 
     # THE AREA UNDER THE LINE (24-05-PLAN.md Task 1, CFG-41/CFG-45),
     # and the geometry experiment that produced it, recorded here because
@@ -1534,10 +1709,11 @@ def battery_sparkline_svg(rows, now=None, daily=False):
 
     svg_html = (
         '<svg class="sparkline__canvas" role="group" aria-label="%s">'
-        "%s%s%s%s"
+        "%s%s%s%s%s"
         "</svg>"
     ) % (escape_html(i18n.t(BATTERY_SECTION_HEADING)),
-         area_layer, axis_chrome, "".join(line_segments), "".join(circles))
+         area_layer, axis_chrome, threshold_rect,
+         "".join(line_segments), "".join(circles))
 
     # Grid document order: the Y-label column first (grid column 1, row
     # 1), then the canvas (auto-placed into column 2, row 1 — the only
@@ -1545,7 +1721,13 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     # X-label row last (explicitly column 2 in style.css, which the grid
     # auto-places into row 2, the only open cell in that column). See
     # style.css's `.sparkline` rule for the full grid contract.
-    return '<div class="sparkline">%s%s%s</div>' % (y_labels_html, svg_html, x_labels_html)
+    # 24-05-PLAN.md Task 2: the threshold's legend is the grid's fourth
+    # and last child — `grid-column: 1 / -1` in style.css puts it in its
+    # own full-width row beneath the X-label row, the only cell left. It
+    # is "" when no threshold is drawn, so the row simply does not exist
+    # rather than collapsing to an empty one.
+    return '<div class="sparkline">%s%s%s%s</div>' % (
+        y_labels_html, svg_html, x_labels_html, legend_html)
 
 
 def battery_status(rows):

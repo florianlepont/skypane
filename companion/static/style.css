@@ -5635,6 +5635,90 @@ a.airline-card {
   pointer-events: none;
 }
 
+/* THE CURRENT READING'S MARK (CFG-41, 24-05-PLAN.md Task 2): the newest
+ * plotted point, drawn instead of — never as well as — its cosmetic dot.
+ * `currentColor` for the same reason `.sparkline-dot` above uses it: the
+ * mark is the same ink as the line it terminates, one step larger, so it
+ * reads as "this is where the series is now" rather than as a second
+ * colour with its own meaning. No status token here on purpose: the ring
+ * gauge beside this chart already carries the ok/warn/error verdict about
+ * the battery, and a chart point that also judged it would be a second
+ * opinion about one number.
+ *
+ * NEITHER `r` NOR `pointer-events` IS DECLARED, and both omissions are
+ * mechanism. `r` is emitted as a presentation attribute from
+ * health_page.py's own _SPARKLINE_MARK_RADIUS_PX (a CSS declaration of
+ * any specificity would beat it, which is the trap `.drawing-ring-track`
+ * records at length). `pointer-events: none` is `.sparkline-dot`'s, and
+ * it is not repeated here because it is INHERITED: the value set on a
+ * sibling does not reach this element, but the mark sits at the same
+ * coordinates as its own `.sparkline-hit` target, which is emitted after
+ * it and therefore paints — and hit-tests — on top. Measured, not
+ * assumed: hovering the last point still resolves to the hit target. */
+.sparkline-mark {
+  fill: currentColor;
+  pointer-events: none;
+}
+
+/* THE DRAWN LOW-BATTERY THRESHOLD (CFG-41, T-24-05-B). A filled rect,
+ * like the axis chrome above and for the same stroke-centring reason,
+ * but deliberately NOT `.sparkline-axis`: the axis is structure and
+ * spends `--color-border`, this file's "structural only, never an
+ * interactive-state signal" token. A threshold is a judgement about the
+ * device, so it spends the app's existing status-warn token instead —
+ * already defined for both themes and already pinned against the card
+ * surface as a UI component by companion/contrast_check.py's
+ * STATUS_WARN_ON_CARD_PAIRS, so no new colour pair is introduced. Accent
+ * stays reserved (this file's header comment lists its five uses; a
+ * chart threshold is not one, the same reasoning `.sparkline-hit:hover`
+ * records). */
+.sparkline-threshold {
+  fill: var(--color-status-warn);
+}
+
+/* The threshold's label, in its own full-width row at the bottom of the
+ * chart's grid. `1 / -1` is load-bearing rather than tidy: without it
+ * the browser auto-places this into column 1 — the `auto` column sized
+ * to the widest Y-axis label — and that column would then grow to fit a
+ * whole sentence, squeezing the canvas beside it. */
+.sparkline__legend {
+  grid-column: 1 / -1;
+}
+
+/* `inline-flex` is what makes the swatch exist at all: a bare inline
+ * <span> ignores width and height, so the swatch would compute to a
+ * zero-sized box and the legend would describe a colour it never showed.
+ * `flex: none` on the swatch is the 360px half of the same property —
+ * as a flex item it would otherwise shrink below its 12px when the line
+ * is tight, which is exactly where the French copy puts it. Both are
+ * measured in companion/test_browser_ux.py rather than trusted.
+ *
+ * The type is not a new tier: 10px / line-height 1.2 / the 70% text mix
+ * are exactly `.sparkline-axis-label`'s own values, restated here (the
+ * same way `.drawing-axis-label` restates them) because this label sits
+ * in the same micro-label tier beside them. A chart label at a different
+ * size would be a new type tier and needs an argument, not a value. */
+.sparkline-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 10px;
+  font-weight: var(--weight-regular);
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The same token as `.sparkline-threshold` above, and the same 1px
+ * height as the rect that is drawn — the swatch IS the line, shown at
+ * legend size, so the legend cannot come to describe a colour or a
+ * weight the chart does not use. */
+.sparkline-swatch {
+  flex: none;
+  width: 12px;
+  height: 1px;
+  background: var(--color-status-warn);
+}
+
 /* A transparent fill is still opaque for SVG hit-testing, which is exactly
  * why this enlarged, invisible circle works as the real tap/click target
  * (06.5-RESEARCH.md Pattern 2). */
