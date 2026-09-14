@@ -235,6 +235,44 @@ CURRENT_BADGE_LABEL = "Current"
 # (see CALENDAR_DISCONNECT_FORM_ID's own comment) — the constant exists
 # so test_config_page.py can reference the name without retyping it.
 CURRENT_BADGE_ATTR = "data-current-label"
+
+# --- 25-06-PLAN.md Task 2/3 (CFG-50): D5's theme carousel -------------
+#
+# The DEPARTURES chip grid, and only that one, is presented as a
+# horizontal scroll-snap strip. The other three grids (arrivals,
+# calendar, rule-add) are deliberately untouched — see
+# `_theme_chip_grid_html()`'s own docstring for that decision and its
+# reason.
+#
+# `theme-carousel-strip` is both the strip's `id` (so the two pagers'
+# `aria-controls` names something real) and the element
+# `companion/static/theme-preview.js` scrolls — the script resolves it
+# through the button's OWN `aria-controls`, so the accessibility
+# contract and the script contract are one contract rather than two that
+# can drift apart.
+THEME_CAROUSEL_STRIP_ID = "theme-carousel-strip"
+# The gated wrapper's own attribute, and the one
+# companion/test_companion_app.py's `_NO_JS_CONTROL_REGISTRY` names for
+# this control. It is on the WRAPPER only, never on a button — that
+# registry asserts that EVERY element carrying it also carries the
+# `.js` gate class, which is the whole point of it.
+THEME_CAROUSEL_WRAPPER_ATTR = "data-theme-carousel"
+# Each pager's own direction, read by theme-preview.js. A separate name
+# rather than a value of the wrapper attribute above, so neither scan
+# can ever match the other by prefix.
+THEME_CAROUSEL_PAGER_ATTR = "data-theme-pager"
+THEME_CAROUSEL_PAGER_PREV = "prev"
+THEME_CAROUSEL_PAGER_NEXT = "next"
+THEME_CAROUSEL_SUMMARY = "See all themes"
+# The disclosure's own body, and it says the one thing a reader of this
+# control most needs to know: NOTHING IS HIDDEN BEHIND IT. See
+# `_theme_carousel_html()` for why this disclosure governs the layout of
+# the grid that follows it instead of containing a second copy of it.
+THEME_CAROUSEL_DISCLOSURE_BODY_TEMPLATE = (
+    "Opening this lays all %d themes out at once. They are all in the "
+    "strip either way — it scrolls, and the arrow keys move through it.")
+THEME_CAROUSEL_PREV_LABEL = "Previous theme"
+THEME_CAROUSEL_NEXT_LABEL = "Next theme"
 # The attribute-as-CSS-hook/JS-hook contract theme-preview.js (Task 3)
 # reads: each row's own radio names which usage panel it selects, and
 # each panel carries the matching target.
@@ -1336,6 +1374,25 @@ def _theme_chip_grid_html(
     `None` (no attribute at all, byte-identical to before this fix) —
     Theme's own two always-in-form grids and the rule-add-form's grid
     never pass it.
+
+    25-06-PLAN.md Task 2 (CFG-50): the DEPARTURES call site now passes a
+    second grid-level modifier (`theme-chip-grid--strip`) and an `id`,
+    and `_theme_carousel_html()` wraps what this function returns. THIS
+    FUNCTION IS UNCHANGED BY THAT — the carousel is a presentation
+    around its output, deliberately not a sixth seam and emphatically
+    not a fork: four call sites share this function, and a second
+    renderer is exactly how the arrivals grid and the departures grid
+    come to disagree about what a selected chip looks like.
+
+    THE OTHER THREE GRIDS ARE DELIBERATELY NOT CONVERTED, and that is a
+    recorded scope decision rather than an oversight for a later reader
+    to "finish". Arrivals, Calendar flights and the rule-add form are
+    already compact and already sit beside other controls; none of them
+    is the page-height problem X6 named. Turning four grids into four
+    carousels would multiply this file's single largest risk — the ONE
+    `@supports selector(:has(*))` block, whose specificity arithmetic is
+    marked "verified, not to be re-derived" — by four, for no height
+    gain on the three cards that were never the defect.
     """
     form_attr_html = ' form="%s"' % escape_html(radio_form_id) if radio_form_id else ""
     chips = []
@@ -1421,6 +1478,52 @@ def _theme_chip_grid_html(
         i18n.t(THEME_CHIP_SWATCH_LEGEND))
     return '<div class="%s"%s>%s%s</div>%s' % (
         grid_class, attr_html, leading_chip_html, "".join(chips), legend_html)
+
+
+def _theme_carousel_html(grid_html):
+    """25-06-PLAN.md Task 2 (CFG-50): D5's carousel, as a PRESENTATION
+    wrapped around `_theme_chip_grid_html()`'s existing output — never a
+    second chip renderer.
+
+    `grid_html` arrives already built and is interpolated UNCHANGED: the
+    same eighteen `.theme-chip` labels, the same visually-hidden native
+    radios, the same check glyphs, the same `role="radiogroup"`, and the
+    same swatch legend glued underneath the grid and outside it. This
+    function adds a wrapper, a row of colour dots, and (Task 3) a
+    disclosure and two gated pagers. It emits no chip.
+
+    THE CAROUSEL IS THE RADIO GROUP, NOT A THING BESIDE IT. The strip is
+    the grid laid out with CSS scroll-snap, which is what makes swipe
+    native; arrow keys already move selection inside a radiogroup and a
+    browser already scrolls a focused label into view. That is why this
+    control needs almost no script, and it is why nothing here has a
+    "current slide" distinct from "selected theme" — in a radio group
+    those are the same thing, and a second state is how
+    `style.css`'s one feature query comes to have a sibling.
+
+    THE DOTS ROW CARRIES EACH THEME'S OWN COLOUR AND NO SELECTION STATE
+    AT ALL, and that is a decision rather than an omission. A dots row
+    that tracked the current slide would need either a `:has()` chain
+    reaching from a checked radio in the grid to one dot in a sibling
+    row (eighteen rules, inside the one feature query whose arithmetic
+    is marked "verified, not to be re-derived") or a script; with
+    neither, a server-rendered "active dot" would be marking the SAVED
+    theme and would be visibly wrong the instant a chip is clicked with
+    scripts blocked. So each dot is that theme's own
+    `_palette_hex(departing_index)` — the identical per-theme inline
+    mechanism the chips' own `.theme-chip__dot` swatches already use,
+    never a colour literal in the stylesheet — and the row is
+    `aria-hidden`, because the chips themselves already announce all of
+    this in real text and eighteen dots after eighteen radios is noise.
+    """
+    dots = "".join(
+        '<span class="theme-chip__dot" style="background:%s"></span>' % escape_html(
+            _palette_hex(device_config.THEMES[theme_id]["departing_index"]))
+        for theme_id in device_config.THEME_IDS)
+    dots_html = (
+        '<div class="theme-carousel__dots theme-chip__swatches" aria-hidden="true">%s</div>'
+        % dots)
+    return '<div class="theme-carousel">%s%s</div>' % (grid_html, dots_html)
 
 
 def _theme_live_preview_html(current_theme_id, state_dir, extra_class=""):
@@ -1611,8 +1714,12 @@ def _frame_colours_card_html(
         current_theme_id, state_dir, extra_class="frame-colours__preview")
 
     effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
-    departures_grid_attr = 'role="radiogroup" aria-labelledby="%s"' % escape_html(
-        FRAME_COLOURS_HEADING_ID)
+    # 25-06-PLAN.md Task 2 (CFG-50): the `id` is added HERE rather than
+    # inside the renderer, because it is a property of this ONE call
+    # site — an id emitted by a function with four call sites would be
+    # four identical ids on one page.
+    departures_grid_attr = 'role="radiogroup" aria-labelledby="%s" id="%s"' % (
+        escape_html(FRAME_COLOURS_HEADING_ID), escape_html(THEME_CAROUSEL_STRIP_ID))
     # 22-10-PLAN.md Task 1 (X6): the departures grid was this page's LAST
     # full-size chip grid — eighteen 160x108 chips against the same
     # eighteen themes rendered at ~104px in the Arrivals, Calendar and
@@ -1627,13 +1734,18 @@ def _frame_colours_card_html(
     # so no selection logic changes here and none was touched.
     #
     # X6's OTHER half — "grid folded behind the big preview (dialog/
-    # drawer)" — is D5, Phase 23 (the theme carousel), and is
-    # deliberately NOT shipped here. Named so the omission reads as a
-    # scope boundary rather than a miss.
+    # drawer)" — was D5, and 25-06-PLAN.md Task 2 (CFG-50) is where it
+    # lands: the SECOND grid-level modifier below lays this one grid out
+    # as a scroll-snap strip, and `_theme_carousel_html()` wraps its
+    # output. Both are additive; the chips, their radios, their check
+    # glyphs and the swatch legend are byte-for-byte what they were, and
+    # the three other grids below are untouched.
     departures_grid = _theme_chip_grid_html(
         "theme", effective_theme_id, extra_attr=departures_grid_attr,
-        extra_class="theme-chip-grid--compact", chip_extra_class="theme-chip--compact",
+        extra_class="theme-chip-grid--compact theme-chip-grid--strip",
+        chip_extra_class="theme-chip--compact",
         radio_form_id=SETTINGS_FORM_ID)
+    departures_carousel = _theme_carousel_html(departures_grid)
     theme_error_html = _field_error_html(errors, "theme", "theme")
     departures_safe_id = (
         effective_theme_id if effective_theme_id in device_config.THEMES
@@ -1644,7 +1756,7 @@ def _frame_colours_card_html(
     departures_meta = i18n.t(device_config.theme_label(departures_safe_id))
     departures_panel = _frame_colours_usage_panel_html(
         COLOUR_USAGE_DEPARTURES, i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES]),
-        departures_grid + theme_error_html)
+        departures_carousel + theme_error_html)
 
     effective_arriving = _submitted_or_current(submitted, "theme_arriving", current_theme_arriving)
     arrivals_same_checked = not effective_arriving

@@ -105,6 +105,21 @@ CATALOG = {
     # `content: "Current"` in style.css that no catalogue could reach.
     "Current": "Actuel",
 
+    # --- 25-06-PLAN.md Task 2/3 (CFG-50): D5's theme carousel ---------
+    #     The disclosure's body says the one thing that matters about
+    #     it: nothing is hidden behind it. See
+    #     config_page._theme_carousel_html() for why the disclosure
+    #     governs the layout of the strip that follows it instead of
+    #     holding a second copy of the same eighteen radios.
+    "See all themes": "Voir tous les thèmes",
+    "Opening this lays all %d themes out at once. They are all in the "
+    "strip either way — it scrolls, and the arrow keys move through it.":
+        "L’ouvrir affiche les %d thèmes d’un seul coup. Ils sont de "
+        "toute façon tous dans la bande : elle défile, et les flèches "
+        "du clavier la parcourent.",
+    "Previous theme": "Thème précédent",
+    "Next theme": "Thème suivant",
+
     # --- The live theme preview above the chip grid (D-22..D-24,
     #     20-11-PLAN.md Task 2, 20-UI-SPEC.md copy table E) -------------
     "Live preview of the %s theme": "Aperçu en direct du thème %s",

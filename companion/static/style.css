@@ -9585,9 +9585,25 @@ button.calendar-disconnect-btn:focus-visible {
  * Flight-colours card with one preview-plus-four-row-assignment layout.
  * Zero new colour tokens: every accent/wash value below is the exact
  * literal .theme-chip--selected/.runway-card--selected already use. */
+/* 25-06-PLAN.md Task 2 (CFG-50): `minmax(0, 1fr)`, not the bare `1fr`
+ * this declared until the departures grid became a scroll-snap strip.
+ * `1fr` is `minmax(auto, 1fr)`, and an `auto` MINIMUM is the item's own
+ * min-content width — which, once one of the panels below holds a
+ * nowrap strip of eighteen 106px chips, is about 2000px. The classic
+ * grid blowout, and MEASURED on this tree rather than feared: with the
+ * bare `1fr`, documentElement.scrollWidth read 2049 against a client
+ * width of 360, i.e. the page itself scrolled sideways by 1689px.
+ *
+ * IT IS ONE HALF OF THE FIX AND THE OTHER HALF IS
+ * `.frame-colours__usage-panel`'s own `min-width: 0` (below). Each was
+ * measured ALONE and each alone leaves the 2049px blowout exactly
+ * where it was — the panel is a <fieldset>, whose UA `min-inline-size:
+ * min-content` re-introduces the same minimum one level down. Neither
+ * declaration is redundant with the other and neither may be "tidied"
+ * away on the grounds that the other exists. */
 .frame-colours__layout {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-md);
 }
 @media (min-width: 960px) {
@@ -9699,7 +9715,16 @@ input:checked + .frame-colours__row {
   padding: 0;
   margin: 0 0 var(--space-sm);
 }
+/* `min-width: 0` first, and load-bearing — see `.frame-colours__layout`
+ * above for the measurement and for why that rule's own
+ * `minmax(0, 1fr)` does not make this one redundant. A <fieldset>
+ * carries `min-inline-size: min-content` in the UA stylesheet, so
+ * without this the panel holding the scroll-snap strip is at least as
+ * wide as eighteen chips laid end to end whatever the grid track does
+ * (measured alone: documentElement.scrollWidth 2049 against a client
+ * width of 360). */
 .frame-colours__usage-panel {
+  min-width: 0;
   border: 0;
   padding: 0;
   margin: 0 0 var(--space-lg);
@@ -9725,6 +9750,55 @@ input:checked + .frame-colours__row {
   align-items: center;
   justify-content: center;
   min-height: 120px;
+}
+
+/* --- 25-06-PLAN.md Task 2 (CFG-50): D5's theme carousel ---------------
+ * The DEPARTURES chip grid, and only that one, laid out as a horizontal
+ * scroll-snap strip. Everything below is LAYOUT. Not one selected-state
+ * declaration appears here, and none may be added: the whole
+ * `.theme-chip` selected treatment lives in this file's single feature
+ * query, whose specificity arithmetic is marked "verified, not to be
+ * re-derived", and the carousel changes where a chip sits, never how a
+ * selected one looks. `.theme-chip--compact` is likewise untouched and
+ * stays size-only.
+ *
+ * SCROLL-SNAP IS WHY THIS CONTROL NEEDS ALMOST NO SCRIPT. Swipe is the
+ * browser's own overflow scrolling; arrow keys already move selection
+ * inside a radiogroup; a focused label is already scrolled into view by
+ * the browser. Nothing below is reachable only with JavaScript, which is
+ * what makes the strip work with scripts blocked.
+ *
+ * `flex-wrap: nowrap` is the strip. `overflow-x: auto` is what keeps
+ * eighteen 104px chips — about 1900px of intrinsic width — from
+ * painting past the card and giving the PAGE a horizontal scrollbar at
+ * the 360px floor; a strip that scrolls itself is allowed and the page
+ * body is not. `flex: 0 0 auto` on the chips is load-bearing in the
+ * least obvious way of all: a nowrap flex line SHRINKS its items by
+ * default, so without it eighteen chips squeeze into the card's ~330px
+ * and every one of them drops far below the touch floor rather than
+ * overflowing. */
+.theme-chip-grid--strip {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+
+.theme-chip-grid--strip > .theme-chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+/* The dots row: one dot per theme, in that theme's own departing ink,
+ * carried by the SAME `.theme-chip__dot` rule and the same
+ * `.theme-chip__swatches` row the chips' own swatches use — no new
+ * geometry, and the per-theme colour arrives as an inline style from the
+ * registry exactly as it already does on every chip, never as a literal
+ * in this file. `flex-wrap` because eighteen 12px dots plus their gaps
+ * are wider than the card's content box at the narrowest supported
+ * width, and a nowrap flex row would shrink them instead. */
+.theme-carousel__dots {
+  flex-wrap: wrap;
+  margin-top: var(--space-sm);
 }
 
 /* --- 20-UI-SPEC.md §K: the Airlines "Change pictures" toggle (D-36) ----

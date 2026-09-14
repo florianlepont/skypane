@@ -20,6 +20,7 @@ urllib). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_config_page.py
 """
+import ast
 import datetime
 import html
 import json
@@ -872,6 +873,29 @@ EXPECTED_CHECK_COUNT = 254
 # templates cannot invent a figure the server declined to state.
 # 254 + 2 = 256, re-derived by RUNNING (256/256).
 EXPECTED_CHECK_COUNT = 256
+# 25-06-PLAN.md Task 2 (CFG-50): +2 — D5's theme carousel, and neither of
+# the two is "a carousel renders". One asserts that NOTHING WAS FORKED: a
+# source scan of config_page.py finds exactly one function emitting a
+# chip <label> carrying data-preview-src (the attribute theme-preview.js
+# reads off a chip to swap the live preview, so a second renderer either
+# copies it and is caught, or silently breaks the preview for its own
+# chips), the strip keeps every class and attribute it already had and
+# gains the id its pagers name, it holds exactly len(THEME_IDS)
+# visually-hidden form-associated radios named `theme` in registry order
+# — ONE set, never the two that would put two visibly-disagreeing copies
+# of one setting in one form — no display:none appears anywhere on the
+# card, the swatch legend still renders AFTER the element carrying
+# role="radiogroup", and exactly one of the card's four grids is
+# converted. One asserts the dots row is aria-hidden, reuses the chips'
+# own swatch geometry rather than a second set of numbers, carries one
+# dot per theme in registry order painted from the registry's own
+# palette with more than one colour among them, and carries no
+# selected-state modifier at all; plus the six layout declarations the
+# strip needs and the two-part grid-blowout fix, with
+# .theme-chip--compact still declaring no selected-state rule of any
+# kind.
+# 256 + 2 = 258, re-derived by RUNNING (258/258).
+EXPECTED_CHECK_COUNT = 258
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -11309,6 +11333,256 @@ def main():
         "script that only substitutes into templates cannot invent a figure the server declined "
         "to state (CFG-49/T-25-05-C, 25-05-PLAN.md Task 2)",
         _the_readout_seam_this_card_declares_is_the_one_the_script_reads)
+
+    # ------------------------------------------------------------------
+    # 25-06-PLAN.md Task 2 (CFG-50): D5's theme carousel — the departures
+    # grid presented as a scroll-snap strip, around the ONE chip
+    # renderer.
+    # ------------------------------------------------------------------
+
+    def _the_departures_grid_is_the_one_renderer_presented_as_a_strip():
+        # THE PROPERTY UNDER TEST IS THAT NOTHING WAS FORKED. A carousel
+        # that copied _theme_chip_grid_html() would pass every markup
+        # assertion below on its own copy while the arrivals grid drifted
+        # away from it — so the first clause is a SOURCE scan for a
+        # second renderer, and the last is the three unconverted grids.
+        module_src = open(
+            os.path.join(REPO_ROOT, "companion", "pages", "config_page.py")).read()
+        module_lines = module_src.split("\n")
+        emitters = []
+        for node in ast.walk(ast.parse(module_src)):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            text = "\n".join(module_lines[node.lineno - 1:node.end_lineno])
+            # `data-preview-src` is the chip's signature: it is the
+            # attribute companion/static/theme-preview.js reads off a
+            # chip's own <label> to swap the big live preview, so a
+            # second chip renderer either emits it (and is caught here)
+            # or silently breaks the live preview for its own chips.
+            if "data-preview-src" in text and "<label" in text:
+                emitters.append(node.name)
+        if emitters != ["_theme_chip_grid_html"]:
+            return False, (
+                "expected exactly ONE function in config_page.py to emit a chip <label> "
+                "carrying data-preview-src, got %r — four call sites share that renderer, and "
+                "a second one is how the arrivals grid and the departures grid come to "
+                "disagree about what a selected chip looks like" % (emitters,))
+
+        card = config_page._frame_colours_card_html({}, "white", None, None)
+        theme_count = len(device_config.THEME_IDS)
+
+        # The strip IS the radiogroup: one grid div, carrying the
+        # compact modifier it already had, the new strip modifier, the
+        # role, and the id the pagers' aria-controls names.
+        strip_open = re.search(
+            r'<div class="([^"]*theme-chip-grid--strip[^"]*)"([^>]*)>', card)
+        if not strip_open:
+            return False, "the Frame colours card renders no .theme-chip-grid--strip at all"
+        classes = strip_open.group(1).split()
+        attrs = strip_open.group(2)
+        for required in ("theme-chip-grid", "theme-chip-grid--compact"):
+            if required not in classes:
+                return False, (
+                    "the strip's class list is %r — it dropped %r, so the carousel replaced "
+                    "the grid instead of laying it out" % (classes, required))
+        if 'role="radiogroup"' not in attrs:
+            return False, (
+                "the strip carries no role=\"radiogroup\" — %r" % (attrs,))
+        if ('id="%s"' % config_page.THEME_CAROUSEL_STRIP_ID) not in attrs:
+            return False, (
+                "the strip carries no id=%r, so the pagers' aria-controls names nothing — %r"
+                % (config_page.THEME_CAROUSEL_STRIP_ID, attrs))
+        if card.count("theme-chip-grid--strip") != 1:
+            return False, (
+                "the card renders %d strips — exactly one grid (departures) is converted"
+                % card.count("theme-chip-grid--strip"))
+
+        # The chips inside it are the renderer's own, unchanged.
+        radios = re.findall(
+            r'<input type="radio" name="theme" value="([^"]*)" class="visually-hidden"'
+            r' form="([^"]*)"', card)
+        if len(radios) != theme_count:
+            return False, (
+                "expected %d visually-hidden, form-associated radios named 'theme' in the "
+                "card, got %d — the strip must be the SAME native radio group, never a "
+                "second set" % (theme_count, len(radios)))
+        if [value for value, _form in radios] != list(device_config.THEME_IDS):
+            return False, (
+                "the strip's radios are %r, not device_config.THEME_IDS in registry order"
+                % ([value for value, _form in radios],))
+        for _value, form in radios:
+            if form != config_page.SETTINGS_FORM_ID:
+                return False, (
+                    "a strip radio carries form=%r, not %r — this card is a SIBLING of the "
+                    "settings form, so without that attribute it posts nowhere"
+                    % (form, config_page.SETTINGS_FORM_ID))
+        if "display:none" in card or "display: none" in card:
+            return False, (
+                "the card emits a display:none — a radio hidden that way leaves the tab "
+                "order, and arrow-key selection with it")
+
+        # The swatch legend still renders under the grid and OUTSIDE the
+        # element carrying role="radiogroup", with its shipped copy.
+        legend = '<p class="text-label section-caption">%s</p>' % html.escape(
+            config_page.THEME_CHIP_SWATCH_LEGEND, quote=False)
+        strip_close = card.index("</div>", strip_open.end())
+        if legend not in card:
+            return False, (
+                "the swatch legend's shipped copy %r is not in the card"
+                % (config_page.THEME_CHIP_SWATCH_LEGEND,))
+        if card.index(legend) < strip_close:
+            return False, (
+                "the swatch legend renders INSIDE the element carrying role=\"radiogroup\" — "
+                "a stray non-radio child is announced inside the group")
+
+        # And the three grids this plan deliberately did not convert.
+        for field in ("theme_arriving", "calendar_theme_id"):
+            grid = re.search(
+                r'<div class="([^"]*)"[^>]*>\s*(?:<label[^>]*>)?[^<]*'
+                r'(?=(?:.(?!</div>))*name="%s")' % re.escape(field), card, re.DOTALL)
+            if grid and "theme-chip-grid--strip" in grid.group(1):
+                return False, (
+                    "the %s grid was converted too — arrivals, calendar and rule-add are "
+                    "deliberately left alone (see _theme_chip_grid_html()'s docstring)"
+                    % field)
+        if config_page._rule_add_form_html().count("theme-chip-grid--strip"):
+            return False, "the rule-add form's own chip grid was converted too"
+        return True, ""
+    check(
+        "the departures chip grid is the ONE renderer's own output laid out as a scroll-snap "
+        "strip, never a fork: a source scan of config_page.py finds exactly one function "
+        "emitting a chip <label> with data-preview-src, the strip keeps both the base and the "
+        "compact grid classes plus role=\"radiogroup\" and the id its pagers name, it holds "
+        "exactly len(THEME_IDS) visually-hidden radios named 'theme' in registry order each "
+        "carrying form=\"settings-form\" (one set, never two), no display:none appears "
+        "anywhere on the card, the swatch legend still renders after the radiogroup with its "
+        "shipped copy, and exactly one of the card's grids is converted (CFG-50, "
+        "25-06-PLAN.md Task 2)",
+        _the_departures_grid_is_the_one_renderer_presented_as_a_strip)
+
+    def _the_carousel_dots_are_real_colours_and_the_strip_rules_are_declared():
+        card = config_page._frame_colours_card_html({}, "white", None, None)
+        theme_count = len(device_config.THEME_IDS)
+        dots_open = re.search(
+            r'<div class="theme-carousel__dots ([^"]*)" aria-hidden="true">', card)
+        if not dots_open:
+            return False, (
+                "no aria-hidden .theme-carousel__dots row is rendered — a dots row that is "
+                "announced repeats eighteen radios' state in eighteen wordless nodes")
+        if "theme-chip__swatches" not in dots_open.group(1).split():
+            return False, (
+                "the dots row does not reuse .theme-chip__swatches (%r) — a second swatch-row "
+                "geometry is a second set of numbers to keep in step"
+                % (dots_open.group(1),))
+        row_end = card.index("</div>", dots_open.end())
+        row = card[dots_open.end():row_end]
+        found = re.findall(
+            r'<span class="theme-chip__dot" style="background:([^"]*)"></span>', row)
+        expected = [
+            config_page._palette_hex(device_config.THEMES[t]["departing_index"])
+            for t in device_config.THEME_IDS]
+        if found != expected:
+            return False, (
+                "the dots row carries %r, expected one dot per theme in registry order "
+                "carrying that theme's own _palette_hex(departing_index) %r — a dot row that "
+                "is not the registry's own colours is decoration measuring nothing"
+                % (found, expected))
+        if len(found) != theme_count:
+            return False, (
+                "expected %d dots, got %d" % (theme_count, len(found)))
+        # AND MORE THAN ONE COLOUR IN THE ROW, WHICH IS THE FLOOR RATHER
+        # THAN THE CEILING. Measured on this registry while writing this
+        # check: every one of the eighteen themes has
+        # `departing_index == arriving_index`, and the eighteen resolve to
+        # only SEVEN distinct hexes. So "the dots carry the departing ink"
+        # and "the dots carry the arriving ink" are the same assertion
+        # here — swapping one for the other in the renderer changes not a
+        # byte of output, and was run and confirmed to change nothing.
+        # What a wrong implementation WOULD do is read one fixed palette
+        # index for every dot, which this clause and the equality above
+        # both catch.
+        if len(set(found)) < 2:
+            return False, (
+                "all %d dots are the same colour (%r) — the row is reading one fixed palette "
+                "index rather than each theme's own" % (len(found), found[:1]))
+        # NO SELECTION STATE, ASSERTED AS A FLOOR RATHER THAN LEFT
+        # IMPLIED. A server-rendered "active dot" would be marking the
+        # SAVED theme and would be visibly wrong the instant a chip is
+        # clicked with scripts blocked; see _theme_carousel_html()'s
+        # docstring for the whole argument.
+        if "theme-carousel__dot--" in card or "--selected" in row:
+            return False, (
+                "a dot carries a selected-state modifier — with no script and no :has() chain "
+                "it can only ever mark the SAVED theme, and would be wrong the moment a "
+                "different chip is clicked")
+
+        source = _read_static("style.css")
+        strip_rules = {
+            ".theme-chip-grid--strip {": (
+                "flex-wrap: nowrap;", "overflow-x: auto;",
+                "scroll-snap-type: x mandatory;"),
+            ".theme-chip-grid--strip > .theme-chip {": (
+                "flex: 0 0 auto;", "scroll-snap-align: start;"),
+            ".theme-carousel__dots {": (
+                "flex-wrap: wrap;", "margin-top: var(--space-sm);"),
+            # THE TWO HALVES OF THE GRID-BLOWOUT FIX, pinned here
+            # because each of them looks redundant beside the other and
+            # neither is. Measured on this tree with the strip in place:
+            # with only one of the two, documentElement.scrollWidth read
+            # 2049 against a client width of 360 — the page itself
+            # scrolling sideways by 1689px, which is the floor CFG-52
+            # forbids. `1fr` is `minmax(auto, 1fr)` and an auto minimum
+            # is the item's min-content; a <fieldset> re-introduces the
+            # same minimum one level down through the UA's own
+            # `min-inline-size: min-content`. The browser harness
+            # measures the OUTCOME; this pins the two declarations that
+            # produce it, so deleting either fails here as well.
+            ".frame-colours__layout {": ("grid-template-columns: minmax(0, 1fr);",),
+            ".frame-colours__usage-panel {": ("min-width: 0;",),
+        }
+        for selector, declarations in strip_rules.items():
+            if selector not in source:
+                return False, "style.css declares no %s rule" % selector.rstrip(" {")
+            body = source[source.index(selector) + len(selector):]
+            body = body[:body.index("}")]
+            for declaration in declarations:
+                if declaration not in body:
+                    return False, (
+                        "%s does not declare %r — %r"
+                        % (selector.rstrip(" {"), declaration, body.strip()))
+
+        # .theme-chip--compact STAYS SIZE-ONLY. The design system records
+        # that every selected-state rule reaches a compact chip from the
+        # BASE selectors automatically; one rule here and that contract
+        # is broken silently.
+        # COMMENTS STRIPPED FIRST, and that is not tidiness: the block
+        # comment ABOVE `.theme-chip--compact` explains at length why the
+        # modifier declares no `:has(input:checked)` rule, so a scan over
+        # the raw source reports the rule's own justification as the
+        # violation. Measured — this check failed exactly that way once.
+        rules = re.sub(r"/\*.*?\*/", " ", source, flags=re.DOTALL)
+        for match in re.finditer(r"([^{}]*)\{([^{}]*)\}", rules):
+            selector, body = match.group(1), match.group(2)
+            if "theme-chip--compact" not in selector:
+                continue
+            for banned in ("--selected", ":checked", ":has("):
+                if banned in selector:
+                    return False, (
+                        "a .theme-chip--compact rule carries %r in its selector (%r) — the "
+                        "compact modifier is SIZE-ONLY and inherits every selected-state rule "
+                        "from the base .theme-chip selectors"
+                        % (banned, selector.strip()))
+        return True, ""
+    check(
+        "the carousel's dots row is aria-hidden, reuses .theme-chip__swatches/.theme-chip__dot "
+        "rather than inventing a second swatch geometry, carries exactly one dot per theme in "
+        "registry order painted with that theme's OWN _palette_hex(departing_index), and "
+        "carries no selected-state modifier at all (with no script and no :has() chain it "
+        "could only ever mark the SAVED theme); and style.css declares the strip's nowrap / "
+        "overflow-x / scroll-snap-type, its chips' flex: 0 0 auto and scroll-snap-align, and "
+        "the dots row's own wrap and top margin — with .theme-chip--compact still declaring no "
+        "selected-state rule of any kind (CFG-50/CFG-52, 25-06-PLAN.md Task 2)",
+        _the_carousel_dots_are_real_colours_and_the_strip_rules_are_declared)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
