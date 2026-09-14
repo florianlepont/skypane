@@ -963,6 +963,180 @@ def _set_ui_theme(page, theme):
             "text": settled["text"]}
 
 
+# The values Chromium computes for the SVG paint properties when NOTHING
+# in the cascade reaches the element — the SVG initial values (`fill:
+# black`, `stroke: none`). This pair is the signature of the exact defect
+# the drawing plans exist to catch: a shape that inherited no colour and
+# painted the SVG default instead of a theme token.
+#
+# `rgb(0, 0, 0)` is a usable sentinel on THIS app specifically, and that
+# is a measured fact rather than an assumption: neither theme's
+# --color-text is pure black (light #17191F -> rgb(23, 25, 31), dark
+# #F1F3F6 -> rgb(241, 243, 246)), so a shape meant to be painted by a
+# token can never legitimately land on it.
+SVG_DEFAULT_PAINT = {"fill": "rgb(0, 0, 0)", "stroke": "none"}
+
+_PAINT_PROBE = (
+    "args => {"
+    "  const el = document.querySelector(args.selector);"
+    "  if (!el) return null;"
+    "  const s = getComputedStyle(el);"
+    "  const out = {};"
+    "  args.props.forEach(p => { out[p] = s.getPropertyValue(p); });"
+    "  return out;"
+    "}")
+
+
+def _computed_paint(page, selector, props=("fill", "stroke", "color")):
+    """Read the RESOLVED paint the browser computed for the first element
+    matching `selector` — never the attribute, never the class.
+
+    Returns {"selector", <prop>: value, ..., "svg_default": (props,)}.
+
+    WHAT THIS BUYS OVER A SOURCE SCAN, which is the only reason it is
+    worth the browser it costs. A scan of the rendered markup can see
+    that a `<line>` carries `class="sparkline-line"`; it cannot see what
+    that class RESOLVES to. getComputedStyle has already run the cascade,
+    resolved `currentColor` against the inherited `color`, and
+    substituted the theme's custom property — so this is the only thing
+    in the repository that can tell a shape painted by a token from a
+    shape painted by the SVG default. Measured live on
+    `.sparkline-line`, whose rule is `stroke: currentColor`: light
+    resolves stroke to rgb(23, 25, 31), dark to rgb(241, 243, 246), and
+    the same element with its class removed resolves to stroke `none`
+    with fill `rgb(0, 0, 0)`. No source scan distinguishes those three.
+
+    `svg_default` names, for the caller, every requested property whose
+    resolved value is indistinguishable from that property's SVG initial
+    value — so four plans do not each have to recognise the defect for
+    themselves and then each get the sentinel slightly different. Read it
+    for what it says: INDISTINGUISHABLE FROM THE INITIAL VALUE. A shape
+    that legitimately declares `stroke: none` (a fill-only shape) reports
+    `stroke` here too, which is correct and not a false positive — a
+    caller asserting "this must be token-painted" should assert on the
+    property it expects to carry the token, and `.sparkline-line`'s own
+    `fill: none` is exactly why this helper reports properties rather
+    than a single verdict.
+
+    Raises rather than returning a sentinel when the selector matches
+    nothing. This file's checks guard against measuring an empty page
+    everywhere they can ("with none, this check measures nothing"), and a
+    returned `None` is a guard each of four call sites has to REMEMBER;
+    an exception is one they cannot forget, and `check()` above turns it
+    into a named FAIL rather than a swallowed pass.
+    """
+    props = tuple(props)
+    seen = page.evaluate(
+        _PAINT_PROBE, {"selector": selector, "props": list(props)})
+    if seen is None:
+        raise AssertionError(
+            "_computed_paint: no element matched %r on %s — with none, this "
+            "measures nothing" % (selector, page.url))
+    out = {"selector": selector}
+    defaulted = []
+    for prop in props:
+        value = seen.get(prop)
+        out[prop] = value
+        if prop in SVG_DEFAULT_PAINT and value == SVG_DEFAULT_PAINT[prop]:
+            defaulted.append(prop)
+    out["svg_default"] = tuple(defaulted)
+    return out
+
+
+# WHICH BOX MEANS "THE PAGE". `document.documentElement`, matching the
+# two page-level overflow checks this file already carries
+# (`_home_paints_nothing_outside_the_viewport_or_its_cards` and
+# `_every_disclosure_on_every_page_opens_without_overflow`, both of which
+# compare documentElement.scrollWidth against the viewport) — a third
+# convention in the same file is how three checks come to disagree about
+# what "the page" means.
+#
+# Measured before choosing, not assumed: at 360/390/1280 on Health with
+# every disclosure open, `document.body` and `document.documentElement`
+# report the SAME pair of numbers, clean (360/360) and with a 2000px
+# element appended to <body> (2000/360). body's own `overflow-x: hidden`
+# (style.css's body rule, UXA-01's guaranteed fix) does NOT clip its own
+# scrollWidth, because CSS propagates a body overflow to the viewport
+# when <html>'s is `visible` and leaves body's own used value `visible`.
+# So the two boxes agree today and the choice is settled by consistency
+# with the file's existing checks rather than by a measured difference.
+#
+# THE DELIBERATELY-SCROLLABLE WRAP IS NOT A PAGE OVERFLOW, and this
+# helper gets that right by construction rather than by a special case:
+# 260913-cz6 recorded that a `.data-table-wrap` overflowing its own box
+# leaves documentElement.scrollWidth EXACTLY unmoved, and that was
+# re-measured here — a 2000px element appended INSIDE a
+# `.data-table-wrap` takes that wrap from 278 to 2000 while the document
+# stays at 360/360 and this helper reports clean. `_health_tables_fit_
+# their_wraps_with_every_disclosure_open` is the check that owns the
+# wrap-level question; this helper must not contradict it, and does not.
+#
+# The escaped-element list is DIAGNOSTIC ONLY and is never an independent
+# failure condition. CFG-45's wording is "no horizontal scrollbar on the
+# page body", so that — and only that — is what this helper asserts; a
+# helper that quietly also failed on content escaping an
+# `overflow: hidden` card would be doing more than its name says to four
+# calling plans. Naming what escaped is still what makes the failure
+# actionable, so it rides along in the message.
+_PAGE_OVERFLOW_PROBE = (
+    "() => {"
+    "  const vw = document.documentElement.clientWidth;"
+    "  const escaped = [];"
+    "  document.querySelectorAll('*').forEach(el => {"
+    "    const r = el.getBoundingClientRect();"
+    "    if (r.width > 0 && r.right > vw + 0.5)"
+    "      escaped.push(el.className.toString().trim() || el.tagName);"
+    "  });"
+    "  return {sw: document.documentElement.scrollWidth,"
+    "          cw: vw,"
+    "          escaped: [...new Set(escaped)].slice(0, 12)};"
+    "}")
+
+
+def _assert_no_page_overflow(page, where, expected_width=None):
+    """Whether the page itself scrolls horizontally. Returns "" when it
+    does not, and a finished failure sentence naming BOTH measurements
+    when it does — the `_assert_clean` idiom this file already uses for
+    exactly this job, so a caller writes `msg = ...; if msg: return
+    False, msg` and every drawing plan's overflow failure reads the same.
+
+    `where` names the surface being measured and nothing else — a route
+    or page name ("Home", "/health in fr"). The width is appended by this
+    helper from its own measurement, matching the existing checks'
+    "%s scrolls sideways at %dpx" wording, so a caller that folds the
+    width into `where` gets it twice.
+
+    `expected_width` is optional and, when given, asserts the measurement
+    was really taken at the viewport the caller believes it built — the
+    same "expected the measurement to be taken at %dpx" guard both
+    existing overflow checks spell out by hand, so a context that
+    silently came up at another size cannot produce a green measurement.
+
+    The comparison is documentElement.scrollWidth against
+    documentElement.clientWidth, strictly greater, no tolerance. The two
+    existing page-level checks compare against the width they REQUESTED
+    because they have one in scope; a helper handed only a page does not,
+    and clientWidth is the same number in every measurement this file has
+    ever taken (360/360, 390/390, 1280/1280 — re-measured on this tree).
+    It is also the viewport's own content box, which is the box a
+    horizontal scrollbar would appear for, and the number both existing
+    checks already print beside scrollWidth in their own messages.
+    """
+    seen = page.evaluate(_PAGE_OVERFLOW_PROBE)
+    if expected_width is not None and seen["cw"] != expected_width:
+        return (
+            "%s: expected the measurement to be taken at %dpx, the document "
+            "reports a client width of %d"
+            % (where, expected_width, seen["cw"]))
+    if seen["sw"] > seen["cw"]:
+        return (
+            "%s scrolls sideways at %dpx: documentElement.scrollWidth %d "
+            "against a client width of %d, painted past the right edge by "
+            "%r (CFG-45's page-body floor)"
+            % (where, seen["cw"], seen["sw"], seen["cw"], seen["escaped"]))
+    return ""
+
+
 def main():
     try:
         from playwright.sync_api import sync_playwright
