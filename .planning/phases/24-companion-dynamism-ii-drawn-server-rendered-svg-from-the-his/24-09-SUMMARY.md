@@ -413,11 +413,15 @@ Both entries are now in the ledger rather than stranded in a phase-local file.
 1. **`the live theme preview CROSSFADES…`** — logged by 24-05 as an intermittent seen
    only in mutation runs; it has since appeared in a **clean CI run** on `2520a21`
    (browser-ux 64/65), so it is genuinely flaky rather than a curiosity. **The
-   orchestrator is fixing it in parallel**, changing that one check to wait for
-   `transitionrun` instead of sampling at a guessed instant; `EXPECTED_CHECK_COUNT` does
-   not move (65 stays 65). **The fix is the orchestrator's and is credited as such**;
-   24-09 did not edit `companion/test_browser_ux.py`. **It did not fire in either of this
-   gate's two runs** (65/65 both times).
+   orchestrator fixed it in parallel** — `7fa619f`, *"the crossfade check waits for the
+   transition instead of guessing when to look"*, which landed between this plan's second
+   and third commits and touches `companion/test_browser_ux.py` alone (+60/-22).
+   `EXPECTED_CHECK_COUNT` did not move (65 stays 65, verified after it landed). **The fix
+   is the orchestrator's and is credited as such**; 24-09 did not edit that file. **It did
+   not fire in either of this gate's two runs** (65/65 both times), both of which were
+   measured on the tree *before* `7fa619f`; since that commit changes only how one
+   already-passing check waits, the gate's numbers are unaffected, and the sequencing is
+   recorded rather than glossed.
 2. **`…the reminder stays within 48px…`** — failed once at **48.1875**, a 0.19px
    overshoot of a hard ceiling; a sub-pixel text-metric boundary. **Still open and still
    nobody's**, with the decision it needs stated in the ledger. It did not fire in either

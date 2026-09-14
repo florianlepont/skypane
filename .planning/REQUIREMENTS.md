@@ -530,11 +530,16 @@ recorded them, and neither touches any drawing this phase shipped.
    landed before the transition painted. **Promoted from intermittent to a real fix during
    this phase gate:** it has since appeared in a clean CI run on `2520a21`
    (browser-ux 64/65), so it is a genuinely flaky check rather than a curiosity, and the
-   **orchestrator** is changing that one check to wait for the `transitionrun` event
-   instead of sampling at a guessed instant. `EXPECTED_CHECK_COUNT` does not move (65
-   stays 65) — a method change to one existing check, not a new one. **The fix is the
-   orchestrator's, not 24-09's**, and 24-09 did not edit `companion/test_browser_ux.py`.
-   It did not fire in either of this gate's runs.
+   **orchestrator** fixed that one check to wait for the `transitionrun` event
+   instead of sampling at a guessed instant — landed as `7fa619f`, *"the crossfade check
+   waits for the transition instead of guessing when to look"*, +60/-22 in
+   `companion/test_browser_ux.py` alone. `EXPECTED_CHECK_COUNT` did not move (65 stays
+   65, verified after the fact) — a method change to one existing check, not a new one.
+   **The fix is the orchestrator's, not 24-09's**, and 24-09 did not edit
+   `companion/test_browser_ux.py`. It did not fire in either of this gate's runs, both of
+   which were measured on the tree **before** `7fa619f` landed; since that commit changes
+   only how one already-passing check waits, the gate's numbers are unaffected, and this
+   sequencing is recorded rather than glossed.
 2. **`…the reminder stays within 48px…`** (B10/X9/D-04, 22-14) — failed once at
    **48.1875**, a 0.19px overshoot of a hard ceiling; a sub-pixel text-metric boundary
    rather than a layout change. **Still open and still nobody's.** It did not fire in
