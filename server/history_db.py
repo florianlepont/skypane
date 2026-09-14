@@ -361,7 +361,7 @@ def check_in_gaps(conn, since=None):
 
     WHAT THIS READER CANNOT KNOW (24-RESEARCH.md Risk 1 - this travels with
     the data, not only with whatever caption is drawn from it; it is also
-    why no name in this codebase calls the result an honoured-wake rate):
+    why nothing here is named as a RATE OF WAKES THE DEVICE KEPT):
 
     - A LOG RANGE THE INGEST MISSED IS INDISTINGUISHABLE FROM A MISSED
       WAKE. `ingest_caddy_battery_log()` recovers a rotate-in-place (it
@@ -385,8 +385,8 @@ def check_in_gaps(conn, since=None):
     definition of "late" in this codebase and `wake.classify_check_in_gap()`
     is its one application to these intervals - kept in `wake.py` so the
     Frame tile and any grid drawn from these rows can never disagree, and
-    so this module stays the leaf its own header promises (it must not
-    import `device_config`, which `wake.py` does).
+    so this module stays the stdlib-only leaf its own header promises (it
+    must not import `device_config`, which `wake.py` does).
     """
     if since is not None:
         rows = conn.execute(

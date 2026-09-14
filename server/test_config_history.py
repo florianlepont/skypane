@@ -2160,8 +2160,6 @@ def main():
     # function, not two consistent copies. These checks live in this
     # harness because it is this plan's harness for the reader they judge.
 
-    import inspect
-
     import server.wake as wake
 
     def _classify_check_in_gap_boundaries_on_the_multiplier_path():
@@ -2236,13 +2234,32 @@ def main():
     )
 
     def _classify_check_in_gap_reuses_the_one_threshold_function():
-        source = inspect.getsource(wake.classify_check_in_gap)
-        if "device_staleness_thresholds(" not in source:
-            return False, "classify_check_in_gap() does not derive its thresholds from device_staleness_thresholds()"
+        # Read off the COMPILED function, not its source text: co_names is
+        # exactly the set of global names the body references, so a prose
+        # mention in the docstring cannot pass or fail this, and co_consts
+        # catches a re-typing that inlined the literals instead of the
+        # names.
+        code = wake.classify_check_in_gap.__code__
+        names = set(code.co_names)
+        if "device_staleness_thresholds" not in names:
+            return False, (
+                "classify_check_in_gap()'s body never calls device_staleness_thresholds() - it "
+                "references %r" % (sorted(names),)
+            )
         for name in ("MISSED_WAKES_WARN", "MISSED_WAKES_ERROR", "STALE_WARN_FLOOR_S", "STALE_ERROR_FLOOR_S"):
-            if name in source:
-                return False, "classify_check_in_gap() re-types %s instead of reusing the shared pair" % (name,)
-        if "device_config" in source or "load_device_config" in source:
+            if name in names:
+                return False, "classify_check_in_gap() re-references %s instead of reusing the shared pair" % (name,)
+        inlined = {
+            value for value in code.co_consts
+            if value in (wake.MISSED_WAKES_WARN, wake.MISSED_WAKES_ERROR,
+                         wake.STALE_WARN_FLOOR_S, wake.STALE_ERROR_FLOOR_S)
+        }
+        if inlined:
+            return False, (
+                "classify_check_in_gap() inlines the multipliers/floors as literals %r instead of "
+                "reusing the shared pair" % (sorted(inlined),)
+            )
+        if "device_config" in names or "load_device_config" in names:
             return False, (
                 "classify_check_in_gap() reads the config itself - the cadence must be an argument so a "
                 "caller can state WHICH cadence its drawing was judged against"
