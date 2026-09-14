@@ -95,9 +95,16 @@ def history_db_path(state_dir):
 
 
 def init_schema(conn):
-    """Create all three tables (and their indexes/constraints) with
+    """Create all four tables (and their indexes/constraints) with
     IF NOT EXISTS, so both the poll oneshot and the companion service can
     call this safely on every connection.
+
+    That last sentence is this project's ENTIRE migration story: there is
+    no schema version stamp and no in-place table alteration anywhere in
+    the tree (a pinned property - the harness greps this file for both).
+    It is why `wake_epochs` below could be added as a fourth TABLE at no
+    cost at all, and why the same data as a new COLUMN on `device_health`
+    could not have been (24-RESEARCH.md Risk 1, Options A and C).
     """
     conn.execute(
         "CREATE TABLE IF NOT EXISTS runway_events ("
@@ -139,6 +146,41 @@ def init_schema(conn):
         "key TEXT PRIMARY KEY, "
         "value TEXT NOT NULL, "
         "updated_at TEXT NOT NULL"
+        ")"
+    )
+    # 24-03-PLAN.md Task 3 (CFG-43). One row per CHANGE in the device's
+    # effective wake interval, and the instant that new interval took
+    # effect. Three things justify it, all three load-bearing:
+    #
+    #   1. A NEW TABLE COSTS NO MIGRATION. This function runs on every
+    #      connection from both processes (see its docstring), so the
+    #      table simply exists on the next connect - for the poll oneshot
+    #      and the long-lived companion alike, with no version stamp and
+    #      no coordination between them.
+    #   2. A NEW COLUMN WOULD NOT HAVE BEEN FREE. Recording the same
+    #      thing as `device_health.expected_interval_s` would have
+    #      required inventing this project's first SQLite migration
+    #      mechanism, and getting it right for a database two processes
+    #      open concurrently under WAL. That is why the epoch is a table
+    #      and not a column.
+    #   3. NOTHING READS IT YET, deliberately. It exists so a LATER phase
+    #      can upgrade D20's metric from observed check-in regularity to a
+    #      genuine rate of wakes kept, over the window these epochs cover.
+    #      No drawing in phase 24 pretends they already exist; if any
+    #      drawing read this table it would be blank until the epochs
+    #      accrue, which is exactly the failure mode changing the metric
+    #      avoided (24-RESEARCH.md Risk 1, Option C).
+    #
+    # `wake_interval_s` is nullable ON PURPOSE: `wake.effective_wake_
+    # interval_s()` legitimately returns None when the cadence cannot be
+    # determined at all, and a NULL epoch records "from here, unknown"
+    # rather than letting a future reader infer the previous interval
+    # silently continued.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS wake_epochs ("
+        "id INTEGER PRIMARY KEY, "
+        "ts TEXT NOT NULL, "
+        "wake_interval_s INTEGER"
         ")"
     )
     conn.commit()
@@ -210,6 +252,48 @@ def record_device_health(conn, ts, battery_mv=None, fw_version=None, boot_reason
     return cur.rowcount
 
 
+def record_wake_epoch(conn, ts, wake_interval_s):
+    """(24-03-PLAN.md Task 3, CFG-43) Record that the device's effective
+    wake interval became `wake_interval_s` at `ts` - but ONLY when that
+    differs from the newest row already stored. Returns the number of rows
+    actually inserted (0 or 1).
+
+    The dedupe is the whole point, and it is Pitfall 1's rule applied to a
+    fourth table: the caller is a `Type=oneshot` unit under a 30-second
+    timer, so roughly 2,880 cycles a day pass through here. An
+    unconditional insert would add 2,880 rows a day carrying no
+    information whatsoever; only a CHANGE is an epoch.
+
+    `wake_interval_s=None` (the cadence cannot be determined) is a
+    DISTINCT value, not a continuation: `None` following a stored 600
+    inserts, and `None` following a stored NULL does not. A later reader
+    must not be told the frame was still on its old cadence when nothing
+    said so.
+
+    Comparison is against the newest row by `id` - insertion order - not
+    by `ts`, because `ts` here is the poll cycle's own `now_iso` and `id`
+    is the order the epochs were actually recorded. Concurrency: in
+    practice the poll oneshot is the only writer and its cycles are
+    serialised by the systemd timer, so the read-then-insert cannot
+    interleave with itself; were a second writer ever added, the worst
+    case is a duplicate epoch row, never a lost or corrupted one.
+
+    Nothing in phase 24 reads this table - see the schema comment in
+    `init_schema()` above for why it exists anyway.
+    """
+    newest = conn.execute(
+        "SELECT wake_interval_s FROM wake_epochs ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if newest is not None and newest[0] == wake_interval_s:
+        return 0
+    conn.execute(
+        "INSERT INTO wake_epochs (ts, wake_interval_s) VALUES (?, ?)",
+        (ts, wake_interval_s),
+    )
+    conn.commit()
+    return 1
+
+
 # --- Readers ---------------------------------------------------------------
 
 
@@ -273,12 +357,17 @@ def latest_device_health(conn):
     return dict(row) if row is not None else None
 
 
-def _paris_day_or_none(ts):
-    """Parse a stored `device_health.ts` string and return the `date` of its
-    Europe/Paris calendar day, or `None` if `ts` does not parse. A naive
-    `ts` (no UTC offset) is taken as UTC before converting - the same
-    assumption SQLite's `date()` made, so a `2026-09-02T01:30:00+02:00`
-    reading still buckets to `2026-09-02` in Paris, not `2026-09-01` in UTC.
+def _instant_or_none(ts):
+    """Parse a stored `device_health.ts` string into a timezone-aware UTC
+    `datetime`, or `None` if it does not parse. A naive `ts` (no UTC
+    offset) is taken as UTC.
+
+    The ONE parse path in this module: `_paris_day_or_none()` below and
+    `check_in_gaps()` further down both go through it, so a timestamp that
+    buckets to a given Paris day can never simultaneously fail to date an
+    interval on that same day. `ts` is `TEXT NOT NULL` but otherwise
+    unvalidated and attacker-influenceable (see `tail_caddy_battery_log()`
+    below), so every caller must handle the `None` return.
     """
     try:
         parsed = datetime.fromisoformat(ts)
@@ -286,7 +375,132 @@ def _paris_day_or_none(ts):
         return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _paris_day_or_none(ts):
+    """Parse a stored `device_health.ts` string and return the `date` of its
+    Europe/Paris calendar day, or `None` if `ts` does not parse. A naive
+    `ts` (no UTC offset) is taken as UTC before converting - the same
+    assumption SQLite's `date()` made, so a `2026-09-02T01:30:00+02:00`
+    reading still buckets to `2026-09-02` in Paris, not `2026-09-01` in UTC.
+    """
+    parsed = _instant_or_none(ts)
+    if parsed is None:
+        return None
     return parsed.astimezone(ZoneInfo("Europe/Paris")).date()
+
+
+def check_in_gaps(conn, since=None):
+    """(24-03-PLAN.md Task 1, CFG-43) The OBSERVED intervals between
+    consecutive `device_health` check-ins, oldest-first, one dict per
+    interval:
+
+        {"ts": <the later check-in's stored ts>,
+         "from_ts": <the earlier check-in's stored ts>,
+         "gap_s": <int seconds, or None when the span is undatable>,
+         "day": <"YYYY-MM-DD" Europe/Paris day of `ts`, or None>}
+
+    The key is deliberately named `ts`, not `to_ts` - the same
+    row-shape-as-contract rule `daily_battery_averages()` states above:
+    one emitter can bucket these rows by day alongside the battery rows
+    with no adapter layer, and `day` comes from `_paris_day_or_none()`, the
+    one Paris-day conversion in this module, so a grid drawn from these
+    intervals and a chart drawn from the battery averages cannot disagree
+    about which day a reading belongs to.
+
+    `since`, when given, is an ISO-8601 string compared raw against `ts` in
+    SQL through a `?` placeholder - the same `since` vocabulary and the
+    same index-preserving shape `daily_battery_averages(conn, since=...)`
+    uses, never a `date()` call wrapped around the left-hand side.  Like
+    every other `since` in this codebase it is a DISPLAY window, never a
+    retention bound: nothing is deleted (D-13).
+
+    NO `battery_mv` FILTER, deliberately. A row whose `battery_mv` is NULL
+    is a real check-in whose `X-Battery-Mv` header was absent or
+    unparseable - `ingest_caddy_battery_log()` keeps one row per
+    `/device/v1/display` access-log entry, not one per battery reading.
+    Applying the `battery_mv IS NOT NULL` filter `daily_battery_averages()`
+    legitimately uses would silently merge the intervals either side of
+    such a row into one long gap, inventing a missed wake out of a missing
+    HTTP header.
+
+    ORDERED BY INGEST (`id`), not by `ts`. The SQL window predicate and
+    ordering still run on `ts` so `idx_device_health_ts` is used, but the
+    series is re-sorted by `id` in Python before intervals are taken,
+    because `id` is assigned by `ingest_caddy_battery_log()` in the order
+    Caddy appended the lines, whereas `ts` is attacker-influenceable. A
+    hostile or malformed timestamp therefore cannot reorder the series
+    around itself; it can only make the spans it bounds undatable.
+
+    An interval is reported with `gap_s = None` - unknown, never a number -
+    whenever either bound's `ts` does not parse, and whenever the later
+    bound parses EARLIER than the earlier bound (a timestamp out of ingest
+    order: its duration is not knowable). Dropping the offending row
+    instead would merge two real intervals into one long false one that
+    renders as a missed wake that never happened.
+
+    Fewer than two rows in the window bounds no interval at all and returns
+    `[]`. Nothing here raises.
+
+    WHAT THIS READER CANNOT KNOW (24-RESEARCH.md Risk 1 - this travels with
+    the data, not only with whatever caption is drawn from it; it is also
+    why nothing here is named as a RATE OF WAKES THE DEVICE KEPT):
+
+    - A LOG RANGE THE INGEST MISSED IS INDISTINGUISHABLE FROM A MISSED
+      WAKE. `ingest_caddy_battery_log()` recovers a rotate-in-place (it
+      resets its offset to 0 when the file is shorter than the stored
+      offset) but cannot recover a rotation that moved the old file away
+      between two ingests: that range is simply gone, and the resulting
+      hole in `device_health` looks exactly like a device that did not wake
+      up. No schema change recovers it. Related: `meta.caddy_log_offset` is
+      the only ingest state kept, so "no rows in this window" cannot be
+      distinguished from "the ingest did not run in this window" either.
+    - `UNIQUE(ts, battery_mv)` CAN COLLAPSE TWO GENUINE CHECK-INS into one
+      row - but only when they share a whole second AND a millivolt
+      reading. `device_config.WAKE_INTERVAL_MIN_S` is 60, so two real
+      consecutive wakes are at least 60 seconds apart at any configurable
+      cadence and cannot land in the same second: at any cadence this
+      deployment can be configured to, the collapse cannot lose a real
+      wake. That is a provable bound, not a hope.
+
+    Finally, this reader returns raw observed gaps and deliberately
+    classifies nothing. `wake.device_staleness_thresholds()` is the single
+    definition of "late" in this codebase and `wake.classify_check_in_gap()`
+    is its one application to these intervals - kept in `wake.py` so the
+    Frame tile and any grid drawn from these rows can never disagree, and
+    so this module stays the stdlib-only leaf its own header promises (it
+    must not import `device_config`, which `wake.py` does).
+    """
+    if since is not None:
+        rows = conn.execute(
+            "SELECT id, ts FROM device_health WHERE ts >= ? ORDER BY ts ASC, id ASC",
+            (since,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT id, ts FROM device_health ORDER BY ts ASC, id ASC"
+        ).fetchall()
+
+    series = sorted(rows, key=lambda row: row["id"])
+
+    gaps = []
+    for earlier, later in zip(series, series[1:]):
+        start = _instant_or_none(earlier["ts"])
+        end = _instant_or_none(later["ts"])
+        if start is None or end is None:
+            gap_s = None
+        else:
+            delta = (end - start).total_seconds()
+            gap_s = int(round(delta)) if delta >= 0 else None
+        day = _paris_day_or_none(later["ts"])
+        gaps.append({
+            "ts": later["ts"],
+            "from_ts": earlier["ts"],
+            "gap_s": gap_s,
+            "day": day.isoformat() if day is not None else None,
+        })
+    return gaps
 
 
 def daily_battery_averages(conn, since=None):

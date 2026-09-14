@@ -22,22 +22,29 @@ Like every page module this one imports nothing from a sibling page
 module (companion/pages/__init__.py's boundary). The status verdicts it
 renders come straight from `ctx["health_state"]` (already computed once
 per request by companion/app.py) and the recent-flight rows from one
-`history_db` read of its own — the SAME read now feeds both the hero
-row's flight one-liner and the recent-flights list, so the hero's own
-"current flight" costs no second query (D-20).
+`history_db` read of its own — the SAME read now feeds both the
+current picture's flight one-liner and the recent-flights list, so the
+picture's own "current flight" costs no second query (D-20).
+
+24-08-PLAN.md Task 1 (CFG-44) groups the first three of those — the
+strip, the tiles and the day band — into ONE composition, `_hero_html()`
+below. That function is the only thing on this page that means "hero";
+the current-picture figure was renamed out of the word to keep it so.
 
 Everything dynamic passes through `layout.escape_html()`.
 """
 import html
 import re
+from datetime import datetime, time, timedelta
 
 import companion.battery as battery
+import companion.draw as draw
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.wake as wake
 from companion.layout import escape_html
-from server import history_db
+from server import device_config, history_db
 from server.plane import illustrations
 # 22-07-PLAN.md Task 1 (X4): the SAME presentation-only airline alias
 # Flights already applies via `companion/pages/history_page.py`'s own
@@ -61,6 +68,41 @@ NO_FLIGHTS_BODY = (
     "The first aircraft the frame detects on the watched runway will "
     "appear here.")
 FLIGHTS_ROUTE = "/flights"
+
+# --- the day band (CFG-42, 24-06-PLAN.md Task 2) -----------------------
+#
+# Home tells you what the frame will do NEXT. The band is the only thing
+# on this page that says what it has been DOING, and it is a whole day of
+# it at a glance: has it been waking normally, and when was it asleep.
+#
+# The read is bounded, and the bound is a correctness constraint rather
+# than a performance one. `recent_device_health()` returns the newest N
+# rows, so a limit smaller than a day's check-ins would silently hand the
+# band the last few HOURS and let it caption them as the day. 3000 is a
+# 60-second cadence's 1 440 rows with room for the previous day's tail
+# (this reads the newest rows, not a day's worth) and better than double
+# the headroom besides; `_day_band_html()` below also detects the
+# truncation case and stops the caption claiming a total.
+DAY_BAND_ROW_LIMIT = 3000
+
+DAY_BAND_HEADING = "Today"
+# The canvas's accessible name. The band IS the only statement of this
+# data — the caption beneath it says the count, not the shape — so it is
+# a named group rather than aria-hidden (draw.percent_canvas()'s own
+# two-way contract).
+DAY_BAND_LABEL = "The frame's check-ins through the day, midnight to midnight"
+DAY_BAND_HOUR_LABELS = ("00:00", "12:00", "24:00")
+DAY_BAND_EMPTY_TEXT = "No check-ins recorded on %s."
+DAY_BAND_ONE_TEXT = "1 check-in on %s."
+DAY_BAND_COUNT_TEXT = "%s check-ins on %s."
+# The honest half of T-24-06-B. The count above is printed as TEXT, which
+# is fine and stays true; this sentence is what stops the reader trying
+# to COUNT the marks and concluding the band lost some. It is appended
+# only when draw.day_band() actually reported a collapse.
+DAY_BAND_COLLAPSED_TEXT = (
+    "Some marks are merged — check-ins closer together than the band can "
+    "separate are drawn as one.")
+DAY_BAND_QUIET_TEXT = "Shaded: quiet hours, %s to %s."
 
 # D-17.2: the recent-flights thumbnail. Literal here, not imported from
 # companion/pages/airlines_page.py — companion/pages/__init__.py forbids
@@ -252,8 +294,8 @@ def _route_text(row):
 
 def _flight_secondary_text(row):
     """"<airline> · <route> · <direction>", skipping any empty part —
-    the shared join-and-skip-empty convention both the hero's flight
-    one-liner and the recent-flights list compose (20-UI-SPEC.md
+    the shared join-and-skip-empty convention both the current
+    picture's flight one-liner and the recent-flights list compose (20-UI-SPEC.md
     Section Anatomy B). `direction` is translated at this call site;
     `airline`/`route` are data (an ADS-B/adsbdb-sourced airline name
     and ICAO airport codes) and are never translated (D-05).
@@ -313,6 +355,45 @@ def _tile_content_html(verdict, detail, detail_class=None):
     if detail_class:
         detail_text = '<span class="%s">%s</span>' % (detail_class, detail_text)
     return verdict_html + '<p class="text-label widget-detail">%s</p>' % detail_text
+
+
+# 24-04-PLAN.md Task 3 (CFG-40): the SMALL ring's box side, in CSS
+# pixels. The LARGE one lives in health_page.py, because a shared
+# "sizes" table would be one rename away from reading as two named
+# variants of one drawing — and a variant name is how two drawings hide
+# inside one function. What is shared is the EMITTER
+# (draw.ring_gauge()), and it is shared for real: a change inside it
+# moves both pages, which is what CFG-40 actually asks for.
+#
+# 36 is half health_page.BATTERY_RING_SIZE, and it has to stay under the
+# height of the two text lines it sits beside (a 24px verdict, a 4px
+# gap and a 19.6px detail = 47.6px measured at the 360px floor) —
+# `stat_tile()`'s box is shared by three tiles, and a taller Battery
+# tile would make the row ragged.
+BATTERY_RING_SIZE = 36
+
+
+def _battery_tile_content_html(verdict, detail, ring_html):
+    """`_tile_content_html()`'s output with the battery ring beside it.
+
+    With NO ring this returns `_tile_content_html()`'s own markup
+    UNWRAPPED, so a device with no reading renders this tile
+    byte-identically to what it rendered before the ring existed. The
+    "omit rather than fabricate" contract this module already follows
+    for a missing `detail`, applied one level up.
+
+    The ring sits BESIDE the text rather than above it, and that is a
+    height decision rather than a taste one: `stat_tile()`'s box is
+    shared by three tiles in one row, and stacking the ring would push
+    this tile taller than its two neighbours.
+    """
+    content_html = _tile_content_html(verdict, detail)
+    if not ring_html:
+        return content_html
+    return (
+        '<div class="stat-tile__gauge">%s'
+        '<div class="stat-tile__gauge-text">%s</div></div>'
+    ) % (ring_html, content_html)
 
 
 def _status_tiles_html(ctx):
@@ -376,16 +457,29 @@ def _status_tiles_html(ctx):
     frame_html = _tile_content_html(frame_verdict, frame_detail, detail_class=frame_detail_class)
 
     reading = _safe_query(ctx.get("state_dir"), _latest_battery)
+    battery_ring_html = ""
     if reading and reading.get("battery_mv"):
         pct = battery.battery_percent(reading["battery_mv"])
         pct_text = ("≈ %d%%" % pct) if pct is not None else ""
         mv_text = "%s mV" % reading["battery_mv"]
         battery_verdict = i18n.t(BATTERY_STATE_TEXT.get(battery_state, BATTERY_STATE_TEXT["warn"]))
         battery_detail = "%s · %s" % (pct_text, mv_text) if pct_text else mv_text
+        if pct is not None:
+            # 24-04-PLAN.md Task 3 (CFG-40): the ring draws THE NUMBER
+            # PRINTED BESIDE IT — `pct` itself, over 100 — not a second,
+            # finer-grained estimate off the same millivolt value. One
+            # call into companion/battery.py, two renderings of its
+            # result, so the picture and the number cannot round to
+            # different stories. The colour is `battery_state`, the
+            # verdict this tile has ALREADY chosen its own border from;
+            # never a second judgement about the same reading.
+            battery_ring_html = draw.ring_gauge(
+                pct / 100.0, BATTERY_RING_SIZE, draw.status_class(battery_state))
     else:
         battery_verdict = i18n.t(NO_READING_TEXT)
         battery_detail = ""
-    battery_html = _tile_content_html(battery_verdict, battery_detail)
+    battery_html = _battery_tile_content_html(
+        battery_verdict, battery_detail, battery_ring_html)
 
     data_verdict = i18n.t(DATA_STATE_TEXT.get(pipeline_state, DATA_STATE_TEXT["warn"]))
     data_detail = _plain_text_from_markup(health.get("pipeline_detail_html"))
@@ -413,11 +507,18 @@ def _status_tiles_html(ctx):
     ) % (escape_html(i18n.t(STATUS_HEADING)), tiles, health_link_html)
 
 
-def _hero_figure_html(ctx, current_flight_row):
-    """The hero row's left half: the current picture, its "Rendered
-    HH:MM" caption and, when the current flight is known, a one-line
+def _current_picture_html(ctx, current_flight_row):
+    """The picture column: the current picture, its "Rendered HH:MM"
+    caption and, when the current flight is known, a one-line
     "AFR1380 · Air France · ORY → TLS" reusing the SAME recent-flights
     query result (D-20 — no second query for the "current flight").
+
+    24-08-PLAN.md Task 1 (CFG-44): renamed from `_hero_figure_html()`.
+    The body is unchanged. D4's hero is the composition at the top of
+    this page (`_hero_html()` below), and this function was the second
+    thing on Home called hero — exactly the collision 22-07 had to fix
+    for "Frame", resolved the same way: the loser is renamed, so the
+    word keeps one meaning on this page.
     """
     entries = ctx.get("gallery_entries") or []
     now = ctx.get("now")
@@ -514,6 +615,20 @@ def _recent_flight_time_html(ts, now):
     Falls back to the escaped, translated "no reading yet" text — the
     same default `concise_timestamp_html()` carried at this call site
     before this task — when `ts` is falsy or fails to parse.
+
+    23-03-PLAN.md Task 2 (D14/CFG-34): the age half is now
+    `layout.relative_time_html()`'s `<time data-relative>` element
+    rather than a bare escaped string, so the ticker plan 23-05 adds can
+    find it. The split above is UNCHANGED — the clock keeps
+    `.time-value`, the age keeps `.time-value__age`, the dot keeps
+    `.cell-inline-sep`, and the reasoning for not reaching for
+    `concise_timestamp_html()` here still holds, because that function's
+    single mono span is still the shape this cell exists to avoid. The
+    element is semantic, not presentational: it sits INSIDE the role
+    span rather than replacing it. The parentheses stay outside the
+    element (they are this cell's punctuation, not part of the age), and
+    `relative_time_html()` is a raw-markup producer, so its return value
+    is interpolated verbatim and never escaped again.
     """
     if not ts:
         return escape_html(i18n.t(_TIME_CELL_FALLBACK_TEXT))
@@ -524,11 +639,10 @@ def _recent_flight_time_html(ts, now):
     cell_html = '<span class="time-value">%s</span>' % escape_html(clock_text)
     age = layout.age_seconds(ts, now)
     if age is not None:
-        age_text = "(%s)" % layout.relative_age_text(age)
         cell_html += (
             '<span class="cell-inline-sep">·</span>'
-            '<span class="time-value__age">%s</span>'
-        ) % escape_html(age_text)
+            '<span class="time-value__age">(%s)</span>'
+        ) % layout.relative_time_html(ts, now)
     return cell_html
 
 
@@ -559,12 +673,233 @@ def _recent_flights_html(rows, now, state_dir):
         FLIGHTS_ROUTE, escape_html(i18n.t(RECENT_FLIGHTS_LINK_TEXT)))
 
 
+def _day_checkins(conn):
+    return history_db.recent_device_health(conn, limit=DAY_BAND_ROW_LIMIT)
+
+
+def _paris_day_bounds(now):
+    """`(day, day_start_epoch, day_seconds)` for the Europe/Paris day
+    `now` falls in, or None when `now` does not parse.
+
+    `day_seconds` IS MEASURED between two real Paris midnights and never
+    assumed to be 86 400: a Europe/Paris day is 23 or 25 hours twice a
+    year, and on 2026-10-25 a band assuming 86 400 would put midday at
+    54.17% instead of 52.00% and leave an hour of its own width
+    unreachable. `draw.percent_time()` takes the length as a parameter
+    for exactly this reason.
+
+    `layout.LOCAL_TZ` is this app's one Europe/Paris constant and the
+    same one every timestamp on this page is already formatted through,
+    so the band and the row beneath it cannot disagree about which day
+    it is.
+    """
+    parsed = history_db._instant_or_none(now)
+    if parsed is None:
+        return None
+    day = parsed.astimezone(layout.LOCAL_TZ).date()
+    start = datetime.combine(day, time(0), tzinfo=layout.LOCAL_TZ)
+    end = datetime.combine(day + timedelta(days=1), time(0), tzinfo=layout.LOCAL_TZ)
+    return day, start.timestamp(), end.timestamp() - start.timestamp()
+
+
+def _day_band_instants(rows, day):
+    """The epoch seconds of every row in `rows` whose stored `ts` falls
+    on the Europe/Paris calendar day `day`.
+
+    Bucketed through `history_db._paris_day_or_none()` — the ONE date
+    path, the same one `check_in_gaps()` and `daily_battery_averages()`
+    use, so a mark on this band and a row in Health's own day-bucketed
+    data can never disagree about which day a check-in belongs to. It is
+    a private name and reached across a package boundary knowingly:
+    server/history_db.py exposes no public equivalent, and it is not
+    this plan's file to add one to. A local re-derivation would be the
+    second date path this band exists to avoid.
+
+    THE BUCKETING IS THE WHOLE POINT AND NOT A FILTER. Paris is UTC+1 or
+    UTC+2, so a check-in at 00:30 Paris is stored as 22:30 UTC on the
+    PREVIOUS date; a band that compared UTC dates would drop it from
+    today and pick up tomorrow's 00:30 instead — the same number of
+    marks drawn from the wrong rows, which is the shape of defect
+    nothing downstream would notice.
+    """
+    instants = []
+    for row in rows or ():
+        ts = row.get("ts") if isinstance(row, dict) else None
+        if history_db._paris_day_or_none(ts) != day:
+            continue
+        parsed = history_db._instant_or_none(ts)
+        if parsed is not None:
+            instants.append(parsed.timestamp())
+    return instants
+
+
+def _quiet_hours_window(config, day_start, day_seconds):
+    """`((start_epoch, end_epoch), start_hm, end_hm)` for the configured
+    quiet-hours window placed on the band's own day, or `(None, None,
+    None)` when quiet hours are not enabled or the config is unusable.
+
+    The enabled test is `is True` and not truthiness, byte-for-byte what
+    `device_config.quiet_hours_status()` itself applies, and both time
+    strings go back through `device_config.normalise_quiet_hours_time()`
+    — the one normaliser — so a hand-edited config cannot put an
+    unvalidated string into the arithmetic. No "23:00" literal appears
+    here; the defaults are the module's own constants.
+
+    `quiet_hours_status()` itself is deliberately NOT the source, and
+    this is a correction to 24-06-PLAN.md Task 2's stated interface: it
+    returns `(seconds_remaining, end_hm)`, which answers "are quiet
+    hours active right now and when do they end" — an ACTIVITY status.
+    The band needs the window's two ENDS regardless of whether it is
+    active, which that accessor cannot give. What it can give is its own
+    derivation path, and this function reuses exactly that path one
+    level down rather than inventing a second one.
+
+    The end may precede the start; that is a night window, the normal
+    configuration, and `draw.day_band()` is where it becomes two spans.
+    """
+    if not isinstance(config, dict) or config.get("quiet_hours_enabled") is not True:
+        return None, None, None
+    try:
+        start_hm = device_config.normalise_quiet_hours_time(
+            config.get("quiet_hours_start"), device_config.DEFAULT_QUIET_HOURS_START)
+        end_hm = device_config.normalise_quiet_hours_time(
+            config.get("quiet_hours_end"), device_config.DEFAULT_QUIET_HOURS_END)
+        start = day_start + _hm_seconds(start_hm)
+        end = day_start + _hm_seconds(end_hm)
+    except (TypeError, ValueError):
+        return None, None, None
+    if start > day_start + day_seconds or end > day_start + day_seconds:
+        # A DST day is 23 or 25 hours long, so an "HH:MM" offset counted
+        # from midnight can land past the band's own right edge. Rather
+        # than clamp — which would silently redraw the window the user
+        # configured — the shading is dropped and the caption with it.
+        return None, None, None
+    return (start, end), start_hm, end_hm
+
+
+def _hm_seconds(hm):
+    """Seconds from midnight for a normalised "HH:MM" string."""
+    hours, _, minutes = hm.partition(":")
+    return int(hours) * 3600 + int(minutes) * 60
+
+
+def _day_band_html(ctx, rows):
+    """The day band's <section>, or "" when there is no day to draw.
+
+    `rows` is the ONE device_health read render() makes (D-20) — this
+    function re-queries nothing. An unreadable history.db arrives here
+    as `rows is None` and renders NOTHING AT ALL, which is the one case
+    an empty band would be dishonest in: an empty band says "no
+    check-ins today", and a failed read knows nothing of the sort. A day
+    that genuinely holds no check-ins renders the band empty, because an
+    absent section reads as an unbuilt feature and this page already
+    makes that distinction (the battery tile's "No reading yet" verdict
+    rather than a zero).
+    """
+    if rows is None:
+        return ""
+    bounds = _paris_day_bounds(ctx.get("now"))
+    if bounds is None:
+        return ""
+    day, day_start, day_seconds = bounds
+    instants = _day_band_instants(rows, day)
+    window, start_hm, end_hm = _quiet_hours_window(
+        ctx.get("device_config"), day_start, day_seconds)
+    canvas, collapsed = draw.day_band(
+        day_start, day_seconds, instants, window=window,
+        label=i18n.t(DAY_BAND_LABEL))
+    day_text = day.isoformat()
+
+    # The caption is written from `collapsed`, not from the row count
+    # alone (T-24-06-B). The total stays printed as TEXT — that number is
+    # true and useful — but when the band merged anything it says so, so
+    # a reader who counts the marks and gets fewer is not being told the
+    # drawing lost some silently.
+    total = len(instants)
+    if not total:
+        caption = i18n.t(DAY_BAND_EMPTY_TEXT) % (day_text,)
+    elif total == 1:
+        caption = i18n.t(DAY_BAND_ONE_TEXT) % (day_text,)
+    else:
+        caption = i18n.t(DAY_BAND_COUNT_TEXT) % (total, day_text)
+    sentences = [escape_html(caption)]
+    if collapsed or len(rows) >= DAY_BAND_ROW_LIMIT:
+        sentences.append(escape_html(i18n.t(DAY_BAND_COLLAPSED_TEXT)))
+    if window is not None:
+        sentences.append(escape_html(i18n.t(DAY_BAND_QUIET_TEXT) % (start_hm, end_hm)))
+    hours = "".join(
+        "<span>%s</span>" % escape_html(label) for label in DAY_BAND_HOUR_LABELS)
+    return (
+        '<section class="page-section home-section day-band" '
+        'aria-labelledby="home-day-band">'
+        '<h2 class="text-heading" id="home-day-band">%s</h2>'
+        '%s'
+        '<p class="day-band__hours text-label mono">%s</p>'
+        '<p class="text-label">%s</p>'
+        "</section>"
+    ) % (escape_html(i18n.t(DAY_BAND_HEADING)), canvas, hours, " ".join(sentences))
+
+
+# --- D4's hero (CFG-44, 24-08-PLAN.md Task 1) --------------------------
+#
+# The class is `home-overview` and deliberately NOT `home-hero`: that
+# name belonged to the phase-20 hero row 21-04-PLAN.md Task 3 deleted,
+# and two standing checks (companion/test_view_pages.py and
+# companion/test_companion_app.py) assert that markup never comes back to
+# this page. Reusing the retired name would either fail them or, worse,
+# invite the next reader to relax them.
+HERO_CLASS = "home-overview"
+
+
+def _hero_html(*parts):
+    """Home's top as ONE composition — the shared Frame strip, the three
+    status tiles carrying the battery ring, and the day band — wrapped in
+    a single container that owns the rhythm between them.
+
+    ASSEMBLED FROM CALLS, AND THAT IS ALL IT DOES. Every part arrives
+    already built by the function that owns it; this one concatenates and
+    wraps. The requirement is structural rather than decorative: a hero
+    that re-emitted the ring or the band for itself would look identical
+    on the day it shipped and drift from the originals the first time
+    either was fixed. Nothing here can drift, because there is nothing
+    here — no geometry, no estimate, no second rendering of the shared
+    strip, which this function receives rather than builds.
+
+    A <div>, WITH NO ROLE AND NO NAME OF ITS OWN. The three parts keep
+    their own <h2>s, so a screen reader reads this page exactly as it did
+    before the container existed. The composition is a visual statement —
+    the group is bound tighter (one --space-md gap inside) than it is
+    separated from what follows (--space-lg below it) — and a landmark
+    with no accessible name would be a second, weaker claim about the
+    same grouping.
+
+    THE WRAPPER IS UNCONDITIONAL, and the degenerate cases are why that
+    is stated. `_day_band_html()` returns "" for an unreadable
+    history.db, and the battery tile omits its ring entirely for a device
+    with no reading, so the hero's CONTENTS already vary with the data.
+    A container that also came and went would additionally move
+    everything below it depending on whether a query happened to
+    succeed — the one thing a composition must not do.
+    """
+    return '<div class="%s">%s</div>' % (HERO_CLASS, "".join(parts))
+
+
 def render(ctx):
     """D-04 (21-CONTEXT.md, 21-04-PLAN.md Task 3): strip -> three tiles
-    -> a two-column picture/recent-flights row. `_hero_figure_html()`/
+    -> a two-column picture/recent-flights row. `_current_picture_html()`/
     `_recent_flights_html()` bodies are unchanged — only render()'s own
     assembly order changes; the phase-20 hero row and its status-card
     builder are both gone.
+
+    24-08-PLAN.md Task 1 (CFG-44): the first three of those are now
+    handed to `_hero_html()` as one composition. The DOM order is
+    unchanged and so is every region
+    `layout.REFRESH_SWAP_SELECTORS_BY_PAGE` declares for this page — the
+    registry's five Home selectors match descendants, and wrapping three
+    of them in a container matches none of them differently. That is
+    checked in a browser rather than asserted here, because a swap
+    selector that stopped matching would fail silently: the page would
+    simply stop refreshing.
     """
     now = ctx.get("now")
     # D-20: one read, reused for both the hero's flight one-liner (its
@@ -572,7 +907,25 @@ def render(ctx):
     # never two independent queries for what is the same data.
     rows = _safe_query(ctx.get("state_dir"), _recent_flights)
     current_flight_row = rows[0] if rows else None
-    header = layout.page_header(i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE))
+    # 24-06-PLAN.md Task 2 (CFG-42): the day band's own single read, and
+    # the second application of D-20's rule rather than an exception to
+    # it — `device_health` is a DIFFERENT table from the runway events
+    # above, so this is one more read and not a duplicate one. It is
+    # made HERE and passed down for the same reason `rows` is: a builder
+    # that queried for itself would make the page's cost depend on how
+    # many sections happen to want the data.
+    checkin_rows = _safe_query(ctx.get("state_dir"), _day_checkins)
+    # 23-06-PLAN.md Task 2 (D1/CFG-35): Home refreshes itself. The
+    # freshness line is the shared builder's — one definition site,
+    # three call sites — and it is what carries `data-loaded-at`, the
+    # marker companion/static/freshness.js requires before it does
+    # anything at all. Which regions this page then swaps is declared
+    # once, in layout.REFRESH_SWAP_SELECTORS_BY_PAGE, and read by the
+    # script through the page key page_shell() renders on <body>; this
+    # module names no selector and knows nothing about the loop.
+    header = layout.page_header(
+        i18n.t(PAGE_TITLE), purpose=i18n.t(PAGE_PURPOSE),
+        freshness_html=layout.freshness_line_html(now))
     # 22-07-PLAN.md Task 1 (D-03/CFG-26): migrated to the richer
     # wake.next_wake_status() accessor plan 22-02 added — frame_strip_
     # html()'s own `next_wake_iso` parameter still only needs the ISO
@@ -585,10 +938,13 @@ def render(ctx):
         ctx.get("last_checkin_ts"), ctx.get("device_config"))[0]
     return (
         header
-        + layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE, next_wake_iso=next_wake_iso)
-        + _status_tiles_html(ctx)
+        + _hero_html(
+            layout.frame_strip_html(
+                ctx, return_to=layout.HOME_ROUTE, next_wake_iso=next_wake_iso),
+            _status_tiles_html(ctx),
+            _day_band_html(ctx, checkin_rows))
         + '<div class="home-columns home-picture-row">'
-        + _hero_figure_html(ctx, current_flight_row)
+        + _current_picture_html(ctx, current_flight_row)
         + _recent_flights_html(rows, now, ctx.get("state_dir"))
         + "</div>"
     )

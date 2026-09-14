@@ -159,6 +159,80 @@ def device_staleness_thresholds(wake_interval_s):
     return (warn_s, error_s)
 
 
+# 24-03-PLAN.md Task 2 (CFG-43): the verdict vocabulary for one OBSERVED
+# interval between two consecutive device check-ins. Module constants, not
+# bare string literals, for the same reason HOLD_QUIET_HOURS above is one.
+#
+# Every term here is observed, never claimed. There is deliberately no
+# term asserting the device KEPT a wake, and none asserting it was on time
+# as a matter of conduct rather than of record:
+# 24-RESEARCH.md Risk 1 shows that a log rotation `history_db.
+# ingest_caddy_battery_log()` missed leaves a hole in `device_health`
+# indistinguishable from a device that did not wake, and that NO schema
+# change recovers it. A verdict here is therefore a statement about the
+# RECORD of check-ins, never about the device's conduct — and the name is
+# the one every caption drawn from it will inherit.
+CHECK_IN_ON_CADENCE = "on_cadence"
+CHECK_IN_LATE = "late"
+CHECK_IN_MISSING = "missing"
+# The honest fourth state: `history_db.check_in_gaps()` reports `gap_s`
+# as None for a span bounded by an undatable or out-of-order timestamp,
+# and a span whose duration is not knowable must not be reported as one
+# the device kept.
+CHECK_IN_UNKNOWN = "unknown"
+
+
+def classify_check_in_gap(gap_s, wake_interval_s):
+    """Classify ONE observed interval between consecutive device check-ins
+    (`history_db.check_in_gaps()`'s `gap_s`) as `CHECK_IN_ON_CADENCE`,
+    `CHECK_IN_LATE`, `CHECK_IN_MISSING` or `CHECK_IN_UNKNOWN`.
+
+    The thresholds come from `device_staleness_thresholds()` directly
+    above — the same `(warn_s, error_s)` pair the Device/Frame tile's own
+    `staleness_status()` consumes — so a grid drawn from these verdicts and
+    that tile can never disagree about what "late" means. The multipliers
+    (`MISSED_WAKES_WARN`/`MISSED_WAKES_ERROR`) and the floors are NOT
+    re-typed here and must never be: one definition, reused.
+
+    Boundaries, matching `staleness_status()`'s own discipline exactly:
+    below `warn_s` is on-cadence, `warn_s` itself is already late, and
+    `error_s` itself is already missing.
+
+    `wake_interval_s` is an ARGUMENT, never read from `device_config` here.
+    Two reasons. First, a caller drawing a grid has to be able to state
+    WHICH cadence the grid was judged against, and it can only say that
+    honestly if it passed it in. Second, the cadence actually in force at
+    the time of a historical gap is unrecoverable (`device_config.json` is
+    a current-state file with a pinned no-migration/no-rewrite contract,
+    and `effective_wake_interval_s()` above switches to
+    `DISPLAY_OFF_SLEEP_S` whenever the screen is off) — so the caller, not
+    this function, owns that caveat.
+
+    `wake_interval_s = None` degrades to the bare floors rather than
+    refusing to classify, exactly as `device_staleness_thresholds()`
+    already does for a deployment whose cadence cannot be determined.
+
+    `gap_s` that is None, a bool, a non-number, negative, or NaN is
+    `CHECK_IN_UNKNOWN` — never on-cadence. The `isinstance()`/explicit-test
+    idiom, never `or`, is this codebase's documented handling for a value
+    with a legitimate falsy state (a genuine 0-second gap is on-cadence and
+    must not fall through to "unknown" merely by looking falsy).
+    """
+    warn_s, error_s = device_staleness_thresholds(wake_interval_s)
+    if (
+        not isinstance(gap_s, (int, float))
+        or isinstance(gap_s, bool)
+        or gap_s != gap_s  # NaN is the only value unequal to itself
+        or gap_s < 0
+    ):
+        return CHECK_IN_UNKNOWN
+    if gap_s >= error_s:
+        return CHECK_IN_MISSING
+    if gap_s >= warn_s:
+        return CHECK_IN_LATE
+    return CHECK_IN_ON_CADENCE
+
+
 # 22-02-PLAN.md Task 1 (D-03/CFG-26): the hold-reason vocabulary. A
 # module constant, not a bare string literal, so every consumer (the
 # strip, the tiles, companion/frame_state.py) compares against the same

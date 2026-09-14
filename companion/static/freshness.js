@@ -204,6 +204,100 @@
   var PAUSED_TEXT = "Paused";
   var RECONNECTING_TEXT = "Reconnecting…";
 
+  // --- 23-05-PLAN.md Task 2 (D22's remainder, D14/CFG-34) -----------
+  //
+  // The dot beside the freshness line breathes while this loop is live
+  // and stops the instant it is not. companion/pages/health_page.py
+  // renders it, static and neutral; this file adds and removes ONE
+  // class, companion/static/style.css does the rest, and under a
+  // reduced-motion preference the stylesheet's global override zeroes
+  // it for free.
+  //
+  // It is .dot--off, the app's own "a neutral, everyday state, never a
+  // problem" dot, and it stays that colour in every state. A paused or
+  // reconnecting loop is a browser that stopped listening, not a device
+  // fault, which is the same argument 22-15 made when it shipped the
+  // Paused/Reconnecting badge neutral rather than orange.
+  // Built from the attribute name rather than written out as one
+  // selector literal, so the name has exactly one site here — and so
+  // companion/test_i18n.py's Check 6, which scans every upper-case
+  // string constant in this directory and demands a French catalogue
+  // entry for it, sees an attribute name (which its own allowlist
+  // excludes) rather than a bracketed selector (which its allowlist is
+  // documented to exclude but, as written, does not).
+  var LIVE_DOT_ATTR = "data-refresh-live-dot";
+  var LIVE_DOT_SELECTOR = "[" + LIVE_DOT_ATTR + "]";
+  var BREATHING_CLASS = "is-breathing";
+
+  // --- 23-06-PLAN.md Task 1 (D1/CFG-35) ------------------------------
+  //
+  // The attribute companion/layout.py's page_shell() renders on <body>
+  // to say which page this is, and therefore which swap-region list
+  // applies. See SWAP_SELECTORS_BY_PAGE below.
+  var PAGE_ATTR = "data-refresh-page";
+
+  // The marker a region carries while it holds an optimistic control
+  // whose server confirmation has not arrived (layout.py's own
+  // REFRESH_PENDING_ATTR). swapNodes() leaves such a region alone
+  // entirely — see its own comment for what goes wrong without it.
+  // Plan 23-07 is what sets the attribute; this file only reads it.
+  var PENDING_ATTR = "data-pending";
+  var PENDING_SELECTOR = "[" + PENDING_ATTR + "]";
+
+  // The save bar's own proof of life and its own element
+  // (companion/static/dirty-state.js writes the first onto <html> only
+  // once it has found its form, its bar and its count node; the second
+  // is the bar itself). Both are needed to answer "does this page have
+  // unsaved edits", and neither alone is — see unsavedEdits() below.
+  // 23-06-PLAN.md Task 2 (D1/CFG-35): the picture that fades when a NEW
+  // render arrives. The class is companion/static/style.css's; the
+  // image class is companion/pages/home_page.py's own, duplicated here
+  // rather than imported for the reason every literal in this file is.
+  var FADE_IMAGE_CLASS = "preview-frame__image";
+  var FADE_IMAGE_SELECTOR = "." + FADE_IMAGE_CLASS;
+  var FADE_CLASS = "is-fading-in";
+
+  // 23-08-PLAN.md Task 1 (D7/CFG-37): the new-row highlight's two
+  // literals, both companion/layout.py's
+  // (REFRESH_ROW_ID_ATTR/REFRESH_NEW_ROW_CLASS) and both pinned equal to
+  // it by companion/test_status_pages.py.
+  //
+  // The attribute carries a stable identity for the EVENT a row
+  // describes, never the row's position — that distinction is the whole
+  // mechanism and layout.py's own comment holds the argument for it.
+  var ROW_ID_ATTR = "data-flight-id";
+  var ROW_ID_SELECTOR = "[" + ROW_ID_ATTR + "]";
+  var NEW_ROW_CLASS = "is-new-row";
+
+  // The event this file dispatches on document after a successful swap.
+  // The two Flights scripts listen for it; nothing else does, and
+  // nothing has to.
+  //
+  // WHY THIS EXISTS AT ALL, stated once here. Every exclusion in the
+  // registry above is the same sentence: a script captured some DOM at
+  // load, and there is no re-init hook, so the region it captured can
+  // never be swapped. That reasoning is sound and stays — but it is an
+  // argument for a hook, not against one, and Flights is the page where
+  // the alternative ran out: its list IS the thing that must be
+  // replaced, and both list-filter.js and flight-rows.js hold state
+  // about the rows in it. So the loop now SAYS when it has swapped, and
+  // a script that cares re-derives whatever it owns. It is announced,
+  // not commanded: this file knows nothing about what any listener does.
+  var SWAPPED_EVENT = "skypane-regions-swapped";
+
+  var DIRTY_READY_CLASS = "dirty-ready";
+  var DIRTY_BAR_ATTR = "data-dirty-bar";
+  var DIRTY_BAR_SELECTOR = "[" + DIRTY_BAR_ATTR + "]";
+
+  // Every selector literal above is built from an attribute or class
+  // NAME held in its own constant rather than written out whole, which
+  // is 23-05's recorded convention for this directory: companion/
+  // test_i18n.py's Check 6 scans upper-case string constants here and
+  // demands a French catalogue entry for anything it cannot recognise
+  // as an identifier — and a bracketed selector is not one of the
+  // shapes its allowlist recognises. Giving the name its own constant
+  // is independently better anyway: the name then has exactly one site.
+
   var loadedAtEl = document.querySelector("[data-loaded-at]");
   if (!loadedAtEl) {
     return;
@@ -267,6 +361,45 @@
       return true;
     }
     return false;
+  }
+
+  // 23-06-PLAN.md Task 1 (D1/CFG-35): the third skip, and the only one
+  // that stands the WHOLE cycle down rather than one region. A settings
+  // page whose form is mid-edit should not be fetching and diffing
+  // itself at all: the fetched document describes the SAVED state, so
+  // every region it would swap in is a statement about a page the user
+  // has already moved on from, and the strip sitting above that form is
+  // one of those regions. Standing down is also strictly fewer requests,
+  // which is the direction T-23-20 requires.
+  //
+  // GATED ON THE BAR'S OWN PROOF OF LIFE, NOT ON A PROXY FOR IT — this
+  // is 22-01/B1's defect of record, read the other way round. There, a
+  // stylesheet hid the fallback Save because a marker element EXISTED;
+  // the script that was meant to be behind it had silently stopped
+  // working, and the page became unsaveable. So neither half alone is
+  // enough here either:
+  //   - the dirty-ready class is dirty-state.js saying "I ran and found
+  //     my form, my bar and my count node" — it says nothing about
+  //     whether there are edits;
+  //   - the bar not being hidden is that same live script's own answer
+  //     to "are there unsaved edits right now", set in the one branch
+  //     that reveals the bar with real content.
+  // A bar element that merely exists, hidden, on a page whose script
+  // never ran reports NO unsaved edits, which is the honest reading: a
+  // user typing into a field is already covered by userIsInteracting()
+  // above, so a dead dirty-state.js cannot silently disable this loop
+  // and cannot silently expose a half-edited form either.
+  //
+  // Looked up fresh on every call, never cached — the same reason
+  // revealPill() below gives.
+  function unsavedEdits() {
+    var root = document.documentElement;
+    if (!root || !root.className
+        || (" " + root.className + " ").indexOf(" " + DIRTY_READY_CLASS + " ") === -1) {
+      return false;
+    }
+    var bar = document.querySelector(DIRTY_BAR_SELECTOR);
+    return !!(bar && !bar.hidden);
   }
 
   // 19-09-PLAN.md (D-02): looked up fresh on every call, never cached
@@ -373,6 +506,7 @@
       label.textContent = stateText(state);
     }
     badge.hidden = false;
+    syncLiveDot();
   }
 
   function clearState() {
@@ -381,22 +515,108 @@
     if (badge) {
       badge.hidden = true;
     }
+    syncLiveDot();
+  }
+
+  // 23-05-PLAN.md Task 2: DERIVED from this loop's own two state
+  // variables, never tracked separately. There is no second state
+  // machine here and there must not be one — two sources for one claim
+  // is this codebase's most repeated defect, and a dot that breathes
+  // while the page is not actually listening is exactly the lie D22
+  // exists to remove (T-23-15).
+  //
+  // Live means both halves at once: an interval exists AND no state
+  // badge is showing. A paused tab has no interval; a reconnecting
+  // page has one but is failing, and its ladder — not the interval —
+  // owns the schedule.
+  //
+  // Looked up fresh on every call and never cached, for the same reason
+  // revealPill() above refuses to cache: this dot is a child of
+  // .page-header__freshness, one of this file's own swap targets, so a
+  // successful refresh legitimately replaces it. succeed() below calls
+  // clearState() immediately after every swap, which is what re-applies
+  // the class to the newly-rendered dot.
+  function syncLiveDot() {
+    var dot = document.querySelector(LIVE_DOT_SELECTOR);
+    if (!dot || !dot.classList) {
+      return;
+    }
+    if (intervalHandle !== null && currentState === null) {
+      dot.classList.add(BREATHING_CLASS);
+      return;
+    }
+    dot.classList.remove(BREATHING_CLASS);
   }
 
   // 19-09-PLAN.md (D-02): the single, greppable swap-target list. Must
-  // stay in agreement, selector for selector, with health_page.
-  // REFRESH_SWAP_SELECTORS — companion/test_status_pages.py's own
-  // cross-file check pins the two lists equal. Comma-grouped selectors
-  // (one array entry, several comma-separated clauses) are valid
-  // querySelectorAll() input and count as one entry each, matching the
-  // Python tuple's own shape.
-  var SWAP_SELECTORS = [
-    ".dashboard-grid",
-    "div.banner--anomaly, div.banner--warn",
-    "section.banner",
-    ".page-header__freshness",
-    'a[href="/health"]'
-  ];
+  // stay in agreement, selector for selector, with the Python registry
+  // — companion/test_status_pages.py's own cross-file check pins the
+  // two equal. Comma-grouped selectors (one entry, several
+  // comma-separated clauses) are valid querySelectorAll() input and
+  // count as one entry each, matching the Python tuple's own shape.
+  //
+  // 23-06-PLAN.md Task 1 (D1/CFG-35): one list became a REGISTRY. D1
+  // puts this loop on Home and on the Display scope as well as Health,
+  // and the honest way to serve three pages from one loop is for the
+  // page to declare its own regions rather than for this file to grow a
+  // branch per page. The keys are companion/layout.py's nav_slug()
+  // values, and the check above pins the two key sets EQUAL in both
+  // directions: a key here that the Python does not have is a list
+  // nothing renders, and a key there that this file lacks is a page
+  // that silently never refreshes.
+  //
+  // Each page's own list is documented where it is defined
+  // (companion/layout.py's REFRESH_SWAP_SELECTORS_BY_PAGE), including
+  // what each page deliberately EXCLUDES and why — that reasoning has
+  // one home and this is not it.
+  var SWAP_SELECTORS_BY_PAGE = {
+    "home": [
+      ".page-header__freshness",
+      ".frame-strip",
+      ".home-status-grid",
+      "figure.preview-frame",
+      'section[aria-labelledby="home-flights"]'
+    ],
+    "display": [
+      ".page-header__freshness",
+      ".frame-strip"
+    ],
+    "health": [
+      ".dashboard-grid",
+      "div.banner--anomaly, div.banner--warn",
+      "section.banner",
+      ".page-header__freshness",
+      'a[href="/health"]'
+    ],
+    "flights": [
+      ".page-header__freshness",
+      "ul.history-cards",
+      ".data-table-wrap",
+      "[data-filter-count]"
+    ]
+  };
+
+  // The page key, server-rendered on <body> by page_shell(). <body> and
+  // not an element inside the page, for the reason the two copy
+  // attributes beside it give: several regions below ARE swap targets,
+  // and an attribute there would be replaced out from under this file
+  // on the first successful refresh.
+  //
+  // hasOwnProperty and not a bare lookup: this key arrives as markup,
+  // and "constructor" or "toString" would otherwise resolve to an
+  // inherited Object property — a function, not a list — which is a
+  // strange crash rather than the no-op that is correct here.
+  //
+  // The SECOND guard on this file, and both are load-bearing: the
+  // [data-loaded-at] one above is what keeps every page with no
+  // freshness marker free, and this one is what keeps a page that has
+  // one but declares no regions from swapping things nobody listed.
+  var pageKey = document.body ? document.body.getAttribute(PAGE_ATTR) : null;
+  if (!pageKey
+      || !Object.prototype.hasOwnProperty.call(SWAP_SELECTORS_BY_PAGE, pageKey)) {
+    return;
+  }
+  var SWAP_SELECTORS = SWAP_SELECTORS_BY_PAGE[pageKey];
 
   // 19-09-PLAN.md (D-02): for each swap selector, look up matching
   // nodes in both the live document and the freshly-fetched one, and
@@ -428,6 +648,22 @@
   //      silently moves keyboard focus to the top of the document while
   //      someone is tabbing through a card is the same A-20 harm the
   //      whole-page reload was retired for, just smaller.
+  //   3. The region holds an UNCONFIRMED OPTIMISTIC CONTROL
+  //      (23-06-PLAN.md Task 1, T-23-21). D1 and D2 meet here: a switch
+  //      flipped a moment ago has already painted its new state, and
+  //      the server answer confirming it has not arrived yet — so the
+  //      document this loop just fetched still describes the OLD state,
+  //      honestly and uselessly. Swapping it in makes the control
+  //      visibly bounce back under the user's finger and then forward
+  //      again a second later, which reads as the page overruling them.
+  //      The rule is per REGION and not per tick on purpose: one
+  //      unconfirmed control must not stand down the refresh of
+  //      everything else on the page. The accepted cost, stated: a
+  //      control whose confirmation never arrives holds its own region
+  //      stale until it clears or the user navigates — which is the
+  //      correct trade, because the region is showing what the user
+  //      asked for and the alternative is showing them the opposite.
+  //      This file only READS the marker; plan 23-07 is what sets it.
   function swapNodes(fromDoc) {
     var active = document.activeElement;
     for (var s = 0; s < SWAP_SELECTORS.length; s++) {
@@ -442,10 +678,137 @@
         if (active && existing.contains && existing.contains(active)) {
           continue;
         }
+        // Asked of the region itself AND of its subtree: a control
+        // that IS the region and a control inside a card mean the same
+        // thing here.
+        if ((existing.hasAttribute && existing.hasAttribute(PENDING_ATTR))
+            || (existing.querySelector && existing.querySelector(PENDING_SELECTOR))) {
+          continue;
+        }
         var replacement = document.importNode(fetchedNodes[i], true);
+        markPictureFade(existing, replacement);
         existing.parentNode.replaceChild(replacement, existing);
       }
     }
+  }
+
+  // 23-06-PLAN.md Task 2 (D1/CFG-35): the frame picture fades in when a
+  // NEW render arrives, and does NOT animate when the same picture is
+  // swapped back in.
+  //
+  // The condition is the whole point. The picture's region is replaced
+  // on most cycles for reasons that have nothing to do with the picture
+  // — its caption carries a timestamp, so the fetched figure differs
+  // from the live one whenever the clock has moved. A fade fired on
+  // every swap would flash the page every 45 seconds to say nothing,
+  // which is worse than no fade: it teaches the user that the movement
+  // means nothing, and then a real new render means nothing either.
+  //
+  // The src attribute is the honest signal and needs no marker
+  // invented for it: the gallery names every render after its own
+  // instant, so a new render IS a new src. Read through
+  // getAttribute() rather than the .src property on purpose — the
+  // property resolves to an absolute URL
+  // against each document's own base, and these two nodes come from two
+  // different documents, so the property form can report a difference
+  // where the markup has none.
+  //
+  // The class goes on the node that is about to be inserted, before it
+  // is inserted, so the animation starts with the element's first
+  // frame. Nothing removes it afterwards and nothing needs to: the
+  // animation runs once, the element's own opacity is 1 before and
+  // after, and the next swap replaces the node entirely.
+  function markPictureFade(existing, replacement) {
+    var fetchedImage = replacement.querySelector
+      ? replacement.querySelector(FADE_IMAGE_SELECTOR) : null;
+    if (!fetchedImage || !fetchedImage.classList) {
+      return;
+    }
+    var liveImage = existing.querySelector
+      ? existing.querySelector(FADE_IMAGE_SELECTOR) : null;
+    if (liveImage
+        && liveImage.getAttribute("src") === fetchedImage.getAttribute("src")) {
+      return;
+    }
+    fetchedImage.classList.add(FADE_CLASS);
+  }
+
+  // 23-08-PLAN.md Task 1 (D7/CFG-37): the new-row highlight — a diff
+  // over server-rendered row identity, applied after a swap and to
+  // nothing else.
+  //
+  // WHAT WOULD BE WRONG, since that is what the shape here is chosen
+  // against. Highlighting every row after a swap says "everything is
+  // new" every forty-five seconds, which is the same as saying nothing.
+  // Highlighting on first paint says the whole list just arrived, which
+  // is false — it was already there when the reader opened the page.
+  // Both failures are one missing thing: a set of identities known
+  // BEFORE. So the set is populated from the page AS FIRST RENDERED,
+  // below, and never starts empty.
+  //
+  // hasOwnProperty and not a bare lookup, for the reason the page-key
+  // guard above gives: these identities arrive as markup, and
+  // "constructor" or "toString" would otherwise resolve to an inherited
+  // Object property and read as already-known.
+  //
+  // The class is added and never removed, and nothing needs to remove
+  // it: the node it lands on was itself just inserted by the swap, so
+  // its animation starts with the element's first frame and runs once;
+  // the element's own background is its normal one before and after;
+  // and the next swap replaces the node entirely. A removal path would
+  // only be a way to re-trigger the same arrival twice.
+  function collectRowIds() {
+    var seen = {};
+    var nodes = document.querySelectorAll(ROW_ID_SELECTOR);
+    for (var i = 0; i < nodes.length; i++) {
+      var value = nodes[i].getAttribute(ROW_ID_ATTR);
+      if (value) {
+        seen[value] = true;
+      }
+    }
+    return seen;
+  }
+
+  function markNewRows() {
+    var nodes = document.querySelectorAll(ROW_ID_SELECTOR);
+    var next = {};
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      var value = node.getAttribute(ROW_ID_ATTR);
+      if (!value) {
+        continue;
+      }
+      if (!Object.prototype.hasOwnProperty.call(knownRowIds, value)
+          && node.classList) {
+        node.classList.add(NEW_ROW_CLASS);
+      }
+      next[value] = true;
+    }
+    knownRowIds = next;
+  }
+
+  // The page as first rendered. Every row visible on load is, by
+  // definition, not news.
+  var knownRowIds = collectRowIds();
+
+  // 23-08-PLAN.md Task 1: the loop says it swapped; it does not say what
+  // anyone should do about it. Dispatched on document so a listener
+  // needs no reference to any element this file touches, and built the
+  // ES3-era way (createEvent/initEvent) rather than with the Event
+  // constructor, for the same reach reason this file uses replaceChild
+  // over replaceWith.
+  //
+  // Fired once per successful swap, after every region is in place and
+  // after the diff above, so a listener always sees the finished
+  // document. Never fired for a cycle that fetched and swapped nothing
+  // — there would be nothing to re-derive.
+  function announceSwap() {
+    if (!document.createEvent) {
+      return;
+    }
+    var evt = document.createEvent("Event");
+    evt.initEvent(SWAPPED_EVENT, false, false);
+    document.dispatchEvent(evt);
   }
 
   // 19-09-PLAN.md (D-02): battery-trend.js's own two readout spans are
@@ -497,6 +860,11 @@
     swapNodes(fromDoc);
     swapBatteryReadout(fromDoc);
     updateLoadedAt(fromDoc);
+    // AFTER the regions are in place, never before: a diff taken
+    // against the document that is about to be thrown away would
+    // compare the old page with itself.
+    markNewRows();
+    announceSwap();
   }
 
   // T13 (22-15-PLAN.md Task 2): the in-flight guard. Without it a
@@ -652,6 +1020,11 @@
       // Leave the interval running — the next tick tries again.
       return;
     }
+    if (unsavedEdits()) {
+      // Leave the interval running — the next tick tries again, and the
+      // one after the user saves succeeds.
+      return;
+    }
     doRefresh();
   }
 
@@ -660,6 +1033,7 @@
       return;
     }
     intervalHandle = window.setInterval(tick, AUTO_REFRESH_INTERVAL_MS);
+    syncLiveDot();
   }
 
   function stopLoop() {
@@ -668,6 +1042,7 @@
     }
     window.clearInterval(intervalHandle);
     intervalHandle = null;
+    syncLiveDot();
   }
 
   document.addEventListener("visibilitychange", function () {
@@ -695,7 +1070,7 @@
     // invented to report, and it would be perverse to remove the
     // banner and then reproduce its own trigger condition.
     var elapsed = Date.now() - loadedAtMs;
-    if (elapsed > AUTO_REFRESH_INTERVAL_MS && !userIsInteracting()) {
+    if (elapsed > AUTO_REFRESH_INTERVAL_MS && !userIsInteracting() && !unsavedEdits()) {
       doRefresh();
     }
   });

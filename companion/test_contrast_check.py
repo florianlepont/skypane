@@ -77,6 +77,17 @@ EXPECTED_CHECK_COUNT = 41
 # not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 43
 
+# 24-07-PLAN.md Task 1 (CFG-43): +6 (Section 3 — the three status tokens
+# separated from EACH OTHER, three pairs per theme). The check-in
+# regularity grid is the first surface in this app where all three are
+# painted side by side with nothing but colour between them; everywhere
+# else a status colour appears alone beside its own word, which is why
+# this pair set had no reason to exist until now. Measured at the shipped
+# palette, the closest pair is light warn/error at dE76 55.3. 43 + 6 =
+# 49, recomputed directly against the real on-disk check(...) call count
+# at execution time (49/49 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 49
+
 
 def main():
     results = []
@@ -218,6 +229,33 @@ def main():
                 "--color-status-%s (dE76 >= %.0f)"
                 % (theme, status_name, MIN_SIGNAL_PERCEPTUAL_DISTANCE),
                 _make_distance_check(accent, statuses[status_name]))
+
+    # 24-07-PLAN.md Task 1 (CFG-43): the three status tokens must also be
+    # separated FROM EACH OTHER, not only from the accent — and until the
+    # check-in regularity grid there was no surface where that mattered.
+    # Everywhere else in this app a status colour appears ALONE beside
+    # its own word: one tile border, one dot with its label, one section
+    # edge. The grid is the first drawing where all three are painted
+    # side by side as squares of colour and the colour is the only thing
+    # telling one cell from the next, so "can these two be told apart as
+    # different signals" becomes a question about this pair set for the
+    # first time. Asserted rather than assumed, which is this file's own
+    # standing instruction: a contrast-clean token change can still
+    # collide as a signal, which is exactly how the accent/error
+    # collision happened.
+    #
+    # Measured at the shipped palette: the closest pair in either theme
+    # is light warn/error at dE76 55.3, comfortably past the floor — so
+    # this section ships green and its job is to stay that way through a
+    # future palette edit, not to report a defect today.
+    for theme, _accent, statuses in THEMES:
+        for first, second in (("ok", "warn"), ("ok", "error"), ("warn", "error")):
+            check(
+                "%s: --color-status-%s and --color-status-%s are perceptually "
+                "separated (dE76 >= %.0f) — the regularity grid paints them as "
+                "adjacent cells with nothing but colour between them"
+                % (theme, first, second, MIN_SIGNAL_PERCEPTUAL_DISTANCE),
+                _make_distance_check(statuses[first], statuses[second]))
 
     # The accent-vs-error pair additionally clears the hue floor. It is
     # the only pair held to this: accent and error are the same colour

@@ -209,6 +209,21 @@ LOGIN_CARD_SCRIPT_ROUTE = "/static/login-card.js"
 # nothing and keeps this route identical in shape to its twelve
 # siblings.
 SUBMIT_GUARD_SCRIPT_ROUTE = "/static/submit-guard.js"
+# 23-05-PLAN.md Task 1 (D14/CFG-34): companion/layout.py's
+# RELATIVE_TIME_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above — the fourteenth static
+# script, and the thirteenth emitted by page_shell(). Pre-auth like
+# every one of them; the file carries no session data of any kind and
+# no-ops via its own guard clause on a page with no <time data-relative>
+# element.
+RELATIVE_TIME_SCRIPT_ROUTE = "/static/relative-time.js"
+# 23-07-PLAN.md Task 1 (D2/CFG-36): companion/layout.py's
+# QUICK_SWITCH_SCRIPT_SRC must equal this exactly, mirroring every pair
+# above — the fifteenth static script, and the fourteenth emitted by
+# page_shell(). Pre-auth like every one of them; the file carries no
+# session data of any kind and no-ops via its own guard clause on a page
+# with no [data-quick-switch] form.
+QUICK_SWITCH_SCRIPT_ROUTE = "/static/quick-switch.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -237,6 +252,27 @@ HISTORY_LEGACY_ROUTE = "/history"
 # define, since this module can never import a page module either.
 QUICK_DISPLAY_ROUTE = "/quick/display"
 QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
+# 23-07-PLAN.md Task 2 (D2/CFG-36): the third quick route, and the only
+# one this plan adds. The Diagnostic LED used to be a checkbox inside the
+# merged settings form; a fetch-based switch sends a PARTIAL payload, and
+# a partial POST /settings is exactly the shape that silently switches
+# off whatever it omits (D-12.1). This route is the answer: one explicit
+# `led_enabled` keyword straight to device_config.save_device_config(),
+# never a partial settings save.
+QUICK_LED_ROUTE = "/quick/led"
+# 23-07-PLAN.md Task 1 (D2/CFG-36): CONTENT NEGOTIATION, not a second
+# route shape. A /quick/* route answers exactly what it answers today for
+# a form post — a 303 with a flash — and answers a request that
+# identifies itself as a fetch with a 204 and no body. The header is the
+# convention companion/static/freshness.js already sends, with this
+# file's own value; a browser form post never sends it, so the no-JS
+# redirect is byte-identical to today's and cannot be taken away by this
+# branch existing.
+# Only the VALUE is a constant here. The header NAME is written at its
+# one use site below, because no HTTP header name in this module is a
+# module-level constant (see _send_hardening_headers()'s four) and a
+# lone exception would be the drift, not the convention.
+QUICK_FETCH_HEADER_VALUE = "quick-switch"
 THEME_ROUTE = "/ui-theme"
 # D-02 (20-01-PLAN.md Task 2): the nav-footer language switch route, a
 # byte-for-byte sibling of THEME_ROUTE above. D-17 (21-01-PLAN.md Task
@@ -363,6 +399,12 @@ FLASH_KEY_DISPLAY_OFF = "display_off"
 FLASH_KEY_QUIET_ON = "quiet_on"
 FLASH_KEY_QUIET_OFF = "quiet_off"
 FLASH_KEY_QUICK_FAILED = "quick_failed"
+# 23-07-PLAN.md Task 2 (D2/CFG-36): the LED switch's own two outcomes,
+# worded like the Quiet-hours pair above rather than like the Screen
+# pair — the LED, like quiet hours, takes effect on the frame's next
+# wake rather than within about five minutes.
+FLASH_KEY_LED_ON = "led_on"
+FLASH_KEY_LED_OFF = "led_off"
 
 FLASH_MESSAGES = {
     FLASH_KEY_DISPLAY_ON: (
@@ -374,6 +416,8 @@ FLASH_MESSAGES = {
     FLASH_KEY_QUIET_ON: "Quiet hours turned on — applies the next time the frame wakes up.",
     FLASH_KEY_QUIET_OFF: "Quiet hours turned off — applies the next time the frame wakes up.",
     FLASH_KEY_QUICK_FAILED: "Couldn't change that — please try again.",
+    FLASH_KEY_LED_ON: "Diagnostic LED turned on — applies the next time the frame wakes up.",
+    FLASH_KEY_LED_OFF: "Diagnostic LED turned off — applies the next time the frame wakes up.",
     # 22-05-PLAN.md Task 2 (D-04): "%s" is filled by _resolve_flash_text()'s
     # own frame-state special case below with ONE computed delay sentence
     # (companion/frame_state.py, via the SAME wake.next_wake_status()
@@ -623,6 +667,8 @@ _THEME_PREVIEW_JS_PATH = os.path.join(_HERE, "static", "theme-preview.js")
 _FLIGHT_ROWS_JS_PATH = os.path.join(_HERE, "static", "flight-rows.js")
 _LOGIN_CARD_JS_PATH = os.path.join(_HERE, "static", "login-card.js")
 _SUBMIT_GUARD_JS_PATH = os.path.join(_HERE, "static", "submit-guard.js")
+_RELATIVE_TIME_JS_PATH = os.path.join(_HERE, "static", "relative-time.js")
+_QUICK_SWITCH_JS_PATH = os.path.join(_HERE, "static", "quick-switch.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -1225,6 +1271,42 @@ class Handler(BaseHTTPRequestHandler):
         self._send_hardening_headers()
         self.end_headers()
         self.wfile.write(payload)
+
+    def send_no_content(self):
+        """204 with no body and no Location — the fetch half of a
+        /quick/* route's content negotiation (23-07-PLAN.md Task 1,
+        D2/CFG-36).
+
+        Carries send_html()'s/redirect()'s own `Cache-Control: no-store`
+        and the same _send_hardening_headers() set, because a response to
+        a state change on a session-gated route is no less sensitive for
+        being empty.
+
+        NO Location header, deliberately: `fetch()` follows a same-origin
+        redirect silently by default and reports the FINAL response's
+        status, so a 303 answered to a fetch would be read as success by
+        a client whose session had just expired — the exact hole
+        companion/static/freshness.js's own `redirect: "manual"` comment
+        records. The client sets `redirect: "manual"` as well; both ends
+        of that contract are deliberate, not belt-and-braces.
+        """
+        self.send_response(204)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self._send_hardening_headers()
+        self.end_headers()
+
+    def _wants_no_content(self):
+        """Whether this request identified itself as a fetch rather than a
+        browser form submission (23-07-PLAN.md Task 1).
+
+        An EXACT value test, not mere header presence: the response shape
+        is being chosen by something the caller controls, so the narrowest
+        possible predicate is the right one. A browser form post sends no
+        `X-Requested-With` at all, which is what keeps the no-JS path
+        byte-identical to the one that shipped.
+        """
+        return self.headers.get("X-Requested-With") == QUICK_FETCH_HEADER_VALUE
 
     def redirect(self, location, set_cookie=None):
         # 19-04-PLAN.md (D-18/A-35, T-19-05): a 303 used to send none of
@@ -1989,6 +2071,29 @@ class Handler(BaseHTTPRequestHandler):
         whose consumer is every form in the app rather than one page.
         """
         return self._serve_script_file(_SUBMIT_GUARD_JS_PATH)
+
+    def _serve_relative_time_script(self):
+        """Serve companion/static/relative-time.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_submit_guard_script()'s shape exactly (23-05-PLAN.md
+        Task 1, D14/CFG-34) — the fourteenth static script, and the
+        second whose consumer is every page rather than one.
+        """
+        return self._serve_script_file(_RELATIVE_TIME_JS_PATH)
+
+    def _serve_quick_switch_script(self):
+        """Serve companion/static/quick-switch.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_relative_time_script()'s shape exactly (23-07-PLAN.md
+        Task 1, D2/CFG-36) — the fifteenth static script, and the third
+        whose consumer is every page rather than one. There is no
+        catch-all /static/ handler in this module: a new script needs
+        its own route constant, its own serve method and its own branch
+        in do_GET(), and a harness does a REAL GET of it because a
+        registration whose route 404s is a control that renders and
+        silently does nothing.
+        """
+        return self._serve_script_file(_QUICK_SWITCH_JS_PATH)
 
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
@@ -2817,6 +2922,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == SUBMIT_GUARD_SCRIPT_ROUTE:
             return self._serve_submit_guard_script()
 
+        if path == RELATIVE_TIME_SCRIPT_ROUTE:
+            return self._serve_relative_time_script()
+
+        if path == QUICK_SWITCH_SCRIPT_ROUTE:
+            return self._serve_quick_switch_script()
+
         # Phase 18: the six live tabs, each through _render_tab() above.
         if path == HOME_ROUTE:
             return self._render_tab(HOME_ROUTE, home_page.render)
@@ -3129,7 +3240,7 @@ class Handler(BaseHTTPRequestHandler):
         # running" instead of the cooldown it had actually earned.
         return self.redirect("%s?flash=%s" % (back, quote(flash)))
 
-    def _handle_quick_toggle(self, field):
+    def _handle_quick_toggle(self, field, allowed_return_to=None, fallback_return_to=None):
         """Phase 18: the Home page's one-tap switches — POST /quick/display
         and POST /quick/quiet-hours. The body carries exactly one
         meaningful field, `state`, whose value is the state to switch
@@ -3156,19 +3267,49 @@ class Handler(BaseHTTPRequestHandler):
         so `https://evil.example/`, `//evil.example` and `/flights`
         all fall back to Display rather than becoming an open
         redirect). All three redirects below use the resolved value.
+
+        23-07-PLAN.md Task 2 (D2/CFG-36) PARAMETERISES that whitelist
+        rather than widening it. `/quick/led` is the third caller and its
+        switch lives on the Device page, which is not a member of the
+        pair above — and adding `layout.DEVICE_ROUTE` to the shared tuple
+        would silently let a crafted `return_to=/device` on
+        `/quick/display` redirect somewhere that route has never
+        redirected to. Each route therefore passes its OWN whitelist and
+        its own fallback; the SHAPE — a small tuple, a membership test, a
+        known-safe fallback, never a prefix and never a URL parse
+        (T-21-12/T-23-24) — is identical for all three, and that is the
+        part that must not be reinvented. `None` preserves the two
+        existing routes' behaviour exactly.
         """
+        if allowed_return_to is None:
+            allowed_return_to = (layout.HOME_ROUTE, layout.DISPLAY_ROUTE)
+        if fallback_return_to is None:
+            fallback_return_to = layout.DISPLAY_ROUTE
         form = self.read_form()
         return_to = form.get("return_to")
-        if return_to not in (layout.HOME_ROUTE, layout.DISPLAY_ROUTE):
-            return_to = layout.DISPLAY_ROUTE
+        if return_to not in allowed_return_to:
+            return_to = fallback_return_to
         state = form.get(layout.QUICK_STATE_FIELD)
         if state not in (layout.QUICK_STATE_ON, layout.QUICK_STATE_OFF):
+            # NOT a 204, even for a fetch: the client reads 204 as
+            # confirmation and would leave its optimistic flip standing,
+            # showing a state the frame is not in. A rejected submission
+            # must reach the client as a failure in BOTH shapes.
             return self.redirect(
                 "%s?flash=%s" % (return_to, quote(FLASH_KEY_QUICK_FAILED)))
         enabled = state == layout.QUICK_STATE_ON
         if field == "display_enabled":
             kwargs = {"display_enabled": enabled}
             flash_key = FLASH_KEY_DISPLAY_ON if enabled else FLASH_KEY_DISPLAY_OFF
+        elif field == "led_enabled":
+            # 23-07-PLAN.md Task 2 (T-23-25): ONE explicit keyword, the
+            # same shape the two branches beside it use. This is the
+            # whole reason the LED needed a route of its own rather than
+            # a fetch at POST /settings — a partial settings body
+            # silently resolves every field it omits, and that is the
+            # regression D-12.1 records.
+            kwargs = {"led_enabled": enabled}
+            flash_key = FLASH_KEY_LED_ON if enabled else FLASH_KEY_LED_OFF
         else:
             kwargs = {"quiet_hours_enabled": enabled}
             flash_key = FLASH_KEY_QUIET_ON if enabled else FLASH_KEY_QUIET_OFF
@@ -3176,6 +3317,17 @@ class Handler(BaseHTTPRequestHandler):
             device_config.save_device_config(self.args.state_dir, **kwargs)
         except (ValueError, OSError):
             flash_key = FLASH_KEY_QUICK_FAILED
+        # 23-07-PLAN.md Task 1 (D2/CFG-36): the content-negotiated
+        # branch, and the ONLY thing this plan changed in this handler.
+        # The whitelist, the state validation, the single explicit
+        # keyword and the flash keys above are each a recorded fix and
+        # none of them is this plan's to revisit — the write happens
+        # identically in both shapes, and only the RESPONSE differs.
+        # A failed save still redirects even for a fetch, so the client
+        # sees a non-OK status and rolls its optimistic flip back rather
+        # than reading an empty 204 as a confirmation.
+        if flash_key != FLASH_KEY_QUICK_FAILED and self._wants_no_content():
+            return self.send_no_content()
         return self.redirect("%s?flash=%s" % (return_to, quote(flash_key)))
 
     def _handle_theme_post(self):
@@ -3236,6 +3388,23 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._handle_quick_toggle("quiet_hours_enabled")
+
+        # 23-07-PLAN.md Task 2 (D2/CFG-36, T-23-23): gated here beside
+        # every other state-changing route, so this write is a
+        # session-checked POST and nothing else — there is no CSRF token
+        # anywhere in this app, and SameSite=Strict is the only control,
+        # which is exactly why a state change must never be reachable by
+        # GET. Its return_to whitelist is its OWN: the LED switch lives
+        # on the Device page and nowhere else, so /device is the single
+        # member and the fallback both (T-23-24 — a membership test,
+        # never a prefix match and never a URL parse).
+        if path == QUICK_LED_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_quick_toggle(
+                "led_enabled",
+                allowed_return_to=(layout.DEVICE_ROUTE,),
+                fallback_return_to=layout.DEVICE_ROUTE)
 
         # 19-04-PLAN.md (D-18/A-35, T-19-04): gated like every other
         # state-changing route above — an unauthenticated caller setting

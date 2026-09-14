@@ -46,6 +46,7 @@ Usage:
     server/.venv/bin/python3 companion/test_view_pages.py
 """
 import html
+import math
 import os
 import re
 import shutil
@@ -65,6 +66,7 @@ if REPO_ROOT not in sys.path:
 
 from companion import auth  # noqa: E402
 import companion.battery as battery  # noqa: E402
+import companion.draw as draw  # noqa: E402
 import companion.layout as layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 from server import device_config  # noqa: E402
@@ -535,6 +537,116 @@ EXPECTED_CHECK_COUNT = 139
 # proven to take a FIXED repeat(2, minmax(0, 1fr)) template below 960px while the desktop
 # auto-fill idiom is left alone. Re-derived by running the harness (143/143).
 EXPECTED_CHECK_COUNT = 143
+# 23-03-PLAN.md Task 1 (D14/CFG-34): +1 — History's Timestamp cells now
+# carry concise_timestamp_html()'s new <time data-relative> element.
+# History is the widest surface that reads THROUGH that function, and
+# its cells travel data_table()'s raw_columns path, so this is also the
+# proof that a raw-markup producer's new element arrives as markup
+# rather than as a double-escaped "&lt;time" literal on the page — the
+# one failure mode T-23-09 names. Re-derived by running the harness
+# (144/144).
+EXPECTED_CHECK_COUNT = 144
+# 23-03-PLAN.md Task 2 (D14/CFG-34): +2 — Home's two visible relative
+# ages. The recent-flight age is converted by this task and its check
+# went RED first (145/146, "expected the age half to be a <time
+# data-relative> element, got '10m ago'"). The rendered-picture caption
+# was ALREADY converted, by Task 1, because it reads through
+# concise_timestamp_html() — so its check passed the moment it was
+# written. That is the point of writing it rather than inspecting the
+# call chain: the caption reaches the page through an i18n template's
+# own "%s", and an escaping mistake THERE would paint literal markup
+# instead of removing an element. Both checks assert the rendered text
+# is what the page produced before, in both languages. Re-derived by
+# running the harness (146/146).
+EXPECTED_CHECK_COUNT = 146
+# 23-08-PLAN.md Task 1 (D7/CFG-37): +2. One pins the stable EVENT
+# identity both Flights renderings now carry — non-empty, unique, the
+# same set on both sides, and unchanged when a newer detection arrives
+# at the top, which is the one property the row's position does not
+# have and the whole basis of the new-row highlight. One pins the loop's
+# two gates on the page's own output: exactly one data-loaded-at marker,
+# a witness in the rendered markup for every registry region, and no
+# region naming the filter input list-filter.js captured at load.
+# 146 + 2 = 148, recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 148
+# 23-08-PLAN.md Task 2 (D3/CFG-32's two Flights clauses + D7's card
+# clause): +4. The detail row's grid reveal wrapper and the deliberate
+# one-directional animation whose collapsed end state is still
+# display: none; the chevron's transform transition and the stylesheet's
+# unmoved live prefers-reduced-motion count; the phone card's face as
+# its own <summary> with the resolve link kept out of it; and the filter
+# count animating its element rather than its number.
+# 148 + 4 = 152, recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 152
+# 23-10-PLAN.md Task 2 (D3/CFG-32): +1. Both <dialog>s arrive through ONE
+# @starting-style entrance on .lightbox[open] - one rule, two dialogs -
+# fading and zooming from opacity 0 over var(--motion-fast), with
+# `display`/`allow-discrete` deliberately absent (a modal that has not
+# reached display:none is an invisible sheet over the page) and
+# ::backdrop unanimated (the global reduced-motion override matches only
+# element selectors and cannot reach it). 152 + 1 = 153, re-derived by
+# RUNNING.
+EXPECTED_CHECK_COUNT = 153
+# 24-04-PLAN.md Task 3 (CFG-40): +1 — Home's small battery ring. The
+# check deliberately does NOT grep for `draw.` in two page modules: both
+# files could import the emitter and still draw two different pictures.
+# It renders BOTH pages and compares the two rings' PROPORTIONS —
+# radius-over-box and stroke-over-box identical while the boxes
+# themselves differ — which is exactly "one drawing at two sizes" and is
+# the property a drifting copy destroys first. It also pins the ring as
+# an ADDITION (the verdict, the "≈ NN%" and the millivolt detail all
+# still printed, which is what keeps the drawing's aria-hidden honest),
+# the ring's placement inside the Battery tile rather than merely on the
+# page, the frame verdict still appearing exactly once (a recorded fixed
+# bug here), and no ring at all for a device with no reading.
+# 153 + 1 = 154, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 154
+# 24-06-PLAN.md Task 1 (CFG-42): +4 - the time domain. One proves the
+# new scale is a TIME scale and not the index scale beside it (the two
+# are indistinguishable on an evenly-spaced fixture, so it is written
+# around the case they disagree about: two instants an hour apart stay
+# 1/24 of the band apart however many others are on it). One renders a
+# wrapping night window as two spans rather than one inverted one. One
+# pins the collapse and its exact reported count. One pins the emitted
+# class vocabulary and the absence of any colour literal.
+# 154 + 4 = 158, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 158
+# 24-06-PLAN.md Task 2 (CFG-42): +3 - the band on Home. One draws it
+# for the Paris day with its caption, and covers the empty day and the
+# unreadable database (T-24-06-D). One shades the configured
+# quiet-hours window and nothing at all when it is off. One pins the
+# Paris/UTC boundary in BOTH directions plus a real 25-hour Paris day,
+# counts render()'s history.db reads (2 before this plan, 3 after) and
+# re-checks that the frame verdict still appears exactly once.
+# 158 + 3 = 161, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 161
+# 24-08-PLAN.md Task 1 (CFG-44): +1 — D4's hero. One check, written
+# against the ONE failure mode the requirement has: a hero that looks
+# composed but carries its own copies of the ring and the band. It pins
+# a single hero container holding the shared Frame strip (rendered once,
+# never inlined a second time), the tiles and the day band; the picture
+# row OUTSIDE it; exactly one ring and exactly one band, both inside it,
+# matched on whole class attributes because the band frame's own name is
+# a prefix of the span's and the mark's; no geometry and no unqualified
+# battery_percent( in the page module; and the recorded
+# frame-verdict-exactly-once bug re-asked in BOTH languages, since a
+# hero is precisely the shape that reintroduces it.
+# 161 + 1 = 162, re-derived by RUNNING (162/162).
+EXPECTED_CHECK_COUNT = 162
+# 24-08-PLAN.md Task 2 (CFG-44): +2 — "fed by", proven. One is
+# STRUCTURAL: the hero's ring and Health's carry one class vocabulary
+# COMPUTED from the markup, the hero's band draws three shapes and not
+# one, every class either emits is a constant companion/draw.py itself
+# names, and neither the page module nor the check itself writes any of
+# those strings down — a literal keeps passing against a forked copy
+# that still uses the old one. One is BEHAVIOURAL, and is what CFG-44
+# actually asks for: a class constant inside draw.py is replaced at
+# check time and both the hero and the page the emitter was borrowed
+# from change, while the band's own mutation moves the hero and leaves
+# Health byte-identical (the mutation is targeted, not a global
+# perturbation).
+# 162 + 2 = 164, re-derived by RUNNING (164/164).
+EXPECTED_CHECK_COUNT = 164
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -1456,7 +1568,16 @@ def main():
             # and still shows a relative suffix (falls back to
             # history_db.utc_now_iso()).
             rendered_no_now = history_page.render({"state_dir": tmp})
-            if " ago)" not in rendered_no_now:
+            # 23-03-PLAN.md Task 1 (D14/CFG-34): retargeted in place, not
+            # weakened — the parenthesised relative age is now a <time
+            # data-relative> element, so the bare " ago)" substring this
+            # pinned before no longer exists (the "</time>" closes
+            # between them). The replacement asserts MORE: the
+            # parentheses stay outside the element and the age between
+            # them is the element's own text.
+            if not re.search(
+                    r'\(<time datetime="[^"]*" data-relative>[^<]* ago</time>\)',
+                    rendered_no_now):
                 return False, (
                     "expected a relative-age suffix even when ctx carries "
                     "no 'now' key (render() must fall back to "
@@ -1467,6 +1588,78 @@ def main():
     check(
         "History's Timestamp column/mobile primary line read through layout.concise_timestamp_html(), format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key",
         _timestamp_column_absolute_and_relative)
+
+    def _history_timestamps_carry_a_relative_time_element():
+        # 23-03-PLAN.md Task 1 (D14/CFG-34): concise_timestamp_html()'s
+        # relative half is now a <time data-relative> element, so every
+        # surface that reads THROUGH that function inherits the
+        # convention without its own page module changing at all.
+        # History is the widest such surface, and its cells go through
+        # data_table()'s raw_columns — so this check is also the proof
+        # that the element survives that path as MARKUP rather than
+        # arriving double-escaped as literal text on the page.
+        tmp = _mkstate("h-ts-relative-element")
+        try:
+            seeded_ts = "2026-08-28T13:58:02+00:00"
+            three_min_later = "2026-08-28T14:01:02+00:00"
+            _seed_runway_events(tmp, [
+                {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, now=three_min_later))
+            # 23-08-PLAN.md Task 1: RETARGETED IN PLACE, no count change.
+            # Flights joined the refresh loop, so its header now carries
+            # layout.freshness_line_html()'s own <time data-relative>
+            # clock — and a bare re.search() over the whole page found
+            # THAT element first and measured the page's render instant
+            # instead of the row's age. The subject of this check has
+            # always been the Timestamp CELL and the raw_columns path it
+            # travels, so it measures inside the table now. The header's
+            # element is asserted present and distinct in the same
+            # breath, because "measure the table" is only honest while
+            # something proves the other element is really there to have
+            # been confused with.
+            if "data-refresh-clock" not in rendered:
+                return False, (
+                    "expected the page header's own freshness clock to be present — this check "
+                    "narrowed its search to the table precisely because that element exists, "
+                    "and with it gone the narrowing would be measuring nothing in particular")
+            cards = re.search(r'<ul class="history-cards">.*?</ul>', rendered, re.S)
+            if cards is None:
+                return False, "expected a rendered History card list"
+            body = cards.group(0)
+            if "data-refresh-clock" in body:
+                return False, (
+                    "did not expect the header's freshness clock inside the row list — the two "
+                    "elements must stay distinct or this check is back to measuring whichever "
+                    "the regex reached first")
+            match = re.search(
+                r'<time datetime="([^"]*)" data-relative>([^<]*)</time>', body)
+            if match is None:
+                return False, (
+                    "expected at least one <time datetime=... data-relative> element in the "
+                    "rendered History row list — this is the surface that reaches the page "
+                    "through concise_timestamp_html()")
+            if "&lt;time" in rendered:
+                return False, (
+                    "expected the element to reach the page as markup — a double-escaped "
+                    "'&lt;time' means a raw-markup producer was escaped again by its caller")
+            if match.group(2) != layout.relative_age_text(
+                    layout.age_seconds(seeded_ts, three_min_later)):
+                return False, (
+                    "expected the element's text to be the unchanged relative age, got %r"
+                    % (match.group(2),))
+            if layout.age_seconds(match.group(1), three_min_later) != 180:
+                return False, (
+                    "expected the element's own machine-readable instant to name the seeded "
+                    "row's moment, got %r" % (match.group(1),))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's Timestamp cells carry layout.concise_timestamp_html()'s new "
+        "<time data-relative> element through data_table()'s raw_columns — as real markup, "
+        "never double-escaped — with its text and its instant both intact (23-03, D14/CFG-34)",
+        _history_timestamps_carry_a_relative_time_element)
 
     def _corroboration_copy_agrees_with_health_page():
         # D-03, restated by quick task 260902-w4t (UIR-04): History's
@@ -3057,22 +3250,59 @@ def main():
         # deliberately not ported when Preview's content first moved onto
         # History (06.6.4.1-05), and quick task 260903-c4o's further
         # restructure (folding the newest render into the gallery grid,
-        # retiring the separate frame) does not change that guarantee -
-        # retained here unmodified except for this comment and the seeding
-        # below.
+        # retiring the separate frame) does not change that guarantee.
+        #
+        # 23-08-PLAN.md Task 1: RETARGETED IN PLACE, no count change, and
+        # this one is a real reversal rather than a re-scoping — so it is
+        # written down here rather than quietly dropped.
+        #
+        # D7/CFG-37 (locked on the Phase 23 ROADMAP) puts Flights on the
+        # same self-refreshing loop Home, Display and Health already run,
+        # and companion/static/freshness.js returns at its first guard on
+        # any page with no [data-loaded-at]: no marker, no loop. So the
+        # marker is now REQUIRED — exactly once, and only as
+        # layout.freshness_line_html()'s own output, which is the clause
+        # that keeps a hand-built second apparatus out.
+        #
+        # What this check still forbids is what D-18 was actually about:
+        # the RETIRED mechanism. `data-stale-banner` is gone for good
+        # (its own SUPERSEDED record is in freshness.js's header), and so
+        # is the manual Refresh LINK the marker used to hang on — the
+        # marker's home now is a hidden pill the loop reveals, not a
+        # control the reader has to press. Both are asserted.
         tmp = _mkstate("h-no-freshness")
         try:
             rendered = history_page.render(_history_ctx(tmp))
-            if "data-loaded-at" in rendered:
-                return False, "did not expect a data-loaded-at attribute on the History page"
             if "data-stale-banner" in rendered:
                 return False, "did not expect a data-stale-banner element on the History page"
+            if rendered.count("data-loaded-at") != 1:
+                return False, (
+                    "expected exactly one data-loaded-at marker on the History page — D7/CFG-37 "
+                    "puts this page on the refresh loop and freshness.js returns at its first "
+                    "guard without one, while a second would be two claims about when this "
+                    "document was generated; found %d" % rendered.count("data-loaded-at"))
+            built = layout.freshness_line_html(_history_ctx(tmp)["now"])
+            if "data-loaded-at" not in built:
+                return False, (
+                    "expected layout.freshness_line_html() to be the thing that carries the "
+                    "marker — this check reads it back from the builder rather than pinning a "
+                    "literal, so the builder stays the one definition site")
+            marker_at = rendered.index("data-loaded-at")
+            around = rendered[max(0, marker_at - 400):marker_at]
+            if "<a " in around[around.rfind("<p class=\"page-header__freshness"):]:
+                return False, (
+                    "did not expect a link inside the freshness line — D-18 retired the manual "
+                    "Refresh control outright and the marker's home is the hidden pill the loop "
+                    "reveals, never an anchor the reader has to press")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the rendered History page contains no data-loaded-at attribute and no data-stale-banner "
-        "element - Preview's page-level freshness apparatus was deliberately not ported",
+        "the rendered History page carries no data-stale-banner and no Refresh link — D-18's "
+        "retired apparatus stays retired — while carrying exactly one data-loaded-at marker, "
+        "built by layout.freshness_line_html(), because D7/CFG-37 puts this page on the refresh "
+        "loop and freshness.js returns at its first guard without one (retargeted in place by "
+        "23-08-PLAN.md Task 1)",
         _now_showing_no_preview_freshness_apparatus)
 
     def _gallery_name_to_iso_fixtures():
@@ -4175,7 +4405,24 @@ def main():
                 % (attrs["first"],))
         # And nothing anywhere in either render carries the ISO shape —
         # the dialog's own static markup included.
+        #
+        # 23-03-PLAN.md Task 1 (D14/CFG-34): with ONE exemption, stated
+        # rather than silently widened. layout.relative_time_html()'s
+        # <time datetime="..." data-relative> element carries a
+        # machine-readable instant in the attribute HTML defines for
+        # exactly that purpose — never painted, never copied into the
+        # dialog, and already converted onto Europe/Paris (so it is not
+        # the raw registry string B5 found either way). This is the same
+        # line test_status_pages.py already draws for the battery
+        # chart's data-ts hit targets: "D-05 is about visible/tooltip
+        # text, not every attribute". The exemption is written as an
+        # EXACT-SHAPE substitution so that a change to the element
+        # convention stops exempting anything and this check fails
+        # loudly, and so the sweep still catches an ISO leak anywhere
+        # else on the page, the attribute's own siblings included.
         for label, page in (("gallery", rendered), ("resolve fallback", fallback)):
+            page = re.sub(
+                r'<time datetime="[^"]*" data-relative>', "<time data-relative>", page)
             leaks = _ISO_INSTANT_RE.findall(page)
             if leaks:
                 return False, (
@@ -4964,6 +5211,427 @@ def main():
         "no positioning (22-09-PLAN.md Task 2, X5/D-05/T4)",
         _day_label_is_the_paris_day_formatters_own_output_and_never_sticky)
 
+    # --- 23-08-PLAN.md Task 1 (D7/CFG-37): Flights joins the refresh
+    # loop, and a genuinely new detection says so once -----------------
+
+    def _every_flights_row_carries_a_stable_event_identity():
+        # D7's highlight is a DIFF over row identity, so the identity is
+        # the whole mechanism and the one thing a wrong implementation
+        # gets wrong in a way nothing else notices: `flight-detail-%d`
+        # and `data-filter-group` are both the row's POSITION in this
+        # render, and a highlight keyed to a position lights up every
+        # row below an insertion instead of the one that arrived.
+        #
+        # So this asserts the property a position does not have. The
+        # same two events are rendered twice — once alone, once with a
+        # NEWER third event prepended — and each surviving row must keep
+        # the identity it had. An index-based attribute passes every
+        # other clause here and fails this one.
+        tmp = _mkstate("h-row-identity")
+        try:
+            older = [
+                {"ts": "2026-08-27T09:00:00+00:00", "hex": "id01", "callsign": "IDONE"},
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "id02", "callsign": "IDTWO"},
+            ]
+            _seed_runway_events(tmp, older)
+            before = history_page.render(_history_ctx(tmp))
+            attr = layout.REFRESH_ROW_ID_ATTR
+
+            def _ids(rendered, tag):
+                return re.findall(
+                    r"<%s[^>]*\s%s=\"([^\"]*)\"" % (tag, re.escape(attr)), rendered)
+
+            tr_ids = _ids(before, "tr")
+            li_ids = _ids(before, "li")
+            # Two summary rows + two detail rows on the desktop side.
+            if len(tr_ids) != 4:
+                return False, (
+                    "expected both the summary row and its sibling detail row to carry %r in "
+                    "the desktop table (4 for 2 events), found %r" % (attr, tr_ids))
+            if len(li_ids) != 2:
+                return False, (
+                    "expected every phone card to carry %r, found %r" % (attr, li_ids))
+            if any(not value for value in tr_ids + li_ids):
+                return False, "expected every identity attribute to be non-empty, got %r" % (
+                    tr_ids + li_ids,)
+            if sorted(set(tr_ids)) != sorted(set(li_ids)):
+                return False, (
+                    "expected the table and the card list to name the SAME events: table %r "
+                    "against cards %r" % (sorted(set(tr_ids)), sorted(set(li_ids))))
+            if len(set(li_ids)) != len(li_ids):
+                return False, (
+                    "expected two rows never to share one identity, found %r" % (li_ids,))
+
+            # The property a position does not have.
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T11:00:00+00:00", "hex": "id03", "callsign": "IDTHREE"},
+            ])
+            after = history_page.render(_history_ctx(tmp))
+            after_ids = _ids(after, "li")
+            if len(after_ids) != 3:
+                return False, "expected three phone cards after the insertion, got %r" % (
+                    after_ids,)
+            if after_ids[1:] != li_ids:
+                return False, (
+                    "expected a newer event arriving at the TOP to leave every existing row's "
+                    "identity untouched — before %r, after %r. An identity that shifts with the "
+                    "row's position is an index, and a highlight keyed to it would light up "
+                    "every row below an insertion (D7/CFG-37)" % (li_ids, after_ids))
+            if after_ids[0] in li_ids:
+                return False, (
+                    "expected the newly-arrived event to carry an identity no existing row "
+                    "already had, got %r" % (after_ids[0],))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every rendered Flights row carries a non-empty, unique event identity in BOTH "
+        "representations, the table and the card list name the same event set, and a newer "
+        "detection arriving at the top leaves every existing row's identity unchanged — the "
+        "property the row's position does not have and the whole basis of the new-row highlight "
+        "(D7/CFG-37, 23-08-PLAN.md Task 1)",
+        _every_flights_row_carries_a_stable_event_identity)
+
+    def _flights_declares_its_refresh_regions_and_never_the_filter_input():
+        # The loop's two gates, measured on the page's own output: no
+        # [data-loaded-at] marker means freshness.js returns at its first
+        # guard, and a registry region that matches nothing is a list
+        # entry that can never fire. The exclusion is the interesting
+        # half — list-filter.js captures its input once at load, so a
+        # swap that replaced it would leave the filter permanently dead
+        # and discard an in-progress query.
+        tmp = _mkstate("h-refresh-regions")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "rr01", "callsign": "REGION"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            if rendered.count("data-loaded-at") != 1:
+                return False, (
+                    "expected exactly one data-loaded-at marker on Flights (no marker, no loop; "
+                    "two markers, two claims about when this document was generated), found %d"
+                    % rendered.count("data-loaded-at"))
+            selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_FLIGHTS]
+            # Each region, reduced to a literal the rendered markup must
+            # carry. Deliberately not a CSS engine: the point is that
+            # every declared region names something this page actually
+            # renders.
+            witnesses = {
+                ".page-header__freshness": 'class="page-header__freshness',
+                "ul.history-cards": '<ul class="history-cards"',
+                ".data-table-wrap": 'class="data-table-wrap"',
+                "[data-filter-count]": "data-filter-count ",
+            }
+            if sorted(witnesses) != sorted(selectors):
+                return False, (
+                    "Flights' registry entry is %r, and this check knows how to witness %r — a "
+                    "region added to the registry must be witnessed in the rendered page here "
+                    "too, or it is a list entry that can never fire"
+                    % (sorted(selectors), sorted(witnesses)))
+            for selector in selectors:
+                if witnesses[selector] not in rendered:
+                    return False, (
+                        "registry region %r matches nothing in the rendered Flights page "
+                        "(looked for %r)" % (selector, witnesses[selector]))
+            for selector in selectors:
+                if "data-filter-input" in selector:
+                    return False, (
+                        "the filter input is a swap target (%r) — list-filter.js captures it "
+                        "once at load, so replacing it leaves the filter permanently dead and "
+                        "silently discards an in-progress query" % (selector,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered Flights page carries exactly one data-loaded-at marker and a witness for "
+        "every one of its REFRESH_SWAP_SELECTORS_BY_PAGE regions, and no region names the filter "
+        "input list-filter.js captured at load (D7/CFG-37, 23-08-PLAN.md Task 1)",
+        _flights_declares_its_refresh_regions_and_never_the_filter_input)
+
+    # --- 23-08-PLAN.md Task 2 (D3/CFG-32's Flights clauses): the detail
+    # row opens with height, the chevron turns, the card answers a tap
+    # anywhere, and the count moves ---------------------------------------
+
+    def _css_rule_body(css, selector):
+        match = re.search(
+            r"(?:^|\n)[ ]*%s\s*\{([^}]*)\}" % re.escape(selector), css)
+        return match.group(1) if match else None
+
+    def _detail_row_height_animates_and_a_closed_row_is_unreachable():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        js_path = os.path.join(HERE, "static", "flight-rows.js")
+        with open(js_path) as fh:
+            js = fh.read()
+
+        # The mechanism, by name. `interpolate-size`/`calc-size()` are
+        # Chromium-only — they would animate for some visitors and
+        # silently do nothing for the rest — and 23-01's own guard bans
+        # both; this is the Flights-side restatement, so a reader of THIS
+        # rule sees why it is shaped the way it is.
+        if "grid-template-rows: 0fr" not in css:
+            return False, (
+                "expected the detail row's height to animate from grid-template-rows: 0fr — "
+                "the one mechanism 23-RESEARCH.md's Baseline table picks for this job")
+        for banned in ("interpolate-size", "calc-size("):
+            if banned in re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL):
+                return False, (
+                    "companion/static/style.css declares %r — Chromium-only, banned by 23-01's "
+                    "own guard" % (banned,))
+
+        # A <tr> is not a grid container, so the animation cannot live on
+        # the row box: it belongs to a wrapper inside the <td>, and the
+        # page must actually render that wrapper.
+        tmp = _mkstate("h-detail-reveal")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "rv01", "callsign": "REVEAL"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            detail = _detail_row_block(rendered, 0)
+            if detail is None:
+                return False, "expected a server-rendered detail row"
+            if "flight-detail-row__reveal" not in detail:
+                return False, (
+                    "expected the detail cell's content to sit inside the grid reveal wrapper — "
+                    "a <tr> is not a grid container and `display` is discrete, so the animation "
+                    "cannot live on the row box, got %r" % (detail[:200],))
+            if detail.index("flight-detail-row__reveal") > detail.index(
+                    "flight-detail-row__grid"):
+                return False, (
+                    "expected the reveal wrapper to WRAP the detail grid, not to follow it")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        # Scoped to the class flight-rows.js adds to <html> itself, and
+        # that scoping is the no-JS floor rather than tidiness: with
+        # scripts blocked every detail row is already open, and an
+        # entry animation firing over all of them on first paint is
+        # motion nobody asked for on a page nobody has touched.
+        if "flight-rows-live" not in js:
+            return False, (
+                "expected flight-rows.js to add its own live-script class — the animation is "
+                "keyed on it so a scripts-blocked page animates nothing at all")
+        reveal = _css_rule_body(css, ".flight-rows-live .flight-detail-row__reveal")
+        if reveal is None:
+            return False, (
+                "expected the reveal wrapper's animated rule to be scoped to the live-script "
+                "class")
+        if "display: grid" not in reveal or "grid-template-rows" not in reveal:
+            return False, (
+                "expected the reveal wrapper to be a grid whose row track is what animates, "
+                "got %r" % (reveal,))
+        if "var(--motion-fast)" not in reveal:
+            return False, (
+                "expected the reveal transition to spend var(--motion-fast) — somebody pressed "
+                "a control and is watching for it to answer — got %r" % (reveal,))
+        if "@starting-style" not in css:
+            return False, (
+                "expected an @starting-style block: a row going from display:none to displayed "
+                "has no previous computed value to transition FROM, so without one the rule is "
+                "a transition that never runs")
+
+        # THE DELIBERATE CHOICE, and the property the harness asserts.
+        # The collapsed end state stays `display: none` and only the
+        # OPENING direction animates. That is what keeps a closed row's
+        # links, buttons and copy controls out of the tab order and out
+        # of the accessibility tree — a row held present at zero height
+        # is still focusable, still announced, and still a row the
+        # keyboard walks into and finds nothing.
+        collapsed = _css_rule_body(css, ".flight-detail-row--collapsed")
+        if collapsed is None or "display: none" not in collapsed:
+            return False, (
+                "expected the collapsed detail row to resolve to display: none — the animation "
+                "is one-directional on purpose, because that is the only end state that removes "
+                "the row from the tab order AND the accessibility tree, got %r" % (collapsed,))
+        return True, ""
+    check(
+        "the Flights detail row animates open through a grid reveal wrapper inside its own <td> "
+        "(grid-template-rows 0fr, var(--motion-fast), an @starting-style entry, scoped to the "
+        "class flight-rows.js adds to <html>), neither interpolate-size nor calc-size() appears, "
+        "and the collapsed end state is still display: none — the one state that takes a closed "
+        "row out of both the tab order and the accessibility tree (D3/CFG-32, 23-08-PLAN.md "
+        "Task 2)",
+        _detail_row_height_animates_and_a_closed_row_is_unreachable)
+
+    def _the_chevron_turns_and_carries_no_reduced_motion_block_of_its_own():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        glyph = _css_rule_body(css, ".row-toggle__glyph")
+        if glyph is None:
+            return False, "expected a .row-toggle__glyph rule"
+        if "transition" not in glyph:
+            return False, (
+                "expected the chevron to take a transition of its own — D3's clause, and the "
+                "one references/control-density.md:78 pre-approved, got %r" % (glyph,))
+        if "var(--motion-fast)" not in glyph:
+            return False, (
+                "expected the chevron transition to spend var(--motion-fast) rather than a bare "
+                "literal, got %r" % (glyph,))
+        if "transform" not in glyph:
+            return False, (
+                "expected the chevron to transition TRANSFORM specifically — the rotation is the "
+                "only thing that changes and a blanket `all` would animate properties nobody "
+                "chose, got %r" % (glyph,))
+        # NO per-rule reduced-motion block, stated in advance by
+        # references/control-density.md:78: the global override already
+        # covers a plain transform for free, and a block here would be
+        # dead code rather than a safety net. Measured as the file's
+        # whole live count, so a block added anywhere fails this.
+        live = "\n".join(
+            line for line in css.splitlines() if not re.match(r"^ *[*/]", line))
+        if live.count("prefers-reduced-motion") != 3:
+            return False, (
+                "expected companion/static/style.css to carry exactly 3 live "
+                "prefers-reduced-motion occurrences (the global reduce override, .js "
+                ".mobile-nav's narrow one, and 23-04's no-preference view-transition wrapper) — "
+                "this plan's chevron and its row animation add none, got %d"
+                % live.count("prefers-reduced-motion"))
+        return True, ""
+    check(
+        "the row-toggle chevron transitions TRANSFORM on var(--motion-fast) and adds no per-rule "
+        "reduced-motion block — the global override already covers a plain transform for free, "
+        "and the stylesheet's live prefers-reduced-motion count is unmoved at 3 (D3/CFG-32, "
+        "references/control-density.md:78, 23-08-PLAN.md Task 2)",
+        _the_chevron_turns_and_carries_no_reduced_motion_block_of_its_own)
+
+    def _the_phone_cards_own_face_is_its_disclosure_summary():
+        tmp = _mkstate("h-card-face-summary")
+        try:
+            key = illustrations.normalise_airline_key("Air France")
+            override_path = illustrations.override_path_for_key(key, tmp)
+            os.makedirs(os.path.dirname(override_path), exist_ok=True)
+            _write_gallery_png(override_path)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FACEONE",
+                 "airline": "Air France"},
+                # No airline at all, so airline_label falls to
+                # AIRLINE_FALLBACK_TEXT and the one-hop resolve link is
+                # actually rendered — the whole point of the second row.
+                {"ts": "2026-08-27T09:00:00+00:00", "hex": "fc02", "callsign": "FACETWO"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            li = _row_block(rendered, "li", 0)
+            if li is None:
+                return False, "could not locate the phone card"
+            summary = re.search(
+                r'<summary class="history-card__summary">(.*?)</summary>', li, re.S)
+            if summary is None:
+                return False, (
+                    "expected the card's own face to BE the disclosure's <summary> — a tap "
+                    "anywhere on the card is the native disclosure answering, not a new "
+                    "mechanism, got %r" % (li[:300],))
+            face = summary.group(1)
+            for part in ("history-card__primary", "history-card__secondary",
+                         "history-card__airline", "history-card__thumb",
+                         "history-card__airline-name", "history-card__time"):
+                if part not in face:
+                    return False, (
+                        "expected %r to be part of the card's tappable face — the thumbnail and "
+                        "the airline name shipped in 22-09 and are NOT rebuilt here, they are "
+                        "where they already were" % (part,))
+            # The one thing that must NOT be inside the summary. It is a
+            # control in its own right, and a disclosure whose accessible
+            # name ends in another control's call to action is naming an
+            # action it does not perform.
+            li_unresolved = _row_block(rendered, "li", 1)
+            if li_unresolved is None:
+                return False, "could not locate the unresolved-airline card"
+            if history_page.RESOLVE_LINK_TEXT not in li_unresolved:
+                return False, (
+                    "expected the unresolved card to still carry its one-hop resolve link "
+                    "somewhere on the card — the phone card must not lose an affordance the "
+                    "desktop row has")
+            unresolved_summary = re.search(
+                r'<summary class="history-card__summary">(.*?)</summary>', li_unresolved, re.S)
+            if unresolved_summary is None:
+                return False, "expected the unresolved card to have a face summary too"
+            if history_page.RESOLVE_LINK_TEXT in unresolved_summary.group(1):
+                return False, (
+                    "did not expect the resolve LINK inside the summary: it is a control in its "
+                    "own right, and inside a <summary> it both joins the disclosure's accessible "
+                    "name and competes with the disclosure for the same activation")
+            if "<a " in unresolved_summary.group(1) or "<button" in unresolved_summary.group(1):
+                return False, (
+                    "did not expect any nested control inside the card's summary, got %r"
+                    % (unresolved_summary.group(1),))
+            # And the disclosure BODY is unchanged: still one <details>
+            # per card, still exactly the three copy buttons.
+            if li.count("<details") != 1 or li.count("</details>") != 1:
+                return False, (
+                    "expected exactly one <details> per card, got %d open / %d close"
+                    % (li.count("<details"), li.count("</details>")))
+            body = li[li.index("</summary>"):]
+            if body.count("data-copy-value") != 3:
+                return False, (
+                    "expected the disclosure body to still hold exactly the three copy buttons, "
+                    "got %d" % body.count("data-copy-value"))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the phone card's own face IS the native disclosure's <summary> — the primary line, the "
+        "secondary line, the time and 22-09's thumbnail and airline name all inside it, so a tap "
+        "anywhere opens the card with no script at all — while the one-hop resolve link stays on "
+        "the card and OUT of the summary, and the disclosure body still holds exactly the three "
+        "copy buttons (D7/CFG-37, 23-08-PLAN.md Task 2)",
+        _the_phone_cards_own_face_is_its_disclosure_summary)
+
+    def _the_count_animates_without_its_text_production_moving():
+        js_path = os.path.join(HERE, "static", "list-filter.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        # The text production, untouched: the template comes from the
+        # server-rendered attribute and the two %d are filled from the
+        # two counts. That attribute is the only thing that knows the
+        # translated plural, and a script that composed the sentence
+        # itself would be back to hardcoded English.
+        for token in ('getAttribute("data-filter-count-template")',
+                      '.replace("%d", String(visibleCount))',
+                      '.replace("%d", String(totalCount))'):
+            if token not in js:
+                return False, (
+                    "expected the count's text production to be unchanged (%r) — only its "
+                    "presentation animates" % (token,))
+        # The ELEMENT animates, never the number: the text is written
+        # first and the class second, so the displayed value is correct
+        # at every instant including the first frame of the animation.
+        if "is-fading-in" not in js:
+            return False, (
+                "expected the count to spend the stylesheet's existing changed-value animation "
+                "rather than declare a fourth keyframes block")
+        count_at = js.index("var countEl = document.querySelector(COUNT_SELECTOR);")
+        block = js[count_at:count_at + 1400]
+        text_at = block.index("countEl.textContent =")
+        class_at = block.index("classList.add(")
+        if text_at > class_at:
+            return False, (
+                "expected the count's text to be written BEFORE the animation class is added — "
+                "the number is never what moves, so it is never wrong mid-animation")
+        if "classList.remove(" not in block:
+            return False, (
+                "expected the animation class to be removed and re-added so a second change "
+                "restarts it — a class already present runs nothing")
+        if "offsetWidth" not in block:
+            return False, (
+                "expected a forced reflow between the removal and the re-add — without it the "
+                "browser coalesces both into no change at all and the animation never restarts")
+        # And only on a real change. A count re-rendered with the same
+        # value has not changed, and animating it would be motion that
+        # carries no information.
+        if "!==" not in block:
+            return False, (
+                "expected the animation to fire only when the rendered text actually differs")
+        return True, ""
+    check(
+        "the filter count animates its ELEMENT and never its number: the template-driven text "
+        "production is untouched, the text is written before the class is added, the class is "
+        "removed and re-added across a forced reflow so a second change restarts it, and it "
+        "fires only when the rendered value actually differs (D7/CFG-37, 23-08-PLAN.md Task 2)",
+        _the_count_animates_without_its_text_production_moving)
+
     def _phone_card_route_and_state_carry_the_existing_middle_dot():
         tmp = _mkstate("h-card-separator")
         try:
@@ -5281,6 +5949,302 @@ def main():
         "Next-update headline, with .preview-frame before .recent-flight in document order (D-04)",
         _home_page_render_with_seeded_state)
 
+    def _home_battery_ring_is_the_same_drawing_at_a_smaller_size():
+        """CFG-40 (24-04-PLAN.md Task 3): Home's small battery ring.
+
+        WHAT THIS CHECK IS FOR, and what it deliberately does NOT do. A
+        check that greps for `draw.` in two page modules proves nothing
+        about whether the two rings share behaviour — both files could
+        import the module and then draw two different pictures. So this
+        one renders BOTH pages and compares the two rings' PROPORTIONS:
+        radius-over-side and stroke-over-side must be identical while the
+        sides themselves differ. That is precisely "one drawing, two
+        sizes", and it is the property a second copy destroys first — a
+        copy that drifts to a fixed 2px stroke keeps the same radius
+        ratio and fails on the stroke one.
+
+        The tile must also still print everything it printed before. The
+        ring is an ADDITION: removing the printed percentage in favour of
+        the picture would break the aria-hidden justification the emitter
+        relies on AND would remove the only exact value on the tile.
+        """
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        tmp = _mkstate("home-ring")
+        blank = _mkstate("home-ring-none")
+        try:
+            now = "2026-08-27T12:00:00+00:00"
+            # 3690 mV lands on 43% of the 3300-4200 estimate span — a
+            # fraction no plausible constant (empty, half, full)
+            # coincides with.
+            with _hdb.open_db(tmp) as conn:
+                _hdb.record_device_health(conn, "2026-08-27T11:55:00+00:00", battery_mv=3690)
+            health_state = {"device_state": "ok", "pipeline_state": "ok",
+                            "battery_state": "ok",
+                            "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
+                            "pipeline_html": "<p>Fresh</p>"}
+            ctx = {"state_dir": tmp, "now": now, "gallery_entries": [],
+                   "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+                   "device_config": {"wake_interval_s": 900, "display_enabled": True},
+                   "health_state": health_state, "simple_mode": False}
+            rendered = home_page.render(ctx)
+
+            def _rings(markup):
+                return (re.findall(r'<circle class="%s"[^>]*/>'
+                                   % re.escape(draw.DRAWING_RING_TRACK_CLASS), markup),
+                        re.findall(r'<circle class="%s"[^>]*/>'
+                                   % re.escape(draw.DRAWING_RING_VALUE_CLASS), markup))
+
+            tracks, values = _rings(rendered)
+            if len(tracks) != 1 or len(values) != 1:
+                return False, (
+                    "expected exactly one ring on Home (one track, one value arc), got %d "
+                    "track(s) and %d value arc(s)" % (len(tracks), len(values)))
+
+            # It is inside the BATTERY tile: between that tile's own
+            # caption and the next tile's.
+            battery_at = rendered.index(home_page.BATTERY_ROW_LABEL)
+            data_at = rendered.index(home_page.DATA_ROW_LABEL)
+            ring_at = rendered.index(draw.DRAWING_RING_TRACK_CLASS)
+            if not battery_at < ring_at < data_at:
+                return False, (
+                    "the ring is not inside the Battery tile — battery caption at %d, ring at "
+                    "%d, next tile's caption at %d" % (battery_at, ring_at, data_at))
+
+            # The tile still prints all three of its own texts.
+            tile = rendered[battery_at:data_at]
+            for needle in ("≈ 43%", "3690 mV"):
+                if needle not in tile:
+                    return False, (
+                        "expected the Battery tile to still print %r — the ring is an "
+                        "ADDITION to the verdict, the percentage and the millivolt detail, "
+                        "never a replacement for them" % (needle,))
+            if 'class="text-body widget-verdict"' not in tile:
+                return False, "expected the Battery tile to still print its verdict"
+
+            # The drawn fraction equals the percentage printed beside it.
+            radius = float(re.search(r' r="([0-9.]+)"', values[0]).group(1))
+            dash = re.search(r'stroke-dasharray="([0-9.]+) ', values[0])
+            drawn = float(dash.group(1)) if dash else 2 * math.pi * radius
+            drawn_fraction = drawn / (2 * math.pi * radius)
+            if abs(drawn_fraction - 0.43) > 0.0005:
+                return False, (
+                    "Home's ring draws %.4f of its circumference while the tile prints "
+                    "'≈ 43%%' beside it (CFG-40)" % (drawn_fraction,))
+
+            # ONE EMITTER, TWO SIZES — measured across both pages.
+            health_tmp = _mkstate("home-ring-health")
+            try:
+                with _hdb.open_db(health_tmp) as conn:
+                    for minute, mv in ((50, 3600), (55, 3690)):
+                        _hdb.record_device_health(
+                            conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
+                health_rendered = health_page.render(
+                    {"state_dir": health_tmp, "now": now})
+            finally:
+                shutil.rmtree(health_tmp, ignore_errors=True)
+
+            def _geometry(markup, where):
+                svg = re.search(
+                    r'<svg class="%s[^"]*" viewBox="0 0 ([0-9.]+) [0-9.]+"'
+                    % re.escape(draw.DRAWING_FIGURE_CLASS), markup)
+                if svg is None:
+                    return None, "found no ring figure on %s" % where
+                side = float(svg.group(1))
+                arc = _rings(markup)[1][0]
+                return (side,
+                        float(re.search(r' r="([0-9.]+)"', arc).group(1)),
+                        float(re.search(r'stroke-width="([0-9.]+)"', arc).group(1))), ""
+
+            home_geom, err = _geometry(rendered, "Home")
+            if err:
+                return False, err
+            health_geom, err = _geometry(health_rendered, "Health")
+            if err:
+                return False, err
+            if home_geom[0] >= health_geom[0]:
+                return False, (
+                    "Home's ring is not SMALLER than Health's — %r against %r; two sizes is "
+                    "half of what CFG-40 asks for" % (home_geom[0], health_geom[0]))
+            for index, label in ((1, "radius"), (2, "stroke width")):
+                home_ratio = home_geom[index] / home_geom[0]
+                health_ratio = health_geom[index] / health_geom[0]
+                if abs(home_ratio - health_ratio) > 0.001:
+                    return False, (
+                        "the two rings disagree about %s as a proportion of their own box: "
+                        "Home %.4f, Health %.4f. They are not one drawing at two sizes — they "
+                        "are two components, which is exactly the drift CFG-40 forbids"
+                        % (label, home_ratio, health_ratio))
+
+            # The frame verdict still appears exactly once (a recorded
+            # fixed bug on this page, B2).
+            verdicts = [text for text in home_page.FRAME_STATE_TEXT.values()
+                        if rendered.count(text)]
+            for text in verdicts:
+                if rendered.count(text) != 1:
+                    return False, (
+                        "expected the frame verdict %r exactly once on Home, got %d"
+                        % (text, rendered.count(text)))
+
+            # No reading: no ring, and no empty one either.
+            blank_ctx = dict(ctx, state_dir=blank)
+            blank_rendered = home_page.render(blank_ctx)
+            for class_name in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
+                if class_name in blank_rendered:
+                    return False, (
+                        "a device with no battery reading rendered %r on Home — an empty ring "
+                        "reads as 0%%, which is a false statement about a device that has "
+                        "simply not checked in" % (class_name,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            shutil.rmtree(blank, ignore_errors=True)
+    check(
+        "Home's Battery tile draws exactly one ring, inside that tile, whose drawn fraction "
+        "equals the '≈ NN%' it still prints beside its own millivolt detail and verdict; the "
+        "ring is SMALLER than Health's yet identical to it in radius-over-box and "
+        "stroke-over-box, proving one emitter at two sizes rather than two components; the "
+        "frame verdict still appears exactly once; and a device with no reading draws no ring "
+        "at all (CFG-40)",
+        _home_battery_ring_is_the_same_drawing_at_a_smaller_size)
+
+    # ======================================================================
+    # 23-03-PLAN.md Task 2 (D14/CFG-34): Home's two visible relative ages
+    # become <time data-relative> elements. Both checks assert that
+    # NOTHING READS DIFFERENTLY — the rendered text must equal the text
+    # the page produces today, in both languages — because this is a
+    # wrapping, and a wrapping that changes a string is a rewording.
+    # ======================================================================
+
+    _HOME_RELATIVE_ELEMENT_RE = re.compile(
+        r'<time datetime="([^"]*)" data-relative>([^<]*)</time>')
+
+    def _home_seeded_ctx(tmp, now, flight_ts):
+        from server import history_db as _hdb
+        _seed_runway_events(tmp, [
+            {"ts": flight_ts, "hex": "3c6444", "callsign": "AFR1380",
+             "airline": "Air France", "origin": "ORY", "destination": "TLS",
+             "confirmed_state": "departing"},
+        ])
+        with _hdb.open_db(tmp) as conn:
+            _hdb.record_device_health(conn, flight_ts, battery_mv=3750)
+        return {
+            "state_dir": tmp, "now": now,
+            "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+            "last_checkin_ts": flight_ts,
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "health_state": {"device_state": "ok", "pipeline_state": "ok",
+                             "battery_state": "ok",
+                             "device_detail_html": "",
+                             "pipeline_html": ""},
+            "simple_mode": False,
+        }
+
+    def _home_recent_flight_age_is_an_element_reading_exactly_as_before():
+        import companion.prefs as prefs
+        from companion.pages import home_page
+        now = "2026-08-27T12:00:00+00:00"
+        flight_ts = "2026-08-27T11:50:00+00:00"  # 10 minutes before `now`
+        for lang in ("en", "fr"):
+            tmp = _mkstate("home-relative-%s" % lang)
+            try:
+                prefs.set_request_prefs(lang=lang)
+                rendered = home_page.render(_home_seeded_ctx(tmp, now, flight_ts))
+                expected_age = layout.relative_age_text(600, lang=lang)
+                # The age still sits in its own .time-value__age role
+                # beside the .time-value clock, joined by the existing
+                # .cell-inline-sep dot — C5's split, which this wrapping
+                # must not undo.
+                cell = re.search(
+                    r'<span class="time-value">([^<]*)</span>'
+                    r'<span class="cell-inline-sep">·</span>'
+                    r'<span class="time-value__age">\((.*?)\)</span>', rendered)
+                if cell is None:
+                    return False, (
+                        "lang=%s: expected the recent-flight time cell to keep C5's clock/age "
+                        "split with the age parenthesised inside .time-value__age" % (lang,))
+                element = _HOME_RELATIVE_ELEMENT_RE.fullmatch(cell.group(2))
+                if element is None:
+                    return False, (
+                        "lang=%s: expected the age half to be a <time data-relative> element, "
+                        "got %r" % (lang, cell.group(2)))
+                if element.group(2) != expected_age:
+                    return False, (
+                        "lang=%s: expected Home's recent-flight age to read exactly what it "
+                        "reads today (%r), got %r" % (lang, expected_age, element.group(2)))
+                if not element.group(1):
+                    return False, "lang=%s: expected a non-empty datetime attribute" % (lang,)
+                if layout.age_seconds(element.group(1), now) != 600:
+                    return False, (
+                        "lang=%s: expected the element's own instant to carry the ROW's moment, "
+                        "not the page's, got %r" % (lang, element.group(1)))
+                if "&lt;time" in rendered:
+                    return False, (
+                        "lang=%s: found a double-escaped '&lt;time' — a raw-markup producer was "
+                        "escaped again by its caller" % (lang,))
+            finally:
+                prefs.set_request_prefs(lang="en")
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "Home's recent-flight relative age is a <time data-relative> element carrying the ROW's "
+        "own instant, reading exactly what it reads today in both languages, with C5's "
+        ".time-value/.cell-inline-sep/.time-value__age split and its parentheses intact "
+        "(23-03, D14/CFG-34)",
+        _home_recent_flight_age_is_an_element_reading_exactly_as_before)
+
+    def _home_rendered_caption_carries_the_element_through_the_template():
+        # The caption reaches the page through an i18n template's own
+        # "%s", so an escaping mistake THERE would show as literal
+        # markup on the page rather than as a missing element. Asserted,
+        # never inspected.
+        import companion.i18n as i18n
+        import companion.prefs as prefs
+        from companion.pages import home_page
+        now = "2026-08-27T12:00:00+00:00"
+        flight_ts = "2026-08-27T11:50:00+00:00"
+        gallery_iso = "2026-08-27T11:50:00+00:00"
+        for lang in ("en", "fr"):
+            tmp = _mkstate("home-caption-%s" % lang)
+            try:
+                prefs.set_request_prefs(lang=lang)
+                rendered = home_page.render(_home_seeded_ctx(tmp, now, flight_ts))
+                caption = re.search(
+                    r'<figcaption class="preview-frame__caption text-label">(.*?)</figcaption>',
+                    rendered, re.S)
+                if caption is None:
+                    return False, "lang=%s: expected the rendered-picture caption" % (lang,)
+                expected_caption = i18n.t_lang(
+                    home_page.RENDERED_CAPTION_TEMPLATE, lang) % layout.concise_timestamp_html(
+                        gallery_iso, now, lang=lang)
+                if not caption.group(1).startswith(expected_caption):
+                    return False, (
+                        "lang=%s: expected the caption to be its unchanged wording around "
+                        "concise_timestamp_html()'s own output %r, got %r"
+                        % (lang, expected_caption, caption.group(1)))
+                element = _HOME_RELATIVE_ELEMENT_RE.search(caption.group(1))
+                if element is None:
+                    return False, (
+                        "lang=%s: expected the caption's relative half to be a <time "
+                        "data-relative> element, got %r" % (lang, caption.group(1)))
+                if element.group(2) != layout.relative_age_text(600, lang=lang):
+                    return False, (
+                        "lang=%s: expected the caption's age to read exactly what it reads "
+                        "today, got %r" % (lang, element.group(2)))
+                if "&lt;time" in caption.group(1):
+                    return False, (
+                        "lang=%s: the caption template double-escaped the element — it would "
+                        "paint as literal markup on the page" % (lang,))
+            finally:
+                prefs.set_request_prefs(lang="en")
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "Home's rendered-picture caption carries concise_timestamp_html()'s <time data-relative> "
+        "element THROUGH its i18n template's own %s — as markup, never double-escaped — with the "
+        "caption's wording and the age's text unchanged in both languages (23-03, D14/CFG-34)",
+        _home_rendered_caption_carries_the_element_through_the_template)
+
     def _recent_flight_thumb_resolved_vs_placeholder():
         # Polish fix 1 (Home thumbnails only when artwork exists, D-17):
         # _recent_flight_thumb_html() now takes a state_dir and checks
@@ -5337,12 +6301,12 @@ def main():
             "callsign": "AFR1380", "airline": "Air France", "origin": "ORY",
             "destination": "TLS", "confirmed_state": "departing",
         }
-        hero_with_flight = home_page._hero_figure_html(hero_ctx, current_flight_row)
+        hero_with_flight = home_page._current_picture_html(hero_ctx, current_flight_row)
         if "preview-frame__flight" not in hero_with_flight:
             return False, "expected the flight one-liner when the current flight is known"
         if '<span class="mono">AFR1380</span> · Air France · ORY → TLS' not in hero_with_flight:
             return False, "expected the callsign/airline/route flight one-liner text"
-        hero_without_flight = home_page._hero_figure_html(hero_ctx, None)
+        hero_without_flight = home_page._current_picture_html(hero_ctx, None)
         if "preview-frame__flight" in hero_without_flight:
             return False, "expected no flight one-liner when there is no current flight"
 
@@ -6018,6 +6982,1189 @@ def main():
         "battery_percent() no longer exists on home_page after moving to companion/battery.py (D-01)",
         _battery_percent_moved_out_of_home_page)
 
+    # --- 24-06-PLAN.md Task 1 (CFG-42): the time domain -----------------
+    #
+    # THE ONE THING THESE FOUR CHECKS ARE FOR. Every other drawing in
+    # this phase maps an INDEX to an x position, and an index scale is
+    # indistinguishable from a time scale on any series that arrived on
+    # a perfectly even cadence — which is exactly what a seeded fixture
+    # tends to be. So the checks below are written around the case the
+    # two scales DISAGREE about: a gap. Under an index scale a six-hour
+    # outage is one step, the same width as the fifteen minutes either
+    # side of it; under a time scale it is a quarter of the band with
+    # nothing in it. The mutation recorded in the summary substitutes
+    # draw.percent_x() for draw.percent_time() and _day_band_time_scale_
+    # places_by_when_not_by_index() is the check that goes red.
+
+    # An arbitrary, fixed epoch second standing in for a Paris midnight.
+    # The scale is pure arithmetic on two numbers in the same unit, so
+    # nothing here needs a real timezone — which is the point of the
+    # helper taking numbers rather than datetimes (companion/draw.py may
+    # not import the server package, where the one Paris-day conversion
+    # lives).
+    _BAND_DAY_START = 1756000000
+
+    def _band_hour(n):
+        return _BAND_DAY_START + int(n * 3600)
+
+    def _band_shapes(markup, class_name):
+        """Every <rect> in `markup` carrying exactly `class_name`.
+
+        The closing quote in the pattern is load-bearing: `drawing-band`
+        is a strict prefix of both `drawing-band-span` and
+        `drawing-band-mark`, so a `'class="drawing-band"' in element`
+        test would report all three as the frame. This file has been bitten
+        by that collision before (companion/test_companion_app.py:4134's
+        own `(?<![-\\w])fill="none"` records the mirror case).
+        """
+        return re.findall(
+            r'<rect class="%s"[^>]*/>' % re.escape(class_name), markup)
+
+    def _band_attr(element, name):
+        found = re.search(r'\s%s="([^"]*)"' % re.escape(name), element)
+        return found.group(1) if found else None
+
+    def _band_percent(element, name):
+        raw = _band_attr(element, name)
+        if raw is None or not raw.endswith("%"):
+            return None
+        return float(raw[:-1])
+
+    def _day_band_time_scale_places_by_when_not_by_index():
+        day = draw.SECONDS_PER_DAY
+        # Midnight, midday, and the day's own final instant.
+        for offset, expected in ((0, 0.0), (day / 2.0, 50.0), (day, 100.0)):
+            got = draw.percent_time(_BAND_DAY_START + offset, _BAND_DAY_START)
+            if got is None or abs(got - expected) > 1e-9:
+                return False, (
+                    "expected %+.1fs into the day at %.1f%%, got %r — the three positions a "
+                    "reader checks a time axis against first" % (offset, expected, got))
+        # Outside the day is REJECTED, never positioned. A clamped
+        # instant would put yesterday's check-in at this band's midnight
+        # and make today's drawing claim a check-in that never happened
+        # (T-24-06-A).
+        for outside in (_BAND_DAY_START - 1, _BAND_DAY_START + day + 1):
+            if draw.percent_time(outside, _BAND_DAY_START) is not None:
+                return False, (
+                    "expected an instant outside the day to be rejected, got %r for %r — "
+                    "clamping it would invent a check-in at an edge of the band"
+                    % (draw.percent_time(outside, _BAND_DAY_START), outside))
+        # Totality, because these numbers arrive from stored text.
+        for hostile in (None, True, float("nan"), float("inf"), "12:00", [], {}):
+            if draw.percent_time(hostile, _BAND_DAY_START) is not None:
+                return False, "expected %r as an instant to be rejected" % (hostile,)
+            if draw.percent_time(_BAND_DAY_START, hostile) is not None:
+                return False, "expected %r as a day start to be rejected" % (hostile,)
+        if draw.percent_time(_BAND_DAY_START, _BAND_DAY_START, 0) is not None:
+            return False, "expected a zero-length day to be rejected rather than divided by"
+
+        # A Europe/Paris day is 23 or 25 hours twice a year, so the
+        # day's length is a parameter and an hour is a share of THAT
+        # day, not of a hardcoded 86400.
+        short = draw.percent_time(_BAND_DAY_START + 3600, _BAND_DAY_START, 23 * 3600)
+        if short is None or abs(short - 100.0 / 23) > 1e-9:
+            return False, (
+                "on a 23-hour DST day an hour should be %.4f%% of the band, got %r"
+                % (100.0 / 23, short))
+
+        # THE PROPERTY AN INDEX SCALE DOES NOT HAVE: the distance between
+        # two instants an hour apart is the same 1/24 of the band however
+        # many other instants are on it. Measured off the drawn band, not
+        # off the helper, because the band is what a reader sees.
+        hour_percent = 100.0 / 24
+        seen = []
+        for fillers in ([], [_band_hour(h) for h in (0, 2, 4, 6, 20, 22)]):
+            instants = fillers + [_band_hour(8), _band_hour(9)]
+            markup, collapsed = draw.day_band(_BAND_DAY_START, day, instants)
+            if collapsed:
+                return False, (
+                    "expected no collapsing in a %d-instant series spaced two hours apart, "
+                    "got %d collapsed" % (len(instants), collapsed))
+            marks = [_band_percent(el, "x") for el in _band_shapes(markup, "drawing-band-mark")]
+            if len(marks) != len(instants):
+                return False, (
+                    "expected one mark per instant (%d), got %d" % (len(instants), len(marks)))
+            eight = min(marks, key=lambda p: abs(p - 8 * hour_percent))
+            nine = min(marks, key=lambda p: abs(p - 9 * hour_percent))
+            seen.append((len(instants), eight, nine))
+            if abs(eight - 8 * hour_percent) > 0.02:
+                return False, (
+                    "with %d instants on the band, the 08:00 check-in is drawn at %.2f%% "
+                    "instead of %.2f%% — that is an INDEX position, not a time position "
+                    "(under draw.percent_x() it would sit at %.2f%%)"
+                    % (len(instants), eight, 8 * hour_percent,
+                       draw.percent_x(sorted(instants).index(_band_hour(8)), len(instants))))
+            if abs((nine - eight) - hour_percent) > 0.02:
+                return False, (
+                    "with %d instants on the band, an hour measures %.2f%% of it instead of "
+                    "%.2f%% — an index scale distributes points evenly whenever they happened, "
+                    "so a six-hour outage would draw as one ordinary step"
+                    % (len(instants), nine - eight, hour_percent))
+        if abs(seen[0][1] - seen[1][1]) > 0.02 or abs(seen[0][2] - seen[1][2]) > 0.02:
+            return False, (
+                "the same two instants landed at different positions on a 2-instant band %r "
+                "and an 8-instant band %r — a time scale places an instant by WHEN it "
+                "happened and nothing else" % (seen[0][1:], seen[1][1:]))
+        return True, ""
+    check(
+        "draw.percent_time() is a TIME scale and not the index scale beside it: midnight/"
+        "midday/the day's final instant land at 0/50/100%, an hour is 1/24 of the band however "
+        "many other instants are on it (so an outage draws as an outage), a DST day's own "
+        "length is a parameter rather than a hardcoded 86400, and an instant outside the day is "
+        "REJECTED rather than clamped onto an edge where it would invent a check-in "
+        "(CFG-42, T-24-06-A, 24-06-PLAN.md Task 1)",
+        _day_band_time_scale_places_by_when_not_by_index)
+
+    def _day_band_night_window_shades_the_night_as_two_spans():
+        day = draw.SECONDS_PER_DAY
+        hour_percent = 100.0 / 24
+
+        # 22:00-07:00 — a NIGHT window, which is what quiet hours
+        # normally is, not an edge case.
+        markup, _ = draw.day_band(
+            _BAND_DAY_START, day, [], window=(_band_hour(22), _band_hour(7)))
+        spans = _band_shapes(markup, "drawing-band-span")
+        if len(spans) != 2:
+            return False, (
+                "expected a 22:00-07:00 window to shade TWO spans on a one-day band, got %d — "
+                "one span from 22:00 back to 07:00 has a negative width, and the obvious "
+                "repair (swap them) shades the whole DAY and leaves the night clear, which "
+                "looks entirely plausible" % (len(spans),))
+        widths = [_band_percent(el, "width") for el in spans]
+        starts = [_band_percent(el, "x") for el in spans]
+        if None in widths or None in starts:
+            return False, "expected every span to carry percentage x/width, got %r" % (spans,)
+        if abs(sum(widths) - 9 * hour_percent) > 0.02:
+            return False, (
+                "expected the two spans to cover nine hours (%.2f%%), got %.2f%% — %r"
+                % (9 * hour_percent, sum(widths), list(zip(starts, widths))))
+        if abs(min(starts)) > 1e-9:
+            return False, (
+                "expected the leading span to start at the band's own 00:00, got %r" % (starts,))
+        ends = [s + w for s, w in zip(starts, widths)]
+        if abs(max(ends) - 100.0) > 0.02:
+            return False, (
+                "expected the trailing span to reach the band's own 24:00, got %r" % (ends,))
+        # And the middle of the day is NOT shaded: the failure this
+        # check exists for is a band that shades 07:00-22:00.
+        for start, width in zip(starts, widths):
+            if start < 12 * hour_percent < start + width:
+                return False, (
+                    "midday falls inside a shaded span (%.2f%%..%.2f%%) — the night window has "
+                    "been rendered inverted" % (start, start + width))
+
+        # A daytime window is ONE span, so "always two" is not the fix.
+        markup, _ = draw.day_band(
+            _BAND_DAY_START, day, [], window=(_band_hour(9), _band_hour(17)))
+        spans = _band_shapes(markup, "drawing-band-span")
+        if len(spans) != 1:
+            return False, "expected a 09:00-17:00 window to shade exactly one span, got %d" % (
+                len(spans),)
+        if abs(_band_percent(spans[0], "x") - 9 * hour_percent) > 0.02:
+            return False, "expected the span to start at 09:00, got %r" % (spans[0],)
+        if abs(_band_percent(spans[0], "width") - 8 * hour_percent) > 0.02:
+            return False, "expected the span to be eight hours wide, got %r" % (spans[0],)
+
+        # No window, a zero-width window and a window outside the day
+        # all shade nothing. A zero-width window is never ACTIVE
+        # (server/device_config.py's seconds_until_quiet_hours_end()
+        # says so in as many words), so a hairline of shade would claim
+        # a window the device does not honour.
+        for label, window in (
+                ("absent", None),
+                ("zero-width", (_band_hour(9), _band_hour(9))),
+                ("outside the day", (_BAND_DAY_START - 7200, _band_hour(7))),
+                ("malformed", ("23:00", "07:00")),
+                ("not a pair", 3)):
+            markup, _ = draw.day_band(_BAND_DAY_START, day, [], window=window)
+            spans = _band_shapes(markup, "drawing-band-span")
+            if spans:
+                return False, "expected a %s window to shade nothing, got %r" % (label, spans)
+            if len(_band_shapes(markup, "drawing-band")) != 1:
+                return False, "expected the band's own frame to survive a %s window" % (label,)
+        return True, ""
+    check(
+        "the day band renders a wrapping night window (22:00-07:00) as TWO shaded spans "
+        "covering nine hours, one flush to 00:00 and one flush to 24:00 with midday left "
+        "clear — never one inverted span that would shade the middle of the day — while a "
+        "daytime window stays one span and an absent/zero-width/out-of-day/malformed window "
+        "shades nothing at all (CFG-42, 24-06-PLAN.md Task 1)",
+        _day_band_night_window_shades_the_night_as_two_spans)
+
+    def _day_band_collapses_crowded_marks_and_reports_exactly_how_many():
+        day = draw.SECONDS_PER_DAY
+        spacing = draw.DAY_BAND_MIN_MARK_SPACING_PERCENT
+        ceiling = int(100.0 / spacing) + 1
+
+        # A 30-minute cadence is 48 marks in the band's ~330px at the
+        # 360px floor — about 7px apart, which is drawable. Nothing is
+        # collapsed and the caller may caption the exact number.
+        sparse = [_BAND_DAY_START + 1800 * i for i in range(48)]
+        markup, collapsed = draw.day_band(_BAND_DAY_START, day, sparse)
+        marks = _band_shapes(markup, "drawing-band-mark")
+        if len(marks) != 48 or collapsed != 0:
+            return False, (
+                "expected 48 marks and 0 collapsed at a 30-minute cadence, got %d and %d"
+                % (len(marks), collapsed))
+
+        # A 60-second cadence is 1440 marks in the same 330px. Drawing
+        # them all would let the reader believe the band shows 1440
+        # things; the emitter collapses and SAYS how many.
+        for cadence, total in ((60, 1440), (1, 86400)):
+            instants = [_BAND_DAY_START + cadence * i for i in range(total)]
+            markup, collapsed = draw.day_band(_BAND_DAY_START, day, instants)
+            marks = _band_shapes(markup, "drawing-band-mark")
+            if len(marks) + collapsed != total:
+                return False, (
+                    "at a %ds cadence %d marks + %d collapsed != the %d instants supplied — "
+                    "the number the caption is written from has to be exact"
+                    % (cadence, len(marks), collapsed, total))
+            if len(marks) > ceiling:
+                return False, (
+                    "at a %ds cadence the band drew %d marks, over the %d its own minimum "
+                    "spacing allows — T-24-06-C is that the element count is bounded by the "
+                    "band's WIDTH, never by the row count" % (cadence, len(marks), ceiling))
+            positions = [_band_percent(el, "x") for el in marks]
+            if positions != sorted(positions):
+                return False, "expected the kept marks in chronological order, got %r" % (
+                    positions[:8],)
+            tight = [(a, b) for a, b in zip(positions, positions[1:])
+                     if b - a < spacing - 0.011]
+            if tight:
+                return False, (
+                    "at a %ds cadence two kept marks sit %.2f%% apart, under the %.2f%% "
+                    "minimum — they would paint as one smear and the band would show fewer "
+                    "things than it appears to" % (cadence, tight[0][1] - tight[0][0], spacing))
+            # THE LOWER BOUND, and the half of this check the three
+            # assertions above cannot see. They are all CEILINGS — at
+            # most `ceiling` marks, none closer than the minimum — and
+            # every one of them is satisfied perfectly by a band that
+            # draws ONE mark at 00:00 and nothing else. That is not a
+            # hypothetical: it is what this emitter does if its forward
+            # pass compares each position against its immediate
+            # PREDECESSOR rather than against the last KEPT mark, since
+            # at a sub-minimum cadence every consecutive gap is under
+            # the minimum and so nothing after the first is ever kept.
+            # A day of 1 440 check-ins would then draw as one check-in
+            # at midnight and an empty day after it — the band saying
+            # the device died at 00:00 — with `collapsed` dutifully
+            # reporting 1 439 and every ceiling above still green. The
+            # mutation is recorded in 24-06-SUMMARY.md; these two
+            # assertions are what it now fails.
+            #
+            # Both are consequences of the greedy rule rather than
+            # chosen thresholds: a candidate lying a full
+            # minimum-spacing past the last kept mark is kept BY
+            # DEFINITION, so neither an interior gap nor the unmarked
+            # tail at the band's end can reach the minimum plus one
+            # cadence step. The 0.011 is the same allowance the `tight`
+            # assertion above carries and is not slack in the rule: this
+            # check reads POSITIONS OFF THE DRAWING, and an x attribute
+            # carries two decimals, so a gap between two rounded
+            # endpoints can differ from the true one by up to 0.01.
+            step_percent = cadence / float(day) * 100
+            last_instant = (instants[-1] - _BAND_DAY_START) / float(day) * 100
+            if last_instant - positions[-1] >= spacing + 0.011:
+                return False, (
+                    "at a %ds cadence the kept marks stop at %.2f%% while the instants run to "
+                    "%.2f%% — a tail of %.2f%% carrying %d check-ins drew nothing, though the "
+                    "greedy rule keeps anything a full %.2f%% past the last kept mark. The band "
+                    "would say the device stopped checking in"
+                    % (cadence, positions[-1], last_instant, last_instant - positions[-1],
+                       int((last_instant - positions[-1]) / step_percent), spacing))
+            slack = [(a, b) for a, b in zip(positions, positions[1:])
+                     if b - a > spacing + step_percent + 0.011]
+            if slack:
+                return False, (
+                    "at a %ds cadence two kept marks sit %.2f%% apart, over the %.2f%% the "
+                    "greedy rule allows — instants that had room for a mark of their own were "
+                    "dropped, so the band shows a gap where the device was checking in "
+                    "normally" % (cadence, slack[0][1] - slack[0][0], spacing + step_percent))
+
+        # An instant the band cannot place counts as not-individually-
+        # visible too, so a caller captioning from this number can never
+        # name a total the drawing does not reach.
+        mixed = [_BAND_DAY_START, _BAND_DAY_START - 60, "not a number", None,
+                 _BAND_DAY_START + day // 2]
+        markup, collapsed = draw.day_band(_BAND_DAY_START, day, mixed)
+        marks = _band_shapes(markup, "drawing-band-mark")
+        if len(marks) != 2 or collapsed != 3:
+            return False, (
+                "expected 2 marks and 3 unplaceable instants reported, got %d and %d"
+                % (len(marks), collapsed))
+        # Every mark is centred on its instant rather than hung to the
+        # right of it: a 23:59 mark whose LEFT edge were the instant
+        # would sit entirely outside the canvas. Asserted on the band
+        # just drawn, which has two marks — asserting it on an empty
+        # band is a loop that runs zero times and proves nothing.
+        offset = -draw.DAY_BAND_MARK_WIDTH_PX / 2.0
+        for element in marks:
+            if _band_attr(element, "transform") != "translate(%.2f 0)" % offset:
+                return False, "expected every mark centred on its instant, got %r" % (element,)
+
+        markup, collapsed = draw.day_band(_BAND_DAY_START, day, 17)
+        if collapsed != 0 or _band_shapes(markup, "drawing-band-mark"):
+            return False, "expected a non-iterable series to draw no marks and report 0"
+        return True, ""
+    check(
+        "the day band collapses marks closer than its own stated minimum spacing and returns "
+        "EXACTLY how many it hid — 48 marks at a 30-minute cadence with nothing collapsed, a "
+        "60-second and a 1-second cadence both bounded by the band's width rather than the row "
+        "count (T-24-06-C), no two kept marks under the minimum apart, and an unplaceable "
+        "instant counted too so a caption built from the number can never claim a total the "
+        "drawing does not reach (T-24-06-B, 24-06-PLAN.md Task 1)",
+        _day_band_collapses_crowded_marks_and_reports_exactly_how_many)
+
+    def _day_band_emits_only_registered_classes_and_no_colour():
+        markup, _ = draw.day_band(
+            _BAND_DAY_START, draw.SECONDS_PER_DAY,
+            [_band_hour(h) for h in (1, 5, 9, 13, 17, 21)],
+            window=(_band_hour(23), _band_hour(7)), label="the day")
+        for constant in (draw.DRAWING_BAND_CLASS, draw.DRAWING_BAND_SPAN_CLASS,
+                         draw.DRAWING_BAND_MARK_CLASS):
+            if constant not in draw.DRAWING_CLASSES:
+                return False, (
+                    "the band's class %r is not in draw.DRAWING_CLASSES, so the guard that "
+                    "every emitted class resolves to a real selector cannot see it — a class "
+                    "that exists in Python and nowhere in CSS paints nothing at all"
+                    % (constant,))
+        for class_name in re.findall(r'class="([^"]*)"', markup):
+            for token in class_name.split():
+                if token not in draw.DRAWING_CLASSES:
+                    return False, (
+                        "the band emitted class %r, which is not one of draw.py's own named "
+                        "constants" % (token,))
+        for forbidden in ("url(", "#", "rgb(", "style=", "<linearGradient"):
+            if forbidden in markup:
+                return False, (
+                    "the band's markup carries %r — a colour decided in Python is correct in "
+                    "one theme only, and an external reference is banned outright"
+                    % (forbidden,))
+        if 'role="group"' not in markup or 'aria-label="the day"' not in markup:
+            return False, (
+                "expected a labelled band: it is the only statement of its data, so it is not "
+                "aria-hidden the way the ring beside its own printed percentage is")
+        unlabelled, _ = draw.day_band(_BAND_DAY_START, draw.SECONDS_PER_DAY, [])
+        if 'aria-hidden="true"' not in unlabelled:
+            return False, "expected an unlabelled band to be hidden rather than an unnamed group"
+        return True, ""
+    check(
+        "every class the day band emits is one of companion/draw.py's own named constants and "
+        "is registered in DRAWING_CLASSES (so the stylesheet-resolution guard can see it), the "
+        "markup carries no colour literal, no url() reference and no inline style, and a band "
+        "supplied with a label announces itself as a named group rather than being hidden "
+        "(CFG-39/CFG-42, 24-06-PLAN.md Task 1)",
+        _day_band_emits_only_registered_classes_and_no_colour)
+
+    # --- 24-06-PLAN.md Task 2 (CFG-42): the day band on Home -------------
+    #
+    # The band's three risks, one check each: that it shows the wrong DAY
+    # (the Paris/UTC boundary), that it shows the wrong WINDOW (quiet
+    # hours), and that it disappears rather than degrades (an empty day,
+    # an absent database). The "no check-ins" case is a distinct STATE and
+    # not an error: an absent section is indistinguishable from an unbuilt
+    # feature, and this page already draws that distinction elsewhere (the
+    # battery tile's "No reading yet" verdict rather than a zero).
+
+    def _home_day_band_section(rendered):
+        """The day band's <section> only, or None.
+
+        Sliced out rather than searched for in the whole page because two
+        of the assertions below are about what the caption does NOT say,
+        and "quiet hours" appears elsewhere on this page in the frame
+        strip's own switch. A page-wide `"quiet" not in rendered` would be
+        green only on a page that had lost the strip.
+        """
+        opened = re.search(r'<section class="[^"]*\bday-band\b[^"]*"', rendered)
+        if opened is None:
+            return None
+        end = rendered.index("</section>", opened.start())
+        return rendered[opened.start():end + len("</section>")]
+
+    def _home_band_marks(section):
+        return re.findall(r'<rect class="drawing-band-mark"[^>]*/>', section)
+
+    def _home_band_spans(section):
+        return re.findall(r'<rect class="drawing-band-span"[^>]*/>', section)
+
+    def _home_band_ctx(tmp, now, checkins, config=None):
+        from server import history_db as _hdb
+        with _hdb.open_db(tmp) as conn:
+            for ts in checkins:
+                _hdb.record_device_health(conn, ts, battery_mv=3750)
+        return {
+            "state_dir": tmp, "now": now,
+            "last_checkin_ts": checkins[-1] if checkins else None,
+            "device_config": config or {"wake_interval_s": 900, "display_enabled": True},
+            "health_state": {"device_state": "ok", "pipeline_state": "ok",
+                             "battery_state": "ok", "device_detail_html": "",
+                             "pipeline_html": ""},
+            "simple_mode": False,
+        }
+
+    def _home_day_band_renders_the_day_and_says_what_it_shows():
+        from companion.pages import home_page
+        # Paris 14:00 on 2026-08-27 (CEST, UTC+2), so the band's day runs
+        # 2026-08-26T22:00Z .. 2026-08-27T22:00Z.
+        now = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("band-day")
+        try:
+            # 08:00, 12:00 and 13:00 Paris — two of them an hour apart, so
+            # the time scale's own property is visible on the real page and
+            # not only in the unit check above.
+            ctx = _home_band_ctx(tmp, now, [
+                "2026-08-27T06:00:00+00:00",
+                "2026-08-27T10:00:00+00:00",
+                "2026-08-27T11:00:00+00:00",
+            ])
+            rendered = home_page.render(ctx)
+            section = _home_day_band_section(rendered)
+            if section is None:
+                return False, "expected a day-band section on Home, got none"
+            marks = _home_band_marks(section)
+            if len(marks) != 3:
+                return False, "expected one mark per check-in (3), got %d" % (len(marks),)
+            xs = sorted(float(re.search(r'x="([\d.]+)%"', el).group(1)) for el in marks)
+            hour = 100.0 / 24
+            for got, want_hour in zip(xs, (8, 12, 13)):
+                if abs(got - want_hour * hour) > 0.02:
+                    return False, (
+                        "expected the %02d:00 Paris check-in at %.2f%%, got %.2f%% — the band's "
+                        "marks are placed by the PARIS clock, which is what every other date on "
+                        "this page uses" % (want_hour, want_hour * hour, got))
+            # The caption names the day it is showing. A band captioned
+            # only "today" cannot be checked against the row beneath it.
+            if "2026-08-27" not in section:
+                return False, "expected the caption to name the Paris day it draws, got %r" % (
+                    section,)
+            if "3" not in re.sub(r"<[^>]*>", " ", section):
+                return False, "expected the caption to state the check-in count as text"
+
+            # THE EMPTY DAY IS A STATE, NOT AN ABSENCE.
+            empty = _mkstate("band-empty")
+            try:
+                empty_ctx = _home_band_ctx(empty, now, [])
+                # A check-in on a DIFFERENT day, so the table is not empty
+                # and the emptiness is the band's bucketing rather than an
+                # unreadable database.
+                from server import history_db as _hdb
+                with _hdb.open_db(empty) as conn:
+                    _hdb.record_device_health(conn, "2026-08-20T10:00:00+00:00", battery_mv=3700)
+                rendered_empty = home_page.render(empty_ctx)
+                empty_section = _home_day_band_section(rendered_empty)
+                if empty_section is None:
+                    return False, (
+                        "expected the band section to survive a day with no check-ins — an "
+                        "absent section reads as an unbuilt feature, an empty band reads as "
+                        "no activity, and those are different statements")
+                if _home_band_marks(empty_section):
+                    return False, "expected no marks on an empty day, got %r" % (
+                        _home_band_marks(empty_section),)
+                if 'class="drawing-band"' not in empty_section:
+                    return False, "expected the band's own frame to render on an empty day"
+                if "2026-08-27" not in empty_section:
+                    return False, "expected the empty band's caption to name the day too"
+            finally:
+                shutil.rmtree(empty, ignore_errors=True)
+
+            # THE COLLAPSE, CAPTIONED (T-24-06-B). The band above drew
+            # three well-separated marks and must NOT carry the merge
+            # sentence — a caption that always admitted a collapse would
+            # be as untrue as one that never did. A day at a one-minute
+            # cadence must carry it, because at that density the band
+            # genuinely cannot show each check-in separately and a reader
+            # counting marks would otherwise conclude it lost some.
+            if home_page.DAY_BAND_COLLAPSED_TEXT in section:
+                return False, (
+                    "the band collapsed nothing (3 marks for 3 check-ins) yet its caption said "
+                    "marks were merged — a caption that always admits a collapse tells the "
+                    "reader nothing and is untrue on every sparse day")
+            dense = _mkstate("band-dense")
+            try:
+                from server import history_db as _hdb
+                minutes = ["2026-08-27T%02d:%02d:00+00:00" % (6 + i // 60, i % 60)
+                           for i in range(300)]
+                dense_ctx = _home_band_ctx(dense, now, minutes)
+                dense_section = _home_day_band_section(home_page.render(dense_ctx))
+                if dense_section is None:
+                    return False, "expected a band on a dense day"
+                dense_marks = _home_band_marks(dense_section)
+                if len(dense_marks) >= len(minutes):
+                    return False, (
+                        "expected a one-minute cadence to collapse (300 check-ins cannot be 300 "
+                        "distinguishable marks in ~330px), got %d marks" % (len(dense_marks),))
+                if home_page.DAY_BAND_COLLAPSED_TEXT not in dense_section:
+                    return False, (
+                        "the band drew %d marks for %d check-ins and its caption did not say "
+                        "they were merged — the drawing dropping marks silently and the caption "
+                        "printing a total are the two halves of one lie (T-24-06-B)"
+                        % (len(dense_marks), len(minutes)))
+                dense_text = re.sub(r"<[^>]*>", " ", dense_section)
+                if str(len(minutes)) not in dense_text:
+                    return False, (
+                        "expected the true total still printed as TEXT beside the merge "
+                        "sentence — the count is honest, only the COUNTING of marks is not")
+            finally:
+                shutil.rmtree(dense, ignore_errors=True)
+
+            # NO DATABASE AT ALL: no band, no raise, a page that still
+            # renders (T-24-06-D).
+            #
+            # The unreadable database is made unreadable by putting a
+            # DIRECTORY where history.db belongs, not by chmod: this
+            # harness runs as root in its container, where a 0o500 state
+            # dir is not read-only at all (the same reason the four WR-11
+            # checks in companion/test_companion_app.py fail here and
+            # pass in CI). sqlite cannot open a directory whoever you
+            # are, so this check measures the same degradation in both
+            # environments.
+            absent = _mkstate("band-nodb")
+            try:
+                absent_ctx = _home_band_ctx(absent, now, [])
+                for name in os.listdir(absent):
+                    path = os.path.join(absent, name)
+                    if os.path.isdir(path):
+                        shutil.rmtree(path)
+                    else:
+                        os.remove(path)
+                os.mkdir(os.path.join(absent, "history.db"))
+                rendered_absent = home_page.render(absent_ctx)
+                if '<h1 class="page-title">' not in rendered_absent:
+                    return False, "expected Home to render with history.db absent"
+                if _home_day_band_section(rendered_absent) is not None:
+                    return False, (
+                        "expected NO band with history.db unreadable — an empty band there "
+                        "would claim the device made no check-ins when nothing was read")
+            finally:
+                shutil.rmtree(absent, ignore_errors=True)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home's day band draws one mark per check-in at its PARIS clock position, captions the "
+        "Paris day it shows and states the count as text; a day with no check-ins still renders "
+        "the band and its frame with a caption naming the day (an absent section would read as "
+        "an unbuilt feature, an empty band reads as no activity); and with history.db unreadable "
+        "the page renders with no band at all rather than an empty one claiming no check-ins "
+        "(CFG-42, T-24-06-D, 24-06-PLAN.md Task 2)",
+        _home_day_band_renders_the_day_and_says_what_it_shows)
+
+    def _home_day_band_shades_quiet_hours_only_when_configured():
+        from companion.pages import home_page
+        now = "2026-08-27T12:00:00+00:00"
+        checkins = ["2026-08-27T10:00:00+00:00"]
+        hour = 100.0 / 24
+        tmp = _mkstate("band-quiet")
+        try:
+            # The DEFAULT night window, and the case a naive span renders
+            # inverted: 23:00-07:00 wraps midnight.
+            ctx = _home_band_ctx(tmp, now, checkins, config={
+                "wake_interval_s": 900, "display_enabled": True,
+                "quiet_hours_enabled": True,
+                "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
+                "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
+            })
+            section = _home_day_band_section(home_page.render(ctx))
+            if section is None:
+                return False, "expected a day-band section"
+            spans = _home_band_spans(section)
+            if len(spans) != 2:
+                return False, (
+                    "expected the default 23:00-07:00 quiet hours to shade TWO spans on a "
+                    "one-day band, got %d — one span would shade the middle of the DAY and "
+                    "leave the night clear" % (len(spans),))
+            widths = [float(re.search(r'width="([\d.]+)%"', el).group(1)) for el in spans]
+            if abs(sum(widths) - 8 * hour) > 0.05:
+                return False, (
+                    "expected the shaded spans to cover the window's eight hours (%.2f%%), got "
+                    "%.2f%%" % (8 * hour, sum(widths)))
+            text = re.sub(r"<[^>]*>", " ", section)
+            if "23:00" not in text or "07:00" not in text:
+                return False, (
+                    "expected the caption to name the shaded window's own hours, got %r" % (text,))
+
+            # DISABLED: nothing shaded, and the caption does not mention a
+            # window the device is not honouring.
+            off = _mkstate("band-quiet-off")
+            try:
+                off_ctx = _home_band_ctx(off, now, checkins, config={
+                    "wake_interval_s": 900, "display_enabled": True,
+                    "quiet_hours_enabled": False,
+                    "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
+                    "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
+                })
+                off_section = _home_day_band_section(home_page.render(off_ctx))
+                if off_section is None:
+                    return False, "expected the band to render with quiet hours disabled"
+                if _home_band_spans(off_section):
+                    return False, (
+                        "expected zero shaded spans with quiet hours disabled, got %r"
+                        % (_home_band_spans(off_section),))
+                off_text = re.sub(r"<[^>]*>", " ", off_section).lower()
+                if "quiet" in off_text or "23:00" in off_text:
+                    return False, (
+                        "expected the band's caption to say nothing about quiet hours when they "
+                        "are off — a legend for a span that is not drawn describes a band the "
+                        "reader is not looking at. Got %r" % (off_text,))
+                if not _home_band_marks(off_section):
+                    return False, "expected the check-in marks to survive quiet hours being off"
+            finally:
+                shutil.rmtree(off, ignore_errors=True)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home's day band shades the CONFIGURED quiet-hours window — the default 23:00-07:00 "
+        "wrapping night window as two spans covering its eight hours, named in the caption — and "
+        "with quiet hours disabled shades nothing and says nothing about them, while still "
+        "drawing the day's check-ins (CFG-42/D-03, 24-06-PLAN.md Task 2)",
+        _home_day_band_shades_quiet_hours_only_when_configured)
+
+    def _home_day_band_buckets_by_paris_day_and_costs_one_read():
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        now = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("band-boundary")
+        try:
+            # THE BOUNDARY THIS BREAKS AT IF IT BREAKS. Paris is UTC+1/+2
+            # and so never BEHIND UTC — 24-06-PLAN.md Task 2's own
+            # acceptance criterion names "23:30 Paris on a date whose UTC
+            # instant falls on the next day", which cannot occur for
+            # Europe/Paris. The real case is its mirror, and it is the
+            # same defect: 00:30 Paris is 22:30 UTC on the PREVIOUS day,
+            # so a band bucketed by the UTC date drops it from today and
+            # picks up tomorrow's 00:30 instead. Both directions below.
+            ctx = _home_band_ctx(tmp, now, [
+                "2026-08-26T21:30:00+00:00",  # Paris 2026-08-26 23:30 — yesterday
+                "2026-08-26T22:30:00+00:00",  # Paris 2026-08-27 00:30 — TODAY
+                "2026-08-27T22:30:00+00:00",  # Paris 2026-08-28 00:30 — tomorrow
+            ])
+            section = _home_day_band_section(home_page.render(ctx))
+            if section is None:
+                return False, "expected a day-band section"
+            marks = _home_band_marks(section)
+            if len(marks) != 1:
+                return False, (
+                    "expected exactly ONE of the three check-ins on the 2026-08-27 Paris band, "
+                    "got %d — under a UTC date bucket the 22:30Z check-in (Paris 00:30 today) "
+                    "drops off and the 2026-08-27T22:30Z one (Paris 00:30 TOMORROW) appears "
+                    "instead, which is the same count from the wrong rows" % (len(marks),))
+            got = float(re.search(r'x="([\d.]+)%"', marks[0]).group(1))
+            want = 0.5 * (100.0 / 24)  # 00:30 Paris
+            if abs(got - want) > 0.02:
+                return False, (
+                    "expected the 00:30 Paris check-in at %.2f%%, got %.2f%%" % (want, got))
+
+            # A 25-HOUR PARIS DAY. 2026-10-25 is the EU autumn transition,
+            # so the band is 25 hours wide and midday sits at 52.00%, not
+            # at the 54.17% a hardcoded 86400 would put it at.
+            dst = _mkstate("band-dst")
+            try:
+                dst_ctx = _home_band_ctx(
+                    dst, "2026-10-25T12:00:00+00:00", ["2026-10-25T11:00:00+00:00"])
+                dst_section = _home_day_band_section(home_page.render(dst_ctx))
+                dst_marks = _home_band_marks(dst_section or "")
+                if len(dst_marks) != 1:
+                    return False, "expected one mark on the DST band, got %d" % (len(dst_marks),)
+                dst_got = float(re.search(r'x="([\d.]+)%"', dst_marks[0]).group(1))
+                if abs(dst_got - 52.0) > 0.02:
+                    return False, (
+                        "on the 25-hour Paris day 2026-10-25 the 12:00 check-in belongs at "
+                        "52.00%% of the band, got %.2f%% — a hardcoded 86400 puts it at 54.17%% "
+                        "and leaves an hour of the band unreachable" % (dst_got,))
+            finally:
+                shutil.rmtree(dst, ignore_errors=True)
+
+            # ONE READ, REUSED (D-20), MEASURED. render() made two
+            # history.db reads before this plan; the band adds exactly
+            # one, and a band that re-queried per section would show up
+            # here as three or more.
+            counted = _mkstate("band-reads")
+            try:
+                read_ctx = _home_band_ctx(counted, now, ["2026-08-27T10:00:00+00:00"])
+                opened = []
+                real_open = _hdb.open_db
+                def _counting_open(state_dir):
+                    opened.append(state_dir)
+                    return real_open(state_dir)
+                _hdb.open_db = _counting_open
+                try:
+                    rendered = home_page.render(read_ctx)
+                finally:
+                    _hdb.open_db = real_open
+                if len(opened) != 3:
+                    return False, (
+                        "expected render() to make exactly 3 history.db reads — the 2 it made "
+                        "before this plan (recent flights, latest battery) plus the band's one "
+                        "— got %d. 'One read, reused' is measured here, not assumed"
+                        % (len(opened),))
+                # The frame verdict still appears exactly once on the page
+                # (_status_tiles_html()'s own recorded property, which a
+                # new section carrying a state word could quietly break).
+                verdicts = [v for v in home_page.FRAME_STATE_TEXT.values()
+                            if rendered.count(v)]
+                for verdict in verdicts:
+                    if rendered.count(verdict) != 1:
+                        return False, (
+                            "expected the frame verdict %r exactly once on Home, got %d"
+                            % (verdict, rendered.count(verdict)))
+                if len(verdicts) != 1:
+                    return False, (
+                        "expected exactly one frame verdict rendered on Home, got %r" % (
+                            verdicts,))
+            finally:
+                shutil.rmtree(counted, ignore_errors=True)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home's day band buckets check-ins by the PARIS day — a 22:30Z check-in (Paris 00:30 "
+        "today) is on the band and a 2026-08-27T22:30Z one (Paris 00:30 tomorrow) is not, the "
+        "mirror of the boundary 24-06-PLAN.md Task 2 named since Paris is never behind UTC — "
+        "and spans a real 25-hour Paris day so midday lands at 52.00% rather than the 54.17% a "
+        "hardcoded 86400 would give; it costs render() exactly one history.db read more than "
+        "the two it made before, measured, and the frame verdict still appears exactly once "
+        "(CFG-42/D-20, 24-06-PLAN.md Task 2)",
+        _home_day_band_buckets_by_paris_day_and_costs_one_read)
+
+    # --- 24-08-PLAN.md Task 1 (CFG-44): D4's hero, assembled from calls -
+    #
+    # "The Home hero the others feed" is a STRUCTURAL claim with exactly
+    # one failure mode: a hero that looks composed but carries its own
+    # copies of the ring and the band, which then drift from the
+    # originals the first time either is fixed. This codebase has already
+    # paid for that once (companion/battery.py exists because
+    # battery_percent() had been copied), so the checks here are written
+    # against that failure rather than against the markup's shape.
+
+    def _home_hero_inner(rendered):
+        """The hero container's own inner markup, or None when the page
+        renders no hero at all.
+
+        A BALANCED SCAN, never `rendered.index("</div>")`: the hero holds
+        sections that hold divs of their own, so the first closing tag
+        after the opening one belongs to a descendant. A slicer that took
+        it would return a fragment that happened to start with the strip
+        and stop somewhere inside the tiles, and every "is inside the
+        hero" assertion below would then be measuring a shorter string
+        than its own message names — green for the wrong reason, which is
+        the one way a containment check fails silently.
+        """
+        from companion.pages import home_page
+        opened = re.search(
+            r'<div class="[^"]*\b%s\b[^"]*">' % re.escape(home_page.HERO_CLASS), rendered)
+        if opened is None:
+            return None
+        depth = 0
+        for token in re.finditer(r"<div\b|</div>", rendered[opened.start():]):
+            depth += 1 if token.group(0) == "<div" else -1
+            if depth == 0:
+                return rendered[opened.end():opened.start() + token.start()]
+        return None
+
+    def _home_top_is_one_composition_holding_the_ring_and_the_band():
+        import inspect
+        import companion.draw as _draw
+        import companion.i18n as _i18n
+        import companion.prefs as _prefs
+        from companion.pages import home_page
+        now = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("hero-compose")
+        try:
+            ctx = _home_band_ctx(tmp, now, [
+                "2026-08-27T06:00:00+00:00",
+                "2026-08-27T10:00:00+00:00",
+            ])
+            ctx["gallery_entries"] = ["2026-08-27T11-50-00+00-00.png"]
+            rendered = home_page.render(ctx)
+
+            # ONE hero. Two containers would be the phase-20 collision
+            # back in a new costume (22-07 had to rename a second thing
+            # called "Frame" on this very page).
+            opens = len(re.findall(
+                r'<div class="[^"]*\b%s\b[^"]*">' % re.escape(home_page.HERO_CLASS), rendered))
+            if opens != 1:
+                return False, (
+                    "expected exactly one hero container on Home, got %d" % (opens,))
+            inner = _home_hero_inner(rendered)
+            if inner is None:
+                return False, "expected the hero container to open and close"
+
+            # Its three parts, each still rendered by the builder that
+            # owns it. The strip is matched on the class the SHARED
+            # helper emits, so a hero that inlined a second rendering of
+            # it would have to reproduce that class to pass — and would
+            # then fail the count below.
+            for label, pattern in (
+                    ("the shared Frame strip",
+                     r'class="frame-strip stat-tile stat-tile--accent"'),
+                    ("the three status tiles",
+                     r'class="dashboard-grid home-status-grid"'),
+                    ("the day band", r'<section class="[^"]*\bday-band\b')):
+                if re.search(pattern, inner) is None:
+                    return False, (
+                        "expected %s inside the hero — a composition that does not contain "
+                        "its parts is a wrapper, not a hero (looked for %r)"
+                        % (label, pattern))
+            if rendered.count('class="frame-strip stat-tile stat-tile--accent"') != 1:
+                return False, (
+                    "expected the shared Frame strip rendered exactly once — the hero wraps "
+                    "the shared component, it never inlines a second rendering of it")
+
+            # What the hero is NOT. The picture row is the page's own
+            # second half and sits after it; a hero that swallowed it
+            # would make every 360px stacking measurement below about
+            # the whole page instead of the composition.
+            for absent in ("home-picture-row", "preview-frame", "recent-flight"):
+                if absent in inner:
+                    return False, (
+                        "expected %r outside the hero — the hero is Home's TOP, not its "
+                        "whole body" % (absent,))
+            if rendered.index('class="home-columns home-picture-row"') < rendered.index(
+                    '<div class="%s"' % home_page.HERO_CLASS):
+                return False, "expected the hero to precede the picture row"
+
+            # EXACTLY ONE RING AND EXACTLY ONE BAND, both the hero's.
+            # The needles are whole class ATTRIBUTES rather than bare
+            # class names: the band frame's own name is a prefix of the
+            # span's and the mark's, so a substring test would count
+            # three things as the frame (the trap
+            # companion/test_companion_app.py:4134 records from the
+            # other direction).
+            for label, needle in (
+                    ("battery ring value arc",
+                     'class="%s"' % _draw.DRAWING_RING_VALUE_CLASS),
+                    ("day band frame", 'class="%s"' % _draw.DRAWING_BAND_CLASS)):
+                if rendered.count(needle) != 1:
+                    return False, (
+                        "expected exactly one %s on Home, got %d"
+                        % (label, rendered.count(needle)))
+                if needle not in inner:
+                    return False, (
+                        "expected the %s INSIDE the hero — CFG-44's hero is the composition "
+                        "the drawings feed, not a container beside them" % (label,))
+
+            # NO GEOMETRY AND NO SECOND ESTIMATE IN THIS MODULE. The
+            # boundary regex on the estimator is the point: a bare
+            # `battery_percent(` is a local copy, while the qualified
+            # call through companion/battery.py is the one home the
+            # allow-list permits.
+            source = inspect.getsource(home_page)
+            for token in ("stroke-dasharray", "BATTERY_FULL_MV", "4200", "3300"):
+                if token in source:
+                    return False, (
+                        "companion/pages/home_page.py contains %r — geometry and battery "
+                        "arithmetic belong to the shared modules, and a page that carries "
+                        "either has started a second copy" % (token,))
+            if re.search(r"(?<![-\w.])battery_percent\s*\(", source) is not None:
+                return False, (
+                    "companion/pages/home_page.py names battery_percent( with no module "
+                    "qualifier — either a local definition or a bare `from companion.battery "
+                    "import` — and both make the estimator read as this page's own. It has "
+                    "exactly two allowed homes and this module is not one of them, so every "
+                    "call site here says so")
+            for call in ("draw.ring_gauge(", "draw.day_band("):
+                if call not in source:
+                    return False, (
+                        "expected %r in home_page.py — the hero is assembled from CALLS into "
+                        "the shared emitters" % (call,))
+
+            # THE RECORDED FIXED BUG (20-RESEARCH.md Pitfall 3), re-asked
+            # in BOTH languages because a hero is precisely the shape
+            # that reintroduces it and French is a separate string table
+            # that could disagree.
+            for lang in ("en", "fr"):
+                _prefs.set_request_prefs(lang=lang)
+                try:
+                    page = home_page.render(ctx)
+                    seen = [_i18n.t(v) for v in home_page.FRAME_STATE_TEXT.values()
+                            if page.count(_i18n.t(v))]
+                    if len(seen) != 1:
+                        return False, (
+                            "in %s expected exactly one frame verdict on Home, got %r"
+                            % (lang, seen))
+                    if page.count(seen[0]) != 1:
+                        return False, (
+                            "in %s expected the frame verdict %r exactly once on Home, got "
+                            "%d — the duplicated verdict 21-04 deleted a whole status-card "
+                            "builder to remove" % (lang, seen[0], page.count(seen[0])))
+                finally:
+                    _prefs.set_request_prefs(lang="en")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home's top is ONE composition: a single hero container holds the shared Frame strip "
+        "(rendered once, unforked), the three status tiles carrying the battery ring, and the "
+        "day band — the picture row stays outside it, the ring and the band each appear exactly "
+        "once and both inside the hero, home_page.py carries no ring geometry and no second "
+        "battery estimate (an unqualified battery_percent( is refused by a boundary regex), and "
+        "the frame verdict still appears exactly once in BOTH languages (CFG-44, 24-08-PLAN.md "
+        "Task 1)",
+        _home_top_is_one_composition_holding_the_ring_and_the_band)
+
+    # --- 24-08-PLAN.md Task 2 (CFG-44): "fed by", proven ---------------
+    #
+    # Two checks with two different jobs, named for what they prove so a
+    # later tidy-up does not read them as duplicate coverage of the
+    # hero's markup. The first is STRUCTURAL: every class the hero's two
+    # drawings carry is one of companion/draw.py's OWN named constants,
+    # read from that module at check time and never restated here — a
+    # literal would keep passing against a forked copy that still used
+    # the old string, which is precisely the failure being tested for.
+    # The second is BEHAVIOURAL, and it is the one CFG-44 actually asks
+    # for: change a shared emitter and watch BOTH the hero and the page
+    # the emitter was borrowed from move with it.
+
+    def _classes_inside_svg(markup, opening_class):
+        """The set of class attributes emitted INSIDE the first <svg>
+        whose own class begins with `opening_class`, or None when there
+        is no such element.
+
+        Non-greedy to the first closing tag, which is correct for both
+        drawings this is asked about: neither nests an <svg>. A drawing
+        that did would need a balanced scan, the same way the hero's own
+        container does.
+        """
+        svg = re.search(
+            r'<svg class="%s[^"]*"[^>]*>(.*?)</svg>' % re.escape(opening_class),
+            markup, re.S)
+        if svg is None:
+            return None
+        return set(re.findall(r'class="([^"]*)"', svg.group(1)))
+
+    def _the_heros_ring_is_the_emitter_healths_ring_is():
+        import ast
+        import inspect
+        import textwrap
+        import companion.draw as _draw
+        from companion.pages import health_page, home_page
+        now = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("hero-vocab")
+        health_tmp = _mkstate("hero-vocab-health")
+        try:
+            ctx = _home_band_ctx(tmp, now, [
+                "2026-08-27T06:00:00+00:00",
+                "2026-08-27T10:00:00+00:00",
+            ], config={
+                "wake_interval_s": 900, "display_enabled": True,
+                "quiet_hours_enabled": True,
+                "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
+                "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
+            })
+            rendered = home_page.render(ctx)
+            hero = _home_hero_inner(rendered)
+            if hero is None:
+                return False, "expected a hero container on Home"
+            with history_db.open_db(health_tmp) as conn:
+                for minute, mv in ((50, 3600), (55, 3690)):
+                    history_db.record_device_health(
+                        conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
+            health_rendered = health_page.render({"state_dir": health_tmp, "now": now})
+
+            # ONE RING, TWO PAGES. The two rings' class vocabularies are
+            # COMPUTED from the markup rather than listed here, so this
+            # cannot drift into a hand-maintained copy of the emitter's
+            # own list — which would be the same defect one level up.
+            hero_ring = _classes_inside_svg(hero, _draw.DRAWING_FIGURE_CLASS)
+            health_ring = _classes_inside_svg(health_rendered, _draw.DRAWING_FIGURE_CLASS)
+            if not hero_ring:
+                return False, "found no ring inside Home's hero"
+            if not health_ring:
+                return False, "found no ring on Health"
+            if hero_ring != health_ring:
+                return False, (
+                    "the hero's ring and Health's carry different class vocabularies (%r "
+                    "against %r) — one drawing at two sizes emits one vocabulary; two "
+                    "vocabularies means two components"
+                    % (sorted(hero_ring), sorted(health_ring)))
+
+            # THE BAND, AND ITS FLOOR. "Every class is one of the shared
+            # module's own" is satisfied by a band that drew nothing but
+            # its frame, so the distinct-element floor is asserted
+            # alongside it: the frame, the shaded quiet-hours span and
+            # the check-in marks are three different shapes, and a band
+            # that lost two of them would still pass the vocabulary half
+            # on its own.
+            hero_band = _classes_inside_svg(hero, _draw.DRAWING_CANVAS_CLASS)
+            if not hero_band:
+                return False, "found no day band inside Home's hero"
+            if len(hero_band) < 3:
+                return False, (
+                    "the hero's band draws only %d kind(s) of shape (%r) — with a quiet-hours "
+                    "window configured and two check-ins on the day it owes three: its own "
+                    "frame, the shaded span and the marks" % (len(hero_band), sorted(hero_band)))
+
+            # EVERY ONE OF THEM A NAMED CONSTANT OF THE SHARED MODULE.
+            # A forked copy is free to emit any string it likes; this is
+            # what refuses the ones draw.py does not own.
+            for class_name in sorted(hero_ring | hero_band):
+                for token in class_name.split():
+                    if token not in _draw.DRAWING_CLASSES:
+                        return False, (
+                            "the hero emits the drawing class %r, which companion/draw.py does "
+                            "not name — a class the shared module does not own came from "
+                            "somewhere else" % (token,))
+
+            # THE PAGE MODULE RESTATES NONE OF THEM, AND NEITHER DOES
+            # THIS CHECK. That is the fork's own fingerprint: markup
+            # emitted by hand has to write these strings down somewhere.
+            #
+            # A BARE SUBSTRING SCAN CANNOT ASK THIS, and finding that out
+            # cost this check a draft: draw.DRAWING_GRID_CLASS is the
+            # single word "drawing", which appears in home_page.py's
+            # PROSE ("a drawing that implied calibration would out-claim
+            # the number it sits beside") and in this check's own failure
+            # messages. A scan that reads English as evidence is the
+            # phase's own recorded trap — check your own prose does not
+            # satisfy your own grep — so what is scanned is string
+            # LITERALS only, docstrings excluded, and each one is asked
+            # two precise questions instead of one loose one.
+            def _restated_drawing_class(source):
+                tree = ast.parse(source)
+                docs = set()
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.Module, ast.ClassDef,
+                                         ast.FunctionDef, ast.AsyncFunctionDef)):
+                        if ast.get_docstring(node, clean=False) is not None:
+                            docs.add(id(node.body[0].value))
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.Constant) or id(node) in docs:
+                        continue
+                    if not isinstance(node.value, str):
+                        continue
+                    # Question one: is the literal a class name outright
+                    # (the `'<circle class="%s"' % "..."` shape)?
+                    if node.value in _draw.DRAWING_CLASSES:
+                        return node.value
+                    # Question two: does it write one into a class
+                    # attribute (the inlined-markup shape)?
+                    for attribute in re.findall(r'class="([^"]*)"', node.value):
+                        for token in attribute.split():
+                            if token in _draw.DRAWING_CLASSES:
+                                return token
+                return None
+
+            restated = _restated_drawing_class(inspect.getsource(home_page))
+            if restated is not None:
+                return False, (
+                    "companion/pages/home_page.py writes the drawing class %r into a string "
+                    "literal — the page calls the emitters, it does not restate their markup"
+                    % (restated,))
+            restated = _restated_drawing_class(textwrap.dedent(
+                inspect.getsource(_the_heros_ring_is_the_emitter_healths_ring_is)
+                + inspect.getsource(_classes_inside_svg)))
+            if restated is not None:
+                return False, (
+                    "this check writes the drawing class %r into a literal instead of reading "
+                    "it from companion/draw.py — rename the constant and a literal here goes "
+                    "on passing against the fork" % (restated,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            shutil.rmtree(health_tmp, ignore_errors=True)
+    check(
+        "the hero's battery ring is the same emitter Health's ring is — the two pages' rings "
+        "carry one class vocabulary, computed from the markup rather than listed; the hero's "
+        "day band draws three different shapes and not one; every class either of them emits is "
+        "a constant companion/draw.py itself names; and neither companion/pages/home_page.py nor "
+        "this check writes any of those strings down, because a literal goes on passing against "
+        "a forked copy that still uses the old one (CFG-44, 24-08-PLAN.md Task 2)",
+        _the_heros_ring_is_the_emitter_healths_ring_is)
+
+    def _breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_from():
+        import companion.draw as _draw
+        from companion.pages import health_page, home_page
+        now = "2026-08-27T12:00:00+00:00"
+        tmp = _mkstate("hero-link")
+        health_tmp = _mkstate("hero-link-health")
+        # Not a member of DRAWING_CLASSES and not a substring of one, so
+        # "the sentinel arrived" and "the original left" are two
+        # independent readings rather than one.
+        sentinel = "skypane-emitter-under-mutation"
+        try:
+            ctx = _home_band_ctx(tmp, now, [
+                "2026-08-27T06:00:00+00:00",
+                "2026-08-27T10:00:00+00:00",
+            ])
+            with history_db.open_db(health_tmp) as conn:
+                for minute, mv in ((50, 3600), (55, 3690)):
+                    history_db.record_device_health(
+                        conn, "2026-08-27T11:%d:00+00:00" % minute, battery_mv=mv)
+            health_ctx = {"state_dir": health_tmp, "now": now}
+            home_before = home_page.render(ctx)
+            health_before = health_page.render(health_ctx)
+
+            def _mutated(attr):
+                """Both pages rendered with one of draw.py's class
+                constants replaced, the constant restored afterwards
+                whatever happens."""
+                original = getattr(_draw, attr)
+                setattr(_draw, attr, sentinel)
+                try:
+                    return original, home_page.render(ctx), health_page.render(health_ctx)
+                finally:
+                    setattr(_draw, attr, original)
+
+            # THE RING: one definition, two pages. A hero built from its
+            # own copy would still carry the ORIGINAL class here while
+            # Health carried the sentinel — which is exactly the drift
+            # CFG-44 is about, and is invisible to any check that only
+            # looks at the markup as shipped.
+            original, home_after, health_after = _mutated("DRAWING_RING_VALUE_CLASS")
+            for label, before, after in (("the hero", home_before, home_after),
+                                         ("Health", health_before, health_after)):
+                if sentinel not in after:
+                    return False, (
+                        "a change inside the shared ring emitter did not reach %s — it draws "
+                        "its own ring, not the shared one" % (label,))
+                if 'class="%s"' % original in after:
+                    return False, (
+                        "%s still carries the ring's original class after the emitter was "
+                        "changed — part of that drawing is a copy" % (label,))
+                if after == before:
+                    return False, "%s rendered identically under the mutation" % (label,)
+
+            # THE MUTATION WAS TARGETED, not a global perturbation: the
+            # band is Home's alone, so changing it must move the hero and
+            # leave Health BYTE-IDENTICAL. Without this, "both pages
+            # changed" above would be worth much less.
+            original, home_after, health_after = _mutated("DRAWING_BAND_MARK_CLASS")
+            if sentinel not in home_after:
+                return False, (
+                    "a change inside the shared band emitter did not reach the hero — its band "
+                    "is a copy")
+            if 'class="%s"' % original in home_after:
+                return False, (
+                    "the hero still carries the band mark's original class after the emitter "
+                    "was changed — part of that drawing is a copy")
+            if health_after != health_before:
+                return False, (
+                    "changing the band emitter also changed Health, which draws no band — the "
+                    "mutation is not measuring what it names")
+
+            # THE RESTORE IS PART OF THE CHECK. A mutation left behind
+            # would make every later check in this file measure a
+            # sabotaged module, and the failure would land somewhere
+            # else entirely.
+            if home_page.render(ctx) != home_before:
+                return False, "Home did not return to its pre-mutation markup"
+            if health_page.render(health_ctx) != health_before:
+                return False, "Health did not return to its pre-mutation markup"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            shutil.rmtree(health_tmp, ignore_errors=True)
+    check(
+        "breaking a shared emitter breaks the hero WITH the page it borrowed it from: one class "
+        "constant inside companion/draw.py's ring emitter is replaced at check time and both "
+        "Home's hero and Health's readout change, neither keeping the original string (a hero "
+        "built from its own copy would); the band emitter's own mutation reaches the hero and "
+        "leaves Health byte-identical, proving the mutation is targeted rather than a global "
+        "perturbation; and both pages return to their pre-mutation markup (CFG-44, "
+        "24-08-PLAN.md Task 2)",
+        _breaking_a_shared_emitter_breaks_the_hero_with_the_page_it_borrowed_it_from)
+
     # --- 19-12-PLAN.md Task 3 (D-13/S-02): the "Next wake ≈ HH:MM" figure --
 
     def _wake_next_wake_at_iso_contract():
@@ -6439,6 +8586,154 @@ def main():
             "delete edit-only forms, against a real running service (D-19, D-22, T-19-31, "
             "19-08-PLAN.md Task 3, retargeted by 21-06-PLAN.md Task 2)",
             _airlines_edit_query_param_exact_one_membership_test)
+
+        def _both_dialogs_arrive_through_one_starting_style_entrance():
+            """23-10-PLAN.md Task 2 (D3/CFG-32): both <dialog>s fade and
+            zoom in, from ONE rule.
+
+            The two dialogs — History's panel lightbox and the Airlines
+            gallery's wide variant — are the same component under two
+            classes, so the entrance is declared once on `.lightbox` and
+            reaches both. This check asserts that count directly (one
+            entrance, two dialogs) rather than letting a second, drifting
+            copy appear for the wide variant.
+
+            It also asserts what is deliberately ABSENT. 23-08-PLAN.md
+            Task 2 already set this app's precedent for a one-directional
+            entrance — opening animates, closing is instant — and wrote
+            down the reason: an element kept in the flow through
+            `transition-behavior: allow-discrete` is still in the tab
+            order and still in the accessibility tree for the whole of
+            its exit, and for every browser that does not support the
+            property. A <dialog> raises the stakes rather than lowering
+            them, because a modal that has not reached `display: none`
+            is an invisible sheet over the page that swallows clicks
+            (T-23-36). So `display` must not appear in the lightbox
+            transition at all: `close()` must end the dialog outright.
+            """
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path, "r", encoding="utf-8") as fh:
+                css = fh.read()
+            # Comment-stripped, for the reason this file's own sibling
+            # scans already record: the paragraphs around these rules
+            # discuss @starting-style, allow-discrete and `display` by
+            # name, and a raw scan would be answered by the prose that
+            # explains the rule instead of by the rule.
+            stripped = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+
+            rendered = []
+            for label, module, dialog_class in (
+                ("history", history_page, "lightbox"),
+                ("airlines", airlines_page, "lightbox lightbox--wide"),
+            ):
+                marker = '<dialog class="%s"' % dialog_class
+                rendered.append((label, marker))
+
+            entrances = re.findall(
+                r"@starting-style\s*\{\s*\.lightbox\[open\]", stripped)
+            # The open-state rule is counted with the @starting-style
+            # blocks REMOVED, because the entrance block necessarily
+            # repeats the same selector - counting the bare literal
+            # reads 2 on a correct file, which is a number that means
+            # nothing. What must be exactly one is the open-state rule
+            # itself: one entrance, two dialogs.
+            without_entrances = re.sub(
+                r"@starting-style\s*\{.*?\}\s*\}", "", stripped, flags=re.DOTALL)
+            open_rule = ".lightbox[open] {"
+            if without_entrances.count(open_rule) != 1:
+                return False, (
+                    "expected exactly one %r rule outside @starting-style — one entrance serving "
+                    "BOTH dialogs, got %d"
+                    % (open_rule, without_entrances.count(open_rule)))
+            if len(entrances) != 1:
+                return False, (
+                    "expected exactly ONE @starting-style entrance for .lightbox[open] (one "
+                    "rule, two dialogs — History's and the Airlines gallery's wide variant are "
+                    "the same component under two classes), got %d" % (len(entrances),))
+            start_body = stripped[stripped.index(entrances[0]):]
+            start_body = start_body[:start_body.index("}")]
+            if "opacity: 0" not in start_body:
+                return False, (
+                    "expected the @starting-style entrance to start from opacity 0 — an element "
+                    "going from display:none to displayed has no previous computed value to "
+                    "transition from, which is the whole job of this block")
+            if "scale(" not in start_body:
+                return False, (
+                    "expected the @starting-style entrance to start from a scale — D3's clause "
+                    "is that both dialogs FADE AND ZOOM in")
+
+            base_idx = stripped.index("\n.lightbox {")
+            base = stripped[base_idx:stripped.index("}", base_idx)]
+            if "transition:" not in base:
+                return False, "expected .lightbox to declare the entrance transition"
+            decl = base[base.index("transition:"):]
+            decl = decl[:decl.index(";") + 1]
+            for prop in ("opacity", "transform"):
+                if prop not in decl:
+                    return False, (
+                        "expected the .lightbox transition to name %r, got %r" % (prop, decl))
+            if "var(--motion-fast)" not in decl:
+                return False, (
+                    "expected the dialog entrance to spend var(--motion-fast), got %r" % (decl,))
+            if "display" in decl or "allow-discrete" in decl:
+                return False, (
+                    "the .lightbox transition must NOT carry `display`/`allow-discrete`: a modal "
+                    "that has not reached display:none is an invisible sheet over the page that "
+                    "swallows clicks (T-23-36), and it stays in the tab order and the "
+                    "accessibility tree for the whole of its exit — 23-08-PLAN.md Task 2's own "
+                    "one-directional precedent, raised in stakes by a modal. Got %r" % (decl,))
+            # ::backdrop is deliberately NOT animated, and that is a
+            # reduced-motion fact rather than a taste one: the global
+            # override matches `*, *::before, *::after`, which are
+            # ELEMENT selectors — ::backdrop is in neither, exactly as
+            # this file already records for the view-transition
+            # pseudo-element tree. An animated backdrop would be motion
+            # a reduced-motion visitor cannot switch off.
+            backdrop_idx = stripped.index(".lightbox::backdrop {")
+            backdrop = stripped[backdrop_idx:stripped.index("}", backdrop_idx)]
+            if "transition" in backdrop or "animation" in backdrop:
+                return False, (
+                    ".lightbox::backdrop must not be animated — the global reduced-motion "
+                    "override matches `*, *::before, *::after`, none of which is ::backdrop, so "
+                    "a backdrop transition is motion a reduced-motion visitor cannot escape")
+
+            # And both dialogs really do render with the class the one
+            # rule above is keyed to.
+            tmp = _mkstate("dialog-entrance")
+            try:
+                # History emits its dialog only on a page that has a
+                # panel to show, so the fixture has to have one - an
+                # empty-state render carries no dialog at all, which
+                # would make the assertion below pass for the wrong
+                # reason if it were inverted, and fail for the wrong
+                # reason as written.
+                names = ["2026-08-27T10-00-00+00-00.png"]
+                _seed_gallery(tmp, names)
+                _seed_runway_events(tmp, [
+                    {"ts": "2026-08-27T10:03:00+00:00", "hex": "dlgent1",
+                     "callsign": "DLGENT"},
+                ])
+                history_html = history_page.render(
+                    _history_ctx(tmp, gallery_entries=names))
+                airlines_html = airlines_page.render({"edit_mode": True})
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+            for label, marker in rendered:
+                html_text = history_html if label == "history" else airlines_html
+                if marker not in html_text:
+                    return False, (
+                        "expected the %s page to render %r so the one .lightbox[open] entrance "
+                        "reaches it" % (label, marker))
+            return True, ""
+        check(
+            "both <dialog>s arrive through ONE @starting-style entrance on .lightbox[open] — "
+            "fading and zooming from opacity 0 over var(--motion-fast), reaching History's "
+            "lightbox and the Airlines gallery's wide variant from a single rule, with `display`/"
+            "`allow-discrete` deliberately absent so close() ends the dialog outright rather than "
+            "leaving an invisible click-swallowing sheet over the page (T-23-36), and with "
+            "::backdrop unanimated because the global reduced-motion override cannot reach it "
+            "(D3/CFG-32, 23-10-PLAN.md Task 2)",
+            _both_dialogs_arrive_through_one_starting_style_entrance)
 
     finally:
         harness.stop()

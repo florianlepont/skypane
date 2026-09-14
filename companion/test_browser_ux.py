@@ -73,7 +73,10 @@ path). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_browser_ux.py
 """
+import contextlib
+import itertools
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 
@@ -82,8 +85,17 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth  # noqa: E402
+from companion import auth, draw, i18n, layout  # noqa: E402
+# 24-05-PLAN.md Task 3: the app's OWN contrast formula, so the chart
+# area's composite-over-the-card measurement is judged by the same
+# arithmetic every other colour pair this project pins is judged by —
+# never a second implementation living in a harness.
+from companion.contrast_check import (  # noqa: E402
+    MIN_SIGNAL_PERCEPTUAL_DISTANCE, WCAG_AA_UI_COMPONENT, contrast_ratio,
+    perceptual_distance,
+)
 from companion.test_companion_app import Harness, TEST_PASSWORD  # noqa: E402
+from companion.pages import config_page, health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import colour_rules, manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
@@ -341,6 +353,366 @@ EXPECTED_CHECK_COUNT = 25
 # real on-disk check(...) call count at execution time (26/26 pass),
 # not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 26
+# 23-02-PLAN.md Task 1: net 0, and deliberately so. The three
+# scripts-blocked checks above were refactored onto one shared
+# `_no_js_page()` helper and the repeated inline viewport dicts onto the
+# named set below; not one check(...) call site was added, removed or
+# retargeted, and not one assertion inside the three was altered. The
+# count is recorded IN PLACE rather than re-asserted below because a new
+# assignment here would claim a change this plan did not make. Still 26,
+# recomputed directly against the real on-disk check(...) call count at
+# execution time (26/26 pass), not trusted from arithmetic alone.
+# 23-02-PLAN.md Task 2: net 0 again. The general disclosure sweep gained
+# a reduced-motion context and nothing else. 26/26, recomputed the same
+# way.
+# 23-04-PLAN.md Task 2 (D10/CFG-33): +2. The two ways a cross-document
+# view transition fails SILENTLY, made loud. (1) Per-route uniqueness of
+# every transition name, counted from the COMPUTED value on every element
+# of every authenticated route — not from the stylesheet's selectors,
+# because the risk is not that the sheet declares a name twice, it is
+# that one selector MATCHES twice in a document companion/layout.py
+# puts two navigation landmarks into (three until 22-14 removed the
+# preferences panel's copy — re-counted here, not carried from the
+# brief); a name that matches twice makes the browser drop the whole
+# transition with no error anywhere. (2) The
+# reduced-motion opt-out, asserted through the CSSOM rather than by
+# watching a cross-fade: on the slowest file in the suite a visual timing
+# assertion would be a flakiness generator, while the condition guarding
+# the at-rule is deterministic and is exactly the property that gets got
+# wrong. Mutation-tested, both of them, and both mutations were chosen to
+# leave companion/test_companion_app.py's source-level motion guard GREEN
+# (271/273 throughout) so these two are proven to do the work unaided.
+# "Simplifying" the sidebar's selector to the bare `nav` element took the
+# first red at 27/28, reporting the name, the count, the route and the
+# offending tags (`nav.sidebar-nav`, `nav.tab-bar`); deleting the
+# `.page-title` declaration took it red at 27/28 on the declared-set
+# guard instead, which is what stops it degenerating into a check that
+# passes by measuring nothing. Moving the at-rule out of its
+# `no-preference` wrapper while LEAVING that wrapper in the file took the
+# second red at 27/28 (live under reduced motion), and narrowing the
+# wrapper to a condition that can never match took it red at 27/28 the
+# other way (wrapped into something nobody ever sees). 26 + 2 = 28,
+# recomputed directly against the real on-disk
+# check(...) call count at execution time (28/28 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 28
+# 23-05-PLAN.md Task 3 (D14/CFG-34): +4. The ticker's four behavioural
+# claims, none of which any string-comparison harness can see. (1) The
+# age ADVANCES in a real visible tab — asserted on element TEXT read
+# twice with a real wait between the reads, never on a timer internal, a
+# check that would otherwise pass on a script ticking a detached node.
+# (2) A page reporting itself hidden does no work at all, against a
+# CONTROL proving the same age does move while visible — without that
+# control the assertion passes on an element that never changes for any
+# reason, the vacuity shape 23-03 caught in its own work — and it is
+# repainted IMMEDIATELY on return rather than after an interval.
+# (3) With scripts blocked at 360px in both languages the element is
+# present AND static; presence alone would pass on a page where the
+# enhancement had silently taken over. (4) An expired countdown reads
+# the server's own translated waiting wording, gains the breathing class
+# and never a warn/error/alert one, with the class proven to resolve to
+# the stylesheet's single animation.
+# Mutation-tested, each isolated so the Python harnesses stay green and
+# these four are proven to do the work unaided. Stopping the script's
+# interval took (1) red at 31/32 naming the two equal texts; deleting
+# the visibility gate took (2) red at 31/32 naming the two DIFFERENT
+# texts a hidden tab should not have produced; both left
+# companion-app 279/281 and status-pages 275/276 untouched.
+# THE HIDDEN-TAB MECHANISM IS WEAKER THAN A REAL BACKGROUND TAB, and
+# says so in its own comment: neither a second page taking focus nor
+# CDP's Emulation.setPageVisibilityOverride can hide a page in this
+# harness (the first leaves visibilityState "visible" in headless
+# Chromium, the second is not implemented in this Chromium at all), so
+# the page's own visibility state is overridden in-page and a real
+# visibilitychange Event dispatched. What is simulated is the BROWSER'S
+# REPORT; what is exercised is the shipped script's own listener and its
+# own document.hidden reads.
+# 28 + 4 = 32, recomputed directly against the real on-disk check(...)
+# call count at execution time (32/32 pass), not trusted from arithmetic
+# alone.
+EXPECTED_CHECK_COUNT = 32
+# 23-06-PLAN.md Task 3 (D1/CFG-35): +6. The three skip rules, the number
+# D-12 protects, the fade's condition and the settings page's no-JS
+# floor — none of which any string-comparison harness can see.
+#
+# HOW A REFRESH IS FORCED: the loop's cadence is 45 seconds, so these
+# checks drive its own CATCH-UP path — Date.now is shifted forward for
+# the duration of one dispatched visibilitychange and restored on the
+# next statement (doRefresh() runs synchronously inside the listener).
+# What is simulated is the CLOCK; what runs is the shipped script's own
+# listener, elapsed comparison and guards.
+#
+# EVERY ONE OF THE SIX CARRIES ITS OWN CONTROL, because every one of them
+# asserts that something did NOT happen and a dead loop satisfies all of
+# them:
+#  (1) focus: the focused region is CHANGED first so the "unchanged
+#      region" skip cannot be what saves it, a second region proves a
+#      swap happened at all, and a second phase proves the SAME changed
+#      region is replaced once nothing is focused inside it.
+#  (2) pending: the same shape — marker injected here because plan 23-07
+#      is what sets it in production — with a second phase proving the
+#      same region is replaced once the marker is removed.
+#  (3) dirty form: REQUESTS are counted, not DOM state, because a page
+#      that fetched and then declined to swap is a different and worse
+#      behaviour; the control is the same trigger on the clean page.
+#  (4) hidden tab: requests counted on ALL THREE pages, each against a
+#      control proving that page does fetch while visible. The
+#      visibility mechanism is 23-05's and carries its limits in its own
+#      comment.
+#  (5) the fade: both phases in one check — the same picture must not
+#      animate, a genuinely different src must, and the class must
+#      resolve to the stylesheet's own fade-in block.
+#  (6) no-JS Display: a real save through the fallback Save, at 360px, in
+#      both languages, asserted against the config on DISK.
+# 32 + 6 = 38, recomputed directly against the real on-disk check(...)
+# call count at execution time (38/38 pass), not trusted from arithmetic
+# alone.
+# 23-07-PLAN.md Task 3 (D2/CFG-36): +4 — the optimistic flip proven to
+# land BEFORE the answer (against a held request that has genuinely been
+# issued), the rollback proven on BOTH terminal branches in both
+# languages with a control phase proving the flip lands first, the
+# D1-races-D2 rule proven from the D2 side against the marker the
+# SHIPPED script sets, and the scripts-blocked floor for all three
+# switches at 360px in both languages. 38 + 4 = 42, re-derived by
+# RUNNING.
+EXPECTED_CHECK_COUNT = 42
+# 23-08-PLAN.md Task 3 (D7/CFG-37 + D3's two Flights clauses): +4 — a
+# detection recorded while the page is open proven to arrive at the top
+# and be the ONLY thing highlighted (both directions, both renderings,
+# with a first-load clause and a nothing-changed clause the empty-known-
+# set mutation reddens); the filter proven neither interrupted (requests
+# counted, with a control) nor undone by the swap that follows; a
+# COLLAPSED detail row proven to let none of its controls take focus,
+# against a control phase proving they are reachable once open, plus the
+# reveal wrapper's real computed transition; and the phone card proven to
+# open from a tap on its own face at 360px with scripts on AND with
+# scripts blocked; plus the half a swapped list gets wrong silently — a
+# refresh neither unfolding the whole table nor closing the row that was
+# opened, proven by EVENT identity against a renumbering insertion and
+# with focus blurred so the loop's focus skip cannot be what passes it.
+# 42 + 5 = 47, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 47
+# 23-09-PLAN.md Task 3 (D3/CFG-32 + T14's deferred label): +3 on the
+# app's most-iterated component, which carried B1.
+#  (1) the bar ARRIVES: its entrance resolves to the stylesheet's own
+#      block rather than merely being declared in a file, a hidden bar
+#      still computes display:none with that entrance on it (B1's own
+#      collision class, which no source scan can see), and the count —
+#      recorded by a MutationObserver installed BEFORE the first edit,
+#      so what is measured is the sequence a screen reader would hear —
+#      is written once per genuinely different number, never empty,
+#      never tweened, and not at all by a real edit that leaves the
+#      sentence the same. That last clause has its own control: the
+#      trigger is a third theme value, and its landing is asserted, so
+#      the clause cannot pass by nothing having happened.
+#  (2) the in-flight label, proven not to change the payload: the same
+#      edit posted twice, once via requestSubmit() with no submitter (so
+#      the relabel stands down by its own first clause) and once via the
+#      bar's Save, the two bodies captured ON THE WIRE and compared byte
+#      for byte, in both languages, against a control asserting the
+#      relabel really ran — plus the completed state read off the page
+#      the POST actually lands on.
+#  (3) B1's floor with scripts blocked at 360px in both languages,
+#      asserting what 23-06's sibling check does not: neither hiding
+#      marker on <html>, the bar computing display:none with the
+#      entrance declared, and the fallback Save VISIBLE with a real box
+#      rather than merely rendered — which is precisely the shape B1
+#      took.
+# One PRE-EXISTING clause was retargeted in place, contributing nothing
+# to this count: T14's "the guard changes no label" assertion, whose own
+# message named D3 Phase 23 as the plan that would change it. This is
+# that plan.
+# 47 + 3 = 50, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 50
+# 23-10-PLAN.md Task 1 (D3/CFG-32): +1 — at 390px, selecting a theme chip
+# ANSWERS (a scale > 1, a wash that changes, and both transitioning over
+# var(--motion-fast)) while its own LAYOUT box and its neighbour's stay
+# plain-equal before and after. Only a real layout engine can hold those
+# two statements at once, and the offsetWidth/getBoundingClientRect
+# distinction between them is the whole reason T6 cannot recur through a
+# transform. The three-runway-card check above is extended IN PLACE (no
+# count change) to neutralise the transform for its own LAYOUT-box read
+# and to prove exactly one card carries the scale. 50 + 1 = 51,
+# re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 51
+# 23-10-PLAN.md Task 2 (D3/CFG-32): +2. One measures both <dialog>s
+# mid-flight two frames after their trigger (a real entrance is running,
+# not an instant open), settling opaque, and then hit-tests the viewport
+# centre immediately after close() with NO settle wait — the close path
+# is the half no source scan can see, and a modal left displayed is an
+# invisible sheet that swallows every click beneath it (T-23-36). One
+# asserts the live preview's SETTLED src after the crossfade (settling on
+# the wrong theme is T-23-38, and it looks identical to a correct
+# stylesheet and a correct script read separately) and that Cancel
+# restores the saved theme THROUGH the crossfade rather than around it
+# (T8). 51 + 2 = 53, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 53
+# 23-10-PLAN.md Task 3 (D3/CFG-32): +1 — Home's frame picture and a theme
+# chip's preview band each reserve their FINAL box before their image
+# arrives, measured at the 360px contract floor and at 1280px by HOLDING
+# the real image request rather than racing it. This is the only
+# assertion that proves a skeleton did what it was for, and the defect it
+# found was real: Home's picture measured 2x2 before the image resolved
+# and 380x506 after, a ~500px jump at 1280px. The same plan corrects the
+# seed fixture's 8x8 stand-in render to the 600x800 the markup itself
+# declares, because an image whose loaded ratio is 1:1 against a 3:4
+# promise makes this measurement meaningless. 53 + 1 = 54, re-derived by
+# RUNNING.
+EXPECTED_CHECK_COUNT = 54
+# 24-04-PLAN.md Task 4 (CFG-40/CFG-45/D-09): +3 — the battery ring,
+# measured where it actually has to be correct. One reads the RESOLVED
+# paint of the value arc on both pages in both themes through 24-02's
+# theme and computed-paint helpers, and refuses the SVG default, the
+# track's own paint, and an unchanged value across the theme switch.
+# One reads each arc's bounding box back from the browser, expands it by
+# half its RESOLVED stroke width — the half-stroke overhang is the single
+# most common way a ring gets clipped, so it is added in the open rather
+# than hidden inside a getBBox() option dictionary whose support would
+# have to be assumed — and asserts it lies inside the emitter's own
+# viewBox. One pins the 360px floor: no body overflow on either page,
+# Home's Battery tile exactly as tall as the Frame tile beside it, and
+# both rings still rendering AND still painting a dark-mode token with
+# scripts blocked through _no_js_page().
+#
+# The tile assertion is deliberately NOT "all three tiles are equal
+# height". Measured on this tree: at 360px `.dashboard-grid` collapses
+# to one column and the three are 111.59 / 111.59 / 131.19, so "all
+# equal" is FALSE; at 1280px they share a row under `align-items:
+# stretch`, so "all equal" is VACUOUS. Comparing Battery against the
+# untouched Frame tile's own content height is the property that is
+# neither.
+# 54 + 3 = 57, re-derived by RUNNING (57/57).
+EXPECTED_CHECK_COUNT = 57
+# 24-05-PLAN.md Task 3 (CFG-41/CFG-45/D-09): +2 — the battery chart's
+# area, marked reading and low-battery threshold, measured rather than
+# read. One resolves all four shapes' paint in both themes and asks three
+# different questions of them (not the SVG default; the area/line/mark
+# sharing one currentColor ink while the threshold deliberately does not;
+# every one of them moving when the theme does), then COMPOSITES the
+# translucent area over the card's own resolved background and runs the
+# result through the app's own contrast formula — "present but invisible"
+# is this feature's specific failure mode and a resolved fill alone
+# cannot see it. One pins the 360px floor in BOTH languages (French is
+# the longer copy), the legend's box against all four axis labels, its
+# swatch's real 12x1 measurement — which is what proves the legend's flex
+# context is doing something, since an inline <span> ignores width and
+# height — the canvas's share of the grid (the legend claiming the
+# auto-sized Y-label column squeezes the drawing from 229.97px to ~109px
+# while overflowing nothing, and the first version of this check could
+# not see it), the mark's edge-hung ink staying inside the card, and all
+# four elements rendering and painting dark-mode tokens with scripts
+# blocked.
+# 57 + 2 = 59, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 59
+# 24-06-PLAN.md Task 3 (CFG-42): +2 - the day band. One reads the
+# resolved paint of its frame, shaded span and marks in both themes and
+# asserts the three are distinguishable from each other and from the
+# card (the frame and the span are ONE token at two strengths, so "not
+# the SVG default" says nothing about whether they can be told apart).
+# One measures the band at the 360px floor in both languages: the mark's
+# real rendered width, the canvas's real width with draw.py's spacing
+# constant re-derived from it, the hour labels' placement, and the whole
+# band again with scripts blocked. Both own an isolated Harness, because
+# the shared fixture seeds no check-in on the band's own Paris day.
+# 59 + 2 = 61, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 61
+# 24-07-PLAN.md Task 3 (CFG-43): +2 - the check-in regularity grid. One
+# measures all FOUR cell states in both themes and asserts every one of
+# the six pairs stays past the app's own MIN_SIGNAL_PERCEPTUAL_DISTANCE,
+# because four states that read as three in dark mode is a defect no
+# source scan can see - and that each key swatch composites to exactly
+# the colour of the cell it explains, which is the only thing making the
+# key and the grid one declaration rather than two. One measures the
+# drawing at 360px in both languages (the card's content box re-derived
+# against draw.CARD_DRAWING_WIDTH_PX, the cell size against the target-
+# size floor, the ink against the viewBox, the label row against the
+# canvas), again with scripts blocked, and again at 1280px and 320px
+# where the two responsive declarations are each the one doing the work.
+# Both own an isolated Harness: the shared fixture's newest device_health
+# row is 40 days before SEED_BASE_TS, so the grid's own window holds
+# nothing and three of the four states would never be painted.
+# 61 + 2 = 63, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 63
+# 24-08-PLAN.md Task 3 (CFG-44/CFG-45/D-09): +2 — D4's hero, measured
+# where the difference between stacking and shrinking is visible. One
+# pins the 360px floor in both languages: one column, the 16px/24px
+# proximity that IS the composition asserted as equalities (a 40px gap
+# is what parts keeping their own bottom margins render, and it passes
+# every "at least" a reader would think to write), the ring still at its
+# own declared 36px and the band's canvas still at the 278px draw.py's
+# mark spacing was derived from, and both drawings painting inverting
+# tokens in both themes through selectors scoped INSIDE the hero. One
+# measures the grouping at 360px AND 1280px, asserts the tiles stack at
+# the floor and share a row on the desktop (so the stack is a floor
+# behaviour rather than the only one), asserts the band gets more room
+# as the viewport grows rather than less, runs every one of Home's
+# declared refresh-swap selectors through the browser's own selector
+# engine, and compares the scripts-blocked layout against the scripted
+# one. Both reuse 24-06's band harness, the only fixture in this file
+# that seeds check-ins on the band's own Paris day.
+# 63 + 2 = 65, re-derived by RUNNING (65/65).
+EXPECTED_CHECK_COUNT = 65
+
+# --- The view-transition names this app declares (23-04-PLAN.md Task 2,
+# D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
+# ONE element must carry it. Both halves are asserted: the declared set
+# is compared against what the served stylesheet actually declares (so a
+# name added, renamed or dropped there fails here rather than silently
+# widening the contract), and the routes are compared against the
+# rendered documents.
+#
+# The route lists are structural facts, not preferences, and each one is
+# the REASON its selector was chosen over an obvious alternative:
+#   .dashboard-sidebar  the <aside>, rendered once per authenticated
+#                       document. NOT a shared navigation class: three
+#                       navigation copies (sidebar, preferences panel,
+#                       tab bar) are in the DOM of every one of these
+#                       pages simultaneously, hidden from each other only
+#                       by a media query, so a name on a class they share
+#                       would be declared three times in one document.
+#   .page-title         page_header()'s single <h1>.
+#   .preview-frame__image  Home's frame picture, the app's ONLY render
+#                       site of that class — hence the one-route list,
+#                       which a plan that renders it elsewhere must widen
+#                       here on purpose.
+VIEW_TRANSITION_ROUTES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
+VIEW_TRANSITION_NAMES = {
+    "skypane-sidebar": VIEW_TRANSITION_ROUTES,
+    "skypane-title": VIEW_TRANSITION_ROUTES,
+    "skypane-picture": ("/",),
+}
+
+# --- The viewport sizes this file measures at (23-02-PLAN.md Task 1) ---
+# One named set replacing the inline {"width": ..., "height": ...} dicts
+# this file repeated at nine call sites. 360 is here because it is the
+# MINIMUM SUPPORTED VIEWPORT (developer decision 2026-09-13, recorded in
+# .claude/skills/sketch-findings-skypane/SKILL.md) and until now nothing
+# in this file could name it — the assertions were a mix of 320 and 390.
+#
+# 320 STAYS a measured width even though the contract floor is 360, and
+# that is deliberate, not an oversight for a later reader to tidy away.
+# SKILL.md states both of the floor's non-licences in as many words: it
+# "does not license shipping something broken at 360 px", and it "does
+# not mean deleting the 320 px assertions that already exist in
+# companion/test_browser_ux.py. They pass today, they cost nothing, and
+# they catch real defects. Keep them." The narrow rung below is that
+# sentence, executable.
+VIEWPORT_MIN_SUPPORTED = {"width": 360, "height": 844}
+VIEWPORT_PHONE = {"width": 390, "height": 844}
+VIEWPORT_DESKTOP = {"width": 1280, "height": 900}
+# Out of contract since 2026-09-13, still measured — see above.
+VIEWPORT_WIDTH_NARROW = 320
+VIEWPORT_WIDTH_TABLET = 768
+# The two width ladders, for the checks that build one context per width
+# rather than one fixed-size context. Derived from the three sizes above
+# so a width has exactly one definition in this file.
+VIEWPORT_WIDTHS_RESPONSIVE = (
+    VIEWPORT_MIN_SUPPORTED["width"], VIEWPORT_PHONE["width"],
+    VIEWPORT_DESKTOP["width"])
+VIEWPORT_WIDTHS_ALL = (
+    VIEWPORT_WIDTH_NARROW, VIEWPORT_MIN_SUPPORTED["width"],
+    VIEWPORT_PHONE["width"], VIEWPORT_WIDTH_TABLET,
+    VIEWPORT_DESKTOP["width"])
 
 # Fixed, deterministic — never datetime.now(). 06:00 UTC so the 17h runway
 # window (06:00-23:00) and a 23:00-07:00 quiet-hours window share no
@@ -424,7 +796,16 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
     # on-disk filename/format contract can never drift from what a real
     # poll cycle produces.
     from PIL import Image
-    canvas = Image.new("RGB", (8, 8), "white")
+    # 23-10-PLAN.md Task 3 (D3/CFG-32): 600x800, not the 8x8 stand-in
+    # this fixture used to write. The size is not decoration — Home's own
+    # <img> declares width="600" height="800", and an 8x8 render makes
+    # the loaded image's aspect ratio 1:1 against the 3:4 the markup
+    # promises. A skeleton whose box differs from its image's box IS the
+    # layout shift it was added to prevent, so the one fixture in this
+    # repository that a browser measures that shift against cannot be the
+    # one fixture whose proportions are wrong. 600x800 is the markup's
+    # own declared size and the real 1200x1600 panel render's own ratio.
+    canvas = Image.new("RGB", (600, 800), "white")
     for i in range(3):
         render_ts = (base_ts + timedelta(minutes=i)).isoformat()
         poll_loop._save_to_gallery(state_dir, canvas, render_ts)
@@ -439,6 +820,48 @@ def _login(page, base_url):
     page.fill("#password", TEST_PASSWORD)
     page.click('button[type="submit"]')
     page.wait_for_load_state("networkidle")
+
+
+@contextlib.contextmanager
+def _no_js_page(browser, base_url, route, viewport=None, sign_in=True):
+    """A scripts-blocked browser context, signed in, landed on `route`.
+
+    The one place in this file that blocks scripts. Three checks each
+    spelled this sequence out by hand (Health, the two settings pages,
+    and the login card), and 23-RESEARCH.md's Wave 0 gap list names five
+    more controls that each need one; a transcribed sequence is a
+    sequence that can be transcribed WRONG, and a scripts-blocked proof
+    that quietly ran with scripts enabled would pass while proving
+    nothing. Keeping the flag to a single call site is what makes that
+    failure mode unavailable rather than merely unlikely.
+
+    `sign_in=False` exists for the login card, whose whole subject is the
+    unauthenticated page: it asserts what /login renders with scripts
+    blocked and THEN signs in as its last act. That is not a weaker use
+    of the helper, it is the only honest one for a check about signing
+    in.
+
+    `viewport` is optional and defaults to the Playwright default the
+    three converted checks already ran under, so converting them changes
+    nothing at all. Pass VIEWPORT_MIN_SUPPORTED to measure a
+    scripts-blocked control at the 360px contract floor.
+
+    `context.close()` runs in a finally, the discipline every check in
+    this file already follows by hand.
+    """
+    extra = {} if viewport is None else {"viewport": viewport}
+    context = browser.new_context(java_script_enabled=False, **extra)
+    try:
+        page = context.new_page()
+        if sign_in:
+            page.goto(base_url + "/login")
+            page.fill("#password", TEST_PASSWORD)
+            page.click('button[type="submit"]')
+            page.wait_for_load_state("load")
+        page.goto(base_url + route)
+        yield page
+    finally:
+        context.close()
 
 
 def _click_control(page, selector):
@@ -480,6 +903,379 @@ def _guard_armed(page):
     return page.evaluate(
         "() => { var e = new Event('beforeunload', {cancelable: true}); "
         "window.dispatchEvent(e); return e.defaultPrevented; }")
+
+
+# --- 24-02-PLAN.md (CFG-45): the three shared measurement helpers the
+# four drawing plans (24-04..24-08) each need, added BEFORE the drawings
+# rather than after them. Helpers only: this plan registers no check of
+# its own and EXPECTED_CHECK_COUNT is unchanged at 54.
+#
+# Why they are here at all. Until this block, this file — the only
+# harness in the repository that renders anything — had never once
+# switched theme: `grep -c data-ui-theme companion/test_browser_ux.py`
+# was 0 across twenty-three phases, so every dark-mode claim this project
+# has made rested on READING style.css rather than on rendering it. The
+# single most predictable defect in a set of server-rendered SVG drawings
+# is one that is correct in light mode and invisible in dark, and no
+# source scan can see it: the markup can be structurally perfect and
+# still paint wrong once the cascade, `currentColor` and a theme token
+# have had their say.
+
+# The explicit themes this harness can drive, derived from the app's own
+# vocabulary (layout.UI_THEME_CHOICES) rather than restated as literals,
+# so a call site reads as the thing it means and a renamed choice fails
+# here instead of silently measuring nothing.
+#
+# "auto" is excluded ON PURPOSE and is not an oversight: style.css's own
+# header comment (the CFG-09 theme-resolution paragraph) states that
+# `data-ui-theme="auto"` intentionally has no override rule of its own,
+# so the media query keeps governing and the resolved theme becomes
+# whatever the host OS says. That is precisely the one thing a
+# measurement must not depend on, so asking for it is an error rather
+# than a third mode.
+UI_THEME_AUTO = "auto"
+UI_THEMES_EXPLICIT = tuple(
+    t for t in layout.UI_THEME_CHOICES if t != UI_THEME_AUTO)
+
+# Set an explicit theme, sample the paint it produces, and leave the page
+# on the requested one. Every read below goes through getComputedStyle,
+# which is a forced style flush: the browser must resolve every pending
+# recalculation before it can answer, so THE READ IS THE WAIT. There is
+# no sleep, no timeout and no transitionend listener anywhere in this
+# helper, for the same reason 23-02 recorded when it put the disclosure
+# sweep under reduced motion — a timing wait is a flakiness generator on
+# the slowest file in the suite, and an intermittently red check is worse
+# than no check.
+#
+# `document.body` is the witness because style.css's own `body` rule is
+# where both inverting tokens are actually SPENT (`background:
+# var(--color-canvas)`, `color: var(--color-text)`), so this reads real
+# paint rather than a custom property's declared text — a
+# getPropertyValue('--color-canvas') would return the token's literal
+# string even if nothing on the page ever used it.
+_THEME_PROBE = (
+    "args => {"
+    "  const html = document.documentElement;"
+    "  const sampled = {};"
+    "  const read = () => {"
+    "    const s = getComputedStyle(document.body);"
+    "    return {canvas: s.backgroundColor, text: s.color,"
+    "            attr: html.getAttribute('data-ui-theme')};"
+    "  };"
+    "  args.themes.forEach(t => {"
+    "    html.setAttribute('data-ui-theme', t);"
+    "    sampled[t] = read();"
+    "  });"
+    "  html.setAttribute('data-ui-theme', args.settle);"
+    "  return {sampled: sampled, settled: read()};"
+    "}")
+
+
+def _set_ui_theme(page, theme):
+    """Put an already-loaded `page` into an explicitly named theme and
+    return the resolved paint that theme produces. The first thing in
+    this harness that has ever measured dark mode.
+
+    Returns {"theme", "canvas", "text"} — `canvas` and `text` are the
+    browser's own resolved `background-color`/`color` on <body>, in
+    Chromium's `rgb(r, g, b)` form, ready to be compared between themes
+    or recorded in a SUMMARY.
+
+    THE EXPLICIT ATTRIBUTE, NOT `emulate_media`. The next reader's
+    instinct will be `context.new_context(color_scheme="dark")` or
+    `page.emulate_media(color_scheme="dark")`, and that is the weaker
+    test here. `html[data-ui-theme="light"|"dark"]` is what this app's
+    OWN theme picker sets (companion/app.py's theme form ->
+    layout.page_shell()'s <html> attribute), and style.css declares those
+    two blocks specifically so they TAKE PRECEDENCE over
+    prefers-color-scheme. Driving the OS preference would exercise a
+    path the app deliberately lets the user override, and would leave the
+    measurement at the mercy of the host's own setting; driving the
+    attribute exercises the path a real visitor takes and is
+    deterministic. Both halves matter, which is why this comment states
+    both.
+
+    IT MUST KEEP WORKING WITH SCRIPTS BLOCKED. "renders correctly in dark
+    mode with scripts blocked" is the combination most likely to be
+    wrong, so it is the one the drawing plans have to be able to ask
+    about. Measured on this tree: a context built with
+    `java_script_enabled=False` (which is what `_no_js_page()` composes)
+    still answers `page.evaluate` — Playwright's evaluation runs through
+    the debugging protocol rather than through the page's own script
+    execution, and CSS cascade/recalculation is not gated on scripts at
+    all. Light and dark resolved to the identical pair of values with
+    scripts on and with scripts blocked.
+
+    THE HELPER VERIFIES THE PAGE REALLY REPAINTED, and that is the whole
+    point of it rather than a nicety. A helper that set the attribute and
+    returned would let every later dark-mode assertion pass VACUOUSLY:
+    if the override rule were renamed, dropped, or outranked, both themes
+    would resolve to the same paint and a "these two differ" check
+    downstream would be comparing a value to itself. So this helper
+    samples BOTH explicit themes on every call and refuses to return
+    unless the two genuinely differ in BOTH inverting tokens. It is
+    deliberately not a literal-value assertion: hardcoding #F7F4EF /
+    #0C0F14 here would duplicate style.css into a harness and would start
+    failing on a palette change that is not a defect. What is asserted is
+    the PROPERTY the two override blocks exist to produce.
+    """
+    if theme not in UI_THEMES_EXPLICIT:
+        raise AssertionError(
+            "_set_ui_theme: %r is not one of this app's explicit themes %r. "
+            "%r is excluded on purpose — it declares no override rule of its "
+            "own (style.css's CFG-09 theme-resolution comment), so it "
+            "resolves to whatever the host OS prefers, which is the one "
+            "thing a measurement must not depend on."
+            % (theme, UI_THEMES_EXPLICIT, UI_THEME_AUTO))
+
+    seen = page.evaluate(
+        _THEME_PROBE,
+        {"themes": list(UI_THEMES_EXPLICIT), "settle": theme})
+    sampled = seen["sampled"]
+    missing = [t for t in UI_THEMES_EXPLICIT if t not in sampled]
+    if missing:
+        raise AssertionError(
+            "_set_ui_theme: the probe returned no sample for %r — with none, "
+            "this helper measures nothing" % (missing,))
+
+    first, second = UI_THEMES_EXPLICIT[0], UI_THEMES_EXPLICIT[1]
+    for token in ("canvas", "text"):
+        if sampled[first][token] == sampled[second][token]:
+            raise AssertionError(
+                "_set_ui_theme: setting html[data-ui-theme] did not repaint "
+                "the page — %s resolved to %r in BOTH %r and %r, so the "
+                "explicit CFG-09 override is not reaching <body> and every "
+                "dark-mode assertion built on this helper would be comparing "
+                "a value to itself (style.css's html[data-ui-theme=\"%s\"] / "
+                "html[data-ui-theme=\"%s\"] blocks)"
+                % (token, sampled[first][token], first, second, first, second))
+
+    settled = seen["settled"]
+    if settled["attr"] != theme:
+        raise AssertionError(
+            "_set_ui_theme: asked for %r, the document element reports %r "
+            "after the switch" % (theme, settled["attr"]))
+    if (settled["canvas"], settled["text"]) != (
+            sampled[theme]["canvas"], sampled[theme]["text"]):
+        raise AssertionError(
+            "_set_ui_theme: the page did not settle on the theme it was "
+            "asked for — %r sampled %r but the page came to rest on %r"
+            % (theme, sampled[theme], settled))
+
+    return {"theme": theme, "canvas": settled["canvas"],
+            "text": settled["text"]}
+
+
+# The values Chromium computes for the SVG paint properties when NOTHING
+# in the cascade reaches the element — the SVG initial values (`fill:
+# black`, `stroke: none`). This pair is the signature of the exact defect
+# the drawing plans exist to catch: a shape that inherited no colour and
+# painted the SVG default instead of a theme token.
+#
+# `rgb(0, 0, 0)` is a usable sentinel on THIS app specifically, and that
+# is a measured fact rather than an assumption: neither theme's
+# --color-text is pure black (light #17191F -> rgb(23, 25, 31), dark
+# #F1F3F6 -> rgb(241, 243, 246)), so a shape meant to be painted by a
+# token can never legitimately land on it.
+SVG_DEFAULT_PAINT = {"fill": "rgb(0, 0, 0)", "stroke": "none"}
+
+_PAINT_PROBE = (
+    "args => {"
+    "  const el = document.querySelector(args.selector);"
+    "  if (!el) return null;"
+    "  const s = getComputedStyle(el);"
+    "  const out = {};"
+    "  args.props.forEach(p => { out[p] = s.getPropertyValue(p); });"
+    "  return out;"
+    "}")
+
+
+def _computed_paint(page, selector, props=("fill", "stroke", "color")):
+    """Read the RESOLVED paint the browser computed for the first element
+    matching `selector` — never the attribute, never the class.
+
+    Returns {"selector", <prop>: value, ..., "svg_default": (props,)}.
+
+    WHAT THIS BUYS OVER A SOURCE SCAN, which is the only reason it is
+    worth the browser it costs. A scan of the rendered markup can see
+    that a `<line>` carries `class="sparkline-line"`; it cannot see what
+    that class RESOLVES to. getComputedStyle has already run the cascade,
+    resolved `currentColor` against the inherited `color`, and
+    substituted the theme's custom property — so this is the only thing
+    in the repository that can tell a shape painted by a token from a
+    shape painted by the SVG default. Measured live on
+    `.sparkline-line`, whose rule is `stroke: currentColor`: light
+    resolves stroke to rgb(23, 25, 31), dark to rgb(241, 243, 246), and
+    the same element with its class removed resolves to stroke `none`
+    with fill `rgb(0, 0, 0)`. No source scan distinguishes those three.
+
+    `svg_default` names, for the caller, every requested property whose
+    resolved value is indistinguishable from that property's SVG initial
+    value — so four plans do not each have to recognise the defect for
+    themselves and then each get the sentinel slightly different. Read it
+    for what it says: INDISTINGUISHABLE FROM THE INITIAL VALUE. A shape
+    that legitimately declares `stroke: none` (a fill-only shape) reports
+    `stroke` here too, which is correct and not a false positive — a
+    caller asserting "this must be token-painted" should assert on the
+    property it expects to carry the token, and `.sparkline-line`'s own
+    `fill: none` is exactly why this helper reports properties rather
+    than a single verdict.
+
+    Raises rather than returning a sentinel when the selector matches
+    nothing. This file's checks guard against measuring an empty page
+    everywhere they can ("with none, this check measures nothing"), and a
+    returned `None` is a guard each of four call sites has to REMEMBER;
+    an exception is one they cannot forget, and `check()` above turns it
+    into a named FAIL rather than a swallowed pass.
+    """
+    props = tuple(props)
+    seen = page.evaluate(
+        _PAINT_PROBE, {"selector": selector, "props": list(props)})
+    if seen is None:
+        raise AssertionError(
+            "_computed_paint: no element matched %r on %s — with none, this "
+            "measures nothing" % (selector, page.url))
+    out = {"selector": selector}
+    defaulted = []
+    for prop in props:
+        value = seen.get(prop)
+        out[prop] = value
+        if prop in SVG_DEFAULT_PAINT and value == SVG_DEFAULT_PAINT[prop]:
+            defaulted.append(prop)
+    out["svg_default"] = tuple(defaulted)
+    return out
+
+
+# WHICH BOX MEANS "THE PAGE". `document.documentElement`, matching the
+# two page-level overflow checks this file already carries
+# (`_home_paints_nothing_outside_the_viewport_or_its_cards` and
+# `_every_disclosure_on_every_page_opens_without_overflow`, both of which
+# compare documentElement.scrollWidth against the viewport) — a third
+# convention in the same file is how three checks come to disagree about
+# what "the page" means.
+#
+# Measured before choosing, not assumed: at 360/390/1280 on Health with
+# every disclosure open, `document.body` and `document.documentElement`
+# report the SAME pair of numbers, clean (360/360) and with a 2000px
+# element appended to <body> (2000/360). body's own `overflow-x: hidden`
+# (style.css's body rule, UXA-01's guaranteed fix) does NOT clip its own
+# scrollWidth, because CSS propagates a body overflow to the viewport
+# when <html>'s is `visible` and leaves body's own used value `visible`.
+# So the two boxes agree today and the choice is settled by consistency
+# with the file's existing checks rather than by a measured difference.
+#
+# THE DELIBERATELY-SCROLLABLE WRAP IS NOT A PAGE OVERFLOW, and this
+# helper gets that right by construction rather than by a special case:
+# 260913-cz6 recorded that a `.data-table-wrap` overflowing its own box
+# leaves documentElement.scrollWidth EXACTLY unmoved, and that was
+# re-measured here — a 2000px element appended INSIDE a
+# `.data-table-wrap` takes that wrap from 278 to 2000 while the document
+# stays at 360/360 and this helper reports clean. `_health_tables_fit_
+# their_wraps_with_every_disclosure_open` is the check that owns the
+# wrap-level question; this helper must not contradict it, and does not.
+#
+# The escaped-element list is DIAGNOSTIC ONLY and is never an independent
+# failure condition. CFG-45's wording is "no horizontal scrollbar on the
+# page body", so that — and only that — is what this helper asserts; a
+# helper that quietly also failed on content escaping an
+# `overflow: hidden` card would be doing more than its name says to four
+# calling plans. Naming what escaped is still what makes the failure
+# actionable, so it rides along in the message.
+_PAGE_OVERFLOW_PROBE = (
+    "() => {"
+    "  const vw = document.documentElement.clientWidth;"
+    "  const escaped = [];"
+    "  document.querySelectorAll('*').forEach(el => {"
+    "    const r = el.getBoundingClientRect();"
+    "    if (r.width > 0 && r.right > vw + 0.5)"
+    "      escaped.push(el.className.toString().trim() || el.tagName);"
+    "  });"
+    "  return {sw: document.documentElement.scrollWidth,"
+    "          cw: vw,"
+    "          escaped: [...new Set(escaped)].slice(0, 12)};"
+    "}")
+
+
+# 24-04-PLAN.md Task 4: the ring's own INK, in viewBox user units.
+# getBBox() reports the shape's geometry box and deliberately EXCLUDES
+# the stroke, so the resolved stroke-width is read alongside it and half
+# of it added on every side here, in the open — that half-stroke is the
+# whole property under test, and hiding it inside a getBBox() option
+# dictionary would also mean assuming that dictionary is supported.
+_RING_INK_PROBE = (
+    "args => {"
+    "  const svg = document.querySelector(args.selector);"
+    "  if (!svg) return null;"
+    "  const vb = svg.viewBox.baseVal;"
+    "  const shapes = [];"
+    "  svg.querySelectorAll('circle, path, rect, line').forEach(el => {"
+    "    const b = el.getBBox();"
+    "    const w = parseFloat(getComputedStyle(el).strokeWidth) || 0;"
+    "    shapes.push({cls: el.getAttribute('class'), strokeWidth: w,"
+    "                 inked: [b.x - w / 2, b.y - w / 2,"
+    "                         b.x + b.width + w / 2, b.y + b.height + w / 2]});"
+    "  });"
+    "  return {viewBox: [vb.width, vb.height], shapes: shapes};"
+    "}")
+
+# Each Home status tile's own box, the height its CONTENT actually needs
+# (the union of its children's rects, which `.dashboard-grid`'s stretch
+# cannot inflate), and whether it holds a ring.
+_TILE_CONTENT_PROBE = (
+    "() => [...document.querySelectorAll('.home-status-grid .stat-tile')].map(t => {"
+    "  const r = t.getBoundingClientRect();"
+    "  let min = Infinity, max = -Infinity;"
+    "  [...t.children].forEach(c => {"
+    "    const k = c.getBoundingClientRect();"
+    "    min = Math.min(min, k.top); max = Math.max(max, k.bottom);"
+    "  });"
+    "  return {height: r.height, contentH: max - min,"
+    "          hasRing: t.querySelectorAll('.drawing-ring-value').length};"
+    "})")
+
+
+def _assert_no_page_overflow(page, where, expected_width=None):
+    """Whether the page itself scrolls horizontally. Returns "" when it
+    does not, and a finished failure sentence naming BOTH measurements
+    when it does — the `_assert_clean` idiom this file already uses for
+    exactly this job, so a caller writes `msg = ...; if msg: return
+    False, msg` and every drawing plan's overflow failure reads the same.
+
+    `where` names the surface being measured and nothing else — a route
+    or page name ("Home", "/health in fr"). The width is appended by this
+    helper from its own measurement, matching the existing checks'
+    "%s scrolls sideways at %dpx" wording, so a caller that folds the
+    width into `where` gets it twice.
+
+    `expected_width` is optional and, when given, asserts the measurement
+    was really taken at the viewport the caller believes it built — the
+    same "expected the measurement to be taken at %dpx" guard both
+    existing overflow checks spell out by hand, so a context that
+    silently came up at another size cannot produce a green measurement.
+
+    The comparison is documentElement.scrollWidth against
+    documentElement.clientWidth, strictly greater, no tolerance. The two
+    existing page-level checks compare against the width they REQUESTED
+    because they have one in scope; a helper handed only a page does not,
+    and clientWidth is the same number in every measurement this file has
+    ever taken (360/360, 390/390, 1280/1280 — re-measured on this tree).
+    It is also the viewport's own content box, which is the box a
+    horizontal scrollbar would appear for, and the number both existing
+    checks already print beside scrollWidth in their own messages.
+    """
+    seen = page.evaluate(_PAGE_OVERFLOW_PROBE)
+    if expected_width is not None and seen["cw"] != expected_width:
+        return (
+            "%s: expected the measurement to be taken at %dpx, the document "
+            "reports a client width of %d"
+            % (where, expected_width, seen["cw"]))
+    if seen["sw"] > seen["cw"]:
+        return (
+            "%s scrolls sideways at %dpx: documentElement.scrollWidth %d "
+            "against a client width of %d, painted past the right edge by "
+            "%r (CFG-45's page-body floor)"
+            % (where, seen["cw"], seen["sw"], seen["cw"], seen["escaped"]))
+    return ""
 
 
 def main():
@@ -630,7 +1426,7 @@ def main():
                     # getBoundingClientRect().top is the contract, and
                     # this assertion fails if it ever reopens a third
                     # time.
-                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -666,7 +1462,7 @@ def main():
                     # to ONE column inside a 342px content column. Only a
                     # real layout engine resolves auto-fill, so this is
                     # measured rather than asserted off the stylesheet.
-                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -748,7 +1544,7 @@ def main():
                     # which is how Phase 18's A-18 came back the first
                     # time. Measured, like its Flights sibling: equal
                     # getBoundingClientRect().top is the contract.
-                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -807,7 +1603,7 @@ def main():
                     #   stacked cells   EN  830   FR  900
                     #   + short FR hdrs EN  830   FR  830
                     for lang in ("en", "fr"):
-                        context = browser.new_context(viewport={"width": 1280, "height": 900})
+                        context = browser.new_context(viewport=VIEWPORT_DESKTOP)
                         try:
                             page = context.new_page()
                             base_url = harness.base_url()
@@ -881,7 +1677,7 @@ def main():
                     # its siblings: equal getBoundingClientRect().top is
                     # the contract, so a third regression fails here
                     # instead of being noticed by eye.
-                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -935,16 +1731,7 @@ def main():
                     # cells and re-wraps a filter bar — all server-
                     # rendered, and all of it must therefore be complete
                     # with scripts blocked.
-                    context = browser.new_context(java_script_enabled=False)
-                    try:
-                        page = context.new_page()
-                        base_url = harness.base_url()
-                        page.goto(base_url + "/login")
-                        page.fill("#password", TEST_PASSWORD)
-                        page.click('button[type="submit"]')
-                        page.wait_for_load_state("load")
-                        page.goto(base_url + "/health")
-
+                    with _no_js_page(browser, harness.base_url(), "/health") as page:
                         tiles = page.eval_on_selector_all(".stat-tile", "els => els.length")
                         if tiles != 4:
                             return False, (
@@ -1001,8 +1788,6 @@ def main():
                                 "expected the Resolve link (%r) to navigate to the Airlines "
                                 "resolve surface with scripts blocked, got %r" % (href, page.url))
                         return True, ""
-                    finally:
-                        context.close()
                 check(
                     "with scripts blocked Health renders in full — all four tiles with their "
                     "label/verdict/detail slots each exactly once, the registry filter bar and "
@@ -1102,27 +1887,56 @@ def main():
                         page = context.new_page()
                         _login(page, harness.base_url())
                         base_url = harness.base_url()
+                        # 23-07-PLAN.md Task 2 (D2/CFG-36, X1/D-04):
+                        # RETARGETED IN PLACE from the Diagnostic LED
+                        # checkbox to the wake-interval field. The LED is
+                        # no longer a Save-governed control at all — it
+                        # is a role="switch" applying instantly over
+                        # /quick/led — so it cannot witness a save-bar
+                        # round trip any more. The wake-interval number
+                        # input is the Device scope's surviving
+                        # form=-attached field and carries this check's
+                        # real subject unchanged: the bar reveals, names
+                        # its own section, and the value persists on
+                        # save, exactly as Display's does. (The LED's own
+                        # no-JS persistence is proven separately, in this
+                        # file's scripts-blocked switch check.)
                         page.goto(base_url + "/device")
-                        led_sel = 'input[name="led_enabled"]'
-                        was_checked = page.eval_on_selector(led_sel, "el => el.checked")
-                        _click_control(page, led_sel)
+                        wake_sel = 'input[name="wake_interval_s"]'
+                        before = page.eval_on_selector(wake_sel, "el => el.value")
+                        target = "1800" if before != "1800" else "3600"
+                        page.fill(wake_sel, target)
                         bar = page.locator("[data-dirty-bar]")
                         if bar.is_hidden():
                             return False, "expected the save bar to become visible on Device too"
                         count_text = page.locator("[data-dirty-count]").inner_text()
-                        if "Diagnostic LED" not in count_text:
-                            return False, "expected the bar to name Diagnostic LED, got %r" % count_text
+                        if "Wake interval" not in count_text:
+                            return False, "expected the bar to name Wake interval, got %r" % count_text
                         with page.expect_navigation():
                             page.locator(".dirty-bar__save").click()
                         page.goto(base_url + "/device")
-                        now_checked = page.eval_on_selector(led_sel, "el => el.checked")
-                        if now_checked == was_checked:
-                            return False, "expected the Diagnostic LED checkbox to have flipped and persisted"
+                        if page.eval_on_selector(wake_sel, "el => el.value") != target:
+                            return False, (
+                                "expected the edited wake interval to have persisted, got %r"
+                                % page.eval_on_selector(wake_sel, "el => el.value"))
+                        # And the LED switch, which is NOT part of that
+                        # form, must be unmoved by the save — the whole
+                        # point of T-23-25.
+                        led_state = page.eval_on_selector(
+                            '[data-quick-region] button[role="switch"]',
+                            "el => el.getAttribute('aria-checked')")
+                        if led_state not in ("true", "false"):
+                            return False, (
+                                "expected the Device page to render an LED switch with a real "
+                                "aria-checked, got %r" % (led_state,))
                         return True, ""
                     finally:
                         context.close()
                 check(
-                    "Device: the same reveal-and-persist round trip proves the two scopes stay in step (B1)",
+                    "Device: the same reveal-and-persist round trip proves the two scopes stay in "
+                    "step (B1) — witnessed by the wake-interval field since the Diagnostic LED "
+                    "stopped being a Save-governed control (retargeted in place by 23-07-PLAN.md "
+                    "Task 2, D2/CFG-36)",
                     _device_reveal_and_persist_stays_in_step_with_display)
 
                 def _fallback_save_reachable_until_bar_proven_live():
@@ -1178,11 +1992,51 @@ def main():
                         if _guard_armed(page):
                             return False, "expected the leave-guard to start disarmed on a clean page load"
 
+                        # 23-10-PLAN.md Task 2 (D3/CFG-32), RETARGETED IN
+                        # PLACE: this used to read the src synchronously
+                        # on the line after the click and assert it had
+                        # already changed. It had, because the swap was a
+                        # bare assignment. The preview now CROSSFADES:
+                        # theme-preview.js holds the swap until the
+                        # fade-out's own transitionend, so the new src
+                        # lands ~var(--motion-fast) later. The contract
+                        # this check owns is T8 and T1 - that the preview
+                        # follows the edit and that Cancel restores it -
+                        # and neither weakens by being asserted on the
+                        # SETTLED state instead of the next statement.
+                        #
+                        # It is a bounded WAIT, never a sleep: if the
+                        # preview never changes, this fails on a real
+                        # timeout rather than passing because the pause
+                        # was long enough.
+                        def _await_preview_src(want_change_from=None, want=None):
+                            if want is None:
+                                expr = (
+                                    "expected => document.querySelector("
+                                    "'.theme-live-preview__image').getAttribute('src') "
+                                    "!== expected")
+                                arg = want_change_from
+                            else:
+                                expr = (
+                                    "expected => document.querySelector("
+                                    "'.theme-live-preview__image').getAttribute('src') "
+                                    "=== expected")
+                                arg = want
+                            try:
+                                page.wait_for_function(expr, arg=arg, timeout=3000)
+                            except Exception:
+                                return page.locator(
+                                    ".theme-live-preview__image").get_attribute("src")
+                            return None
+
                         other_theme = next(t for t in theme_ids if t != original_value)
                         _click_control(page, 'input[name="theme"][value="%s"]' % other_theme)
-                        new_src = page.locator(".theme-live-preview__image").get_attribute("src")
-                        if new_src == original_src:
-                            return False, "expected the live preview to change immediately after the edit"
+                        stuck = _await_preview_src(want_change_from=original_src)
+                        if stuck is not None:
+                            return False, (
+                                "expected the live preview to follow the edit within 3s (it "
+                                "crossfades rather than cutting, so the swap lands one "
+                                "var(--motion-fast) after the click), still reads %r" % (stuck,))
                         if not _guard_armed(page):
                             return False, "expected the leave-guard to be armed after a real edit"
 
@@ -1192,10 +2046,11 @@ def main():
                         if not page.eval_on_selector(
                                 'input[name="theme"][value="%s"]' % original_value, "el => el.checked"):
                             return False, "expected Cancel to restore the original theme chip's checked state"
-                        restored_src = page.locator(".theme-live-preview__image").get_attribute("src")
-                        if restored_src != original_src:
+                        restored_src = _await_preview_src(want=original_src)
+                        if restored_src is not None:
                             return False, (
-                                "expected Cancel to restore the live preview to its original src, got %r "
+                                "expected Cancel to restore the live preview to its original src "
+                                "within 3s, through the crossfade rather than around it, got %r "
                                 "(T8)" % (restored_src,))
                         if _guard_armed(page):
                             return False, "expected Cancel to disarm the leave-guard"
@@ -1210,10 +2065,12 @@ def main():
                         context.close()
                 check(
                     "Cancel restores the form value AND the live theme preview (T8), and a subsequent edit "
-                    "re-arms the leave-guard (T1)",
+                    "re-arms the leave-guard (T1) - both preview assertions retargeted in place by "
+                    "23-10-PLAN.md Task 2 from a synchronous read to a bounded wait, because the preview "
+                    "now crossfades and the swap lands one var(--motion-fast) after the click",
                     _cancel_restores_preview_and_rearms_guard)
 
-                def _strip_switch_navigates_without_the_leave_guard_while_other_navigation_still_warns():
+                def _strip_switch_applies_without_the_leave_guard_while_other_navigation_still_warns():
                     # 22-05-PLAN.md Task 3 (D-04): a real browser proof,
                     # not a read of dirty-state.js's private suppressGuard
                     # variable. Chromium (headless, under Playwright)
@@ -1237,15 +2094,40 @@ def main():
                         original_value = page.eval_on_selector(original_sel, "el => el.value")
                         other_theme = next(t for t in theme_ids if t != original_value)
 
-                        # An unsaved Display edit, then activating the
-                        # Frame strip's own Screen switch: navigates and
-                        # persists, with NO beforeunload dialog - the
-                        # strip is itself about to apply the very change
-                        # the dialog would otherwise warn about.
+                        # 23-07-PLAN.md Task 1 (D2/CFG-36): RETARGETED IN
+                        # PLACE, and made strictly stronger. This check
+                        # used to assert the switch NAVIGATES. D2 is the
+                        # decision that it no longer does: the flip lands
+                        # under the finger and the POST goes out over
+                        # fetch, so there is no unload at all and the
+                        # dialog this check is about cannot fire for a
+                        # mechanical reason.
+                        #
+                        # That would make the original assertion vacuous,
+                        # so it is replaced by the property that actually
+                        # matters now and that the original could not
+                        # reach: after the switch has applied, the
+                        # leave-guard must still be ARMED for the unsaved
+                        # edit that is still sitting in the form. That is
+                        # the real hazard the conversion introduced —
+                        # dirty-state.js disarms its guard for any
+                        # [data-quick-switch] submit, and on a page whose
+                        # form was already dirty nothing would ever
+                        # re-arm it. quick-switch.js listens in the
+                        # capture phase and stops propagation precisely
+                        # so that listener never runs for a submission
+                        # that is not happening.
                         _click_control(page, 'input[name="theme"][value="%s"]' % other_theme)
+                        if not _guard_armed(page):
+                            return False, (
+                                "control: the leave-guard was not armed before the switch was "
+                                "touched, so the assertion below would prove nothing")
                         before = device_config.load_device_config(harness.tmpdir)["display_enabled"]
-                        with page.expect_navigation():
-                            page.click('form[action="/quick/display"] button[type="submit"]')
+                        switch_sel = 'form[action="/quick/display"] button[type="submit"]'
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/quick/display"):
+                            page.click(switch_sel)
+                        page.wait_for_timeout(400)
                         if dialogs:
                             return False, (
                                 "expected NO beforeunload dialog when activating the strip's own "
@@ -1253,6 +2135,25 @@ def main():
                         after = device_config.load_device_config(harness.tmpdir)["display_enabled"]
                         if after == before:
                             return False, "expected the strip switch's own change to persist"
+                        if page.url.split("?")[0] != base_url + "/display":
+                            return False, (
+                                "expected the switch to apply WITHOUT navigating (D2), but the "
+                                "page moved to %r" % (page.url,))
+                        if not _guard_armed(page):
+                            return False, (
+                                "the leave-guard was left DISARMED after a switch applied on a "
+                                "page that still holds an unsaved edit — dirty-state.js disarms "
+                                "for any [data-quick-switch] submit and re-arms only on the next "
+                                "edit, so a form that was already dirty would lose its guard for "
+                                "the rest of the page's life (D2/CFG-36, 23-07-PLAN.md Task 1)")
+                        # The switch must also still be pressable: a
+                        # submit-guard that disabled it on the way out
+                        # would leave a dead control on a page that never
+                        # reloads.
+                        if page.eval_on_selector(switch_sel, "el => el.disabled"):
+                            return False, (
+                                "the switch was left disabled after applying — with no navigation "
+                                "to replace the page, a disabled switch stays disabled forever")
 
                         # Reset: reload, make the SAME kind of unsaved
                         # edit again, then navigate away by a plain nav
@@ -1273,10 +2174,13 @@ def main():
                     finally:
                         context.close()
                 check(
-                    "activating a Frame strip switch with unsaved Display edits present navigates and "
-                    "persists with NO beforeunload dialog, while a plain nav-link navigation with the "
-                    "same unsaved edit still raises one (22-05-PLAN.md Task 3, D-04)",
-                    _strip_switch_navigates_without_the_leave_guard_while_other_navigation_still_warns)
+                    "activating a Frame strip switch with unsaved Display edits present applies over "
+                    "fetch WITHOUT navigating, leaves the leave-guard ARMED for the edit still in "
+                    "the form and the switch still pressable, and raises no dialog, while a plain "
+                    "nav-link navigation with the same unsaved edit still raises one (22-05-PLAN.md "
+                    "Task 3, D-04; retargeted in place by 23-07-PLAN.md Task 1, which is what took "
+                    "the navigation away)",
+                    _strip_switch_applies_without_the_leave_guard_while_other_navigation_still_warns)
 
                 def _three_runway_cards_share_one_line_at_390px():
                     # B9 (22-AUDIT.md, 22-10-PLAN.md Task 2). The measured
@@ -1284,22 +2188,59 @@ def main():
                     # then a lone 308x217. Only a real layout engine can
                     # see this, which is why it lives here and not in a
                     # string-comparison harness.
-                    context = browser.new_context(viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
                         page.goto(harness.base_url() + "/display")
                         page.wait_for_load_state("networkidle")
+                        # 23-10-PLAN.md Task 1 (D3/CFG-32): the selected
+                        # card now also carries a `transform: scale(...)`
+                        # — the "selection answers" clause. A transform
+                        # IS reflected in getBoundingClientRect(), which
+                        # reports the VISUAL box, and is NOT reflected in
+                        # the layout box. T6 and B9 are both statements
+                        # about the LAYOUT box (a border that grew a
+                        # flex item and pushed its siblings; a card that
+                        # wrapped onto its own line), so the transform is
+                        # neutralised for the duration of the
+                        # measurement — with its own transition
+                        # neutralised first, or the read below would
+                        # catch the 180ms unwind mid-flight and measure a
+                        # value that is neither the scaled nor the
+                        # unscaled box.
+                        #
+                        # Neutralising it is only honest if the scale is
+                        # really there, so the real computed transform is
+                        # captured BEFORE the override and asserted
+                        # below: exactly one of the three cards must be
+                        # scaled (the selected one), and the other two
+                        # must not be. That pairing is what keeps this
+                        # check from passing for a build that dropped the
+                        # scale entirely.
                         boxes = page.evaluate(
                             "() => [...document.querySelectorAll('.runway-card')]"
-                            ".map(e => { const b = e.getBoundingClientRect(); "
+                            ".map(e => { const live = getComputedStyle(e).transform; "
+                            "e.style.transition = 'none'; e.style.transform = 'none'; "
+                            "const b = e.getBoundingClientRect(); "
                             "const s = getComputedStyle(e); "
                             "const bw = parseFloat(s.borderLeftWidth) "
                             "+ parseFloat(s.borderRightWidth); "
+                            "e.style.removeProperty('transform'); "
+                            "e.style.removeProperty('transition'); "
                             "return {w: b.width, inner: b.width - bw, border: bw, "
-                            "h: b.height, top: b.top, left: b.left}; })")
+                            "h: b.height, top: b.top, left: b.left, live: live}; })")
                         if len(boxes) != 3:
                             return False, "expected 3 runway cards, got %d" % len(boxes)
+                        scaled = [b["live"] for b in boxes if b["live"] not in ("none", "")]
+                        if len(scaled) != 1:
+                            return False, (
+                                "expected EXACTLY ONE of the three runway cards to carry the "
+                                "selection scale (D3's 'selecting a card answers with a small "
+                                "scale'), got %r — this measurement neutralises the transform to "
+                                "read the LAYOUT box, so it is only meaningful while the "
+                                "transform genuinely exists"
+                                % ([b["live"] for b in boxes],))
 
                         tops = [b["top"] for b in boxes]
                         if max(tops) - min(tops) > 0.5:
@@ -1371,8 +2312,558 @@ def main():
                     "heights, and BOTH their border-excluded and their outer widths equal within "
                     "1px at a border total of exactly 2.0 each - 22-10's stated T6 allowance for "
                     "the selected card's 2px border is deleted, closed by 22-15-PLAN.md Task 1 - "
-                    "and each still clears 44x44 - never a 2 + 1 orphan (B9, 22-10-PLAN.md Task 2)",
+                    "and each still clears 44x44 - never a 2 + 1 orphan (B9, 22-10-PLAN.md Task 2) "
+                    "- with the transform neutralised for the read and EXACTLY ONE card proven to "
+                    "carry 23-10's selection scale",
                     _three_runway_cards_share_one_line_at_390px)
+
+                def _selecting_a_theme_chip_answers_and_moves_no_layout_box():
+                    # 23-10-PLAN.md Task 1 (D3/CFG-32). Two statements
+                    # that only a real layout engine can make together:
+                    #
+                    #   1. Selection ANSWERS - the chip scales, and its
+                    #      body's wash fades in over var(--motion-fast)
+                    #      rather than cutting.
+                    #   2. Selection moves NO layout box - T6's defect
+                    #      (a selected card a different size from its
+                    #      siblings, measured at 98.67px against 96.66px
+                    #      at 390px) cannot recur through a transform,
+                    #      and this is the measurement that says so
+                    #      rather than the reasoning that assumes it.
+                    #
+                    # The box is read through offsetWidth/offsetHeight/
+                    # offsetLeft/offsetTop, NOT getBoundingClientRect():
+                    # the offset* family reports the LAYOUT box and is
+                    # transform-independent by definition, which is
+                    # exactly the distinction this check exists to prove.
+                    # Plain equality, no tolerance - these are integers
+                    # from the same element measured twice.
+                    #
+                    # POSITIONS ARE MEASURED RELATIVE TO THE CHIP GRID,
+                    # not to the page, and that is a correction this
+                    # check needed rather than a convenience: selecting a
+                    # chip makes the form dirty, and 23-09's save bar
+                    # replaces the section's own inline fallback Save
+                    # button when it arrives, which removes a real 36px
+                    # from the page ABOVE this card (measured: every chip
+                    # moved from y=1608 to y=1572). That is another
+                    # plan's intended behaviour, it happens whichever
+                    # chip is clicked, and a page-absolute assertion
+                    # would report it as this plan's layout shift. The
+                    # statement that belongs here is that nothing inside
+                    # the grid moved, and every chip in the grid is
+                    # measured, not just the clicked one.
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+
+                        probe = (
+                            "() => {"
+                            "const panel = document.querySelector("
+                            "'[data-usage-panel-target=\"departures\"]');"
+                            "if (!panel) return {error: 'no departures panel'};"
+                            "const chips = [...panel.querySelectorAll('label.theme-chip')]"
+                            ".filter(c => c.querySelector('input[type=radio]'));"
+                            "if (chips.length < 2) return {error: 'chips: ' + chips.length};"
+                            "const target = chips.find("
+                            "c => !c.querySelector('input[type=radio]').checked);"
+                            "if (!target) return {error: 'every chip is already checked'};"
+                            "const grid = target.closest('.theme-chip-grid');"
+                            "if (!grid) return {error: 'no .theme-chip-grid'};"
+                            "const read = e => { const s = getComputedStyle(e);"
+                            "const body = e.querySelector('.theme-chip__body');"
+                            "const bs = body ? getComputedStyle(body) : null;"
+                            "return {w: e.offsetWidth, h: e.offsetHeight,"
+                            " left: e.offsetLeft - grid.offsetLeft,"
+                            " top: e.offsetTop - grid.offsetTop,"
+                            " transform: s.transform, dur: s.transitionDuration,"
+                            " props: s.transitionProperty,"
+                            " wash: bs ? bs.backgroundColor : null,"
+                            " washDur: bs ? bs.transitionDuration : null}; };"
+                            "return {value: target.querySelector('input[type=radio]').value,"
+                            " chip: read(target),"
+                            " grid: {w: grid.offsetWidth, h: grid.offsetHeight},"
+                            " all: chips.map(c => { const r = read(c);"
+                            " return [r.w, r.h, r.left, r.top]; })};"
+                            "}")
+                        before = page.evaluate(probe)
+                        if before.get("error"):
+                            return False, "could not find an unchecked theme chip: %s" % (
+                                before["error"],)
+                        value = before["value"]
+                        _click_control(
+                            page,
+                            '[data-usage-panel-target="departures"] '
+                            'label.theme-chip input[type=radio][value="%s"]' % value)
+                        # Well past var(--motion-fast) (180ms): the
+                        # settled state is what is asserted, never a
+                        # frame mid-transition.
+                        page.wait_for_timeout(600)
+                        after = page.evaluate(
+                            probe.replace(
+                                "const target = chips.find("
+                                "c => !c.querySelector('input[type=radio]').checked);",
+                                "const target = chips.find("
+                                "c => c.querySelector('input[type=radio]').value === "
+                                + repr(value).replace("'", '"') + ");"))
+                        if after.get("error"):
+                            return False, "could not re-find the clicked chip: %s" % (
+                                after["error"],)
+
+                        # --- 1. the answer is real -------------------
+                        if before["chip"]["transform"] not in ("none", ""):
+                            return False, (
+                                "expected an UNSELECTED chip to carry no transform, got %r"
+                                % (before["chip"]["transform"],))
+                        live = after["chip"]["transform"]
+                        if live in ("none", ""):
+                            return False, (
+                                "expected the newly-selected chip to carry the selection scale "
+                                "(D3: 'selecting a chip answers with a small scale'), got %r - a "
+                                "chip that switches state instantly is the behaviour this plan "
+                                "exists to replace" % (live,))
+                        try:
+                            scale = float(live[live.index("(") + 1:].split(",")[0])
+                        except (ValueError, IndexError):
+                            return False, "could not read a scale out of transform %r" % (live,)
+                        if scale <= 1.0:
+                            return False, (
+                                "expected the selection transform to SCALE UP (matrix a > 1), got "
+                                "%r" % (live,))
+                        if "0.18s" not in after["chip"]["dur"]:
+                            return False, (
+                                "expected the chip's transition to spend var(--motion-fast) "
+                                "(180ms), got duration %r on properties %r"
+                                % (after["chip"]["dur"], after["chip"]["props"]))
+                        for prop in ("transform", "box-shadow", "border-color"):
+                            if prop not in after["chip"]["props"]:
+                                return False, (
+                                    "expected the chip's transition to name %r - a property "
+                                    "absent from the list switches instantly, got %r"
+                                    % (prop, after["chip"]["props"]))
+                        # The wash FADES: it is a real transitioned
+                        # background on the body, and it actually
+                        # changed. A wash that is declared but never
+                        # applied would pass a stylesheet scan.
+                        if before["chip"]["wash"] == after["chip"]["wash"]:
+                            return False, (
+                                "expected the selected chip's .theme-chip__body wash to change on "
+                                "selection, both read %r" % (after["chip"]["wash"],))
+                        if "0.18s" not in (after["chip"]["washDur"] or ""):
+                            return False, (
+                                "expected the wash to FADE over var(--motion-fast) rather than "
+                                "cut, got .theme-chip__body transition-duration %r"
+                                % (after["chip"]["washDur"],))
+
+                        # --- 2. and nothing moved --------------------
+                        for key in ("w", "h", "left", "top"):
+                            if before["chip"][key] != after["chip"][key]:
+                                return False, (
+                                    "the chip's own LAYOUT box changed on selection: %s went from "
+                                    "%r to %r. T6's defect was exactly this (98.67px against "
+                                    "96.66px at 390px); a transform-based scale must change no "
+                                    "layout box at all"
+                                    % (key, before["chip"][key], after["chip"][key]))
+                        if before["grid"] != after["grid"]:
+                            return False, (
+                                "the chip grid's own layout box changed on selection: %r -> %r"
+                                % (before["grid"], after["grid"]))
+                        if before["all"] != after["all"]:
+                            moved = [
+                                (i, b, a) for i, (b, a)
+                                in enumerate(zip(before["all"], after["all"])) if b != a]
+                            return False, (
+                                "chips MOVED inside the grid when one of them was selected - "
+                                "siblings shifting is the visible half of T6, and it is exactly "
+                                "what a border-width or padding-based selection signal does. "
+                                "[index, before [w,h,left,top], after]: %r" % (moved,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "at 390px selecting a theme chip ANSWERS - the chip takes a scale > 1, its "
+                    ".theme-chip__body wash changes, and both the chip's transform/box-shadow/"
+                    "border-colour and the body's background transition over var(--motion-fast) "
+                    "(0.18s) rather than cutting - while its own LAYOUT box (offsetWidth/Height/"
+                    "Left/Top), the grid's own box and EVERY chip's position inside it are plain-equal "
+                    "before and after, so T6 cannot recur through the scale (D3/CFG-32, 23-10-PLAN.md Task 1)",
+                    _selecting_a_theme_chip_answers_and_moves_no_layout_box)
+
+                def _both_dialogs_fade_in_and_leave_nothing_behind():
+                    # 23-10-PLAN.md Task 2 (D3/CFG-32, T-23-36). The
+                    # entrance is a stylesheet fact a source scan can
+                    # read; the CLOSE is not. A <dialog> that fades out
+                    # but never reaches `display: none` is an invisible
+                    # sheet in the top layer that swallows every click on
+                    # the page beneath it, and the only instrument that
+                    # can see that is a real hit test. So this check
+                    # does both: the opening is sampled mid-flight (a
+                    # real transition is running, opacity below 1 two
+                    # frames after the trigger), and the close is
+                    # hit-tested at the viewport centre.
+                    for route, trigger_sel in (
+                        ("/history", "[data-view-panel-src]"),
+                        ("/airlines", "[data-view-panel-src]"),
+                    ):
+                        context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                        try:
+                            page = context.new_page()
+                            _login(page, harness.base_url())
+                            page.goto(harness.base_url() + route)
+                            page.wait_for_load_state("networkidle")
+                            if page.query_selector(trigger_sel) is None:
+                                return False, (
+                                    "expected %s to render at least one %s dialog trigger"
+                                    % (route, trigger_sel))
+                            opening = page.evaluate(
+                                "sel => new Promise(resolve => {"
+                                "const d = document.getElementById('panel-lookup-dialog');"
+                                "if (!d) { resolve({error: 'no dialog'}); return; }"
+                                "document.querySelector(sel).click();"
+                                "requestAnimationFrame(() => requestAnimationFrame(() => {"
+                                "const s = getComputedStyle(d);"
+                                "resolve({open: d.open, opacity: parseFloat(s.opacity),"
+                                " dur: s.transitionDuration, props: s.transitionProperty,"
+                                " transform: s.transform});"
+                                "}));"
+                                "})", trigger_sel)
+                            if opening.get("error"):
+                                return False, "%s: %s" % (route, opening["error"])
+                            if not opening["open"]:
+                                return False, (
+                                    "%s: expected the trigger to open the dialog" % (route,))
+                            if not (0 <= opening["opacity"] < 1):
+                                return False, (
+                                    "%s: expected the dialog to be MID-FADE two frames after "
+                                    "opening (D3: both dialogs fade and zoom in via "
+                                    "@starting-style), got opacity %r with transition %r on %r "
+                                    "— a dialog already fully opaque two frames in is the "
+                                    "instant open this plan replaces"
+                                    % (route, opening["opacity"], opening["dur"],
+                                       opening["props"]))
+                            page.wait_for_timeout(600)
+                            settled = page.evaluate(
+                                "() => { const d ="
+                                " document.getElementById('panel-lookup-dialog');"
+                                "const s = getComputedStyle(d);"
+                                "return {opacity: parseFloat(s.opacity), transform: s.transform,"
+                                " display: s.display}; }")
+                            if settled["opacity"] != 1:
+                                return False, (
+                                    "%s: expected the dialog to SETTLE fully opaque, got %r"
+                                    % (route, settled))
+                            if settled["transform"] not in ("none", "matrix(1, 0, 0, 1, 0, 0)"):
+                                return False, (
+                                    "%s: expected the dialog to settle at its own scale, got %r"
+                                    % (route, settled["transform"]))
+
+                            page.click("[data-view-panel-close]")
+                            # Deliberately NO settle wait here: the whole
+                            # point is that the close is over the instant
+                            # it happens. A wait would hide exactly the
+                            # defect this measures.
+                            after = page.evaluate(
+                                "() => { const d ="
+                                " document.getElementById('panel-lookup-dialog');"
+                                "const r = d.getBoundingClientRect();"
+                                "const hit = document.elementFromPoint("
+                                "Math.round(innerWidth / 2), Math.round(innerHeight / 2));"
+                                "return {open: d.open, display: getComputedStyle(d).display,"
+                                " area: r.width * r.height,"
+                                " hit: !!(hit && d.contains(hit)),"
+                                " hitTag: hit ? hit.tagName + '.' + hit.className : null}; }")
+                            if after["open"]:
+                                return False, "%s: the dialog is still open after close()" % (
+                                    route,)
+                            for field, expected, why in (
+                                ("display", "none",
+                                 "a dialog left displayed after close() is an invisible sheet "
+                                 "over the page (T-23-36)"),
+                            ):
+                                if after[field] != expected:
+                                    return False, (
+                                        "%s: expected the closed dialog's %s to be %r, got %r — "
+                                        "%s (full read %r)"
+                                        % (route, field, expected, after[field], why, after))
+                            if after["area"] != 0:
+                                return False, (
+                                    "%s: the closed dialog still occupies %r px2 — %r"
+                                    % (route, after["area"], after))
+                            if after["hit"]:
+                                return False, (
+                                    "%s: a hit test at the viewport centre still lands INSIDE "
+                                    "the closed dialog (%r) — every click on the page beneath it "
+                                    "is being swallowed (T-23-36)" % (route, after["hitTag"]))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "both <dialog>s FADE AND ZOOM in — measured mid-flight, two frames after the "
+                    "trigger, on History and on the Airlines gallery — settle fully opaque at "
+                    "their own scale, and on close() reach display:none with a zero-area box and "
+                    "a viewport-centre hit test that lands OUTSIDE them, with no settle wait at "
+                    "all, so an invisible click-swallowing sheet cannot hide behind one "
+                    "(D3/CFG-32, T-23-36, 23-10-PLAN.md Task 2)",
+                    _both_dialogs_fade_in_and_leave_nothing_behind)
+
+                def _the_live_preview_crossfade_settles_correct_and_cancel_restores_it():
+                    # 23-10-PLAN.md Task 2 (D3/CFG-32, T-23-38). The
+                    # crossfade's one real failure mode is settling on
+                    # the WRONG theme, or settling invisible: both look
+                    # identical to every source-level scan, because the
+                    # stylesheet and the script are each individually
+                    # correct. So this asserts the SETTLED state after
+                    # the transition, never a frame during it.
+                    #
+                    # And it asserts T8 through the crossfade rather than
+                    # around it. T8 exists because form.reset() restores
+                    # every radio natively and fires no change event, so
+                    # theme-preview.js never heard about the discarded
+                    # value; a crossfade starting from a stale frame
+                    # would be a visible version of the same defect.
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/display")
+                        page.wait_for_load_state("networkidle")
+                        read = (
+                            "() => { const i ="
+                            " document.querySelector('.theme-live-preview__image');"
+                            "return {src: i.getAttribute('src'),"
+                            " opacity: parseFloat(getComputedStyle(i).opacity)}; }")
+                        saved = page.evaluate(read)
+                        target = page.evaluate(
+                            "() => { const panel = document.querySelector("
+                            "'[data-usage-panel-target=\"departures\"]');"
+                            "const chip = [...panel.querySelectorAll('label.theme-chip')].find("
+                            "c => c.getAttribute('data-preview-src')"
+                            " && !c.querySelector('input[type=radio]').checked);"
+                            "return chip ? {value: chip.querySelector("
+                            "'input[type=radio]').value,"
+                            " src: chip.getAttribute('data-preview-src')} : null; }")
+                        if not target:
+                            return False, "found no unchecked departures theme chip to click"
+                        # Click, then WAIT FOR THE TRANSITION ITSELF to
+                        # be created rather than sampling at a guessed
+                        # instant. Without this the whole check would
+                        # pass on the CUT this plan replaces: a preview
+                        # that swaps instantly also settles on the right
+                        # theme at opacity 1, so "settles correct" alone
+                        # is satisfied by doing nothing.
+                        #
+                        # The original form sampled two rAF after the
+                        # click and asserted 0 <= opacity < 1. That is
+                        # the right INTENT measured the wrong way: two
+                        # frames is a guess about the machine, not about
+                        # the app, and on a loaded runner the transition
+                        # has been created but has not yet painted a
+                        # changed value. It failed exactly that way in CI
+                        # (`got opacity 1 with transition '0.18s' on
+                        # 'opacity'` — the transition was right there),
+                        # and `deferred-items.md` had already recorded it
+                        # as an intermittent seen in mutation runs.
+                        #
+                        # `transitionrun` fires when the browser CREATES
+                        # the transition, before any delay and before the
+                        # first painted step, so it is independent of
+                        # frame timing — while a cut creates no
+                        # transition at all and fires nothing. The
+                        # listener is on `document` in the CAPTURE phase
+                        # because the crossfade swaps layer elements: a
+                        # listener bound to whichever image existed
+                        # before the click can be watching the wrong one.
+                        mid = page.evaluate(
+                            "sel => new Promise(resolve => {"
+                            "let ran = null;"
+                            "const onRun = e => {"
+                            "if (ran) return;"
+                            "if (e.propertyName !== 'opacity') return;"
+                            "if (!(e.target instanceof Element)) return;"
+                            "if (!e.target.matches('.theme-live-preview__image')) return;"
+                            "const s = getComputedStyle(e.target);"
+                            "ran = {opacity: parseFloat(s.opacity), dur: s.transitionDuration,"
+                            " props: s.transitionProperty};"
+                            "};"
+                            "document.addEventListener('transitionrun', onRun, true);"
+                            "document.querySelector(sel).click();"
+                            "setTimeout(() => {"
+                            "document.removeEventListener('transitionrun', onRun, true);"
+                            "const i = document.querySelector('.theme-live-preview__image');"
+                            "const s = i ? getComputedStyle(i) : null;"
+                            "resolve({ran: ran, dur: s && s.transitionDuration,"
+                            " props: s && s.transitionProperty});"
+                            "}, 400);"
+                            "})",
+                            '[data-usage-panel-target="departures"] '
+                            'label.theme-chip input[type=radio][value="%s"]' % target["value"])
+                        if not mid["ran"]:
+                            return False, (
+                                "expected the live preview to CROSSFADE — no opacity transition "
+                                "was created on .theme-live-preview__image within 400ms of the "
+                                "chip being selected (the preview's own computed transition is "
+                                "%r on %r) — a preview that changes with no transition at all is "
+                                "the CUT this plan replaces, and every other assertion in this "
+                                "check is satisfied by that cut"
+                                % (mid["dur"], mid["props"]))
+                        page.wait_for_timeout(900)
+                        settled = page.evaluate(read)
+                        if settled["src"] != target["src"]:
+                            return False, (
+                                "the crossfade settled on the WRONG theme: the preview reads %r "
+                                "after selecting the chip whose own data-preview-src is %r "
+                                "(T-23-38)" % (settled["src"], target["src"]))
+                        if settled["opacity"] != 1:
+                            return False, (
+                                "the crossfade settled INVISIBLE (opacity %r) — a fade-out with "
+                                "no fade back in is worse than the cut it replaced"
+                                % (settled["opacity"],))
+
+                        page.click(".dirty-bar__cancel")
+                        page.wait_for_timeout(900)
+                        restored = page.evaluate(read)
+                        if restored["src"] != saved["src"]:
+                            return False, (
+                                "Cancel did not restore the SAVED theme through the crossfade: "
+                                "preview reads %r, expected %r — T8's defect, now wearing a fade"
+                                % (restored["src"], saved["src"]))
+                        if restored["opacity"] != 1:
+                            return False, (
+                                "the restore settled invisible (opacity %r)"
+                                % (restored["opacity"],))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the live theme preview CROSSFADES - proven by the opacity transition the "
+                    "browser CREATES on the preview image, caught as a transitionrun event rather "
+                    "than sampled at a guessed instant, because every other assertion here is "
+                    "satisfied by the cut this plan replaces - and settles on the theme that "
+                    "was actually "
+                    "selected, fully opaque rather than stuck mid-fade, and Cancel restores the "
+                    "SAVED theme through that same crossfade — T8 asserted through the fade "
+                    "rather than around it (D3/CFG-32, T-23-38, 23-10-PLAN.md Task 2)",
+                    _the_live_preview_crossfade_settles_correct_and_cancel_restores_it)
+
+                def _images_hold_their_place_before_they_arrive():
+                    # 23-10-PLAN.md Task 3 (D3/CFG-32, T-23-39). The only
+                    # assertion that proves a skeleton did what it was
+                    # for: the box BEFORE the image resource resolves
+                    # equals the box AFTER, measured at the 360px
+                    # contract floor and at 1280px.
+                    #
+                    # The image request is HELD by a route handler rather
+                    # than raced against - "measure quickly and hope" is
+                    # how this kind of check passes on a fast machine and
+                    # proves nothing. Nothing is faked: the real request
+                    # is paused, the real boxes are read, the real
+                    # request is then let through, and the real decoded
+                    # image is measured.
+                    #
+                    # A skeleton that does not reserve the final size IS
+                    # the layout shift it exists to prevent, which is why
+                    # the reserved box is asserted to be a real box
+                    # (a collapsed 2x2 image box equals a collapsed 2x2
+                    # image box, and that is how this check would
+                    # otherwise pass on the defect: Home at 1280px
+                    # measured 2x2 before and 380x506 after).
+                    surfaces = (
+                        ("/", ".preview-frame", ".preview-frame__image", "**/gallery/**", 100),
+                        # 30, because the first .theme-chip__preview on
+                        # /display is the Frame colours card's COMPACT
+                        # variant, whose band is 36px rather than the
+                        # base 56px - measured, not assumed. Still well
+                        # clear of the ~2px a collapsed replaced element
+                        # reports, which is the number this floor exists
+                        # to exclude.
+                        ("/display", ".theme-chip", ".theme-chip__preview",
+                         "**/theme-preview/**", 30),
+                    )
+                    for width in (VIEWPORT_MIN_SUPPORTED["width"],
+                                  VIEWPORT_DESKTOP["width"]):
+                        for route_path, box_sel, img_sel, url_glob, floor in surfaces:
+                            context = browser.new_context(
+                                viewport={"width": width, "height": VIEWPORT_DESKTOP["height"]})
+                            try:
+                                page = context.new_page()
+                                _login(page, harness.base_url())
+                                held = []
+                                page.route(url_glob, lambda route: held.append(route))
+                                page.goto(harness.base_url() + route_path,
+                                          wait_until="domcontentloaded")
+                                page.wait_for_selector(img_sel, state="attached")
+                                page.wait_for_timeout(400)
+                                read = (
+                                    "sels => { const b = document.querySelector(sels[0]);"
+                                    "const i = document.querySelector(sels[1]);"
+                                    "if (!b || !i) return null;"
+                                    "const r = e => { const x = e.getBoundingClientRect();"
+                                    "return [Math.round(x.width * 100) / 100,"
+                                    " Math.round(x.height * 100) / 100]; };"
+                                    "return {box: r(b), img: r(i),"
+                                    " skeleton: getComputedStyle(i).backgroundImage,"
+                                    " complete: i.complete, nat: [i.naturalWidth,"
+                                    " i.naturalHeight]}; }")
+                                before = page.evaluate(read, [box_sel, img_sel])
+                                if before is None:
+                                    return False, (
+                                        "%s at %dpx renders no %s/%s to measure"
+                                        % (route_path, width, box_sel, img_sel))
+                                if before["nat"][0]:
+                                    return False, (
+                                        "%s at %dpx: the image resolved before it could be "
+                                        "measured unloaded — the hold did not hold (%r)"
+                                        % (route_path, width, before))
+                                if before["img"][1] < floor:
+                                    return False, (
+                                        "%s at %dpx: the UNLOADED image reserves only %r — a "
+                                        "collapsed box is the layout shift a skeleton exists to "
+                                        "prevent, and it would make the equality below pass for "
+                                        "the wrong reason (T-23-39)"
+                                        % (route_path, width, before["img"]))
+                                if before["skeleton"] == "none":
+                                    return False, (
+                                        "%s at %dpx: %s paints no skeleton at all while its "
+                                        "image is still coming — the reserved box is correct and "
+                                        "completely blank"
+                                        % (route_path, width, img_sel))
+                                for route_obj in held:
+                                    route_obj.continue_()
+                                page.unroute(url_glob)
+                                page.wait_for_function(
+                                    "sel => { const i = document.querySelector(sel);"
+                                    " return i.complete && i.naturalWidth > 0; }",
+                                    arg=img_sel, timeout=5000)
+                                page.wait_for_timeout(200)
+                                after = page.evaluate(read, [box_sel, img_sel])
+                                if before["box"] != after["box"]:
+                                    return False, (
+                                        "%s at %dpx: %s moved when its image arrived — %r before, "
+                                        "%r after. A skeleton whose box differs from its image's "
+                                        "box IS the layout shift it was added to prevent "
+                                        "(T-23-39)"
+                                        % (route_path, width, box_sel, before["box"],
+                                           after["box"]))
+                                if before["img"] != after["img"]:
+                                    return False, (
+                                        "%s at %dpx: %s itself resized when it arrived — %r "
+                                        "before, %r after (T-23-39)"
+                                        % (route_path, width, img_sel, before["img"],
+                                           after["img"]))
+                            finally:
+                                context.close()
+                    return True, ""
+                check(
+                    "Home's frame picture and a theme chip's preview band each reserve their FINAL "
+                    "box before their image arrives — the real request is HELD, the real box is "
+                    "measured unloaded (and asserted to be a real box, not a collapsed one, with "
+                    "a skeleton painted in it), the request is let through, and the box after the "
+                    "decoded image lands is plain-equal to the box before it, at the 360px "
+                    "contract floor and at 1280px (D3/CFG-32, T-23-39, 23-10-PLAN.md Task 3)",
+                    _images_hold_their_place_before_they_arrive)
 
                 def _the_no_js_floor_holds_for_both_settings_pages():
                     # D-09's floor, asserted at THIS plan's own commit
@@ -1382,16 +2873,8 @@ def main():
                     # an attribute read (T10). Both are exactly the kind
                     # of change that can look fine with scripts running
                     # and be dead without them, so a break must fail here.
-                    context = browser.new_context(java_script_enabled=False)
-                    try:
-                        page = context.new_page()
-                        base_url = harness.base_url()
-                        page.goto(base_url + "/login")
-                        page.fill("#password", TEST_PASSWORD)
-                        page.click('button[type="submit"]')
-                        page.wait_for_load_state("load")
-
-                        page.goto(base_url + "/display")
+                    base_url = harness.base_url()
+                    with _no_js_page(browser, base_url, "/display") as page:
                         if not page.query_selector(".theme-chip"):
                             return False, "Display must render its chips with scripts blocked"
                         # T10: the badge's text is an ATTRIBUTE now, so it
@@ -1446,8 +2929,6 @@ def main():
                                 "expected the test submission to redirect back to Device, got %r"
                                 % page.url)
                         return True, ""
-                    finally:
-                        context.close()
                 check(
                     "with scripts blocked both settings pages render and stay usable: the 'Current' "
                     "badge's text is server-rendered into data-current-label, no usage panel is "
@@ -1584,10 +3065,8 @@ def main():
                     # with scripts blocked the toggle is not there at all
                     # (never a dead control), no gutter is reserved for
                     # it, and the form still signs in.
-                    context = browser.new_context(java_script_enabled=False)
-                    try:
-                        page = context.new_page()
-                        page.goto(harness.base_url() + "/login")
+                    with _no_js_page(
+                            browser, harness.base_url(), "/login", sign_in=False) as page:
                         if page.locator("[data-login-reveal]").is_visible():
                             return False, (
                                 "with scripts blocked the toggle must stay hidden — a "
@@ -1606,8 +3085,6 @@ def main():
                                 "expected a scripts-blocked sign-in to succeed, landed on %r"
                                 % page.url)
                         return True, ""
-                    finally:
-                        context.close()
                 check(
                     "the show-password toggle reveals ITSELF at load (the hidden attribute is "
                     "removed, not overridden), swaps aria-pressed and its translated accessible "
@@ -1700,8 +3177,7 @@ def main():
                     # the 240px sidebar and a 390px phone — a count only a
                     # real layout engine can produce, which is why this
                     # one is here rather than in a source harness.
-                    context = browser.new_context(
-                        viewport={"width": 1280, "height": 900})
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -1751,8 +3227,7 @@ def main():
                         context.close()
 
                         # The same contract at 390px, inside the dropdown.
-                        context = browser.new_context(
-                            viewport={"width": 390, "height": 844})
+                        context = browser.new_context(viewport=VIEWPORT_PHONE)
                         page = context.new_page()
                         _login(page, harness.base_url())
                         context.add_cookies([{
@@ -1837,8 +3312,7 @@ def main():
                     # colour transition could hide an OPEN panel), and a
                     # close with no transition at all that never re-applied
                     # the hidden property.
-                    context = browser.new_context(
-                        viewport={"width": 390, "height": 844})
+                    context = browser.new_context(viewport=VIEWPORT_PHONE)
                     try:
                         page = context.new_page()
                         _login(page, harness.base_url())
@@ -1897,8 +3371,7 @@ def main():
                         # stylesheet switches the transition off entirely
                         # and no transitionend will ever arrive.
                         context = browser.new_context(
-                            viewport={"width": 390, "height": 844},
-                            reduced_motion="reduce")
+                            viewport=VIEWPORT_PHONE, reduced_motion="reduce")
                         page = context.new_page()
                         _login(page, harness.base_url())
                         page.goto(harness.base_url() + "/display")
@@ -2255,12 +3728,36 @@ def main():
                             return False, (
                                 "expected a repeat click to produce NO second POST, got %d total "
                                 "(T14)" % posts["n"])
+                        # 23-09-PLAN.md Task 3 (D3/CFG-32): RETARGETED IN
+                        # PLACE, because this plan is the deferral's own
+                        # due date. This clause used to assert the label
+                        # carried NO progress word, with the message "a
+                        # progress word is D3, Phase 23". D3 has now
+                        # landed and the label does change — so asserted
+                        # literally the old clause would have been
+                        # testing for the absence of the feature the
+                        # phase exists to ship.
+                        #
+                        # What it was actually about survives and is now
+                        # asserted from the other side: the SHARED GUARD
+                        # still writes no label. That is not something a
+                        # browser can see (both files' effects land on
+                        # the same control), so it is asserted where it
+                        # can be — companion/test_companion_app.py's
+                        # served-body check on submit-guard.js, which
+                        # fails that file for containing the word at all.
+                        # Here the two are asserted to COEXIST rather
+                        # than fight: the control is disabled AND wears
+                        # the in-flight word, which is the property T14's
+                        # own deferral was protecting.
                         label = page.eval_on_selector(save, "el => el.textContent.trim()")
-                        for progress_word in ("Saving", "Enregistrement", "…"):
-                            if progress_word in label:
-                                return False, (
-                                    "the guard must not change any button's label - a progress "
-                                    "word is D3, Phase 23 - got %r" % (label,))
+                        if label != config_page.DIRTY_SAVING_TEXT:
+                            return False, (
+                                "expected the Save control to read the in-flight word %r after "
+                                "its POST went out, got %r — the label change T14 deferred to D3 "
+                                "is dirty-state.js's, and it must survive the shared guard "
+                                "disabling the same control a task later"
+                                % (config_page.DIRTY_SAVING_TEXT, label))
 
                         # And the two flows the guard must not fight
                         # still work, with the route removed: a real save
@@ -2279,8 +3776,30 @@ def main():
                         switch = page.locator("[data-quick-switch] button[type=\"submit\"]").first
                         if switch.count() == 0:
                             return False, "expected a Frame strip switch to exercise"
-                        with page.expect_navigation():
+                        # 23-07-PLAN.md Task 1 (D2/CFG-36): retargeted in
+                        # place. This used to assert the switch still
+                        # NAVIGATES with the shared guard installed; D2
+                        # is the decision that it applies over fetch
+                        # instead. The property this clause is actually
+                        # about — that T14's guard does not fight the
+                        # switch — survives intact and is now asserted on
+                        # the response and the control's own state
+                        # rather than on a navigation that no longer
+                        # happens.
+                        before = device_config.load_device_config(harness.tmpdir)["display_enabled"]
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/quick/display"):
                             switch.click()
+                        page.wait_for_timeout(400)
+                        after = device_config.load_device_config(harness.tmpdir)["display_enabled"]
+                        if after == before:
+                            return False, (
+                                "expected the strip switch to still apply with the shared guard "
+                                "installed (T14 + D2)")
+                        if switch.evaluate("el => el.disabled"):
+                            return False, (
+                                "the shared guard left the switch disabled — with no navigation "
+                                "to replace the page it would stay dead (T14 + D2)")
                         return True, ""
                     finally:
                         context.close()
@@ -2288,8 +3807,12 @@ def main():
                     "a second click on the save bar's Save produces NO second POST - the shared guard "
                     "disables the submitting control from a zero-delay timer, so the browser has already "
                     "built the form data set (which is what keeps the named theme/language submit buttons "
-                    "working) - and it changes no label, while a real save still persists and a Frame "
-                    "strip switch still navigates with the guard installed (T14, 22-15-PLAN.md Task 3)",
+                    "working) - and the disabled control also wears D3's in-flight word, the two "
+                    "mechanisms coexisting rather than fighting, while a real save still persists and a "
+                    "Frame strip switch still APPLIES with the guard installed, without navigating and "
+                    "without being left disabled (T14, 22-15-PLAN.md Task 3; retargeted in place by "
+                    "23-07-PLAN.md Task 1 and again by 23-09-PLAN.md Task 3, which is the deferral's "
+                    "own due date)",
                     _a_second_click_on_save_produces_no_second_post)
 
                 def _home_paints_nothing_outside_the_viewport_or_its_cards():
@@ -2474,7 +3997,7 @@ def main():
                         "          sw: document.documentElement.scrollWidth,"
                         "          cw: document.documentElement.clientWidth};"
                         "}")
-                    for width in (320, 360, 390, 768, 1280):
+                    for width in VIEWPORT_WIDTHS_ALL:
                         for lang in ("fr", "en"):
                             context = browser.new_context(
                                 viewport={"width": width, "height": 844})
@@ -2582,10 +4105,51 @@ def main():
                         "          docSW: document.documentElement.scrollWidth,"
                         "          docCW: document.documentElement.clientWidth};"
                         "}")
+                    #
+                    # 23-08-PLAN.md Task 3: THE CONTEXT REQUESTS REDUCED
+                    # MOTION, and this is a deliberate fix rather than a
+                    # tidy-up. 23-02 gave its own generalised sibling
+                    # (260913-eab) exactly this treatment and recorded,
+                    # as a finding, that THIS check has the identical
+                    # exposure and was left alone only because that
+                    # plan's scope named one check and its acceptance
+                    # criterion pinned an occurrence count.
+                    #
+                    # The exposure: this check sets `details.open = true`
+                    # and measures in the SAME task, which is sound only
+                    # while nothing animates. Health carries four
+                    # disclosures. A box measured mid-transition is
+                    # NARROWER than its final box, so this would begin
+                    # failing intermittently on geometry that is in fact
+                    # correct — and it would be harder to diagnose than
+                    # its sibling's version of the same fault, because
+                    # the sibling is green.
+                    #
+                    # STATED PLAINLY: 23-08's own animations cannot reach
+                    # this check today. Every one of them is scoped to a
+                    # Flights-only selector (.flight-detail-row__reveal,
+                    # .row-toggle__glyph, .history-card__summary) and
+                    # /health renders none of them. This is therefore
+                    # prophylaxis, taken now because the cost is one
+                    # argument and because 23-10 owns the rest of D3's
+                    # motion and will animate more. An intermittently red
+                    # check is worse than no check: it teaches people to
+                    # ignore it.
+                    #
+                    # It weakens nothing. Reduced motion makes the final
+                    # state the IMMEDIATE state through the app's own
+                    # global override; the widths this check measures are
+                    # not a function of motion, so the same geometry is
+                    # asserted, just deterministically. It takes this
+                    # file's count of reduce-requesting contexts from 2
+                    # to 3 — written without the literal on purpose, so a
+                    # grep for the literal keeps counting contexts rather
+                    # than prose about them (23-01's own lesson).
                     width = 390
                     for lang in ("en", "fr"):
                         context = browser.new_context(
-                            viewport={"width": width, "height": 844})
+                            viewport={"width": width, "height": 844},
+                            reduced_motion="reduce")
                         try:
                             page = context.new_page()
                             base_url = harness.base_url()
@@ -2723,6 +4287,41 @@ def main():
                     # listens for `toggle` or queries `details` at all
                     # (freshness.js's own listener was removed by D-02),
                     # so there is no JS-driven content to wait for.
+                    #
+                    # Sound TODAY, and the context below is what keeps it
+                    # sound tomorrow. This sweep sets `details.open =
+                    # true` and measures in the SAME task, which is
+                    # correct only while nothing animates. Phase 23
+                    # animates disclosures on purpose (23-08's Flights
+                    # detail row and its chevron, 23-10's remainder), and
+                    # a box measured mid-transition is NARROWER than its
+                    # final box — so this check would begin failing on
+                    # geometry that is in fact correct, intermittently,
+                    # on the slowest file in the suite. An intermittently
+                    # red check is worse than no check: it teaches people
+                    # to ignore it, and this one was built because a real
+                    # phone found a defect sixteen plans and 22 automated
+                    # checks had missed.
+                    #
+                    # So the context below REQUESTS REDUCED MOTION, and
+                    # that is the whole fix. It makes the final state the
+                    # IMMEDIATE state through the app's OWN global
+                    # override (companion/static/style.css's
+                    # `prefers-reduced-motion: reduce` block, which
+                    # drives every transition and animation to 0.01ms) —
+                    # so a measurement taken straight after the state
+                    # change is final geometry by construction rather
+                    # than by luck. It has a second virtue: it exercises
+                    # that override on every route, in both languages, at
+                    # all three widths, for free.
+                    #
+                    # Deliberately NOT a timeout, a sleep or an
+                    # event listener. A timing wait across 47 disclosures
+                    # x 6 routes x 2 languages x 3 widths is a flakiness
+                    # generator and real wall clock on a file already at
+                    # ~50s; and listening for the event a <details> fires
+                    # when it opens is the same family of mechanism the
+                    # paragraph above already rules out.
                     probe = (
                         "() => {"
                         "  const all = [...document.querySelectorAll('details')];"
@@ -2794,10 +4393,11 @@ def main():
                                 % (where, seen["escaped"], seen["sw"], seen["cw"]))
                         return ""
 
-                    for width in (360, 390, 1280):
+                    for width in VIEWPORT_WIDTHS_RESPONSIVE:
                         for lang in ("en", "fr"):
                             context = browser.new_context(
-                                viewport={"width": width, "height": 844})
+                                viewport={"width": width, "height": 844},
+                                reduced_motion="reduce")
                             try:
                                 page = context.new_page()
                                 base_url = harness.base_url()
@@ -2863,6 +4463,4329 @@ def main():
                     "change makes this fail rather than silently measure nothing (quick task "
                     "260913-eab)",
                     _every_disclosure_on_every_page_opens_without_overflow)
+
+                # --- 23-04-PLAN.md Task 2 (D10/CFG-33): the two ways a
+                # cross-document view transition fails silently ---
+
+                def _view_transition_names_are_unique_on_every_route():
+                    # WHY THIS IS COUNTED IN A BROWSER AND FROM COMPUTED
+                    # VALUES. A stylesheet scan can prove that a name is
+                    # DECLARED once; it cannot prove that its selector
+                    # MATCHES once. companion/layout.py puts two
+                    # navigation landmarks into every authenticated
+                    # document at the same time — the sidebar's vertical
+                    # one and the bottom tab bar — and the 960px media
+                    # query decides only which is VISIBLE, never how many
+                    # exist. (23-RESEARCH.md and 23-04-PLAN.md both say
+                    # three, counting the preferences panel's copy; 22-14
+                    # Task 2 REMOVED that one rather than emptying it, so
+                    # the count is two today and would be three again the
+                    # moment a panel-level landmark returns. Measured
+                    # here, not carried from the brief.) A name hung on a
+                    # class those share — or on the bare `nav` element,
+                    # the "simplification" a later reader is most likely
+                    # to reach for — is declared exactly once in
+                    # style.css, passes every source scan in this
+                    # repository, and resolves to two elements in the
+                    # DOM, at which point the browser drops the entire
+                    # transition with no error, no console warning and no
+                    # visual difference from a browser that never
+                    # supported it. That is the defect this check exists
+                    # for, and only a real document can see it.
+                    #
+                    # Three anti-vacuity guards, because "no name appears
+                    # twice" is trivially satisfied by a page that
+                    # declares no names at all — the exact shape of
+                    # vacuous check 23-03 caught in its own work:
+                    #   1. the set of names the SERVED stylesheet
+                    #      declares must equal VIEW_TRANSITION_NAMES's
+                    #      keys, so dropping or renaming a declaration
+                    #      fails here instead of quietly emptying the
+                    #      measurement;
+                    #   2. every name must resolve to EXACTLY one element
+                    #      on each route its entry lists — zero is a
+                    #      failure, not a pass;
+                    #   3. and to zero elements on the routes it does
+                    #      not, so widening a selector is a deliberate
+                    #      edit here rather than a silent one.
+                    probe = (
+                        "() => {"
+                        "  const declared = [];"
+                        "  const walk = (rules) => {"
+                        "    for (const r of rules) {"
+                        "      if (r.style && r.style.viewTransitionName)"
+                        "        declared.push(r.style.viewTransitionName);"
+                        "      if (r.cssRules) walk(r.cssRules);"
+                        "    }"
+                        "  };"
+                        "  for (const sheet of document.styleSheets) {"
+                        "    try { walk(sheet.cssRules); } catch (e) {}"
+                        "  }"
+                        "  const counts = {}, where = {};"
+                        "  const all = document.querySelectorAll('*');"
+                        "  all.forEach(el => {"
+                        "    const v = getComputedStyle(el).viewTransitionName;"
+                        "    if (!v || v === 'none') return;"
+                        "    counts[v] = (counts[v] || 0) + 1;"
+                        "    (where[v] = where[v] || []).push("
+                        "      el.tagName.toLowerCase() + '.' + (el.className.toString() || '-'));"
+                        "  });"
+                        "  return {declared: declared, counts: counts, where: where,"
+                        "          elements: all.length};"
+                        "}")
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        for route in VIEW_TRANSITION_ROUTES:
+                            page.goto(base_url + route)
+                            page.locator("main").first.wait_for(state="visible")
+                            seen = page.evaluate(probe)
+                            if seen["elements"] < 20:
+                                return False, (
+                                    "expected a rendered document on %s, found %d elements — "
+                                    "with fewer, this check measures nothing"
+                                    % (route, seen["elements"]))
+                            declared = sorted(set(seen["declared"]))
+                            if declared != sorted(VIEW_TRANSITION_NAMES):
+                                return False, (
+                                    "the stylesheet served to %s declares the view-transition "
+                                    "names %r, but this file pins %r (VIEW_TRANSITION_NAMES) — a "
+                                    "name added, renamed or dropped in companion/static/style.css "
+                                    "must be a deliberate edit here too, because every assertion "
+                                    "below is empty for a name nobody declares"
+                                    % (route, declared, sorted(VIEW_TRANSITION_NAMES)))
+                            # Duplicates FIRST, and over every computed
+                            # name rather than only the declared three:
+                            # the browser's own `root` name on the
+                            # document element counts here too, so a plan
+                            # that ever declares `root` collides with the
+                            # UA rule and is caught by the same line.
+                            for name, count in sorted(seen["counts"].items()):
+                                if count > 1:
+                                    return False, (
+                                        "the view-transition name %r resolves to %d elements on "
+                                        "%s (%r) — names must be unique per rendered document or "
+                                        "the browser drops the transition silently; if this is a "
+                                        "navigation selector, note that more than one navigation "
+                                        "landmark is in the DOM of every authenticated page at "
+                                        "once, hidden from each other only by a media query"
+                                        % (name, count, route, seen["where"][name]))
+                            for name, routes in sorted(VIEW_TRANSITION_NAMES.items()):
+                                got = seen["counts"].get(name, 0)
+                                if route in routes and got != 1:
+                                    return False, (
+                                        "expected exactly one element carrying the view-transition "
+                                        "name %r on %s, found %d — its selector matches nothing "
+                                        "there any more, so the transition it names is gone and "
+                                        "every uniqueness assertion about it is vacuous"
+                                        % (name, route, got))
+                                if route not in routes and got:
+                                    return False, (
+                                        "the view-transition name %r now resolves on %s, which "
+                                        "VIEW_TRANSITION_NAMES does not list for it — widening a "
+                                        "named selector is a deliberate edit, not a side effect"
+                                        % (name, route))
+                    finally:
+                        context.close()
+                    return True, ""
+                check(
+                    "every view-transition name the served stylesheet declares resolves to AT MOST "
+                    "one element on each of the six authenticated routes, counted from the "
+                    "COMPUTED value on every element of the real document — the sidebar and the "
+                    "page title on all six, Home's frame picture on Home only, and the declared "
+                    "set itself pinned so a dropped declaration fails rather than emptying the "
+                    "measurement. A name matching twice (two navigation landmarks share every "
+                    "authenticated DOM, and a bare `nav` selector reaches both) makes the browser "
+                    "drop the whole transition with no error anywhere, and no source scan can see "
+                    "it (D10/CFG-33, 23-04-PLAN.md Task 2)",
+                    _view_transition_names_are_unique_on_every_route)
+
+                def _the_view_transition_is_off_under_reduced_motion():
+                    # ASKING THE CSSOM, NOT WATCHING THE PIXELS. A visual
+                    # assertion here would be a timing test on the
+                    # slowest file in the suite, and an intermittently
+                    # red check teaches people to ignore it. The
+                    # condition guarding the at-rule is deterministic and
+                    # is precisely the property that gets got wrong.
+                    #
+                    # AND NOT matchMedia() ON ITS OWN, which would be the
+                    # vacuous version of this check: `matchMedia(
+                    # '(prefers-reduced-motion: no-preference)').matches`
+                    # is false in a reduce context no matter what this
+                    # app's stylesheet says, so it would pass with the
+                    # at-rule sitting unwrapped at the top level — the
+                    # whole defect. The condition evaluated below is read
+                    # OFF THE AT-RULE'S OWN PARENT RULE, so the check
+                    # fails unless the at-rule is genuinely nested inside
+                    # a media rule whose condition is false under reduced
+                    # motion and true otherwise. A wrapper around some
+                    # other rule does not satisfy it, an inverted
+                    # `reduce` wrapper does not satisfy it, and
+                    # `navigation: none` does not satisfy it either.
+                    probe = (
+                        "() => {"
+                        "  const found = [];"
+                        "  const walk = (rules, parent) => {"
+                        "    for (const r of rules) {"
+                        "      if (r.constructor.name === 'CSSViewTransitionRule') {"
+                        "        const cond = parent && parent.conditionText"
+                        "          ? parent.conditionText : null;"
+                        "        found.push({nav: r.navigation, text: r.cssText,"
+                        "                    parent: parent ? parent.constructor.name : null,"
+                        "                    cond: cond,"
+                        "                    matches: cond === null"
+                        "                      ? null : matchMedia(cond).matches});"
+                        "      }"
+                        "      if (r.cssRules) walk(r.cssRules, r);"
+                        "    }"
+                        "  };"
+                        "  for (const sheet of document.styleSheets) {"
+                        "    try { walk(sheet.cssRules, null); } catch (e) {}"
+                        "  }"
+                        "  return found;"
+                        "}")
+                    # Both context modes, because the two halves of the
+                    # contract are different statements: under reduce the
+                    # transition must not be set up at all, and under
+                    # no-preference it must be — a wrapper that never
+                    # matches would satisfy the first half alone and ship
+                    # a feature nobody ever sees.
+                    for reduced, want_match in ((True, False), (False, True)):
+                        extra = {"reduced_motion": "reduce"} if reduced else {}
+                        context = browser.new_context(**extra)
+                        try:
+                            page = context.new_page()
+                            base_url = harness.base_url()
+                            _login(page, base_url)
+                            page.goto(base_url + "/")
+                            page.locator("main").first.wait_for(state="visible")
+                            found = page.evaluate(probe)
+                            where = ("a reduced_motion='reduce' context" if reduced
+                                     else "a default (no-preference) context")
+                            if len(found) != 1:
+                                return False, (
+                                    "expected exactly one view-transition at-rule in the CSSOM of "
+                                    "the stylesheet served to %s, found %d (%r) — zero means the "
+                                    "feature is gone, more than one means two rules disagree about "
+                                    "whether navigations animate" % (where, len(found), found))
+                            rule = found[0]
+                            if rule["nav"] != "auto":
+                                return False, (
+                                    "the view-transition at-rule declares navigation %r in %s — "
+                                    "only 'auto' actually animates a navigation"
+                                    % (rule["nav"], where))
+                            if rule["parent"] != "CSSMediaRule" or not rule["cond"]:
+                                return False, (
+                                    "the view-transition at-rule sits at the top level of the "
+                                    "stylesheet in %s (parent rule %r) rather than inside a media "
+                                    "rule — so it is LIVE UNDER REDUCED MOTION: style.css's global "
+                                    "`*, *::before, *::after` override matches ELEMENTS and never "
+                                    "reaches the ::view-transition pseudo-element tree, which is "
+                                    "why this wrapper is the opt-out and not a duplicate of it"
+                                    % (where, rule["parent"]))
+                            if "prefers-reduced-motion" not in rule["cond"]:
+                                return False, (
+                                    "the view-transition at-rule is nested in `@media %s` in %s, "
+                                    "which says nothing about motion preference — the wrapper "
+                                    "exists to prevent the transition being SET UP for a visitor "
+                                    "who asked for less motion" % (rule["cond"], where))
+                            if rule["matches"] is not want_match:
+                                return False, (
+                                    "the media condition guarding the view-transition at-rule "
+                                    "(`%s`) evaluates to %r in %s, expected %r — under reduced "
+                                    "motion the transition must never be set up, and under "
+                                    "no-preference it must be, or the feature is wrapped into "
+                                    "something nobody ever sees"
+                                    % (rule["cond"], rule["matches"], where, want_match))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "the cross-document view transition is genuinely OPT-OUT: its at-rule is the "
+                    "only one in the CSSOM, declares navigation: auto, and is nested inside a "
+                    "media rule whose own conditionText — read off the at-rule's parent, never "
+                    "from a bare matchMedia() call, which would pass with the at-rule unwrapped — "
+                    "evaluates FALSE in a reduced_motion='reduce' context and TRUE in a default "
+                    "one, so a visitor who asked for less motion never has the transition set up "
+                    "at all rather than having one set up and run fast (D3+D10/CFG-33, "
+                    "23-04-PLAN.md Task 2)",
+                    _the_view_transition_is_off_under_reduced_motion)
+
+                # --- 23-05-PLAN.md Task 3 (D14/CFG-34): the ticker,
+                # proven in a browser. The claim is "the user sees it
+                # change, and a background tab costs nothing" — so every
+                # assertion below reads element TEXT twice with a real
+                # wait between the reads, never a timer internal. A check
+                # that asserted "an interval exists" would pass on a
+                # script that ticks a detached node.
+
+                TICK_SETTLE_MS = 2200
+                FRESHNESS_AGE = ".page-header__freshness time[data-relative]"
+
+                def _the_relative_age_ticks_in_a_real_tab():
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/health")
+                        page.locator(FRESHNESS_AGE).first.wait_for(state="attached")
+                        first = page.eval_on_selector(FRESHNESS_AGE, "el => el.textContent")
+                        # The server-rendered floor: the element already
+                        # reads something correct before any script runs.
+                        if not first or not first.strip():
+                            return False, (
+                                "expected the freshness age to be rendered by the SERVER before "
+                                "anything ticks — the no-JS floor is this element's own text, "
+                                "got %r" % (first,))
+                        if "#" in first:
+                            return False, (
+                                "expected the rendered age to carry no quantity placeholder — "
+                                "the wordings are filled server-side and by the script, never "
+                                "shown raw, got %r" % (first,))
+                        page.wait_for_timeout(TICK_SETTLE_MS)
+                        second = page.eval_on_selector(FRESHNESS_AGE, "el => el.textContent")
+                        if first == second:
+                            return False, (
+                                "expected the freshness age to ADVANCE within %dms in a visible "
+                                "tab, read %r then %r — a page that says 'Updated 14:32' is "
+                                "telling the truth about a moment and saying nothing about now "
+                                "(D14/D22)" % (TICK_SETTLE_MS, first, second))
+                        if "#" in second:
+                            return False, (
+                                "the ticked text carries a raw quantity placeholder: %r" % (second,))
+                        # 23-06-PLAN.md: the other half of the same
+                        # contract the no-JS check below states. The
+                        # server renders a CLOCK here; with scripts on
+                        # the ticker must have replaced it with a live
+                        # age, so the settled text must NOT still be the
+                        # clock the element's own datetime resolves to.
+                        # The FIRST read is deliberately not pinned to
+                        # the clock: the ticker's first repaint lands one
+                        # second after load and this harness cannot
+                        # promise to read faster than that.
+                        instant = page.eval_on_selector(
+                            FRESHNESS_AGE, "el => el.getAttribute('datetime')")
+                        parsed = layout.parse_iso(instant or "")
+                        if parsed is None:
+                            return False, (
+                                "expected a machine-readable datetime for the ticker to read, "
+                                "got %r" % (instant,))
+                        clock = layout.local_clock_text(parsed, now_parsed=parsed)
+                        if second == clock:
+                            return False, (
+                                "expected the ticker to have replaced the server's clock %r with "
+                                "a live age within %dms — the clock is the no-JS floor, the age "
+                                "is the enhancement over it (D14/D22)" % (clock, TICK_SETTLE_MS))
+                        # It rewrote ONE element's text and nothing else:
+                        # the prefix and the pill beside it are untouched.
+                        wrapper = page.eval_on_selector(
+                            ".page-header__freshness", "el => el.textContent")
+                        if "Updated" not in wrapper:
+                            return False, (
+                                "expected the freshness line's own prefix to survive the tick — "
+                                "the ticker writes textContent on the <time> element and must "
+                                "never rewrite a sibling, got %r" % (wrapper,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the Health freshness line's <time data-relative> text ADVANCES within ~2s in "
+                    "a real visible tab, starting from text the server already rendered, ending "
+                    "on something that is no longer the server's own clock (the enhancement "
+                    "really did take over), carrying no raw quantity placeholder, and leaving the "
+                    "prefix and pill beside it untouched (D14/CFG-34, 23-05-PLAN.md Task 3; the "
+                    "clock-to-age half added by 23-06-PLAN.md)",
+                    _the_relative_age_ticks_in_a_real_tab)
+
+                def _a_hidden_tab_does_no_work_and_catches_up_on_return():
+                    # WHICH MECHANISM, AND WHY THIS ONE. Two real ways to
+                    # hide a page were tried in this harness first and
+                    # neither works here, which is recorded rather than
+                    # worked around silently:
+                    #   - a second page in the same context taking focus
+                    #     (page2.bring_to_front()) leaves the first page's
+                    #     document.visibilityState at "visible" in
+                    #     headless Chromium;
+                    #   - CDP's Emulation.setPageVisibilityOverride is not
+                    #     present in this Chromium at all ("wasn't
+                    #     found").
+                    # So the page's own visibility state is overridden
+                    # in-page and a real `visibilitychange` Event is
+                    # dispatched on document — which is what the browser
+                    # itself dispatches. What that simulates is the
+                    # BROWSER'S REPORT; what it exercises is the shipped
+                    # script's own listener and its own document.hidden
+                    # reads, unmodified, which is the contract under
+                    # test. It is weaker than a genuinely backgrounded
+                    # tab and stronger than asserting a listener exists:
+                    # a script with no listener, a script that ignores
+                    # document.hidden, and a script that never re-arms on
+                    # return all fail it.
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/health")
+                        page.locator(FRESHNESS_AGE).first.wait_for(state="attached")
+                        read = "() => document.querySelector(%r).textContent" % FRESHNESS_AGE
+                        # CONTROL FIRST. Without this the check passes on
+                        # a page whose element never changes for any
+                        # reason at all — the vacuity shape 23-03 caught
+                        # in its own work.
+                        control_before = page.evaluate(read)
+                        page.wait_for_timeout(TICK_SETTLE_MS)
+                        control_after = page.evaluate(read)
+                        if control_before == control_after:
+                            return False, (
+                                "control: the age did not move in a VISIBLE tab (%r twice), so "
+                                "the hidden-tab assertion below would measure nothing"
+                                % (control_before,))
+                        page.evaluate(
+                            "() => {"
+                            "  Object.defineProperty(document, 'hidden',"
+                            "    {configurable: true, get: () => true});"
+                            "  Object.defineProperty(document, 'visibilityState',"
+                            "    {configurable: true, get: () => 'hidden'});"
+                            "  document.dispatchEvent(new Event('visibilitychange'));"
+                            "}")
+                        hidden_before = page.evaluate(read)
+                        page.wait_for_timeout(TICK_SETTLE_MS)
+                        hidden_after = page.evaluate(read)
+                        if hidden_before != hidden_after:
+                            return False, (
+                                "expected the age NOT to change while the page reports itself "
+                                "hidden, read %r then %r over %dms — a once-a-second timer in "
+                                "every background tab forever is the one real cost this file "
+                                "carries (T-23-14)"
+                                % (hidden_before, hidden_after, TICK_SETTLE_MS))
+                        # Back in view: the repaint happens IMMEDIATELY,
+                        # well inside one tick. A tab returning after a
+                        # long hidden stretch showing a stale age is the
+                        # same defect this file exists to remove, just
+                        # later on.
+                        page.evaluate(
+                            "() => {"
+                            "  Object.defineProperty(document, 'hidden',"
+                            "    {configurable: true, get: () => false});"
+                            "  Object.defineProperty(document, 'visibilityState',"
+                            "    {configurable: true, get: () => 'visible'});"
+                            "  document.dispatchEvent(new Event('visibilitychange'));"
+                            "}")
+                        returned = page.evaluate(read)
+                        if returned == hidden_after:
+                            return False, (
+                                "expected the age to be repainted IMMEDIATELY on becoming "
+                                "visible again rather than after waiting out an interval, still "
+                                "read %r" % (returned,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a page reporting itself hidden runs no ticker work at all — its age is "
+                    "byte-identical across ~2s, against a control proving the same age DOES move "
+                    "while visible — and on becoming visible again it is repainted immediately "
+                    "rather than after waiting out an interval (T-23-14, 23-05-PLAN.md Task 3; "
+                    "the visibility mechanism and its limits are stated in this check's own "
+                    "comment)",
+                    _a_hidden_tab_does_no_work_and_catches_up_on_return)
+
+                def _the_relative_age_is_server_rendered_and_static_without_scripts():
+                    base_url = harness.base_url()
+                    for lang in ("en", "fr"):
+                        context = browser.new_context(
+                            java_script_enabled=False, viewport=VIEWPORT_MIN_SUPPORTED)
+                        try:
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page = context.new_page()
+                            page.goto(base_url + "/login")
+                            page.fill("#password", TEST_PASSWORD)
+                            page.click('button[type="submit"]')
+                            page.wait_for_load_state("load")
+                            page.goto(base_url + "/health")
+                            found = page.locator(FRESHNESS_AGE).count()
+                            if found != 1:
+                                return False, (
+                                    "lang=%s: expected exactly one server-rendered <time "
+                                    "data-relative> in the freshness line with scripts blocked, "
+                                    "found %d" % (lang, found))
+                            seen = page.eval_on_selector(
+                                FRESHNESS_AGE,
+                                "el => [el.textContent, el.getAttribute('datetime')]")
+                            first, instant = seen[0], seen[1]
+                            # 23-06-PLAN.md (23-05's own finding 2, fixed
+                            # here rather than deferred to the wave-9
+                            # sweep): this assertion is REVERSED on
+                            # purpose. 23-05 required the ladder's zero
+                            # bucket here, which is what a page with no
+                            # ticker freezes on — "Updated 0s ago", true
+                            # at load and false one second later, which
+                            # is 19-09/A-20's own defect handed to the
+                            # one reader who has nothing to advance it.
+                            # The server now renders the CLOCK as this
+                            # element's text and the ticker replaces it
+                            # with the live age when it runs. The
+                            # expected value is derived from the
+                            # element's OWN datetime attribute rather
+                            # than from a wall clock read in this
+                            # process, so the assertion cannot flake
+                            # across a minute boundary.
+                            parsed = layout.parse_iso(instant or "")
+                            if parsed is None:
+                                return False, (
+                                    "lang=%s: expected a machine-readable datetime on the "
+                                    "freshness element for the ticker to read, got %r"
+                                    % (lang, instant))
+                            expected = layout.local_clock_text(parsed, now_parsed=parsed)
+                            if first != expected:
+                                return False, (
+                                    "lang=%s: expected the scripts-blocked page to read the "
+                                    "server's own clock %r — a value that stays true with no "
+                                    "script to advance it — got %r" % (lang, expected, first))
+                            frozen_zero = layout.relative_age_text(0, lang=lang)
+                            if first == frozen_zero:
+                                return False, (
+                                    "lang=%s: the scripts-blocked page reads the ladder's zero "
+                                    "bucket %r, which nothing here can ever advance — that is "
+                                    "A-20's frozen zero, not a no-JS floor" % (lang, frozen_zero))
+                            if " ago" in first or "il y a" in first:
+                                return False, (
+                                    "lang=%s: the scripts-blocked page reads a relative age "
+                                    "(%r); an age is a claim about NOW and only the ticker can "
+                                    "keep it true" % (lang, first))
+                            if "#" in first:
+                                return False, (
+                                    "lang=%s: a raw quantity placeholder reached the page: %r"
+                                    % (lang, first))
+                            # PRESENCE ALONE IS NOT THE CHECK. An element
+                            # that is present AND changing would mean the
+                            # enhancement had silently taken over in a
+                            # context that is supposed to have none, and
+                            # a presence-only assertion would pass on it.
+                            page.wait_for_timeout(TICK_SETTLE_MS)
+                            second = page.eval_on_selector(FRESHNESS_AGE, "el => el.textContent")
+                            if first != second:
+                                return False, (
+                                    "lang=%s: the age CHANGED on a scripts-blocked page (%r -> "
+                                    "%r) — no script can be running there, so something else is "
+                                    "rewriting it" % (lang, first, second))
+                            if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
+                                return False, "expected the measurement at the 360px contract floor"
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "with scripts blocked at 360px, in BOTH languages, the freshness line still "
+                    "renders exactly one <time data-relative> carrying the server's own CLOCK — "
+                    "derived from the element's own datetime, never the ladder's zero bucket and "
+                    "never any age, because nothing there can advance one — and it does NOT "
+                    "change over ~2s, which is what separates an intact no-JS floor from an "
+                    "enhancement that quietly took over (CFG-38, 23-05-PLAN.md Task 3; the "
+                    "frozen-zero half reversed by 23-06-PLAN.md)",
+                    _the_relative_age_is_server_rendered_and_static_without_scripts)
+
+                def _an_expired_countdown_reads_waiting_and_never_a_warning():
+                    # No page renders a countdown yet — 23-06's next-wake
+                    # line is relative_time_html(countdown=True)'s first
+                    # consumer — so the element is seeded into a real
+                    # rendered page here rather than waited for. That is
+                    # deliberate and it is not a weaker test of THIS
+                    # plan's subject: the script re-queries the document
+                    # on every tick, so a seeded element goes through the
+                    # shipped code path exactly as a server-rendered one
+                    # will. The SERVER half (an expired countdown renders
+                    # the waiting wording with no JS at all) is pinned in
+                    # companion/test_companion_app.py instead, where the
+                    # renderer can be called directly.
+                    base_url = harness.base_url()
+                    for lang in ("en", "fr"):
+                        context = browser.new_context()
+                        try:
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page = context.new_page()
+                            _login(page, base_url)
+                            page.goto(base_url + "/health")
+                            page.locator(FRESHNESS_AGE).first.wait_for(state="attached")
+                            page.evaluate(
+                                "() => {"
+                                "  var el = document.createElement('time');"
+                                "  el.setAttribute('id', 'seeded-countdown');"
+                                "  el.setAttribute('data-relative', '');"
+                                "  el.setAttribute('data-relative-countdown', '');"
+                                "  el.setAttribute('datetime',"
+                                "    new Date(Date.now() - 120000).toISOString());"
+                                "  el.textContent = 'seeded';"
+                                "  document.querySelector('main').appendChild(el);"
+                                "}")
+                            page.wait_for_timeout(TICK_SETTLE_MS)
+                            seen = page.eval_on_selector(
+                                "#seeded-countdown",
+                                "el => [el.textContent, el.getAttribute('class') || '']")
+                            text, klass = seen[0], seen[1]
+                            expected = page.eval_on_selector(
+                                "body",
+                                "el => el.getAttribute('data-relative-waiting')")
+                            if not expected:
+                                return False, (
+                                    "lang=%s: the page renders no waiting wording on <body> for "
+                                    "the script to read" % lang)
+                            if text != expected:
+                                return False, (
+                                    "lang=%s: expected a countdown whose instant has passed to "
+                                    "read the server's own waiting wording %r, got %r — it must "
+                                    "not turn itself into an age"
+                                    % (lang, expected, text))
+                            if " ago" in text or "il y a" in text:
+                                return False, (
+                                    "lang=%s: an expired countdown became an age: %r"
+                                    % (lang, text))
+                            if "is-breathing" not in klass.split():
+                                return False, (
+                                    "lang=%s: expected an expired countdown to breathe, got "
+                                    "class=%r" % (lang, klass))
+                            for verdict in ("warn", "error", "alert", "danger", "late"):
+                                if verdict in klass:
+                                    return False, (
+                                        "lang=%s: an expired countdown carries NO warn class — "
+                                        "a wake that has not happened yet is not a fault (the "
+                                        "false alarm X2 removed), got class=%r" % (lang, klass))
+                            # And the breathing is motion this app's own
+                            # reduced-motion floor already covers: the
+                            # class resolves to the one animation the
+                            # stylesheet defines.
+                            animation = page.eval_on_selector(
+                                "#seeded-countdown",
+                                "el => getComputedStyle(el).animationName")
+                            if animation != "skypane-pulse":
+                                return False, (
+                                    "lang=%s: expected the breathing class to resolve to the "
+                                    "stylesheet's one animation, got %r" % (lang, animation))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "a countdown whose instant has already passed reads the server's own "
+                    "translated waiting wording in BOTH languages, never an age, gains the "
+                    "breathing class and no warn/error/alert class at all, and that class "
+                    "resolves to the one animation the stylesheet defines (D14/CFG-34, "
+                    "23-05-PLAN.md Task 3)",
+                    _an_expired_countdown_reads_waiting_and_never_a_warning)
+
+                # --- 23-06-PLAN.md Task 3 (D1/CFG-35): the three skips,
+                # and the number D-12 was written to protect.
+                #
+                # HOW A REFRESH IS FORCED, once, for every check below.
+                # The loop's own cadence is 45 seconds and no test may
+                # wait that long, so these checks drive the loop's
+                # CATCH-UP path instead: freshness.js re-arms on
+                # visibilitychange and refetches immediately when more
+                # than one interval has passed since the document was
+                # generated. Date.now is shifted forward for the
+                # duration of the dispatch and restored on the next
+                # statement — doRefresh() is called synchronously inside
+                # the listener, so the shift is over before anything
+                # else can observe it. What is simulated is the CLOCK;
+                # what is exercised is the shipped script's own
+                # listener, its own elapsed comparison and its own
+                # guards, unmodified.
+                #
+                # Every request assertion COUNTS REQUESTS rather than
+                # reading the DOM. "Zero requests" is the contract D-12
+                # protects, and a DOM-based proxy would pass on a page
+                # that fetched and then declined to swap — a different
+                # and much worse behaviour.
+
+                REFRESH_SETTLE_MS = 1200
+
+                def _force_refresh(page):
+                    page.evaluate(
+                        "() => {"
+                        "  var real = Date.now;"
+                        "  Date.now = function () { return real() + 600000; };"
+                        "  try {"
+                        "    document.dispatchEvent(new Event('visibilitychange'));"
+                        "  } finally {"
+                        "    Date.now = real;"
+                        "  }"
+                        "}")
+
+                def _count_document_requests(page, url):
+                    """A live counter of fetches of `url` made by the page
+                    itself. Returns a zero-argument reader."""
+                    seen = []
+                    page.on("request", lambda request: (
+                        seen.append(request.url)
+                        if request.url.split("?")[0] == url else None))
+                    return lambda: len(seen)
+
+                def _mark(page, selector, name):
+                    """Tag a live node with a JS expando — the only handle
+                    that proves NODE IDENTITY across a swap. An attribute
+                    would not do: the replacement comes from a second
+                    document and would never carry it, so an
+                    attribute-based check could not tell "this node
+                    survived" from "a node matching the same selector is
+                    here"."""
+                    page.eval_on_selector(
+                        selector, "el => { el.__skypaneProbe = %r; }" % name)
+
+                def _marked(page, selector, name):
+                    return page.eval_on_selector(
+                        selector, "el => el.__skypaneProbe === %r" % name)
+
+                def _dirty_the_region(page, selector):
+                    """Make a live region DIFFER from its freshly-fetched
+                    counterpart, so the "this region did not change" skip
+                    cannot be what leaves it alone.
+
+                    Without this these checks would be vacuous in the
+                    quietest possible way: on a page nothing has changed
+                    on, isEqualNode() skips every region anyway, and an
+                    assertion that a region survived would pass on a loop
+                    with no focus rule and no pending rule at all.
+                    """
+                    page.eval_on_selector(
+                        selector, "el => el.setAttribute('data-probe-dirty', '1')")
+
+                def _a_swap_leaves_the_region_holding_focus_alone():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/")
+                        page.wait_for_load_state("networkidle")
+                        region = ".frame-strip"
+                        focus_target = ".frame-strip button[type=\"submit\"]"
+                        page.eval_on_selector(focus_target, "el => el.focus()")
+                        _mark(page, region, "focused-region")
+                        _mark(page, focus_target, "focused")
+                        _dirty_the_region(page, region)
+                        # THE FIRST CONTROL: a refresh that swapped
+                        # NOTHING would satisfy "the region survived"
+                        # perfectly. The freshness line differs on every
+                        # cycle by construction (its pill carries
+                        # data-loaded-at, a new instant each time), so it
+                        # is the honest witness that a swap happened.
+                        _mark(page, ".page-header__freshness", "elsewhere")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, ".page-header__freshness", "elsewhere"):
+                            return False, (
+                                "control: no region was swapped at all, so the focus assertion "
+                                "below would prove nothing — the freshness line's own node "
+                                "survived a refresh it should not have")
+                        if not _marked(page, region, "focused-region"):
+                            return False, (
+                                "the region holding keyboard focus was REPLACED — a refresh that "
+                                "silently moves focus to the top of the document while someone "
+                                "is tabbing through a card is A-20's own harm, smaller (D1)")
+                        active = page.evaluate(
+                            "() => document.activeElement.__skypaneProbe === 'focused'")
+                        if not active:
+                            return False, (
+                                "focus left the element the user was in: document.activeElement "
+                                "is no longer that node")
+                        # THE SECOND CONTROL, and the one that makes this
+                        # a statement about FOCUS rather than about that
+                        # region: blur, change the region in the same way
+                        # again, and it must now be replaced.
+                        page.evaluate("() => document.activeElement.blur()")
+                        _mark(page, region, "unfocused-region")
+                        _dirty_the_region(page, region)
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, region, "unfocused-region"):
+                            return False, (
+                                "control: the same changed region survived with NOTHING focused "
+                                "inside it, so the assertion above was not measuring the focus "
+                                "rule at all")
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a Home refresh swaps the regions that changed while leaving the one holding "
+                    "keyboard focus untouched — asserted on NODE IDENTITY through a JS expando, "
+                    "not on a selector match, because a replaced node matching the same selector "
+                    "is exactly the defect — against a control proving another region really was "
+                    "swapped in the same cycle (D1/CFG-35, 23-06-PLAN.md Task 3)",
+                    _a_swap_leaves_the_region_holding_focus_alone)
+
+                def _a_swap_leaves_a_pending_region_alone():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/")
+                        page.wait_for_load_state("networkidle")
+                        # The marker is injected here because plan 23-07
+                        # is what sets it in production — the swap rule
+                        # lands first, on purpose, so that plan only has
+                        # to mark its own control. The element goes
+                        # INSIDE the region, not on it, which is the
+                        # harder of the two cases the skip handles.
+                        region = ".home-status-grid"
+                        page.eval_on_selector(
+                            region,
+                            "el => { var probe = document.createElement('span');"
+                            "  probe.setAttribute('data-pending', '');"
+                            "  el.appendChild(probe); el.__skypaneProbe = 'pending'; }")
+                        _mark(page, ".page-header__freshness", "elsewhere")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, ".page-header__freshness", "elsewhere"):
+                            return False, (
+                                "control: no region was swapped at all, so the pending assertion "
+                                "below would prove nothing")
+                        if not _marked(page, region, "pending"):
+                            return False, (
+                                "a region holding an element marked data-pending was replaced — "
+                                "that repaints an optimistic control with the server's older "
+                                "answer and makes it bounce back under the user's finger "
+                                "(T-23-21, the D1-races-D2 rule plan 23-07 depends on)")
+                        still_there = page.eval_on_selector_all(
+                            region + " [data-pending]", "els => els.length")
+                        if still_there != 1:
+                            return False, (
+                                "expected the pending marker itself to survive the cycle, found "
+                                "%d" % (still_there,))
+                        # THE SECOND CONTROL, and the one that makes this
+                        # a statement about the MARKER: drop it, change
+                        # the region the same way, and it must now be
+                        # replaced. Without this the check passes on a
+                        # loop that never swaps that region for any
+                        # reason at all.
+                        page.eval_on_selector(
+                            region,
+                            "el => { el.querySelector('[data-pending]').removeAttribute("
+                            "  'data-pending');"
+                            "  el.__skypaneProbe = 'unmarked'; }")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, region, "unmarked"):
+                            return False, (
+                                "control: the same changed region survived with the marker "
+                                "REMOVED, so the assertion above was not measuring the pending "
+                                "rule at all")
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a region containing a [data-pending] element survives a refresh untouched, by "
+                    "node identity, while another region on the same page is swapped in the same "
+                    "cycle — the reconciliation rule plan 23-07 sets its marker for, proven before "
+                    "it has a marker to set (T-23-21, 23-06-PLAN.md Task 3)",
+                    _a_swap_leaves_a_pending_region_alone)
+
+                def _a_dirty_settings_form_stands_the_whole_cycle_down():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        page.wait_for_load_state("networkidle")
+                        count = _count_document_requests(page, base_url + "/display")
+                        # CONTROL FIRST: with the form clean, the very
+                        # same trigger DOES fetch. Without this the
+                        # assertion below passes on a page whose loop
+                        # never ran for any reason at all.
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        clean_requests = count()
+                        if clean_requests < 1:
+                            return False, (
+                                "control: a clean Display page issued no request at all (%d), so "
+                                "the dirty-form assertion below would measure nothing"
+                                % (clean_requests,))
+                        # Now a real edit, made the way a user makes one.
+                        current = device_config.load_device_config(harness.tmpdir)["theme"]
+                        other = next(t for t in device_config.THEME_IDS if t != current)
+                        _click_control(page, 'input[name="theme"][value="%s"]' % other)
+                        page.wait_for_timeout(200)
+                        bar_shown = page.eval_on_selector(
+                            "[data-dirty-bar]", "el => !el.hidden")
+                        if not bar_shown:
+                            return False, (
+                                "expected the save bar to report the unsaved edit — this check "
+                                "gates on the bar's own live answer, so a bar that never "
+                                "appeared would make it vacuous")
+                        before = count()
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        during_edit = count() - before
+                        if during_edit != 0:
+                            return False, (
+                                "expected ZERO requests while the settings form has unsaved "
+                                "edits, counted %d — a page mid-edit should not be fetching and "
+                                "diffing itself at all, and a swap landing on a half-edited form "
+                                "is B1 with a new cause" % (during_edit,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a Display page whose save bar reports unsaved edits issues ZERO requests when "
+                    "the same trigger that fetched on the clean page fires — counted as REQUESTS, "
+                    "not inferred from the DOM, because a page that fetched and then declined to "
+                    "swap is a different and worse behaviour — against a control proving the clean "
+                    "page does fetch (T-23-20/T-23-21, 23-06-PLAN.md Task 3)",
+                    _a_dirty_settings_form_stands_the_whole_cycle_down)
+
+                def _a_hidden_tab_issues_zero_requests_on_all_three_pages():
+                    base_url = harness.base_url()
+                    for route in ("/", "/display", "/health"):
+                        context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                        try:
+                            page = context.new_page()
+                            _login(page, base_url)
+                            page.goto(base_url + route)
+                            page.wait_for_load_state("networkidle")
+                            count = _count_document_requests(page, base_url + route)
+                            # CONTROL: the page really is running a loop.
+                            _force_refresh(page)
+                            page.wait_for_timeout(REFRESH_SETTLE_MS)
+                            if count() < 1:
+                                return False, (
+                                    "control: %s issued no request when visible (%d), so the "
+                                    "hidden-tab assertion below would measure nothing — this "
+                                    "page is not running the loop at all"
+                                    % (route, count()))
+                            # The same limitation 23-05 recorded applies:
+                            # neither a second page taking focus nor CDP's
+                            # visibility override works in this harness, so
+                            # the page's own report is overridden in-page
+                            # and a real visibilitychange Event dispatched.
+                            # What is simulated is the BROWSER'S REPORT;
+                            # what is exercised is the shipped script's own
+                            # listener and its own document.hidden reads.
+                            page.evaluate(
+                                "() => {"
+                                "  Object.defineProperty(document, 'hidden',"
+                                "    {configurable: true, get: () => true});"
+                                "  Object.defineProperty(document, 'visibilityState',"
+                                "    {configurable: true, get: () => 'hidden'});"
+                                "}")
+                            before = count()
+                            _force_refresh(page)
+                            page.wait_for_timeout(REFRESH_SETTLE_MS)
+                            hidden_requests = count() - before
+                            if hidden_requests != 0:
+                                return False, (
+                                    "%s issued %d request(s) while reporting itself hidden — "
+                                    "zero from a backgrounded tab is the number D-12 was written "
+                                    "to protect, and three pages polling instead of one is only "
+                                    "acceptable because of it (T-23-20)"
+                                    % (route, hidden_requests))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "a tab reporting itself hidden issues ZERO requests on ALL THREE pages that "
+                    "now run the loop — counted as requests, each against a control proving the "
+                    "same page and the same trigger DO fetch while visible — which is the number "
+                    "D-12 was written to protect and the reason three pages polling is acceptable "
+                    "at all (T-23-20, 23-06-PLAN.md Task 3)",
+                    _a_hidden_tab_issues_zero_requests_on_all_three_pages)
+
+                def _the_picture_fades_only_when_the_picture_changed():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/")
+                        page.wait_for_load_state("networkidle")
+                        image = ".preview-frame__image"
+                        _mark(page, ".page-header__freshness", "elsewhere")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, ".page-header__freshness", "elsewhere"):
+                            return False, (
+                                "control: nothing was swapped, so 'it did not fade' below would "
+                                "prove nothing")
+                        klass = page.eval_on_selector(
+                            image, "el => el.getAttribute('class') || ''")
+                        if "is-fading-in" in klass.split():
+                            return False, (
+                                "the picture faded in on a cycle that brought back the SAME "
+                                "picture (class=%r) — a flash every 45 seconds for no "
+                                "information is worse than no fade at all" % (klass,))
+                        # And now a genuinely different picture: the live
+                        # src is changed so the fetched one differs from
+                        # it, which is exactly the state a new render
+                        # produces.
+                        page.eval_on_selector(
+                            image, "el => { el.setAttribute('src', el.getAttribute('src')"
+                                   " + '?stale=1'); }")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        klass = page.eval_on_selector(
+                            image, "el => el.getAttribute('class') || ''")
+                        if "is-fading-in" not in klass.split():
+                            return False, (
+                                "a NEW picture arrived and did not fade in (class=%r) — the fade "
+                                "is the only thing that says a render happened" % (klass,))
+                        animation = page.eval_on_selector(
+                            image, "el => getComputedStyle(el).animationName")
+                        if animation != "skypane-fade-in":
+                            return False, (
+                                "expected the fade class to resolve to the stylesheet's own "
+                                "fade-in block, got %r" % (animation,))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the frame picture fades in when a NEW render arrives and does NOT animate "
+                    "when the same picture is swapped back in — both phases in one check, against "
+                    "a control proving a swap happened at all, with the class proven to resolve to "
+                    "the stylesheet's own fade-in block (D1+D3, 23-06-PLAN.md Task 3)",
+                    _the_picture_fades_only_when_the_picture_changed)
+
+                def _display_still_saves_with_scripts_blocked_at_360px():
+                    # THE ONE ASSERTION IN THIS PLAN THAT WOULD CATCH THE
+                    # PHASE 22 P0 RECURRING, which is why it lives at
+                    # this plan's own commit rather than in the closing
+                    # sweep: this plan adds markup to Display's header,
+                    # and a wrapper that broke the form= association B1
+                    # depends on would make the page unsaveable with
+                    # scripts blocked, exactly as B1 did with them on.
+                    base_url = harness.base_url()
+                    for lang in ("en", "fr"):
+                        with _no_js_page(browser, base_url, "/display",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                            page.context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/display")
+                            if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
+                                return False, "expected the measurement at the 360px contract floor"
+                            current = device_config.load_device_config(harness.tmpdir)["theme"]
+                            other = next(
+                                t for t in device_config.THEME_IDS if t != current)
+                            page.eval_on_selector(
+                                'input[name="theme"][value="%s"]' % other,
+                                "el => el.checked = true")
+                            save = page.query_selector(
+                                "[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
+                            if save is None:
+                                return False, (
+                                    "lang=%s: the fallback Save is the ONLY way to save this page "
+                                    "with scripts blocked, and it is not rendered" % (lang,))
+                            with page.expect_navigation():
+                                save.click()
+                            saved = device_config.load_device_config(harness.tmpdir)["theme"]
+                            if saved != other:
+                                return False, (
+                                    "lang=%s: a Display save did not persist with scripts blocked "
+                                    "at 360px — expected theme %r, got %r. This is the P0 Phase "
+                                    "22 existed to fix" % (lang, other, saved))
+                            # The freshness line this plan added renders
+                            # there too, and renders NOTHING that moves.
+                            if page.locator(".page-header__freshness").count() != 1:
+                                return False, (
+                                    "lang=%s: expected exactly one freshness line on a "
+                                    "scripts-blocked Display page" % (lang,))
+                    return True, ""
+                check(
+                    "with scripts blocked at 360px, in BOTH languages, a Display setting still "
+                    "saves through the fallback Save and persists to disk, with the freshness line "
+                    "this plan added rendering beside it — the one assertion here that would catch "
+                    "the Phase 22 P0 recurring (B1/CFG-38, 23-06-PLAN.md Task 3)",
+                    _display_still_saves_with_scripts_blocked_at_360px)
+
+                # --- 23-07-PLAN.md Task 3 (D2/CFG-36): the optimistic
+                # switch, proven in a real browser. Three properties no
+                # string-comparison harness can see — that the flip
+                # lands BEFORE the answer, that it comes back when the
+                # answer is bad, and that a refresh arriving mid-flight
+                # does not repaint it — plus the scripts-blocked floor
+                # for all three switches at 360px in both languages.
+                #
+                # HOW "BEFORE THE ANSWER" IS MADE A REAL MOMENT. The
+                # page's own window.fetch is wrapped in a promise this
+                # harness releases by hand, so there is no sleep, no
+                # race and no timing assumption anywhere below: between
+                # the click and the release the request has genuinely
+                # been issued and genuinely has no answer. This is the
+                # same discipline the clock override above uses — what
+                # is simulated is the TRANSPORT; what is exercised is
+                # the shipped script's own ordering, its own attribute
+                # writes and its own terminal branches, unmodified.
+
+                SWITCH_SEL = 'form[action="/quick/display"] button[role="switch"]'
+
+                def _hold_fetch(page):
+                    """Wrap window.fetch so the next POST hangs until
+                    _release_fetch() is called. Returns nothing; the
+                    release hook lives on window.
+
+                    POSTs ONLY, and that is load-bearing rather than
+                    tidy: freshness.js's refresh loop is a GET through
+                    the same window.fetch, and holding it too would stop
+                    the very refresh the race check below has to land.
+                    Found by that check timing out, not reasoned about
+                    in advance."""
+                    page.evaluate(
+                        "() => {"
+                        "  var realFetch = window.fetch;"
+                        "  window.__skypaneHeld = null;"
+                        "  window.fetch = function (url, opts) {"
+                        "    if (!opts || opts.method !== 'POST') {"
+                        "      return realFetch(url, opts);"
+                        "    }"
+                        "    return new Promise(function (resolve, reject) {"
+                        "      window.__skypaneHeld = function () {"
+                        "        realFetch(url, opts).then(resolve, reject);"
+                        "      };"
+                        "    });"
+                        "  };"
+                        "}")
+
+                def _fetch_was_issued(page):
+                    return page.evaluate("() => !!window.__skypaneHeld")
+
+                def _release_fetch(page):
+                    page.evaluate("() => { window.__skypaneHeld(); }")
+
+                def _switch_state(page, selector=None):
+                    return page.eval_on_selector(
+                        selector or SWITCH_SEL, "el => el.getAttribute('aria-checked')")
+
+                def _a_switch_flips_before_the_server_answers():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/")
+                        page.wait_for_load_state("networkidle")
+                        before = _switch_state(page)
+                        if before not in ("true", "false"):
+                            return False, (
+                                "expected a server-rendered aria-checked on the Screen switch, "
+                                "got %r" % (before,))
+                        on_disk_before = device_config.load_device_config(
+                            harness.tmpdir)["display_enabled"]
+                        _hold_fetch(page)
+                        page.click(SWITCH_SEL)
+                        # THE CONTROL for this check: a request really was
+                        # issued. Without it, "the attribute already
+                        # changed" would also be satisfied by a script
+                        # that flipped the switch and never talked to the
+                        # server at all — which is a worse bug than the
+                        # one this check is about.
+                        if not _fetch_was_issued(page):
+                            return False, (
+                                "control: no fetch was issued at all, so the assertion below "
+                                "would prove nothing about ORDER")
+                        during = _switch_state(page)
+                        if during == before:
+                            return False, (
+                                "aria-checked was still %r while the request had no answer — the "
+                                "flip is not optimistic, it is waiting for the server, which is "
+                                "the whole of what D2 asks for (23-07-PLAN.md Task 3)" % (during,))
+                        # The server has NOT been told yet, which is what
+                        # makes the line above a statement about order.
+                        if device_config.load_device_config(
+                                harness.tmpdir)["display_enabled"] is not on_disk_before:
+                            return False, (
+                                "the stored value changed before the held request was released — "
+                                "the hold is not holding and this check is measuring nothing")
+                        # In flight: the region is marked, which is the
+                        # one thing plan 23-06's swap reads.
+                        pending = page.eval_on_selector_all(
+                            ".frame-strip [data-pending]", "els => els.length")
+                        if pending != 1:
+                            return False, (
+                                "expected exactly one pending-marked region while the request is "
+                                "in flight, found %d — this is the marker 23-06's swap skips and "
+                                "the only thing this plan owes that contract" % (pending,))
+                        _release_fetch(page)
+                        page.wait_for_timeout(600)
+                        if _switch_state(page) != during:
+                            return False, (
+                                "a CONFIRMED flip must stay where it was put, got %r"
+                                % _switch_state(page))
+                        if page.eval_on_selector_all(
+                                ".frame-strip [data-pending]", "els => els.length") != 0:
+                            return False, (
+                                "the pending marker survived a successful answer — a region whose "
+                                "control is settled must go back to being refreshable")
+                        if device_config.load_device_config(
+                                harness.tmpdir)["display_enabled"] is on_disk_before:
+                            return False, "expected the confirmed flip to have persisted to disk"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a switch flips its aria-checked BEFORE the server answers — proven against a "
+                    "held request that has genuinely been issued and genuinely has no answer, with "
+                    "the stored value still unchanged at that instant — marks exactly one region "
+                    "pending while in flight, and on a 204 keeps the flip and clears the marker "
+                    "(D2/CFG-36, 23-07-PLAN.md Task 3)",
+                    _a_switch_flips_before_the_server_answers)
+
+                def _a_switch_rolls_back_and_announces_on_both_failure_branches():
+                    base_url = harness.base_url()
+                    for lang, failure_copy in (
+                            ("en", layout.QUICK_SWITCH_FAILED_TEXT),
+                            ("fr", i18n.t_lang(layout.QUICK_SWITCH_FAILED_TEXT, "fr"))):
+                        context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                        try:
+                            page = context.new_page()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/")
+                            page.wait_for_load_state("networkidle")
+                            # THE CONTROL PHASE. An assertion that a flip
+                            # came BACK proves nothing unless the flip
+                            # goes out in the first place, and a switch
+                            # that never moves satisfies "it was restored"
+                            # perfectly. So: prove it lands, then break
+                            # the server and prove it returns.
+                            start = _switch_state(page)
+                            page.click(SWITCH_SEL)
+                            page.wait_for_timeout(600)
+                            landed = _switch_state(page)
+                            if landed == start:
+                                return False, (
+                                    "lang=%s control: the switch did not move on a WORKING "
+                                    "request, so the rollback assertions below would pass on a "
+                                    "control that simply never flips" % (lang,))
+                            toast_sel = "[%s]" % layout.QUICK_TOAST_ATTR
+                            if page.eval_on_selector(toast_sel, "el => el.textContent") != "":
+                                return False, (
+                                    "lang=%s control: the toast announced something on a "
+                                    "SUCCESSFUL flip — it is a failure announcement only"
+                                    % (lang,))
+                            # Branch 1: a non-OK status.
+                            for branch, handler in (
+                                    ("a 500 from the server",
+                                     lambda route: route.fulfill(status=500, body="")),
+                                    ("a network-level failure",
+                                     lambda route: route.abort())):
+                                page.goto(base_url + "/")
+                                page.wait_for_load_state("networkidle")
+                                page.route("**/quick/display", handler)
+                                try:
+                                    known = _switch_state(page)
+                                    stored = device_config.load_device_config(
+                                        harness.tmpdir)["display_enabled"]
+                                    page.click(SWITCH_SEL)
+                                    page.wait_for_timeout(800)
+                                    if _switch_state(page) != known:
+                                        return False, (
+                                            "lang=%s, %s: aria-checked stayed at %r instead of "
+                                            "rolling back to %r — an optimistic switch that keeps "
+                                            "a state the server never accepted is a switch that "
+                                            "lies (T-23-26)"
+                                            % (lang, branch, _switch_state(page), known))
+                                    if page.eval_on_selector_all(
+                                            ".frame-strip [data-pending]",
+                                            "els => els.length") != 0:
+                                        return False, (
+                                            "lang=%s, %s: the pending marker was left behind — a "
+                                            "region whose control never confirmed would hold "
+                                            "itself stale forever" % (lang, branch))
+                                    if device_config.load_device_config(
+                                            harness.tmpdir)["display_enabled"] is not stored:
+                                        return False, (
+                                            "lang=%s, %s: the stored value moved on a failed "
+                                            "request" % (lang, branch))
+                                    announced = page.eval_on_selector(
+                                        toast_sel, "el => el.textContent")
+                                    if announced != failure_copy:
+                                        return False, (
+                                            "lang=%s, %s: expected the translated failure copy "
+                                            "%r in the toast, got %r"
+                                            % (lang, branch, failure_copy, announced))
+                                    # V7/T-23-27: no server internal ever.
+                                    for internal in ("500", "http", "/quick/", "TypeError"):
+                                        if internal in announced:
+                                            return False, (
+                                                "lang=%s, %s: the toast carries %r — a user-facing "
+                                                "failure names no status code, no URL and no "
+                                                "server internal" % (lang, branch, internal))
+                                    visible = page.eval_on_selector(
+                                        toast_sel,
+                                        "el => getComputedStyle(el).opacity")
+                                    if visible == "0":
+                                        return False, (
+                                            "lang=%s, %s: the toast carries the right words but "
+                                            "is not visible — a live region nobody can see is "
+                                            "half an announcement" % (lang, branch))
+                                finally:
+                                    page.unroute("**/quick/display")
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "a switch rolls its aria-checked back, clears its pending marker, leaves the "
+                    "stored value alone and announces the TRANSLATED generic failure in a visible "
+                    "toast — on a 500 AND on a network-level failure, in English and in French, "
+                    "each against a control phase proving the same switch DOES flip and does NOT "
+                    "announce on a working request (D2/CFG-36, T-23-26/T-23-27, 23-07-PLAN.md "
+                    "Task 3)",
+                    _a_switch_rolls_back_and_announces_on_both_failure_branches)
+
+                def _a_refresh_landing_mid_flip_does_not_repaint_the_switch():
+                    # THE D1-RACES-D2 RULE, asserted from the D2 side.
+                    # 23-06 proved its swap skips a [data-pending] region
+                    # using a marker this harness injected by hand; this
+                    # is the same rule measured against the marker the
+                    # SHIPPED script sets, which is the half 23-06 could
+                    # not reach.
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/")
+                        page.wait_for_load_state("networkidle")
+                        before = _switch_state(page)
+                        _hold_fetch(page)
+                        page.click(SWITCH_SEL)
+                        if not _fetch_was_issued(page):
+                            return False, "control: no fetch was issued, so nothing is in flight"
+                        optimistic = _switch_state(page)
+                        if optimistic == before:
+                            return False, "control: the switch did not flip, so nothing is pending"
+                        # Focus must leave the strip first. freshness.js
+                        # ALSO skips the region holding the active
+                        # element, and with focus still on the switch this
+                        # check would pass on a loop with no pending rule
+                        # at all — vacuous in the quietest possible way.
+                        page.evaluate("() => document.activeElement.blur()")
+                        _mark(page, ".frame-strip", "strip")
+                        _mark(page, ".page-header__freshness", "elsewhere")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        # THE CONTROL: a cycle that swapped nothing would
+                        # satisfy everything below for free.
+                        if _marked(page, ".page-header__freshness", "elsewhere"):
+                            return False, (
+                                "control: no region was swapped at all, so the assertions below "
+                                "would prove nothing")
+                        if not _marked(page, ".frame-strip", "strip"):
+                            return False, (
+                                "the strip was REPLACED while a flip was unconfirmed — the "
+                                "fetched document still carries the server's older state, so the "
+                                "switch would bounce back under the user's finger (T-23-26, the "
+                                "D1-races-D2 rule)")
+                        if _switch_state(page) != optimistic:
+                            return False, (
+                                "the optimistic state was repainted by a refresh: expected %r, "
+                                "got %r" % (optimistic, _switch_state(page)))
+                        # THE SECOND CONTROL, and the one that makes this
+                        # a statement about the MARKER rather than about
+                        # the strip: release, let the marker clear, dirty
+                        # the region the same way, and it must now be
+                        # replaced.
+                        _release_fetch(page)
+                        page.wait_for_timeout(600)
+                        if page.eval_on_selector_all(
+                                ".frame-strip [data-pending]", "els => els.length") != 0:
+                            return False, "expected the marker to clear once the answer arrived"
+                        _mark(page, ".frame-strip", "settled-strip")
+                        _dirty_the_region(page, ".frame-strip")
+                        with page.expect_response(
+                                lambda r: r.url.split("?")[0] == base_url + "/"):
+                            _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _marked(page, ".frame-strip", "settled-strip"):
+                            return False, (
+                                "control: the same changed strip survived with NO marker on it, "
+                                "so the assertion above was not measuring the pending rule at all")
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a Home refresh landing while a flip is unconfirmed leaves the Frame strip "
+                    "untouched — by NODE IDENTITY and by the optimistic aria-checked surviving — "
+                    "against one control proving another region really was swapped in the same "
+                    "cycle and a second proving the same changed strip IS replaced once the marker "
+                    "has cleared, with focus deliberately moved off the strip so the focus skip "
+                    "cannot be what satisfies it (D1+D2, T-23-26, 23-07-PLAN.md Task 3)",
+                    _a_refresh_landing_mid_flip_does_not_repaint_the_switch)
+
+                def _all_three_switches_still_post_with_scripts_blocked_at_360px():
+                    # THE FLOOR, and the reason this plan built the switch
+                    # AS the shipped form rather than beside it. A control
+                    # that renders and silently does nothing with scripts
+                    # blocked is the exact defect Phase 22 found on the
+                    # login page; the only assertion that catches it is
+                    # one that submits and then reads the DISK.
+                    base_url = harness.base_url()
+                    switches = (
+                        ("/", "display_enabled", 'form[action="/quick/display"] button[role="switch"]'),
+                        ("/", "quiet_hours_enabled",
+                         'form[action="/quick/quiet-hours"] button[role="switch"]'),
+                        ("/device", "led_enabled",
+                         'button[role="switch"][form="%s"]' % config_page.QUICK_LED_FORM_ID),
+                    )
+                    for lang in ("en", "fr"):
+                        for route, field, selector in switches:
+                            with _no_js_page(browser, base_url, route,
+                                             viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                                page.context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+                                page.goto(base_url + route)
+                                if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
+                                    return False, "expected the 360px contract floor"
+                                control = page.query_selector(selector)
+                                if control is None:
+                                    return False, (
+                                        "lang=%s, %s: the %s switch does not render at all with "
+                                        "scripts blocked" % (lang, route, field))
+                                # The accessible state is SERVER-rendered,
+                                # so it is correct on this page too.
+                                stored = device_config.load_device_config(harness.tmpdir)[field]
+                                rendered = control.get_attribute("aria-checked")
+                                if rendered != ("true" if stored is True else "false"):
+                                    return False, (
+                                        "lang=%s, %s: the scripts-blocked page claims "
+                                        "aria-checked=%r for a stored %r — role=switch is a "
+                                        "description of what the button does, not a promise the "
+                                        "script keeps" % (lang, field, rendered, stored))
+                                # Centred first. At 360px the fixed tab
+                                # bar owns the bottom 56px of the
+                                # viewport, and a switch that happens to
+                                # land under it fails the click with a
+                                # pointer-interception error that says
+                                # nothing about this plan. Centring is
+                                # what a real thumb would do too.
+                                page.eval_on_selector(
+                                    selector, "el => el.scrollIntoView({block: 'center'})")
+                                # 44px in BOTH axes, met directly.
+                                box = control.bounding_box()
+                                if box["width"] < 44 or box["height"] < 44:
+                                    return False, (
+                                        "lang=%s, %s: the switch measures %sx%s at 360px, under "
+                                        "the 44px touch floor"
+                                        % (lang, field, box["width"], box["height"]))
+                                with page.expect_navigation():
+                                    control.click()
+                                after = device_config.load_device_config(harness.tmpdir)[field]
+                                if after is stored:
+                                    return False, (
+                                        "lang=%s, %s: the switch did NOT persist with scripts "
+                                        "blocked — it rendered and did nothing, which is the "
+                                        "exact defect Phase 22 found on the login page (CFG-38)"
+                                        % (lang, field))
+                                # And the server's own flash is what tells
+                                # this reader it worked: there is no
+                                # toast without a script.
+                                if page.locator("[%s]" % layout.QUICK_TOAST_ATTR).count() != 1:
+                                    return False, (
+                                        "lang=%s, %s: expected the toast region to still render "
+                                        "(inert) with scripts blocked" % (lang, field))
+                                if page.eval_on_selector(
+                                        "[%s]" % layout.QUICK_TOAST_ATTR,
+                                        "el => el.textContent") != "":
+                                    return False, (
+                                        "lang=%s, %s: the toast announced something on a page "
+                                        "with no script at all" % (lang, field))
+                    return True, ""
+                check(
+                    "with scripts blocked at 360px, in BOTH languages, all THREE switches render "
+                    "with the server's own aria-checked, clear the 44px touch floor in both axes, "
+                    "submit their real form and PERSIST to disk — the assertion that would catch a "
+                    "control that renders and silently does nothing (D2/CFG-36, CFG-38, "
+                    "23-07-PLAN.md Task 3)",
+                    _all_three_switches_still_post_with_scripts_blocked_at_360px)
+
+                # --- 23-08-PLAN.md Task 3 (D7/CFG-37 + D3's two Flights
+                # clauses): the live list, proven live -----------------
+                #
+                # The refresh is forced the same way every 23-06 check
+                # above forces it (_force_refresh + REFRESH_SETTLE_MS):
+                # the loop's own visibilitychange catch-up, against a
+                # shifted Date.now, with the shipped guards unmodified.
+
+                FLIGHT_ID_ATTR = layout.REFRESH_ROW_ID_ATTR
+                NEW_ROW_CLASS = layout.REFRESH_NEW_ROW_CLASS
+
+                def _record_a_new_detection(callsign, hex_value, ts):
+                    """One more runway_events row, written through the
+                    same module server/poll_loop.py writes them with —
+                    never a hand-built INSERT, so the row this check
+                    calls "a new detection" is the shape a real detection
+                    has."""
+                    with history_db.open_db(harness.tmpdir) as conn:
+                        history_db.record_runway_event(
+                            conn, ts=ts, hex=hex_value, callsign=callsign,
+                            aircraft_type="A320", confirmed_state="confirmed",
+                            corroborated=True, route_source="adsb",
+                            airline="Air France", origin="LFPO", destination="LFPG",
+                            tracked_runway=device_config.RUNWAY_IDS[0])
+
+                def _row_ids(page):
+                    return page.evaluate(
+                        "(attr) => [...document.querySelectorAll('tr[data-flight-row][' + attr"
+                        " + ']')].map(el => el.getAttribute(attr))", FLIGHT_ID_ATTR)
+
+                def _highlighted(page):
+                    return page.evaluate(
+                        "(cls) => [...document.querySelectorAll('.' + cls)].length",
+                        NEW_ROW_CLASS)
+
+                def _a_new_detection_is_highlighted_and_an_existing_row_is_not():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/flights")
+                        page.wait_for_load_state("networkidle")
+
+                        before_ids = _row_ids(page)
+                        if len(before_ids) < 2:
+                            return False, (
+                                "expected the seeded fixture to render several rows, got %d — "
+                                "with fewer this check measures nothing" % len(before_ids))
+                        if len(set(before_ids)) != len(before_ids):
+                            return False, (
+                                "expected every rendered row identity to be distinct, got %r"
+                                % (before_ids,))
+                        if _highlighted(page):
+                            return False, (
+                                "a freshly LOADED page already highlights %d element(s) — the "
+                                "highlight means 'this arrived while you were watching', and on "
+                                "first paint nothing did" % _highlighted(page))
+
+                        # PHASE 1 — a refresh with nothing new. The known
+                        # set was taken from the page as first rendered,
+                        # so this cycle must announce nothing. This is
+                        # the clause that reddens when the set starts
+                        # empty: every row would read as new.
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if _highlighted(page):
+                            return False, (
+                                "a refresh that brought nothing new highlighted %d element(s) — "
+                                "a list that announces itself every cycle has told the reader "
+                                "nothing, and is how they learn to ignore it"
+                                % _highlighted(page))
+
+                        # PHASE 2 — a genuinely new detection, written to
+                        # the same database the page reads, between two
+                        # swaps.
+                        _record_a_new_detection(
+                            "NEWDET", "39ffff", "2026-08-01T23:30:00+00:00")
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+
+                        after_ids = _row_ids(page)
+                        if len(after_ids) != len(before_ids) + 1:
+                            return False, (
+                                "expected the swap to bring the new detection into the live "
+                                "list: %d rows before, %d after — with no new row this check "
+                                "would be asserting a highlight on nothing"
+                                % (len(before_ids), len(after_ids)))
+                        arrived = [rid for rid in after_ids if rid not in before_ids]
+                        if len(arrived) != 1:
+                            return False, (
+                                "expected exactly one identity to be new after the swap, got %r"
+                                % (arrived,))
+                        if after_ids[0] != arrived[0]:
+                            return False, (
+                                "expected the new detection at the TOP of the list, got %r at "
+                                "the top and %r as the new identity" % (after_ids[0], arrived[0]))
+
+                        # BOTH DIRECTIONS. A check that only asserted the
+                        # presence of a highlight would pass on an
+                        # implementation that highlights everything —
+                        # which is the likelier bug, and the more
+                        # damaging one.
+                        marked = page.evaluate(
+                            "([attr, cls]) => [...document.querySelectorAll("
+                            "'tr[data-flight-row].' + cls)].map(el => el.getAttribute(attr))",
+                            [FLIGHT_ID_ATTR, NEW_ROW_CLASS])
+                        if marked != arrived:
+                            return False, (
+                                "expected exactly the arrived row %r to carry the highlight, "
+                                "got %r — a highlight on a row that was already there is a "
+                                "claim that it just landed, which is false" % (arrived, marked))
+                        # And the phone card for the same event is
+                        # marked too: Flights renders every flight twice
+                        # and a reader on a phone must get the same
+                        # signal a reader on a desktop does.
+                        card_marked = page.evaluate(
+                            "([attr, cls]) => [...document.querySelectorAll("
+                            "'li.history-card.' + cls)].map(el => el.getAttribute(attr))",
+                            [FLIGHT_ID_ATTR, NEW_ROW_CLASS])
+                        if card_marked != arrived:
+                            return False, (
+                                "expected the phone card for the same event to be marked too, "
+                                "got %r" % (card_marked,))
+                        # The animation is the stylesheet's own, once,
+                        # on the phase's ambient token.
+                        animation = page.eval_on_selector(
+                            "tr[data-flight-row]." + NEW_ROW_CLASS,
+                            "el => [getComputedStyle(el).animationName,"
+                            " getComputedStyle(el).animationIterationCount,"
+                            " getComputedStyle(el).animationDuration]")
+                        if animation[0] != "skypane-row-arrive":
+                            return False, (
+                                "expected the highlight class to resolve to the stylesheet's own "
+                                "arrival block, got %r" % (animation[0],))
+                        if animation[1] != "1":
+                            return False, (
+                                "expected the highlight to run exactly once, got %r iterations"
+                                % (animation[1],))
+                        if animation[2] != "2s":
+                            return False, (
+                                "expected the highlight to spend --motion-slow (2s), got %r — a "
+                                "180ms flash on a row nobody was looking at is no signal at all"
+                                % (animation[2],))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a detection recorded while the Flights page is open arrives at the top of the "
+                    "live list on the next refresh and is the ONLY thing highlighted — in both the "
+                    "table and the phone card list — while a row that was already there is not, "
+                    "nothing at all is highlighted on first load, and a refresh that brings nothing "
+                    "new announces nothing; the class resolves to the stylesheet's own single-run "
+                    "arrival animation on --motion-slow (D7/CFG-37, 23-08-PLAN.md Task 3)",
+                    _a_new_detection_is_highlighted_and_an_existing_row_is_not)
+
+                def _a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened():
+                    # The half a swapped list gets wrong silently. The
+                    # SERVER renders every detail row VISIBLE — that is
+                    # D-15's locked no-JS floor and it carries no
+                    # open/closed state at all — so a refresh arrives
+                    # with every row expanded and every toggle reading
+                    # aria-expanded="false". Without flight-rows.js
+                    # re-deriving its own state after the swap, one
+                    # refresh unfolds the whole table; with a record
+                    # keyed to the row's POSITION instead of its event
+                    # identity, a detection arriving at the top reopens
+                    # the wrong row.
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/flights")
+                        page.wait_for_load_state("networkidle")
+
+                        toggle = page.locator("[data-row-toggle]").first
+                        toggle.wait_for(state="visible")
+                        opened_id = page.eval_on_selector(
+                            "#" + toggle.get_attribute("aria-controls"),
+                            "(el, attr) => el.getAttribute(attr)", FLIGHT_ID_ATTR)
+                        if not opened_id:
+                            return False, "expected the detail row to carry its event identity"
+                        toggle.click()
+
+                        # BLURRED ON PURPOSE. The click leaves focus on
+                        # the toggle, and freshness.js skips any region
+                        # containing the active element — so with focus
+                        # still there this check would pass against a
+                        # script that re-derives nothing at all.
+                        page.evaluate("() => document.activeElement.blur()")
+
+                        _record_a_new_detection(
+                            "OPENSRV", "39fffe", "2026-08-02T00:15:00+00:00")
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+
+                        seen = page.evaluate(
+                            "([idAttr, openId]) => {"
+                            "  const details = [...document.querySelectorAll("
+                            "    'tr.flight-detail-row')];"
+                            "  const open = details.filter(el =>"
+                            "    el.className.indexOf('flight-detail-row--collapsed') === -1);"
+                            "  return {total: details.length,"
+                            "          open: open.map(el => el.getAttribute(idAttr)),"
+                            "          expanded: [...document.querySelectorAll("
+                            "            '[data-row-toggle][aria-expanded=\\\"true\\\"]')].length,"
+                            "          stillThere: !!document.querySelector("
+                            "            'tr.flight-detail-row[' + idAttr + '=\\\"' + openId"
+                            "            + '\\\"]')};"
+                            "}", [FLIGHT_ID_ATTR, opened_id])
+                        if seen["total"] < 2:
+                            return False, (
+                                "expected the swapped list to still render its detail rows, got "
+                                "%d — with fewer this check measures nothing" % seen["total"])
+                        if not seen["stillThere"]:
+                            return False, (
+                                "the row that was opened is no longer in the list at all, so "
+                                "nothing below is a statement about it")
+                        if seen["open"] != [opened_id]:
+                            return False, (
+                                "after a refresh %d of %d detail rows are open (%r), expected "
+                                "exactly the one that was opened (%r). Every row open is the "
+                                "server's own markup arriving un-collapsed; the WRONG row open "
+                                "is a record keyed to a position that just renumbered"
+                                % (len(seen["open"]), seen["total"], seen["open"], opened_id))
+                        if seen["expanded"] != 1:
+                            return False, (
+                                "expected exactly one toggle to report aria-expanded=true after "
+                                "the refresh, got %d — the class and the announced state are "
+                                "written in one place precisely so they cannot drift"
+                                % seen["expanded"])
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a refresh neither unfolds the Flights table nor closes the row you opened: "
+                    "with focus deliberately blurred off the toggle (so the loop's focus skip "
+                    "cannot be what passes this) and a new detection renumbering every row below "
+                    "it, exactly the row that was opened is still open — by EVENT identity, not by "
+                    "position — and exactly one toggle still announces it (D7/CFG-37, "
+                    "23-08-PLAN.md Task 3)",
+                    _a_refresh_neither_unfolds_the_table_nor_closes_what_you_opened)
+
+                def _a_refresh_never_interrupts_or_undoes_the_filter():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/flights")
+                        page.wait_for_load_state("networkidle")
+                        requests = _count_document_requests(page, base_url + "/flights")
+
+                        page.click("[data-filter-input]")
+                        page.type("[data-filter-input]", "AFR101")
+                        visible = page.evaluate(
+                            "() => [...document.querySelectorAll('tr[data-flight-row]')]"
+                            ".filter(el => !el.hidden).length")
+                        if visible != 1:
+                            return False, (
+                                "expected the query to narrow the table to one row before "
+                                "anything else is measured, got %d" % visible)
+                        count_text = page.eval_on_selector(
+                            "[data-filter-count]", "el => el.textContent")
+
+                        # PHASE 1 — with the caret still in the box, the
+                        # whole cycle stands down. Counted as REQUESTS,
+                        # not as DOM state: a page that fetched and then
+                        # declined to swap is a different behaviour.
+                        before = requests()
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if requests() != before:
+                            return False, (
+                                "the loop fetched while the caret was in the filter box — "
+                                "userIsInteracting() exists so a half-typed query is never "
+                                "swapped out from under the person typing it (%d request(s))"
+                                % (requests() - before))
+
+                        # CONTROL — the same trigger, focus moved off the
+                        # input, MUST fetch. Without this phase 1 would
+                        # pass on a page whose loop never runs at all.
+                        page.evaluate("() => document.activeElement.blur()")
+                        before = requests()
+                        _force_refresh(page)
+                        page.wait_for_timeout(REFRESH_SETTLE_MS)
+                        if requests() == before:
+                            return False, (
+                                "control: the same trigger issued no request with focus off the "
+                                "input either — this page's loop is not running, so phase 1 "
+                                "proved nothing")
+
+                        # PHASE 2 — and that swap must not have undone
+                        # the query. The SERVER renders the list
+                        # unfiltered; it knows nothing about what was
+                        # typed here.
+                        visible = page.evaluate(
+                            "() => [...document.querySelectorAll('tr[data-flight-row]')]"
+                            ".filter(el => !el.hidden).length")
+                        if visible != 1:
+                            return False, (
+                                "a refresh handed back %d visible rows under a query that "
+                                "matches one — the server renders the list unfiltered, so a swap "
+                                "that is not followed by a re-filter silently undoes what the "
+                                "reader asked for" % visible)
+                        if page.eval_on_selector(
+                                "[data-filter-count]", "el => el.textContent") != count_text:
+                            return False, (
+                                "the live count reverted to the server's own unfiltered sentence "
+                                "after a refresh, expected it to still read %r" % (count_text,))
+                        if page.eval_on_selector(
+                                "[data-filter-input]", "el => el.value") != "AFR101":
+                            return False, "the typed query itself did not survive the refresh"
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a refresh never interrupts the filter and never undoes it: with the caret in "
+                    "the box the loop issues ZERO requests (counted, against a control proving the "
+                    "same trigger does fetch with focus moved off), and the swap that then happens "
+                    "leaves the typed query applied — same visible rows, same live count, same "
+                    "input value — because the server renders the list unfiltered (D7/CFG-37, "
+                    "23-08-PLAN.md Task 3)",
+                    _a_refresh_never_interrupts_or_undoes_the_filter)
+
+                def _a_collapsed_detail_row_cannot_be_reached_by_keyboard():
+                    context = browser.new_context(viewport=VIEWPORT_DESKTOP)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/flights")
+                        toggle = page.locator("[data-row-toggle]").first
+                        toggle.wait_for(state="visible")
+                        detail_id = toggle.get_attribute("aria-controls")
+
+                        # Every focusable thing inside the row is asked
+                        # to take focus, one at a time, and must fail to.
+                        # This is the keyboard question asked directly
+                        # rather than through a proxy: an element that
+                        # cannot become document.activeElement is an
+                        # element Tab cannot land on, and display:none is
+                        # also what keeps it out of the accessibility
+                        # tree.
+                        probe = (
+                            "(id) => {"
+                            "  const row = document.getElementById(id);"
+                            "  const kids = [...row.querySelectorAll("
+                            "    'a[href], button, input, select, textarea, [tabindex]')];"
+                            "  const reached = [];"
+                            "  kids.forEach(el => { el.focus();"
+                            "    if (document.activeElement === el) reached.push("
+                            "      el.tagName + '.' + (el.className || ''));"
+                            "    el.blur(); });"
+                            "  return {kids: kids.length, reached: reached};"
+                            "}")
+                        seen = page.evaluate(probe, detail_id)
+                        if not seen["kids"]:
+                            return False, (
+                                "expected the seeded detail row to contain focusable controls "
+                                "(its copy buttons) — with none, this check measures nothing")
+                        if seen["reached"]:
+                            return False, (
+                                "a COLLAPSED detail row let %d of its %d controls take focus "
+                                "(%r) — a row held present at zero height is still in the tab "
+                                "order and still in the accessibility tree, so a keyboard user "
+                                "walks into a row nobody can see (T-23-32)"
+                                % (len(seen["reached"]), seen["kids"], seen["reached"]))
+
+                        # CONTROL — open the row and the SAME controls
+                        # must become reachable. Without this the check
+                        # would pass just as well on a page that renders
+                        # no detail row at all.
+                        toggle.click()
+                        seen = page.evaluate(probe, detail_id)
+                        if not seen["reached"]:
+                            return False, (
+                                "control: an OPEN detail row's %d controls were still "
+                                "unreachable — so the assertion above is about the page being "
+                                "empty, not about the row being closed" % seen["kids"])
+
+                        # And the opening really is a height animation,
+                        # on the wrapper rather than on the row box.
+                        style = page.eval_on_selector(
+                            "#" + detail_id + " .flight-detail-row__reveal",
+                            "el => [getComputedStyle(el).display,"
+                            " getComputedStyle(el).transitionProperty,"
+                            " getComputedStyle(el).transitionDuration]")
+                        if style[0] != "grid":
+                            return False, (
+                                "expected the reveal wrapper to be a grid, got %r" % (style[0],))
+                        if "grid-template-rows" not in style[1]:
+                            return False, (
+                                "expected grid-template-rows to be the transitioned property, "
+                                "got %r — a guessed max-height either clips tall content or "
+                                "animates through empty space, and interpolate-size is "
+                                "Chromium-only" % (style[1],))
+                        if style[2] != "0.18s":
+                            return False, (
+                                "expected the reveal to spend --motion-fast (180ms), got %r"
+                                % (style[2],))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "a COLLAPSED Flights detail row lets none of its own controls take focus — the "
+                    "deliberate display:none end state, asked as the keyboard question directly — "
+                    "against a control phase proving the same controls ARE reachable once the row "
+                    "is open, and the opening really animates grid-template-rows on a grid wrapper "
+                    "at --motion-fast (D3/CFG-32, T-23-32, 23-08-PLAN.md Task 3)",
+                    _a_collapsed_detail_row_cannot_be_reached_by_keyboard)
+
+                def _a_phone_card_opens_from_a_tap_anywhere_with_and_without_scripts():
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/flights")
+                        card = page.locator("li.history-card").first
+                        card.wait_for(state="visible")
+                        details = card.locator("details.history-card__details")
+                        if details.evaluate("el => el.open"):
+                            return False, (
+                                "expected the card to start closed — with it open this check "
+                                "cannot tell a tap that worked from a card that was never shut")
+                        # The "anywhere" property, measured: the summary's
+                        # own box must cover the card's whole face,
+                        # padding included. A summary that stopped at the
+                        # padding's inner edge would leave a rim that
+                        # looks tappable and is not.
+                        boxes = page.evaluate(
+                            "() => {"
+                            "  const li = document.querySelector('li.history-card');"
+                            "  const s = li.querySelector('summary.history-card__summary');"
+                            "  const a = li.getBoundingClientRect();"
+                            "  const b = s.getBoundingClientRect();"
+                            "  return [a.width, b.width, a.top, b.top];"
+                            "}")
+                        if boxes[1] < boxes[0] - 2.5:
+                            return False, (
+                                "the card's summary is %spx wide inside a %spx card — a tap on "
+                                "the rim between them lands on nothing, which reads as a broken "
+                                "control rather than as a boundary" % (boxes[1], boxes[0]))
+                        # Tapped on the secondary line, which is not a
+                        # control and never was: the route and the state.
+                        card.locator(".history-card__secondary").click()
+                        if not details.evaluate("el => el.open"):
+                            return False, (
+                                "a tap on the card's own face away from every control did not "
+                                "open it — D7 asks for a card you tap anywhere, through the "
+                                "native disclosure it already contained")
+                        # Nothing nested inside the summary can steal
+                        # that activation, because nothing is nested in
+                        # it: the one-hop resolve link sits outside.
+                        nested = page.eval_on_selector(
+                            "summary.history-card__summary",
+                            "el => el.querySelectorAll('a[href], button').length")
+                        if nested:
+                            return False, (
+                                "expected no control nested inside the card's summary, found %d"
+                                % nested)
+                    finally:
+                        context.close()
+
+                    # And with no script at all, at the same 360px floor.
+                    # The disclosure is native, so this is not a fallback
+                    # path that could rot — it is the same control.
+                    with _no_js_page(browser, harness.base_url(), "/flights",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                        card = page.locator("li.history-card").first
+                        card.wait_for(state="visible")
+                        details = card.locator("details.history-card__details")
+                        if details.evaluate("el => el.open"):
+                            return False, "expected the scripts-blocked card to start closed too"
+                        card.locator(".history-card__secondary").click()
+                        if not details.evaluate("el => el.open"):
+                            return False, (
+                                "the phone card did not open with scripts blocked — the whole "
+                                "point of building this on the <details> the card already had is "
+                                "that it needs no script (CFG-38)")
+                        # The detail ROW floor, in the same context: with
+                        # no script nothing is collapsed and every detail
+                        # is on screen, exactly as before this plan.
+                        collapsed = page.evaluate(
+                            "() => document.querySelectorAll("
+                            "'.flight-detail-row--collapsed').length")
+                        if collapsed:
+                            return False, (
+                                "%d detail row(s) are collapsed on a page with no script — the "
+                                "collapsing class has exactly one writer and it cannot run here "
+                                "(D-15, locked)" % collapsed)
+                        live = page.evaluate(
+                            "() => document.documentElement.className.indexOf("
+                            "'flight-rows-live') !== -1")
+                        if live:
+                            return False, (
+                                "the live-script class is on <html> with no script running — the "
+                                "height animation is keyed on it precisely so a scripts-blocked "
+                                "page animates nothing")
+                    return True, ""
+                check(
+                    "a phone card at 360px opens from a tap on its own face away from every "
+                    "control, through the native disclosure it already contained, with its summary "
+                    "box covering the whole card and no control nested inside it — and it does the "
+                    "same with SCRIPTS BLOCKED, where no detail row is collapsed and the "
+                    "live-script class the height animation is keyed on is absent (D7/CFG-37, "
+                    "CFG-38, 23-08-PLAN.md Task 3)",
+                    _a_phone_card_opens_from_a_tap_anywhere_with_and_without_scripts)
+
+                # --- 23-09-PLAN.md Task 3 (D3/CFG-32): the save bar,
+                # the app's most-iterated component and the one that
+                # carried B1, gaining motion and a label. Everything
+                # below is a regression surface before it is a feature:
+                # the bar's own checks above (reveal-and-persist on both
+                # scopes, the fallback's visibility contract, Cancel and
+                # the leave-guard, the tab-bar geometry, the
+                # double-submit guard) were run and recorded GREEN
+                # before a line of this plan's CSS or JS was written.
+
+                COUNT_SEL = "[data-dirty-count]"
+
+                def _the_bar_arrives_and_the_count_moves_only_when_the_number_does():
+                    # Three properties no string-comparison harness can
+                    # see, and the middle one is the whole reason this
+                    # check exists: the bar is role="status", so what a
+                    # screen reader announces is precisely the sequence
+                    # of text values its content ever holds. A
+                    # MutationObserver installed BEFORE the first edit
+                    # records that sequence directly, rather than
+                    # sampling the end state and hoping nothing else
+                    # happened in between.
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        base_url = harness.base_url()
+                        _login(page, base_url)
+                        page.goto(base_url + "/display")
+                        # Both targets are chosen against what the page
+                        # is ACTUALLY showing, never a fixed index: the
+                        # save-bar checks above persist their own edits,
+                        # so a hardcoded index can be the value already
+                        # stored by the time this check runs — and
+                        # clicking the chip that is already selected is
+                        # not an edit, which would make every assertion
+                        # below vacuous rather than red.
+                        current_theme = page.eval_on_selector(
+                            'input[name="theme"]:checked', "el => el.value")
+                        theme_target = next(
+                            t for t in device_config.THEME_IDS if t != current_theme)
+                        current_runway = page.eval_on_selector(
+                            'input[name="tracked_runway"]:checked', "el => el.value")
+                        runway_target = next(
+                            r for r in device_config.RUNWAY_IDS if r != current_runway)
+
+                        # B1's OWN COLLISION CLASS, asserted rather than
+                        # reasoned about. The bar's base rule declares
+                        # display, and an author display always beats the
+                        # user-agent [hidden] rule regardless of source
+                        # order — so the entrance this plan adds must not
+                        # have made a permanently visible bar. Phase 22
+                        # found exactly this on the login card, where the
+                        # declaration was present and correct in the file
+                        # and no source scan could see the defect.
+                        shown = page.evaluate(
+                            "() => getComputedStyle("
+                            "document.querySelector('[data-dirty-bar]')).display")
+                        if shown != "none":
+                            return False, (
+                                "a hidden save bar computes display %r — the [hidden] override "
+                                "has stopped winning, and a bar that is visible before any edit "
+                                "is the same class of defect as one that never appears (B1)"
+                                % (shown,))
+
+                        page.evaluate(
+                            "() => {"
+                            " window.__counts = [];"
+                            " var el = document.querySelector('%s');"
+                            " new MutationObserver(function () {"
+                            "   window.__counts.push(el.textContent);"
+                            " }).observe(el, {childList: true, characterData: true,"
+                            "                 subtree: true});"
+                            "}" % COUNT_SEL)
+
+                        # 1. The first edit reveals the bar, and it
+                        # ARRIVES: the entrance resolves to the
+                        # stylesheet's own block rather than merely
+                        # having been declared in a file.
+                        _click_control(page, 'input[name="theme"][value="%s"]' % theme_target)
+                        if page.locator("[data-dirty-bar]").is_hidden():
+                            return False, "expected the save bar to become visible after the edit"
+                        arrival = page.evaluate(
+                            "() => getComputedStyle("
+                            "document.querySelector('[data-dirty-bar]')).animationName")
+                        if arrival != "skypane-bar-arrive":
+                            return False, (
+                                "the revealed bar's animation resolves to %r — an entrance that "
+                                "names a block the stylesheet does not define renders as no "
+                                "entrance at all, and no browser reports it" % (arrival,))
+                        if "is-fading-in" not in (page.locator(COUNT_SEL).get_attribute("class") or ""):
+                            return False, (
+                                "expected the count's own element to carry the changed-value "
+                                "class after a real change")
+
+                        # 2. A second, DIFFERENT edit moves the count
+                        # again — the number is genuinely different, so
+                        # this must produce exactly one more announcement.
+                        _click_control(
+                            page, 'input[name="tracked_runway"][value="%s"]' % runway_target)
+                        page.wait_for_timeout(120)
+                        after_real_edits = page.evaluate("() => window.__counts.slice()")
+                        if len(after_real_edits) != 2:
+                            return False, (
+                                "expected exactly TWO text writes from two genuinely different "
+                                "counts, got %d: %r — the bar is role=\"status\", so an extra "
+                                "write is an extra announcement of a number that did not change"
+                                % (len(after_real_edits), after_real_edits))
+                        if after_real_edits[0] == after_real_edits[1]:
+                            return False, (
+                                "expected the two announcements to differ, got %r twice — a "
+                                "control that proves the observer is watching a real change"
+                                % (after_real_edits[0],))
+                        for seen in after_real_edits:
+                            if not seen.strip():
+                                return False, (
+                                    "the count held the empty string at some point (%r) — a "
+                                    "partially-written live region is exactly what an animated "
+                                    "number produces and what this check exists to forbid"
+                                    % (after_real_edits,))
+                        if page.locator(COUNT_SEL).inner_text().strip() != after_real_edits[-1]:
+                            return False, (
+                                "the displayed count is not the last value announced — the "
+                                "number must never be tweened, only its element animated")
+
+                        # 3. THE CONTROL PHASE, without which clause 2
+                        # proves nothing about the gate: a re-render that
+                        # leaves the SENTENCE the same must write
+                        # NOTHING. This is what a wrong implementation
+                        # gets wrong — it rewrites identical text on
+                        # every keystroke, and the live region says the
+                        # same number again.
+                        #
+                        # The trigger is a REAL edit, not a synthesised
+                        # event, and that is the point: a third theme
+                        # value inside the already-dirty Frame colours
+                        # section changes the form and runs the same
+                        # delegated listener clause 1 proved works, while
+                        # leaving the set of dirty sections — and so the
+                        # rendered sentence — identical. A synthesised
+                        # event that silently failed to reach the script
+                        # would have made this clause pass by doing
+                        # nothing at all.
+                        third_theme = next(
+                            t for t in device_config.THEME_IDS
+                            if t not in (current_theme, theme_target))
+                        _click_control(page, 'input[name="theme"][value="%s"]' % third_theme)
+                        page.wait_for_timeout(120)
+                        if not page.eval_on_selector(
+                                'input[name="theme"][value="%s"]' % third_theme,
+                                "el => el.checked"):
+                            return False, (
+                                "the control edit did not land, so the clause below would prove "
+                                "nothing about the gate")
+                        after_noop = page.evaluate("() => window.__counts.slice()")
+                        if after_noop != after_real_edits:
+                            return False, (
+                                "a re-render that changed no number still wrote to the count: "
+                                "%r became %r. Re-writing identical text into a role=\"status\" "
+                                "region is how the same number gets announced twice"
+                                % (after_real_edits, after_noop))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the save bar ARRIVES rather than appearing — its entrance resolves to the "
+                    "stylesheet's own skypane-bar-arrive block, and a hidden bar still computes "
+                    "display:none with that entrance declared (B1's own collision class) — while "
+                    "its count, recorded by a MutationObserver installed before the first edit, "
+                    "is written exactly once per genuinely different number, never empty, never "
+                    "tweened, and NOT AT ALL by a re-render that changed nothing (D3/CFG-32, "
+                    "23-09-PLAN.md Task 3)",
+                    _the_bar_arrives_and_the_count_moves_only_when_the_number_does)
+
+                def _saving_says_so_without_changing_a_byte_of_what_it_posts():
+                    # T14 (22-15-PLAN.md Task 3) deferred this label to
+                    # D3 and left behind the reason it was worth
+                    # deferring: a submit button's name/value joins the
+                    # form data set AFTER the listeners return, so
+                    # anything that touches the submitting control can
+                    # change what is posted. dirty-state.js's answer is
+                    # a property of the control rather than of the
+                    # timing; this check is that answer measured on the
+                    # wire, in both languages.
+                    #
+                    # The POST is intercepted and answered 204 in the
+                    # first two phases — the one response to a form POST
+                    # that commits no new document, so the page stays
+                    # put, the control is still there to read, and every
+                    # body that reaches the wire is captured exactly
+                    # once. Same technique, and same reason, as the
+                    # double-submit check above.
+                    base_url = harness.base_url()
+                    for lang, expected_word, expected_flash in (
+                            ("en", config_page.DIRTY_SAVING_TEXT, "Saved —"),
+                            ("fr", i18n.t_lang(config_page.DIRTY_SAVING_TEXT, "fr"),
+                             i18n.t_lang("Saved — %s", "fr").split("%s")[0].strip())):
+                        context = browser.new_context()
+                        try:
+                            page = context.new_page()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            theme_ids = device_config.THEME_IDS
+                            current = device_config.load_device_config(harness.tmpdir)["theme"]
+                            target = next(t for t in theme_ids if t != current)
+                            theme_sel = 'input[name="theme"][value="%s"]' % target
+                            bodies = []
+
+                            def _capture(route, request):
+                                if request.method == "POST":
+                                    bodies.append(request.post_data)
+                                    route.fulfill(status=204, body="")
+                                else:
+                                    route.continue_()
+
+                            # PHASE A — the control body. requestSubmit()
+                            # with no submitter fires a real submit event
+                            # with evt.submitter null, so the relabel
+                            # stands down by its own first clause and
+                            # this is genuinely the payload as it was
+                            # before this plan.
+                            page.goto(base_url + "/display")
+                            _click_control(page, theme_sel)
+                            page.route("**/*", _capture)
+                            page.eval_on_selector(
+                                "form[data-dirty-form]", "el => el.requestSubmit()")
+                            page.wait_for_timeout(300)
+                            page.unroute("**/*")
+                            if len(bodies) != 1:
+                                return False, (
+                                    "lang=%s: expected exactly one control POST, got %d"
+                                    % (lang, len(bodies)))
+
+                            # PHASE B — the same edit, posted by the
+                            # bar's own Save, whose label the relabel
+                            # does reach.
+                            page.goto(base_url + "/display")
+                            _click_control(page, theme_sel)
+                            page.route("**/*", _capture)
+                            page.eval_on_selector(".dirty-bar__save", "el => el.click()")
+                            page.wait_for_timeout(300)
+                            page.unroute("**/*")
+                            if len(bodies) != 2:
+                                return False, (
+                                    "lang=%s: expected a second POST from the bar's Save, got %d"
+                                    % (lang, len(bodies)))
+
+                            # THE CONTROL THAT MAKES THE COMPARISON MEAN
+                            # SOMETHING. Without it, two identical bodies
+                            # would also be what a script that never
+                            # relabels anything produces, and this check
+                            # would pass against the absence of the
+                            # feature it exists to test.
+                            label = page.eval_on_selector(
+                                ".dirty-bar__save", "el => el.textContent.trim()")
+                            if label != expected_word:
+                                return False, (
+                                    "lang=%s: expected the Save control to read %r while its "
+                                    "POST is in flight, got %r — and without that the payload "
+                                    "comparison below would prove nothing"
+                                    % (lang, expected_word, label))
+                            if bodies[0] != bodies[1]:
+                                return False, (
+                                    "lang=%s: the relabel changed what the form posts.\n"
+                                    "  without it: %r\n  with it:    %r\n"
+                                    "A submitter's name/value joins the form data set after the "
+                                    "listeners return — this is the assertion submit-guard.js's "
+                                    "own header argues for" % (lang, bodies[0], bodies[1]))
+
+                            # PHASE C — the completed state, where the
+                            # document actually is. There is no "Saved"
+                            # on the bar and there must not be: the POST
+                            # replaces the document, so the bar that said
+                            # the in-flight word is gone. The existing
+                            # confirmation flash is the completed state,
+                            # on the page the browser lands on.
+                            page.goto(base_url + "/display")
+                            _click_control(page, theme_sel)
+                            with page.expect_navigation():
+                                page.eval_on_selector(".dirty-bar__save", "el => el.click()")
+                            body_text = page.locator("body").inner_text()
+                            if expected_flash not in body_text:
+                                return False, (
+                                    "lang=%s: expected the landing page to carry the save "
+                                    "confirmation %r — the completed state is delivered where "
+                                    "the document actually is, never persisted onto a bar that "
+                                    "no longer exists" % (lang, expected_flash))
+                            saved = device_config.load_device_config(harness.tmpdir)["theme"]
+                            if saved != target:
+                                return False, (
+                                    "lang=%s: the save did not persist — expected theme %r, got "
+                                    "%r" % (lang, target, saved))
+                        finally:
+                            context.close()
+                    return True, ""
+                check(
+                    "the Save control reads a TRANSLATED in-flight word once its POST is away and "
+                    "the posted body is byte-identical to the same edit posted without the "
+                    "relabel (captured on the wire, in both languages, against a control phase "
+                    "proving the relabel really ran), and the completed state arrives as the "
+                    "existing confirmation flash on the page the POST lands on — never persisted "
+                    "onto a bar the navigation destroyed (D3/CFG-32, T14's deferred label, "
+                    "23-09-PLAN.md Task 3)",
+                    _saving_says_so_without_changing_a_byte_of_what_it_posts)
+
+                def _with_no_script_there_is_no_bar_and_the_fallback_save_is_the_only_way():
+                    # THE FLOOR THIS COMPONENT BROKE ONCE. B1 was two
+                    # dead paths at the same time: the save bar never
+                    # appeared, and `.dirty-ready [data-static-save-
+                    # fallback]` had already hidden the only other Save
+                    # on the page. With scripts blocked neither marker
+                    # class can be written at all, so this is the
+                    # configuration in which the fallback is not a
+                    # fallback but THE control — and this plan animates
+                    # the component that sits on top of it, so the floor
+                    # is re-asserted at this plan's own commit rather
+                    # than trusted.
+                    #
+                    # It asserts what the sibling scripts-blocked save
+                    # check (23-06's) does not: that the fallback is
+                    # VISIBLE rather than merely rendered, that the bar
+                    # computes display:none with the entrance declared
+                    # on it, and that neither hiding marker is on <html>.
+                    base_url = harness.base_url()
+                    for lang in ("en", "fr"):
+                        with _no_js_page(browser, base_url, "/display",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
+                            page.context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                "url": base_url}])
+                            page.goto(base_url + "/display")
+                            if page.viewport_size["width"] != VIEWPORT_MIN_SUPPORTED["width"]:
+                                return False, "expected the measurement at the 360px contract floor"
+                            markers = page.evaluate(
+                                "() => document.documentElement.className")
+                            for marker in ("dirty-ready", "dirty-shown"):
+                                if marker in markers:
+                                    return False, (
+                                        "lang=%s: <html> carries %r with scripts blocked (%r) — "
+                                        "both markers have exactly one writer and it cannot run "
+                                        "here, and the fallback-hide rule keys on both"
+                                        % (lang, marker, markers))
+                            bar_display = page.evaluate(
+                                "() => { var b = document.querySelector('[data-dirty-bar]');"
+                                " return b ? getComputedStyle(b).display : 'absent'; }")
+                            if bar_display not in ("none", "absent"):
+                                return False, (
+                                    "lang=%s: the save bar computes display %r on a page with no "
+                                    "script — nothing can ever reveal it here, so a visible bar "
+                                    "would be a Save button that does nothing"
+                                    % (lang, bar_display))
+                            fallback = page.locator(
+                                "[%s]" % config_page.STATIC_SAVE_FALLBACK_ATTR)
+                            if fallback.count() != 1:
+                                return False, (
+                                    "lang=%s: expected exactly one fallback Save, got %d — with "
+                                    "no script it is the ONLY way to save this page"
+                                    % (lang, fallback.count()))
+                            if not fallback.is_visible():
+                                return False, (
+                                    "lang=%s: the fallback Save is rendered but not visible — "
+                                    "which is precisely the shape B1 took, and a check that only "
+                                    "asked whether it EXISTS would have passed through it"
+                                    % (lang,))
+                            box = fallback.bounding_box()
+                            if not box or box["width"] <= 0 or box["height"] <= 0:
+                                return False, (
+                                    "lang=%s: the fallback Save has no box at 360px (%r)"
+                                    % (lang, box))
+                            current = device_config.load_device_config(harness.tmpdir)["theme"]
+                            target = next(
+                                t for t in device_config.THEME_IDS if t != current)
+                            page.eval_on_selector(
+                                'input[name="theme"][value="%s"]' % target,
+                                "el => el.checked = true")
+                            with page.expect_navigation():
+                                fallback.click()
+                            saved = device_config.load_device_config(harness.tmpdir)["theme"]
+                            if saved != target:
+                                return False, (
+                                    "lang=%s: a Display save did not persist through the "
+                                    "fallback Save with scripts blocked at 360px — expected "
+                                    "theme %r, got %r. This is the P0 Phase 22 existed to fix"
+                                    % (lang, target, saved))
+                    return True, ""
+                check(
+                    "with scripts blocked at 360px, in BOTH languages, neither hiding marker is "
+                    "on <html>, the save bar computes display:none with this plan's entrance "
+                    "declared on it, and the fallback Save is VISIBLE with a real box and still "
+                    "saves to disk — B1's floor re-asserted in the plan that animates the "
+                    "component sitting on top of it (B1/CFG-38, 23-09-PLAN.md Task 3)",
+                    _with_no_script_there_is_no_bar_and_the_fallback_save_is_the_only_way)
+
+                # ==========================================================
+                # 24-04-PLAN.md Task 4 (CFG-40/CFG-45/D-09): the battery
+                # ring, measured where it actually has to be correct — a
+                # real browser, both themes, the narrowest supported
+                # screen, and with scripts off. Every one of these uses
+                # 24-02's helpers rather than inventing a second
+                # mechanism for the same job.
+                # ==========================================================
+
+                RING_FIGURE = "svg.drawing__figure"
+                RING_VALUE = "svg.drawing__figure .drawing-ring-value"
+                RING_TRACK = "svg.drawing__figure .drawing-ring-track"
+                RING_PAGES = (("Home", "/"), ("Health", "/health"))
+
+                def _the_ring_paints_a_theme_token_in_both_themes_on_both_pages():
+                    # WHY A BROWSER AT ALL: a source scan can see that the
+                    # arc carries class="drawing-ring-value". It cannot
+                    # see what that class RESOLVES to. getComputedStyle
+                    # has already run the cascade, resolved currentColor
+                    # against the inherited colour and substituted the
+                    # theme's custom property — so this is the only thing
+                    # in the repository that can tell a token-painted
+                    # shape from one that fell through to the SVG default.
+                    #
+                    # A drawing correct in light mode only is a defect,
+                    # not a polish item, and until 24-02 this harness had
+                    # no way to say so. Both themes are sampled on BOTH
+                    # pages, because the two rings are two sizes of one
+                    # emitter and a single sample would not notice if only
+                    # one of them inherited its colour.
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        seen = {}
+                        for label, route in RING_PAGES:
+                            page.goto(harness.base_url() + route)
+                            for theme in UI_THEMES_EXPLICIT:
+                                _set_ui_theme(page, theme)
+                                value = _computed_paint(page, RING_VALUE)
+                                track = _computed_paint(page, RING_TRACK)
+                                if "stroke" in value["svg_default"]:
+                                    return False, (
+                                        "%s in %s: the ring's value arc resolves stroke to the "
+                                        "SVG default %r — it inherited no colour from the "
+                                        "cascade and is painting nothing a theme chose"
+                                        % (label, theme, value["stroke"]))
+                                if "fill" in value["svg_default"]:
+                                    return False, (
+                                        "%s in %s: the ring's value arc resolves fill to the SVG "
+                                        "default black, which is correct in one theme and "
+                                        "invisible in the other" % (label, theme))
+                                if value["stroke"] == track["stroke"]:
+                                    return False, (
+                                        "%s in %s: the value arc and the track resolve to the "
+                                        "same paint (%r), so the gauge reads as a plain circle "
+                                        "with no reading in it"
+                                        % (label, theme, value["stroke"]))
+                                seen[(label, theme)] = value["stroke"]
+                        for label, _route in RING_PAGES:
+                            light = seen[(label, UI_THEMES_EXPLICIT[0])]
+                            dark = seen[(label, UI_THEMES_EXPLICIT[1])]
+                            if light == dark:
+                                return False, (
+                                    "%s: the ring's value arc resolves to %r in BOTH themes. The "
+                                    "status token it paints through is declared separately for "
+                                    "light and dark, so an unchanged value means the arc is not "
+                                    "reaching that token at all" % (label, light))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the battery ring's value arc resolves to a real theme token on BOTH pages in "
+                    "BOTH themes — never the SVG default fill or stroke, never the same paint as "
+                    "its own track, and never the same value in light and dark (CFG-40, "
+                    "24-02's theme and computed-paint helpers)",
+                    _the_ring_paints_a_theme_token_in_both_themes_on_both_pages)
+
+                def _the_rings_viewbox_contains_its_own_stroked_geometry():
+                    # CONTRACT RULE 5, MEASURED RATHER THAN DERIVED. A
+                    # stroked arc extends half its stroke width beyond the
+                    # nominal radius, which is the single most common way
+                    # a ring gets clipped by its own box — and arithmetic
+                    # on the emitter's constants would only re-derive what
+                    # the emitter already believes. So the geometry comes
+                    # back from the browser: getBBox() for the path's own
+                    # box and the RESOLVED stroke-width from
+                    # getComputedStyle, expanded by half on every side.
+                    #
+                    # getBBox() deliberately excludes the stroke (SVG 1.1
+                    # behaviour, and the option dictionary that would
+                    # include it is exactly the thing whose support would
+                    # have to be assumed) — so the half-stroke is added
+                    # here, in the open, because that half-stroke IS the
+                    # property under test.
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        for label, route in RING_PAGES:
+                            page.goto(harness.base_url() + route)
+                            box = page.evaluate(_RING_INK_PROBE, {"selector": RING_FIGURE})
+                            if box is None:
+                                return False, (
+                                    "%s: no %s on the page — with none, this check measures "
+                                    "nothing" % (label, RING_FIGURE))
+                            if not box["shapes"]:
+                                return False, "%s: the ring figure holds no drawn shape" % label
+                            side = box["viewBox"]
+                            for shape in box["shapes"]:
+                                if shape["strokeWidth"] <= 0:
+                                    return False, (
+                                        "%s: %s resolves a stroke-width of %r — an arc with no "
+                                        "stroke draws nothing at all"
+                                        % (label, shape["cls"], shape["strokeWidth"]))
+                                left, top, right, bottom = shape["inked"]
+                                if (left < -0.01 or top < -0.01
+                                        or right > side[0] + 0.01 or bottom > side[1] + 0.01):
+                                    return False, (
+                                        "%s: %s inks [%.3f, %.3f, %.3f, %.3f], outside its own "
+                                        "viewBox 0 0 %g %g — the stroke is clipped at the box "
+                                        "edge, which is the ring's own half-stroke overhang "
+                                        "going unaccounted for"
+                                        % (label, shape["cls"], left, top, right, bottom,
+                                           side[0], side[1]))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the battery ring's viewBox contains its own STROKED geometry on both pages — "
+                    "each arc's browser-reported bounding box, expanded by half its resolved "
+                    "stroke width on every side, lies inside the box the emitter declared "
+                    "(CFG-45, contract rule 5)",
+                    _the_rings_viewbox_contains_its_own_stroked_geometry)
+
+                def _the_ring_costs_no_width_no_height_and_no_script():
+                    # THREE PROPERTIES THE RING COULD PLAUSIBLY BREAK, all
+                    # at the 360px floor.
+                    #
+                    # THE TILE ASSERTION IS DELIBERATELY NOT "all three
+                    # tiles are equal height", and that is the whole
+                    # reason it is written this way. Measured on this tree
+                    # BEFORE the ring existed: at 360px the three tiles
+                    # are 111.59 / 111.59 / 131.19 — `.dashboard-grid`
+                    # collapses to ONE COLUMN there, so each tile is its
+                    # own grid row at its own intrinsic height, and the
+                    # Data tile is legitimately taller because its detail
+                    # wraps to a second line. An "all equal" assertion
+                    # would simply be false. At 1280px, where the three
+                    # DO share a row, `align-items: stretch` makes them
+                    # equal no matter what, so "all equal" would be
+                    # VACUOUS there. Neither width can carry the property
+                    # this plan actually owes.
+                    #
+                    # What it owes is that the RING ADDED NO HEIGHT, and
+                    # that is measured against the tile the ring did not
+                    # touch: the Frame tile carries the same two text
+                    # lines in the same box, so Battery's own content
+                    # height must still equal it exactly. A ring stacked
+                    # above the text instead of beside it fails here.
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        for label, route in RING_PAGES:
+                            page.goto(harness.base_url() + route)
+                            if page.locator(RING_VALUE).count() != 1:
+                                return False, (
+                                    "%s: expected exactly one ring value arc at 360px, got %d"
+                                    % (label, page.locator(RING_VALUE).count()))
+                            message = _assert_no_page_overflow(
+                                page, label, VIEWPORT_MIN_SUPPORTED["width"])
+                            if message:
+                                return False, message
+
+                        page.goto(harness.base_url() + "/")
+                        tiles = page.evaluate(_TILE_CONTENT_PROBE)
+                        if len(tiles) != 3:
+                            return False, (
+                                "expected Home's three status tiles, got %d — with another "
+                                "number this check is measuring the wrong row" % (len(tiles),))
+                        frame_tile, battery_tile = tiles[0], tiles[1]
+                        if battery_tile["hasRing"] != 1 or frame_tile["hasRing"] != 0:
+                            return False, (
+                                "expected the ring in the SECOND tile (Battery) and nowhere else "
+                                "in the row, got ring counts %r"
+                                % ([t["hasRing"] for t in tiles],))
+                        if abs(battery_tile["contentH"] - frame_tile["contentH"]) > 0.5:
+                            return False, (
+                                "Home's Battery tile's own content is %.2fpx tall against its "
+                                "Frame neighbour's %.2fpx at 360px — the ring pushed the tile "
+                                "down, and `.dashboard-grid`'s stretch would push the whole row "
+                                "with it" % (battery_tile["contentH"], frame_tile["contentH"]))
+                        if abs(battery_tile["height"] - frame_tile["height"]) > 0.5:
+                            return False, (
+                                "Home's Battery tile is %.2fpx tall against its Frame "
+                                "neighbour's %.2fpx at 360px, where the two are separate grid "
+                                "rows carrying the same two text lines"
+                                % (battery_tile["height"], frame_tile["height"]))
+
+                        # D-09, THROUGH THE SHARED HELPER. The ring is
+                        # complete markup in the first response, so it
+                        # must arrive whole with scripts blocked — and
+                        # asking through _no_js_page() is what makes this
+                        # compose with the existing no-JS floor instead of
+                        # being a second, private way to turn scripts off.
+                        for label, route in RING_PAGES:
+                            with _no_js_page(browser, harness.base_url(), route,
+                                             viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+                                if blocked.locator(RING_VALUE).count() != 1:
+                                    return False, (
+                                        "%s with scripts blocked: expected exactly one ring "
+                                        "value arc, got %d — the ring is server-rendered SVG "
+                                        "and owes nothing to a script (D-09)"
+                                        % (label, blocked.locator(RING_VALUE).count()))
+                                _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
+                                paint = _computed_paint(blocked, RING_VALUE)
+                                if paint["svg_default"]:
+                                    return False, (
+                                        "%s with scripts blocked, in %s: the ring resolves %r to "
+                                        "the SVG default — 'correct in dark mode with scripts "
+                                        "off' is the combination most likely to be wrong, which "
+                                        "is why it is the one measured"
+                                        % (label, UI_THEMES_EXPLICIT[1], paint["svg_default"]))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "at the 360px floor the ring costs nothing it must not: neither page's body "
+                    "scrolls sideways, Home's Battery tile stays exactly as tall as the Frame "
+                    "tile beside it (measured against a neighbour, because 'all three equal' is "
+                    "false at 360px and vacuous at 1280px), and both rings still render — and "
+                    "still paint a dark-mode token — with scripts blocked through _no_js_page() "
+                    "(CFG-45, D-09)",
+                    _the_ring_costs_no_width_no_height_and_no_script)
+
+                # 24-05-PLAN.md Task 3 (CFG-41/CFG-45/D-09): the battery
+                # chart's three additions, measured where they have to be
+                # correct. The selectors are literals here rather than
+                # imported constants, matching RING_VALUE above.
+                CHART_AREA = ".sparkline-area"
+                CHART_LINE = ".sparkline-line"
+                CHART_MARK = ".sparkline-mark"
+                CHART_THRESHOLD = ".sparkline-threshold"
+                CHART_LEGEND = ".sparkline-legend"
+                CHART_SWATCH = ".sparkline-swatch"
+
+                # The area is a TRANSLUCENT fill, so its resolved `fill`
+                # is not what lands on screen — what lands is that colour
+                # composited over the card behind it at the resolved
+                # `fill-opacity`. Composite it here, in the open, and
+                # compare the result against the card's own resolved
+                # background through the app's OWN contrast formula
+                # (companion/contrast_check.py, already the source of
+                # truth for every colour pair this project pins).
+                #
+                # THE FLOOR IS 1.20:1, AND IT IS NOT WCAG's 3:1. That
+                # figure is for a UI component a user must find and
+                # identify; this is a wash under a line that already
+                # carries the data, and at 3:1 it would be a block of
+                # ink. What it must not be is PRESENT BUT INVISIBLE —
+                # technically painted, visually absent — which is this
+                # feature's specific failure mode. Measured on this tree
+                # at the shipped 0.14: light 1.33:1, dark 1.50:1; the
+                # 1.20 floor is first missed between fill-opacity 0.08
+                # (1.17 light) and 0.09 (1.20 light), so it bites at
+                # roughly two thirds of the shipped value rather than
+                # sitting decoratively below it.
+                CHART_AREA_MIN_CONTRAST = 1.20
+
+                def _composite_over(fg_text, alpha, bg_text):
+                    fg = [float(v) for v in re.findall(r"[\d.]+", fg_text)[:3]]
+                    bg = [float(v) for v in re.findall(r"[\d.]+", bg_text)[:3]]
+                    if len(fg) != 3 or len(bg) != 3:
+                        raise AssertionError(
+                            "expected two rgb() colours to composite, got %r over %r"
+                            % (fg_text, bg_text))
+                    return "#%02X%02X%02X" % tuple(
+                        int(round(alpha * f + (1 - alpha) * b)) for f, b in zip(fg, bg))
+
+                def _as_hex(text):
+                    return "#%02X%02X%02X" % tuple(
+                        int(round(float(v))) for v in re.findall(r"[\d.]+", text)[:3])
+
+                def _the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes():
+                    # Four shapes x two themes, resolved by the browser
+                    # after the cascade has run — the only thing in this
+                    # repository that can tell a shape painted by a token
+                    # from a shape painted by the SVG default.
+                    #
+                    # Three DIFFERENT questions are asked, because "not
+                    # the default" alone would be green for a shape that
+                    # is the same in both themes, and "differs between
+                    # themes" alone would be green for a shape painted
+                    # the wrong colour consistently:
+                    #   - the area, the line and the mark must resolve to
+                    #     the SAME ink, because all three are
+                    #     currentColor and that IS the mechanism CFG-45
+                    #     asks for (the area is the line's own colour, so
+                    #     dark mode is correct by the same route the line
+                    #     already is);
+                    #   - the threshold must resolve to something ELSE,
+                    #     because a judgement painted in the data's own
+                    #     ink is a judgement nobody can see;
+                    #   - every one of them must move when the theme
+                    #     does, or the token is not reaching it at all.
+                    context = browser.new_context()
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        page.goto(harness.base_url() + "/health")
+                        page.wait_for_selector(CHART_AREA)
+                        seen = {}
+                        for theme in UI_THEMES_EXPLICIT:
+                            _set_ui_theme(page, theme)
+                            area = _computed_paint(page, CHART_AREA, ("fill", "fill-opacity"))
+                            line = _computed_paint(page, CHART_LINE, ("stroke",))
+                            mark = _computed_paint(page, CHART_MARK, ("fill",))
+                            threshold = _computed_paint(page, CHART_THRESHOLD, ("fill",))
+                            swatch = page.evaluate(
+                                "s => getComputedStyle(document.querySelector(s)).backgroundColor",
+                                CHART_SWATCH)
+                            card = page.evaluate(
+                                "() => getComputedStyle(document.querySelector("
+                                "'.battery-trend-section')).backgroundColor")
+                            for name, paint, prop in (
+                                    ("area", area, "fill"), ("line", line, "stroke"),
+                                    ("mark", mark, "fill"), ("threshold", threshold, "fill")):
+                                if prop in paint["svg_default"]:
+                                    return False, (
+                                        "in %s the chart's %s resolves %s to the SVG default (%r) — it "
+                                        "inherited no colour at all" % (theme, name, prop, paint[prop]))
+                            if not (area["fill"] == line["stroke"] == mark["fill"]):
+                                return False, (
+                                    "in %s the area (%r), the line (%r) and the mark (%r) are three "
+                                    "different inks — all three are meant to be currentColor, which is "
+                                    "what makes dark mode correct by construction rather than by a "
+                                    "second colour value"
+                                    % (theme, area["fill"], line["stroke"], mark["fill"]))
+                            if threshold["fill"] == line["stroke"]:
+                                return False, (
+                                    "in %s the threshold resolves to the trend line's own ink (%r) — a "
+                                    "judgement painted in the data's colour is not a judgement anyone "
+                                    "can read" % (theme, threshold["fill"]))
+                            if swatch != threshold["fill"]:
+                                return False, (
+                                    "in %s the legend's swatch (%r) and the drawn threshold (%r) are "
+                                    "different colours — the legend would be describing a line the "
+                                    "chart does not draw" % (theme, swatch, threshold["fill"]))
+
+                            alpha = float(area["fill-opacity"])
+                            if not (0.0 < alpha < 1.0):
+                                return False, (
+                                    "in %s the area's fill-opacity is %r — an opaque area hides the "
+                                    "axis and the threshold beneath it" % (theme, alpha))
+                            composite = _composite_over(area["fill"], alpha, card)
+                            ratio = contrast_ratio(composite, _as_hex(card))
+                            if ratio < CHART_AREA_MIN_CONTRAST:
+                                return False, (
+                                    "in %s the area composites to %s over the card's %s for a contrast "
+                                    "of %.3f:1, under this check's %.2f:1 floor — at that opacity the "
+                                    "area is painted and invisible, which is the exact failure mode of "
+                                    "this feature" % (theme, composite, _as_hex(card), ratio,
+                                                      CHART_AREA_MIN_CONTRAST))
+                            seen[theme] = {
+                                "ink": area["fill"], "alpha": alpha, "threshold": threshold["fill"],
+                                "card": card, "composite": composite, "ratio": ratio}
+
+                        first, second = UI_THEMES_EXPLICIT
+                        for token in ("ink", "threshold", "card"):
+                            if seen[first][token] == seen[second][token]:
+                                return False, (
+                                    "the chart's %s resolves to %r in BOTH %s and %s — the theme token "
+                                    "is not reaching it, and every paint assertion above is comparing a "
+                                    "value to itself"
+                                    % (token, seen[first][token], first, second))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "the battery chart's area, line, mark and threshold each resolve to a real theme "
+                    "token in BOTH themes — never the SVG default, the area/line/mark sharing one "
+                    "currentColor ink while the threshold deliberately does not, the legend's swatch "
+                    "equal to the drawn threshold, and the area's COMPOSITE over the card clearing a "
+                    "1.20:1 floor so it is visible and not merely painted (CFG-41/CFG-45, 24-05-PLAN.md "
+                    "Task 3)",
+                    _the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes)
+
+                def _the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script():
+                    # The 360px floor, in both languages, because French
+                    # is the longer copy here ("Batterie faible — 3480 mV
+                    # (≈ 20 %)") and this file already carries several
+                    # checks that exist because French overflowed where
+                    # English did not.
+                    #
+                    # WHAT THE LABEL-OVERLAP ASSERTION IS AND IS NOT. The
+                    # legend sits in its own full-width grid row, so no
+                    # overlap with the axis labels is STRUCTURAL rather
+                    # than lucky — and that is precisely why the check is
+                    # written as a box comparison instead of "the legend
+                    # is in its own row": it keeps measuring the property
+                    # that matters if the row is ever traded for the
+                    # absolute positioning a third Y-axis tick would have
+                    # needed. What it is NOT is the only thing measured
+                    # here; the swatch's own box is, and that one is not
+                    # structural at all (see below).
+                    for lang in ("en", "fr"):
+                        context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                        try:
+                            page = context.new_page()
+                            base_url = harness.base_url()
+                            _login(page, base_url)
+                            context.add_cookies([{
+                                "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
+                            page.goto(base_url + "/health")
+                            page.wait_for_selector(CHART_LEGEND)
+                            message = _assert_no_page_overflow(
+                                page, "/health in %s" % lang, VIEWPORT_MIN_SUPPORTED["width"])
+                            if message:
+                                return False, message
+
+                            boxes = page.evaluate(
+                                "() => {"
+                                "  const r = el => { const b = el.getBoundingClientRect();"
+                                "    return {l: b.left, t: b.top, r: b.right, b: b.bottom,"
+                                "            w: b.width, h: b.height}; };"
+                                "  const legend = document.querySelector('.sparkline-legend');"
+                                "  return {legend: r(legend),"
+                                "          text: legend.textContent.trim(),"
+                                "          font: getComputedStyle(legend).fontSize,"
+                                "          swatch: r(document.querySelector('.sparkline-swatch')),"
+                                "          card: r(document.querySelector('.battery-trend-section')),"
+                                "          grid: r(document.querySelector('.sparkline')),"
+                                "          canvas: r(document.querySelector('.sparkline__canvas')),"
+                                "          mark: r(document.querySelector('.sparkline-mark')),"
+                                "          axis: [...document.querySelectorAll('.sparkline-axis-label')]"
+                                "                  .map(r)};}")
+                            if len(boxes["axis"]) != 4:
+                                return False, (
+                                    "expected the chart's four axis labels in %s, got %d — with another "
+                                    "number this overlap check measures nothing"
+                                    % (lang, len(boxes["axis"])))
+                            legend = boxes["legend"]
+                            for index, axis in enumerate(boxes["axis"]):
+                                overlaps = (legend["l"] < axis["r"] and axis["l"] < legend["r"]
+                                            and legend["t"] < axis["b"] and axis["t"] < legend["b"])
+                                if overlaps:
+                                    return False, (
+                                        "in %s at 360px the threshold's legend %r overlaps axis label %d "
+                                        "%r" % (lang, legend, index, axis))
+
+                            # THE LEGEND MUST NOT CLAIM THE Y-LABEL
+                            # COLUMN, and this is the assertion that
+                            # makes `.sparkline__legend`'s
+                            # `grid-column: 1 / -1` measurable. Without
+                            # it the legend auto-places into column 1 —
+                            # the `auto` column sized to the widest
+                            # Y-axis label — and that column grows to fit
+                            # a whole sentence: measured at 360px, the
+                            # canvas drops from 229.97px to ~109px inside
+                            # the same 278px grid, with NO overflow and
+                            # no other signal. Every other assertion in
+                            # this check stayed green through that
+                            # mutation, which is how the gap was found.
+                            # The 0.70 share separates 0.827 (shipped)
+                            # from 0.39 (mutated) with room on both sides
+                            # and is not a layout number anyone would
+                            # otherwise tune.
+                            share = boxes["canvas"]["w"] / boxes["grid"]["w"]
+                            if share < 0.70:
+                                return False, (
+                                    "in %s at 360px the chart's canvas is %.2fpx of its %.2fpx grid "
+                                    "(%.2f) — the legend has claimed the auto-sized Y-label column and "
+                                    "squeezed the drawing, which overflows nothing and so shows up "
+                                    "nowhere else" % (lang, boxes["canvas"]["w"], boxes["grid"]["w"], share))
+
+                            # A bare inline <span> ignores width and
+                            # height, so the swatch would compute to a
+                            # zero-sized box and the legend would
+                            # describe a colour it never shows. This box
+                            # is what proves `.sparkline-legend`'s
+                            # inline-flex is doing something: measured
+                            # with `display: inline` instead, the swatch
+                            # is 0.00x11.00.
+                            swatch = boxes["swatch"]
+                            if round(swatch["w"], 2) != 12.0 or round(swatch["h"], 2) != 1.0:
+                                return False, (
+                                    "in %s at 360px the legend's swatch measures %.2fx%.2f, not the "
+                                    "12x1 it declares — an inline <span> ignores width/height, so this "
+                                    "is what proves the legend's flex context is doing something"
+                                    % (lang, swatch["w"], swatch["h"]))
+                            if boxes["font"] != "10px":
+                                return False, (
+                                    "in %s the legend renders at %s, not the 10px micro-label tier its "
+                                    "neighbours use" % (lang, boxes["font"]))
+                            if legend["r"] > boxes["card"]["r"] or legend["l"] < boxes["card"]["l"]:
+                                return False, (
+                                    "in %s at 360px the legend %r escapes its own card %r"
+                                    % (lang, legend, boxes["card"]))
+
+                            # The mark is the one new shape drawn AT the
+                            # canvas's own edge (cx=100%), so its radius
+                            # hangs outside the plot area exactly as the
+                            # existing dot and hit target already do. What
+                            # must hold is that the card absorbs it.
+                            mark = boxes["mark"]
+                            if mark["r"] > boxes["card"]["r"] or mark["t"] < boxes["card"]["t"]:
+                                return False, (
+                                    "in %s at 360px the mark's ink %r escapes the card %r — the chart's "
+                                    "x scale runs edge to edge, so the newest point's radius overhangs "
+                                    "the canvas by design and the card's padding is what must absorb it"
+                                    % (lang, mark, boxes["card"]))
+                        finally:
+                            context.close()
+
+                    # D-09, through the shared helper: all three
+                    # additions are server-rendered SVG and owe nothing
+                    # to a script. Measured in the theme+no-JS
+                    # combination most likely to be wrong.
+                    with _no_js_page(browser, harness.base_url(), "/health",
+                                     viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+                        for label, selector in (("area", CHART_AREA), ("mark", CHART_MARK),
+                                                ("threshold", CHART_THRESHOLD),
+                                                ("legend", CHART_LEGEND)):
+                            if blocked.locator(selector).count() != 1:
+                                return False, (
+                                    "with scripts blocked: expected exactly one %s, got %d"
+                                    % (label, blocked.locator(selector).count()))
+                        _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
+                        for label, selector, props in (
+                                ("area", CHART_AREA, ("fill",)),
+                                ("mark", CHART_MARK, ("fill",)),
+                                ("threshold", CHART_THRESHOLD, ("fill",))):
+                            paint = _computed_paint(blocked, selector, props)
+                            if paint["svg_default"]:
+                                return False, (
+                                    "with scripts blocked, in %s: the chart's %s resolves %r to the SVG "
+                                    "default" % (UI_THEMES_EXPLICIT[1], label, paint["svg_default"]))
+                    return True, ""
+                check(
+                    "at the 360px floor the battery chart's additions cost nothing they must not: the "
+                    "page body does not scroll sideways in EITHER language, the threshold's legend "
+                    "overlaps none of the four axis labels and stays inside its card at the 10px "
+                    "micro-label tier, its swatch measures a real 12x1 box (which an inline <span> could "
+                    "not), the canvas keeps its share of the grid rather than being squeezed by a legend "
+                    "that claimed the Y-label column, the mark's edge-hung ink stays inside the card, "
+                    "and the area, mark, threshold "
+                    "and legend all still render — and still paint dark-mode tokens — with scripts "
+                    "blocked (CFG-45, D-09, 24-05-PLAN.md Task 3)",
+                    _the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script)
+                # --- 24-06-PLAN.md Task 3 (CFG-42): the day band -------
+                #
+                # THIS CHECK OWNS ITS OWN HARNESS, and that is the only
+                # reason it costs a second subprocess. The shared fixture
+                # seeds device_health once per day for the 40 days BEFORE
+                # SEED_BASE_TS, so on any real wall clock the band's own
+                # Paris day holds nothing and there is not one mark to
+                # measure. Adding today's rows to seed_state_dir() would
+                # hand 24-05's battery chart a 41st day bucket it does
+                # not expect; an isolated harness changes no other check
+                # at all.
+                #
+                # The seeded hours are FIXED Paris clock positions and
+                # some of them are in the future relative to the wall
+                # clock when this runs. That is deliberate: the band is a
+                # picture of a DAY, midnight to midnight, and seeding by
+                # "hours before now" would make the mark count depend on
+                # what time the suite happened to run. No production path
+                # writes a future check-in.
+                BAND_SEED_PARIS_HOURS = (2, 8, 12, 18, 22)
+                BAND_MARK = ".drawing-band-mark"
+                BAND_FRAME = ".drawing-band"
+                BAND_SPAN = ".drawing-band-span"
+                BAND_SECTION = ".day-band"
+                # The shaded span has to be tellable from the band's own
+                # surface, and both are the SAME token at two strengths —
+                # so this is the one number that says the 40% share in
+                # style.css is doing something. Shipped: 1.246 light,
+                # 1.208 dark. The floor bites at roughly a 25% share
+                # (measured: 1.15 is first missed between 40% and 25%),
+                # so it separates the shipped value from a decorative one
+                # rather than sitting under everything.
+                BAND_SPAN_MIN_CONTRAST = 1.15
+                # The band's own frame against the card behind it. Faint
+                # by design — it is the day, not the data — but a frame
+                # nobody can see is a band with no extent, and the empty
+                # day would then render as literally nothing. Shipped:
+                # 1.148 light, 1.106 dark.
+                BAND_FRAME_MIN_CONTRAST = 1.05
+                # A mark crossing the shaded span is where most of a
+                # night's check-ins land, and currentColor is what is
+                # meant to keep it readable there. Shipped: 12.29 light,
+                # 11.84 dark, so the ordinary text floor is a long way
+                # below and this asserts a property rather than a
+                # coincidence.
+                BAND_MARK_MIN_CONTRAST = 4.5
+                # The height .day-band declares, and the reason this
+                # number is asserted at all: it is a CSS-only value with
+                # no Python constant behind it, which made it invisible
+                # to every check this plan wrote until a mutation found
+                # it. Removing `--drawing-canvas-height: 24px` does not
+                # overflow, does not move a mark, does not change a
+                # colour and does not fail anything — the canvas simply
+                # takes .drawing__canvas's 160px default and the day
+                # renders as a 6.7x taller BLOCK. That is the same shape
+                # of gap 24-05 found in its own `grid-column: 1 / -1`,
+                # and this is its assertion.
+                BAND_CANVAS_HEIGHT_PX = 24.0
+
+                def _band_rgba(text):
+                    """(r, g, b) 0-255 and alpha, from either of the two
+                    forms Chromium answers with.
+
+                    `color-mix()` resolves to `color(srgb 0.87 0.84 0.78
+                    / 0.4)` — components 0-1 — while a plain token
+                    resolves to `rgb(223, 215, 200)`. A single
+                    `[\\d.]+` scrape treats 0.87 as 0.87/255 of red and
+                    silently composites near-black; the prefix is the
+                    only thing that says which scale the numbers are on.
+                    """
+                    numbers = [float(v) for v in re.findall(r"[\d.]+", text)]
+                    if len(numbers) < 3:
+                        raise AssertionError("not a colour: %r" % (text,))
+                    if text.strip().startswith("color("):
+                        rgb = [v * 255 for v in numbers[:3]]
+                    else:
+                        rgb = numbers[:3]
+                    return rgb, (numbers[3] if len(numbers) > 3 else 1.0)
+
+                def _band_over(fg_text, bg_text):
+                    fg, alpha = _band_rgba(fg_text)
+                    bg, _ = _band_rgba(bg_text)
+                    return "#%02X%02X%02X" % tuple(
+                        int(round(alpha * f + (1 - alpha) * b)) for f, b in zip(fg, bg))
+
+                def _band_harness():
+                    band_harness = Harness()
+                    seed_state_dir(band_harness.tmpdir)
+                    today = datetime.now(layout.LOCAL_TZ).date()
+                    midnight = datetime.combine(
+                        today, datetime.min.time(), tzinfo=layout.LOCAL_TZ)
+                    with history_db.open_db(band_harness.tmpdir) as conn:
+                        for hour in BAND_SEED_PARIS_HOURS:
+                            history_db.record_device_health(
+                                conn, (midnight + timedelta(hours=hour)).isoformat(),
+                                battery_mv=3800)
+                    band_harness.start()
+                    return band_harness
+
+                def _the_day_bands_frame_span_and_marks_paint_real_tokens_in_both_themes():
+                    band_harness = _band_harness()
+                    try:
+                        context = browser.new_context()
+                        try:
+                            page = context.new_page()
+                            _login(page, band_harness.base_url())
+                            page.goto(band_harness.base_url() + layout.HOME_ROUTE)
+                            page.wait_for_selector(BAND_SECTION)
+                            if page.locator(BAND_MARK).count() != len(BAND_SEED_PARIS_HOURS):
+                                return False, (
+                                    "expected %d marks from the seeded day, got %d — with a "
+                                    "different number every paint read below is measuring "
+                                    "something other than what was seeded"
+                                    % (len(BAND_SEED_PARIS_HOURS),
+                                       page.locator(BAND_MARK).count()))
+                            if page.locator(BAND_SPAN).count() != 2:
+                                return False, (
+                                    "expected the fixture's 23:00-07:00 quiet hours as TWO spans, "
+                                    "got %d" % (page.locator(BAND_SPAN).count(),))
+                            seen = {}
+                            for theme in UI_THEMES_EXPLICIT:
+                                _set_ui_theme(page, theme)
+                                frame = _computed_paint(page, BAND_FRAME, ("fill",))
+                                span = _computed_paint(page, BAND_SPAN, ("fill",))
+                                mark = _computed_paint(page, BAND_MARK, ("fill",))
+                                card = page.evaluate(
+                                    "s => getComputedStyle(document.querySelector(s))"
+                                    ".backgroundColor", BAND_SECTION)
+                                for name, paint in (("frame", frame), ("span", span),
+                                                    ("mark", mark)):
+                                    if paint["svg_default"]:
+                                        return False, (
+                                            "in %s the band's %s resolves %r to the SVG default "
+                                            "(%r) — it inherited no colour at all and is black in "
+                                            "both themes" % (theme, name, paint["svg_default"],
+                                                             paint["fill"]))
+                                frame_hex = _band_over(frame["fill"], card)
+                                span_hex = _band_over(span["fill"], card)
+                                mark_hex = _band_over(mark["fill"], card)
+                                card_hex = _band_over(card, card)
+                                # THE THREE STATEMENTS MUST BE THREE. The
+                                # frame is the day, the span is a window
+                                # the device honours, a mark is something
+                                # that happened — and the first two are
+                                # the same token at two strengths, so
+                                # "not the default" says nothing at all
+                                # about whether they are distinguishable.
+                                frame_ratio = contrast_ratio(frame_hex, card_hex)
+                                if frame_ratio < BAND_FRAME_MIN_CONTRAST:
+                                    return False, (
+                                        "in %s the band's frame composites to %s over the card's "
+                                        "%s for %.3f:1, under this check's %.2f:1 floor — a frame "
+                                        "nobody can see gives the band no extent, and an empty "
+                                        "day would render as literally nothing"
+                                        % (theme, frame_hex, card_hex, frame_ratio,
+                                           BAND_FRAME_MIN_CONTRAST))
+                                span_ratio = contrast_ratio(span_hex, frame_hex)
+                                if span_ratio < BAND_SPAN_MIN_CONTRAST:
+                                    return False, (
+                                        "in %s the shaded span (%s) and the band's own surface "
+                                        "(%s) differ by only %.3f:1, under this check's %.2f:1 "
+                                        "floor — quiet hours would be shaded and invisible, which "
+                                        "is the whole of what the span is for"
+                                        % (theme, span_hex, frame_hex, span_ratio,
+                                           BAND_SPAN_MIN_CONTRAST))
+                                mark_ratio = contrast_ratio(mark_hex, span_hex)
+                                if mark_ratio < BAND_MARK_MIN_CONTRAST:
+                                    return False, (
+                                        "in %s a mark (%s) over the shaded span (%s) is %.3f:1, "
+                                        "under this check's %.2f:1 floor — most of a night's "
+                                        "check-ins land inside that span, and currentColor is "
+                                        "what is meant to keep them readable there"
+                                        % (theme, mark_hex, span_hex, mark_ratio,
+                                           BAND_MARK_MIN_CONTRAST))
+                                seen[theme] = {"frame": frame["fill"], "span": span["fill"],
+                                               "mark": mark["fill"], "card": card,
+                                               "frame_ratio": frame_ratio,
+                                               "span_ratio": span_ratio,
+                                               "mark_ratio": mark_ratio}
+                            first, second = UI_THEMES_EXPLICIT
+                            for name in ("frame", "span", "mark", "card"):
+                                if seen[first][name] == seen[second][name]:
+                                    return False, (
+                                        "the band's %s resolves to %r in BOTH %s and %s — the "
+                                        "theme token is not reaching it, and every assertion "
+                                        "above has been comparing a value to itself"
+                                        % (name, seen[first][name], first, second))
+                            # A mark really does cross a span in this
+                            # fixture, so the contrast assertion above is
+                            # about a case that occurs rather than a
+                            # hypothetical one.
+                            crossing = page.evaluate(
+                                "() => { const r = el => el.getBoundingClientRect();"
+                                "  const spans = [...document.querySelectorAll('%s')].map(r);"
+                                "  return [...document.querySelectorAll('%s')].map(r).filter("
+                                "    m => spans.some(s => m.left >= s.left && m.right <= s.right)"
+                                "  ).length; }" % (BAND_SPAN, BAND_MARK))
+                            if not crossing:
+                                return False, (
+                                    "no seeded mark falls inside a shaded span, so the "
+                                    "mark-over-span contrast assertion above measured a case "
+                                    "this fixture never produces — seed a check-in inside the "
+                                    "23:00-07:00 window")
+                            return True, ""
+                        finally:
+                            context.close()
+                    finally:
+                        band_harness.stop()
+                        band_harness.cleanup()
+                check(
+                    "the day band's frame, shaded span and check-in marks each resolve to a real "
+                    "theme token in BOTH themes and never the SVG default, all three move when "
+                    "the theme does, the span clears a 1.15:1 floor against the band's own "
+                    "surface (they are one token at two strengths, so 'not the default' says "
+                    "nothing about whether they can be told apart), the frame clears 1.05:1 "
+                    "against its card so an empty day is not literally nothing, and a mark "
+                    "crossing the span — which is where a night's check-ins land, and the "
+                    "fixture is asserted to produce one — clears 4.5:1 over it "
+                    "(CFG-42, 24-06-PLAN.md Task 3)",
+                    _the_day_bands_frame_span_and_marks_paint_real_tokens_in_both_themes)
+
+                def _the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_script():
+                    band_harness = _band_harness()
+                    try:
+                        base_url = band_harness.base_url()
+                        widths = {}
+                        for lang in ("en", "fr"):
+                            context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                            try:
+                                page = context.new_page()
+                                _login(page, base_url)
+                                context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+                                page.goto(base_url + layout.HOME_ROUTE)
+                                page.wait_for_selector(BAND_SECTION)
+                                message = _assert_no_page_overflow(
+                                    page, "%s in %s" % (layout.HOME_ROUTE, lang),
+                                    VIEWPORT_MIN_SUPPORTED["width"])
+                                if message:
+                                    return False, message
+                                boxes = page.evaluate(
+                                    "() => { const r = el => { const b ="
+                                    " el.getBoundingClientRect(); return {l: b.left, t: b.top,"
+                                    " r: b.right, b: b.bottom, w: b.width, h: b.height}; };"
+                                    "  return {canvas: r(document.querySelector("
+                                    "'%s .drawing__canvas')),"
+                                    "          section: r(document.querySelector('%s')),"
+                                    "          hours: [...document.querySelectorAll("
+                                    "'.day-band__hours span')].map(r),"
+                                    "          marks: [...document.querySelectorAll('%s')].map(r),"
+                                    "          spans: [...document.querySelectorAll('%s')].map(r)"
+                                    "  }; }" % (BAND_SECTION, BAND_SECTION, BAND_MARK, BAND_SPAN))
+                                canvas = boxes["canvas"]
+                                widths[lang] = canvas["w"]
+                                if abs(canvas["h"] - BAND_CANVAS_HEIGHT_PX) > 0.5:
+                                    return False, (
+                                        "in %s the band's canvas is %.2fpx tall, not the %.2fpx "
+                                        ".day-band declares — at .drawing__canvas's own 160px "
+                                        "default the day renders as a block rather than a band, "
+                                        "which overflows nothing and shows up nowhere else"
+                                        % (lang, canvas["h"], BAND_CANVAS_HEIGHT_PX))
+
+                                # THE MEASUREMENT UNIQUE TO THIS DRAWING,
+                                # and the one that catches a band which is
+                                # structurally perfect and visually empty.
+                                # A mark is emitted with an ABSOLUTE pixel
+                                # width into a canvas sized by CSS, so
+                                # nothing in the markup guarantees it
+                                # survives to paint; a sub-pixel mark is
+                                # not a mark.
+                                if len(boxes["marks"]) != len(BAND_SEED_PARIS_HOURS):
+                                    return False, (
+                                        "in %s expected %d marks, got %d"
+                                        % (lang, len(BAND_SEED_PARIS_HOURS),
+                                           len(boxes["marks"])))
+                                for index, mark in enumerate(boxes["marks"]):
+                                    if mark["w"] < draw.DAY_BAND_MARK_WIDTH_PX - 0.01:
+                                        return False, (
+                                            "in %s at 360px mark %d renders %.2fpx wide, under "
+                                            "the %dpx draw.py declares — a mark thinner than the "
+                                            "ink it asks for is a mark the reader cannot see"
+                                            % (lang, index, mark["w"],
+                                               draw.DAY_BAND_MARK_WIDTH_PX))
+                                    if mark["h"] < 1:
+                                        return False, (
+                                            "in %s at 360px mark %d is %.2fpx tall"
+                                            % (lang, index, mark["h"]))
+                                    if (mark["l"] < canvas["l"] - 0.01
+                                            or mark["r"] > canvas["r"] + 0.01):
+                                        return False, (
+                                            "in %s at 360px mark %d (%.2f..%.2f) escapes the "
+                                            "canvas (%.2f..%.2f) — the marks are centred on "
+                                            "their instants precisely so a 23:5x check-in's ink "
+                                            "stays on the band"
+                                            % (lang, index, mark["l"], mark["r"],
+                                               canvas["l"], canvas["r"]))
+                                for index, span in enumerate(boxes["spans"]):
+                                    if (span["l"] < canvas["l"] - 0.01
+                                            or span["r"] > canvas["r"] + 0.01):
+                                        return False, (
+                                            "in %s at 360px shaded span %d (%.2f..%.2f) escapes "
+                                            "the canvas (%.2f..%.2f)"
+                                            % (lang, index, span["l"], span["r"],
+                                               canvas["l"], canvas["r"]))
+
+                                # THE SPACING CONSTANT, RE-DERIVED FROM
+                                # THE REAL WIDTH. draw.py's own comment
+                                # records an arithmetic — 4px centre to
+                                # centre, so two 2px marks keep clear
+                                # ground between them — and its FIRST
+                                # draft did that arithmetic against an
+                                # estimated 330px band when the real one
+                                # is 278px, which made every figure in it
+                                # wrong. This is the assertion that stops
+                                # the estimate and the layout drifting
+                                # apart again: whatever the canvas
+                                # measures, the minimum spacing must
+                                # still buy the 4px.
+                                spacing_px = (draw.DAY_BAND_MIN_MARK_SPACING_PERCENT / 100.0
+                                              * canvas["w"])
+                                if spacing_px < 2 * draw.DAY_BAND_MARK_WIDTH_PX:
+                                    return False, (
+                                        "in %s the canvas measures %.2fpx, so draw.py's %.2f%% "
+                                        "minimum spacing is %.2fpx centre to centre — under the "
+                                        "%dpx two %dpx marks need to keep a clear pixel between "
+                                        "them. The constant's derivation and this layout have "
+                                        "drifted apart"
+                                        % (lang, canvas["w"],
+                                           draw.DAY_BAND_MIN_MARK_SPACING_PERCENT, spacing_px,
+                                           2 * draw.DAY_BAND_MARK_WIDTH_PX,
+                                           draw.DAY_BAND_MARK_WIDTH_PX))
+
+                                # The hour labels are placed by the same
+                                # scale the marks are: first flush left,
+                                # last flush right, middle centred. A row
+                                # that lost its flex context would stack
+                                # them at the left and silently mislabel
+                                # the whole band.
+                                hours = boxes["hours"]
+                                if len(hours) != 3:
+                                    return False, (
+                                        "in %s expected three hour labels, got %d"
+                                        % (lang, len(hours)))
+                                if abs(hours[0]["l"] - canvas["l"]) > 1.5:
+                                    return False, (
+                                        "in %s the 00:00 label starts at %.2f, not the canvas's "
+                                        "own left edge %.2f"
+                                        % (lang, hours[0]["l"], canvas["l"]))
+                                if abs(hours[2]["r"] - canvas["r"]) > 1.5:
+                                    return False, (
+                                        "in %s the 24:00 label ends at %.2f, not the canvas's "
+                                        "own right edge %.2f"
+                                        % (lang, hours[2]["r"], canvas["r"]))
+                                middle = (hours[1]["l"] + hours[1]["r"]) / 2
+                                centre = (canvas["l"] + canvas["r"]) / 2
+                                if abs(middle - centre) > 2.0:
+                                    return False, (
+                                        "in %s the 12:00 label centres at %.2f, not the band's "
+                                        "own midpoint %.2f — the labels and the marks are placed "
+                                        "by two different scales" % (lang, middle, centre))
+                                if hours[0]["l"] < boxes["section"]["l"] or (
+                                        hours[2]["r"] > boxes["section"]["r"]):
+                                    return False, (
+                                        "in %s the hour labels escape their own section"
+                                        % (lang,))
+                            finally:
+                                context.close()
+                        if abs(widths["en"] - widths["fr"]) > 0.01:
+                            return False, (
+                                "the band's canvas measures %.2fpx in English and %.2fpx in "
+                                "French — the drawing's width must not depend on the copy beside "
+                                "it" % (widths["en"], widths["fr"]))
+
+                        # D-09: server-rendered SVG owes nothing to a
+                        # script, measured in the theme+no-JS combination
+                        # most likely to be wrong.
+                        with _no_js_page(browser, base_url, layout.HOME_ROUTE,
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+                            for label, selector, expected in (
+                                    ("frame", BAND_FRAME, 1),
+                                    ("shaded span", BAND_SPAN, 2),
+                                    ("mark", BAND_MARK, len(BAND_SEED_PARIS_HOURS))):
+                                if blocked.locator(selector).count() != expected:
+                                    return False, (
+                                        "with scripts blocked: expected %d %s, got %d"
+                                        % (expected, label,
+                                           blocked.locator(selector).count()))
+                            _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
+                            for label, selector in (("frame", BAND_FRAME),
+                                                    ("span", BAND_SPAN),
+                                                    ("mark", BAND_MARK)):
+                                paint = _computed_paint(blocked, selector, ("fill",))
+                                if paint["svg_default"]:
+                                    return False, (
+                                        "with scripts blocked, in %s: the band's %s resolves %r "
+                                        "to the SVG default"
+                                        % (UI_THEMES_EXPLICIT[1], label,
+                                           paint["svg_default"]))
+                        return True, ""
+                    finally:
+                        band_harness.stop()
+                        band_harness.cleanup()
+                check(
+                    "at the 360px floor the day band is a real drawing in BOTH languages: the "
+                    "page body does not scroll sideways, every mark renders at least the 2px "
+                    "draw.py declares (a mark emitted in absolute pixels into a CSS-sized canvas "
+                    "has nothing in the markup guaranteeing it survives to paint), every mark "
+                    "and span stays inside the canvas, the minimum mark spacing re-derived from "
+                    "the canvas's MEASURED width still buys the 4px its comment claims, the "
+                    "three hour labels sit at the band's own left edge, midpoint and right edge, "
+                    "the canvas is the same width in both languages, and the whole band plus its "
+                    "two shaded spans still render and still paint dark-mode tokens with scripts "
+                    "blocked (CFG-42, D-09, 24-06-PLAN.md Task 3)",
+                    _the_day_band_is_a_real_drawing_at_360px_in_both_languages_without_script)
+
+                # --- 24-07-PLAN.md Task 3 (CFG-43): the regularity grid
+                #
+                # ITS OWN HARNESS, for the day band's reason and one
+                # more. The shared fixture's newest device_health row is
+                # 40 days before SEED_BASE_TS, so on any real wall clock
+                # the grid's 30-day window holds nothing at all and every
+                # cell is the no-observation state — three of the four
+                # states would never be painted, and every paint
+                # assertion below would be measuring a colour the page
+                # does not actually use.
+                #
+                # THE FIXTURE HAS TO BE DENSE, and that is a property of
+                # the drawing rather than a convenience. A day is judged
+                # by its LONGEST observed gap, and the first gap ending
+                # on a day is the one from the previous day's last
+                # check-in — so a day cannot read "on cadence" unless it
+                # is covered end to end. At the fixture's 300s cadence
+                # (warn 900s, error 3600s) that means a check-in at least
+                # every 15 minutes; 10 is used, which is a real cadence
+                # this device ships with rather than one chosen to sit
+                # just inside a threshold.
+                GRID_SELECTOR = ".check-in-grid"
+                GRID_CELL = ".drawing-cell"
+                GRID_SWATCH = ".check-in-key__swatch"
+                GRID_SEED_STEP_MINUTES = 10
+                # The three seeded days, newest first, each with the
+                # verdict its own hole produces. Day 1 (yesterday) has a
+                # 2-hour hole: past error. Day 2 has a 30-minute hole:
+                # past warn, short of error. Day 3 has none.
+                GRID_SEED_DAYS = (
+                    (1, 120, draw.DRAWING_CELL_MISSING_CLASS),
+                    (2, 30, draw.DRAWING_CELL_LATE_CLASS),
+                    (3, 0, draw.DRAWING_CELL_ON_CADENCE_CLASS),
+                )
+                # Today is seeded with nothing, so the fourth state is
+                # produced by the same mechanism a real fresh deployment
+                # produces it with — an absence, not a special value.
+                GRID_STATE_CLASSES = tuple(
+                    [c for _, _, c in GRID_SEED_DAYS] + [draw.DRAWING_CELL_NONE_CLASS])
+                # The app's OWN signal-separation floor, not a number
+                # invented here: four states that collapse to three in
+                # dark mode is precisely the "two colours that read as
+                # one signal at a glance" defect that constant exists
+                # for. Measured at the shipped palette, the closest pair
+                # in either theme is light warn/error at dE76 55.3.
+                GRID_MIN_SEPARATION = MIN_SIGNAL_PERCEPTUAL_DISTANCE
+                # The three verdicts are non-text graphics carrying
+                # meaning, so WCAG_AA_UI_COMPONENT (3.0) is the bar —
+                # the same one companion/test_contrast_check.py already
+                # holds --color-status-error to on every surface.
+                # Measured: 3.30/3.19/6.29 light, 10.09/10.53/6.54 dark.
+                GRID_MIN_VERDICT_CONTRAST = WCAG_AA_UI_COMPONENT
+                # The no-observation cell is DELIBERATELY below that bar
+                # and this is the number that says so out loud rather
+                # than leaving it unexamined. It is structural ink
+                # (--color-border, the token .drawing-band's own frame
+                # spends) because it is the ABSENCE of a verdict, and a
+                # day the record says nothing about must not shout as
+                # loudly as one the record faults. What it must still do
+                # is be visible at all: a cell nobody can see would make
+                # an empty month render as blank card. Measured: 1.43
+                # light, 1.34 dark, against a floor set just under the
+                # lower of the two. Its meaning is carried in text three
+                # ways regardless — the key's own word, the cell's
+                # title, and the caption — so colour is not the only
+                # route to it.
+                GRID_MIN_ABSENCE_CONTRAST = 1.25
+                GRID_MIN_CELL_PX = draw.CELL_MIN_SIZE_PX
+                GRID_SWATCH_PX = 12.0
+                # Two CSS-only lengths with no Python constant behind
+                # them, which is exactly what made 24-05's `grid-column`
+                # and 24-06's `--drawing-canvas-height` invisible to
+                # every check their own plans wrote. Both are
+                # var(--space-xs) = 4px: the clear ground under the
+                # canvas before its date labels, and the clear ground
+                # between a key swatch and the word it belongs to.
+                # Asserted here because a mutation proved that without
+                # them nothing at all failed.
+                GRID_SCALE_GAP_PX = 4.0
+                GRID_KEY_GAP_PX = 4.0
+                # And the key's own two: var(--space-sm) = 8px of clear
+                # ground above the whole key, and var(--space-md) = 16px
+                # between one labelled swatch and the next. The second is
+                # measured at 1280px, where the four items sit on one
+                # line; at 360px the key WRAPS (measured: without
+                # `flex-wrap` a French swatch is squeezed from 12.00 to
+                # 9.03px), so a gap read there would be reading a row
+                # break half the time.
+                GRID_KEY_TOP_GAP_PX = 8.0
+                GRID_KEY_ITEM_GAP_PX = 16.0
+
+                def _grid_harness():
+                    grid_harness = Harness()
+                    seed_state_dir(grid_harness.tmpdir)
+                    device_config.save_device_config(
+                        grid_harness.tmpdir, wake_interval_s=300)
+                    today = datetime.now(layout.LOCAL_TZ).date()
+                    midnight = datetime.combine(
+                        today, datetime.min.time(), tzinfo=layout.LOCAL_TZ)
+                    rows = []
+                    for days_ago, hole_minutes, _cls in sorted(GRID_SEED_DAYS, reverse=True):
+                        start = midnight - timedelta(days=days_ago)
+                        minute = 0
+                        while minute < 24 * 60:
+                            rows.append(start + timedelta(minutes=minute))
+                            # The hole sits mid-morning, well clear of
+                            # both day boundaries, so it is this day's
+                            # own gap and cannot be attributed to its
+                            # neighbour.
+                            minute += (hole_minutes if minute == 8 * 60 and hole_minutes
+                                       else GRID_SEED_STEP_MINUTES)
+                    with history_db.open_db(grid_harness.tmpdir) as conn:
+                        for index, ts in enumerate(rows):
+                            history_db.record_device_health(
+                                conn, ts.isoformat(), battery_mv=3800 + index % 7)
+                    grid_harness.start()
+                    return grid_harness
+
+                def _the_grids_four_states_stay_four_states_in_both_themes():
+                    grid_harness = _grid_harness()
+                    try:
+                        context = browser.new_context()
+                        try:
+                            page = context.new_page()
+                            _login(page, grid_harness.base_url())
+                            page.goto(grid_harness.base_url() + "/health")
+                            page.wait_for_selector(GRID_SELECTOR)
+                            counts = {
+                                cls: page.locator(".%s" % cls).count()
+                                for cls in GRID_STATE_CLASSES}
+                            # Every one of the four states must actually
+                            # be on this page, or the measurements below
+                            # are of colours the fixture never produced.
+                            # The swatch in the key carries the same
+                            # class, so each state is expected at least
+                            # twice: one cell and one swatch.
+                            missing = [c for c, n in counts.items() if n < 2]
+                            if missing:
+                                return False, (
+                                    "the fixture did not paint every state — %r appear fewer "
+                                    "than twice (a cell and its key swatch): %r. With one "
+                                    "missing, every paint assertion below measures a colour "
+                                    "this page does not use" % (missing, counts))
+                            seen = {}
+                            for theme in UI_THEMES_EXPLICIT:
+                                _set_ui_theme(page, theme)
+                                card = page.evaluate(
+                                    "s => getComputedStyle(document.querySelector(s)"
+                                    ".closest('section')).backgroundColor", GRID_SELECTOR)
+                                resolved = {}
+                                for cls in GRID_STATE_CLASSES:
+                                    cell = _computed_paint(
+                                        page, "rect.%s" % cls, ("fill",))
+                                    if cell["svg_default"]:
+                                        return False, (
+                                            "in %s the %s cell resolves %r to the SVG default "
+                                            "(%r) — it inherited no colour at all and is black "
+                                            "in both themes"
+                                            % (theme, cls, cell["svg_default"], cell["fill"]))
+                                    swatch = page.evaluate(
+                                        "s => getComputedStyle(document.querySelector(s))"
+                                        ".backgroundColor", "%s.%s" % (GRID_SWATCH, cls))
+                                    # ONE RULE, TWO KINDS OF ELEMENT. The
+                                    # modifier sets `color` and nothing
+                                    # else; the cell follows it through
+                                    # fill: currentColor and the key's
+                                    # swatch through background:
+                                    # currentColor. A key that could
+                                    # disagree with the cells it explains
+                                    # is worse than no key, and this is
+                                    # the assertion that it cannot.
+                                    if _band_over(swatch, card) != _band_over(cell["fill"], card):
+                                        return False, (
+                                            "in %s the key's %s swatch paints %r while the cell "
+                                            "it explains paints %r — the key and the grid are "
+                                            "reading two different declarations"
+                                            % (theme, cls, swatch, cell["fill"]))
+                                    resolved[cls] = _band_over(cell["fill"], card)
+                                card_hex = _band_over(card, card)
+                                for cls, hex_value in resolved.items():
+                                    floor = (GRID_MIN_ABSENCE_CONTRAST
+                                             if cls == draw.DRAWING_CELL_NONE_CLASS
+                                             else GRID_MIN_VERDICT_CONTRAST)
+                                    ratio = contrast_ratio(hex_value, card_hex)
+                                    if ratio < floor:
+                                        return False, (
+                                            "in %s the %s cell composites to %s over the card's "
+                                            "%s for %.2f:1, under this check's %.2f:1 floor"
+                                            % (theme, cls, hex_value, card_hex, ratio, floor))
+                                # THE FOUR STATES STAY FOUR. "Not the
+                                # default" says nothing about whether two
+                                # of them can be told apart, and a grid
+                                # whose late and missing cells read as
+                                # one colour in dark mode is unreadable
+                                # while every source scan stays green.
+                                for first, second in itertools.combinations(
+                                        GRID_STATE_CLASSES, 2):
+                                    distance = perceptual_distance(
+                                        resolved[first], resolved[second])
+                                    if distance < GRID_MIN_SEPARATION:
+                                        return False, (
+                                            "in %s the %s cell (%s) and the %s cell (%s) are "
+                                            "dE76 %.1f apart, under the app's own "
+                                            "MIN_SIGNAL_PERCEPTUAL_DISTANCE (%.1f) — four "
+                                            "states that read as three"
+                                            % (theme, first, resolved[first], second,
+                                               resolved[second], distance, GRID_MIN_SEPARATION))
+                                seen[theme] = dict(resolved, card=card_hex)
+                            first_theme, second_theme = UI_THEMES_EXPLICIT
+                            for cls in GRID_STATE_CLASSES + ("card",):
+                                if seen[first_theme][cls] == seen[second_theme][cls]:
+                                    return False, (
+                                        "the %s cell resolves to %r in BOTH %s and %s — the "
+                                        "theme token is not reaching it, and every assertion "
+                                        "above has been comparing a value to itself"
+                                        % (cls, seen[first_theme][cls], first_theme,
+                                           second_theme))
+                            return True, ""
+                        finally:
+                            context.close()
+                    finally:
+                        grid_harness.stop()
+                        grid_harness.cleanup()
+                check(
+                    "all FOUR of the regularity grid's cell states paint a real theme token in "
+                    "BOTH themes and never the SVG default, all four move when the theme does, "
+                    "each key swatch composites to exactly the colour of the cell it explains "
+                    "(one `color` declaration, an SVG fill and an HTML background), the three "
+                    "verdicts clear WCAG AA's 3:1 non-text bar against their card while the "
+                    "no-observation state clears its own lower, deliberate 1.25:1 floor, and "
+                    "every one of the six pairs stays past the app's own "
+                    "MIN_SIGNAL_PERCEPTUAL_DISTANCE — four states that read as three in dark "
+                    "mode is a defect no source scan can see (CFG-43, CFG-45, 24-07-PLAN.md "
+                    "Task 3)",
+                    _the_grids_four_states_stay_four_states_in_both_themes)
+
+                def _the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script():
+                    grid_harness = _grid_harness()
+                    try:
+                        base_url = grid_harness.base_url()
+                        # The probe every width below runs: the grid's
+                        # own boxes, in CSS pixels, read from the browser
+                        # rather than derived from draw.py's constants —
+                        # which is the whole point, since those constants
+                        # are what is under test.
+                        probe = (
+                            "() => { const r = el => { const b = el.getBoundingClientRect();"
+                            "  return {l: b.left, t: b.top, r: b.right, b: b.bottom,"
+                            "          w: b.width, h: b.height}; };"
+                            "  const wrap = document.querySelector('%s');"
+                            "  const svg = wrap.querySelector('svg');"
+                            "  const vb = svg.viewBox.baseVal;"
+                            "  const card = wrap.closest('section');"
+                            "  const cs = getComputedStyle(card);"
+                            "  return {"
+                            "    wrap: r(wrap), svg: r(svg), card: r(card),"
+                            "    cardInner: card.clientWidth"
+                            "      - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),"
+                            "    viewBox: [vb.width, vb.height],"
+                            "    cells: [...svg.querySelectorAll('%s')].map(r),"
+                            "    inked: [...svg.querySelectorAll('%s')].map(el => {"
+                            "      const g = el.getBBox();"
+                            "      return [g.x, g.y, g.x + g.width, g.y + g.height]; }),"
+                            "    labels: [...wrap.querySelectorAll('.drawing-axis-label')].map(r),"
+                            "    key: r(document.querySelector('.check-in-key')),"
+                            "    keyLabels: [...document.querySelectorAll("
+                            "      '.check-in-key .drawing-axis-label')].map(r),"
+                            "    swatches: [...document.querySelectorAll('%s')].map(r)"
+                            "  }; }" % (GRID_SELECTOR, GRID_CELL, GRID_CELL, GRID_SWATCH))
+                        widths = {}
+                        for lang in ("en", "fr"):
+                            context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                            try:
+                                page = context.new_page()
+                                _login(page, base_url)
+                                context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+                                page.goto(base_url + "/health")
+                                page.wait_for_selector(GRID_SELECTOR)
+                                message = _assert_no_page_overflow(
+                                    page, "/health in %s" % lang,
+                                    VIEWPORT_MIN_SUPPORTED["width"])
+                                if message:
+                                    return False, message
+                                seen = page.evaluate(probe)
+                                widths[lang] = seen["svg"]["w"]
+                                # THE CONSTANT RE-DERIVED FROM THE REAL
+                                # CARD, never assumed. draw.py's own
+                                # CARD_DRAWING_WIDTH_PX records a
+                                # measurement of exactly this box; 24-06
+                                # planned against an estimate that was
+                                # 52px wrong, so the measurement and the
+                                # constant are compared here rather than
+                                # trusted in parallel.
+                                if abs(seen["cardInner"] - draw.CARD_DRAWING_WIDTH_PX) > 0.51:
+                                    return False, (
+                                        "in %s a Health card's content box measures %.2fpx at "
+                                        "the 360px floor, against the %dpx "
+                                        "draw.CARD_DRAWING_WIDTH_PX records — every cell size "
+                                        "derived from that constant is derived from a number "
+                                        "the layout no longer has"
+                                        % (lang, seen["cardInner"], draw.CARD_DRAWING_WIDTH_PX))
+                                cells = seen["cells"]
+                                if len(cells) != health_page.CHECK_IN_WINDOW_DAYS:
+                                    return False, (
+                                        "in %s the grid draws %d cells, not the %d-day window"
+                                        % (lang, len(cells), health_page.CHECK_IN_WINDOW_DAYS))
+                                smallest = min(min(c["w"], c["h"]) for c in cells)
+                                if smallest < GRID_MIN_CELL_PX:
+                                    return False, (
+                                        "in %s the smallest cell renders %.2fpx at the 360px "
+                                        "floor, under the %dpx target-size floor the bucket "
+                                        "count is supposed to come down for"
+                                        % (lang, smallest, GRID_MIN_CELL_PX))
+                                widest = max(c["w"] for c in cells)
+                                if abs(widest - smallest) > 0.51:
+                                    return False, (
+                                        "in %s the cells render between %.2f and %.2fpx — they "
+                                        "are meant to be one square" % (lang, smallest, widest))
+                                # THE VIEWBOX CONTAINS ITS OWN INK.
+                                # 24-07-PLAN.md left the containment
+                                # proof owed by whichever label mechanism
+                                # Task 1 chose; it chose HTML spans
+                                # OUTSIDE the canvas, so there is no SVG
+                                # text to contain and the hard half of
+                                # that question does not arise. The
+                                # cells' own geometry is still measured
+                                # here rather than skipped, because the
+                                # grid is aspect-locked and a cell
+                                # painted past the viewBox clips in one
+                                # browser and not another.
+                                box_w, box_h = seen["viewBox"]
+                                for x0, y0, x1, y1 in seen["inked"]:
+                                    if x0 < -0.01 or y0 < -0.01 or x1 > box_w + 0.01 or y1 > box_h + 0.01:
+                                        return False, (
+                                            "in %s a cell inks (%.2f, %.2f)-(%.2f, %.2f), "
+                                            "outside the %.2fx%.2f viewBox"
+                                            % (lang, x0, y0, x1, y1, box_w, box_h))
+                                # ONE SCALE PLACES THE CELLS AND THE
+                                # LABELS. The label row sizes itself from
+                                # its wrapper, so the newest day's label
+                                # only sits under the newest column while
+                                # the wrapper is exactly as wide as the
+                                # canvas — which is `width: max-content`'s
+                                # entire job.
+                                if abs(seen["wrap"]["w"] - seen["svg"]["w"]) > 0.51:
+                                    return False, (
+                                        "in %s the grid's wrapper is %.2fpx wide against a "
+                                        "%.2fpx canvas, so its date labels are spread across a "
+                                        "width the cells do not occupy"
+                                        % (lang, seen["wrap"]["w"], seen["svg"]["w"]))
+                                scale = [b for b in seen["labels"]]
+                                if len(scale) != 2:
+                                    return False, (
+                                        "in %s the grid carries %d date labels, expected the "
+                                        "oldest and the newest" % (lang, len(scale)))
+                                if abs(scale[0]["l"] - seen["svg"]["l"]) > 1.01:
+                                    return False, (
+                                        "in %s the oldest date label starts at %.2f against a "
+                                        "canvas left edge of %.2f"
+                                        % (lang, scale[0]["l"], seen["svg"]["l"]))
+                                if abs(scale[-1]["r"] - seen["svg"]["r"]) > 1.01:
+                                    return False, (
+                                        "in %s the newest date label ends at %.2f against a "
+                                        "canvas right edge of %.2f — the labels and the cells "
+                                        "are placed by two scales"
+                                        % (lang, scale[-1]["r"], seen["svg"]["r"]))
+                                if abs((scale[0]["t"] - seen["svg"]["b"])
+                                       - GRID_SCALE_GAP_PX) > 1.01:
+                                    return False, (
+                                        "in %s the date labels sit %.2fpx under the canvas, not "
+                                        "the %.0fpx of clear ground the scale row declares — a "
+                                        "CSS-only length with no Python constant behind it is "
+                                        "exactly the kind this phase keeps finding unmeasured"
+                                        % (lang, scale[0]["t"] - seen["svg"]["b"],
+                                           GRID_SCALE_GAP_PX))
+                                # The key: four swatches at their
+                                # declared size, inside the card, wrapped
+                                # rather than overflowing.
+                                if len(seen["swatches"]) != len(GRID_STATE_CLASSES):
+                                    return False, (
+                                        "in %s the key carries %d swatches, expected %d"
+                                        % (lang, len(seen["swatches"]), len(GRID_STATE_CLASSES)))
+                                for swatch in seen["swatches"]:
+                                    if (abs(swatch["w"] - GRID_SWATCH_PX) > 0.51
+                                            or abs(swatch["h"] - GRID_SWATCH_PX) > 0.51):
+                                        return False, (
+                                            "in %s a key swatch renders %.2fx%.2f, not the "
+                                            "%.0fpx square it declares — a swatch a flex line "
+                                            "squeezed to nothing explains nothing"
+                                            % (lang, swatch["w"], swatch["h"], GRID_SWATCH_PX))
+                                    if swatch["r"] > seen["card"]["r"] + 0.51:
+                                        return False, (
+                                            "in %s a key swatch reaches %.2f, past its card's "
+                                            "own right edge at %.2f"
+                                            % (lang, swatch["r"], seen["card"]["r"]))
+                                if abs((seen["key"]["t"] - seen["wrap"]["b"])
+                                       - GRID_KEY_TOP_GAP_PX) > 1.01:
+                                    return False, (
+                                        "in %s the key sits %.2fpx under the drawing, not the "
+                                        "%.0fpx it declares"
+                                        % (lang, seen["key"]["t"] - seen["wrap"]["b"],
+                                           GRID_KEY_TOP_GAP_PX))
+                                if len(seen["keyLabels"]) != len(seen["swatches"]):
+                                    return False, (
+                                        "in %s the key carries %d swatches and %d words"
+                                        % (lang, len(seen["swatches"]),
+                                           len(seen["keyLabels"])))
+                                for swatch, word in zip(seen["swatches"], seen["keyLabels"]):
+                                    if abs((word["l"] - swatch["r"]) - GRID_KEY_GAP_PX) > 1.01:
+                                        return False, (
+                                            "in %s a key swatch and its word are %.2fpx apart, "
+                                            "not the %.0fpx the key declares — the second of "
+                                            "this drawing's two unbacked CSS lengths"
+                                            % (lang, word["l"] - swatch["r"], GRID_KEY_GAP_PX))
+                                    # A third declaration a first
+                                    # mutation found INERT to every
+                                    # assertion here: the swatch carries
+                                    # an explicit height, so the flex
+                                    # default cannot stretch it and
+                                    # `align-items: center` moves only
+                                    # where it sits on its own line.
+                                    # That is a visible property, so it
+                                    # is asserted rather than deleted.
+                                    swatch_mid = (swatch["t"] + swatch["b"]) / 2
+                                    word_mid = (word["t"] + word["b"]) / 2
+                                    if abs(swatch_mid - word_mid) > 1.01:
+                                        return False, (
+                                            "in %s a key swatch's centre sits %.2fpx off its "
+                                            "own word's — the two read as a swatch and a "
+                                            "caption rather than as one labelled sample"
+                                            % (lang, swatch_mid - word_mid))
+                            finally:
+                                context.close()
+                        if abs(widths["en"] - widths["fr"]) > 0.51:
+                            return False, (
+                                "the grid is %.2fpx wide in English and %.2fpx in French — its "
+                                "geometry must not depend on the copy around it"
+                                % (widths["en"], widths["fr"]))
+                        # AND WITH SCRIPTS BLOCKED. D-09's floor: the
+                        # verdicts are computed in Python and the grid
+                        # arrives complete, so this is the same drawing
+                        # with the same colours and not a reduced one.
+                        with _no_js_page(browser, base_url, "/health",
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+                            blocked.wait_for_selector(GRID_SELECTOR)
+                            _set_ui_theme(blocked, UI_THEMES_EXPLICIT[1])
+                            if blocked.locator(GRID_CELL).count() != (
+                                    health_page.CHECK_IN_WINDOW_DAYS):
+                                return False, (
+                                    "with scripts blocked the grid draws %d cells, not the "
+                                    "%d-day window"
+                                    % (blocked.locator(GRID_CELL).count(),
+                                       health_page.CHECK_IN_WINDOW_DAYS))
+                            if blocked.locator(GRID_SWATCH).count() != len(GRID_STATE_CLASSES):
+                                return False, (
+                                    "with scripts blocked the key carries %d swatches, expected "
+                                    "%d — the reading of the colours is as server-rendered as "
+                                    "the colours" % (blocked.locator(GRID_SWATCH).count(),
+                                                     len(GRID_STATE_CLASSES)))
+                            for cls in GRID_STATE_CLASSES:
+                                paint = _computed_paint(
+                                    blocked, "rect.%s" % cls, ("fill",))
+                                if paint["svg_default"]:
+                                    return False, (
+                                        "with scripts blocked, in %s: the %s cell resolves %r "
+                                        "to the SVG default"
+                                        % (UI_THEMES_EXPLICIT[1], cls, paint["svg_default"]))
+                            message = _assert_no_page_overflow(
+                                blocked, "/health with scripts blocked",
+                                VIEWPORT_MIN_SUPPORTED["width"])
+                            if message:
+                                return False, message
+                        # THE TWO RESPONSIVE DECLARATIONS, each measured
+                        # at the width where it is the one doing the
+                        # work. At 1280 the card is far wider than the
+                        # drawing, so `width: max-content` is what keeps
+                        # the label row on the cells (asserted above at
+                        # 360, where the two widths happen to coincide —
+                        # so 360 alone could not tell the property from
+                        # its absence). At 320, out of contract and still
+                        # measured by this file, the canvas is wider than
+                        # the card and `max-width`/`height: auto` are the
+                        # only things between this drawing and a
+                        # horizontal page scrollbar.
+                        for width in (VIEWPORT_DESKTOP["width"], VIEWPORT_WIDTH_NARROW):
+                            context = browser.new_context(
+                                viewport={"width": width, "height": 844})
+                            try:
+                                page = context.new_page()
+                                _login(page, base_url)
+                                page.goto(base_url + "/health")
+                                page.wait_for_selector(GRID_SELECTOR)
+                                message = _assert_no_page_overflow(
+                                    page, "/health at %dpx" % width, width)
+                                if message:
+                                    return False, message
+                                seen = page.evaluate(probe)
+                                if abs(seen["wrap"]["w"] - seen["svg"]["w"]) > 0.51:
+                                    return False, (
+                                        "at %dpx the grid's wrapper is %.2fpx against a %.2fpx "
+                                        "canvas — the label row is spread across a width the "
+                                        "cells do not occupy"
+                                        % (width, seen["wrap"]["w"], seen["svg"]["w"]))
+                                if seen["svg"]["w"] > seen["cardInner"] + 0.51:
+                                    return False, (
+                                        "at %dpx the canvas is %.2fpx inside a %.2fpx card"
+                                        % (width, seen["svg"]["w"], seen["cardInner"]))
+                                if width == VIEWPORT_DESKTOP["width"]:
+                                    # One line, four items, three gaps.
+                                    tops = {round(b["t"], 1) for b in seen["swatches"]}
+                                    if len(tops) != 1:
+                                        return False, (
+                                            "at %dpx the key's four items sit on %d lines (%r) "
+                                            "— there is 830px of card and nothing to wrap for"
+                                            % (width, len(tops), sorted(tops)))
+                                    for word, swatch in zip(seen["keyLabels"],
+                                                            seen["swatches"][1:]):
+                                        gap = swatch["l"] - word["r"]
+                                        if abs(gap - GRID_KEY_ITEM_GAP_PX) > 1.01:
+                                            return False, (
+                                                "at %dpx two of the key's labelled swatches are "
+                                                "%.2fpx apart, not the %.0fpx the key declares "
+                                                "— four states running together read as one "
+                                                "sentence" % (width, gap, GRID_KEY_ITEM_GAP_PX))
+                                box_w, box_h = seen["viewBox"]
+                                rendered_ratio = seen["svg"]["w"] / seen["svg"]["h"]
+                                if abs(rendered_ratio - box_w / box_h) > 0.02:
+                                    return False, (
+                                        "at %dpx the canvas renders %.2fx%.2f, an aspect of "
+                                        "%.3f against the viewBox's own %.3f — the cells are no "
+                                        "longer square"
+                                        % (width, seen["svg"]["w"], seen["svg"]["h"],
+                                           rendered_ratio, box_w / box_h))
+                            finally:
+                                context.close()
+                        return True, ""
+                    finally:
+                        grid_harness.stop()
+                        grid_harness.cleanup()
+                check(
+                    "the regularity grid is a real drawing at the 360px floor in BOTH languages: "
+                    "the page body does not scroll sideways, a Health card's content box still "
+                    "measures the width draw.CARD_DRAWING_WIDTH_PX records, all 30 cells render "
+                    "as one square at or above the 24px floor the bucket count is supposed to "
+                    "come down for, every cell inks inside the viewBox, the wrapper is exactly "
+                    "as wide as the canvas so the two date labels sit on the first and last "
+                    "columns, the four key swatches keep their declared 12px box inside the "
+                    "card, the geometry is identical in both languages, the whole grid still "
+                    "paints dark-mode tokens with scripts blocked, and at 1280px and 320px the "
+                    "wrapper and the canvas still agree with no page overflow and no stretched "
+                    "cell (CFG-43, CFG-45, D-09, T-24-07-D, 24-07-PLAN.md Task 3)",
+                    _the_grid_is_a_real_drawing_at_360px_in_both_languages_without_script)
+
+                # --- 24-08-PLAN.md Task 3 (CFG-44/CFG-45/D-09): the hero
+                #
+                # THE HERO'S OWN HARNESS, reusing `_band_harness()` above
+                # rather than building a second one: it is the only
+                # fixture in this file that seeds check-ins on the band's
+                # OWN Paris day, which is what makes the hero's band a
+                # real drawing instead of an empty frame — and it seeds a
+                # battery reading with them, so the ring renders too. A
+                # hero measured over an empty band would pass every
+                # stacking assertion below while showing nothing.
+                #
+                # WHAT THIS ASKS THAT THE PYTHON HARNESS CANNOT. "The
+                # hero stacks at 360px with its parts at full size" is a
+                # sentence about rendered boxes: the markup is identical
+                # whether the ring measures 36px or has been scaled to 12
+                # by a flex context, and "fits by shrinking its parts" is
+                # a page that passes an overflow check and fails the
+                # requirement.
+                # The ring's BOX is the <svg> the emitter sized, never
+                # the value arc inside it: the arc's own bounding
+                # rectangle is its diameter (30.24px at this size), which
+                # is a true number about the wrong element and reads as a
+                # shrunken ring. The arc selector is kept for the paint
+                # measurement, where the arc IS the subject.
+                HERO_RING_FIGURE = " svg.drawing__figure"
+                HERO_RING = " .drawing-ring-value"
+                HERO_BAND_CANVAS = " .day-band .drawing__canvas"
+                HERO_BAND_MARK = " .drawing-band-mark"
+                HERO_AFTER = ".home-columns.home-picture-row"
+                # The two sizes the hero must NOT change, each chosen
+                # from the 360px floor by the plan that emitted the
+                # drawing: 24-04's small ring (home_page.
+                # BATTERY_RING_SIZE, read from the module rather than
+                # restated) and 24-06's MEASURED 278px band canvas.
+                #
+                # 278 is pinned here as an equality and not as a floor,
+                # and that is the point of it: draw.DAY_BAND_MIN_MARK_
+                # SPACING_PERCENT was re-derived from this exact number,
+                # so a hero that narrowed the band would leave two
+                # check-in marks closer than the 4px that derivation
+                # bought while overflowing nothing and moving no other
+                # measurement in this file.
+                HERO_BAND_CANVAS_WIDTH_PX = 278.0
+                # The composition, as two numbers. The parts sit one
+                # --space-md apart inside the container and the container
+                # sits one --space-lg above what follows it: bound
+                # tighter than they are separated, which is the whole of
+                # the claim that Home's top is ONE thing. Both are
+                # CSS-only values with no Python constant behind them —
+                # the shape of gap 24-06 found in `--drawing-canvas-
+                # height: 24px` and 24-05 in `grid-column: 1 / -1`, each
+                # invisible to every source scan until a mutation went
+                # looking.
+                HERO_INNER_GAP_PX = 16.0
+                HERO_OUTER_GAP_PX = 24.0
+
+                def _hero_boxes(page, hero_selector):
+                    """The hero's own box, its children's, the status
+                    tiles', the ring's, the band canvas's and the box of
+                    whatever follows the hero — one probe, so the two
+                    checks below measure the same things the same way."""
+                    return page.evaluate(
+                        "args => {"
+                        "  const r = el => { const b = el.getBoundingClientRect();"
+                        "    return {l: b.left, t: b.top, r: b.right, bo: b.bottom,"
+                        "            w: b.width, h: b.height}; };"
+                        "  const one = s => { const e = document.querySelector(s);"
+                        "    return e ? r(e) : null; };"
+                        "  const hero = document.querySelector(args.hero);"
+                        "  if (!hero) return null;"
+                        "  return {hero: r(hero),"
+                        "          children: [...hero.children].map(r),"
+                        "          tiles: [...document.querySelectorAll("
+                        "            args.hero + ' .home-status-grid .stat-tile')].map(r),"
+                        "          ring: one(args.hero + args.ring),"
+                        "          band: one(args.hero + args.band),"
+                        "          marks: [...document.querySelectorAll("
+                        "            args.hero + args.mark)].map(r),"
+                        "          after: one(args.after)};"
+                        "}",
+                        {"hero": hero_selector, "ring": HERO_RING_FIGURE,
+                         "band": HERO_BAND_CANVAS, "mark": HERO_BAND_MARK,
+                         "after": HERO_AFTER})
+
+                def _hero_stack_failure(seen, where):
+                    """"" when the hero's children share one column with
+                    the declared gap between them, or a finished sentence
+                    naming the measurement that says otherwise.
+
+                    ONE COLUMN IS THREE PROPERTIES, not one. Equal lefts
+                    alone are satisfied by three boxes drawn on top of
+                    each other; equal widths alone by a row; so the
+                    vertical order is asserted too, and the gap between
+                    consecutive children is asserted as an EQUALITY
+                    rather than a minimum — a 40px gap is what a hero
+                    whose children kept their own bottom margins would
+                    render, and it passes every "at least" a reader would
+                    think to write.
+                    """
+                    children = seen["children"]
+                    if len(children) < 3:
+                        return ("%s: the hero holds %d children — the strip, the tiles and the "
+                                "band are three, and a hero measured with a part missing "
+                                "measures nothing" % (where, len(children)))
+                    first = children[0]
+                    for index, box in enumerate(children[1:], start=1):
+                        if abs(box["l"] - first["l"]) > 0.51:
+                            return ("%s: hero child %d starts at %.2f against the first child's "
+                                    "%.2f — the hero is not one column"
+                                    % (where, index, box["l"], first["l"]))
+                        if abs(box["w"] - first["w"]) > 0.51:
+                            return ("%s: hero child %d is %.2fpx wide against the first child's "
+                                    "%.2f — the hero is not one column"
+                                    % (where, index, box["w"], first["w"]))
+                    for index in range(len(children) - 1):
+                        gap = children[index + 1]["t"] - children[index]["bo"]
+                        if abs(gap - HERO_INNER_GAP_PX) > 0.51:
+                            return ("%s: the hero's parts %d and %d sit %.2fpx apart, not the "
+                                    "%.0fpx one --space-md declares. 40px is what three parts "
+                                    "that kept their own bottom margins render, and it reads as "
+                                    "three stacked blocks rather than one composition"
+                                    % (where, index, index + 1, gap, HERO_INNER_GAP_PX))
+                    if seen["after"] is None:
+                        return "%s: found nothing after the hero to measure its own gap against" % (
+                            where,)
+                    outer = seen["after"]["t"] - seen["hero"]["bo"]
+                    if abs(outer - HERO_OUTER_GAP_PX) > 0.51:
+                        return ("%s: the hero sits %.2fpx above the picture row, not the %.0fpx "
+                                "one --space-lg declares — the group has to be separated from "
+                                "what follows it by MORE than its parts are separated from each "
+                                "other, or the grouping says nothing"
+                                % (where, outer, HERO_OUTER_GAP_PX))
+                    if outer <= HERO_INNER_GAP_PX:
+                        return ("%s: the hero's inner gap (%.0fpx) is not smaller than its outer "
+                                "one (%.2fpx)" % (where, HERO_INNER_GAP_PX, outer))
+                    return ""
+
+                def _the_hero_stacks_at_360px_with_its_parts_at_the_size_their_own_plans_chose():
+                    from companion.pages import home_page
+                    hero_selector = "." + home_page.HERO_CLASS
+                    hero_harness = _band_harness()
+                    try:
+                        base_url = hero_harness.base_url()
+                        widths = {}
+                        for lang in ("en", "fr"):
+                            context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                            try:
+                                page = context.new_page()
+                                _login(page, base_url)
+                                context.add_cookies([{
+                                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                                    "url": base_url}])
+                                page.goto(base_url + layout.HOME_ROUTE)
+                                page.wait_for_selector(hero_selector)
+                                message = _assert_no_page_overflow(
+                                    page, "%s in %s" % (layout.HOME_ROUTE, lang),
+                                    VIEWPORT_MIN_SUPPORTED["width"])
+                                if message:
+                                    return False, message
+                                seen = _hero_boxes(page, hero_selector)
+                                if seen is None:
+                                    return False, "in %s there is no hero on Home" % (lang,)
+                                message = _hero_stack_failure(
+                                    seen, "in %s at %dpx"
+                                    % (lang, VIEWPORT_MIN_SUPPORTED["width"]))
+                                if message:
+                                    return False, message
+                                widths[lang] = seen["hero"]["w"]
+
+                                # THE PARTS AT FULL SIZE. A composition
+                                # that fits by scaling its parts down has
+                                # passed the overflow check above and
+                                # failed the requirement: at 12px the
+                                # ring is a dot and the band is a
+                                # texture.
+                                if seen["ring"] is None:
+                                    return False, (
+                                        "in %s the hero draws no battery ring at %dpx"
+                                        % (lang, VIEWPORT_MIN_SUPPORTED["width"]))
+                                # `ring` is the emitter's own <svg> box —
+                                # see HERO_RING_FIGURE above for why it
+                                # is not the value arc.
+                                for axis, label in (("w", "wide"), ("h", "tall")):
+                                    if abs(seen["ring"][axis]
+                                           - float(home_page.BATTERY_RING_SIZE)) > 0.51:
+                                        return False, (
+                                            "in %s the hero's ring renders %.2fpx %s, not the "
+                                            "%dpx home_page.BATTERY_RING_SIZE declares — a hero "
+                                            "that fits by shrinking its parts has passed an "
+                                            "overflow check and failed CFG-44"
+                                            % (lang, seen["ring"][axis], label,
+                                               home_page.BATTERY_RING_SIZE))
+                                if seen["band"] is None:
+                                    return False, (
+                                        "in %s the hero draws no day band at %dpx"
+                                        % (lang, VIEWPORT_MIN_SUPPORTED["width"]))
+                                if abs(seen["band"]["w"] - HERO_BAND_CANVAS_WIDTH_PX) > 0.51:
+                                    return False, (
+                                        "in %s the hero's band canvas measures %.2fpx, not the "
+                                        "%.2fpx 24-06 measured and derived draw.py's %.2f%% "
+                                        "minimum mark spacing from — narrowing the band inside "
+                                        "the hero silently invalidates that derivation"
+                                        % (lang, seen["band"]["w"], HERO_BAND_CANVAS_WIDTH_PX,
+                                           draw.DAY_BAND_MIN_MARK_SPACING_PERCENT))
+                                if abs(seen["band"]["h"] - BAND_CANVAS_HEIGHT_PX) > 0.51:
+                                    return False, (
+                                        "in %s the hero's band canvas is %.2fpx tall, not the "
+                                        "%.2fpx .day-band declares"
+                                        % (lang, seen["band"]["h"], BAND_CANVAS_HEIGHT_PX))
+                                if len(seen["marks"]) != len(BAND_SEED_PARIS_HOURS):
+                                    return False, (
+                                        "in %s the hero's band draws %d marks, not the %d "
+                                        "check-ins seeded on its day — a band inside a hero is "
+                                        "still a drawing of the day"
+                                        % (lang, len(seen["marks"]),
+                                           len(BAND_SEED_PARIS_HOURS)))
+
+                                # BOTH THEMES, SCOPED INSIDE THE HERO.
+                                # The paint is 24-04's and 24-06's
+                                # property; what is new here is the
+                                # SCOPE — these selectors only match if
+                                # the drawings really are the hero's
+                                # children in a real DOM, which no
+                                # string containment in the Python
+                                # harness can establish.
+                                painted = {}
+                                for theme in UI_THEMES_EXPLICIT:
+                                    _set_ui_theme(page, theme)
+                                    for label, selector, prop in (
+                                            ("ring value arc",
+                                             hero_selector + HERO_RING, "stroke"),
+                                            ("band mark",
+                                             hero_selector + HERO_BAND_MARK, "fill")):
+                                        paint = _computed_paint(
+                                            page, selector, ("fill", "stroke"))
+                                        if prop in paint["svg_default"]:
+                                            return False, (
+                                                "in %s, %s: the hero's %s resolves %s to the "
+                                                "SVG default — a drawing correct in one theme "
+                                                "only is a defect"
+                                                % (lang, theme, label, prop))
+                                        painted.setdefault(label, []).append(paint[prop])
+                                for label, values in painted.items():
+                                    if len(set(values)) != len(values):
+                                        return False, (
+                                            "in %s the hero's %s paints %r in every theme — "
+                                            "either the token does not invert or this "
+                                            "measurement is comparing a value with itself"
+                                            % (lang, label, values[0]))
+                            finally:
+                                context.close()
+                        if abs(widths["en"] - widths["fr"]) > 0.01:
+                            return False, (
+                                "the hero measures %.2fpx in English and %.2fpx in French — the "
+                                "composition's width must not depend on the copy inside it"
+                                % (widths["en"], widths["fr"]))
+                        return True, ""
+                    finally:
+                        hero_harness.stop()
+                        hero_harness.cleanup()
+                check(
+                    "at the 360px floor D4's hero STACKS rather than shrinks, in both languages: "
+                    "its three parts share one column with exactly the 16px one --space-md "
+                    "declares between them and 24px below the group (bound tighter than it is "
+                    "separated, asserted as equalities because a 40px gap is what parts keeping "
+                    "their own margins render and passes every 'at least'), the battery ring "
+                    "still renders at the 36px home_page.BATTERY_RING_SIZE declares and the day "
+                    "band's canvas at the 278px draw.py's mark spacing was derived from, all "
+                    "five seeded check-ins still draw, the page body does not scroll sideways, "
+                    "the hero is the same width in both languages, and the ring and the band "
+                    "paint real inverting tokens in BOTH themes through selectors scoped INSIDE "
+                    "the hero (CFG-44, CFG-45, 24-08-PLAN.md Task 3)",
+                    _the_hero_stacks_at_360px_with_its_parts_at_the_size_their_own_plans_chose)
+
+                def _the_heros_grouping_holds_at_both_widths_and_owes_nothing_to_a_script():
+                    from companion.pages import home_page
+                    hero_selector = "." + home_page.HERO_CLASS
+                    home_regions = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_HOME]
+                    hero_harness = _band_harness()
+                    try:
+                        base_url = hero_harness.base_url()
+                        measured = {}
+                        for viewport in (VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP):
+                            width = viewport["width"]
+                            context = browser.new_context(viewport=viewport)
+                            try:
+                                page = context.new_page()
+                                _login(page, base_url)
+                                page.goto(base_url + layout.HOME_ROUTE)
+                                page.wait_for_selector(hero_selector)
+                                message = _assert_no_page_overflow(
+                                    page, "%s at %dpx" % (layout.HOME_ROUTE, width), width)
+                                if message:
+                                    return False, message
+                                seen = _hero_boxes(page, hero_selector)
+                                if seen is None:
+                                    return False, "no hero on Home at %dpx" % (width,)
+                                message = _hero_stack_failure(seen, "at %dpx" % (width,))
+                                if message:
+                                    return False, message
+                                measured[width] = seen
+
+                                # THE REGISTRY, THROUGH A REAL SELECTOR
+                                # ENGINE. companion/static/freshness.js
+                                # reads these five selectors and swaps
+                                # what they match; one that matches
+                                # nothing fails SILENTLY — the page
+                                # simply stops refreshing — and
+                                # restructuring Home's DOM is exactly how
+                                # that happens. Asked here rather than
+                                # through the Flights-style witness
+                                # literal on purpose: a witness is a
+                                # SECOND transcription of the selector,
+                                # and it can agree with the page while
+                                # the selector itself disagrees.
+                                if not home_regions:
+                                    return False, (
+                                        "Home declares no refresh regions at all — with none, "
+                                        "this measures nothing")
+                                missing = page.evaluate(
+                                    "sels => sels.filter("
+                                    "  s => document.querySelectorAll(s).length === 0)",
+                                    list(home_regions))
+                                if missing:
+                                    return False, (
+                                        "at %dpx these declared Home refresh regions match "
+                                        "nothing in the rendered page: %r — a stale swap "
+                                        "selector stops the live refresh and says nothing"
+                                        % (width, missing))
+                            finally:
+                                context.close()
+
+                        # THE STACK IS A FLOOR, NOT THE ONLY BEHAVIOUR.
+                        # The hero itself is one column at every width by
+                        # design — a column of its own would have to put
+                        # the band in it, and a one-third column is
+                        # NARROWER than the 278px the band already gets
+                        # at 360px. What changes with the viewport is the
+                        # PARTS: the three status tiles stack at the
+                        # floor and share one row on the desktop.
+                        floor_tiles = measured[VIEWPORT_MIN_SUPPORTED["width"]]["tiles"]
+                        desk_tiles = measured[VIEWPORT_DESKTOP["width"]]["tiles"]
+                        if len(floor_tiles) != 3 or len(desk_tiles) != 3:
+                            return False, (
+                                "expected three status tiles inside the hero at both widths, "
+                                "got %d and %d" % (len(floor_tiles), len(desk_tiles)))
+                        if len({round(box["t"], 1) for box in floor_tiles}) != 3:
+                            return False, (
+                                "at %dpx the hero's three tiles do not each take their own row "
+                                "— the floor behaviour is a stack"
+                                % (VIEWPORT_MIN_SUPPORTED["width"],))
+                        if len({round(box["t"], 1) for box in desk_tiles}) != 1:
+                            return False, (
+                                "at %dpx the hero's three tiles sit on %d rows — the stack is "
+                                "the FLOOR behaviour, not the only one"
+                                % (VIEWPORT_DESKTOP["width"],
+                                   len({round(box["t"], 1) for box in desk_tiles})))
+                        floor_band = measured[VIEWPORT_MIN_SUPPORTED["width"]]["band"]
+                        desk_band = measured[VIEWPORT_DESKTOP["width"]]["band"]
+                        if floor_band is None or desk_band is None:
+                            return False, "the hero drew no band at one of the two widths"
+                        if desk_band["w"] <= floor_band["w"]:
+                            return False, (
+                                "the hero's band measures %.2fpx at %dpx and %.2fpx at %dpx — "
+                                "a composition that gives a drawing LESS room as the viewport "
+                                "grows has put it in a column of its own"
+                                % (floor_band["w"], VIEWPORT_MIN_SUPPORTED["width"],
+                                   desk_band["w"], VIEWPORT_DESKTOP["width"]))
+
+                        # D-09: the hero is server-rendered markup, so
+                        # with scripts blocked it is not merely present —
+                        # it is laid out identically. Compared as the
+                        # hero's OWN geometry (each child's left, width
+                        # and the gap to the next) rather than as
+                        # absolute page positions, because the freshness
+                        # line and the relative-time ticker above it are
+                        # scripted and may legitimately reflow the header
+                        # by a pixel.
+                        with _no_js_page(browser, base_url, layout.HOME_ROUTE,
+                                         viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
+                            blocked_seen = _hero_boxes(blocked, hero_selector)
+                            if blocked_seen is None:
+                                return False, "with scripts blocked there is no hero on Home"
+                            message = _hero_stack_failure(blocked_seen, "with scripts blocked")
+                            if message:
+                                return False, message
+                            scripted = measured[VIEWPORT_MIN_SUPPORTED["width"]]
+                            if len(blocked_seen["children"]) != len(scripted["children"]):
+                                return False, (
+                                    "with scripts blocked the hero holds %d children against "
+                                    "%d with scripts"
+                                    % (len(blocked_seen["children"]),
+                                       len(scripted["children"])))
+                            for index, (was, now_box) in enumerate(
+                                    zip(scripted["children"], blocked_seen["children"])):
+                                for axis in ("l", "w"):
+                                    if abs(was[axis] - now_box[axis]) > 0.51:
+                                        return False, (
+                                            "with scripts blocked hero child %d differs on %r: "
+                                            "%.2f against %.2f — nothing here may depend on a "
+                                            "script having measured something"
+                                            % (index, axis, now_box[axis], was[axis]))
+                            for label, was, now_box in (
+                                    ("ring", scripted["ring"], blocked_seen["ring"]),
+                                    ("band", scripted["band"], blocked_seen["band"])):
+                                if was is None or now_box is None:
+                                    return False, (
+                                        "the hero's %s is missing from one of the two runs"
+                                        % (label,))
+                                if abs(was["w"] - now_box["w"]) > 0.51 or abs(
+                                        was["h"] - now_box["h"]) > 0.51:
+                                    return False, (
+                                        "with scripts blocked the hero's %s measures %.2fx%.2f "
+                                        "against %.2fx%.2f with scripts"
+                                        % (label, now_box["w"], now_box["h"],
+                                           was["w"], was["h"]))
+                            missing = blocked.evaluate(
+                                "sels => sels.filter("
+                                "  s => document.querySelectorAll(s).length === 0)",
+                                list(home_regions))
+                            if missing:
+                                return False, (
+                                    "with scripts blocked these declared Home refresh regions "
+                                    "match nothing: %r" % (missing,))
+                        return True, ""
+                    finally:
+                        hero_harness.stop()
+                        hero_harness.cleanup()
+                check(
+                    "the hero's grouping is the same composition at 360px and at 1280px — one "
+                    "column with the same 16px inside and 24px below at both, no page overflow "
+                    "at either — while the three status tiles inside it stack at the floor and "
+                    "share one row on the desktop, so the stack is a FLOOR behaviour rather than "
+                    "the only one; the band gets MORE room as the viewport grows, never less; "
+                    "every one of Home's declared refresh-swap selectors still matches a real "
+                    "element through the browser's own selector engine (a stale one stops the "
+                    "live refresh silently); and with scripts blocked the hero's children keep "
+                    "their lefts, widths and gaps and both drawings keep their boxes (CFG-44, "
+                    "CFG-45, D-09, 24-08-PLAN.md Task 3)",
+                    _the_heros_grouping_holds_at_both_widths_and_owes_nothing_to_a_script)
+
             finally:
                 browser.close()
     finally:

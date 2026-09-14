@@ -87,6 +87,16 @@ CATALOG = {
     "Quiet hours turned off — applies the next time the frame wakes up.":
         "Heures calmes désactivées — s’applique au prochain réveil du "
         "cadre.",
+    # 23-07-PLAN.md Task 2 (D2/CFG-36): the Diagnostic LED's own two
+    # outcomes, worded on the Quiet-hours pair above rather than the
+    # Screen pair — like quiet hours, the LED takes effect on the frame's
+    # next wake rather than within about five minutes.
+    "Diagnostic LED turned on — applies the next time the frame wakes up.":
+        "LED de diagnostic allumée — s’applique au prochain réveil du "
+        "cadre.",
+    "Diagnostic LED turned off — applies the next time the frame wakes up.":
+        "LED de diagnostic éteinte — s’applique au prochain réveil du "
+        "cadre.",
     "Couldn't change that — please try again.":
         "Impossible de modifier ce réglage — réessayez.",
     "Saved — %s": "Enregistré — %s",

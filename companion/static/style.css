@@ -181,6 +181,39 @@
   --radius-card: 10px;
   --radius-control: 8px;
 
+  /* 23-01-PLAN.md Task 1 (D3, CFG-32): the app's ENTIRE motion budget —
+   * two durations, and deliberately no third. Mode-independent, so they
+   * sit with the radii above rather than with the themed colours below.
+   * "Zero new custom properties" was a stated achievement of Phases 20
+   * and 21, so spending two here is a deliberate, bounded exception:
+   * every animated surface Phase 23 adds takes its duration from one of
+   * these two, and a plan that believes it needs a third has to say so
+   * in its own SUMMARY instead of inlining a literal. Neither token is
+   * a timing function — an easing token would be a third custom
+   * property and the budget is two, so easing is written at the call
+   * site. companion/test_companion_app.py enforces the token-only rule
+   * on every animation duration in this file.
+   *
+   * REACTION motion: a state change the user just caused and is
+   * watching for confirmation of, so it must read as the control
+   * responding rather than as an animation playing. Intended surfaces:
+   * the Flights detail row and its rotating chevron (23-08), the save
+   * bar's entrance and its counting label (23-09), selection scale, the
+   * wash fade, the preview crossfade and the dialog entrances (23-10),
+   * and the fades on a region that refreshed itself (23-06) — those are
+   * self-initiated but somebody IS waiting to read the new value, which
+   * is what puts them here and not below. 180ms is the top of the range
+   * that still feels instant on a press. */
+  --motion-fast: 180ms;
+  /* AMBIENT motion: the one loop the page runs on its own with nobody
+   * waiting on it — the live/paused indicator's breathing dot (23-05,
+   * D14 and D22), the sole consumer of the keyframes block defined
+   * further down. An order of magnitude longer than the reaction
+   * duration on purpose: a status dot cycling at reaction speed strobes,
+   * and a strobing dot in the corner of a page somebody leaves open all
+   * day is precisely the complaint a motion budget exists to prevent. */
+  --motion-slow: 2s;
+
   /* Light mode (default) */
   --color-canvas: #F7F4EF;
   --color-dominant: #FFFFFF;
@@ -313,6 +346,307 @@ html[data-ui-theme="dark"] {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* The ONE gap the block above does not reach — recorded here, because
+ * this is where the next reader will come looking for it (23-01-PLAN.md
+ * Task 1, D3/CFG-32; measured in 23-RESEARCH.md's Risk 3 and confirmed
+ * in this project's own harness Chromium). This is a NOTE, not a rule:
+ * nothing is declared here and nothing above is edited.
+ *
+ * `*, *::before, *::after` matches ELEMENTS. The view-transition
+ * pseudo-elements — the `::view-transition` root and the
+ * `::view-transition-group()` / `::view-transition-old()` /
+ * `::view-transition-new()` tree beneath it — form a separate
+ * pseudo-element tree that none of those three selectors match. A
+ * cross-document view transition is therefore NOT switched off by the
+ * override above, and shipping one without its own opt-out would hand a
+ * reduced-motion user full-page cross-fades with no way to escape them.
+ *
+ * That gap is CLOSED, by the rule immediately below (23-04-PLAN.md
+ * Task 1, D10/CFG-33) — no longer by a future plan. It wraps the
+ * navigation at-rule in a `prefers-reduced-motion: no-preference` media
+ * query rather than zeroing these pseudo-elements' duration, and the
+ * wrapper is the better shape for one reason: it prevents the
+ * transition being SET UP at all, instead of setting one up and then
+ * running it fast. A near-zero duration is not the same thing as none —
+ * the same reasoning `.js .mobile-nav`'s narrow `none` override further
+ * down this file already rests on. */
+
+/* D10/CFG-33 (23-04-PLAN.md Task 1): cross-document view transitions —
+ * the whole feature, and the only enhancement in Phase 23 that a
+ * scripts-blocked visitor gets in full. No script, no framework, no
+ * fallback branch, no feature detection and no markup change: the
+ * browser snapshots the outgoing document and cross-fades it into the
+ * incoming one, and a browser that has not implemented this simply
+ * ignores the at-rule and navigates exactly as it did before. Baseline
+ * "limited" as of 2026-09-13 (webstatus.dev, re-read in
+ * 23-RESEARCH.md): Chrome/Edge 126+, Safari/iOS 18.2+, and NOT Firefox,
+ * which therefore sees today's instant navigation and nothing else
+ * different. Both of the design system's reference devices — the
+ * Android at 360px and the iPhone at 390px — are covered.
+ *
+ * WHY THE MEDIA WRAPPER, AND WHY IT IS NOT BELT-AND-BRACES. It is the
+ * opt-out the block above genuinely cannot provide, not a second copy
+ * of it. Source: CSS View Transitions Module Level 2, §8.3.1 — "as per
+ * default behavior, the [navigation] rule can be nested inside a
+ * conditional group rule such as @media or @supports" — and this exact
+ * nested form was verified to parse and to be RETAINED in the CSSOM in
+ * this project's own harness Chromium (151.0.7922.34), not assumed from
+ * the prose. Wrapping it means that under reduced motion the
+ * transition is never SET UP; the alternative (an `animation: none`
+ * override on the pseudo-elements) would set one up and then run it at
+ * a zeroed duration, which is strictly weaker AND is the dead-code-
+ * not-a-safety-net pattern `references/accessibility-contrast.md`
+ * records. There is deliberately no such override anywhere in this
+ * file.
+ *
+ * SAME-ORIGIN ONLY, by spec — stated here rather than left as an
+ * unstated assumption: the browser only runs a transition between two
+ * same-origin documents. Nothing in this app links off-origin from a
+ * page carrying this at-rule, so no additional gate is needed; if one
+ * is ever added, it degrades to an ordinary navigation on its own.
+ *
+ * THE THREE NAMES BELOW MUST BE UNIQUE PER RENDERED DOCUMENT, and that
+ * is the one way this feature fails silently: a name that matches twice
+ * makes the browser drop the transition with no error anywhere. Read
+ * this before "simplifying" any of the three selectors — companion/
+ * layout.py puts TWO navigation landmarks into EVERY authenticated
+ * document simultaneously, the sidebar's own vertical one and the
+ * bottom tab bar, hidden from one another only by the 960px media query
+ * further down this file. (23-RESEARCH.md and this plan both say three,
+ * counting the preferences panel's copy — that one was REMOVED rather
+ * than emptied by 22-14, so the hazard is two-fold today and would be
+ * three-fold again the moment a panel-level landmark returns.) A name
+ * hung on a class those share, or on the bare `nav` element, is
+ * therefore declared once in this file and resolves twice in the
+ * document, and the whole cross-fade vanishes. The sidebar is targeted
+ * by `.dashboard-sidebar`, its own `<aside>` class, rendered exactly
+ * once. `.page-title` is page_header()'s single `<h1>`, and
+ * `.preview-frame__image` is Home's frame picture and the app's only
+ * render site of that class. companion/test_browser_ux.py counts the
+ * COMPUTED value on every authenticated route, because only a browser
+ * can see a selector matching twice — and that is not hypothetical:
+ * mutating `.dashboard-sidebar` to `nav` was measured here, and it
+ * resolves to `nav.sidebar-nav` and `nav.tab-bar` on all six routes
+ * while every source-level scan in this repository stays green.
+ *
+ * Each name is declared in a rule of its own on purpose. In particular
+ * `.preview-frame__image` shares its white-backing/hairline/radius
+ * declarations with `.now-showing__image`, `img.recent-flight__thumb`
+ * and `img.history-card__thumb` in one four-selector rule below, and
+ * the thumbnails render once PER ROW — putting a name on that shared
+ * rule would collide dozens of times on Flights. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}
+
+.dashboard-sidebar {
+  view-transition-name: skypane-sidebar;
+}
+
+.page-title {
+  view-transition-name: skypane-title;
+}
+
+.preview-frame__image {
+  view-transition-name: skypane-picture;
+}
+
+/* The app's FIRST and ONLY keyframes block (23-01-PLAN.md Task 1,
+ * D3/CFG-32). This stylesheet carried zero before this plan; this one
+ * is the whole vocabulary, and companion/test_companion_app.py fails if
+ * a second one ever appears.
+ *
+ * ONE block, TWO consumers, on purpose. D14's "breathing dot" on the
+ * relative-time ticker and D22's "pulsing dot" on the live/paused
+ * indicator are the same animation described twice in 22-AUDIT.md;
+ * 23-RESEARCH.md names two near-identical keyframe blocks as the
+ * specific failure to avoid, and that failure is the entire reason this
+ * single definition exists. The name carries the app's own prefix for
+ * the same reason — a generic `pulse` is exactly the name a later plan
+ * redefines without noticing.
+ *
+ * It cycles OPACITY and nothing else. Never `transform: scale()` on a
+ * dot: these indicators are ~6px, so scaling one repaints a layout box
+ * sixty times a second for a movement nobody can see. The floor is
+ * 0.35 rather than 0 — a dot that vanishes outright reads as a
+ * rendering fault, not as a heartbeat.
+ *
+ * DEFINED here, CONSUMED by 23-05. This plan declares the animation on
+ * no selector at all, and that is safe by construction: the guard
+ * asserts every animation reference resolves to a block defined in this
+ * file, so an unused definition costs nothing and a dangling reference
+ * cannot ship. Its duration must come from `var(--motion-slow)` at the
+ * call site; the guard rejects a bare literal there. */
+@keyframes skypane-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* 23-06-PLAN.md Task 2 (D1/CFG-35, spending 23-01's D3/CFG-32 budget):
+ * the app's SECOND keyframes block, and the argument for it rather than
+ * a bare assertion that it was needed.
+ *
+ * 23-01 declared one block and said a plan that believes it needs
+ * another has to say so. This one does: `skypane-pulse` cycles opacity
+ * between 1 and 0.35 forever, and what a refreshed picture needs is a
+ * ONE-SHOT ramp from 0 to 1. Reusing the pulse would mean running an
+ * infinite animation for one iteration and accepting its 0.35 floor as
+ * the starting opacity, which is a different visual (the picture would
+ * appear at a third of its weight rather than from nothing) and a
+ * misuse of a block whose own comment says it is the AMBIENT loop. Two
+ * blocks, two motions, each named for what it does.
+ *
+ * It is a fade and nothing else: no transform, no scale. The picture is
+ * a 600x800 image and animating its geometry would repaint a large box
+ * on a phone for an effect nobody asked for.
+ *
+ * Its duration comes from `var(--motion-fast)` at the call site below —
+ * 23-01's REACTION token, which names "the fades on a region that
+ * refreshed itself (23-06)" among its own intended surfaces. Somebody
+ * IS waiting to read the new value, which is what puts it there rather
+ * than on the ambient token. companion/test_companion_app.py's motion
+ * guard rejects a bare literal there and requires every animation name
+ * to resolve to a block defined in this file; both hold. */
+@keyframes skypane-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 23-08-PLAN.md Task 1 (D7/CFG-37, spending 23-01's D3/CFG-32 budget):
+ * the app's THIRD keyframes block, argued for rather than assumed, the
+ * way the second one was.
+ *
+ * The two existing blocks are both about OPACITY: one cycles it forever
+ * (the ambient pulse), one ramps it once from nothing (the fade). What a
+ * newly-arrived row needs is neither. Fading a table row in from zero
+ * opacity would make a line of text materialise out of the page
+ * background — the row was not absent a moment ago in any sense the
+ * reader experienced, it simply was not there yet — and running the
+ * pulse would leave it flashing forever. What says "this one just
+ * landed" is a wash of colour on the row that drains away, leaving the
+ * row exactly as every other row looks. So: a background tint, and
+ * nothing else moves.
+ *
+ * IT FADES TO A TRANSPARENT FORM OF ITS OWN COLOUR, not to `transparent`
+ * the keyword, and that is a correctness point rather than a style one.
+ * The final keyframe is the last thing painted before the animation
+ * hands the element back to its ordinary computed style; a final value
+ * of `transparent` would be the same PAINT as the row's real background
+ * only for rows whose real background is already nothing. Ending on the
+ * same colour at zero alpha means the last animated frame and the first
+ * un-animated one are the same pixels, so there is no snap at the end
+ * on a row that has a background of its own (the hover tint, a future
+ * zebra, a card surface).
+ *
+ * No new colour literal: `--color-accent` at this file's own
+ * color-mix-with-transparent idiom, the same shape every wash in this
+ * stylesheet already uses.
+ *
+ * Its duration comes from `var(--motion-slow)` at the call site below.
+ * That is 23-01's AMBIENT token and the choice is deliberate: nobody
+ * pressed anything and nobody is waiting: the page ran this on its own
+ * to report something that happened elsewhere. A 180ms flash on a row
+ * the reader was not looking at would be over before their eye reached
+ * it, which is the same as no signal at all.
+ *
+ * UNDER REDUCED MOTION THIS DOES NOT WASH, and there is no block here
+ * saying so — the global override earlier in this file already zeroes
+ * animation-duration for every element, and a per-rule block would be
+ * the dead-code-not-a-safety-net pattern accessibility-contrast.md
+ * records a verdict on. The stylesheet's live reduce-block count stays
+ * at two. The outcome under that preference is correct rather than
+ * merely acceptable: the new row is still at the top of the list, which
+ * is itself the information. */
+@keyframes skypane-row-arrive {
+  from {
+    background-color: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+  to {
+    background-color: color-mix(in srgb, var(--color-accent) 0%, transparent);
+  }
+}
+
+/* 23-09-PLAN.md Task 1 (D3/CFG-32, spending 23-01's budget): the app's
+ * FOURTH keyframes block, argued for rather than assumed, the way the
+ * second and third were.
+ *
+ * The three existing blocks are an opacity CYCLE (the ambient pulse), an
+ * opacity RAMP (the fade a refreshed region spends) and a background
+ * WASH (a row that just landed). None of them moves anything. What the
+ * save bar needs is the one motion none of them describes: it has to
+ * ARRIVE — travel a short distance into the position it then keeps —
+ * because that is the difference between a control the reader watches
+ * appear and one that was apparently always there and they simply had
+ * not noticed. The fade alone would have made a bar carrying the only
+ * Save button on the page materialise out of the page background.
+ *
+ * WHY AN ANIMATION RATHER THAN A TRANSITION, which is the real decision
+ * here. The bar goes from `display: none` (its server-rendered `hidden`
+ * attribute) to displayed, and a transition has no previous computed
+ * value to start from across that change — it needs an @starting-style
+ * entry, which is exactly what 23-08 wrote for the Flights detail row.
+ * That was right there and is wrong here: @starting-style is newer than
+ * this component's audience, so a transition would move for some
+ * visitors and silently do nothing for the rest. That is the shape of
+ * failure 23-01's interpolate-size ban exists to stop, and it is not a
+ * smaller failure because the property involved is Baseline-newer
+ * rather than Chromium-only. An animation runs for everyone, and an
+ * element that is `display: none` runs none of it, so the
+ * scripts-blocked reader — for whom this bar never appears at all — is
+ * reached by nothing here either.
+ *
+ * TRANSFORM AND OPACITY, AND NOTHING ELSE, and that ban is a
+ * correctness rule rather than a performance one. This component's own
+ * history is why: a bar stranded at an intermediate SIZE is a blocked
+ * save, and this app has already shipped a blocked save once (B1). The
+ * `.js .mobile-nav` override further down this file is the recorded
+ * precedent for a size-interpolating transition stranding a computed
+ * value when its duration is forced to 0.01ms. Neither property here
+ * can strand anything: with no fill mode the element is handed straight
+ * back to its own computed style the instant the animation ends, and
+ * that style has never mentioned either property.
+ *
+ * The travel is `--space-md`, the file's own spacing token, and it is
+ * DOWNWARD-origin on purpose: the bar is pinned to the bottom of the
+ * viewport at both breakpoints, so arriving from below it is the
+ * direction it would come from if it were a physical object sliding
+ * into place, and it never crosses the content it is about to sit over.
+ *
+ * Its duration comes from `var(--motion-fast)` at the call site. That is
+ * 23-01's REACTION token by its own definition — the user just made an
+ * edit and is watching for the confirmation that it can be saved — and
+ * 23-01's own comment already names "the save bar's entrance" among the
+ * surfaces it was chosen for. The guard rejects a bare literal there.
+ *
+ * UNDER REDUCED MOTION THIS DOES NOT SLIDE, and there is no block here
+ * saying so — the global override earlier in this file already zeroes
+ * animation-duration for every element, and a per-rule block would be
+ * the dead-code-not-a-safety-net pattern accessibility-contrast.md
+ * records a verdict on. The stylesheet's live reduce-block count stays
+ * at two. The outcome under that preference is correct rather than
+ * merely tolerable: the bar is simply there, at full opacity, in its
+ * final position, which is what it did before this plan. */
+@keyframes skypane-bar-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-md));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -1217,6 +1551,90 @@ select.visually-hidden {
   background: color-mix(in srgb, var(--color-text) 30%, transparent);
 }
 
+/* 23-05-PLAN.md Task 2 (D14/D22/CFG-34): the FIFTH consumer of the
+ * neutral "off" dot rule immediately above, and the first and only
+ * consumer of the one animation block this stylesheet defines
+ * (23-01-PLAN.md Task 1). It is that rule's existing neutral treatment
+ * PLUS motion — no new dot rule, no new dot class, no new colour, no
+ * accent and no status colour. (The dot class-name occurrence count in
+ * this file is pinned by companion/test_status_pages.py, which greps
+ * the RAW source, so this paragraph deliberately does not spell the
+ * modifier out. A comment is not a rule and must not be counted as
+ * one.) A refresh loop that is listening is not a device verdict and
+ * must not borrow one's paint.
+ *
+ * It shares the contract every other consumer of that rule shares,
+ * stated in .claude/skills/sketch-findings-skypane/SKILL.md: a neutral,
+ * everyday state that is not a problem. Screen off, Quiet hours off,
+ * freshness.js's Paused/Reconnecting badge — and now a live/paused
+ * refresh indicator, plus a countdown that has reached its instant and
+ * is simply waiting. Plan 23-11 records this consumer in the design
+ * system.
+ *
+ * NOT a dot modifier, deliberately: companion/static/relative-time.js
+ * puts this same class on a <time> element whose countdown has run out,
+ * so the class has to name the motion rather than the component. Two
+ * consumers, one rule, one animation block.
+ *
+ * UNDER REDUCED MOTION THIS DOES NOT BREATHE, and there is no block
+ * here saying so. The global `*, *::before, *::after` override earlier
+ * in this file already zeroes animation-duration for every element, and
+ * a per-rule block would be the dead-code-not-a-safety-net pattern
+ * `accessibility-contrast.md` records a verdict on. The stylesheet's
+ * live reduce-block count stays at two and
+ * companion/test_companion_app.py fails if it moves. */
+.is-breathing {
+  animation: skypane-pulse var(--motion-slow) ease-in-out infinite;
+}
+
+/* 23-06-PLAN.md Task 2 (D1/CFG-35): the class companion/static/
+ * freshness.js puts on a refreshed picture, and ONLY when the picture
+ * genuinely changed — that file compares the image's own `src` before
+ * adding it. A fade on every swap would flash the page every 45 seconds
+ * to say nothing, which is worse than no fade at all: motion that
+ * carries no information is the thing a motion budget exists to stop.
+ *
+ * It names the MOTION, not the component, for the same reason
+ * `.is-breathing` above does: the next region that refreshes itself
+ * spends this same rule rather than writing a second one.
+ *
+ * `ease-out` at the call site because easing is not a token (23-01
+ * spent exactly two custom properties and easing was deliberately not
+ * one of them). One iteration, no fill mode: the element's own opacity
+ * is 1 before and after, so there is nothing to hold.
+ *
+ * UNDER REDUCED MOTION THIS DOES NOT FADE, and there is no block here
+ * saying so — the global override earlier in this file already zeroes
+ * animation-duration for every element, and a per-rule block would be
+ * the dead-code-not-a-safety-net pattern accessibility-contrast.md
+ * records a verdict on. The stylesheet's live reduce-block count stays
+ * at two. */
+.is-fading-in {
+  animation: skypane-fade-in var(--motion-fast) ease-out;
+}
+
+/* 23-08-PLAN.md Task 1 (D7/CFG-37): the class companion/static/
+ * freshness.js puts on a row whose identity was NOT in the set it knew
+ * before the swap — a detection that arrived while the page was open,
+ * and only that.
+ *
+ * ONE class, both renderings. Flights renders every flight twice (a
+ * desktop `<tr>` and a phone `<li>`) and the diff marks whichever
+ * carries the identity, so a single rule serves both rather than two
+ * rules that would have to be kept in step.
+ *
+ * It names the MOTION, not the component, the same way `.is-breathing`
+ * and `.is-fading-in` above do: the next list that wants to say "this
+ * one is new" spends this rule instead of writing a fourth block.
+ *
+ * `ease-out` at the call site because easing is not a token (23-01 spent
+ * exactly two custom properties and easing was deliberately not one of
+ * them). One iteration, no fill mode: the row's own background is its
+ * ordinary one before and after, so there is nothing to hold. */
+.is-new-row {
+  animation: skypane-row-arrive var(--motion-slow) ease-out;
+}
+
 .dot-label {
   font-size: var(--font-label-size);
   vertical-align: middle;
@@ -1746,6 +2164,23 @@ button:active {
   border-radius: var(--radius-card);
   margin-top: var(--space-md);
   box-shadow: var(--shadow-card-hover), 0 12px 32px rgba(18, 21, 27, 0.16);
+  /* 23-09-PLAN.md Task 1 (D3/CFG-32): the entrance. Declared on the
+   * base rule, so the component has ONE arrival at both breakpoints
+   * rather than one per width — the same discipline its own z-index
+   * comment argues for below. The block it names, and the reason it is
+   * an animation rather than a transition, are at the keyframes' own
+   * site near the top of this file. `ease-out` at the call site because
+   * easing is not a token: 23-01 spent exactly two custom properties and
+   * easing was deliberately not one of them.
+   *
+   * It fires when the bar's own `display` changes from `none`, which is
+   * the only way this element is ever revealed (companion/static/
+   * dirty-state.js sets `bar.hidden = false`, and the `[hidden]`
+   * override immediately below is what makes that attribute mean
+   * anything against the `display: flex` above). Setting `hidden = false`
+   * on a bar that is already shown is not a style change, so a second
+   * edit moves only the count, not the whole bar again. */
+  animation: skypane-bar-arrive var(--motion-fast) ease-out;
 }
 
 /* Without this, the native `hidden` attribute dirty-state.js relies on to
@@ -1990,6 +2425,44 @@ button:disabled {
   flex: 1 1 0;
   min-width: 0;
   cursor: pointer;
+  /* 23-10-PLAN.md Task 1 (D3/CFG-32) — SELECTION ANSWERS, AND WHY THIS
+   * DECLARATION IS ON THE BASE RULE AND NOT IN A FEATURE QUERY.
+   *
+   * Read this before reaching for `@supports`. The strong selected
+   * treatment for this component is driven by live `:has(input:checked)`
+   * state, which lives inside the ONE feature-query block further down,
+   * and the file is pinned at exactly one such block by two checks in
+   * companion/test_config_page.py. The obvious way to animate a rule
+   * that lives inside a feature query is to write a second feature
+   * query — Phase 15's D-05 did exactly that and had it retired, and
+   * 23-RESEARCH.md names it as the single largest threat to that count
+   * in the whole of Phase 23.
+   *
+   * It is not needed, and the reason is one sentence: a transition is a
+   * property of the ELEMENT, not of the state. Declared here, on the
+   * base rule, it animates each property however the state that changes
+   * it is reached — through `:has(input:checked)` inside the query on a
+   * browser that supports `:has()`, and through the server-rendered
+   * `--selected` fallback outside it on a browser that does not. One
+   * declaration, both mechanisms, identical result. The same reason
+   * covers the hover/focus-within reveal above for free.
+   *
+   * The four properties named are the four that actually change on
+   * selection (the scale, the accent edge, the inset ring and the 12%
+   * wash); `transition: all` is deliberately not used, since it would
+   * also animate the layout properties this component's own geometry
+   * contract depends on. `var(--motion-fast)` is the phase's REACTION
+   * token: a selection is a state change the user just caused and is
+   * watching for confirmation of. No per-rule reduced-motion block is
+   * added — the single global `@media (prefers-reduced-motion: reduce)`
+   * override near the top of this file already zeroes every transition
+   * duration in it, and a second one here is the dead code
+   * `references/accessibility-contrast.md` records rather than a safety
+   * net. */
+  transition: transform var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
 }
 
 /* Scoped with :not(.runway-card--selected) so this rule is structurally
@@ -2060,10 +2533,28 @@ button:disabled {
  * still cannot reach a selected card after this addition, since it adds
  * a new property to this same already-excluded selector rather than
  * touching the hover rule itself. */
+/* 23-10-PLAN.md Task 1 (D3/CFG-32): the scale is declared on BOTH the
+ * `--selected` fallback here and the live `:has(input:checked)` rule
+ * inside the feature query, at the SAME value — the identical parity
+ * contract T6 already holds for the border and the ring, and for the
+ * identical reason: a browser without `:has()` must render a
+ * selected card the same size as a browser with it.
+ *
+ * A `transform` and not a width, a padding or a border, and that is the
+ * whole point: a transform paints at a different size without
+ * participating in layout at all, so T6's defect (a selected card 2px
+ * wider than its siblings, measured at 98.67px against 96.66px at
+ * 390px, pushing them along the row) is structurally incapable of
+ * recurring through it. companion/test_browser_ux.py measures the
+ * layout box through offsetWidth rather than
+ * getBoundingClientRect() precisely because that distinction is the
+ * thing being asserted. 1.02 is punctuation, not a bounce: the wash's
+ * fade is the primary signal. */
 .runway-card--selected {
   border-color: var(--color-accent);
   box-shadow: inset 0 0 0 2px var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  transform: scale(1.02);
 }
 
 .runway-card__number {
@@ -2148,6 +2639,17 @@ button:disabled {
   /* Clips the preview <img> to the chip's own rounded corners. */
   overflow: hidden;
   cursor: pointer;
+  /* 23-10-PLAN.md Task 1 (D3/CFG-32): the same base-rule transition
+   * `.runway-card` above carries, for the same reason — see that rule's
+   * own comment for why this is NOT wrapped in a second
+   * `@supports selector(:has(*))` block and must never be. The wash
+   * itself is scoped to `.theme-chip__body` on this component (the
+   * preview band must never be tinted), so its own fade is declared
+   * there rather than here; this rule animates the three properties
+   * that change on the chip itself. */
+  transition: transform var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease;
 }
 
 /* T6's one chip-specific addition (22-15-PLAN.md Task 1). An inset
@@ -2209,6 +2711,16 @@ button:disabled {
 .theme-chip--selected {
   border-color: var(--color-accent);
   box-shadow: inset 0 0 0 2px var(--color-accent);
+  /* 23-10-PLAN.md Task 1 (D3/CFG-32): the fallback half of the scale
+   * parity pair — see `.runway-card--selected`'s comment above for the
+   * full reasoning, and note this component's OWN T6 history: the chip
+   * is a fixed `width: 160px`, so its outer box never grew; what the
+   * 2px border did instead was eat 1px of that 160px on each side, so
+   * the selected chip's preview band and body were 2px narrower than
+   * its neighbours' and the swatch row reflowed. A transform cannot do
+   * that either — it scales the painted result and leaves every box,
+   * inner and outer, exactly where it was. */
+  transform: scale(1.02);
 }
 
 /* 06.6.4.1.1-06 (developer checkpoint follow-up): same background-wash
@@ -2242,6 +2754,18 @@ button:disabled {
 .theme-chip__body {
   display: block;
   padding: var(--space-sm);
+  /* 23-10-PLAN.md Task 1 (D3/CFG-32): the wash FADES rather than cuts.
+   * It is declared here and not on `.theme-chip` because the wash
+   * itself is scoped here — the preview band above it is the theme's
+   * own real, undithered render and a wash across it would tint the one
+   * thing the chip exists to show. Base rule, one declaration, both the
+   * live `:has(input:checked)` treatment and the `--selected` fallback:
+   * see `.runway-card`'s own transition comment for why that removes
+   * any need for a second feature query. The colour is unchanged — this
+   * animates the existing
+   * `color-mix(in srgb, var(--color-accent) 12%, transparent)` in, it
+   * introduces no new colour and no new accent consumer. */
+  transition: background-color var(--motion-fast) ease;
 }
 
 .theme-chip__name {
@@ -2364,6 +2888,13 @@ button:disabled {
   .theme-chip:has(input:checked) {
     border-color: var(--color-accent);
     box-shadow: inset 0 0 0 2px var(--color-accent);
+    /* 23-10-PLAN.md Task 1 (D3/CFG-32): the live half of the scale
+     * parity pair, matching `.theme-chip--selected`'s own value exactly.
+     * NOTHING ELSE about this plan's change lives inside this block —
+     * the property that animates it is declared on `.theme-chip`'s base
+     * rule, outside this query, which is what keeps the file's
+     * feature-query count at one. */
+    transform: scale(1.02);
   }
 
   .theme-chip:has(input:checked) .theme-chip__body {
@@ -2410,6 +2941,12 @@ button:disabled {
   .theme-chip--selected:not(:has(input:checked)) {
     border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
     box-shadow: none;
+    /* 23-10-PLAN.md Task 1 (D3/CFG-32): clears the selection scale for
+     * the same reason the two declarations above clear the ring and the
+     * next rule clears the wash — a chip can be SAVED at the very
+     * moment its neighbour is the LIVE choice, and two scaled chips
+     * would claim two selections. */
+    transform: none;
   }
 
   .theme-chip--selected:not(:has(input:checked)) .theme-chip__body {
@@ -2476,6 +3013,11 @@ button:disabled {
     border-color: var(--color-accent);
     box-shadow: inset 0 0 0 2px var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    /* 23-10-PLAN.md Task 1 (D3/CFG-32): the live half of this
+     * component's scale parity pair — see `.runway-card--selected` for
+     * the reasoning, and `.runway-card`'s base rule for the property
+     * that animates it, which is deliberately NOT in here. */
+    transform: scale(1.02);
   }
 
   .runway-card:has(input:checked) .runway-card__check {
@@ -2499,6 +3041,9 @@ button:disabled {
     border: 1px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
     box-shadow: none;
     background: transparent;
+    /* 23-10-PLAN.md Task 1 (D3/CFG-32): clears the selection scale — see
+     * the chip's own saved-state rule above. */
+    transform: none;
   }
 
   .runway-card--selected:not(:has(input:checked)) .runway-card__check {
@@ -3014,9 +3559,97 @@ table.data-table--registry .cell-inline-sep {
 /* D-15's own no-JS floor: visible by default. flight-rows.js adds
  * this class to every .flight-detail-row at load, mirroring
  * nav-dropdown.js's own "document.documentElement.className += ' js'"
- * convention for a component-scoped hide instead of a page-wide one. */
+ * convention for a component-scoped hide instead of a page-wide one.
+ *
+ * 23-08-PLAN.md Task 2 (D3/CFG-32): THIS DECLARATION IS THE DELIBERATE
+ * CHOICE, and it stays exactly as it is. The height animation below is
+ * ONE-DIRECTIONAL: opening animates, closing is instant. The
+ * alternative D3 allows — keeping the row present and driving
+ * `display` through `transition-behavior: allow-discrete` so it leaves
+ * the flow only once the collapse finishes — was considered and
+ * declined, for one reason that outranks the nicer closing animation:
+ * for the whole of that transition, and for any browser that does not
+ * support the property, the row's links, buttons and copy controls are
+ * still in the tab order and still in the accessibility tree. A
+ * keyboard user tabbing past a "closed" row would land inside it, and a
+ * screen reader would read out a row nobody can see. `display: none` is
+ * the only end state that removes an element from BOTH, with no support
+ * question attached, and it is the property companion/test_view_pages.py
+ * and companion/test_browser_ux.py both assert. A row that shuts
+ * instantly is a smaller loss than a row that is secretly still there. */
 .flight-detail-row--collapsed {
   display: none;
+}
+
+/* 23-08-PLAN.md Task 2 (D3/CFG-32): the detail row opens with HEIGHT.
+ *
+ * WHY THERE IS A WRAPPER AT ALL, since that is the first thing a reader
+ * of this rule will wonder. The obvious place for the animation is the
+ * row, and the row cannot carry it: a <tr> is `display: table-row`, so
+ * it is not a grid container and has no row track to grow; and
+ * `display` is a DISCRETE property, so it jumps rather than
+ * interpolates no matter what is declared. So the animation lives one
+ * level down, inside the <td>, on a wrapper
+ * companion/pages/history_page.py renders for exactly this purpose.
+ *
+ * The mechanism is `grid-template-rows` between `0fr` and `1fr` — a
+ * single-track grid whose track grows from nothing to its content's own
+ * height, with the inner element clipping what does not fit yet. It is
+ * the mechanism 23-RESEARCH.md's Baseline table picks for this job, and
+ * the reason is the two things it is NOT: not a guessed `max-height`
+ * (which either clips tall content or animates through empty space on
+ * short content, and here the content varies per row — a flight with no
+ * hex and no runway has half the rows of one with both), and not
+ * `interpolate-size`/`calc-size()`, which are Chromium-only and would
+ * animate for some visitors while silently doing nothing for the rest.
+ * 23-01's own guard bans both by name.
+ *
+ * `min-height: 0` on the inner element is load-bearing and not
+ * defensive: a grid item's automatic minimum size is its content's, so
+ * without it the track never actually reaches 0fr and the row would
+ * simply appear at full height with a pointless transition attached.
+ *
+ * SCOPED TO THE CLASS flight-rows.js ADDS TO <html> ITSELF, which is
+ * the no-JS floor rather than tidiness. With scripts blocked every
+ * detail row is rendered open and stays open — that is D-15, locked —
+ * and an unscoped @starting-style would then run this entry animation
+ * on every one of up to fifty rows at first paint, unfolding the whole
+ * page in front of a reader who has touched nothing. Unscoped, it is
+ * motion nobody asked for; scoped, a scripts-blocked page declares no
+ * transition at all.
+ *
+ * The @starting-style block is what makes the OPENING animate: an
+ * element going from `display: none` to displayed has no previous
+ * computed value to transition from, so without a declared starting
+ * value the transition is one that can never run. Where it is not
+ * supported the row simply appears, which is exactly what it did
+ * before this plan — the animation is additive and degrades to today.
+ *
+ * `var(--motion-fast)`: 23-01's REACTION token, which names this
+ * surface in its own comment. Somebody pressed the control and is
+ * watching for it to answer.
+ *
+ * UNDER REDUCED MOTION THIS DOES NOT GROW, and there is no block here
+ * saying so — the global override at the top of this file already
+ * drives every transition-duration to 0.01ms, and a per-rule block
+ * would be the dead-code-not-a-safety-net pattern
+ * accessibility-contrast.md records a verdict on. The stylesheet's live
+ * reduce-block count stays at two. */
+.flight-rows-live .flight-detail-row__reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--motion-fast) ease-out;
+}
+
+@starting-style {
+  .flight-rows-live .flight-detail-row__reveal {
+    grid-template-rows: 0fr;
+  }
+}
+
+.flight-detail-row__reveal-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* 22-09-PLAN.md Task 1 (X5, 22-UI-SPEC.md §2): the row-toggle's FIRST
@@ -3038,10 +3671,25 @@ table.data-table--registry .cell-inline-sep {
  * `.copy-btn .icon` already scopes its SVG down to. The control is
  * BIGGER than the 30px text button it replaces, not smaller.
  *
- * The glyph rotates with the state and takes no transition of its own:
- * a rotating-chevron transition is D3/Phase 23's motion budget, not
- * this phase's. The global prefers-reduced-motion block at the top of
- * this file already covers a plain transform for free. */
+ * The glyph rotates with the state. 22-09 left it with no transition
+ * of its own and named D3/Phase 23's motion budget as the plan that
+ * would add one; 23-08-PLAN.md Task 2 is that plan, and the transition
+ * is below.
+ *
+ * `transform` by name rather than `all`: the rotation is the only thing
+ * that changes here, and `all` would animate every property a future
+ * edit happens to add to this rule, including ones nobody chose to
+ * animate. `var(--motion-fast)` because this is a control answering a
+ * press.
+ *
+ * NO per-rule reduced-motion block, and that was pre-approved rather
+ * than assumed: references/control-density.md:78 says in advance that
+ * "the global prefers-reduced-motion block already covers a plain
+ * transform for free, and a per-rule block here would be dead code, not
+ * a safety net." The global block at the top of this file drives every
+ * transition-duration to 0.01ms, so under that preference the chevron
+ * simply is where it should be. The stylesheet's live reduce-block
+ * count stays at two. */
 .row-toggle {
   width: 22px;
   height: 22px;
@@ -3069,6 +3717,7 @@ table.data-table--registry .cell-inline-sep {
   display: inline-block;
   font-size: 14px;
   line-height: 1;
+  transition: transform var(--motion-fast) ease;
 }
 
 .row-toggle[aria-expanded="true"] .row-toggle__glyph {
@@ -3299,8 +3948,93 @@ table.data-table--registry .cell-inline-sep {
   font-size: var(--font-label-size);
 }
 
+/* 23-08-PLAN.md Task 2 (D7/CFG-37): the disclosure is the card's WHOLE
+ * content now, not a strip under it, so the gap that used to separate
+ * it from the airline line above is gone — that line is inside it. The
+ * gap moved to the body, below. */
 .history-card__details {
+  margin-top: 0;
+}
+
+/* The card's face, promoted to be the <summary> of the <details> the
+ * card already contained. A tap anywhere on the card opens it, through
+ * the native disclosure and with no script involved at all — which is
+ * why this is a restructure of what the summary IS rather than a new
+ * mechanism, and why it holds with scripts blocked.
+ *
+ * THE NEGATIVE MARGIN IS THE "ANYWHERE" PART. `.history-card` carries
+ * `padding: var(--space-md)`, and without this the summary would stop
+ * at the padding's inner edge — a tap on the card's own margin of
+ * breathing space would land on the <li> and do nothing, which is the
+ * kind of near-miss that reads as a broken control rather than as a
+ * boundary. Pulling the summary out by exactly that padding and
+ * re-declaring it here makes the tappable box the card's whole face,
+ * with the inner spacing unchanged to the eye.
+ *
+ * `color: inherit` overrides the global `summary` rule's
+ * `--color-accent`. That rule is right for a summary whose text IS its
+ * label; here the summary's text is the flight's own data, and painting
+ * a callsign, a route and an airline name in the accent colour would
+ * claim every one of them as a control. The chevron below keeps the
+ * accent, so the affordance is still accent-coloured while the data is
+ * not — the same split `.tab-bar__link` already makes for its own
+ * summary.
+ *
+ * `min-height: 0` overrides the global 44px floor, which would
+ * otherwise fight this box's own content height; the card face is
+ * several lines tall and clears 44px many times over. */
+.history-card__summary {
+  margin: calc(var(--space-md) * -1);
+  padding: var(--space-md);
+  align-items: center;
+  color: inherit;
+  min-height: 0;
+}
+
+/* The shared chevron, moved to the trailing edge. `order` rather than a
+ * second pseudo-element: the global `summary::before` already draws it,
+ * already rotates it on open and already carries the reduced-motion
+ * reasoning, so this rule only changes where it sits. On a card whose
+ * face is three stacked lines, a leading chevron would indent every one
+ * of them; a trailing one reads as the card's own affordance.
+ *
+ * `flex: none` and the rotation stay the base rule's. Only the accent
+ * is restated, because `currentColor` now resolves to the inherited
+ * text colour set above rather than to the summary's own accent. */
+.history-card__summary::before {
+  order: 1;
+  margin-right: 0;
+  margin-left: var(--space-md);
+  color: var(--color-accent);
+}
+
+/* The face's three stacked lines are one flex item, so the chevron sits
+ * beside the block rather than between its lines. `min-width: 0` is the
+ * usual flex-item floor: without it a long callsign or route would
+ * refuse to shrink and push the chevron off the card. */
+.history-card__face {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The gap the disclosure's own margin used to provide, moved to the
+ * body it actually separates. */
+.history-card__details > dl {
+  margin-top: var(--space-md);
+}
+
+/* The one-hop resolve link, kept on the card face and OUT of the
+ * summary (companion/pages/history_page.py's own comment holds the
+ * reasoning). Its `.cell-unresolved-link` left margin exists to space
+ * it from the airline name it used to follow INLINE; on its own line
+ * that margin is a stray indent, so it is zeroed here rather than the
+ * shared class being changed for the desktop cell that still needs it. */
+.history-card__resolve {
   margin-top: var(--space-sm);
+}
+
+.history-card__resolve .cell-unresolved-link {
+  margin-left: 0;
 }
 
 /* Health's own generic mobile card-list mechanism (quick task 260903-ghy,
@@ -4831,6 +5565,41 @@ a.airline-card {
   justify-content: space-between;
 }
 
+/* THE AREA UNDER THE TREND LINE (CFG-41/CFG-45, 24-05-PLAN.md Task 1).
+ * `currentColor` at a reduced `fill-opacity` is the whole mechanism and
+ * the reason there is no second colour here: the area takes the LINE's
+ * own resolved colour (`.sparkline-line` below is `stroke: currentColor`
+ * against the same inherited `color`), so light and dark mode are
+ * correct by exactly the mechanism the line already is, and a palette
+ * change moves both together or neither.
+ *
+ * NOT a <linearGradient>. A gradient would be the nicer fade and it can
+ * only be referenced as `fill="url(#id)"` — health_page.py's
+ * `battery_sparkline_svg()` carries a standing guarantee, asserted
+ * against its own return value, that it emits no `url(` at all (D-09,
+ * no external reference of any kind). A flat translucent fill keeps that
+ * guarantee unweakened; a gradient would have required relaxing a
+ * security-shaped assertion for decoration.
+ *
+ * 0.14 is the measured floor, not a taste value: it is the lowest
+ * opacity at which the composited area separates from the card surface
+ * by more than the ~2% luminance difference the eye stops resolving at
+ * this size in BOTH themes (dark mode is the binding side — the card is
+ * nearly black and the ink nearly white, so the same alpha buys less
+ * separation there). companion/test_browser_ux.py measures the
+ * composited result against the card's own resolved background rather
+ * than trusting this number.
+ *
+ * No `stroke` declaration, deliberately: the SVG initial value is
+ * already `none`, nothing in this file sets a `stroke` on an ancestor
+ * for it to inherit, and a declaration that changes nothing is a comment
+ * pretending to be code. The area's edge IS `.sparkline-line`, drawn
+ * over it. */
+.sparkline-area {
+  fill: currentColor;
+  fill-opacity: 0.14;
+}
+
 /* The trend line: one <line> per consecutive pair of points (percentages
  * are not permitted inside a <polyline>'s points list, which is why this
  * is n - 1 line segments rather than one polyline). stroke-linecap:
@@ -4864,6 +5633,103 @@ a.airline-card {
 .sparkline-dot {
   fill: currentColor;
   pointer-events: none;
+}
+
+/* THE CURRENT READING'S MARK (CFG-41, 24-05-PLAN.md Task 2): the newest
+ * plotted point, drawn instead of — never as well as — its cosmetic dot.
+ * `currentColor` for the same reason `.sparkline-dot` above uses it: the
+ * mark is the same ink as the line it terminates, one step larger, so it
+ * reads as "this is where the series is now" rather than as a second
+ * colour with its own meaning. No status token here on purpose: the ring
+ * gauge beside this chart already carries the ok/warn/error verdict about
+ * the battery, and a chart point that also judged it would be a second
+ * opinion about one number.
+ *
+ * NEITHER `r` NOR `pointer-events` IS DECLARED, and both omissions are
+ * mechanism. `r` is emitted as a presentation attribute from
+ * health_page.py's own _SPARKLINE_MARK_RADIUS_PX (a CSS declaration of
+ * any specificity would beat it, which is the trap `.drawing-ring-track`
+ * records at length). `pointer-events: none` is `.sparkline-dot`'s, and
+ * it is not repeated here because it is INHERITED: the value set on a
+ * sibling does not reach this element, but the mark sits at the same
+ * coordinates as its own `.sparkline-hit` target, which is emitted after
+ * it and therefore paints — and hit-tests — on top. Measured, not
+ * assumed: hovering the last point still resolves to the hit target. */
+.sparkline-mark {
+  fill: currentColor;
+  pointer-events: none;
+}
+
+/* THE DRAWN LOW-BATTERY THRESHOLD (CFG-41, T-24-05-B). A filled rect,
+ * like the axis chrome above and for the same stroke-centring reason,
+ * but deliberately NOT `.sparkline-axis`: the axis is structure and
+ * spends `--color-border`, this file's "structural only, never an
+ * interactive-state signal" token. A threshold is a judgement about the
+ * device, so it spends the app's existing status-warn token instead —
+ * already defined for both themes and already pinned against the card
+ * surface as a UI component by companion/contrast_check.py's
+ * STATUS_WARN_ON_CARD_PAIRS, so no new colour pair is introduced. Accent
+ * stays reserved (this file's header comment lists its five uses; a
+ * chart threshold is not one, the same reasoning `.sparkline-hit:hover`
+ * records). */
+.sparkline-threshold {
+  fill: var(--color-status-warn);
+}
+
+/* The threshold's label, in its own full-width row at the bottom of the
+ * chart's grid. `1 / -1` is load-bearing rather than tidy, and measured
+ * rather than asserted: without it the browser auto-places this into
+ * column 1 — the `auto` column sized to the widest Y-axis label — and
+ * that column grows to fit a whole sentence instead. Measured at 360px
+ * with `grid-column: auto`, the canvas drops from 229.97px to roughly
+ * 109px inside the same 278px grid, with no overflow and no other
+ * visible signal that anything broke. companion/test_browser_ux.py
+ * measures the canvas's share of the grid for exactly that reason; the
+ * first version of that check did not, and this declaration could be
+ * deleted with every assertion still green. */
+.sparkline__legend {
+  grid-column: 1 / -1;
+}
+
+/* `inline-flex` is what makes the swatch exist at all: a bare inline
+ * <span> ignores width and height, so the swatch would compute to a
+ * zero-sized box and the legend would describe a colour it never showed.
+ * Measured in companion/test_browser_ux.py rather than trusted —
+ * `display: inline` here takes the swatch to 0.00x11.00.
+ *
+ * A `flex: none` on the swatch was written here first, on the reasoning
+ * that a flex item shrinks when its line is tight and French is the
+ * tight case. It was REMOVED after measuring: at 360px the legend's line
+ * is 161px inside a 278px row in both languages, so there is no
+ * overflow to shrink against and the declaration changed nothing in
+ * either. A property whose comment claims to prevent something it
+ * demonstrably does not prevent is worse than no property, so it is
+ * gone. If the copy ever grows past its row, the assertion that catches
+ * it is already in place — the swatch's measured box.
+ *
+ * The type is not a new tier: 10px / line-height 1.2 / the 70% text mix
+ * are exactly `.sparkline-axis-label`'s own values, restated here (the
+ * same way `.drawing-axis-label` restates them) because this label sits
+ * in the same micro-label tier beside them. A chart label at a different
+ * size would be a new type tier and needs an argument, not a value. */
+.sparkline-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 10px;
+  font-weight: var(--weight-regular);
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The same token as `.sparkline-threshold` above, and the same 1px
+ * height as the rect that is drawn — the swatch IS the line, shown at
+ * legend size, so the legend cannot come to describe a colour or a
+ * weight the chart does not use. */
+.sparkline-swatch {
+  width: 12px;
+  height: 1px;
+  background: var(--color-status-warn);
 }
 
 /* A transparent fill is still opaque for SVG hit-testing, which is exactly
@@ -4911,6 +5777,478 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* Phase 24 (CFG-39, 24-01-PLAN.md Task 3): the SHARED drawing
+ * vocabulary. Four new server-rendered SVG drawings arrive across this
+ * phase's later plans — a battery ring gauge, a battery area chart, a
+ * day timeline and a check-in regularity grid — and every one of them
+ * paints through the classes below, emitted from companion/draw.py's own
+ * named class constants. A check in companion/test_companion_app.py
+ * asserts that every class that module can emit resolves to a selector
+ * here, because a class that exists in Python and nowhere in CSS paints
+ * nothing at all, and nothing else in this codebase would notice.
+ *
+ * Placed HERE, beside the .sparkline* block above rather than at the end
+ * of the file, because that block is this idiom's existing consumer and
+ * has been since 06.5. It is deliberately left untouched by this plan —
+ * plan 24-05 owns the battery chart's own appearance. A FIFTH
+ * near-identical block is the specific failure this one exists to
+ * prevent: five drawings, five ways for a shape to end up invisible in
+ * one theme.
+ *
+ * The paint idiom, copied rather than re-derived: currentColor plus a
+ * theme token. The SVG inherits `color` from its container, the
+ * container's colour is a token, and the drawing is correct in BOTH
+ * themes with no second rule and no media query. A literal colour value
+ * would be correct in one theme only — a defect, not a polish item —
+ * and it would be invisible to companion/test_contrast_check.py
+ * besides, which is why companion/draw.py refuses to emit one at all.
+ *
+ * This block introduces no colour value and no colour pair. Structural
+ * ink is --color-border, this file's existing "structural only, never an
+ * interactive-state signal" token, the same one .sparkline-axis uses;
+ * status colouring uses the three --color-status-* tokens already
+ * defined for both themes. It introduces no accent use either, and this
+ * phase does not broaden the header comment's reservation list: a chart
+ * mark is not on that list, the same reasoning .sparkline-hit:hover
+ * above already records for a chart-point highlight.
+ *
+ * It also declares no transition and no animation. This phase's drawings
+ * do not move; the motion budget stays exactly where phase 23 left it. */
+
+/* The label grid: an auto-sized label column beside the canvas, a label
+ * row beneath it. This is the mechanism that keeps a time series' labels
+ * OUTSIDE the SVG, which makes viewBox overflow unreachable for those
+ * drawings rather than merely avoided, and keeps every label at a
+ * constant CSS size instead of shrinking with the box.
+ *
+ * `minmax(0, 1fr)` on the canvas column is load-bearing, not decoration:
+ * a plain `1fr` takes its content's min-content width as a floor, so the
+ * canvas could not shrink at the 360px minimum viewport and the page
+ * body would grow the horizontal scrollbar CFG-45 forbids. Same columns,
+ * same gaps as .sparkline above, copied on purpose so a second drawing
+ * never invents a third grid. */
+.drawing {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-sm);
+  row-gap: var(--space-xs);
+}
+
+/* Column 1, row 1 explicit; the canvas and the x-label row auto-place
+ * into the two cells left open, exactly as .sparkline__y/.sparkline__x
+ * do. A flex column with space-between, so document order top-to-bottom
+ * places the first label at the top of the canvas and the last at the
+ * bottom, each one's optical centre on the level it names — which is
+ * what the caller's own vertical inset arithmetic (draw.percent_y()'s
+ * `inset_percent`) is derived from. */
+.drawing__y {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+/* Column 2 explicit; auto-placed into row 2, the only cell left in that
+ * column. A flex row with the same space-between, so document order
+ * left-to-right places oldest under the left edge and newest under the
+ * right. */
+.drawing__x {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* THE SIZE ROUTE, and the reason every drawing must have one:
+ * companion/layout.py's icon_html() docstring records the trap that an
+ * <svg> carrying neither a size attribute nor a CSS rule renders at the
+ * SVG default 300x150 and blows the layout apart. This is the
+ * percentage-scheme half of the answer — a canvas with no viewBox, sized
+ * from CSS. The viewBox half is .drawing__figure below.
+ *
+ * The height is a custom property with a default rather than a bare
+ * length, so a drawing that needs a different height sets it on its own
+ * wrapper instead of adding a second rule that would then have to win a
+ * specificity fight with this one. Every percentage y-coordinate a
+ * drawing emits is a percentage OF this height, which is why it is
+ * declared once, here, and must never be varied inside a media query: a
+ * responsive height would silently move every point on the drawing with
+ * no other visual signal that anything broke. That hazard is the same
+ * one `.battery-trend-section svg:not(.icon)` above carries, stated
+ * again because this rule now carries it for four more drawings.
+ *
+ * `overflow: visible` lets an axis tick poke outside the canvas into the
+ * grid's own column gap, which is where .sparkline's y ticks already
+ * live. */
+.drawing__canvas {
+  display: block;
+  width: 100%;
+  height: var(--drawing-canvas-height, 160px);
+  overflow: visible;
+}
+
+/* The viewBox half of the size route, for an intrinsically aspect-locked
+ * mark (a ring gauge, a grid cell). It deliberately sets NO width and NO
+ * height: draw.unit_canvas() emits intrinsic width/height attributes in
+ * CSS pixels alongside the viewBox, and a `width: 100%` here would
+ * override them, stretch the box and letterbox the aspect-locked shape
+ * inside it. `display: block` is the whole rule — an inline <svg>
+ * otherwise sits on the text baseline and reserves a descender's worth
+ * of space beneath itself. The two canvas classes are separate for the
+ * same reason draw.py's two coordinate schemes are two separately-named
+ * helper families: one class with a modifier is how the two get mixed
+ * inside one drawing. */
+.drawing__figure {
+  display: block;
+}
+
+/* Structural ink: axis lines and ticks, drawn as filled rects rather
+ * than stroked lines. An axis-aligned integer-width filled rect has no
+ * stroke-centring and no half-pixel rounding to reason about, and a rect
+ * can pair a percentage position with an absolute size, which no stroked
+ * line can and which the percentage scheme needs for every tick. */
+.drawing-axis {
+  fill: var(--color-border);
+}
+
+/* A stroked trend segment or arc. `fill: none` is declared explicitly
+ * and is not a tidy-up: it is the "deliberately unfilled" half of the
+ * rule that every drawn shape must have an explicit fill route, so this
+ * shape cannot fall back to the SVG default fill — which is black,
+ * correct in one theme and invisible in the other. stroke-linecap: round
+ * makes consecutive segments read as one continuous line rather than
+ * mitred gaps. */
+.drawing-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* A filled mark: a data point, a tick, a grid cell. currentColor, so it
+ * follows whatever colour its container sets — including the three
+ * status modifiers below. */
+.drawing-mark {
+  fill: currentColor;
+}
+
+/* An axis label, an HTML <span> outside the canvas rather than an SVG
+ * text node, so `color` sets the visible ink and the label stays the
+ * same size at every container width. 10px and line-height 1.2 are not
+ * new numbers: they are exactly .sparkline-axis-label's, which sits in
+ * this file's already-documented sub-scale exception tier and whose
+ * line-height the callers' inset arithmetic depends on being a known
+ * value rather than an inherited one. A drawing label at a different
+ * size would be a new type tier and needs an argument, not a value. */
+.drawing-axis-label {
+  font-size: 10px;
+  font-weight: var(--weight-regular);
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Status colouring for a drawing that carries an ok/warn/error verdict.
+ * These set `color` rather than `fill`, so every currentColor shape
+ * beneath them follows with no per-shape rule — and so a drawing can put
+ * the modifier on a group or on a single shape without two different
+ * mechanisms. The tokens are the app's existing status tokens, already
+ * defined for both themes and already contrast-pinned against the card
+ * surface, so no new colour pair is introduced here. */
+.drawing--ok {
+  color: var(--color-status-ok);
+}
+
+.drawing--warn {
+  color: var(--color-status-warn);
+}
+
+.drawing--error {
+  color: var(--color-status-error);
+}
+
+/* THE DAY BAND (CFG-42, 24-06-PLAN.md Task 1): the day the frame has
+ * had, drawn at its real width — a frame for the whole day, a shaded
+ * span for the configured quiet-hours window, and one mark per
+ * check-in, all emitted by draw.day_band().
+ *
+ * THREE RULES FOR THREE KINDS OF STATEMENT, and the split is the
+ * drawing's meaning rather than its decoration. The frame is the day
+ * itself; the shaded span is a window the device HONOURS; a mark is
+ * something that HAPPENED. Paint all three from one token and the band
+ * says those are the same kind of fact.
+ *
+ * THE SHADED SPAN IS STRUCTURAL INK, NOT A STATUS. Quiet hours is a
+ * setting working as configured — not a warning, not an error, and
+ * certainly not accent (this file's header comment keeps an exhaustive
+ * list of accent's reserved uses and a shaded time window is not on
+ * it). --color-border is the structural token .drawing-axis and
+ * .drawing-ring-track already spend, for the same reason.
+ *
+ * The frame takes the SAME token at 40%, so the two can never disagree
+ * about their hue and the span reads as "more of the same surface"
+ * rather than as a second colour. 40 rather than a smaller share
+ * because the pair has to stay distinguishable in BOTH themes against
+ * the card behind them, which companion/test_browser_ux.py composites
+ * and measures rather than asserting from this file. */
+.drawing-band {
+  fill: color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.drawing-band-span {
+  fill: var(--color-border);
+}
+
+/* A check-in. currentColor, so it is the page's own text ink and moves
+ * with the theme by the same route every other drawing's data does —
+ * and so it stays legible where it crosses the shaded span, which is
+ * where most of a night's check-ins land. */
+.drawing-band-mark {
+  fill: currentColor;
+}
+
+/* The page-level half: the section wrapper Home renders the band
+ * inside. Two declarations, and neither is decoration —
+ * companion/test_browser_ux.py measures both, because a property that
+ * no check can see is a property a later reader trusts instead of
+ * measuring.
+ *
+ * The height override is the whole reason this wrapper exists.
+ * .drawing__canvas's height is a custom property with a default
+ * precisely so a drawing that needs a different one sets it on its own
+ * wrapper instead of adding a second rule that would then have to win a
+ * specificity fight. 24px is a band, not a chart: it carries no y axis
+ * at all, every mark spans its full height, and at the 160px default
+ * the day would be a block. */
+.day-band {
+  --drawing-canvas-height: 24px;
+}
+
+/* The hour labels beneath the band. `space-between` on three
+ * equal-width labels puts the first flush left, the last flush right
+ * and the middle one centred — which is exactly where the band's own
+ * scale puts 00:00, 24:00 and 12:00, so the labels and the marks are
+ * placed by one scale and not two. The same idiom, and the same
+ * reasoning, as .drawing__x above; it is not reusing that class because
+ * this row is not inside .drawing's grid and `grid-column: 2` would be
+ * an inert declaration here. */
+.day-band__hours {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-xs);
+}
+
+/* THE CHECK-IN REGULARITY GRID (CFG-43, 24-07-PLAN.md Task 1): one cell
+ * per day of OBSERVED check-in regularity, emitted by
+ * draw.regularity_grid() into Health's Screen section.
+ *
+ * FOUR RULES FOR FOUR STATES, and the fourth is why this block exists at
+ * all instead of reusing .drawing--ok/--warn/--error above. Those three
+ * carry a VERDICT about a measured interval. The fourth carries the
+ * ABSENCE of one — the record says nothing about that day, and
+ * 24-RESEARCH.md Risk 1 is that a log range the ingest lost is
+ * indistinguishable from a device that did not wake, so that state must
+ * never borrow a verdict's colour. It takes --color-border, this file's
+ * structural-ink token (the same one .drawing-axis, .drawing-ring-track
+ * and .drawing-band already spend), precisely so it cannot read as a
+ * mild warning.
+ *
+ * EACH MODIFIER SETS `color` AND NOTHING ELSE, which is what lets ONE
+ * rule paint two different kinds of element: the SVG cell follows it
+ * through .drawing-cell's `fill: currentColor`, and the HTML legend
+ * swatch beneath the grid follows the same declaration through its own
+ * `background: currentColor`. A legend whose swatches could disagree
+ * with the cells they explain is worse than no legend at all, and this
+ * is that guarantee expressed as a cascade rather than as a convention.
+ *
+ * No new colour value and no new token: the three verdicts use the app's
+ * existing --color-status-* tokens, already defined for both themes.
+ * companion/test_browser_ux.py measures all four RESOLVED colours in
+ * both themes and asserts they stay pairwise separated by the app's own
+ * MIN_SIGNAL_PERCEPTUAL_DISTANCE — because four states that collapse to
+ * three in dark mode is a defect no source scan can see. */
+.drawing-cell {
+  fill: currentColor;
+}
+
+.drawing-cell--on-cadence {
+  color: var(--color-status-ok);
+}
+
+.drawing-cell--late {
+  color: var(--color-status-warn);
+}
+
+.drawing-cell--missing {
+  color: var(--color-status-error);
+}
+
+.drawing-cell--none {
+  color: var(--color-border);
+}
+
+/* The grid's own wrapper. The two declarations below are the ONLY thing
+ * standing between this drawing and a horizontal page scrollbar on a
+ * narrow screen, and they are a deliberate, scoped exception to
+ * .drawing__figure's own "declare no width" rule — read that rule's
+ * comment first, because the exception only holds with BOTH halves.
+ *
+ * That rule forbids `width: 100%` because it would stretch an
+ * aspect-locked shape inside a letterboxed box. `max-width: 100%` paired
+ * with `height: auto` does the opposite: the intrinsic attributes still
+ * decide the size wherever there is room (the grid is drawn at exactly
+ * the 278px a Health card offers at the 360px floor, so this rule is
+ * INERT at every supported width), and below that the viewBox scales the
+ * whole drawing down uniformly — cells stay square, the grid stays
+ * inside its card. Measured: at 320px, out of contract but still
+ * measured by this repository, the canvas takes the card's 238px and the
+ * page does not scroll sideways; without these two declarations it keeps
+ * its 278px and the page does. */
+.check-in-grid {
+  width: max-content;
+  max-width: 100%;
+}
+
+.check-in-grid .drawing__figure {
+  max-width: 100%;
+  height: auto;
+}
+
+/* The date labels beneath the grid — the same idiom and the same
+ * reasoning as .day-band__hours above, and not reusing that class for
+ * the same reason it did not reuse .drawing__x: this row is not inside
+ * that grid. `space-between` puts the oldest day's label under the first
+ * column and the newest day's under the last, which is where the grid's
+ * own scale puts those two cells, because draw.grid_cell_size() leaves
+ * the canvas exactly as wide as the card this row measures itself
+ * against. One scale, two kinds of element. */
+.check-in-grid__scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-xs);
+}
+
+/* The key. Four states painted in four colours need their four names in
+ * text: colour is the only thing distinguishing the cells from each
+ * other, and colour alone is not a reading. It wraps because four
+ * labelled swatches do not fit on one 278px line in either language —
+ * measured, not assumed. */
+.check-in-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  margin-top: var(--space-sm);
+}
+
+/* `align-items: center` is deliberately ABSENT, and like the swatch's
+ * own missing `flex: none` above this is a measurement. It was declared
+ * here; removing it changed no rendered box, because the swatch is 12px
+ * tall and .drawing-axis-label's line box is 10px x 1.2 = 12px too, so
+ * cross-start and centre are the same place. A check now measures the
+ * two centres against each other (it passed with and without the
+ * declaration, which is what proved the declaration inert rather than
+ * the check blind) — so the day either of those two sizes moves, the
+ * alignment becomes visible and that check is what says so. */
+.check-in-key__item {
+  display: inline-flex;
+  gap: var(--space-xs);
+}
+
+/* The swatch takes its colour from the SAME .drawing-cell--* modifier
+ * the cell it explains does — see this block's own header. `background`
+ * rather than `fill` only because this one is an HTML <span> and not an
+ * SVG shape; the declaration it follows is the identical one. */
+/* `flex: none` is deliberately ABSENT, and its absence is a measurement
+ * rather than an oversight. It was declared here first, on the ordinary
+ * reasoning that a flex item with a fixed box needs protecting from
+ * being shrunk; removing it changed nothing at 360px in either language,
+ * because each key item is its own inline-flex box whose content fits,
+ * so this swatch is never the thing a flex line has to take width from.
+ * A declaration no check can see is a declaration a later reader trusts
+ * instead of measuring, so it is gone. The 12px box below IS measured,
+ * in both languages, at the 360px floor. */
+.check-in-key__swatch {
+  width: 12px;
+  height: 12px;
+  background: currentColor;
+}
+
+/* THE RING GAUGE (CFG-40, 24-04-PLAN.md Task 1): a full-circumference
+ * track plus a value arc, emitted by draw.ring_gauge() and called at two
+ * sizes — large in Health's battery section, small in Home's battery
+ * tile. ONE emitter, two call sites; these two rules are its paint and
+ * nothing else.
+ *
+ * NEITHER RULE DECLARES A stroke-width, AND THAT OMISSION IS THE WHOLE
+ * MECHANISM rather than a gap somebody should close. draw.ring_gauge()
+ * emits stroke-width as a presentation ATTRIBUTE scaled from the ring's
+ * own size, and a CSS declaration of any specificity beats a
+ * presentation attribute — so a stroke-width here would flatten both
+ * sizes to one thickness, make the small ring's stroke proportionally
+ * twice as thick as the large one's, and turn the size parameter back
+ * into the CSS-only "small variant" CFG-40 exists to forbid. Do not add
+ * one. The same goes for `r`, `cx` and `cy`, which are geometry for the
+ * same reason.
+ *
+ * No gradient and no tick marks, here or in the emitter: the reading is
+ * a linear estimate printed with an "approximately" marker beside this
+ * drawing, and a gauge that implied calibration would out-claim the
+ * number it sits next to. No accent either — a battery verdict is not on
+ * this file's header comment's reserved accent list, the same reasoning
+ * `.sparkline-hit:hover` already records. */
+
+/* The unfilled remainder. --color-border is this file's structural-ink
+ * token, the same one .drawing-axis and .sparkline-axis already spend,
+ * and it is deliberately NOT currentColor: the track must stay
+ * structural when the status modifier on the <svg> turns the value arc
+ * amber or rose, or the ring would read as entirely full in a warning
+ * state. */
+.drawing-ring-track {
+  fill: none;
+  stroke: var(--color-border);
+}
+
+/* The reading. currentColor, so the .drawing--ok/--warn/--error modifier
+ * the page sets on the <svg> from the battery_state it ALREADY computed
+ * reaches this arc and nothing else — never a second judgement about the
+ * same number.
+ *
+ * `stroke-linecap: butt` is declared explicitly even though it is the
+ * SVG initial value, because the comment is the point: a round cap adds
+ * half a stroke width of ink at EACH end of the arc, so at the small
+ * size a 5% reading would draw roughly 12% of the circle and the picture
+ * would disagree with the number printed beside it — which is the exact
+ * failure CFG-40 is about, arriving through a line cap. */
+.drawing-ring-value {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: butt;
+}
+
+/* The ring lives INSIDE .battery-trend-section on Health, where
+ * `.battery-trend-section svg:not(.icon)` above matches every descendant
+ * <svg> and would stretch this aspect-locked figure to 100% width and a
+ * flat 160px. That rule is the CHART's size route and is left exactly as
+ * it is — plan 24-05 owns the chart, and a harness check in
+ * test_status_pages.py pins its single declared height.
+ *
+ * `width: auto; height: auto` restores draw.unit_canvas()'s own
+ * intrinsic width/height attributes rather than reaching the SVG default
+ * — measured in Chromium before it was written here (72x72 and 36x36
+ * back, not 300x150 and not 150x150), because the reasoning could have
+ * gone either way and the 300x150 trap is the one layout.icon_html()'s
+ * docstring already records.
+ *
+ * The `:not(.icon)` filters NOTHING — a ring is never an icon. It is
+ * there so this selector carries one more class than the rule it has to
+ * outrank, making it win on SPECIFICITY rather than on source order: two
+ * equally-specific rules would leave the ring's size depending on which
+ * block a later edit happens to move first. */
+.battery-trend-section svg.drawing__figure:not(.icon) {
+  width: auto;
+  height: auto;
+}
+
 /* Reserves a fixed-height line so the first reveal never shifts the page
  * (06.5-RESEARCH.md, Open Question 1's recommendation — the layout-jump
  * pitfall on mobile). min-height stays in `em` so it scales with the
@@ -4940,6 +6278,43 @@ a.airline-card {
  * The margin moved from top-only to bottom-only, using --space-sm: the
  * spacing this element owns moved with it when it moved from below the
  * chart to above it. */
+/* 24-04-PLAN.md Task 2 (CFG-40): the row that puts the battery ring
+ * beside the readout. Emitted ONLY when there is a ring to place, so a
+ * device with no reading renders the readout exactly as it did before
+ * this wrapper existed.
+ *
+ * `align-items: center` is the one declaration here that is doing work
+ * on the figure: a flex row's default `stretch` would pull the
+ * aspect-locked <svg> to the row's full height and letterbox it, which
+ * is the distortion `.drawing__figure`'s own comment exists to prevent.
+ *
+ * WHAT IS DELIBERATELY NOT HERE, because it was written, measured and
+ * found inert: `flex: none` on the figure and `min-width: 0` on the
+ * readout. Both are the reflexive flex-row incantations, and the
+ * reasoning for both sounded right — an aspect-locked figure must not
+ * shrink; a flex item's automatic minimum size floors it at its
+ * min-content width and grows the page a scrollbar. Measured at 360px
+ * with a 60-character unbreakable run forced into the readout: the
+ * figure stayed exactly 72px wide with and without `flex: none` (a
+ * replaced element's own automatic minimum size already floors it), and
+ * documentElement.scrollWidth was the identical 707px with and without
+ * `min-width: 0` (nothing in the ancestor chain clips, so the run
+ * overflows either way). Dead declarations with confident comments are
+ * worse than none — they are what a later reader trusts instead of
+ * measuring. The bottom margin below IS load-bearing: it moves the
+ * readout's own 8px gap to the chart onto this new wrapper, so the
+ * spacing between the readout and the sparkline is unchanged. */
+.battery-readout-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.battery-readout-row > .battery-readout {
+  margin-bottom: 0;
+}
+
 .battery-readout {
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
@@ -5509,6 +6884,64 @@ a.airline-card {
   max-width: 480px;
   width: calc(100% - var(--space-lg) * 2);
   box-shadow: var(--shadow-card-hover);
+  /* 23-10-PLAN.md Task 2 (D3/CFG-32): the dialog ARRIVES — it fades and
+   * zooms in rather than appearing whole.
+   *
+   * ONE rule, TWO dialogs. History's panel lightbox and the Airlines
+   * gallery's `.lightbox--wide` variant are the same component under
+   * two classes, so the entrance is declared here and reaches both;
+   * companion/test_view_pages.py pins that count so a second, drifting
+   * copy cannot appear for the wide variant.
+   *
+   * THE CLOSE IS INSTANT, ON PURPOSE, and this is the one thing to read
+   * before "finishing" this rule with an exit animation.
+   * `transition-behavior: allow-discrete` on `display` would keep the
+   * element rendered while it faded out — and for the whole of that
+   * fade, plus permanently in every browser that has not implemented
+   * the property, a modal that has been closed would still be in the
+   * top layer, still in the tab order, still in the accessibility tree,
+   * and still hit-testable across the entire viewport. That is not a
+   * cosmetic regression: it is an invisible sheet that swallows every
+   * click on the page beneath it (T-23-36). 23-08-PLAN.md Task 2 set
+   * this app's precedent for the same trade on the Flights detail row
+   * ("a row that shuts instantly is a smaller loss than a row that is
+   * secretly still there"); a modal raises the stakes rather than
+   * lowering them. So `display` is deliberately absent from the list
+   * below, `close()` ends the dialog outright, and
+   * companion/test_browser_ux.py hit-tests the viewport centre
+   * immediately after close with no settle wait at all.
+   *
+   * `::backdrop` is deliberately NOT animated either, and that is a
+   * reduced-motion fact rather than a matter of taste: the global
+   * override near the top of this file matches
+   * `*, *::before, *::after`, which are ELEMENT selectors —
+   * `::backdrop` is none of them, exactly as this file already records
+   * for the view-transition pseudo-element tree. An animated backdrop
+   * would be motion a reduced-motion visitor has no way to switch off.
+   * The dialog itself is an element, so the global block covers this
+   * transition for free and no per-rule block is added.
+   *
+   * `@starting-style` is Baseline newly (2024-08-06: Chrome 117,
+   * Firefox 129, Safari 17.5) and verified to parse in this project's
+   * own harness Chromium. A browser without it simply has no
+   * before-change style to transition from, so the dialog opens
+   * instantly — exactly what it did before this rule existed. */
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity var(--motion-fast) ease-out,
+    transform var(--motion-fast) ease-out;
+}
+
+.lightbox[open] {
+  opacity: 1;
+  transform: none;
+}
+
+@starting-style {
+  .lightbox[open] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
 /* 14-08 on-glass fix follow-up (2026-09-06, code review CR-01): caught
@@ -6033,6 +7466,77 @@ a.airline-card {
   margin-bottom: var(--space-lg);
 }
 
+/* D4's HERO (CFG-44, 24-08-PLAN.md Task 1): Home's top read as ONE thing
+ * — the shared Frame strip, the three status tiles with their battery
+ * ring, and the day band — instead of three stacked blocks.
+ *
+ * THE COMPOSITION IS PROXIMITY, AND IT IS A MEASUREMENT. The three parts
+ * sit one --space-md (16px) apart inside this container and the
+ * container sits one --space-lg (24px) above the picture row beneath it:
+ * bound tighter than they are separated, which is the whole of the
+ * claim and is asserted in companion/test_browser_ux.py as two numbers
+ * rather than left to the eye. `display: grid` is what makes `gap` mean
+ * anything here — under `display: block` the gap is inert and, with the
+ * children's own margins zeroed below, the three parts would touch.
+ *
+ * NO SURFACE OF ITS OWN, deliberately. Two of the three parts are
+ * already cards (.frame-strip is an accent .stat-tile, .day-band is a
+ * .page-section) and the third is a grid of three more, so a background
+ * and a border here would be a card holding cards. The alternative —
+ * taking .day-band's own card away so the hero could carry one — was
+ * rejected on a measured ground and not a stylistic one: the band's
+ * canvas measures 278px at the 360px floor precisely because that card
+ * pads it, and draw.py's DAY_BAND_MIN_MARK_SPACING_PERCENT is derived
+ * from that number. Widening the canvas would silently invalidate the
+ * spacing constant that keeps two check-in marks readable as two.
+ *
+ * ONE COLUMN AT EVERY WIDTH, and the multi-column behaviour belongs to
+ * the parts (the tiles go one-across to three-across, the strip's cells
+ * column to row). A hero that split into columns of its own would have
+ * to put the band in one of them, and the numbers refuse it: this
+ * container measures 880.00px at a 1280px viewport (read off Chromium
+ * directly, not inferred from a mutation's own message — a first draft
+ * of this comment read 928 off MC8's child offset, which was that
+ * child's LEFT EDGE and not this box's width, and was wrong by 48px).
+ * A one-third column of 880 less this rule's own 16px gap is 288px —
+ * against the 310px a band CARD needs to keep its canvas at 278 (278
+ * plus .page-section's own 2 x --space-md of padding), so the canvas
+ * would come out at 256. The band would be NARROWER inside a wide
+ * desktop hero than it is at the 360px floor, which is the "fits by
+ * shrinking its parts" failure this requirement exists to refuse. */
+.home-overview {
+  display: grid;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+/* The parts' own bottom margins, surrendered to the container. Each of
+ * .frame-strip, .home-section and .page-section carries
+ * `margin-bottom: var(--space-lg)` of its own, and a grid item's margin
+ * does not collapse into the gap — it ADDS to it, so without this rule
+ * the hero's internal rhythm would be 40px and its own bottom margin
+ * 48px. One owner of the spacing, which is what "one composition"
+ * means in CSS.
+ *
+ * THE DOUBLED SELECTOR IS LOAD-BEARING AND WAS MEASURED, not a
+ * precaution. `.home-overview > *` is (0,1,0) — the universal selector
+ * contributes nothing — which TIES `.frame-strip`'s own (0,1,0)
+ * `margin-bottom: var(--space-lg)` and leaves the outcome to source
+ * order; that rule is declared ~360 lines further down this file, so it
+ * won. Measured in Chromium before the fix: the strip and the status
+ * tiles sat 40.00px apart at 360px while the tiles and the band sat at
+ * the intended 16, because `.home-section` and `.page-section` are both
+ * declared ABOVE this rule and lost while `.frame-strip` did not. The
+ * doubled form is (0,2,0) and wins deterministically wherever the parts'
+ * own rules happen to sit — the same cascade hazard, and the same fix,
+ * that `.page-section.banner--anomaly` and the
+ * `.battery-trend-section` status borders already document above. The
+ * universal child is kept rather than a hand-list of the three parts, so
+ * a fourth part added to the hero later surrenders its margin too. */
+.home-overview.home-overview > * {
+  margin-bottom: 0;
+}
+
 .home-section > .text-heading {
   margin-top: 0;
 }
@@ -6049,6 +7553,30 @@ a.airline-card {
 .home-status-grid {
   margin-bottom: var(--space-sm);
   align-items: stretch;
+}
+
+/* 24-04-PLAN.md Task 3 (CFG-40): the Battery tile's ring, BESIDE its two
+ * text lines rather than above them. Emitted only when there is a ring,
+ * so a device with no reading renders this tile exactly as it did before
+ * this wrapper existed.
+ *
+ * Beside, not stacked, for a measured reason: `.dashboard-grid` stretches
+ * every tile in a row to the tallest sibling, so a taller Battery tile
+ * does not merely grow itself — it pushes the whole row down. The ring's
+ * box (36px) is smaller than the two text lines it sits next to (24px
+ * verdict + 4px gap + 19.6px detail = 47.6px, measured at the 360px
+ * floor), so this row contributes no height at all.
+ *
+ * `align-items: center` is what keeps the aspect-locked <svg> at its own
+ * emitted size — a flex row's default `stretch` would pull it to the
+ * row's full height and letterbox it. No `flex: none` and no
+ * `min-width: 0` here either, for the reason measured and recorded
+ * against `.battery-readout-row` above: both were written, both were
+ * measured at 360px, and both changed nothing. */
+.stat-tile__gauge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .widget-verdict {
@@ -6140,8 +7668,170 @@ a.airline-card {
   margin: 0;
 }
 
-.quick-action__form button {
-  min-width: 96px;
+/* 23-07-PLAN.md Task 1 (D2/CFG-36): RETARGETED IN PLACE. This rule used
+ * to read `.quick-action__form button { min-width: 96px; }` — a floor
+ * that existed so the strip's two ACTION-labelled buttons ("Switch off",
+ * "Turn on", and their longer French wordings) held one width between
+ * them as the wording changed with the state. Those buttons are gone:
+ * the control is now a real role="switch" whose state lives in
+ * aria-checked and whose width is its own track, so a text-driven
+ * minimum has nothing left to stabilise and would only stretch the
+ * switch's hit box sideways past its own paint. The 44px floor below is
+ * what replaces it, and it is a touch-target contract rather than a
+ * typographic one. */
+.quick-action__form {
+  display: flex;
+  align-items: center;
+}
+
+/* --- The switch (D2/CFG-36, 23-07-PLAN.md Task 1/2) -------------------
+ *
+ * One component, three consumers: the Frame strip's Screen and Quiet
+ * hours cells and the Device page's Diagnostic LED card. The element is
+ * a <button type="submit"> inside a real <form>, so everything here is
+ * appearance only — with this stylesheet missing entirely the control is
+ * still a button that posts, which is the same floor the markup keeps.
+ *
+ * 44x44 is met DIRECTLY on the button rather than traded for a padded
+ * label: the track itself is 52x32, and the button's own padding takes
+ * the hit box past the WCAG 2.5.5 floor in both axes at every width
+ * including 360px. It is the button, not the track, that is focusable
+ * and pressable, which is why the floor lives here.
+ *
+ * The state is NEVER carried by colour alone: the thumb's position
+ * changes, aria-checked changes, and the translated state word beside it
+ * changes. The track colour is the fourth signal, not the first — rule 2
+ * of the contrast gate, and the reason this needs no per-theme override.
+ *
+ * Both transitions spend var(--motion-fast). A switch is the definition
+ * of motion somebody is waiting on: the flip has to land under the
+ * finger before the request that confirms it has even left. */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+  height: auto;
+  padding: var(--space-xs);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+}
+
+/* The global button:hover/button:active treatments are a wash and a
+ * press-scale written for a labelled button; on a switch they would
+ * paint a box around a control whose whole visual is the track inside
+ * it. The track's own colour change is the feedback. */
+.switch:hover,
+.switch:active {
+  background: none;
+  border: 0;
+  transform: none;
+  box-shadow: none;
+}
+
+.switch__track {
+  position: relative;
+  display: block;
+  width: 52px;
+  height: 32px;
+  border-radius: 16px;
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+
+.switch__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--motion-fast) ease;
+}
+
+.switch[aria-checked="true"] .switch__track {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.switch[aria-checked="true"] .switch__thumb {
+  transform: translateX(20px);
+}
+
+/* The settings-page switch row (the Diagnostic LED card). The strip's
+ * own cells already have a state-plus-control row from
+ * `.frame-strip__row--state`; a settings card has no such grid, so this
+ * is the one rule that gives the state word and the switch the same
+ * side-by-side relationship inside `.theme-status`. `space-between`
+ * rather than a fixed gap: at 360px the state word stays left and the
+ * switch stays at the edge the thumb travels toward. */
+.settings-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+/* The unconfirmed window. companion/static/quick-switch.js marks the
+ * REGION (not the control) while its fetch is in flight, which is the
+ * same marker companion/static/freshness.js's swap already skips — one
+ * attribute doing both jobs, so a control that looks settled can never
+ * be a control the refresh loop is still willing to repaint. Deliberately
+ * subtle: the flip has already happened and is almost always right; a
+ * spinner here would make a fast action feel slow, which is why D2's
+ * "300ms spinner" clause is implemented as this state and no fixed
+ * delay. */
+[data-pending] .switch__track {
+  opacity: 0.7;
+}
+
+/* --- The failure toast (D2/CFG-36, V7) -------------------------------
+ *
+ * Transient, never a banner: the state it reports on has already rolled
+ * back to the truth in the switch itself, so this is an announcement
+ * rather than a standing condition, and a permanent block would outlive
+ * the thing it describes.
+ *
+ * Anchored at the TOP of the viewport on purpose. The bottom edge is
+ * already claimed by two `position: fixed` components — `.tab-bar`
+ * (z-index 20) and `.dirty-bar` (z-index 30) — and stacking a third
+ * there would mean re-deriving their geometry. The top edge is free at
+ * every breakpoint. `z-index: 40` continues that same declared order
+ * upward rather than inventing a parallel one.
+ *
+ * The empty element is rendered on every page and is not `hidden`: a
+ * live region added to the accessibility tree at announce time is one
+ * screen readers routinely miss. `opacity: 0` plus `pointer-events:
+ * none` keeps it invisible and unclickable while leaving it in the tree,
+ * which `visibility: hidden` or `display: none` would not. */
+.quick-toast {
+  position: fixed;
+  top: var(--space-md);
+  left: 50%;
+  z-index: 40;
+  max-width: calc(100vw - 2 * var(--space-lg));
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-control);
+  background: var(--color-text);
+  color: var(--color-canvas);
+  box-shadow: var(--shadow-card-hover);
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+
+.quick-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 /* 22-04-PLAN.md Task 2 (B13): every Frame-strip cell — both switch cells
@@ -6763,7 +8453,9 @@ a.airline-card__zoom {
  * a two-column picture/status-card grid) is deleted outright —
  * replaced by the strip -> three tiles -> .home-columns.home-picture-
  * row shape below. .preview-frame and its own children (Home's
- * picture figure, `_hero_figure_html()`, unchanged) survive; only the
+ * picture figure — the builder 24-08-PLAN.md Task 1 renamed to
+ * `_current_picture_html()`, body unchanged, so that D4's hero above is
+ * the only thing on that page meaning "hero") survive; only the
  * two-column wrapper around it is gone.
  *
  * Naming caution (20-UI-SPEC.md §B): companion/test_view_pages.py's own
@@ -6774,13 +8466,103 @@ a.airline-card__zoom {
   margin: 0;
 }
 
+/* 23-10-PLAN.md Task 3 (D3/CFG-32): THE PICTURE HOLDS ITS PLACE BEFORE
+ * IT ARRIVES, and this rule is the reservation rather than the
+ * decoration.
+ *
+ * MEASURED, not assumed. At 360px this box was already reserved: the
+ * rule above gives the image `width: 100%`, which is a definite size, so
+ * the ratio the markup's own width="600" height="800" attributes supply
+ * resolves a height before the bytes land (312 x 415.3 before, 312 x
+ * 415.3 after). At 1280px it was NOT. The desktop rule below used to say
+ * `width: auto`, and an image with no content yet and no definite size
+ * in either axis has an intrinsic size of ZERO however well-known its
+ * ratio is — so the picture measured 2 x 2 before the render arrived and
+ * 380 x 506 after it. Home's whole right-hand column jumped ~500px on
+ * every desktop load. That is the defect this plan's own skeleton would
+ * otherwise have decorated instead of fixed.
+ *
+ * `aspect-ratio: 3 / 4` is declared EXPLICITLY rather than left to the
+ * attributes, for two reasons. It makes the reservation a guarantee
+ * instead of a coincidence — the box no longer depends on the ratio of
+ * whatever bytes eventually arrive, so a render that ever ships at a
+ * different size cannot move the page. And because this file's universal
+ * reset makes every box `border-box`, a declared ratio applies to the
+ * BORDER box, which is what makes the desktop width below resolve to
+ * exactly the 60vh cap rather than to 60vh minus the hairline.
+ * `object-fit: contain` is its safety net: with the ratio pinned, an
+ * image of some other shape letterboxes onto the white backing this
+ * class already carries instead of stretching.
+ *
+ * The desktop `width` is the same 60vh cap the max-height below states,
+ * written as a definite width the ratio can be resolved from:
+ * height 60vh at 3:4 is width 45vh, and `min()` keeps the container's
+ * own 100% as the other bound exactly as `max-width` did. Both caps are
+ * kept below rather than deleted — they are now belt-and-braces for a
+ * bitmap of some other shape, and stating the cap once in each axis is
+ * what makes the calc() above readable as "the 60vh cap, in the other
+ * axis". */
+.preview-frame__image {
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+}
+
+/* 23-10-PLAN.md Task 3 (D3/CFG-32): the skeleton itself — ONE rule, the
+ * two surfaces in this app whose box is reserved for an image that has
+ * not arrived. Second only to the reservation above, which is the part
+ * that actually prevents the shift; this is what stops the reserved box
+ * being a blank hole.
+ *
+ * IT IS THE IMAGE'S OWN BACKGROUND, and that placement is the entire
+ * mechanism rather than a styling choice. `background-image` paints
+ * above the element's `background-color` (the white backing
+ * `.preview-frame__image` already shares, and the chip band's own
+ * server-rendered per-theme colour) and BELOW the decoded bitmap, so the
+ * skeleton is hidden by the image's own arrival — the image's real load
+ * state, with no script, no timer and no class to toggle. A timer either
+ * flashes on a fast connection or lies on a slow one, and a class needs
+ * a script this app deliberately does not add for a decoration. With
+ * scripts blocked this behaves identically, because both halves are CSS
+ * and markup.
+ *
+ * IT DOES NOT SHIMMER, AND THAT IS A DECISION RATHER THAN AN OMISSION.
+ * 23-10-PLAN.md asks for a pulse on 23-01's keyframes at the slow token,
+ * and the placement that makes the skeleton auto-hide is exactly the
+ * placement that makes a pulse impossible: `skypane-pulse` cycles
+ * OPACITY, and opacity belongs to the element, so an animation on this
+ * <img> would go on breathing the DECODED PICTURE, forever, on a page
+ * somebody leaves open all day — the precise complaint 23-01's own
+ * keyframes comment says a motion budget exists to prevent. The
+ * alternatives were considered and are worse: a pulsing overlay on the
+ * container is covered by this image's own opaque background from the
+ * first frame and never visible; an overlay ABOVE the image can never
+ * learn that the image arrived, because CSS has no loaded state to
+ * select on; and an infinite animation that keeps running behind a
+ * loaded picture is compositor work with nothing to show for it. So the
+ * sheen is a static gradient: it reads as a placeholder, it costs
+ * nothing, it disappears the instant the picture paints, and it spends
+ * no keyframes at all — the file's four stay four.
+ *
+ * No new colour: the two stops are this file's own muted-text
+ * color-mix idiom at two strengths, so the sheen sits on whatever
+ * backing each surface already has. */
+.preview-frame__image,
+.theme-chip__preview {
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
+    color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 60% 100%
+  );
+}
+
 /* .preview-frame__image's shared declarations (the white backing,
  * hairline, radius) are declared once, above, as a second selector on
  * .now-showing__image's own rule — see that rule's own comment. Only
  * the desktop-only cap below is unique to this class. */
 @media (min-width: 960px) {
   .preview-frame__image {
-    width: auto;
+    width: min(100%, calc(60vh * 3 / 4));
     max-width: 100%;
     max-height: 60vh; /* D-17's explicit desktop-only cap */
     margin: 0 auto;
@@ -7205,6 +8987,33 @@ button.calendar-disconnect-btn:focus-visible {
   height: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
+  /* 23-10-PLAN.md Task 2 (D3/CFG-32): the live preview CROSSFADES when
+   * the theme changes, rather than cutting to the new render.
+   *
+   * A single-element dissolve, not a second stacked image layer: this
+   * component is one <img> the server sizes and
+   * companion/static/theme-preview.js re-points, and a second layer
+   * would mean a second element, a second src and a z-order to keep
+   * right, for a difference nobody can see at 180ms. Fewer moving parts
+   * is the house preference and that script is deliberately small.
+   *
+   * Declared on the BASE rule so the fade runs in BOTH directions from
+   * one declaration — out on the class below, back in when it is
+   * removed. The script never sets a duration, a delay or a timer of
+   * its own; it adds and removes one class and listens for the events
+   * that say the fade ended and the new frame arrived. Under reduced
+   * motion the global override drives this to 0.01ms, which is a cut —
+   * correct, and the script still works, because `transitionend` still
+   * fires for a 0.01ms transition. */
+  transition: opacity var(--motion-fast) ease;
+}
+
+/* The opacity-0 half of the crossfade. theme-preview.js owns this class
+ * entirely and adds it at no other time; the class literal is pinned in
+ * companion/test_config_page.py against both files at once, since
+ * neither imports the other. */
+.theme-live-preview__image--swapping {
+  opacity: 0;
 }
 
 .theme-live-preview figcaption {

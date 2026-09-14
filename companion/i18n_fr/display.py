@@ -222,7 +222,13 @@ CATALOG = {
         "Allumée seulement pendant la brève fenêtre de réveil de "
         "l’appareil, non visible du côté mur. S’applique lors de "
         "la prochaine vérification programmée.",
-    "Enable diagnostic LED": "Activer la LED de diagnostic",
+    # 23-07-PLAN.md Task 2 (D2/CFG-36): "Enable diagnostic LED" is
+    # DELETED, not commented out. It was the label of the LED checkbox,
+    # and that checkbox is retired — the Diagnostic LED is now a
+    # role="switch" named by the group's own heading ("Diagnostic LED",
+    # already a catalogue key) and stated by aria-checked, so there is no
+    # action-shaped label left to translate. Check 2 of the i18n harness
+    # is what found it: a key no module produces is a key nobody reads.
     "Wake interval": "Intervalle de réveil",
     "How often the frame wakes to poll for updates. Shorter means "
     "fresher info and more battery drain; longer means more battery "
@@ -260,6 +266,17 @@ CATALOG = {
     ", and ": " et ",
     "1 unsaved change": "1 modification non enregistrée",
     " unsaved changes": " modifications non enregistrées",
+
+    # --- 23-09-PLAN.md Task 2 (D3/CFG-32): the bar's SIXTH word, read
+    #     as data-dirty-saving by the same script, and the label the
+    #     Save control wears while its POST is in flight. T14
+    #     (22-15-PLAN.md Task 3) left this word to D3 deliberately.
+    #     "Enregistrement…" is the progressive form of the same verb
+    #     "Enregistrer les réglages" above already uses, so the control
+    #     reads as the same action continuing rather than a new one, and
+    #     it carries the same single U+2026 ellipsis as "Vérification en
+    #     cours…" above.
+    "Saving…": "Enregistrement…",
 
     # --- Field-level validation errors (config_page.py's
     #     _field_error_html(), rendered wherever `errors` carries one) --

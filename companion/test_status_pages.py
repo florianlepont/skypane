@@ -32,6 +32,7 @@ Usage:
 """
 import inspect
 import io
+import math
 import os
 import re
 import shutil
@@ -53,7 +54,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import companion.app as app  # noqa: E402
-from companion import auth, illustration_normalize, layout, prefs  # noqa: E402
+from companion import auth, battery, draw, illustration_normalize, layout, prefs  # noqa: E402
 import companion.i18n_fr.health as i18n_fr_health  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 import companion.wake as wake  # noqa: E402
@@ -738,6 +739,186 @@ EXPECTED_CHECK_COUNT = 267
 # (267/268 pass — the one documented anomaly_active() root-sandbox
 # failure, unrelated to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 268
+# 23-03-PLAN.md Task 1 (D14/CFG-34): +5 — the element convention this
+# app had none of. Before this plan `grep -rn '<time' companion/`
+# matched nothing at all, so "one script ticking every relative age"
+# (23-05) had nothing to tick. The five new checks pin a WRAPPING
+# rather than a rewording: the element's own text must EQUAL
+# relative_age_text()'s output for all four buckets in both languages;
+# a falsy/None/unparseable/mismatched timestamp must degrade to escaped
+# plain text rather than to an element carrying an invented instant;
+# the new future form must read the SAME three bucket boundaries the
+# past ladder reads, asserted at and around each one, and clamp an
+# already-elapsed instant to the zero bucket; one function must serve
+# both directions, bounded either side of now; and
+# concise_timestamp_html()'s relative half must be that element with
+# its span, its title, its absolute-first ordering and its no-raw-ISO
+# rule all untouched. 268 + 5 = 273, recomputed directly against the
+# real on-disk check(...) call count at execution time (272/273 pass —
+# the one documented anomaly_active() root-sandbox failure, unrelated
+# to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 273
+# 23-05-PLAN.md Task 2 (D22's remainder, D14/CFG-34): +3. The freshness
+# line's clock becomes a ticking age and gains a neutral dot that
+# breathes while the loop is live. One check pins the dot's
+# server-rendered markup (the app's own off dot, aria-hidden, no status
+# or accent token, and NOT carrying the breathing class at render time —
+# a server-rendered one would breathe on a page with no loop running at
+# all); one pins the ticking element over the same instant
+# data-loaded-at carries, the absolute timestamp still in its tooltip,
+# and data-loaded-at/data-refresh-pill still exactly once page-wide; one
+# scans freshness.js's source and proves the breathing class is DERIVED
+# from that file's own interval handle and state badge inside a single
+# function, called from exactly the four places its state already
+# changes, with 22-15's retry ladder, ceiling, in-flight guard and
+# targeted swap all still present (T-23-15).
+# ONE pre-existing check was retargeted in place with no count
+# contribution: 19-09/A-20's "no relative age inside
+# .page-header__freshness" ban. A-20's defect was a FROZEN zero, not an
+# age, so the ban is now "every age here must be inside a live <time
+# data-relative> element" — which fails on A-20's own defect exactly as
+# the old one did, and additionally on an age that has stopped moving.
+# 273 + 3 = 276, recomputed directly against the real on-disk check(...)
+# call count at execution time (275/276 pass — the one documented
+# anomaly_active() root-sandbox failure, unrelated to this plan), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 276
+# 23-06-PLAN.md Task 1 (D1/CFG-35): +3. The five hard-coded swap
+# selectors become a per-page registry with ONE definition site, and the
+# loop learns three things it must not repaint. One check pins the
+# single definition site and the two key sets equal in BOTH directions —
+# the drift the one-tuple form structurally could not see — with every
+# selector appearing exactly once per registry entry in the script's
+# comment-stripped code and the registry proven to be read (an agreeing
+# list nobody consumes proves nothing, 23-05's own M7 in this file's
+# shape). One pins the page key: server-rendered on <body> for every
+# registry key AND for a page with no entry, read by the script, and
+# resolved with an own-property test so "constructor" is a no-op rather
+# than an inherited Object property. One pins the three skips: 22-15's
+# unchanged-region and focused-region skips still in swapNodes(), the
+# new per-region pending skip beside them, and the dirty-form stand-down
+# in tick() — keyed on dirty-state.js's own dirty-ready liveness marker
+# AND the bar's current visibility, never on its mere presence, which is
+# 22-01/B1's defect of record — with the interval, ladder, ceiling,
+# in-flight guard and redirect:manual all asserted unmoved.
+# ONE pre-existing check was generalised in place with no count
+# contribution: 19-09's cross-file swap-selector pin now iterates every
+# page key in the registry rather than the one tuple.
+# 276 + 3 = 279, recomputed directly against the real on-disk check(...)
+# call count at execution time, not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 279
+# 23-06-PLAN.md Task 2 (D1/CFG-35): +4. Home and the Display scope join
+# the loop, from one shared freshness builder. One check pins that
+# builder's output verbatim in both Health's and Home's rendered pages,
+# the markup gone from health_page.py entirely, one data-loaded-at and
+# one data-refresh-pill each, and the dot/prefix/clock/pill order. One
+# pins that Home declares the four regions that actually change between
+# polls and that every literal in every one of its selectors appears in
+# the rendered page — a selector matching nothing is a region that
+# silently never refreshes — plus the Display scope's deliberately
+# conservative two. One pins the strip's countdown as FORMATTING: a
+# marked <time data-relative-countdown> over companion/wake.py's own
+# resolved instant, reading the ladder's future form, beside a state
+# word that stays frame_state.resolve_state()'s, with no script in
+# companion/static naming a state or a headline template at all. One
+# pins the picture fade: a named keyframes block spending
+# var(--motion-fast) with no bare literal, applied only after
+# freshness.js compares the image's own src, and never server-rendered.
+# 279 + 4 = 283, recomputed directly against the real on-disk check(...)
+# call count at execution time, not trusted from arithmetic alone.
+#
+# 23-07-PLAN.md Task 1 (D2/CFG-36): +2. One pins the Frame strip's two
+# SERVER-rendered role=switch controls — aria-checked from the saved
+# value in both directions, named by the setting rather than by the
+# action, over the unchanged form/state/return_to/data-quick-switch the
+# server already acts on, with the retired action wording gone and one
+# pending-marker region per switch. One pins the failure announcement:
+# the app's own generic flash sentence, translated on <body> in both
+# languages, carrying no status code/URL/server internal, and exactly
+# one EMPTY assertive live region in the shell. 283 + 2 = 285,
+# recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 285
+# 23-08-PLAN.md Task 1 (D7/CFG-37): +2. One pins what Flights' registry
+# entry covers (the card list, the desktop table, the live count, the
+# freshness line) and what it EXCLUDES by name (every element
+# list-filter.js captures once at load), that no entry nests inside
+# another, and that the registry's own comment states the exclusion's
+# reason. One pins the new-row highlight as a DIFF over server-rendered
+# identity: two cross-file literals equal to layout's, a known set
+# populated from the page as first rendered rather than empty, the diff
+# running from applySwap() and nowhere else, an own-property test, one
+# class added through classList and never removed, and no markup sink.
+# 285 + 2 = 287, recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 287
+# 24-04-PLAN.md Task 2 (CFG-40): +1 — Health's large battery ring. The
+# check is deliberately not "a ring appears": it recovers the drawn
+# fraction from the ring's OWN emitted radius and dash array (the two
+# attributes a browser paints from) and compares it against the
+# percentage the readout PRINTS, so the picture and the number are
+# measured against each other rather than each against the input. The
+# seeded reading lands on 43%, a fraction no plausible constant
+# coincides with. It also pins the absence case as an ABSENCE (an empty
+# ring reads as 0%, a false statement about a device that has simply not
+# checked in), the <h2> still carrying no glyph, and no ring class
+# anywhere inside battery_sparkline_svg()'s own output — plan 24-05 owns
+# the chart, and this plan must be provably beside it.
+# 287 + 1 = 288, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 288
+# 24-05-PLAN.md Task 1 (CFG-41/CFG-45): +1 — the area under the battery
+# chart's trend line. The check is written around the constraint that
+# decided the geometry rather than around "an area appears": percentages
+# are illegal in a <polygon> points list (the same rule that already made
+# the line n - 1 <line> segments), and the outer canvas's no-viewBox
+# scheme is what holds every stroke and hit target at its absolute pixel
+# size at 360px, so the area is drawn in a NESTED viewBox'd <svg> and the
+# check asserts its vertices land on the coordinates the chart's own
+# marks did — plus the outer canvas still carrying no viewBox, the
+# baseline at the axis minimum rather than the canvas edge, paint order
+# by index, the unweakened no-url(/image/script guarantee, and NO rule of
+# its own for the layer.
+# 288 + 1 = 289, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 289
+# 24-05-PLAN.md Task 2 (CFG-41): +2 — the marked current reading and the
+# drawn low-battery threshold. The mark's check is built on a fixture
+# whose NEWEST row carries no battery_mv, because that is the one input
+# that tells a mark derived from the filtered pair list apart from a mark
+# derived from the raw rows, and every other assertion about a mark
+# passes either way. The threshold's check computes the expected y from
+# the same sparkline_point_y() the readings use rather than a number,
+# scans health_page.py's own source for the re-typed millivolt literal,
+# and drives three out-of-range values through a patched constant to pin
+# that an unplottable threshold draws NOTHING rather than pinning itself
+# to the axis edge.
+# 289 + 2 = 291, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 291
+
+# 24-07-PLAN.md Task 1 (CFG-43): +4 — the check-in regularity grid's own
+# emitter, checked here rather than in companion/test_companion_app.py
+# because this plan owns this harness and not that one (the section's own
+# header comment says so at the call sites). The four: the four cell
+# states with the no-observation one asserted never to borrow either of
+# the two verdicts a reader would act on; the cell size derived DOWN from
+# the measured 278px card width with one more column proven to be under
+# the floor; the element bound, asserted at BOTH ends (the count AND that
+# the cells kept are the newest); and the one coupling a stdlib-only
+# geometry module cannot express as an import — draw.py's cell vocabulary
+# against wake.classify_check_in_gap()'s own.
+# 291 + 4 = 295, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 295
+
+# 24-07-PLAN.md Task 2 (CFG-43): +7 — the Health section. Three of them
+# are the caption's three clauses, one clause each, because they are
+# three separate claims and one check over the whole caption would go
+# green on two out of three. The other four: the fallback-floors caption
+# for a deployment whose cadence cannot be determined (and that it names
+# no configured value); every cell's verdict computed in the check FROM
+# the classifier rather than hard-coded, with the page's own builders
+# read off their compiled co_names for the classifier call and against
+# every threshold constant; the empty deployment, which renders a full
+# grid of no-observation cells rather than no section; and the blunt
+# both-languages grep for the roadmap's own superseded phrasing.
+# 295 + 7 = 302, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 302
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -749,6 +930,22 @@ def _mkstate(prefix):
 
 def _iso(dt):
     return dt.isoformat(timespec="seconds")
+
+
+def _css_without_comments():
+    """The shipped stylesheet with every /* */ comment blanked out.
+
+    24-05-PLAN.md Task 1: this file already strips comments before
+    grepping CSS in four places (each inlining the same `re.sub`), and
+    for a good reason — style.css's comments quote the very selectors
+    and declarations these checks look for, so an un-stripped grep can
+    be green because a comment SAYS the rule exists. Named once here
+    because this plan's checks need it three more times, not as a
+    retrofit of the four existing call sites, which are left exactly as
+    they are.
+    """
+    with open(os.path.join(HERE, "static", "style.css"), encoding="utf-8") as handle:
+        return re.sub(r"/\*.*?\*/", " ", handle.read(), flags=re.DOTALL)
 
 
 def _now():
@@ -1151,14 +1348,22 @@ def main():
                 layout.parse_iso(ts), layout._FULL_TIMESTAMP_SENTINEL_NOW)
             if ('title="%s"' % layout.escape_html(expected_title)) not in rendered:
                 return False, "expected the Device row's title to be a full local timestamp"
-            if " ago)" not in rendered:
+            # 23-03-PLAN.md Task 1 (D14/CFG-34): retargeted in place, not
+            # weakened — the parenthesised relative age is now a <time
+            # data-relative> element, so the bare " ago)" substring this
+            # pinned before no longer exists (the "</time>" closes
+            # between them). The replacement asserts MORE than the old
+            # one did: the parentheses are still this format's own
+            # punctuation OUTSIDE the element, and the age between them
+            # is the element's own text.
+            if not re.search(r'\(<time datetime="[^"]*" data-relative>[^<]* ago</time>\)', rendered):
                 return False, "expected a parenthesised relative age suffix on the rendered page"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "health_page's private timestamp helpers are gone (a move, not a copy) and the Device row still "
-        "renders the absolute-plus-relative format",
+        "renders the absolute-plus-relative format, now as a parenthesised <time data-relative> element",
         _timestamp_helpers_promoted_not_duplicated)
 
     def _independent_thresholds_one_warn_one_ok():
@@ -1320,6 +1525,130 @@ def main():
         "zero battery rows render the good-news empty state and no sparkline",
         _battery_empty_state_no_sparkline)
 
+    def _health_battery_ring_agrees_with_its_own_readout():
+        """CFG-40 (24-04-PLAN.md Task 2): the large ring, in Health's
+        battery section.
+
+        The property that matters is not "a ring appears" — it is that
+        the PICTURE AND THE NUMBER CANNOT DISAGREE. So the fraction is
+        recovered from the ring's own emitted geometry (its radius and
+        its dash array, the two attributes a browser actually paints
+        from) and compared against the percentage the readout PRINTS.
+        Reading the input back out of the page would pass for a ring
+        that ignored it.
+
+        THE NO-READING CASE IS ASSERTED AS AN ABSENCE, not as an empty
+        ring. An empty ring reads as "0%", which is a false statement
+        about a device that has simply not checked in — the same class
+        of error _status_tiles_html() already avoids by rendering a "no
+        reading" verdict instead of a zero.
+
+        The chart is asserted UNTOUCHED from this side too: no ring
+        class may appear inside battery_sparkline_svg()'s own output.
+        This plan adds a ring BESIDE the chart; plan 24-05 owns the
+        chart itself, and a chart change attributed to the wrong plan is
+        a debugging cost nobody needs.
+        """
+        tmp = _mkstate("h-battery-ring")
+        empty = _mkstate("h-battery-ring-none")
+        try:
+            base = _now().replace(hour=12, minute=0, second=0, microsecond=0)
+            # 3690 mV is deliberately NOT a round percentage of the
+            # 3300-4200 estimate span: it lands on 43%, so a ring drawn
+            # from a plausible-but-wrong constant (half, full, empty)
+            # cannot coincide with the right answer.
+            readings = [
+                (_iso(base - timedelta(minutes=2)), 3600),
+                (_iso(base - timedelta(minutes=1)), 3650),
+                (_iso(base), 3690),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+
+            # Exactly one ring on the whole page: one track, one value arc.
+            tracks = re.findall(
+                r'<circle class="%s"[^>]*/>' % re.escape(draw.DRAWING_RING_TRACK_CLASS),
+                rendered)
+            values = re.findall(
+                r'<circle class="%s"[^>]*/>' % re.escape(draw.DRAWING_RING_VALUE_CLASS),
+                rendered)
+            if len(tracks) != 1 or len(values) != 1:
+                return False, (
+                    "expected exactly one ring on Health (one track, one value arc), got "
+                    "%d track(s) and %d value arc(s)" % (len(tracks), len(values)))
+
+            radius = float(re.search(r' r="([0-9.]+)"', values[0]).group(1))
+            dash = re.search(r'stroke-dasharray="([0-9.]+) ', values[0])
+            drawn = float(dash.group(1)) if dash else 2 * math.pi * radius
+            drawn_fraction = drawn / (2 * math.pi * radius)
+
+            # The number the page actually PRINTS, read back out of the
+            # readout element rather than recomputed here.
+            readout = re.search(
+                r'<span class="battery-readout__value mono">([^<]*)</span>', rendered)
+            if readout is None:
+                return False, "expected the battery readout's value span to be present"
+            printed = re.search(r"(\d+)%", readout.group(1))
+            if printed is None:
+                return False, (
+                    "expected the readout to print a percentage, got %r" % (readout.group(1),))
+            printed_fraction = int(printed.group(1)) / 100.0
+            if abs(drawn_fraction - printed_fraction) > 0.0005:
+                return False, (
+                    "the ring draws %.4f of its circumference while the readout beside it "
+                    "prints %r — the picture and the number are telling different stories "
+                    "(CFG-40)" % (drawn_fraction, readout.group(1)))
+            if drawn_fraction in (0.0, 0.5, 1.0):
+                return False, (
+                    "the seeded reading was chosen to land on no round fraction, so %r "
+                    "means the ring is drawing a constant rather than the reading"
+                    % (drawn_fraction,))
+
+            # The ring is a NEW ELEMENT INSIDE the existing card, not a
+            # new card, and the <h2> still carries no glyph — a rule this
+            # page has broken once before (quick task 260902-j8w).
+            heading = re.search(r"<h2[^>]*>.*?</h2>", rendered, re.S)
+            if heading is None:
+                return False, "expected Health to render an <h2>"
+            for match in re.findall(r"<h2[^>]*>.*?</h2>", rendered, re.S):
+                if "<svg" in match:
+                    return False, (
+                        "a Health <h2> carries an <svg> — the battery heading's glyph was "
+                        "removed on the developer's own instruction and the ring must not "
+                        "reintroduce one: %r" % (match[:160],))
+
+            # The chart itself is untouched: no ring class inside
+            # battery_sparkline_svg()'s own output.
+            chart = health_page.battery_sparkline_svg(
+                [{"ts": ts, "battery_mv": mv} for ts, mv in reversed(readings)],
+                now=_iso(base))
+            for class_name in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
+                if class_name in chart:
+                    return False, (
+                        "battery_sparkline_svg()'s own output carries %r — this plan adds a "
+                        "ring BESIDE the chart and leaves the chart to plan 24-05"
+                        % (class_name,))
+
+            # No reading at all: no ring, and no empty one either.
+            blank = health_page.render(_ctx(empty, now=_iso(base)))
+            for class_name in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
+                if class_name in blank:
+                    return False, (
+                        "a device with no battery reading rendered %r — an empty ring reads "
+                        "as 0%%, which is a false statement about a device that has simply "
+                        "not checked in" % (class_name,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+            shutil.rmtree(empty, ignore_errors=True)
+    check(
+        "Health's battery section draws exactly one ring whose drawn fraction — recovered from "
+        "its own emitted radius and dash array — equals the percentage the readout beside it "
+        "PRINTS; the <h2> still carries no glyph, battery_sparkline_svg()'s own output carries "
+        "no ring class, and a device with no reading renders no ring at all rather than an "
+        "empty one (CFG-40)",
+        _health_battery_ring_agrees_with_its_own_readout)
+
     def _battery_trend_shows_all_readings_and_one_sparkline():
         tmp = _mkstate("h-battery-trend")
         try:
@@ -1345,9 +1674,21 @@ def main():
             # aren't permitted in a `points` list), so the redesigned
             # chart emits n - 1 <line> segments instead of one polyline;
             # for this 3-row fixture that is 2 segments.
-            non_icon_svg_count = rendered.count("<svg") - rendered.count("<use")
-            if non_icon_svg_count != 1:
-                return False, "expected exactly one non-icon <svg, got %d" % non_icon_svg_count
+            # 24-04-PLAN.md Task 2 (CFG-40): RETARGETED IN PLACE, no
+            # count contribution. "one non-icon <svg>" stopped being a
+            # proof of "one sparkline" the moment this page gained a
+            # second, deliberate non-icon drawing — the battery ring
+            # beside the readout — so the arithmetic was measuring the
+            # page's <svg> census rather than the property it was named
+            # for. It now counts the CHART'S OWN CANVAS, which is what
+            # "exactly one sparkline" always meant, and is strictly
+            # sharper: the old count would have been satisfied by the
+            # ring alone if the chart vanished. The ring's own "exactly
+            # one" is owned by the CFG-40 check above.
+            chart_canvas_count = rendered.count('<svg class="sparkline__canvas"')
+            if chart_canvas_count != 1:
+                return False, (
+                    "expected exactly one sparkline canvas, got %d" % chart_canvas_count)
             if rendered.count(health_page.SPARKLINE_LINE_CLASS) != 2:
                 return False, (
                     "expected exactly 2 trend-line segments (n - 1 for 3 points), got %d"
@@ -2098,8 +2439,20 @@ def main():
         svg = health_page.battery_sparkline_svg(rows)
         if svg.count(health_page.SPARKLINE_HIT_CLASS) != 3:
             return False, "expected exactly 3 hit-target circles, got %d" % svg.count(health_page.SPARKLINE_HIT_CLASS)
-        if svg.count(health_page.SPARKLINE_DOT_CLASS) != 3:
-            return False, "expected exactly 3 cosmetic dot circles, got %d" % svg.count(health_page.SPARKLINE_DOT_CLASS)
+        # 24-05-PLAN.md Task 2 (CFG-41): RETARGETED IN PLACE, no count
+        # contribution. The newest plotted point is now marked, and the
+        # mark is deliberately NOT a cosmetic dot (the density rule
+        # suppresses cosmetic dots; the mark must survive it), so "3
+        # dots" stopped being the way to say "every point is drawn".
+        # Restated as what it always meant — one drawn marker per point,
+        # the last of them the mark — which is strictly sharper: the old
+        # count would also have been satisfied by three dots and no mark.
+        dot_count = svg.count(health_page.SPARKLINE_DOT_CLASS)
+        mark_count = svg.count(health_page.SPARKLINE_MARK_CLASS)
+        if (dot_count, mark_count) != (2, 1):
+            return False, (
+                "expected 3 drawn markers for 3 points — 2 cosmetic dots plus 1 mark on the newest — got "
+                "%d dots / %d marks" % (dot_count, mark_count))
         if svg.count("data-mv=") != 3:
             return False, "expected exactly 3 data-mv attributes, got %d" % svg.count("data-mv=")
         if svg.count("data-ts=") != 3:
@@ -2388,11 +2741,24 @@ def main():
         if marker_xs != sorted(marker_xs) or len(set(marker_xs)) != len(marker_xs):
             return False, "expected strictly increasing, distinct marker x-positions (chronological order), got %r" % marker_xs
 
-        if svg.count('r="3"') != 5 or svg.count('r="8"') != 5:
-            return False, (
-                "expected the unchanged absolute marker radius (r=\"3\", x5) and hit-target "
-                "radius (r=\"8\", x5) — got r=\"3\" x%d, r=\"8\" x%d"
-                % (svg.count('r="3"'), svg.count('r="8"')))
+        # 24-05-PLAN.md Task 2 (CFG-41): RETARGETED IN PLACE, no count
+        # contribution. The property this line pins is unchanged — every
+        # radius is an ABSOLUTE pixel value that no container width can
+        # scale — but the newest point is now a mark rather than a
+        # cosmetic dot, so the 5-point fixture draws 4 dots at r=3, 1
+        # mark at its own named radius, and 5 unchanged r=8 hit targets.
+        # The hit-target radius in particular is asserted unchanged here:
+        # nothing this plan adds may shrink a tap target.
+        expected_radii = (
+            ('r="%d"' % health_page._SPARKLINE_DOT_RADIUS_PX, 4),
+            ('r="%d"' % health_page._SPARKLINE_MARK_RADIUS_PX, 1),
+            ('r="%d"' % health_page._SPARKLINE_HIT_RADIUS_PX, 5),
+        )
+        for radius_text, expected_count in expected_radii:
+            if svg.count(radius_text) != expected_count:
+                return False, (
+                    "expected the unchanged absolute radii (4 dots, 1 mark, 5 hit targets) — %s appeared "
+                    "%d times, expected %d" % (radius_text, svg.count(radius_text), expected_count))
 
         css = open(os.path.join(HERE, "static", "style.css")).read()
         rule_match = re.search(
@@ -2444,6 +2810,950 @@ def main():
         "canvas height exactly once for this selector and never inside a @media block (quick task 260902-ep7 "
         "BUG 4, rewritten in place from 260902-dng's retired scale-bound mechanism)",
         _sparkline_scale_bounded_at_one_across_real_container_widths)
+
+    def _sparkline_area_sits_under_the_line_in_its_own_nested_viewbox():
+        # 24-05-PLAN.md Task 1 (CFG-41/CFG-45, resolving 24-RESEARCH.md's
+        # open decision 4 — the area's geometry): a filled area under the
+        # trend line, drawn WITHOUT touching the outer canvas's scheme.
+        #
+        # THE CONSTRAINT THAT DECIDED THE GEOMETRY, pinned here because
+        # the next reader's instinct is to "simplify" this back into a
+        # single <polygon> beside the <line> segments and that cannot
+        # work: percentages are not permitted inside a <polygon>/
+        # <polyline> `points` list or inside a <path> `d` — the exact
+        # rule that already made the trend line n - 1 <line> segments
+        # rather than one polyline. The outer canvas's no-viewBox
+        # percentage scheme is what keeps every stroke and every hit
+        # target at its absolute pixel size at every container width
+        # (see the no-scale-factor check above), so it is not available
+        # to trade away for an easier area.
+        #
+        # The resolution: a NESTED <svg> carrying its own
+        # viewBox="0 0 100 100" plus preserveAspectRatio="none". Inside
+        # it user unit N maps to exactly N% of the same box in each axis
+        # independently, so the polygon's vertices land on the IDENTICAL
+        # coordinates the outer scheme's percentages produce — which is
+        # what this check asserts, vertex by vertex, against the marks
+        # the chart actually drew rather than against a recomputation.
+        # The nested viewBox is permitted; an outer one is not, and both
+        # halves are asserted here.
+        rows = [
+            {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
+            for i in range(5)]
+        svg = health_page.battery_sparkline_svg(rows)
+
+        outer_tag = svg[svg.index("<svg"):svg.index(">", svg.index("<svg"))]
+        if "viewBox" in outer_tag or "preserveAspectRatio" in outer_tag:
+            return False, (
+                "expected the OUTER canvas to keep no viewBox and no preserveAspectRatio "
+                "after the area was added, got %r" % outer_tag)
+
+        layers = re.findall(r'<svg class="sparkline__area"[^>]*>', svg)
+        if len(layers) != 1:
+            return False, "expected exactly one nested area layer <svg>, got %d" % len(layers)
+        layer = layers[0]
+        for needed in ('viewBox="0 0 100 100"', 'preserveAspectRatio="none"', 'aria-hidden="true"'):
+            if needed not in layer:
+                return False, (
+                    "expected the nested area layer to carry %s — without it the polygon's user "
+                    "units do not map onto the outer scheme's percentages; got %r"
+                    % (needed, layer))
+
+        polygons = re.findall(r'<polygon class="sparkline-area" points="([^"]*)"\s*/>', svg)
+        if len(polygons) != 1:
+            return False, "expected exactly one <polygon class=\"sparkline-area\">, got %d" % len(polygons)
+
+        # Paint order: SVG paints in document order, so an area emitted
+        # after the line would cover it. Asserted by index, not by
+        # reading the comment that says so.
+        if svg.index('<svg class="sparkline__area"') > svg.index('<line class="%s"' % health_page.SPARKLINE_LINE_CLASS):
+            return False, "expected the area layer to be emitted BEFORE the first trend-line segment"
+
+        vertices = []
+        for pair in polygons[0].split(" "):
+            x_text, _, y_text = pair.partition(",")
+            vertices.append((float(x_text), float(y_text)))
+        if len(vertices) != 7:
+            return False, (
+                "expected 7 polygon vertices for a 5-point series (5 along the line, then two "
+                "baseline corners), got %d" % len(vertices))
+
+        drawn = [(float(cx), float(cy)) for cx, cy in re.findall(
+            r'<circle class="%s"[^>]*cx="([\d.]+)%%" cy="([\d.]+)%%"' % health_page.SPARKLINE_HIT_CLASS, svg)]
+        if len(drawn) != 5:
+            return False, "expected to read back 5 plotted point coordinates, got %d" % len(drawn)
+        for index, (drawn_point, vertex) in enumerate(zip(drawn, vertices[:5])):
+            if abs(drawn_point[0] - vertex[0]) > 0.005 or abs(drawn_point[1] - vertex[1]) > 0.005:
+                return False, (
+                    "expected the area's vertex %d to sit exactly on the point the chart drew "
+                    "%r, got %r — the area and the line are then two different scales"
+                    % (index, drawn_point, vertex))
+
+        # The baseline is the SCALE's own floor (the level the "3000 mV"
+        # label names), never the canvas edge: closing the area at y=100
+        # would add the vertical inset to every reading as a constant,
+        # so the filled height would no longer be the value above the
+        # axis minimum.
+        baseline = health_page.sparkline_point_y(health_page.SPARKLINE_Y_MIN_MV)
+        if abs(vertices[5][1] - baseline) > 0.005 or abs(vertices[6][1] - baseline) > 0.005:
+            return False, (
+                "expected the area's two baseline corners at the axis minimum's own y (%.2f%%), "
+                "got %r and %r" % (baseline, vertices[5], vertices[6]))
+        if abs(vertices[5][0] - drawn[-1][0]) > 0.005 or abs(vertices[6][0] - drawn[0][0]) > 0.005:
+            return False, (
+                "expected the baseline corners to span exactly the plotted x range (newest then "
+                "oldest), got %r and %r" % (vertices[5], vertices[6]))
+
+        # D-09's no-external-reference guarantee, re-asserted AT the
+        # area: `url(#gradient)` is the obvious way to fade a fill and it
+        # is forbidden by this function's own standing guarantee, so the
+        # area is a flat translucent fill instead. No colour value is
+        # introduced either — the fill is currentColor in CSS.
+        for forbidden in ("url(", "<image", "<script"):
+            if forbidden in svg:
+                return False, "found forbidden %r in the sparkline SVG after adding the area" % forbidden
+        literal = re.search(r'#[0-9a-fA-F]{3,8}|rgb\(', svg)
+        if literal is not None:
+            return False, "found a raw colour literal %r in the emitted markup" % literal.group(0)
+
+        # The "" floor below two points takes the area with it: an area
+        # under one point is meaningless.
+        one_point = health_page.battery_sparkline_svg([{"ts": "2024-01-01T00:00:00", "battery_mv": 4000}])
+        if one_point != "":
+            return False, "expected no chart at all (and so no area) below two plotted points, got %r" % one_point[:80]
+
+        css = _css_without_comments()
+        area_rule = re.search(r'\.sparkline-area(?![-\w])\s*\{([^}]*)\}', css)
+        if area_rule is None:
+            return False, "expected a `.sparkline-area` rule in style.css — a class with no rule paints nothing"
+        body = area_rule.group(1)
+        if re.search(r'(?<![-\w])fill:\s*currentColor', body) is None:
+            return False, (
+                "expected `.sparkline-area` to fill with currentColor — the area's colour must be "
+                "the LINE's own colour, so dark mode is correct by the same mechanism; got %r" % body)
+        opacity = re.search(r'fill-opacity:\s*([\d.]+)', body)
+        if opacity is None:
+            return False, "expected `.sparkline-area` to declare a fill-opacity — an opaque area hides the axis beneath it"
+        if not (0.0 < float(opacity.group(1)) < 1.0):
+            return False, "expected a translucent fill-opacity strictly between 0 and 1, got %r" % opacity.group(1)
+
+        # The nested layer must carry NO rule of its own: its box comes
+        # from the single `.battery-trend-section svg:not(.icon)`
+        # declaration the check above pins, which is what makes the area
+        # layer and the canvas it sits inside impossible to size
+        # differently. A `.sparkline__area` rule would be a second size
+        # route (and, at (0,1,0), one that silently loses to (0,2,1)).
+        if re.search(r'\.sparkline__area(?![-\w])\s*[,{]', css) is not None:
+            return False, (
+                "expected NO `.sparkline__area` rule in style.css — the area layer's box must come "
+                "from the one `.battery-trend-section svg:not(.icon)` height declaration, not a second one")
+        return True, ""
+    check(
+        "battery_sparkline_svg() fills an area under the trend line from a NESTED viewBox'd <svg> "
+        "(percentages are illegal in a points list) whose vertices land on the exact coordinates the "
+        "chart's own marks did, closed at the axis minimum rather than the canvas edge, painted before "
+        "the line, in currentColor at a translucent fill-opacity, with the outer canvas still carrying no "
+        "viewBox, no url(/image/script reference, no colour literal, no rule of its own for the layer, and "
+        "nothing at all below two points (CFG-41/CFG-45, 24-05-PLAN.md Task 1)",
+        _sparkline_area_sits_under_the_line_in_its_own_nested_viewbox)
+
+    def _sparkline_marks_the_newest_PLOTTED_point_not_the_newest_row():
+        # 24-05-PLAN.md Task 2 (CFG-41): the chart marks the current
+        # reading. The fixture's newest row deliberately carries NO
+        # battery_mv, which is the whole point of this check: a mark
+        # derived from the raw rows marks a row the chart never plotted
+        # (or, with a None value, nothing at all), and every other
+        # assertion about the mark would still pass. The mark must come
+        # from the SAME single-pass filtered pair list the points do.
+        rows = [
+            {"ts": "2024-01-05T05:00:00"},
+            {"ts": "2024-01-04T04:00:00", "battery_mv": 3900},
+            {"ts": "2024-01-03T03:00:00", "battery_mv": 4000},
+            {"ts": "2024-01-02T02:00:00", "battery_mv": 4100},
+        ]
+        svg = health_page.battery_sparkline_svg(rows, now="2024-01-05T06:00:00")
+
+        marks = re.findall(
+            r'<circle class="%s"[^>]*cx="([\d.]+)%%" cy="([\d.]+)%%" r="(\d+)"[^>]*/>'
+            % health_page.SPARKLINE_MARK_CLASS, svg)
+        if len(marks) != 1:
+            return False, "expected exactly one marked point, got %d" % len(marks)
+        mark_x, mark_y, mark_r = float(marks[0][0]), float(marks[0][1]), int(marks[0][2])
+        if abs(mark_x - 100.0) > 0.005:
+            return False, "expected the mark at the rightmost (newest) x=100%%, got %.2f%%" % mark_x
+        expected_y = health_page.sparkline_point_y(3900)
+        if abs(mark_y - expected_y) > 0.005:
+            return False, (
+                "expected the mark at the newest PLOTTED reading's own level (%.2f%%, for 3900 mV), got "
+                "%.2f%% — a mark derived from the raw rows lands on the newest row instead, which has no "
+                "battery_mv at all" % (expected_y, mark_y))
+        if "2024-01-05" in svg:
+            return False, "the row with no battery_mv reached the chart — it must be dropped, mark included"
+
+        # The mark is NOT a cosmetic dot, and that is the density rule's
+        # written-down exception rather than an accident of naming: dots
+        # are suppressed above the threshold, the mark is not.
+        if health_page.SPARKLINE_MARK_CLASS in health_page.SPARKLINE_DOT_CLASS or (
+                health_page.SPARKLINE_DOT_CLASS in health_page.SPARKLINE_MARK_CLASS):
+            return False, "expected the mark and dot class names to be distinct, neither a substring of the other"
+        dots = [m.start() for m in re.finditer(
+            r'<circle class="%s"' % health_page.SPARKLINE_DOT_CLASS, svg)]
+        if len(dots) != 2:
+            return False, "expected 2 cosmetic dots (3 plotted points, the last one marked instead), got %d" % len(dots)
+        mark_at = svg.index('<circle class="%s"' % health_page.SPARKLINE_MARK_CLASS)
+        if any(dot_at > mark_at for dot_at in dots):
+            return False, "expected the mark to be the LAST plotted marker in document order"
+
+        # The mark reads as the current value only if the hit target at
+        # the same place carries that reading's own timestamp — the
+        # keyboard/hover path is what actually speaks the value.
+        hits = re.findall(
+            r'<circle class="%s"[^>]*data-ts="([^"]*)"[^>]*>(?:<title>([^<]*)</title>)?'
+            % health_page.SPARKLINE_HIT_CLASS, svg)
+        if len(hits) != 3:
+            return False, "expected 3 hit targets, got %d" % len(hits)
+        if hits[-1][0] != "2024-01-04T04:00:00":
+            return False, (
+                "expected the last hit target to carry the newest PLOTTED row's timestamp, got %r"
+                % hits[-1][0])
+        if not hits[-1][1]:
+            return False, "expected the marked point's hit target to keep its own <title>"
+
+        # The keyboard path is untouched: one Tab stop, on the last
+        # point, and one tabindex per point.
+        if svg.count("tabindex=") != 3 or svg.count('tabindex="0"') != 1:
+            return False, (
+                "expected one tabindex per point with exactly one Tab stop, got %d tabindex / %d zero"
+                % (svg.count("tabindex="), svg.count('tabindex="0"')))
+        if svg.index('tabindex="0"') < mark_at:
+            return False, "expected the single Tab stop to be the marked (latest) point's own hit target"
+
+        # The mark's radius is a named constant and fits inside the
+        # vertical inset the canvas reserves, or an extreme reading's
+        # mark would be clipped at the canvas edge.
+        if mark_r != health_page._SPARKLINE_MARK_RADIUS_PX:
+            return False, "expected the mark's radius to come from _SPARKLINE_MARK_RADIUS_PX, got %d" % mark_r
+        inset_px = health_page._SPARKLINE_VERTICAL_INSET_PERCENT / 100.0 * health_page._SPARKLINE_CANVAS_HEIGHT_PX
+        if mark_r > inset_px:
+            return False, (
+                "expected the mark's %dpx radius to fit inside the canvas's %.2fpx vertical inset"
+                % (mark_r, inset_px))
+        if mark_r <= health_page._SPARKLINE_DOT_RADIUS_PX:
+            return False, "expected the mark to be visibly larger than a cosmetic dot"
+
+        # The density rule's exception, asserted rather than commented:
+        # above the threshold the cosmetic dots go and the mark stays.
+        dense_rows = [
+            {"ts": "2026-06-%02d" % ((i % 28) + 1), "battery_mv": 4000 + i}
+            for i in range(health_page._SPARKLINE_DENSE_POINT_THRESHOLD + 5)]
+        dense_svg = health_page.battery_sparkline_svg(
+            dense_rows, now="2026-09-02T12:00:00+00:00", daily=True)
+        if health_page.SPARKLINE_DOT_CLASS in dense_svg:
+            return False, "expected no cosmetic dots above the density threshold"
+        if dense_svg.count('<circle class="%s"' % health_page.SPARKLINE_MARK_CLASS) != 1:
+            return False, (
+                "expected the marked point to SURVIVE the density rule — it is not a cosmetic dot, and "
+                "marking the current reading is the whole reason it is drawn")
+        return True, ""
+    check(
+        "the battery chart marks the newest PLOTTED point (never the newest raw row, which may carry no "
+        "battery_mv at all) with its own non-dot class at a named radius that fits the canvas's vertical "
+        "inset, last in document order, carrying the same timestamp its hit target does, leaving the "
+        "roving-tabindex path byte-identical, and surviving the density rule that suppresses cosmetic dots "
+        "(CFG-41, 24-05-PLAN.md Task 2)",
+        _sparkline_marks_the_newest_PLOTTED_point_not_the_newest_row)
+
+    def _sparkline_low_battery_threshold_is_read_from_battery_py_and_labelled():
+        # 24-05-PLAN.md Task 2 (CFG-41, T-24-05-A/T-24-05-B): the drawn
+        # low-battery line. Three properties, each of which is a way this
+        # could be wrong while looking right: it must be placed by the
+        # SAME sparkline_point_y() the readings are (or it sits at a
+        # different level from the readings it judges), its value must
+        # come from companion/battery.py rather than be re-typed here
+        # (the companion's DISPLAY threshold is a different number from
+        # server/poll_loop.py's device-side warning, for a different
+        # job), and it must not be drawn at all when it would fall
+        # outside the chart's fixed range — a threshold pinned to the
+        # axis edge by the clamp reads as a threshold AT the chart floor,
+        # which is a false statement.
+        rows = [
+            {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
+            for i in range(5)]
+        svg = health_page.battery_sparkline_svg(rows)
+
+        rects = re.findall(
+            r'<rect class="%s"([^>]*)/>' % health_page.SPARKLINE_THRESHOLD_CLASS, svg)
+        if len(rects) != 1:
+            return False, "expected exactly one drawn low-battery threshold, got %d" % len(rects)
+        attrs = rects[0]
+        expected_y = 'y="%.2f%%"' % health_page.sparkline_point_y(battery.LOW_BATTERY_DISPLAY_MV)
+        if expected_y not in attrs:
+            return False, (
+                "expected the threshold at sparkline_point_y(battery.LOW_BATTERY_DISPLAY_MV) = %s, got %r "
+                "— a threshold with its own arithmetic drifts from the readings by the vertical inset"
+                % (expected_y, attrs))
+        for needed in ('x="0"', 'width="100%"', 'height="1"', 'aria-hidden="true"'):
+            if needed not in attrs:
+                return False, "expected the threshold rect to carry %s, got %r" % (needed, attrs)
+
+        # Never re-typed: the millivolt value appears nowhere in this
+        # page module's own source.
+        page_source = open(health_page.__file__, encoding="utf-8").read()
+        if str(battery.LOW_BATTERY_DISPLAY_MV) in page_source:
+            return False, (
+                "found the literal %d in health_page.py — the threshold's value must be READ from "
+                "companion/battery.py, never re-typed beside the chart that draws it"
+                % battery.LOW_BATTERY_DISPLAY_MV)
+
+        # The label names what the line MEANS, is outside the SVG as a
+        # <span> in the chart's own grid, and is NOT aria-hidden: unlike
+        # the axis labels (whose values every point already announces),
+        # nothing else on this page says where "low" starts.
+        legend = re.search(
+            r'<div class="%s">\s*<span class="%s"([^>]*)>(.*?)</span>\s*</div>'
+            % (health_page.SPARKLINE_LEGEND_ROW_CLASS, health_page.SPARKLINE_LEGEND_CLASS),
+            svg, re.S)
+        if legend is None:
+            return False, "expected a threshold legend <span> inside the chart's own label grid"
+        if "aria-hidden" in legend.group(1):
+            return False, (
+                "expected the threshold legend NOT to be aria-hidden — the axis labels are hidden "
+                "because every point already announces its value, and nothing announces this one")
+        legend_text = re.sub(r"<[^>]*>", "", legend.group(2))
+        if str(battery.LOW_BATTERY_DISPLAY_MV) not in legend_text:
+            return False, "expected the legend to name the threshold's level, got %r" % legend_text
+        if str(battery.LOW_BATTERY_DISPLAY_PERCENT) not in legend_text:
+            return False, (
+                "expected the legend to name the percentage the level corresponds to, tying the line to "
+                "the estimate printed beside the chart, got %r" % legend_text)
+        if legend_text.strip() == "%d mV" % battery.LOW_BATTERY_DISPLAY_MV:
+            return False, "expected the legend to say what the line MEANS, not a bare number on a chart"
+        if svg.index('<div class="%s">' % health_page.SPARKLINE_LEGEND_ROW_CLASS) < svg.index("</svg>"):
+            return False, "expected the legend OUTSIDE the canvas, after it in the grid"
+
+        # Both languages.
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_svg = health_page.battery_sparkline_svg(rows)
+        finally:
+            prefs.set_request_prefs(lang="en")
+        fr_legend = re.search(
+            r'<span class="%s"[^>]*>(.*?)</span>' % health_page.SPARKLINE_LEGEND_CLASS, fr_svg, re.S)
+        if fr_legend is None:
+            return False, "expected the threshold legend to render in French too"
+        fr_text = re.sub(r"<[^>]*>", "", fr_legend.group(1))
+        if fr_text == legend_text:
+            return False, "expected a French translation of the threshold legend, got the English string %r" % fr_text
+
+        # Out of range: no line, and no label for a line that is not
+        # there. Asserted with a patched constant, because 24-01 chose a
+        # value strictly inside the range on purpose — this guards a
+        # later change, not today's value.
+        original = battery.LOW_BATTERY_DISPLAY_MV
+        try:
+            for bad in (health_page.SPARKLINE_Y_MIN_MV - 100, health_page.SPARKLINE_Y_MIN_MV,
+                        health_page.SPARKLINE_Y_MAX_MV + 100):
+                battery.LOW_BATTERY_DISPLAY_MV = bad
+                out = health_page.battery_sparkline_svg(rows)
+                if health_page.SPARKLINE_THRESHOLD_CLASS in out:
+                    return False, (
+                        "expected NO threshold drawn for an out-of-range value (%d) — the clamp would pin "
+                        "it to the axis edge, where it reads as a threshold AT the chart floor" % bad)
+                if health_page.SPARKLINE_LEGEND_CLASS in out:
+                    return False, "expected no threshold legend when no threshold is drawn (%d)" % bad
+        finally:
+            battery.LOW_BATTERY_DISPLAY_MV = original
+
+        css = _css_without_comments()
+        rect_rule = re.search(r'\.sparkline-threshold(?![-\w])\s*\{([^}]*)\}', css)
+        if rect_rule is None or "var(--color-status-warn)" not in rect_rule.group(1):
+            return False, (
+                "expected `.sparkline-threshold` to be filled with the app's existing status-warn token — "
+                "the threshold is a judgement, not axis chrome, and accent is reserved")
+        swatch_rule = re.search(r'\.sparkline-swatch(?![-\w])\s*\{([^}]*)\}', css)
+        if swatch_rule is None or "var(--color-status-warn)" not in swatch_rule.group(1):
+            return False, (
+                "expected the legend's swatch to be painted with the SAME token as the drawn line, so the "
+                "legend cannot come to describe a colour the chart does not use")
+        return True, ""
+    check(
+        "the chart's low-battery threshold is a full-width rect placed by the same sparkline_point_y() the "
+        "readings are, its value READ from companion/battery.py and never re-typed, labelled by meaning in "
+        "a non-aria-hidden <span> outside the canvas in both languages, painted with the status-warn token "
+        "the legend's own swatch shares, and absent entirely — line and label — when the value falls "
+        "outside the chart's fixed range (CFG-41, T-24-05-A/B, 24-05-PLAN.md Task 2)",
+        _sparkline_low_battery_threshold_is_read_from_battery_py_and_labelled)
+
+    # --- 24-07-PLAN.md Task 1 (CFG-43): the check-in regularity grid ---
+    #
+    # THESE FOUR CHECKS TEST companion/draw.py, NOT A PAGE, and they live
+    # here rather than in companion/test_companion_app.py (which owns
+    # 24-01's drawing CONTRACT checks) for one reason: 24-07-PLAN.md's
+    # files_modified names test_status_pages.py and test_browser_ux.py as
+    # the two harnesses this plan owns, and a plan writing a harness it
+    # does not own is how two plans in one wave come to edit one file.
+    # The same misfiling question 24-03 answered the same way, and for
+    # the same reason — see server/test_config_history.py's own header
+    # comment on its wake.py section. 24-01's contract checks still cover
+    # the new classes automatically from the other file: a class emitted
+    # from draw.py with no selector in style.css fails there, unchanged.
+
+    def _regularity_grid_has_four_states_and_never_conflates_them():
+        # THE DEFECT THIS CHECK EXISTS FOR: "no observation" rendered as
+        # "on cadence" makes a freshly-provisioned device look healthy,
+        # and rendered as "missing" makes it look like a failing one.
+        # 24-RESEARCH.md Risk 1 is that the record cannot tell a missed
+        # wake from a log range the ingest lost, so the fourth state is
+        # the honest one and is asserted separately from the other three.
+        states = (wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
+                  wake.CHECK_IN_MISSING, wake.CHECK_IN_UNKNOWN)
+        classes = [draw.cell_class(state) for state in states]
+        if len(set(classes)) != 4:
+            return False, (
+                "expected four DISTINCT cell classes for the four states, got %r — "
+                "two states painted by one class cannot be told apart" % (classes,))
+        for state, class_name in zip(states, classes):
+            if class_name not in draw.DRAWING_CLASSES:
+                return False, (
+                    "cell_class(%r) returned %r, which is not in draw.DRAWING_CLASSES — "
+                    "24-01's own style.css resolution check cannot see it"
+                    % (state, class_name))
+        none_class = draw.cell_class(wake.CHECK_IN_UNKNOWN)
+        for bogus in (None, "", "ok", "honoured", 0, True, "on-cadence"):
+            got = draw.cell_class(bogus)
+            if got != none_class:
+                return False, (
+                    "cell_class(%r) returned %r — an unrecognised verdict must fall to "
+                    "the no-observation class %r, never to a verdict the data does not "
+                    "support" % (bogus, got, none_class))
+        markup, dropped = draw.regularity_grid(
+            [(state, "cell %d" % i) for i, state in enumerate(states)])
+        if dropped:
+            return False, "four cells dropped %d — nothing should be bounded out" % (dropped,)
+        for state, class_name in zip(states, classes):
+            if markup.count('class="%s %s"' % (draw.DRAWING_CELL_CLASS, class_name)) != 1:
+                return False, (
+                    "expected exactly one cell carrying %r for state %r in %r"
+                    % (class_name, state, markup))
+        # The no-observation cell, isolated: it must carry neither of the
+        # two classes a reader would act on.
+        alone, _ = draw.regularity_grid([(wake.CHECK_IN_UNKNOWN, "no record")])
+        for forbidden in (draw.cell_class(wake.CHECK_IN_ON_CADENCE),
+                          draw.cell_class(wake.CHECK_IN_MISSING)):
+            if re.search(r'(?<![-\w])%s(?![-\w])' % re.escape(forbidden), alone):
+                return False, (
+                    "a bucket with no observation emitted %r: %r" % (forbidden, alone))
+        if alone.count("<title>") != 1 or "no record" not in alone:
+            return False, "expected the lone cell to carry its caller's <title>: %r" % (alone,)
+        # A cell with no title RAISES rather than emitting a silent one.
+        for empty in (None, "", "   "):
+            try:
+                draw.regularity_grid([(wake.CHECK_IN_LATE, empty)])
+            except ValueError:
+                continue
+            return False, (
+                "expected a ValueError for a cell built with title %r — a silent cell is "
+                "a coloured verdict with nothing naming what it judged" % (empty,))
+        return True, ""
+    check(
+        "draw.cell_class() maps the classifier's four verdicts to four DISTINCT classes, all of "
+        "them in DRAWING_CLASSES, and falls to the no-observation class for anything else — so a "
+        "bucket with no observation can never emit the on-cadence or the missing class — and "
+        "regularity_grid() raises rather than emitting a cell with no <title> "
+        "(CFG-43, T-24-07-A, 24-07-PLAN.md Task 1)",
+        _regularity_grid_has_four_states_and_never_conflates_them)
+
+    def _regularity_grid_cells_are_sized_from_the_360px_floor():
+        # THE ARITHMETIC, re-derived here rather than copied: the
+        # constants must PRODUCE the shipped layout, or the derivation
+        # recorded beside them in draw.py is decoration.
+        width = draw.CARD_DRAWING_WIDTH_PX
+        columns = draw.grid_columns(width)
+        size = draw.grid_cell_size(width, columns)
+        if size < draw.CELL_MIN_SIZE_PX:
+            return False, (
+                "at the measured %spx card width, %d columns give a %.2fpx cell — under the "
+                "%spx minimum. The bucket count must come DOWN, never the cell size"
+                % (width, columns, size, draw.CELL_MIN_SIZE_PX))
+        # One more column must be under the floor, or `columns` is not
+        # the most that fits and the grid is wasting width it has.
+        over = draw.grid_cell_size(width, columns + 1)
+        if over >= draw.CELL_MIN_SIZE_PX:
+            return False, (
+                "%d columns would still give a %.2fpx cell at %spx, so grid_columns() is not "
+                "returning the most that fit — the floor is not what is deciding"
+                % (columns + 1, over, width))
+        # A narrow card reduces the COLUMNS, and never below one.
+        for narrow in (10, 24, 27, 40, 100):
+            few = draw.grid_columns(narrow)
+            if few < 1:
+                return False, "grid_columns(%d) returned %d — a grid needs a column" % (narrow, few)
+            if few > 1 and draw.grid_cell_size(narrow, few) < draw.CELL_MIN_SIZE_PX:
+                return False, (
+                    "grid_columns(%d) returned %d, whose cells are %.2fpx — under the floor"
+                    % (narrow, few, draw.grid_cell_size(narrow, few)))
+        # Geometry: every cell inside the canvas, at the declared size.
+        cells = [(wake.CHECK_IN_ON_CADENCE, "c%d" % i) for i in range(columns * 3)]
+        markup, dropped = draw.regularity_grid(cells, width=width)
+        if dropped:
+            return False, "three full rows dropped %d cells" % (dropped,)
+        view = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', markup)
+        if not view:
+            return False, "expected a viewBox on the grid canvas: %r" % (markup[:200],)
+        box_w, box_h = float(view.group(1)), float(view.group(2))
+        if abs(box_w - width) > 0.01:
+            return False, (
+                "the canvas is %.2fpx wide against the %spx it was given — a grid that does "
+                "not fill the width it was handed has an unexplained margin"
+                % (box_w, width))
+        rects = re.findall(
+            r'<rect class="[^"]*" x="([\d.-]+)" y="([\d.-]+)" width="([\d.]+)" '
+            r'height="([\d.]+)"', markup)
+        if len(rects) != len(cells):
+            return False, (
+                "expected %d cell rects, got %d" % (len(cells), len(rects)))
+        for x, y, w, h in ((float(a), float(b), float(c), float(d)) for a, b, c, d in rects):
+            if abs(w - size) > 0.01 or abs(h - size) > 0.01:
+                return False, (
+                    "a cell measures %.2fx%.2f against the %.2fpx square the constants "
+                    "derive" % (w, h, size))
+            if x < -0.01 or y < -0.01 or x + w > box_w + 0.01 or y + h > box_h + 0.01:
+                return False, (
+                    "a cell at (%.2f, %.2f) is outside the %.2fx%.2f viewBox — a mark "
+                    "painted outside its own box is clipped in one browser and not in "
+                    "another" % (x, y, box_w, box_h))
+        # THE FLOOR, not only the ceiling: the columns really are used.
+        # A grid that stacked every cell in column 0 would satisfy every
+        # containment assertion above and be a vertical line.
+        xs = sorted({round(float(r[0]), 2) for r in rects})
+        if len(xs) != columns:
+            return False, (
+                "expected %d distinct cell x positions, got %d (%r) — the cells are not "
+                "spread across the row" % (columns, len(xs), xs))
+        ys = sorted({round(float(r[1]), 2) for r in rects})
+        if len(ys) != 3:
+            return False, "expected 3 rows of cells, got %d (%r)" % (len(ys), ys)
+        # THE OTHER END OF THE SAME PROPERTY, and the reason it is here:
+        # "every cell is inside the box" is a CEILING, and a grid whose
+        # cells stopped short of the right edge would satisfy it while
+        # breaking the thing the geometry exists for. The HTML label row
+        # beneath the canvas sizes itself from the CARD, so the last
+        # label only sits under the last column while the last column
+        # reaches the canvas's own right edge. Measured against a
+        # whole-pixel cell size, which leaves exactly this 1px shortfall.
+        if abs((xs[-1] + size) - box_w) > 0.01:
+            return False, (
+                "the last column's right edge is at %.2f against a %.2fpx canvas — the "
+                "grid does not reach its own right edge, so the label row beneath it "
+                "(which measures itself against the card, not against this arithmetic) "
+                "names a column that is not there" % (xs[-1] + size, box_w))
+        gaps = {round(b - a - size, 2) for a, b in zip(xs, xs[1:])}
+        if gaps != {float(draw.CELL_GAP_PX)}:
+            return False, (
+                "the clear ground between columns is %r, not the %spx CELL_GAP_PX declares"
+                % (gaps, draw.CELL_GAP_PX))
+        if re.search(r"#[0-9A-Fa-f]{3,8}\b|rgb\(|hsl\(", markup):
+            return False, "the grid emitted a colour literal: %r" % (markup,)
+        return True, ""
+    check(
+        "the regularity grid sizes its cells DOWN from the measured 278px card width at the "
+        "360px floor: grid_columns() returns the most columns whose cells still clear the "
+        "24px minimum and one more column would not, a narrower card reduces the columns "
+        "rather than the cells, every cell is square, inside the viewBox, spread across every "
+        "column and row with exactly CELL_GAP_PX of clear ground, and no colour literal is "
+        "emitted (CFG-43, CFG-45, T-24-07-D, 24-07-PLAN.md Task 1)",
+        _regularity_grid_cells_are_sized_from_the_360px_floor)
+
+    def _regularity_grid_is_bounded_and_keeps_the_NEWEST_buckets():
+        # T-24-07-D: the element count is bounded by the drawing, never
+        # by the caller's window. AND — the half a ceiling assertion
+        # cannot see — the cells kept must be the NEWEST ones. Keeping
+        # the oldest is the same shape of defect 24-06 found in the day
+        # band: every count is right, every cell is inside the box, and
+        # the picture is of a month that has already ended.
+        columns = draw.grid_columns(draw.CARD_DRAWING_WIDTH_PX)
+        capacity = columns * draw.GRID_MAX_ROWS
+        cells = [(wake.CHECK_IN_ON_CADENCE, "day %03d" % i) for i in range(capacity + 17)]
+        cells[0] = (wake.CHECK_IN_MISSING, cells[0][1])
+        markup, dropped = draw.regularity_grid(cells, width=draw.CARD_DRAWING_WIDTH_PX)
+        if dropped != 17:
+            return False, (
+                "expected the 17 buckets over capacity to be reported dropped, got %d — a "
+                "caption cannot be honest about a window the drawing silently truncated"
+                % (dropped,))
+        titles = re.findall(r"<title>([^<]*)</title>", markup)
+        if len(titles) != capacity:
+            return False, (
+                "expected the grid bounded at %d cells (%d columns x %d rows), got %d"
+                % (capacity, columns, draw.GRID_MAX_ROWS, len(titles)))
+        if titles[-1] != "day %03d" % (capacity + 16):
+            return False, (
+                "the last cell is %r, not the newest bucket supplied — a bounded grid that "
+                "keeps the OLDEST cells draws a window that has already ended"
+                % (titles[-1],))
+        if titles[0] != "day 017":
+            return False, (
+                "the first cell is %r, not the oldest bucket that still fits" % (titles[0],))
+        # And the dropped oldest cell's own verdict left with it.
+        if re.search(r'(?<![-\w])%s(?![-\w])'
+                     % re.escape(draw.cell_class(wake.CHECK_IN_MISSING)), markup):
+            return False, "the dropped oldest bucket's verdict is still painted in the grid"
+        # A single cell is a real grid, not a degenerate one.
+        one, _ = draw.regularity_grid([(wake.CHECK_IN_LATE, "only")],
+                                      width=draw.CARD_DRAWING_WIDTH_PX)
+        size = draw.grid_cell_size(draw.CARD_DRAWING_WIDTH_PX, columns)
+        if 'height="%s"' % draw._number(size) not in one:
+            return False, (
+                "a one-cell grid is %r — it must still be one full-size cell tall" % (one,))
+        empty, empty_dropped = draw.regularity_grid([])
+        if empty != "" or empty_dropped:
+            return False, (
+                "no cells at all must draw nothing and drop nothing (the caller owns the "
+                "empty state), got %r/%r" % (empty, empty_dropped))
+        return True, ""
+    check(
+        "the regularity grid's element count is bounded by its own geometry and never by the "
+        "caller's window — at capacity it keeps the NEWEST buckets, reports exactly how many "
+        "it dropped, and paints none of the dropped verdicts — while one cell still draws one "
+        "full-size cell and no cells draw nothing (CFG-43, T-24-07-D, 24-07-PLAN.md Task 1)",
+        _regularity_grid_is_bounded_and_keeps_the_NEWEST_buckets)
+
+    def _draw_cell_vocabulary_is_the_classifiers_own():
+        # draw.py is stdlib-only and may not import the server package,
+        # so the four verdict strings are re-typed there by necessity.
+        # This is what stops that necessity becoming a drift: rename a
+        # CHECK_IN_* value in server/wake.py and the grid would paint
+        # every cell in the no-observation colour with nothing else
+        # failing — a device that had checked in perfectly, drawn as a
+        # month of silence.
+        vocabulary = {wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
+                      wake.CHECK_IN_MISSING, wake.CHECK_IN_UNKNOWN}
+        if set(draw.CELL_STATE_CLASSES) != vocabulary:
+            return False, (
+                "draw.CELL_STATE_CLASSES is keyed on %r, the classifier's vocabulary is %r — "
+                "a verdict wake.classify_check_in_gap() returns that this table does not "
+                "carry paints as no observation at all"
+                % (sorted(draw.CELL_STATE_CLASSES), sorted(vocabulary)))
+        return True, ""
+    check(
+        "draw.CELL_STATE_CLASSES is keyed on EXACTLY wake.classify_check_in_gap()'s own four "
+        "CHECK_IN_* values — the one coupling a stdlib-only geometry module cannot express as "
+        "an import (CFG-43, 24-07-PLAN.md Task 1)",
+        _draw_cell_vocabulary_is_the_classifiers_own)
+
+    # --- 24-07-PLAN.md Task 2 (CFG-43): the Health section -------------
+    #
+    # THE CAPTION'S THREE CLAUSES GET THREE CHECKS, one each, because
+    # they are three separate claims and a later editor will be tempted
+    # to trim the third as noise. A single check over the whole caption
+    # would go green on two clauses out of three.
+
+    _CELL_RE = re.compile(
+        r'<rect class="drawing-cell ([^"]+)"[^>]*><title>([^<]*)</title></rect>')
+
+    def _check_in_cells(rendered):
+        """[(state class, title), ...] in document order."""
+        return [(m.group(1), m.group(2)) for m in _CELL_RE.finditer(rendered)]
+
+    def _seeded_regularity_page(state_dir, now, wake_interval_s=300):
+        """Seed a device_config cadence plus two days of check-ins whose
+        gaps land on three different verdicts, and render Health."""
+        if wake_interval_s is not None:
+            device_config.save_device_config(state_dir, wake_interval_s=wake_interval_s)
+        today = now.astimezone(layout.LOCAL_TZ).replace(
+            hour=1, minute=0, second=0, microsecond=0)
+        yesterday = today - timedelta(days=1)
+        _seed_device_health(state_dir, [
+            # Yesterday: a 20-minute gap. At a 300s cadence that is past
+            # warn (900s) and short of error (3600s) — late.
+            (_iso(yesterday), 4200),
+            (_iso(yesterday + timedelta(minutes=20)), 4190),
+            # Today: a 10-minute gap, then a 6-hour one.
+            (_iso(today), 4180),
+            (_iso(today + timedelta(minutes=10)), 4170),
+            (_iso(today + timedelta(hours=6)), 4160),
+        ])
+        return health_page.render(_ctx(state_dir, now=_iso(now)))
+
+    def _the_caption_says_what_the_grid_SHOWS():
+        tmp = _mkstate("h-regularity-clause-1")
+        try:
+            rendered = _seeded_regularity_page(tmp, _now())
+            clause = layout.escape_html(health_page.i18n.t(health_page.CHECK_IN_CAPTION_OBSERVED))
+            if clause not in rendered:
+                return False, (
+                    "the caption does not carry its first clause %r — a grid whose reader "
+                    "cannot tell what one cell means is a texture" % (clause,))
+            if health_page.CHECK_IN_SECTION_HEADING.lower() in ("wake punctuality",):
+                return False, "the heading is the roadmap's own superseded phrasing"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "CLAUSE 1 — Health's regularity caption says what the grid SHOWS: one cell is one day "
+        "of OBSERVED check-in regularity (CFG-43, 24-07-PLAN.md Task 2)",
+        _the_caption_says_what_the_grid_SHOWS)
+
+    def _the_caption_names_the_cadence_it_judged_against_and_says_it_is_TODAYS():
+        tmp = _mkstate("h-regularity-clause-2")
+        try:
+            now = _now()
+            rendered = _seeded_regularity_page(tmp, now, wake_interval_s=300)
+            # The VALUE, formatted the one way this app formats a length
+            # of time — never re-derived here as "5 minutes".
+            expected = layout.escape_html(
+                health_page.i18n.t(health_page.CHECK_IN_CAPTION_CADENCE)
+                % layout.duration_text(300))
+            if expected not in rendered:
+                return False, (
+                    "the caption does not name the cadence it judged against: expected %r"
+                    % (expected,))
+            if "5m" not in rendered and "5 min" not in rendered:
+                return False, "the configured 300s cadence is not named by its value anywhere"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "CLAUSE 2 — Health's regularity caption names the cadence the grid was judged against, by "
+        "its value and in this app's own duration form, and says that cadence is the one "
+        "configured NOW rather than the one in force on an earlier day (CFG-43, 24-07-PLAN.md "
+        "Task 2)",
+        _the_caption_names_the_cadence_it_judged_against_and_says_it_is_TODAYS)
+
+    def _the_caption_says_a_gap_is_NOT_proof_of_a_missed_wake():
+        # T-24-07-A. This is the clause a later editor trims as noise,
+        # and it is the difference between reporting an observation and
+        # accusing the device: 24-RESEARCH.md Risk 1 shows the record
+        # cannot tell a missed wake from a log range the ingest lost.
+        tmp = _mkstate("h-regularity-clause-3")
+        try:
+            rendered = _seeded_regularity_page(tmp, _now())
+            clause = layout.escape_html(health_page.i18n.t(health_page.CHECK_IN_CAPTION_NOT_PROOF))
+            if clause not in rendered:
+                return False, (
+                    "the caption does not carry its third clause %r — without it the grid "
+                    "accuses the device of missing wakes the record cannot show it missed"
+                    % (clause,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "CLAUSE 3 — Health's regularity caption says a day with no record is NOT proof the frame "
+        "did not wake, naming the log rotation that leaves the same gap (CFG-43, T-24-07-A, "
+        "24-07-PLAN.md Task 2)",
+        _the_caption_says_a_gap_is_NOT_proof_of_a_missed_wake)
+
+    def _with_no_determinable_cadence_the_caption_names_the_FLOORS():
+        tmp = _mkstate("h-regularity-no-cadence")
+        env_before = os.environ.pop(wake.SLEEP_ENV_VAR, None)
+        try:
+            now = _now()
+            # No device_config.json and no SKYPANE_SLEEP_S: exactly the
+            # freshly-provisioned deployment device_staleness_thresholds()
+            # degrades to its bare floors for.
+            rendered = _seeded_regularity_page(tmp, now, wake_interval_s=None)
+            if wake.effective_wake_interval_s(None) is not None:
+                return False, "the fixture still resolves a cadence — this check measures nothing"
+            floors = layout.escape_html(
+                health_page.i18n.t(health_page.CHECK_IN_CAPTION_CADENCE_FALLBACK))
+            if floors not in rendered:
+                return False, (
+                    "with no determinable cadence the caption must name the fallback floors: "
+                    "expected %r" % (floors,))
+            configured = layout.escape_html(
+                health_page.i18n.t(health_page.CHECK_IN_CAPTION_CADENCE).split("%s")[0])
+            if configured in rendered:
+                return False, (
+                    "the caption still claims a CONFIGURED cadence (%r) for a deployment that "
+                    "has none — a silently assumed default is the one thing this clause exists "
+                    "to prevent" % (configured,))
+            return True, ""
+        finally:
+            if env_before is not None:
+                os.environ[wake.SLEEP_ENV_VAR] = env_before
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with a config yielding no cadence at all, Health's regularity caption says the grid is "
+        "judged against the fallback staleness floors and does NOT name a configured value "
+        "(CFG-43, 24-07-PLAN.md Task 2)",
+        _with_no_determinable_cadence_the_caption_names_the_FLOORS)
+
+    def _every_cell_verdict_is_the_classifiers_own_output():
+        tmp = _mkstate("h-regularity-verdicts")
+        try:
+            now = _now()
+            rendered = _seeded_regularity_page(tmp, now, wake_interval_s=300)
+            cells = _check_in_cells(rendered)
+            if len(cells) != health_page.CHECK_IN_WINDOW_DAYS:
+                return False, (
+                    "expected one cell per day of the %d-day window, got %d"
+                    % (health_page.CHECK_IN_WINDOW_DAYS, len(cells)))
+            # The expectation is COMPUTED from the classifier over the
+            # reader's own rows — never a hard-coded colour. A cell is
+            # right when it agrees with wake.classify_check_in_gap(), and
+            # that is the only definition of right this check knows.
+            with history_db.open_db(tmp) as conn:
+                rows = history_db.check_in_gaps(conn)
+            worst = {}
+            for row in rows:
+                day, gap = row["day"], row["gap_s"]
+                if day is None or gap is None:
+                    continue
+                worst[day] = max(gap, worst.get(day, gap))
+            if len(worst) != 2:
+                return False, (
+                    "the fixture seeded gaps on %d Paris days, expected 2 — this check would "
+                    "be measuring something other than what it seeded" % (len(worst),))
+            expected = {}
+            for day, gap in worst.items():
+                state = wake.classify_check_in_gap(gap, 300)
+                parsed = datetime.strptime(day, "%Y-%m-%d")
+                expected["%d %s" % (parsed.day, layout.month_abbr(parsed.month))] = state
+            if set(expected.values()) != {wake.CHECK_IN_LATE, wake.CHECK_IN_MISSING}:
+                return False, (
+                    "the fixture's own verdicts are %r — it must exercise more than one "
+                    "verdict or the mapping below is untested" % (sorted(expected.values()),))
+            seen = 0
+            for class_name, title in cells:
+                for label, state in expected.items():
+                    if title.startswith(label):
+                        seen += 1
+                        if class_name != draw.cell_class(state):
+                            return False, (
+                                "the cell titled %r carries %r; the classifier says %r for "
+                                "its own longest observed gap, which is %r"
+                                % (title, class_name, state, draw.cell_class(state)))
+                        break
+                else:
+                    if class_name != draw.cell_class(wake.CHECK_IN_UNKNOWN):
+                        return False, (
+                            "the cell titled %r carries %r for a day the record says nothing "
+                            "about — it must carry the no-observation class %r"
+                            % (title, class_name, draw.cell_class(wake.CHECK_IN_UNKNOWN)))
+            if seen != len(expected):
+                return False, (
+                    "found %d of the %d seeded days in the grid" % (seen, len(expected)))
+            # AND THE PAGE COMPUTES NO INTERVAL OF ITS OWN. Read off the
+            # compiled functions rather than their source text, the same
+            # technique 24-03 used for the classifier's own reuse check,
+            # so a docstring can neither pass nor fail this.
+            builders = [health_page._check_in_regularity_cells,
+                        health_page._check_in_regularity_section_html]
+            names = set()
+            for fn in builders:
+                names |= set(fn.__code__.co_names)
+            if "classify_check_in_gap" not in names:
+                return False, (
+                    "no regularity builder calls wake.classify_check_in_gap() — the verdicts "
+                    "are coming from somewhere other than the one definition of 'late'")
+            for forbidden in ("device_staleness_thresholds", "MISSED_WAKES_WARN",
+                              "MISSED_WAKES_ERROR", "STALE_WARN_FLOOR_S",
+                              "STALE_ERROR_FLOOR_S"):
+                if forbidden in names:
+                    return False, (
+                        "a regularity builder references %r — this page consumes verdicts and "
+                        "derives no threshold of its own" % (forbidden,))
+            for fn in builders:
+                source = inspect.getsource(fn)
+                for arithmetic in ("timedelta", "3600", "60 *"):
+                    if arithmetic in source:
+                        return False, (
+                            "%s's own source contains %r — the interval arithmetic belongs to "
+                            "24-03's reader and classifier, never to this page"
+                            % (fn.__name__, arithmetic))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every cell's verdict equals wake.classify_check_in_gap()'s own output for that day's "
+        "longest observed gap — computed in this check from the classifier, never hard-coded — "
+        "every unobserved day carries the no-observation class, and the page's own regularity "
+        "builders call the classifier while referencing no threshold constant and containing no "
+        "interval arithmetic of their own (CFG-43, 24-07-PLAN.md Task 2)",
+        _every_cell_verdict_is_the_classifiers_own_output)
+
+    def _with_no_observations_the_section_still_renders_its_grid():
+        tmp = _mkstate("h-regularity-empty")
+        try:
+            now = _now()
+            device_config.save_device_config(tmp, wake_interval_s=300)
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            heading = layout.escape_html(health_page.i18n.t(health_page.CHECK_IN_SECTION_HEADING))
+            if heading not in rendered:
+                return False, (
+                    "a deployment with no check-ins renders no regularity section at all — an "
+                    "absent section is a worse answer than an honest empty one")
+            cells = _check_in_cells(rendered)
+            if len(cells) != health_page.CHECK_IN_WINDOW_DAYS:
+                return False, (
+                    "expected a full %d-cell grid of no-observation cells, got %d"
+                    % (health_page.CHECK_IN_WINDOW_DAYS, len(cells)))
+            none_class = draw.cell_class(wake.CHECK_IN_UNKNOWN)
+            wrong = [c for c, _ in cells if c != none_class]
+            if wrong:
+                return False, (
+                    "a deployment with no check-ins painted %r — with no observations there is "
+                    "nothing to be on cadence about and nothing to be missing" % (set(wrong),))
+            empty = layout.escape_html(health_page.i18n.t(health_page.CHECK_IN_CAPTION_EMPTY))
+            if empty not in rendered:
+                return False, (
+                    "the empty grid carries no caption of its own saying so: expected %r"
+                    % (empty,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with no observations at all the regularity section still renders — a full grid of "
+        "no-observation cells, none of them on-cadence or missing, under its own caption saying "
+        "there is nothing recorded yet (CFG-43, T-24-07-A, 24-07-PLAN.md Task 2)",
+        _with_no_observations_the_section_still_renders_its_grid)
+
+    def _the_rendered_page_never_claims_punctuality_in_either_language():
+        # The roadmap's own phrasing for this drawing was "wake
+        # punctuality", and 24-RESEARCH.md Risk 1 is why it is not what
+        # shipped: the expected interval is not recoverable, so a page
+        # using that word would assert something this deployment cannot
+        # observe. The blunt grep is the point — it is re-runnable from a
+        # terminal by anyone, with no parser to trust.
+        tmp = _mkstate("h-regularity-vocabulary")
+        try:
+            now = _now()
+            device_config.save_device_config(tmp, wake_interval_s=300)
+            try:
+                prefs.set_request_prefs(lang="en")
+                en_rendered = _seeded_regularity_page(tmp, now)
+                prefs.set_request_prefs(lang="fr")
+                fr_rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            finally:
+                prefs.set_request_prefs(lang="en")
+            for lang_name, rendered in (("EN", en_rendered), ("FR", fr_rendered)):
+                lowered = rendered.lower()
+                for banned in ("honoured", "punctual", "punctualité", "ponctual"):
+                    if banned in lowered:
+                        return False, (
+                            "the %s-rendered Health page contains %r — this grid reports an "
+                            "OBSERVATION, and no name in this app may call it a rate of wakes "
+                            "the device kept" % (lang_name, banned))
+                if len(_check_in_cells(rendered)) != health_page.CHECK_IN_WINDOW_DAYS:
+                    return False, (
+                        "the %s render carries no regularity grid, so this check is scanning a "
+                        "page without the drawing it is about" % (lang_name,))
+            fr_heading = health_page.i18n.t_lang(health_page.CHECK_IN_SECTION_HEADING, "fr")
+            if fr_heading == health_page.CHECK_IN_SECTION_HEADING:
+                return False, (
+                    "the section heading has no French sibling — it would render in English "
+                    "inside a French page")
+            if layout.escape_html(fr_heading) not in fr_rendered:
+                return False, "the French render does not carry the French heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered Health page contains neither 'honoured' nor 'punctual' (nor 'punctualité') "
+        "in EITHER language while carrying the full grid in both, and the section heading has a "
+        "real French sibling rather than an English string inside a French page (CFG-43, "
+        "24-07-PLAN.md Task 2)",
+        _the_rendered_page_never_claims_punctuality_in_either_language)
 
     def _sparkline_axis_chrome_present():
         # quick task 260902-ep7 (BUG 4): the new check for the drawn axis
@@ -5048,7 +6358,17 @@ def main():
             css_source = fh.read()
 
         def _rule_body(selector_open):
-            start = css_source.index(selector_open)
+            # 24-04-PLAN.md Task 2: anchored at a LINE START, not by a
+            # bare index(). Found by this plan breaking it: adding
+            # `.battery-readout-row > .battery-readout { ... }` made the
+            # plain index() resolve `.battery-readout {` to the TAIL of
+            # that descendant rule and read the wrong body entirely —
+            # the `.drawing-axis`-inside-`.drawing-axis-label` trap, met
+            # from the other direction. Every selector these guards key
+            # on opens its own rule at column 0, so requiring the
+            # preceding newline distinguishes the rule from any rule
+            # that merely ENDS with the same selector.
+            start = css_source.index("\n" + selector_open) + 1
             brace_close = css_source.index("}", start)
             return css_source[start:brace_close]
 
@@ -6567,6 +7887,14 @@ def main():
             # check used to pin is now an explicit per-fixture count —
             # neither fixture below seeds a runway_event, so both are
             # 4, not 5.
+            #
+            # 24-07-PLAN.md Task 2 (CFG-43): RETARGETED IN PLACE, no
+            # count change of this check's own — both fixture counts go
+            # 4 -> 5, because Health's Screen section now carries the
+            # check-in regularity card and its own <h2>. What this check
+            # is FOR is untouched and is the half that matters: that
+            # heading carries no glyph either, and the assertion below
+            # is what says so.
             heads = re.findall(r"<h2\b.*?</h2>", rendered, re.S)
             if len(heads) != expected_heading_count:
                 return "expected Health (%s) to render %d headings, got %d" % (
@@ -6597,7 +7925,7 @@ def main():
                     "expected exactly three glyphs to carry the tile tint class — every Health-signal "
                     "glyph on this page is now a tile glyph, with none left over — got %d" % (
                         empty_rendered.count(layout.STAT_TILE_ICON_CLASS)))
-            failure = _headings_carry_no_glyph(empty_rendered, "empty render", 4)
+            failure = _headings_carry_no_glyph(empty_rendered, "empty render", 5)
             if failure:
                 return False, failure
 
@@ -6613,7 +7941,7 @@ def main():
                 return False, (
                     "expected exactly five <use occurrences on a seeded render (the same four plus "
                     "icon-search in the unresolved-prefixes filter bar), got %d" % seeded_rendered.count("<use"))
-            failure = _headings_carry_no_glyph(seeded_rendered, "seeded render", 4)
+            failure = _headings_carry_no_glyph(seeded_rendered, "seeded render", 5)
             if failure:
                 return False, failure
             return True, ""
@@ -6989,10 +8317,59 @@ def main():
             wrapper_slice = rendered[wrapper_start:wrapper_end]
             if "data-refresh-pill" not in wrapper_slice:
                 return False, "expected the hidden refresh pill inside the freshness wrapper"
-            if " ago" in wrapper_slice:
+            # 23-05-PLAN.md Task 2 (D14/D22/CFG-34): RETARGETED IN
+            # PLACE, and strictly strengthened. 19-09-PLAN.md (A-20)
+            # banned any relative age here because the one that stood
+            # was STRUCTURALLY ALWAYS ZERO: `now` was computed once per
+            # request and fed straight back into a timestamp claiming to
+            # be "(Ns ago)" of itself. The defect was the FREEZE, not
+            # the age. The line now carries a LIVE age —
+            # layout.relative_time_html() over the same instant
+            # data-loaded-at holds, advanced once a second by
+            # companion/static/relative-time.js — so the ban becomes:
+            # every age in this wrapper must be inside a <time
+            # data-relative> element, and a frozen one is still
+            # forbidden. Re-rendering A-20's own defect (a bare "(0s
+            # ago)" outside an element) fails here exactly as it did
+            # before.
+            outside = re.sub(r"<time [^>]*data-relative[^>]*>.*?</time>", "",
+                             wrapper_slice, flags=re.S)
+            if " ago" in outside or "il y a" in outside:
                 return False, (
-                    "expected no relative-age suffix inside .page-header__freshness — "
-                    "'(0s ago)' was structurally always zero (A-20)")
+                    "expected every relative age inside .page-header__freshness to be a live "
+                    "<time data-relative> element — a frozen age here is A-20's own defect "
+                    "('(0s ago)' was structurally always zero), got %r" % (outside,))
+            if wrapper_slice.count("data-relative") != 1:
+                return False, (
+                    "expected exactly one <time data-relative> element inside "
+                    ".page-header__freshness, got %d" % wrapper_slice.count("data-relative"))
+            # 23-06-PLAN.md (23-05's finding 2, fixed rather than
+            # deferred): the ban above says where an age may live; this
+            # says what the SERVER may write there. Stripping the element
+            # out and finding no age left is a clause a page rendering no
+            # age at all satisfies for free — so the element's own text
+            # is asserted too. It must be the clock, and it must not be
+            # the ladder's zero bucket in either language: with scripts
+            # blocked nothing advances this element, and "Updated 0s ago"
+            # frozen at load is A-20's own defect read back to the one
+            # reader who cannot see the ticker.
+            inside = re.search(r"<time [^>]*data-relative[^>]*>(.*?)</time>",
+                               wrapper_slice, flags=re.S)
+            if inside is None:
+                return False, (
+                    "expected the freshness value to BE a <time data-relative> element, got %r"
+                    % (wrapper_slice,))
+            for lang in ("en", "fr"):
+                if inside.group(1) == layout.escape_html(layout.relative_age_text(0, lang=lang)):
+                    return False, (
+                        "the server renders the ladder's zero bucket %r as this element's own "
+                        "text — frozen for a scripts-blocked reader, which is exactly the defect "
+                        "A-20 removed" % (inside.group(1),))
+            if " ago" in inside.group(1) or "il y a" in inside.group(1):
+                return False, (
+                    "the server renders a relative age (%r) where the no-JS floor needs a value "
+                    "that stays true — the age is the ticker's to write, the clock is the "
+                    "server's" % (inside.group(1),))
 
             if wrapper_slice.count("data-refresh-clock") != 1:
                 return False, (
@@ -7068,7 +8445,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, the full "
+        "Health's header renders an honest 'Updated HH:MM' clock — server-rendered as the text of "
+        "a <time data-relative> element, never the ladder's zero bucket, so the value is true "
+        "with scripts blocked and live with them (23-06-PLAN.md) — (no relative-age suffix, the full "
         "Europe/Paris local timestamp — never the raw ISO — in the clock span's title, retargeted "
         "by 22-16 for D-05/CFG-28) beside the unchanged hidden refresh pill and NO Pause/Resume "
         "toggle (zero data-refresh-toggle/data-pause-text/data-resume-text, zero <button>), all "
@@ -7400,25 +8779,32 @@ def main():
     # --- 19-09-PLAN.md Task 3: pin the new freshness contract ------------
 
     def _19_09_freshness_swap_selectors_pinned_both_directions():
-        # The duplicated-not-imported agreement between health_page.
-        # REFRESH_SWAP_SELECTORS and freshness.js's own SWAP_SELECTORS
-        # array, pinned from both directions: every declared target must
-        # actually appear in the script, AND the script's excluded
-        # regions (the sparkline hit class, the filter-input attribute,
-        # a <details> selector) must never sneak into a future edit's
-        # swap list — a future editor who widens the swap to "just
-        # replace the whole main content" would silently kill
-        # battery-trend.js's chart and list-filter.js's filter, exactly
-        # the regression D-02's own interfaces section names by number
-        # (Pitfall 5).
+        # The duplicated-not-imported agreement between the Python swap
+        # registry and freshness.js's own copy of it, pinned from both
+        # directions: every declared target must actually appear in the
+        # script, AND the script's excluded regions (the sparkline hit
+        # class, the filter-input attribute, a <details> selector) must
+        # never sneak into a future edit's swap list — a future editor
+        # who widens the swap to "just replace the whole main content"
+        # would silently kill battery-trend.js's chart and
+        # list-filter.js's filter, exactly the regression D-02's own
+        # interfaces section names by number (Pitfall 5).
+        #
+        # 23-06-PLAN.md Task 1 (D1/CFG-35): GENERALISED in place rather
+        # than replaced. The one tuple is now one entry in a per-page
+        # mapping, so this loop iterates every page's list; the key-set
+        # equality that the one-tuple form structurally could not see is
+        # asserted by its own check below.
         js_path = os.path.join(HERE, "static", "freshness.js")
         with open(js_path) as fh:
             js = fh.read()
-        for selector in health_page.REFRESH_SWAP_SELECTORS:
-            if selector not in js:
-                return False, (
-                    "expected health_page.REFRESH_SWAP_SELECTORS entry %r verbatim in "
-                    "freshness.js" % (selector,))
+        for page_key, selectors in sorted(
+                layout.REFRESH_SWAP_SELECTORS_BY_PAGE.items()):
+            for selector in selectors:
+                if selector not in js:
+                    return False, (
+                        "expected layout.REFRESH_SWAP_SELECTORS_BY_PAGE[%r] entry %r verbatim "
+                        "in freshness.js" % (page_key, selector))
         # A dot-prefixed class selector, as it would appear inside a
         # querySelector(All) call targeting the sparkline hit points for
         # REPLACEMENT — never confused with the space-padded substring
@@ -7440,11 +8826,732 @@ def main():
                 "the registry/readings disclosures are excluded from the swap list")
         return True, ""
     check(
-        "health_page.REFRESH_SWAP_SELECTORS' own entries all appear verbatim in freshness.js, and "
-        "freshness.js never carries a .sparkline-hit selector literal, a [data-filter-input] "
-        "reference, or a details[...] selector — the three regions Pitfall 5 names as fatal to swap "
-        "(19-09-PLAN.md Task 3)",
+        "every layout.REFRESH_SWAP_SELECTORS_BY_PAGE entry, on every page key, appears verbatim in "
+        "freshness.js, and freshness.js never carries a .sparkline-hit selector literal, a "
+        "[data-filter-input] reference, or a details[...] selector — the three regions Pitfall 5 "
+        "names as fatal to swap (19-09-PLAN.md Task 3, generalised in place from the one-tuple "
+        "form by 23-06-PLAN.md Task 1)",
         _19_09_freshness_swap_selectors_pinned_both_directions)
+
+    # --- 23-06-PLAN.md Task 1 (D1/CFG-35): one registry, one page key,
+    # three skip rules ----------------------------------------------------
+
+    def _js_code_without_comments(js):
+        """`js` with its /* */ and // comments blanked out.
+
+        The same idiom 23-01's motion guard and 23-05's ladder check use,
+        and for the same reason: freshness.js's comments quote the very
+        selectors, attributes and constants these checks count, so a scan
+        over raw source would be satisfied by a comment promising a rule
+        nobody wrote.
+        """
+        stripped = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", stripped)
+
+    def _23_06_the_swap_registry_has_one_definition_site_and_one_key_set():
+        # WHAT A WRONG IMPLEMENTATION DOES HERE, which is what each
+        # clause below exists to catch:
+        #   - it leaves the old tuple standing in health_page.py beside
+        #     the new mapping (two definition sites, agreeing today);
+        #   - it lets the script grow a page key the Python does not
+        #     have, or keep one the Python dropped — the drift the
+        #     one-tuple pin structurally could not see;
+        #   - it declares a registry that agrees with the Python and
+        #     never reads it, doing the real work from a second
+        #     hard-coded list (23-05's own M7, in this file's shape).
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        health_src_path = os.path.join(HERE, "pages", "health_page.py")
+        with open(health_src_path) as fh:
+            health_src = fh.read()
+
+        # ONE definition site. The NAME survives (every existing reader
+        # and pin keeps working); the second tuple literal does not.
+        if "REFRESH_SWAP_SELECTORS = (" in health_src:
+            return False, (
+                "companion/pages/health_page.py still defines its own REFRESH_SWAP_SELECTORS "
+                "tuple — the registry in companion/layout.py is the definition site and this "
+                "name must resolve FROM it, never beside it")
+        if "REFRESH_SWAP_SELECTORS" not in health_src:
+            return False, (
+                "expected health_page.REFRESH_SWAP_SELECTORS to survive as a name — every "
+                "existing reader and every shipped pin resolves through it")
+        registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
+        if health_page.REFRESH_SWAP_SELECTORS is not registry[layout.REFRESH_PAGE_HEALTH]:
+            return False, (
+                "expected health_page.REFRESH_SWAP_SELECTORS to BE the registry's Health entry, "
+                "not a copy of it — a copy is a second definition site with extra steps")
+        if health_page.REFRESH_SWAP_SELECTORS != (
+                ".dashboard-grid",
+                "div.banner--anomaly, div.banner--warn",
+                "section.banner",
+                ".page-header__freshness",
+                'a[href="/health"]'):
+            return False, (
+                "Health's five regions, in their existing order, are unchanged by the move — "
+                "got %r" % (health_page.REFRESH_SWAP_SELECTORS,))
+
+        # The two KEY SETS are equal. Parsed out of the script's own
+        # registry block rather than looked for one by one, so a key the
+        # script carries and the Python does not is visible too.
+        block = re.search(r"var SWAP_SELECTORS_BY_PAGE = \{(.*?)\n  \};", js, flags=re.S)
+        if block is None:
+            return False, (
+                "expected a single var SWAP_SELECTORS_BY_PAGE = { ... }; registry block in "
+                "freshness.js — the script's own copy of the mapping")
+        js_keys = set(re.findall(r'"([a-z][a-z0-9-]*)":', block.group(1)))
+        py_keys = set(registry)
+        if js_keys != py_keys:
+            return False, (
+                "freshness.js's registry keys %r and layout.REFRESH_SWAP_SELECTORS_BY_PAGE's %r "
+                "are not the same set — only in Python: %r; only in the script: %r. A key on one "
+                "side alone is a page that silently never refreshes, or a script list nothing "
+                "renders"
+                % (sorted(js_keys), sorted(py_keys),
+                   sorted(py_keys - js_keys), sorted(js_keys - py_keys)))
+
+        # Not vacuous: the registry must be the ONLY place those
+        # selectors appear in the script's own code, and it must
+        # actually be read. An agreeing registry beside a second
+        # hard-coded list, or an agreeing registry nobody consumes,
+        # satisfies every clause above.
+        code = _js_code_without_comments(js)
+        expected_hits = {}
+        for selectors in registry.values():
+            for selector in selectors:
+                expected_hits[selector] = expected_hits.get(selector, 0) + 1
+        for selector, want in sorted(expected_hits.items()):
+            got = code.count(selector)
+            if got != want:
+                return False, (
+                    "the selector %r appears %d time(s) in freshness.js's own code (comments "
+                    "stripped), expected %d — one per registry entry that carries it, because "
+                    "the registry is the single site and a second occurrence is a second list"
+                    % (selector, got, want))
+        if code.count("SWAP_SELECTORS_BY_PAGE") < 2:
+            return False, (
+                "SWAP_SELECTORS_BY_PAGE is declared in freshness.js but never read — a registry "
+                "that agrees with the Python and is not consumed proves nothing")
+        return True, ""
+    check(
+        "the swap registry has ONE definition site (health_page.REFRESH_SWAP_SELECTORS resolves "
+        "from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with Health's five "
+        "regions in their existing order, and no second tuple literal survives in health_page.py) "
+        "and ONE key set (the script's registry keys equal the Python's, in both directions), with "
+        "every selector appearing exactly once per registry entry in the script's comment-stripped "
+        "code and the registry actually read (D1/CFG-35, 23-06-PLAN.md Task 1)",
+        _23_06_the_swap_registry_has_one_definition_site_and_one_key_set)
+
+    def _23_06_the_page_key_is_server_rendered_and_gates_the_loop():
+        # The registry is selected by a key the SERVER renders, so a page
+        # that declares no regions runs no loop — and the script must
+        # resolve that key defensively, because "an unknown key" includes
+        # every inherited Object.prototype property name.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        code = _js_code_without_comments(js)
+        if layout.REFRESH_PAGE_ATTR not in code:
+            return False, (
+                "freshness.js never reads %r — the page key is how one loop serves three pages, "
+                "and a script that ignores it is back to one hard-coded list"
+                % (layout.REFRESH_PAGE_ATTR,))
+        if "hasOwnProperty" not in code:
+            return False, (
+                "expected freshness.js to resolve the page key with an own-property test: the "
+                "key arrives as markup, and 'constructor' or 'toString' would otherwise select "
+                "an inherited property instead of returning")
+        # Rendered on <body>, beside the two refresh copy attributes,
+        # for the reason those live there: several of these regions are
+        # this loop's own swap targets and <body> is never swapped.
+        for page_key in sorted(layout.REFRESH_SWAP_SELECTORS_BY_PAGE):
+            doc = layout.page_shell(title="T", active=page_key, body="<p>b</p>")
+            marker = '%s="%s"' % (layout.REFRESH_PAGE_ATTR, page_key)
+            if marker not in doc[:doc.index("</head>") + 200]:
+                if marker not in doc:
+                    return False, (
+                        "expected page_shell(active=%r) to render %s, got no such attribute"
+                        % (page_key, marker))
+            body_at = doc.index("<body")
+            body_tag = doc[body_at:doc.index(">", body_at) + 1]
+            if marker not in body_tag:
+                return False, (
+                    "expected the page key on the <body> tag itself (never inside a swap "
+                    "target), got %r" % (body_tag,))
+        # A page with no registry entry still renders a key, and the
+        # script's own guard is what makes it a no-op — the key set
+        # check above is what keeps the two lists honest.
+        #
+        # 23-08-PLAN.md Task 1: RETARGETED IN PLACE, no count change.
+        # This clause used "flights" as its example of a page that
+        # declares no regions, and Flights now declares four — so the
+        # example stopped being an example of anything while the
+        # assertion went on passing, which is the quiet way a check
+        # stops testing what its own comment claims. "airlines" is the
+        # example now, chosen because it is the one remaining nav
+        # destination with a filter bar and no registry entry, i.e. the
+        # next page a later plan is most likely to join to the loop. The
+        # ASSERTION is unchanged and still covers Flights: the loop over
+        # every registry key above already renders it.
+        no_entry_key = layout.nav_slug(layout.AIRLINES_ROUTE)
+        if no_entry_key in layout.REFRESH_SWAP_SELECTORS_BY_PAGE:
+            return False, (
+                "this clause needs a page that declares NO swap regions, and %r now declares "
+                "some — pick another, and do not delete the clause: it is what proves the guard "
+                "lives in the script rather than in whether the attribute was rendered"
+                % (no_entry_key,))
+        doc = layout.page_shell(title="T", active=no_entry_key, body="<p>b</p>")
+        if ('%s="%s"' % (layout.REFRESH_PAGE_ATTR, no_entry_key)) not in doc:
+            return False, (
+                "expected every authenticated document to carry its own page key, including the "
+                "pages that declare no swap regions — the guard is in the script, not in "
+                "whether the attribute was rendered")
+        return True, ""
+    check(
+        "the swap registry is selected by a page key the SERVER renders on <body> — present for "
+        "every registry key and for a page with no entry at all — and freshness.js reads that "
+        "attribute and resolves it with an own-property test, so an unknown key is a no-op rather "
+        "than an inherited Object property (D1/CFG-35, 23-06-PLAN.md Task 1)",
+        _23_06_the_page_key_is_server_rendered_and_gates_the_loop)
+
+    def _23_06_the_loop_knows_three_things_it_must_not_repaint():
+        # Focus, pending, dirty form. The first is 22-15's and is only
+        # re-asserted here; the other two are this plan's. Source scans
+        # only — the BEHAVIOUR of all three is proven in a real browser
+        # by companion/test_browser_ux.py, because a source scan cannot
+        # tell a skip that works from a skip that is spelled correctly.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        code = _js_code_without_comments(js)
+        swap_at = code.index("function swapNodes(")
+        swap_body = code[swap_at:code.index("\n  }", swap_at)]
+        if "isEqualNode" not in swap_body or "contains" not in swap_body:
+            return False, (
+                "22-15's two existing skips (an unchanged region, and a region holding the "
+                "focused element) must survive this plan untouched")
+        # The pending skip is PER REGION and lives in the swap, because
+        # the swap is the thing that would repaint an optimistic flip.
+        if ('var PENDING_ATTR = "%s";' % layout.REFRESH_PENDING_ATTR) not in code:
+            return False, (
+                "expected freshness.js to name layout.REFRESH_PENDING_ATTR (%r) in its own "
+                "constant — the marker plan 23-07 sets has one definition site on each side and "
+                "a rename on one alone is a skip that silently never fires"
+                % (layout.REFRESH_PENDING_ATTR,))
+        if "PENDING_ATTR" not in swap_body and "PENDING_SELECTOR" not in swap_body:
+            return False, (
+                "expected swapNodes() to skip a region marked pending — plan 23-07 marks its own "
+                "optimistic control and this is the reconciliation rule that reads the mark "
+                "(T-23-21)")
+        # The dirty-form stand-down is PER TICK: a settings page whose
+        # form is mid-edit should not be fetching and diffing itself at
+        # all. So it is NOT in the swap, and the pending skip is not in
+        # the tick — each rule sits at the level it is about.
+        tick_at = code.index("function tick(")
+        tick_body = code[tick_at:code.index("\n  }", tick_at)]
+        if "unsavedEdits" not in tick_body and "UnsavedEdits" not in tick_body:
+            return False, (
+                "expected tick() itself to stand the whole cycle down while the settings form "
+                "has unsaved edits — a page mid-edit should not be fetching and diffing itself "
+                "at all (T-23-20/T-23-21)")
+        if "PENDING_ATTR" in tick_body or "PENDING_SELECTOR" in tick_body:
+            return False, (
+                "the pending skip is PER REGION, not per tick: one unconfirmed control must not "
+                "stand down the refresh of every other region on the page")
+        # B1's lesson, verbatim: PRESENCE of the bar is not proof it is
+        # live. The gate reads dirty-state.js's own liveness marker AND
+        # the bar's current visibility; a bar that merely exists, hidden,
+        # is not an unsaved edit.
+        if "dirty-ready" not in code:
+            return False, (
+                "expected the dirty-form gate to key on dirty-state.js's own proof-of-life "
+                "marker — 22-01/B1's defect of record was a gate keyed to a PROXY for liveness "
+                "rather than to liveness itself")
+        if "data-dirty-bar" not in code:
+            return False, (
+                "expected the dirty-form gate to read the save bar's own element")
+        # MEASURED INSIDE THE GATE ITSELF, not anywhere in the file:
+        # ".hidden" appears in this script for document.hidden and for
+        # the pill, so a file-wide scan for it is satisfied by a gate
+        # that reads neither of the two things it is supposed to. A
+        # presence-only gate — B1's own defect — is what this clause
+        # exists to fail, and it does (mutation-tested).
+        edits_at = code.index("function unsavedEdits(")
+        edits_body = code[edits_at:code.index("\n  }", edits_at)]
+        if "DIRTY_READY_CLASS" not in edits_body:
+            return False, (
+                "expected the gate to read dirty-state.js's own liveness marker, got %r"
+                % (edits_body,))
+        if "bar.hidden" not in edits_body:
+            return False, (
+                "expected the gate to read the BAR'S OWN current visibility — a bar that exists "
+                "and is hidden reports no unsaved edits, and taking its mere presence for an "
+                "answer is 22-01/B1's defect exactly, got %r" % (edits_body,))
+        # And nothing about the cadence, the ladder or the guard moved.
+        for needle in ("AUTO_REFRESH_INTERVAL_MS = 45000", "RETRY_CEILING_MS = 600000",
+                       "RETRY_BASE_MS", "inFlight", "failAndRetry()", "isEqualNode",
+                       'redirect: "manual"'):
+            if needle not in js:
+                return False, (
+                    "expected %r to survive this plan — the cadence, the ladder, the ceiling, "
+                    "the in-flight guard and the expired-session handling are earned, not "
+                    "re-earned" % (needle,))
+        return True, ""
+    check(
+        "freshness.js knows three things it must not repaint: swapNodes() keeps 22-15's unchanged"
+        "-region and focused-region skips and gains a per-region pending skip, and tick() stands "
+        "the whole cycle down while the save bar reports unsaved edits — gated on dirty-state.js's "
+        "own dirty-ready liveness marker AND the bar's current visibility, never on the bar's mere "
+        "presence (B1's lesson) — with the interval, ladder, ceiling, in-flight guard and "
+        "redirect:manual all untouched (D1/CFG-35, 23-06-PLAN.md Task 1)",
+        _23_06_the_loop_knows_three_things_it_must_not_repaint)
+
+    # --- 23-08-PLAN.md Task 1 (D7/CFG-37): Flights joins the loop, and a
+    # genuinely new detection says so once --------------------------------
+
+    def _23_08_flights_declares_the_list_the_cards_and_the_count():
+        # What Flights' registry entry must COVER and what it must
+        # EXCLUDE, both named here rather than left implied. The
+        # exclusion is the load-bearing half: list-filter.js captures
+        # its input, its Clear control and its empty-state block once at
+        # load, so a swap that replaced any of them would leave the
+        # filter permanently dead — the identical trade Health's own
+        # entry already records for the sparkline and the registry card.
+        registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
+        if layout.REFRESH_PAGE_FLIGHTS not in registry:
+            return False, (
+                "expected Flights to declare its own swap regions — it is the page most likely "
+                "to be open when something happens and the only one of the four that could not "
+                "show it (D7/CFG-37)")
+        flights = registry[layout.REFRESH_PAGE_FLIGHTS]
+        if layout.REFRESH_PAGE_FLIGHTS != layout.nav_slug(layout.FLIGHTS_ROUTE):
+            return False, (
+                "expected the Flights key to be nav_slug()'s own value, never a second "
+                "vocabulary, got %r" % (layout.REFRESH_PAGE_FLIGHTS,))
+        # The three things that change between polls, plus the freshness
+        # line every page in this registry carries.
+        for needle in ("history-cards", "data-table-wrap", "data-filter-count"):
+            if not any(needle in selector for selector in flights):
+                return False, (
+                    "expected Flights' swap regions to cover %r — the phone card list, the "
+                    "desktop table and the live count are the three things a new detection "
+                    "changes, got %r" % (needle, flights))
+        if ".page-header__freshness" not in flights:
+            return False, (
+                "expected Flights' freshness line to be a swap target, like Home's and "
+                "Health's: it is what carries data-loaded-at and the state badge the loop "
+                "rebuilds inside it")
+        # The exclusions, by name. Each of these is an element
+        # list-filter.js resolves exactly once, at load.
+        for forbidden in ("data-filter-input", "data-filter-clear", "data-filter-empty",
+                          "data-filter-set"):
+            for selector in flights:
+                if forbidden in selector:
+                    return False, (
+                        "Flights' swap regions name %r (%r) — list-filter.js captures that "
+                        "element once at load, so replacing it leaves the filter permanently "
+                        "dead and silently discards an in-progress query"
+                        % (forbidden, selector))
+        # Not nested: no entry may contain another, or a swap could
+        # detach a node another entry is about to replace.
+        for outer in flights:
+            for inner in flights:
+                if outer is not inner and inner.startswith(outer + " "):
+                    return False, (
+                        "Flights' regions %r and %r are nested — a swap can detach a node "
+                        "another entry is about to replace" % (outer, inner))
+        # The registry comment must SAY why the input is out, rather than
+        # leaving the next reader to rediscover it.
+        layout_src_path = os.path.join(HERE, "layout.py")
+        with open(layout_src_path) as fh:
+            layout_src = fh.read()
+        flights_at = layout_src.index("FLIGHTS (23-08")
+        flights_note = layout_src[flights_at:flights_at + 1600]
+        if "list-filter.js" not in flights_note:
+            return False, (
+                "expected the registry's own Flights paragraph to name list-filter.js and the "
+                "reason its captured elements are excluded — that reasoning has one home and "
+                "this is it")
+        return True, ""
+    check(
+        "Flights' swap registry entry covers the phone card list, the desktop table, the live "
+        "count and the freshness line, EXCLUDES every element list-filter.js captures once at "
+        "load (the input, Clear, the empty state and the set hooks), nests no entry inside "
+        "another, is keyed by nav_slug()'s own value, and the registry's own comment states the "
+        "exclusion's reason (D7/CFG-37, 23-08-PLAN.md Task 1)",
+        _23_08_flights_declares_the_list_the_cards_and_the_count)
+
+    def _23_08_the_highlight_is_a_diff_and_never_a_first_paint():
+        # A highlight that fires on first load has told the user
+        # nothing, and a highlight that fires on every row when one
+        # arrives has told them something false. Both failures are the
+        # same missing thing: a set of identities known BEFORE the swap.
+        #
+        # Source scans only. The BEHAVIOUR — both directions, and the
+        # silent first refresh — is proven in a real browser by
+        # companion/test_browser_ux.py, because a source scan cannot
+        # tell a diff that works from a diff that is spelled correctly.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        code = _js_code_without_comments(js)
+        for name, value in (("ROW_ID_ATTR", layout.REFRESH_ROW_ID_ATTR),
+                            ("NEW_ROW_CLASS", layout.REFRESH_NEW_ROW_CLASS)):
+            if ('var %s = "%s";' % (name, value)) not in code:
+                return False, (
+                    "expected freshness.js to name layout.REFRESH_%s (%r) in its own %s "
+                    "constant — these are cross-file literals with one definition site on each "
+                    "side, and a rename on one alone is a highlight that silently never fires"
+                    % ("ROW_ID_ATTR" if name == "ROW_ID_ATTR" else "NEW_ROW_CLASS",
+                       value, name))
+        if "function markNewRows(" not in code:
+            return False, "expected freshness.js to carry the new-row diff as its own function"
+        # Called from the swap and from NOWHERE else: definition plus
+        # exactly one call site. A call from tick() would run the diff
+        # on a cycle that swapped nothing; a call at load would mark the
+        # first paint, which is the defect this whole rule is about.
+        if code.count("markNewRows(") != 2:
+            return False, (
+                "expected exactly one definition and one call of markNewRows(), found %d "
+                "occurrence(s) — the diff belongs to the swap and to nothing else"
+                % code.count("markNewRows("))
+        apply_at = code.index("function applySwap(")
+        apply_body = code[apply_at:code.index("\n  }", apply_at)]
+        if "markNewRows(" not in apply_body:
+            return False, (
+                "expected applySwap() to run the diff AFTER the regions are replaced — a diff "
+                "taken before the swap is a diff over the document that is about to be thrown "
+                "away")
+        init_at = code.index("var knownRowIds")
+        init_line = code[init_at:code.index("\n", init_at)]
+        if "collectRowIds()" not in init_line:
+            return False, (
+                "expected the known-identity set to be populated from the page AS FIRST "
+                "RENDERED (var knownRowIds = collectRowIds();), got %r. Starting it empty makes "
+                "the first refresh announce the whole list, which is exactly the "
+                "everything-is-new failure the diff exists to prevent" % (init_line,))
+        mark_at = code.index("function markNewRows(")
+        mark_body = code[mark_at:code.index("\n  }", mark_at)]
+        if "hasOwnProperty" not in mark_body:
+            return False, (
+                "expected the diff to test the known set with an own-property test: the "
+                "identities arrive as markup, and 'constructor' or 'toString' would otherwise "
+                "resolve to an inherited Object property and be read as already-known")
+        if "classList.add" not in mark_body:
+            return False, "expected the highlight to be applied as a class on an existing node"
+        # One-shot by construction: nothing ever removes the class, and
+        # nothing needs to. The animation runs once on a node that was
+        # itself just inserted, and the next swap replaces that node
+        # entirely. A file that removes it is a file that could re-add
+        # it, which is a row that flashes twice for one arrival.
+        if "NEW_ROW_CLASS" in code and "classList.remove(NEW_ROW_CLASS" in code:
+            return False, (
+                "expected nothing to remove the highlight class — the animation ends on its "
+                "own and the next swap replaces the node, so a removal path is only a way to "
+                "re-trigger it")
+        # And the diff writes no markup: it is a class toggle on a node
+        # the swap already inserted.
+        for sink in ("innerHTML", "insertAdjacentHTML", "document.write", "outerHTML"):
+            if sink in mark_body:
+                return False, (
+                    "expected the diff to use no markup-writing DOM sink, found %r" % (sink,))
+        return True, ""
+    check(
+        "freshness.js's new-row highlight is a DIFF over server-rendered row identity: its two "
+        "cross-file literals equal layout.REFRESH_ROW_ID_ATTR/REFRESH_NEW_ROW_CLASS, the known "
+        "set is populated from the page as first rendered rather than empty, the diff runs from "
+        "applySwap() and from nowhere else, resolves the set with an own-property test, applies "
+        "one class through classList and never removes it, and writes no markup (D7/CFG-37, "
+        "23-08-PLAN.md Task 1)",
+        _23_08_the_highlight_is_a_diff_and_never_a_first_paint)
+
+    # --- 23-06-PLAN.md Task 2 (D1/CFG-35): Home and the Frame strip go
+    # live, from the same builder and the same loop ------------------------
+
+    def _home_ctx(tmp, now):
+        """A Home ctx rich enough to render every region Home declares —
+        a gallery entry for the picture, a check-in for the strip's own
+        next-wake resolution, and a device config for its two switches.
+        """
+        return {
+            "state_dir": tmp, "now": now,
+            "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+            "last_checkin_ts": now,
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+            "health_state": {"device_state": "ok", "pipeline_state": "ok",
+                             "battery_state": "ok",
+                             "device_detail_html": "", "pipeline_html": ""},
+            "simple_mode": False,
+        }
+
+    def _selector_literals(selector):
+        """Every literal identifier a CSS selector names — its tags,
+        classes, attribute names and quoted attribute values.
+
+        Used to ask a rendered page "do you actually contain the region
+        you declared?" without a DOM parser. It is deliberately loose
+        about STRUCTURE (it cannot tell a section from a div) and exact
+        about NAMES, which is where the drift this guards against
+        happens: a class renamed in a page module and not in the
+        registry is a region that silently stops refreshing, with no
+        error anywhere.
+        """
+        return [token for token in re.split(r'[.#\[\],"=\s>]+', selector) if token]
+
+    def _23_06_the_freshness_line_has_one_builder_and_three_call_sites():
+        from companion.pages import home_page
+        tmp = _mkstate("h-shared-freshness")
+        try:
+            now_iso = _iso(_now())
+            built = layout.freshness_line_html(now_iso)
+            health = health_page.render(_ctx(tmp, now=now_iso))
+            home = home_page.render(_home_ctx(tmp, now_iso))
+            for rendered, name in ((health, "Health"), (home, "Home")):
+                if built not in rendered:
+                    return False, (
+                        "expected %s's freshness line to be layout.freshness_line_html()'s own "
+                        "output verbatim — one definition site, three call sites, the same "
+                        "contract frame_strip_html() and sidebar_nav() already state. Built:\n%r"
+                        "\nRendered page has: %r"
+                        % (name, built,
+                           rendered[rendered.index("page-header__freshness") - 40:
+                                    rendered.index("page-header__freshness") + 300]
+                           if "page-header__freshness" in rendered else "no freshness line"))
+                if rendered.count("data-loaded-at") != 1:
+                    return False, (
+                        "expected exactly one data-loaded-at on %s — freshness.js reads it with "
+                        "a single querySelector and a second would silently win, got %d"
+                        % (name, rendered.count("data-loaded-at")))
+                if rendered.count("data-refresh-pill") != 1:
+                    return False, (
+                        "expected exactly one data-refresh-pill on %s, got %d"
+                        % (name, rendered.count("data-refresh-pill")))
+            # The markup now comes from layout.py, and health_page.py
+            # does not build a second one beside it.
+            health_src_path = os.path.join(HERE, "pages", "health_page.py")
+            with open(health_src_path) as fh:
+                health_src = fh.read()
+            if 'class="page-header__freshness' in health_src:
+                return False, (
+                    "companion/pages/health_page.py still builds its own freshness line — the "
+                    "markup has one definition site and it is companion/layout.py")
+            layout_src_path = os.path.join(HERE, "layout.py")
+            with open(layout_src_path) as fh:
+                layout_src = fh.read()
+            if 'class="page-header__freshness' not in layout_src:
+                return False, "expected the freshness line's markup in companion/layout.py"
+            # The builder's own shape, in source order: the neutral dot,
+            # the prefix, the clock element, the pill.
+            positions = [
+                built.index(layout.REFRESH_LIVE_DOT_ATTR),
+                built.index(layout.escape_html(health_page.i18n.t(layout.FRESHNESS_PREFIX_TEXT))),
+                built.index("data-refresh-clock"),
+                built.index("data-refresh-pill"),
+            ]
+            if positions != sorted(positions):
+                return False, (
+                    "expected dot, prefix, clock, pill in that source order, got %r in %r"
+                    % (positions, built))
+            if built.count("data-relative") != 1:
+                return False, (
+                    "expected exactly one <time data-relative> in the freshness line, got %d"
+                    % built.count("data-relative"))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health's and Home's freshness lines are layout.freshness_line_html()'s own output "
+        "verbatim — ONE definition site, the markup gone from health_page.py entirely — each page "
+        "renders exactly one data-loaded-at and one data-refresh-pill, and the builder emits the "
+        "dot, the prefix, the clock element and the pill in that order with exactly one <time "
+        "data-relative> (D1/CFG-35, 23-06-PLAN.md Task 2)",
+        _23_06_the_freshness_line_has_one_builder_and_three_call_sites)
+
+    def _23_06_home_declares_the_regions_it_actually_renders():
+        from companion.pages import home_page
+        tmp = _mkstate("h-home-regions")
+        try:
+            now_iso = _iso(_now())
+            rendered = home_page.render(_home_ctx(tmp, now_iso))
+            registry = layout.REFRESH_SWAP_SELECTORS_BY_PAGE
+            if layout.REFRESH_PAGE_HOME not in registry:
+                return False, "expected Home to declare its own swap regions"
+            if layout.REFRESH_PAGE_DISPLAY not in registry:
+                return False, "expected the Display scope to declare its own swap regions"
+            # NOT a closed set: plan 23-08 adds Flights, and this check
+            # must not be the thing that has to change for it to.
+            missing = []
+            for selector in registry[layout.REFRESH_PAGE_HOME]:
+                for token in _selector_literals(selector):
+                    if token not in rendered:
+                        missing.append((selector, token))
+            if missing:
+                return False, (
+                    "Home declares regions it does not render: %r — a selector that matches "
+                    "nothing is a region that silently never refreshes, and nothing else in this "
+                    "codebase would notice" % (missing,))
+            # What Home's list must COVER, named here rather than left
+            # implied: the strip (where the frame's state is claimed),
+            # the status tiles, the picture and the recent-flights list.
+            home_list = registry[layout.REFRESH_PAGE_HOME]
+            for needle in ("frame-strip", "home-status-grid", "preview-frame", "home-flights"):
+                if not any(needle in selector for selector in home_list):
+                    return False, (
+                        "expected Home's swap regions to cover %r — the four things that change "
+                        "between polls, got %r" % (needle, home_list))
+            if ".page-header__freshness" not in home_list:
+                return False, (
+                    "expected Home's freshness line to be a swap target, like Health's: it is "
+                    "what carries data-loaded-at and the state badge the loop rebuilds")
+            # DISPLAY IS DELIBERATELY CONSERVATIVE. Everything else on
+            # that page is a form, and a form is the one thing a swap
+            # must never touch.
+            display_list = registry[layout.REFRESH_PAGE_DISPLAY]
+            if set(display_list) != {".page-header__freshness", ".frame-strip"}:
+                return False, (
+                    "expected the Display scope to declare exactly the strip and the freshness "
+                    "line — everything else on that page is a form; got %r" % (display_list,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Home declares the four regions that actually change between polls (the strip, the status "
+        "tiles, the picture, the recent-flights list) plus its freshness line, every literal in "
+        "every one of its selectors appears in the rendered page, and the Display scope declares "
+        "exactly the strip and the freshness line — everything else there is a form (D1/CFG-35, "
+        "23-06-PLAN.md Task 2)",
+        _23_06_home_declares_the_regions_it_actually_renders)
+
+    def _23_06_the_strip_countdown_formats_and_never_decides():
+        # D1's own hardest clause: the countdown is FORMATTING. The
+        # instant and the state word are server-computed by
+        # companion/wake.py through frame_state.resolve_state(), and the
+        # element ticks toward that instant without ever recomputing
+        # whether the frame is due, held or late.
+        now_iso = "2026-08-27T12:00:00+00:00"
+        ctx = {
+            "now": now_iso, "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+            "device_config": {"wake_interval_s": 900, "display_enabled": True},
+        }
+        strip = layout.frame_strip_html(ctx, return_to=layout.HOME_ROUTE)
+        if "frame-strip__cell--update" not in strip:
+            return False, "expected the strip's next-update cell in this fixture"
+        cell = strip[strip.index("frame-strip__cell--update"):]
+        element = re.search(r"<time ([^>]*)>(.*?)</time>", cell, flags=re.S)
+        if element is None:
+            return False, (
+                "expected a <time data-relative> countdown in the next-update cell — the "
+                "user's own answer to 'will I make the next RER' is how long, not what o'clock")
+        attrs, text = element.group(1), element.group(2)
+        if layout.RELATIVE_COUNTDOWN_ATTR not in attrs:
+            return False, (
+                "expected the countdown to be marked as one (%r) — an unmarked element turns "
+                "itself into an age the moment its instant passes, which is a different claim "
+                "halfway through its own life" % (layout.RELATIVE_COUNTDOWN_ATTR,))
+        # It ticks toward the SERVER's own instant, not one computed here.
+        resolved_iso = wake.next_wake_status(
+            ctx["last_checkin_ts"], ctx["device_config"])[0]
+        expected_instant = layout._machine_instant(layout.parse_iso(resolved_iso))
+        if ('datetime="%s"' % layout.escape_html(expected_instant)) not in attrs:
+            return False, (
+                "expected the countdown to carry companion/wake.py's own resolved next-wake "
+                "instant %r, got %r" % (expected_instant, attrs))
+        if text != layout.escape_html(layout.relative_future_text(
+                int((layout.parse_iso(resolved_iso) - layout.parse_iso(now_iso))
+                    .total_seconds()))):
+            return False, (
+                "expected the countdown's server text to be the ladder's own future form over "
+                "that instant, got %r" % (text,))
+        # And the state word is untouched by it: the headline still
+        # carries frame_state's own template, rendered whole.
+        if "Next update ≈" not in strip:
+            return False, (
+                "expected the state word to stay frame_state.resolve_state()'s own — the "
+                "countdown formats a duration and decides nothing (D-03/CFG-26)")
+        # No script anywhere computes a frame state.
+        js_dir = os.path.join(HERE, "static")
+        for filename in sorted(os.listdir(js_dir)):
+            if not filename.endswith(".js"):
+                continue
+            with open(os.path.join(js_dir, filename)) as fh:
+                js = fh.read()
+            for banned in ("resolve_state", "HEADLINE_LATE", "HEADLINE_HELD", "HEADLINE_DUE"):
+                if banned in js:
+                    return False, (
+                        "companion/static/%s names %r — whether the frame is due, held or late "
+                        "is server/wake.py's answer and no script's" % (filename, banned))
+        return True, ""
+    check(
+        "the Frame strip's next-update cell carries a marked <time data-relative-countdown> over "
+        "companion/wake.py's OWN resolved instant, reading the ladder's future form, beside a "
+        "state word that stays frame_state.resolve_state()'s — and no script in companion/static "
+        "names a state or a headline template at all (D1/D-03/CFG-26, 23-06-PLAN.md Task 2)",
+        _23_06_the_strip_countdown_formats_and_never_decides)
+
+    def _23_06_the_picture_fades_only_when_the_picture_changed():
+        # A fade that fires on every swap would flash the page every 45
+        # seconds for no information, which is worse than no fade at all.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        stripped = re.sub(r"/\*.*?\*/", " ", css_source, flags=re.S)
+        names = re.findall(r"@keyframes\s+([A-Za-z_-][\w-]*)", stripped)
+        if len(names) != len(set(names)):
+            return False, "every @keyframes name is defined exactly once (23-01's own guard)"
+        if "skypane-fade-in" not in names:
+            return False, (
+                "expected a named fade-in keyframes block for the refreshed picture, got %r"
+                % (names,))
+        rule_at = stripped.index(".is-fading-in")
+        rule = stripped[rule_at:stripped.index("}", rule_at)]
+        if "var(--motion-fast)" not in rule:
+            return False, (
+                "expected the fade to spend 23-01's REACTION token — somebody is waiting to read "
+                "the new value — got %r" % (rule,))
+        if re.search(r"(?<![\w-])\d+(?:\.\d+)?m?s(?![\w-])", rule):
+            return False, (
+                "expected no bare duration literal in the fade rule (23-01's guard), got %r"
+                % (rule,))
+        # The JS half: the class is added only after a real src
+        # comparison, and only ever by the script.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        code = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+        code = re.sub(r"//[^\n]*", " ", code)
+        fade_at = code.index("function markPictureFade(")
+        fade_body = code[fade_at:code.index("\n  }", fade_at)]
+        if '"src"' not in fade_body:
+            return False, (
+                "expected the fade to compare the picture's own src — the honest signal for "
+                "'this is a NEW render' — got %r" % (fade_body,))
+        if "FADE_CLASS" not in fade_body:
+            return False, "expected the fade class to be added inside that comparison"
+        if code.count("FADE_CLASS") < 2:
+            return False, (
+                "the fade class is declared and never applied — a constant that agrees with the "
+                "stylesheet and is not consumed proves nothing")
+        # The SERVER never renders it: the motion belongs to the loop
+        # that knows a new picture arrived, exactly like the breathing
+        # dot 23-05 shipped.
+        from companion.pages import home_page
+        tmp = _mkstate("h-fade")
+        try:
+            rendered = home_page.render(_home_ctx(tmp, _iso(_now())))
+            if "is-fading-in" in rendered:
+                return False, (
+                    "expected the server to render no fade class at all — a picture that fades "
+                    "in on every page load is an animation playing, not information")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the refreshed picture fades through a named keyframes block spending var(--motion-fast) "
+        "with no bare literal, the class is applied only after freshness.js compares the image's "
+        "own src (a fade on every swap would flash the page every 45s for no information), and the "
+        "server renders it never (D1+D3/CFG-32, 23-06-PLAN.md Task 2)",
+        _23_06_the_picture_fades_only_when_the_picture_changed)
 
     # --- 19-06-PLAN.md Task 1: layout.stat_tile()'s caption_title tooltip
     # (D-06) ------------------------------------------------------------
@@ -8175,6 +10282,261 @@ def main():
         "relative_age_text()'s positional signature (age_seconds first) is untouched — lang is a "
         "trailing keyword only",
         _relative_age_text_signature_unchanged_positionally)
+
+    # ======================================================================
+    # Section 1.8b: companion/layout.py's element convention for a
+    # relative time (23-03-PLAN.md Task 1, D14/CFG-34). Before this
+    # plan the app rendered no <time> element anywhere at all, so every
+    # relative age it showed was frozen from page load until something
+    # replaced the whole region. These checks pin the WRAPPING: the
+    # element's own text must be the ladder's own output, byte for
+    # byte, in both languages, because equality is the only thing that
+    # proves the ladder was called rather than re-derived beside it.
+    #
+    # Every check resets prefs' ContextVars in a finally block so no
+    # check's language leaks into the next one, exactly as Section 1.8
+    # above does.
+    # ======================================================================
+
+    # The one shape these checks parse. Written once here rather than
+    # inline in four places so a change to the element convention fails
+    # in one obvious spot instead of four subtle ones.
+    _RELATIVE_ELEMENT_RE = re.compile(
+        r'<time datetime="([^"]*)" data-relative>([^<]*)</time>')
+
+    def _relative_time_html_wraps_the_one_ladder_in_both_languages():
+        # The four buckets, one representative age each: seconds,
+        # minutes, hours, days. 90000s is 1d, the same age Section 1.8's
+        # own French check uses, so the two cannot drift apart.
+        ages = (30, 180, 7200, 90000)
+        base = datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc)
+        now_iso = _iso(base)
+        try:
+            for lang in ("en", "fr"):
+                prefs.set_request_prefs(lang=lang)
+                for age in ages:
+                    ts = _iso(base - timedelta(seconds=age))
+                    rendered = layout.relative_time_html(ts, now_iso)
+                    match = _RELATIVE_ELEMENT_RE.search(rendered)
+                    if match is None:
+                        return False, (
+                            "lang=%s age=%ds: expected a <time datetime=... data-relative> "
+                            "element, got %r" % (lang, age, rendered))
+                    instant, inner = match.group(1), match.group(2)
+                    expected = layout.relative_age_text(age, lang=lang)
+                    if inner != expected:
+                        return False, (
+                            "lang=%s age=%ds: expected the element's own text to EQUAL "
+                            "relative_age_text()'s output %r, got %r — a wrapping that changes "
+                            "the string is a second ladder, not a wrapping"
+                            % (lang, age, expected, inner))
+                    if not instant:
+                        return False, (
+                            "lang=%s age=%ds: expected a non-empty machine-readable instant"
+                            % (lang, age))
+                    if layout.parse_iso(instant) is None:
+                        return False, (
+                            "lang=%s age=%ds: expected a parseable instant, got %r"
+                            % (lang, age, instant))
+                    if layout.age_seconds(instant, now_iso) != age:
+                        return False, (
+                            "lang=%s age=%ds: expected the element's instant to name the SAME "
+                            "moment its text describes, got %r" % (lang, age, instant))
+        finally:
+            prefs.set_request_prefs(lang="en")
+        return True, ""
+    check(
+        "layout.relative_time_html() renders a <time datetime=... data-relative> element whose "
+        "own text EQUALS layout.relative_age_text()'s output for all four buckets in BOTH "
+        "languages, and whose instant names the same moment that text describes (23-03, D14)",
+        _relative_time_html_wraps_the_one_ladder_in_both_languages)
+
+    def _relative_time_html_degrades_without_an_invented_instant():
+        now_iso = "2026-09-13T12:00:00+00:00"
+        cases = (
+            ("", "a falsy timestamp"),
+            (None, "a None timestamp"),
+            ("not-a-date", "an unparseable timestamp"),
+        )
+        for ts, label in cases:
+            rendered = layout.relative_time_html(ts, now_iso)
+            if "<time" in rendered:
+                return False, (
+                    "%s must NOT produce a <time> element — an element with an empty or "
+                    "invented instant is worse than no element, got %r" % (label, rendered))
+        # A mismatched now_ts (naive vs aware) is the one degrade path
+        # age_seconds() alone catches; it must not raise either.
+        if "<time" in layout.relative_time_html("2026-09-13T11:00:00+00:00", "not-a-date"):
+            return False, "an unparseable now_ts must degrade to plain text, not a <time> element"
+        # And the degrade path still escapes: an unparseable timestamp
+        # is the one value here that can carry hostile bytes.
+        hostile = layout.relative_time_html('<script>alert(1)</script>', now_iso)
+        if "<script>" in hostile:
+            return False, "expected the degrade path to escape its input, got %r" % (hostile,)
+        return True, ""
+    check(
+        "layout.relative_time_html() degrades to escaped plain text — never a raise, never a "
+        "<time> element carrying an empty or invented instant — for a falsy, None, unparseable "
+        "or mismatched timestamp (23-03)",
+        _relative_time_html_degrades_without_an_invented_instant)
+
+    def _future_form_shares_the_past_ladders_own_buckets():
+        # One ladder in two directions: the future form must agree with
+        # the past form about which bucket a given number of seconds
+        # falls in, at and around every boundary. The QUANTITY each
+        # direction picks — the number AND its unit — is what proves
+        # they share boundaries; asserting only that both are non-empty
+        # and differ would pass a future form carrying its own
+        # constants, which is the whole defect this check exists for.
+        #
+        # English determines the relation completely: the past form is
+        # "<N><unit> ago" and the future form "in <N><unit>" for every
+        # bucket, so one is the other rearranged. French collapses the
+        # sub-minute bucket on BOTH sides into a phrase with no number,
+        # so there the quantity is compared for the three buckets that
+        # have one, and the collapse is asserted for the one that
+        # does not.
+        boundaries = (0, 1, 59, 60, 61, 3599, 3600, 3601, 86399, 86400, 86401, 900000)
+        # A real U+00A0 between the number and the unit (D-09),
+        # written as an escape so it stays visible in source.
+        quantity_re = re.compile("(\\d+)\\u00a0(\\S+)")
+        try:
+            for lang in ("en", "fr"):
+                prefs.set_request_prefs(lang=lang)
+                for seconds in boundaries:
+                    past = layout.relative_age_text(seconds, lang=lang)
+                    future = layout.relative_future_text(seconds, lang=lang)
+                    if not future:
+                        return False, (
+                            "lang=%s seconds=%d: expected a non-empty future form" % (lang, seconds))
+                    if "-" in future:
+                        return False, (
+                            "lang=%s seconds=%d: a future form must never carry a negative "
+                            "number, got %r" % (lang, seconds, future))
+                    if future == past:
+                        return False, (
+                            "lang=%s seconds=%d: the future form must not be the past form — "
+                            "both read %r" % (lang, seconds, future))
+                    if lang == "en":
+                        rearranged = "in " + past[:-len(" ago")]
+                        if future != rearranged:
+                            return False, (
+                                "lang=en seconds=%d: expected the future form to name the SAME "
+                                "bucket and the SAME number the past form names (%r), got %r — a "
+                                "direction that picks its own boundary is a second ladder"
+                                % (seconds, rearranged, future))
+                        continue
+                    past_quantity = quantity_re.search(past)
+                    future_quantity = quantity_re.search(future)
+                    if past_quantity is None:
+                        # The French sub-minute collapse: neither side
+                        # may carry a number there.
+                        if future_quantity is not None:
+                            return False, (
+                                "lang=fr seconds=%d: the past form collapses the sub-minute "
+                                "bucket to a phrase with no number (%r) and the future form must "
+                                "collapse the same bucket, got %r" % (seconds, past, future))
+                        continue
+                    if future_quantity is None:
+                        return False, (
+                            "lang=fr seconds=%d: expected the future form to carry a quantity "
+                            "with a real U+00A0 the way the past form %r does, got %r"
+                            % (seconds, past, future))
+                    if future_quantity.groups() != past_quantity.groups():
+                        return False, (
+                            "lang=fr seconds=%d: expected the future form to name the SAME number "
+                            "and unit the past form names %r, got %r — a direction that picks its "
+                            "own boundary is a second ladder"
+                            % (seconds, past_quantity.groups(), future_quantity.groups()))
+                # The clamp, in the direction that is easy to get wrong:
+                # an already-elapsed "future" instant resolves to the
+                # zero bucket, never to a negative and never to a
+                # past-tense string.
+                if layout.relative_future_text(-5, lang=lang) != layout.relative_future_text(
+                        0, lang=lang):
+                    return False, (
+                        "lang=%s: an already-elapsed future instant must resolve to the zero "
+                        "bucket" % (lang,))
+        finally:
+            prefs.set_request_prefs(lang="en")
+        return True, ""
+    check(
+        "layout.relative_future_text() reads the SAME s/m/h/d bucket boundaries the past ladder "
+        "reads (asserted at and around all three), is never negative, is never the past form, "
+        "and clamps an already-elapsed instant to the zero bucket, in both languages (23-03)",
+        _future_form_shares_the_past_ladders_own_buckets)
+
+    def _relative_time_html_reads_a_future_instant_forwards():
+        base = datetime(2026, 9, 13, 12, 0, tzinfo=timezone.utc)
+        now_iso = _iso(base)
+        try:
+            for lang in ("en", "fr"):
+                prefs.set_request_prefs(lang=lang)
+                # One second either side of `now`: both must render a
+                # bounded string, and neither a negative number.
+                for delta, direction in ((timedelta(seconds=1), "past"),
+                                         (timedelta(seconds=-1), "future")):
+                    rendered = layout.relative_time_html(_iso(base - delta), now_iso)
+                    match = _RELATIVE_ELEMENT_RE.search(rendered)
+                    if match is None:
+                        return False, "lang=%s %s: expected a <time> element, got %r" % (
+                            lang, direction, rendered)
+                    if "-" in match.group(2):
+                        return False, "lang=%s %s: expected no negative number, got %r" % (
+                            lang, direction, match.group(2))
+                ahead = layout.relative_time_html(_iso(base + timedelta(minutes=4)), now_iso)
+                ahead_match = _RELATIVE_ELEMENT_RE.search(ahead)
+                if ahead_match is None:
+                    return False, "lang=%s: expected a <time> element for a future instant" % (lang,)
+                if ahead_match.group(2) != layout.relative_future_text(240, lang=lang):
+                    return False, (
+                        "lang=%s: expected a future instant's element to carry the future form "
+                        "%r, got %r" % (
+                            lang, layout.relative_future_text(240, lang=lang),
+                            ahead_match.group(2)))
+        finally:
+            prefs.set_request_prefs(lang="en")
+        return True, ""
+    check(
+        "layout.relative_time_html() reads a FUTURE instant through the future form and a past "
+        "one through the past form — one function, both directions, bounded and non-negative one "
+        "second either side of now, in both languages (23-03, for 23-06's countdown)",
+        _relative_time_html_reads_a_future_instant_forwards)
+
+    def _concise_timestamp_htmls_relative_half_is_now_an_element():
+        now_iso = "2026-09-12T12:00:00+00:00"
+        ts = "2026-09-11T22:30:00+00:00"  # 00:30 Paris the NEXT day (CEST)
+        rendered = layout.concise_timestamp_html(ts, now_iso)
+        match = _RELATIVE_ELEMENT_RE.search(rendered)
+        if match is None:
+            return False, (
+                "expected concise_timestamp_html()'s relative half to be a <time data-relative> "
+                "element, got %r" % (rendered,))
+        expected_age = layout.relative_age_text(layout.age_seconds(ts, now_iso))
+        if match.group(2) != expected_age:
+            return False, (
+                "expected the element's text to be the unchanged relative age %r, got %r"
+                % (expected_age, match.group(2)))
+        # The outer span, its class, its title and the absolute-first
+        # ordering are NOT this plan's business and must be untouched.
+        if not rendered.startswith('<span class="mono" title="'):
+            return False, "expected the outer mono span and its title to be unchanged, got %r" % (
+                rendered,)
+        if not rendered.endswith("</span>"):
+            return False, "expected the outer span to still close the value"
+        clock = layout.local_clock_text(layout.parse_iso(ts), layout.parse_iso(now_iso))
+        if rendered.index(layout.escape_html(clock)) > rendered.index("<time"):
+            return False, "expected absolute-first ordering to be preserved (D-02/06.6 OQ1)"
+        if ts in rendered:
+            return False, (
+                "expected zero occurrences of the RAW ISO string — the element's own instant is "
+                "the Europe/Paris form, so D-05/B4's no-raw-ISO rule still holds (22-06 Task 3)")
+        return True, ""
+    check(
+        "layout.concise_timestamp_html()'s parenthesised relative half is now a "
+        "<time data-relative> element, its text unchanged, with its outer mono span, its title, "
+        "its absolute-first ordering and its no-raw-ISO rule all untouched (23-03, D-09/D-05)",
+        _concise_timestamp_htmls_relative_half_is_now_an_element)
 
     # ======================================================================
     # Section 1.9: companion/pages/health_page.py rendered through t(),
@@ -10416,7 +12778,17 @@ def main():
             css_source = fh.read()
 
         def _rule_body(selector_open):
-            start = css_source.index(selector_open)
+            # 24-04-PLAN.md Task 2: anchored at a LINE START, not by a
+            # bare index(). Found by this plan breaking it: adding
+            # `.battery-readout-row > .battery-readout { ... }` made the
+            # plain index() resolve `.battery-readout {` to the TAIL of
+            # that descendant rule and read the wrong body entirely —
+            # the `.drawing-axis`-inside-`.drawing-axis-label` trap, met
+            # from the other direction. Every selector these guards key
+            # on opens its own rule at column 0, so requiring the
+            # preceding newline distinguishes the rule from any rule
+            # that merely ENDS with the same selector.
+            start = css_source.index("\n" + selector_open) + 1
             brace_close = css_source.index("}", start)
             return css_source[start:brace_close]
 
@@ -10629,6 +13001,22 @@ def main():
         # 22-UI-SPEC.md §3.3 rule 3: the grace window is invisible — the
         # SAME "Next update ≈ HH:MM" copy and classes render whether now
         # is before next_wake or up to 2x the effective interval past it.
+        #
+        # 23-06-PLAN.md Task 2: RETARGETED IN PLACE, and the reason is
+        # worth stating because it looks like a weakening and is not.
+        # This check compared the WHOLE update cell byte for byte between
+        # two values of `now`, which was the same thing as "the grace
+        # window is invisible" only while the cell held nothing but a
+        # clock. D1's countdown is a DURATION, so it differs between any
+        # two instants by construction — "in 5m" at 11:10 and "in 1m" at
+        # 11:14 are the same state reported twice, not two states. What
+        # rule 3 actually forbids is a STATE SIGNAL that differs, so that
+        # is what is compared now: the cell with the countdown element
+        # removed must be byte-identical, the countdown's own instant
+        # must be the same instant in both (the wake does not move inside
+        # its grace window), and neither rendering may carry a warn, late
+        # or overdue token anywhere. That last clause is NEW and is
+        # stricter than what it replaces.
         device_cfg = {"wake_interval_s": 900, "display_enabled": True}
         checkin_iso = "2026-08-27T11:00:00+00:00"
         before_ctx = _frame_strip_ctx(checkin_iso, device_cfg, "2026-08-27T11:10:00+00:00")
@@ -10639,17 +13027,48 @@ def main():
             layout.frame_strip_html(inside_grace_ctx, return_to=layout.HOME_ROUTE))
         if rendered_before is None or rendered_inside_grace is None:
             return False, "expected an update cell to render in both the before and grace fixtures"
-        if rendered_before != rendered_inside_grace:
+        countdown_re = re.compile(r"<time [^>]*>.*?</time>", re.S)
+        without_before = countdown_re.sub("", rendered_before)
+        without_grace = countdown_re.sub("", rendered_inside_grace)
+        if without_before != without_grace:
             return False, (
                 "expected identical copy and classes before and inside the grace window, got %r "
-                "vs %r" % (rendered_before, rendered_inside_grace))
-        if "dot--ok" not in rendered_before or "status-card__headline--warn" in rendered_before:
-            return False, "expected the due headline to carry dot--ok and no warn modifier"
+                "vs %r" % (without_before, without_grace))
+        instants = []
+        for rendered in (rendered_before, rendered_inside_grace):
+            element = re.search(r'<time datetime="([^"]*)"([^>]*)>(.*?)</time>',
+                                rendered, flags=re.S)
+            if element is None:
+                return False, (
+                    "expected the countdown element in BOTH renderings — an element that "
+                    "disappears once its instant passes is itself a visible grace window, got %r"
+                    % (rendered,))
+            instants.append(element.group(1))
+            if layout.RELATIVE_COUNTDOWN_ATTR not in element.group(2):
+                return False, "expected the countdown to stay marked as one in both renderings"
+        if instants[0] != instants[1]:
+            return False, (
+                "expected the countdown to tick toward the SAME instant in both renderings — the "
+                "wake does not move inside its own grace window, got %r vs %r"
+                % (instants[0], instants[1]))
+        for rendered, label in ((rendered_before, "before"),
+                                (rendered_inside_grace, "inside grace")):
+            for token in ("warn", "late", "overdue", "Expected since"):
+                if token in rendered:
+                    return False, (
+                        "the %s rendering carries %r — a frame inside its grace window is not a "
+                        "fault, and X2's nightly false alarm is what happens when it is painted "
+                        "as one, got %r" % (label, token, rendered))
+        if "dot--ok" not in rendered_before:
+            return False, "expected the due headline to carry dot--ok"
         return True, ""
     check(
         "a due result renders byte-identical copy and classes whether 'now' is before next_wake "
         "or up to 2x the effective interval past it — the grace window is invisible (22-UI-SPEC.md "
-        "§3.3 rule 3)",
+        "§3.3 rule 3) — with the countdown present in both renderings, marked, pointed at the same "
+        "instant, and neither rendering carrying a warn/late/overdue token anywhere (retargeted in "
+        "place by 23-06-PLAN.md Task 2, which added the one element in that cell that is a "
+        "function of `now` by construction)",
         _frame_strip_due_is_identical_inside_and_outside_the_grace_window)
 
     def _frame_strip_late_result_carries_warn_dot_and_plain_text_colour_class():
@@ -10702,7 +13121,15 @@ def main():
         # every cell wrapper (both switches and update alike) — matched
         # this way (not a bare substring search) so the plural container
         # `frame-strip__cells` is never mistaken for a fourth cell.
-        cell_open_re = re.compile(r'<div class="([^"]*)">')
+        # 23-07-PLAN.md Task 1: retargeted in place from
+        # r'<div class="([^"]*)">' — the two switch cells' wrappers now
+        # carry layout.QUICK_SWITCH_REGION_ATTR after their class
+        # attribute (the region companion/static/quick-switch.js marks
+        # pending), so a pattern requiring `>` immediately after the
+        # closing quote saw one cell instead of three. The class list
+        # this check is actually about is unchanged; only what may
+        # follow it is.
+        cell_open_re = re.compile(r'<div class="([^"]*)"[^>]*>')
         cells = [
             cls for cls in cell_open_re.findall(rendered)
             if cls.split(" ")[0] == "frame-strip__cell"]
@@ -11277,9 +13704,33 @@ def main():
         stripped = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
 
         # --- T3: the marker exists, and it rotates ------------------
-        marker = _block(stripped, "summary::before {")
+        #
+        # 23-08-PLAN.md Task 2: the needle is ANCHORED now, and the
+        # reason is recorded rather than fixed silently. This looked up
+        # the first occurrence of "summary::before {" in the file, and
+        # 23-08 added `.history-card__summary::before` — a selector that
+        # ENDS in the needle and sits earlier in the stylesheet — so the
+        # lookup started reading the card's own positioning override
+        # instead of the global marker this check is about. The
+        # assertions are unchanged; only which rule they are asked of is
+        # fixed, and the anchor is what makes that unambiguous. This is
+        # the same substring-collision class 23-07 hit on an attribute
+        # name, and the check was right to go red.
+        marker = _block(stripped, "\nsummary::before {")
         if 'content: ""' not in marker:
             return False, "expected an explicit summary::before disclosure marker (T3)"
+        # And the card summary REUSES that marker rather than drawing a
+        # second one. A rule of its own that redeclared the geometry
+        # would be two chevrons to keep in step, which is the thing the
+        # single shared rule exists to prevent.
+        if ".history-card__summary::before" in stripped:
+            card_marker = _block(stripped, ".history-card__summary::before {")
+            for redeclared in ("content:", "width:", "height:", "border-right", "border-bottom"):
+                if redeclared in card_marker:
+                    return False, (
+                        "expected the card summary's marker override to change only WHERE the "
+                        "shared chevron sits, not to redraw it (found %r in %r) — two chevrons "
+                        "is two things to keep in step (T3)" % (redeclared, card_marker))
         if "flex: none" not in marker:
             return False, (
                 "expected the marker to declare flex: none — it is a flex item of the summary "
@@ -11790,6 +14241,408 @@ def main():
         "companion/static/style.css's own dot--* class-name occurrence count is unchanged by this "
         "plan (9 before, 9 after) — this plan adds no dot class",
         _health_render_no_new_dot_class_count_unchanged)
+
+    # --- 23-07-PLAN.md Task 1 (D2/CFG-36): the Frame strip's two
+    # switches become real role="switch" controls, SERVER-rendered from
+    # the saved value. The role is not a promise the script keeps — it
+    # is a description of what the button does with scripts blocked too,
+    # which is the whole reason the accessible state can be asserted
+    # here, in a harness that runs no JavaScript at all.
+
+    def _the_strip_renders_two_server_rendered_switches():
+        now_iso = "2026-08-27T10:00:00+00:00"
+        checkin_iso = "2026-08-27T09:55:00+00:00"
+        # BOTH states, never one: an aria-checked hard-coded to "true"
+        # satisfies a single-state assertion perfectly, and is exactly
+        # the switch that lies.
+        for display_on, quiet_on in ((True, False), (False, True)):
+            device_cfg = {
+                "display_enabled": display_on, "quiet_hours_enabled": quiet_on,
+                "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+                "wake_interval_s": 900,
+            }
+            rendered = layout.frame_strip_html(
+                _frame_strip_ctx(checkin_iso, device_cfg, now_iso),
+                return_to=layout.HOME_ROUTE)
+            if rendered.count('role="switch"') != 2:
+                return False, (
+                    "expected exactly two role=switch controls in the strip, got %d — one "
+                    "control per setting is X1/D-04 and a switch beside a surviving button is "
+                    "the defect that decision exists to prevent"
+                    % rendered.count('role="switch"'))
+            for label_id, state_id, is_on, action in (
+                    (layout.QUICK_SWITCH_SCREEN_LABEL_ID, layout.QUICK_SWITCH_SCREEN_STATE_ID,
+                     display_on, "/quick/display"),
+                    (layout.QUICK_SWITCH_QUIET_LABEL_ID, layout.QUICK_SWITCH_QUIET_STATE_ID,
+                     quiet_on, "/quick/quiet-hours")):
+                expected = (
+                    '<button type="submit" class="switch" role="switch" aria-checked="%s"'
+                    ' aria-labelledby="%s" aria-describedby="%s" %s>'
+                    % ("true" if is_on else "false", label_id, state_id,
+                       layout.QUICK_SWITCH_CONTROL_ATTR))
+                if expected not in rendered:
+                    return False, (
+                        "%s: expected the server to render %r — the accessible STATE comes from "
+                        "the saved value, and the accessible NAME from the setting rather than "
+                        "the action (a French action reads 'Éteindre', which cannot double as a "
+                        "state)" % (action, expected))
+                if ('id="%s"' % label_id) not in rendered:
+                    return False, (
+                        "%s: aria-labelledby points at %r but nothing on the page carries that "
+                        "id — a dangling reference is an unnamed control, and no browser reports "
+                        "it" % (action, label_id))
+                if ('id="%s"' % state_id) not in rendered:
+                    return False, (
+                        "%s: aria-describedby points at %r but nothing carries that id"
+                        % (action, state_id))
+            # The no-JS floor is STRUCTURAL: the switch IS the form that
+            # already ships. Every one of these is what the server acts
+            # on when the script is not there.
+            for token in ('<form method="post" action="/quick/display"',
+                          '<form method="post" action="/quick/quiet-hours"',
+                          "data-quick-switch",
+                          '<input type="hidden" name="state"',
+                          '<input type="hidden" name="return_to" value="/"'):
+                if token not in rendered:
+                    return False, (
+                        "expected %r to survive the conversion — the script upgrades a control "
+                        "that already works, it never replaces one" % token)
+            # The next-state the form posts must be the OPPOSITE of the
+            # rendered state, or pressing the switch with scripts blocked
+            # re-asserts the state it is already in.
+            display_form = rendered[rendered.index('action="/quick/display"'):]
+            display_form = display_form[:display_form.index("</form>")]
+            wanted = layout.QUICK_STATE_OFF if display_on else layout.QUICK_STATE_ON
+            if ('name="state" value="%s"' % wanted) not in display_form:
+                return False, (
+                    "the Screen form posts the wrong next state for display_enabled=%r — "
+                    "expected %r" % (display_on, wanted))
+            # The retired ACTION wording must be gone from the markup.
+            # It is the string the accessible name would otherwise have
+            # been, and leaving it beside a role=switch is two claims
+            # about one control.
+            for retired in (layout.QUICK_ACTION_SWITCH_ON_BUTTON,
+                            layout.QUICK_ACTION_SWITCH_OFF_BUTTON,
+                            layout.QUICK_ACTION_QUIET_TURN_ON_BUTTON,
+                            layout.QUICK_ACTION_QUIET_TURN_OFF_BUTTON):
+                if (">%s<" % retired) in rendered:
+                    return False, (
+                        "the action wording %r is still rendered as the switch's own text — a "
+                        "role=switch names the SETTING and states itself with aria-checked; an "
+                        "action label beside it is the second, contradicting claim" % retired)
+            # The visible state survives as BOTH wordings, one hidden,
+            # so the script never has to carry a word of user-facing
+            # copy and the rollback is a pure attribute flip.
+            if rendered.count(layout.QUICK_STATE_ON_ATTR) != 2:
+                return False, (
+                    "expected one %s span per switch, got %d"
+                    % (layout.QUICK_STATE_ON_ATTR, rendered.count(layout.QUICK_STATE_ON_ATTR)))
+            if rendered.count(layout.QUICK_STATE_OFF_ATTR) != 2:
+                return False, (
+                    "expected one %s span per switch, got %d"
+                    % (layout.QUICK_STATE_OFF_ATTR, rendered.count(layout.QUICK_STATE_OFF_ATTR)))
+            if rendered.count(" hidden>") != 2:
+                return False, (
+                    "expected exactly one of each switch's two state wordings to be hidden, "
+                    "got %d hidden spans" % rendered.count(" hidden>"))
+            # The pending marker's own host. freshness.js skips a region
+            # carrying it OR containing it; this is the region.
+            if rendered.count(layout.QUICK_SWITCH_REGION_ATTR) != 2:
+                return False, (
+                    "expected one %s region per switch — the element the script marks pending "
+                    "and plan 23-06's swap already skips, got %d"
+                    % (layout.QUICK_SWITCH_REGION_ATTR,
+                       rendered.count(layout.QUICK_SWITCH_REGION_ATTR)))
+        return True, ""
+    check(
+        "layout.frame_strip_html() renders exactly two role=switch controls whose aria-checked is "
+        "the SAVED value in both directions, named by the setting through aria-labelledby and "
+        "described by the state span, over the unchanged <form>/state/return_to/data-quick-switch "
+        "the server already acts on — with the retired action wording gone, both state wordings "
+        "present with exactly one hidden, and one pending-marker region per switch (D2/CFG-36, "
+        "X1/D-04, 23-07-PLAN.md Task 1)",
+        _the_strip_renders_two_server_rendered_switches)
+
+    def _the_failure_toast_is_transient_translated_and_carries_no_internal():
+        try:
+            return _failure_toast_body()
+        finally:
+            prefs.set_request_prefs(lang="en")
+
+    def _failure_toast_body():
+        for lang in ("en", "fr"):
+            prefs.set_request_prefs(lang=lang)
+            expected = layout.i18n.t(layout.QUICK_SWITCH_FAILED_TEXT)
+            doc = layout.page_shell(title="T", active="home", body="<p>b</p>", lang=lang)
+            body_tag = doc[doc.index("<body"):doc.index(">", doc.index("<body")) + 1]
+            marker = '%s="%s"' % (layout.QUICK_SWITCH_FAILED_ATTR, layout.escape_html(expected))
+            if marker not in body_tag:
+                return False, (
+                    "lang=%s: expected the translated failure copy on the rendered <body> tag "
+                    "(%r), got %r" % (lang, marker, body_tag))
+            if lang == "fr" and expected == layout.QUICK_SWITCH_FAILED_TEXT:
+                return False, (
+                    "the failure copy is untranslated — it reads %r in both languages"
+                    % (expected,))
+            # V7: an error message is an information-disclosure surface.
+            # The copy is the app's own existing generic flash sentence
+            # and must never acquire a status code, a URL or a route.
+            for internal in ("500", "http", "/quick/", "Traceback", "Error:"):
+                if internal in expected:
+                    return False, (
+                        "lang=%s: the failure copy carries %r — a user-facing failure message "
+                        "names no status code, no URL and no server internal (V7, T-23-27)"
+                        % (lang, internal))
+            # A transient toast, never a permanent banner. The live
+            # region is rendered EMPTY and stays in the accessibility
+            # tree, because a region added to the tree at announce time
+            # is a region screen readers routinely miss.
+            toast = '<div class="quick-toast" %s role="alert"></div>' % layout.QUICK_TOAST_ATTR
+            if toast not in doc:
+                return False, (
+                    "lang=%s: expected exactly the empty assertive live region %r in the shell — "
+                    "D2 asks for a transient toast rather than the permanent banner this app "
+                    "uses for a flash" % (lang, toast))
+            if doc.count(layout.QUICK_TOAST_ATTR) != 1:
+                return False, (
+                    "lang=%s: expected exactly one toast region per document, got %d — a second "
+                    "one is a second place a failure could be announced"
+                    % (lang, doc.count(layout.QUICK_TOAST_ATTR)))
+        return True, ""
+    check(
+        "the optimistic switch's failure copy is the app's own generic flash sentence, translated "
+        "on <body> in both languages and carrying no status code, URL or server internal, and the "
+        "shell renders exactly one EMPTY assertive live region for it — a transient toast, never "
+        "a permanent banner (D2/CFG-36, V7/T-23-27, 23-07-PLAN.md Task 1)",
+        _the_failure_toast_is_transient_translated_and_carries_no_internal)
+
+    # --- 23-05-PLAN.md Task 2 (D22's remainder, D14/CFG-34): the live
+    # indicator tells the truth. Three checks: the dot's server-rendered
+    # markup, the ticking age that replaces the frozen clock, and a
+    # source scan proving the breathing class is toggled from the loop's
+    # OWN state rather than from a second state machine beside it.
+
+    def _health_freshness_line_carries_a_neutral_live_dot():
+        tmp = _mkstate("h-live-dot")
+        try:
+            rendered = health_page.render(_ctx(tmp, now=_iso(_now())))
+            start = rendered.index('<p class="page-header__freshness')
+            wrapper = rendered[start:rendered.index("</p>", start) + len("</p>")]
+            if wrapper.count(health_page.REFRESH_LIVE_DOT_ATTR) != 1:
+                return False, (
+                    "expected exactly one %s inside .page-header__freshness, got %d"
+                    % (health_page.REFRESH_LIVE_DOT_ATTR,
+                       wrapper.count(health_page.REFRESH_LIVE_DOT_ATTR)))
+            dot_at = wrapper.index(health_page.REFRESH_LIVE_DOT_ATTR)
+            tag = wrapper[wrapper.rindex("<", 0, dot_at):wrapper.index(">", dot_at) + 1]
+            if 'class="dot dot--off"' not in tag:
+                return False, (
+                    "expected the live dot to be the app's own NEUTRAL dot and nothing else — a "
+                    "refresh loop that is listening is not a device verdict and must not borrow "
+                    "one's colour, got %r" % (tag,))
+            for verdict in ("dot--ok", "dot--warn", "dot--error", "status-warn", "accent"):
+                if verdict in tag:
+                    return False, (
+                        "expected no status/accent token on the live dot, found %r in %r"
+                        % (verdict, tag))
+            if 'aria-hidden="true"' not in tag:
+                return False, (
+                    "expected the live dot to be aria-hidden — it is decorative, and the loop's "
+                    "real state is already announced by the Paused/Reconnecting badge beside it")
+            # Server-rendered STATIC. The motion is one class
+            # companion/static/freshness.js adds, so a scripts-blocked
+            # page shows a still dot beside an age that does not move,
+            # which is exactly what is true there.
+            if "is-breathing" in wrapper:
+                return False, (
+                    "expected the server to render the dot STILL — the breathing class is "
+                    "freshness.js's to add, and a server-rendered one would breathe on a page "
+                    "with no loop running at all, got %r" % (wrapper,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health's freshness line carries exactly one neutral, aria-hidden live dot — the app's own "
+        "off dot with no status or accent token and no breathing class at render time, because the "
+        "motion belongs to the loop that knows whether it is listening (D22, 23-05-PLAN.md Task 2)",
+        _health_freshness_line_carries_a_neutral_live_dot)
+
+    def _health_freshness_clock_is_a_ticking_age_over_the_loaded_at_instant():
+        tmp = _mkstate("h-ticking-age")
+        try:
+            now_iso = _iso(_now())
+            rendered = health_page.render(_ctx(tmp, now=now_iso))
+            start = rendered.index('<p class="page-header__freshness')
+            wrapper = rendered[start:rendered.index("</p>", start) + len("</p>")]
+            # The element, over the SAME instant data-loaded-at carries —
+            # not a second instant computed beside it.
+            #
+            # 23-06-PLAN.md (the no-JS remainder 23-05 recorded as
+            # finding 2): RETARGETED IN PLACE and strictly strengthened.
+            # 23-05 rendered the LADDER's own output as this element's
+            # server text, so a scripts-blocked reader saw "Updated 0s
+            # ago" frozen at load — 19-09/A-20's own frozen zero,
+            # reintroduced for the one reader who has no ticker to
+            # advance it. The server now renders the CLOCK inside the
+            # same <time data-relative> element (true forever, and the
+            # value this line carried before 23-05) and the ticker
+            # replaces it with the live age the moment it runs. Both
+            # readers get a true statement; neither gets a frozen zero.
+            clock_text = layout.local_clock_text(
+                layout.parse_iso(now_iso), now_parsed=layout.parse_iso(now_iso))
+            expected = layout.relative_time_html(
+                now_iso, now_iso, static_text=clock_text)
+            if expected not in wrapper:
+                return False, (
+                    "expected the freshness line's value to be layout.relative_time_html() over "
+                    "the same instant data-loaded-at carries (%r), got %r" % (expected, wrapper))
+            # THE ANTI-VACUITY HALF, and the reason this check is not
+            # satisfied by "an element is present": what a WRONG
+            # implementation does here is render an age that nothing can
+            # advance. So the element's own server text is asserted to BE
+            # the clock and asserted NOT to be the ladder's zero bucket,
+            # in both languages — a relative age server-rendered into
+            # this element is the defect, not the enhancement.
+            element = re.search(r"<time ([^>]*)>(.*?)</time>", wrapper, flags=re.S)
+            if element is None:
+                return False, (
+                    "expected a <time> element in the freshness line, got %r" % (wrapper,))
+            attrs, element_text = element.group(1), element.group(2)
+            if "data-relative" not in attrs or "datetime=" not in attrs:
+                return False, (
+                    "expected the freshness element to stay a <time datetime=... data-relative> "
+                    "— the clock is the server's floor and the ticker's hook is what upgrades "
+                    "it, got %r" % (attrs,))
+            if element_text != layout.escape_html(clock_text):
+                return False, (
+                    "expected the SERVER to render the clock %r inside the <time> element — a "
+                    "scripts-blocked reader has nothing to advance an age, got %r"
+                    % (clock_text, element_text))
+            for lang in ("en", "fr"):
+                frozen_zero = layout.escape_html(layout.relative_age_text(0, lang=lang))
+                if element_text == frozen_zero:
+                    return False, (
+                        "the freshness line server-renders the ladder's ZERO bucket (%r) — that "
+                        "is A-20's own frozen zero, true at load and never again for a reader "
+                        "with no scripts" % (frozen_zero,))
+            # data-loaded-at stays exactly once, page-wide: freshness.js
+            # reads it with a single querySelector and a second would
+            # silently win.
+            if rendered.count("data-loaded-at") != 1:
+                return False, (
+                    "expected exactly one data-loaded-at page-wide, got %d"
+                    % rendered.count("data-loaded-at"))
+            if rendered.count("data-refresh-pill") != 1:
+                return False, (
+                    "expected exactly one data-refresh-pill page-wide, got %d"
+                    % rendered.count("data-refresh-pill"))
+            # Nothing lost: the full Europe/Paris local timestamp is
+            # still on the clock span's title (22-16's D-05/CFG-28
+            # conversion), and the raw ISO still does not survive.
+            expected_title = layout.escape_html(
+                health_page._full_local_timestamp_text(now_iso))
+            if ('title="%s"' % expected_title) not in wrapper:
+                return False, (
+                    "expected the absolute timestamp to stay available in the element's tooltip "
+                    "(%r), got %r" % (expected_title, wrapper))
+            # The <time> element is INSIDE the .page-header__freshness
+            # wrapper, which is one of REFRESH_SWAP_SELECTORS' entries —
+            # so the value a swap replaces and the value the ticker
+            # advances are the same one.
+            if ".page-header__freshness" not in health_page.REFRESH_SWAP_SELECTORS:
+                return False, (
+                    "expected .page-header__freshness to still be a swap target — the ticking "
+                    "age is honest between swaps and reset by them")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health's freshness line is a <time data-relative> over the same instant data-loaded-at "
+        "carries whose SERVER text is the clock — never the ladder's zero bucket, which is the "
+        "frozen age A-20 removed — with the absolute timestamp still in the element's tooltip, "
+        "exactly one data-loaded-at and one data-refresh-pill page-wide, and the wrapper still a "
+        "swap target (D22's remainder, 23-05-PLAN.md Task 2; the no-JS half retargeted in place "
+        "by 23-06-PLAN.md)",
+        _health_freshness_clock_is_a_ticking_age_over_the_loaded_at_instant)
+
+    def _freshness_js_breathes_only_from_the_loops_own_state():
+        # T-23-15: a dot that breathes while the page is not actually
+        # listening is a lie the user has no way to check. The mitigation
+        # is structural rather than careful — the class is DERIVED from
+        # the loop's own two state variables inside one function, and
+        # that function is called from the four places the loop's state
+        # already changes. There is no second timer and no second
+        # variable tracking liveness.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        if "function syncLiveDot()" not in js:
+            return False, (
+                "expected freshness.js to derive the breathing class in ONE function — two "
+                "sources for one claim is this codebase's most repeated defect")
+        if "intervalHandle !== null && currentState === null" not in js:
+            return False, (
+                "expected the breathing class to be DERIVED from the loop's own interval handle "
+                "AND its own state badge — either half alone lets the dot breathe while the "
+                "page is paused or failing (T-23-15)")
+        # Called from every function that changes either half, and from
+        # nowhere else. setState() covers both paused and reconnecting;
+        # clearState() covers recovery and return-from-hidden; start/stop
+        # cover the interval itself, including tick()'s own belt-and-
+        # braces stop in a background tab.
+        for owner, body_end in (
+                ("function setState(state) {", "function clearState()"),
+                ("function clearState() {", "// 23-05-PLAN.md Task 2"),
+                ("function startLoop() {", "function stopLoop()"),
+                ("function stopLoop() {", "document.addEventListener")):
+            if owner not in js:
+                return False, "expected %r in freshness.js" % owner
+            region = js[js.index(owner):js.index(body_end, js.index(owner))]
+            if "syncLiveDot()" not in region:
+                return False, (
+                    "expected syncLiveDot() to be called from %s — the breathing class must "
+                    "change where the loop's own state changes, never from a second state "
+                    "machine beside it" % owner)
+        if js.count("syncLiveDot();") != 4:
+            return False, (
+                "expected exactly four syncLiveDot() call sites (setState, clearState, "
+                "startLoop, stopLoop), got %d — a fifth caller is a second state machine"
+                % js.count("syncLiveDot();"))
+        # The loop still never paints its own failure as a device fault.
+        for verdict in ("dot--warn", "dot--error", "status-warn"):
+            if verdict in js:
+                return False, (
+                    "freshness.js must carry no status vocabulary — a browser that lost its "
+                    "connection is not a device fault (22-15's own argued ground), found %r"
+                    % verdict)
+        # 22-15's own work, byte-for-byte present: the ladder, its
+        # ceiling and the in-flight guard are NOT re-implemented here.
+        for untouched in ("RETRY_BASE_MS", "RETRY_CEILING_MS = 600000",
+                          "function failAndRetry()", "inFlight", "isEqualNode"):
+            if untouched not in js:
+                return False, (
+                    "expected 22-15's own %r to survive untouched — this plan adds the two "
+                    "things T13 deliberately left for Phase 23 and re-implements none of it"
+                    % untouched)
+        # The dot's own selector and class must agree with the Python
+        # that renders the element and the CSS that animates it.
+        if health_page.REFRESH_LIVE_DOT_ATTR not in js:
+            return False, (
+                "freshness.js does not name %r — health_page.py renders the hook and this file "
+                "is the only thing that toggles it" % health_page.REFRESH_LIVE_DOT_ATTR)
+        css_source = _css_source()
+        if ".is-breathing {" not in css_source:
+            return False, (
+                "expected companion/static/style.css to declare the breathing rule freshness.js "
+                "toggles — a class with no rule is motion nobody ever sees")
+        return True, ""
+    check(
+        "freshness.js DERIVES the breathing class from its own interval handle and state badge in "
+        "one function, called from exactly the four places its state already changes, carries no "
+        "status vocabulary, leaves 22-15's retry ladder/ceiling/in-flight guard/targeted swap "
+        "untouched, and agrees with both the Python hook and the CSS rule (T-23-15, "
+        "23-05-PLAN.md Task 2)",
+        _freshness_js_breathes_only_from_the_loops_own_state)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,

@@ -42,9 +42,305 @@
 
 **Scoped padding, not a shared-rule change.** `table.data-table--flights td, th { padding: var(--space-sm) var(--space-sm); }` (8px both axes) is a second, narrower register value that exists only inside this one table's own selector — the shared `.data-table td/th` rule (16px, Health's and Airlines' own tables) is untouched.
 
-**Day separators (Phase 22, X5).** Thirty-six to fifty rows used to run together with nothing marking where one day ended and the next began. A real `<tr>` separator now carries a "Today" / "Yesterday" / absolute-date label, grouped by `paris_day()` — the **Europe/Paris** calendar day, never the UTC one, which is the same rule the daily battery buckets follow. **The label's shape is the output of the Paris-day formatter, and that is not a licence to call `strftime` directly:** the absolute form is composed from `layout.month_abbr()`, the one twelve-entry language-aware table this codebase exposes, so the separator cannot grow a second date path of its own. The shipped form is therefore the **abbreviated** month — `26 Aug` / `26 août` — not the full `%-d %B` the phase's own copy table drafted; a full-month label would need a second exposed table in `layout.py`, and it belongs there, not in this page. `history_page.py` contains **zero** direct date-formatting calls, asserted by a harness check. **These separators are NOT sticky.** Sticky day headers are D7, Phase 23; this phase's T4 *removed* the app's one broken sticky claim rather than adding a second, and the separator rule declares no sticky positioning at all — its own comment says why without quoting the phrase, so a `grep`-shaped guard is not tripped by prose describing its own absence.
+**Day separators (Phase 22, X5).** Thirty-six to fifty rows used to run together with nothing marking where one day ended and the next began. A real `<tr>` separator now carries a "Today" / "Yesterday" / absolute-date label, grouped by `paris_day()` — the **Europe/Paris** calendar day, never the UTC one, which is the same rule the daily battery buckets follow. **The label's shape is the output of the Paris-day formatter, and that is not a licence to call `strftime` directly:** the absolute form is composed from `layout.month_abbr()`, the one twelve-entry language-aware table this codebase exposes, so the separator cannot grow a second date path of its own. The shipped form is therefore the **abbreviated** month — `26 Aug` / `26 août` — not the full `%-d %B` the phase's own copy table drafted; a full-month label would need a second exposed table in `layout.py`, and it belongs there, not in this page. `history_page.py` contains **zero** direct date-formatting calls, asserted by a harness check. **These separators are NOT sticky, and as of 2026-09-13 that is a settled decision, not a deferral.** D7's sticky half was put to the developer with both variants rendered on the real page at the same scroll offset: the sticky title works, but **every row already carries its own date** (`1 août 21:41`), so it would repeat information already on every line — and it costs turning the list into a ~7-row bounded-height box inside a half-empty page. Declined. **Revisit only if the per-row date is ever removed**, which would make the title non-redundant. The original deferral read: sticky day headers are D7, Phase 23; this phase's T4 *removed* the app's one broken sticky claim rather than adding a second, and the separator rule declares no sticky positioning at all — its own comment says why without quoting the phrase, so a `grep`-shaped guard is not tripped by prose describing its own absence.
+
+### The Flights list is live (Phase 23, D7/CFG-37)
+
+**Both renderings are swap regions, not whichever one is visible.** Flights declares four regions to the shared refresh loop — the freshness line, `ul.history-cards`, `.data-table-wrap` and `[data-filter-count]`. Declaring both renderings of the list is deliberate: the `.history-cards ~ .data-table-wrap` sibling toggle above decides which one is *visible*, but **both are always in the DOM**, so swapping one would leave the other showing an older list the moment a window was resized. Everything `list-filter.js` resolves once at load — the input, Clear, the empty-state block and the set hooks — is excluded **by name**, with the reason in the registry's own comment; the filter count is in only because it stepped out of that category (it is now looked up fresh inside `applyFilter()`, which is the change that made it swappable at all).
+
+**Identity before position, and this is the transferable rule.** A row's own `runway_events.id` is rendered as `data-flight-id="e{id}"` on the summary `<tr>`, its sibling detail `<tr>` and the phone card `<li>`. The pre-existing `flight-detail-{n}` and `data-filter-group={n}` are untouched and still the **loop index**, because they do a different job — they pair one render's two representations — and **both renumber the instant a detection arrives at the top**. A highlight keyed to the index lights up every row below the insertion; an open-row record keyed to it reopens whichever row inherited the number. Both failure modes are measured, not reasoned about. The degrade is one-directional by construction: a row with no integer id falls back to its timestamp and hex, and if several rows share a value the consequence is a highlight **suppressed**, never one invented, because a shared identity reads as already-known.
+
+**The arrival signal is one-shot and is diffed against the page as first rendered.** `.is-new-row` (a `--motion-slow` background wash that drains) is applied only to identities absent from the set collected at load. **An empty starting set is the defect to avoid**: it makes the first refresh announce the entire list, which is the same as announcing nothing — measured at 108 elements highlighted on a refresh that brought nothing new. The class is added and never removed, and nothing needs to remove it: the node it lands on was itself just inserted, its background is its ordinary one before and after, and the next swap replaces the node entirely.
+
+**The detail row's reveal is a real height, and the closing direction is instant on purpose.** `<tr>` is `display: table-row`, so it is not a grid container and has no track to grow; the animation therefore lives one level down, on a two-element wrapper inside the `<td>` — an outer single-track grid transitioning `grid-template-rows: 0fr → 1fr`, and an inner element carrying `overflow: hidden` **and `min-height: 0`**. The second is load-bearing and is the part most likely to be dropped as redundant: a grid item's automatic minimum size is its content's, so without it the track never reaches `0fr` at all and the row simply appears with a pointless transition attached. `interpolate-size`/`calc-size()` were not reached for — Chromium-only, banned by name in the motion guard. `@starting-style` supplies the entry value (a row going from `display: none` to displayed has no previous computed value to transition from), and **both it and the transition are scoped to `.flight-rows-live`**, a class `flight-rows.js` adds to `<html>` — because with scripts blocked every detail row renders open, and an unscoped entry animation would unfold up to fifty rows at first paint in front of a reader who has touched nothing. **`transition-behavior: allow-discrete` was considered and declined in writing**: for the whole of that transition, and on every browser without the property, a closed row's copy buttons and links are still in the tab order and still in the accessibility tree — measured, 4 of 4 controls focusable — so a keyboard user tabs into a row nobody can see. A row that shuts instantly is a smaller loss than a row that is secretly still there.
+
+**Every relative age that does NOT tick, enumerated rather than forgotten — this is the list, and it is the list CFG-34's own final clause asks for.** Phase 23 gave the app a `<time data-relative>` convention and a one-second ticker, and converting `layout.concise_timestamp_html()` carried it to Health, Flights' phone card, Airlines and Home for free. Four visible or near-visible ages are still static, read live off the code at this phase's close:
+
+| Site | What the reader sees | Why it is still static |
+|---|---|---|
+| `history_page._when_cell_html()` | the Flights **desktop** table's When cell — a clock over a static age | Composes from `layout.relative_age_text()` directly; its own docstring says why it does not reach for `concise_timestamp_html()` (Pitfall 4, the inline-suffix shape). **Nothing blocks the conversion.** It needs a plan that owns `history_page.py`. **Correction of record:** 23-03's inventory routed this site to 23-08 while describing it as "the mobile card's relative-age secondary line" — it is the **desktop** cell; the phone card goes through `concise_timestamp_html()` and **does** tick. So today the same row's age is live below 960px and frozen above it. |
+| `config_page`'s Calendar status detail | "Connected · 12 entries, refreshed 3m ago" on Display | A status detail string, not a clock beside a time. Live-capable, nothing blocks it; no plan owned it. |
+| `health_page`'s unresolved-prefix registry cells | "31 juil. 08:00 · il y a 44 j" | Hand-composed `.cell-primary`/`.cell-secondary` pair, same shape as the Flights desktop cell. Live-capable; no plan owned it. |
+| `health_page`'s battery `when` text | inside a `title` tooltip on the battery chart | **Structurally cannot become an element**: `battery-trend.js` writes it into a `title` attribute with `setAttribute`, markup in a `title` renders as literal angle brackets, and a shipped check pins that the script does no client-side date math. Changing this means changing that script's transport first. |
+
+One further site is **not** a visible age and is listed only so the count reconciles: `history_page`'s `"ts"` row key still holds `absolute_and_relative()`'s plain-text form, but its own comment records that no renderer uses it for the visible cell any more.
 
 **The detail row's own no-JS floor.** The `<tr class="flight-detail-row">` server-renders with no `hidden` attribute and no inline style — fully visible by default. A new script, `companion/static/flight-rows.js` (ES5, registered through the same six-touch-point static-script contract `theme-preview.js` already established), adds a `flight-detail-row--collapsed` class to every detail row at load and toggles it on click of the row's own `[data-row-toggle]` button (which also flips `aria-expanded` and swaps its own text between `data-more-text`/`data-less-text`). This is the same per-script class-at-load pattern `theme-preview.js`'s own usage-panel collapse uses (see `references/control-density.md`), not a page-wide `.js` class — chosen specifically so a page where only this one script is blocked by a stricter CSP still shows every detail row, rather than a page-wide gate silently hiding data no script actually collapsed.
+
+### The drawing contract (new, Phase 24, D21/D8/D13/D20/D4, CFG-39..CFG-45)
+
+Phase 24 gave this app its first **shared drawing module**, and this entry is that
+module's contract — a fourth standing contract beside the motion budget, the
+colour-separation contract and the spacing tokens. Every value below was read live
+out of `companion/draw.py`, `companion/battery.py` and `companion/static/style.css`
+at the phase's close, not recalled from a plan.
+
+**One geometry vocabulary: `companion/draw.py`.** Stdlib-only, imports nothing from
+`companion/pages/` and nothing from `server/` (both pinned by an **AST** scan, not a
+token scan — an AST carries no comment and no docstring by construction, which is a
+stronger statement of the comment-strip claim than stripping them). It exposes the
+scales (`percent_x`, `percent_y`, `percent_time`), the canvases (`percent_canvas`,
+`unit_canvas`, `label_grid`), the shape emitters (`rect`, `line`, `circle`, `path`,
+`title`, `label_span`), the four composed drawings (`ring_gauge`, `day_band`,
+`regularity_grid`, plus `unit_circle_dash_array`/`unit_point_on_circle` beneath the
+first), the filters (`usable_pairs`, `is_number`) and the two class mappings
+(`status_class`, `cell_class`). It does **not** import `companion/battery.py` even
+though it may: **geometry must not know what it is plotting.** A drawing takes a
+fraction, an instant or a verdict — never a millivolt value.
+
+**Two coordinate schemes, and the rule for choosing between them.** They are two
+separately-named helper families (`percent_*` / `unit_*`), never one helper with a
+`use_viewbox=` flag — a flag is how the two get mixed inside one drawing — and they
+have one canvas class each.
+
+| | **Percentage scheme** (`percent_canvas`, `.drawing__canvas`) | **viewBox scheme** (`unit_canvas`, `.drawing__figure`) |
+|---|---|---|
+| Use it for | a card-filling time series that must stretch to whatever width its card gets | an intrinsically aspect-locked mark (a ring, a grid of squares) |
+| The SVG carries | **no `viewBox` at all** | `viewBox` **plus** intrinsic `width`/`height` attributes in CSS pixels |
+| Labels | HTML `<span>`s **outside** the canvas, placed by `label_grid()`'s two-track CSS grid | same — see below |
+| Sized by | CSS: `width: 100%` and `height: var(--drawing-canvas-height, 160px)` | its own intrinsic attributes; the class deliberately declares **no** size |
+| Consumers | Health's battery chart, Home's day band | Health's battery ring (72px), Home's battery ring (36px), Health's regularity grid |
+
+The percentage scheme is the older of the two — it is `battery_sparkline_svg()`'s own,
+generalised rather than invented — and the reason it is kept is measured: **give that
+chart a `viewBox` and every stroke width, marker radius and hit target scales with the
+box**, so at the 360px floor the tap targets shrink below the size they were chosen
+for. The reason the viewBox scheme exists at all is the mirror: a ring drawn in
+percentages is an ellipse the moment its box is not square.
+
+**Labels are HTML, outside the canvas, in both schemes — and that is what makes
+`viewBox` overflow unreachable rather than merely avoided for text.** A label placed
+this way also keeps one constant CSS size instead of shrinking with its box.
+`.drawing-axis-label` is 10px / line-height 1.2 — not a new type tier, exactly
+`.sparkline-axis-label`'s own values, which already sit in `SKILL.md`'s sub-scale
+exception tier. When 24-07 needed a scale under its grid it used spans too, so **this
+phase emitted no SVG `<text>` node anywhere**; the containment obligation is still
+discharged, on the cells' own ink (`getBBox()` expanded by half the *resolved* stroke
+width, in the open, rather than inside a `getBBox({stroke: true})` option dictionary
+whose support would have to be assumed).
+
+**The nested-viewBox escape hatch** (24-05). A percentage-scheme canvas can host a
+user-unit sub-drawing without either scheme leaking into the other: a nested
+`<svg viewBox="0 0 100 100" preserveAspectRatio="none">` establishes its own viewport
+in which user unit N maps to exactly N% of the same box **in each axis
+independently**, so a plain user-unit `<polygon>` lands on the coordinates the outer
+scheme's percentages already produce. This is what made the battery chart's area
+possible at all: **percentages are not legal in a `points` list or a `d` string**
+(the same rule that already made the trend line `n-1` `<line>` segments rather than
+one polyline), and nothing but `<rect>` takes percentage geometry, so a per-segment
+trapezoid was not available either. The nested layer deliberately gets **no CSS rule
+of its own** — its box comes from the single `.battery-trend-section svg:not(.icon)`
+declaration, and a check asserts no `.sparkline__area` rule exists.
+
+**Paint is a class and a token, never a literal, and never a reference.** Four
+anti-patterns are enforced by a machine (`companion/test_companion_app.py` Section
+2.8), each mutation-proven:
+
+1. **No colour literal in emitted SVG.** A colour decided in Python is correct in one
+   theme. Every shape takes its colour from a class bound to a theme token, which the
+   dark-theme block redefines, so the shape follows for free — and a literal is also
+   invisible to `companion/contrast_check.py`.
+2. **No unpainted shape.** A `<rect>`/`<circle>`/`<path>` with neither a class nor an
+   explicit `fill`/`stroke` takes the SVG default fill, which is **black**: correct
+   against a light card, invisible against a dark one, and invisible to the contrast
+   harness too. `fill: none` counts as an explicit route and is declared on purpose,
+   not as tidy-up.
+3. **Every emitted class resolves to a real selector in `style.css`.** A class that
+   exists in Python and nowhere in CSS paints *nothing at all*, and nothing else in
+   this codebase would notice. The check matches on a **selector boundary**
+   (`\.<class>(?![-\w])`), because `.drawing-axis` is a substring of
+   `.drawing-axis-label` and a plain `in css` test reports both resolved on the
+   strength of one unrelated selector.
+4. **No loaded or externally-painted attribute.** `REFUSED_ATTRIBUTES` is `href`,
+   `xlink:href`, `src`, `style`, `filter`, `mask`, `clip-path` (plus anything starting
+   `on`), refused by name whatever they carry; `PAINT_ATTRIBUTES` (`fill`, `stroke`,
+   `stop-color`) may carry only a keyword from `PAINT_KEYWORDS`
+   (`none`/`currentColor`/`transparent`/`inherit`). **Everything else is text, which
+   is escaped, never refused** — a refusal would turn a page render into an exception
+   for a value the app does not control (an airline name out of `history.db` carrying
+   an angle bracket).
+
+**`url(` is banned outright, and that is why this phase ships no gradient.**
+`battery_sparkline_svg()` carries a standing, directly-asserted guarantee that its
+return value contains no `url(`, `<image` or `<script` — a literal substring scan with
+no scheme analysis to appeal to. A `<linearGradient>` is only referenceable as
+`fill="url(#id)"`, so CFG-41's "gradient area" could only have shipped by relaxing a
+security-shaped assertion for decoration. **It did not.** The area is a flat
+`fill: currentColor` + `fill-opacity: 0.14`, which delivers the property that clause
+actually names — *derived from the line's own colour, so it is correct in dark mode by
+the same mechanism the line already is* — and the three shapes are measured resolving
+to one identical ink in each theme. Recorded as a **deliberate non-build with its
+ground**, not as a gradient that is coming later.
+
+**A drawing and any number printed beside it must come from the SAME value — one
+call, two renderings, never two calls that agree today.** This is the phase's
+sharpest rule and it was settled by mutation rather than by argument. Health's and
+Home's battery rings draw `battery_percent(mv) / 100` — the printed integer over a
+hundred — and **not** `battery_fraction(mv)`, even though 24-01 added
+`battery_fraction()` for exactly this. Sourcing the ring from the fraction instead
+makes the arc and the text disagree by **0.0033** on a seeded 3690 mV reading, and the
+check (tolerance 0.0005) fails naming both: *the ring draws 0.4333 of its
+circumference while the readout beside it prints '≈ 43% · 3690 mV'*. The cost is real
+and worth stating: the ring quantises to 1% steps, which at 72px is 3.6° of arc, about
+0.6px of ink. The benefit is that the whole class of defect becomes unreachable rather
+than unlikely. The same rule shapes the day band from the other direction: the emitter
+returns the number of marks it **collapsed**, so the caption cannot print a total the
+drawing does not show.
+
+**One battery estimator, with exactly TWO allow-listed homes.** `companion/battery.py`
+holds `BATTERY_FULL_MV` (4200), `BATTERY_EMPTY_MV` (3300), `battery_percent()`,
+`battery_fraction()`, `LOW_BATTERY_DISPLAY_PERCENT` (20) and `LOW_BATTERY_DISPLAY_MV`
+— the last **derived** (3480, and `battery_percent(3480) == 20`), never typed, so the
+line a chart draws and the percentage printed beside it cannot tell two stories. The
+second allow-listed home is **`server/poll_loop.py`'s deliberate private copy**
+(`_NOTIFY_BATTERY_FULL_MV` / `_NOTIFY_BATTERY_EMPTY_MV` /
+`_battery_percent_estimate()`), and it is allow-listed **by name with a written
+justification** rather than scoped away: the server package may never import the
+web-app package (D-27), so the poll oneshot genuinely cannot call the shared module.
+A **third** definition anywhere under `companion/` or `server/` fails the check. The
+scan has three nets, because the first two can be evaded by renaming: the constant
+names, a second `battery_percent`/`battery_fraction` definition, and — the one that
+catches a copy whatever it calls itself — **`4200` and `3300` appearing together in
+one module**. (`4200` alone is innocent: `health_page.SPARKLINE_Y_MAX_MV` is
+legitimately the same number.) A page that calls the estimator must call it
+**qualified** (`battery.battery_percent(...)`), because a bare
+`from companion.battery import battery_percent` makes it read as the page's own.
+
+**Phase 24's drawings carry no motion, deliberately.** The `.drawing*` block declares
+no `transition` and no `animation`; the stylesheet's `@keyframes` count is still
+**4** and the reduce-block count still **2**, exactly where Phase 23 left them. A
+drawing that animates on every refresh swap would be ambient motion nobody asked for
+on the app's busiest page.
+
+**The three drawings' own numbers, read live.**
+
+- **Ring gauge** — one emitter, `ring_gauge(fraction, size, status_class=None)`, with
+  **no `variant` parameter and the docstring saying why one must never be added**.
+  The geometry is **ratios of the box side**, which is the mechanism that makes a
+  CSS-only "small variant" impossible: `RING_STROKE_RATIO` 0.12, `RING_CLEARANCE_RATIO`
+  0.02, `RING_MIN_SIZE` 8 (clamped, never refused). At 72px: r 30.24, stroke 8.64,
+  outer ink edge 70.56 inside a 72 viewBox. At 36px: r 15.12, stroke 4.32, edge 35.28.
+  Both ratios identical by construction (0.42 and 0.12), and that equality is what the
+  cross-page check measures. **`stroke-width` is a presentation ATTRIBUTE, never a
+  stylesheet declaration** — CSS of any specificity beats a presentation attribute, so
+  a `stroke-width` in `.drawing-ring-*` would flatten both sizes to one thickness and
+  hand the size parameter back to CSS. **Both degenerate fractions are handled where
+  both arc mechanisms fail:** at 0 no value arc is emitted at all (a zero-length dash
+  renders as a *dot* under a round cap), and at 1 a complete circle is emitted with no
+  dash pattern (an arc `<path>` whose sweep is the whole circle is degenerate in SVG
+  and draws *nothing* — so full would read as empty, the worst possible value to be
+  wrong at). `stroke-linecap: butt` is declared explicitly even though it is the
+  initial value, because a round cap adds half a stroke width at *each* end and a 5%
+  reading would draw ~12% of the circle. The track is `--color-border` and
+  deliberately **not** `currentColor`, so it stays structural when the status modifier
+  turns the value arc amber or rose.
+- **Day band** — `day_band()` on `percent_time()`, the phase's only TIME-domain scale,
+  which **rejects** an out-of-day instant rather than clamping it (clamping invents a
+  check-in at an edge of the band). `DAY_BAND_MARK_WIDTH_PX` 2 and
+  `DAY_BAND_MIN_MARK_SPACING_PERCENT` **1.5** — re-derived from the band's **measured**
+  278px canvas (4 / 278 = 1.4388%, rounded **up**, because this is a floor on
+  legibility and rounding down permits exactly what the constant prevents). At 278px
+  that is 4.17px centre to centre; the element-count ceiling is **67** marks and the
+  finest resolvable interval on a 24-hour day is ~22 minutes. The quiet-hours window
+  crossing midnight is **two** spans, never one — one span from 22:00 back to 07:00
+  has a negative width, and the obvious repair (swap them) shades the whole day and
+  leaves the night clear, which looks entirely plausible.
+- **Regularity grid** — `regularity_grid()`, bounded by its own geometry rather than
+  by its caller's window: `CARD_DRAWING_WIDTH_PX` 278, `CELL_MIN_SIZE_PX` 24 (WCAG
+  2.5.8), `CELL_GAP_PX` 3, so `grid_columns()` **computes** ten columns at 25.10px
+  (eleven would give 22.55px, under the floor) and `GRID_MAX_ROWS` 6 caps it at
+  **60 cells**. The bucket count comes down, never the cell size. It keeps the
+  **newest** buckets and reports how many it dropped. **Four** states, not three:
+  `drawing-cell--on-cadence` / `--late` / `--missing` / `--none`, and the fourth is
+  produced by the classifier itself (`wake.classify_check_in_gap(None, cadence)`
+  already answers `unknown`) so **no branch on the page decides any cell's colour**.
+  `cell_class()` falls to the no-observation class for anything unrecognised — not to
+  on-cadence (which would report health from a value nobody recognised) and not to
+  missing (which would accuse the device on the same).
+
+**What the grid does NOT claim, and this is a contract clause rather than copy.** It
+reports **observed check-in regularity**, judged against the cadence currently in
+force. It is not a rate of wakes the device kept, and it must never be renamed into
+one: a log rotation the ingest missed leaves a hole indistinguishable from a missed
+wake, and no schema change recovers it. The caption carries three clauses, each
+separately asserted and each separately mutation-proven, and the two words the
+roadmap's own draft name for this drawing used are asserted **absent** from the
+rendered page in both languages.
+
+### Measurement conventions this phase paid for (Phase 24)
+
+Three of these cost a real defect each. They belong here rather than in a SUMMARY
+nobody re-reads.
+
+**1. Assert the FLOOR, not only the ceiling.** Three consecutive plans shipped
+ceiling-only assertions and each let a real defect through with every check green:
+
+- **24-06.** All four of the day band's checks were ceilings ("no more than N marks").
+  A collapse rule comparing each position against its *immediate predecessor* instead
+  of the *last kept* mark passes every one of them — and at a cadence finer than the
+  minimum spacing it keeps the first position and never another. Measured on the
+  mutant: a day of **1 440 check-ins drew one mark at 0.00%** and an empty band after
+  it, the frame rendering as dead since midnight, while `collapsed` dutifully reported
+  1 439. The correct rule draws 66 marks from 0.00% to 99.31%. *(The docstring's own
+  recorded reason for the last-kept rule was also wrong — it claimed a ceiling
+  argument, and the ceiling holds under either rule. The reason is the floor.)*
+- **24-07.** The grid's containment assertion was `x + w <= box_w`. A whole-pixel cell
+  size (25 instead of 25.10) puts ten cells and nine gaps at **277px inside a 278px
+  canvas** — inside the box, so green — and the HTML label row beneath, which sizes
+  itself from the *card* rather than from the emitter's arithmetic, then names a column
+  one pixel off. One scale places the cells and the labels, and a ceiling cannot see
+  that. Fixed by asserting the last column's right edge **equals** the canvas width.
+- **24-08.** `.home-overview > *` is **(0,1,0)** — the universal selector contributes
+  nothing — which *ties* `.frame-strip`'s own (0,1,0) `margin-bottom` and loses on
+  source order. Measured: the hero's first two parts sat **40.00px** apart where 16 was
+  declared, while the other gap was correct, because `.home-section` and
+  `.page-section` are declared above the new rule and lost while `.frame-strip` did
+  not. **Two thirds of the composition were right and one third was not** — precisely
+  the shape a ceiling ("at most 40px") or an eyeball passes. Fixed with the doubled
+  selector `.home-overview.home-overview > *` (0,2,0), the same hazard and the same fix
+  `.page-section.banner--anomaly` already documents.
+
+**2. Mutate every property you add.** Six-plus CSS declarations shipped in this phase
+with confident load-bearing comments and measured either **inert** or
+**load-bearing-but-invisible**. Both outcomes are defects, and only a per-declaration
+mutation finds either:
+
+| Declaration | Verdict | What the mutation showed |
+|---|---|---|
+| `.battery-readout-row` `min-width: 0` ×2, `.stat-tile__gauge` `flex: none` (24-04) | **inert** | `documentElement.scrollWidth` identical with and without, at 360px with a 60-char unbreakable run; a replaced element's automatic minimum size already floors the ring |
+| `.sparkline-swatch` `flex: none` (24-05) | **inert** | the legend's line is 161px inside a 278px row — there is no overflow to shrink against |
+| `.sparkline__legend` `grid-column: 1 / -1` (24-05) | **load-bearing, invisible** | with `auto` the legend claims the auto-sized Y-label column and the canvas drops **229.97px → 109.00px** inside the same 278px grid. It overflows nothing, so every assertion stayed green |
+| `.day-band` `--drawing-canvas-height: 24px` (24-06) | **load-bearing, invisible** | removing it silently takes `.drawing__canvas`'s 160px default — a **6.7× taller** block. Overflows nothing, moves no mark, changes no colour |
+| `.check-in-key__swatch` `flex: none` (24-07) | **inert** | *because of a sibling*: `flex-wrap: wrap` means no line ever takes width from a swatch. Remove the wrap and a French swatch is squeezed 12.00 → 9.03px |
+| `.check-in-key__item` `align-items: center` (24-07) | **inert by coincidence** | the swatch is 12px tall and the label's line box is 10 × 1.2 = 12px, so cross-start and centre are the same place |
+
+Every inert declaration was **deleted and the measurement written where it stood** —
+a dead declaration with confident prose is worse than none, because it is what the
+next reader trusts *instead of* measuring. Every load-bearing-but-invisible one got
+the assertion that can see it (the canvas's share of its grid; the canvas's rendered
+height). **The backlog this implies:** this discipline only ever ran over declarations
+*this phase added*. The rest of `style.css` has never been swept, and the two classes
+above are both silent by construction, so there is no reason to believe the ratio is
+different there. A sweep is worth a plan of its own.
+
+**3. Clear `__pycache__` after any sub-second mutate/revert cycle.** 24-08 lost a
+browser run to this and the failure looked exactly like a defect in its own work.
+`git checkout-index -f --` restored `companion/draw.py`, `git status` was clean — and
+the next run reported two failures in another plan's checks, with the **mutated class
+string still being served**. CPython validates a cached `.pyc` by comparing the source
+mtime for **equality at one-second granularity**; the restored source's mtime was the
+same second the `.pyc` had recorded, so the stale bytecode was considered valid and
+the corrected source was never recompiled. The mutation and its revert had both
+happened inside one second because the renders between them took milliseconds.
+Verified against a pristine `git archive` of the same commit: clean. **Clear every
+`__pycache__` outside `.venv` after reverting**, or the next harness run measures a
+module that no longer exists on disk.
+
+**4. Stage before you mutate, and revert with `git checkout-index -f --`.** Not
+`git checkout --`, which restores from **HEAD** and will delete an unstaged
+implementation outright — 24-04 lost a whole mutation round to exactly that, with all
+four "failures" turning out to be one `AttributeError` for a function the revert had
+just removed.
 
 ### Airlines gallery illustration frame (quick task 260904-e92, UIR-08)
 
@@ -107,6 +403,7 @@ source files for two different purposes.
 - **Last-row separator:** removed — `.data-table tbody tr:last-child td { border-bottom: none; }` gives the table a clean bottom edge instead of a trailing hairline.
 - **Sticky-header scoping. SUPERSEDED (Phase 22, T4) — the rule is deleted, and the reason is not "we changed our mind."** The entry read: *"`.data-table-wrap th` is `position: sticky; top: 0;`, scoped to the table's own scroll container so it never collides with the `>=960px` sticky sidebar. Its background token is `--color-canvas` (chosen because History's table — the only one long enough for sticky to actually engage — renders directly on the page background, not inside a card)."* **That header could never stick.** `position: sticky` needs a scroll container with a constrained height to stick *within*; `.data-table-wrap` declares `overflow-x: auto` and **no height at all**, so it never scrolls vertically and the sticky offset had nothing to resolve against. The declaration was inert from the day it shipped, in every browser, on every page — a claim the stylesheet made about itself and never delivered. It is removed rather than made to work: **sticky day headers are Phase 23 (D7)**, and doing it properly means a real scroll container and a measured height, not a token swap.
   - **The never-live-validated `--color-canvas` background note is MOOT, not deferred.** That note (quick task 260901-uzi finding 5, candidate (b)) asked whether the stuck header should read `--color-canvas` or `--color-dominant` for the in-card cases (Airlines, Health), and flagged that nobody had ever seen it stuck to judge. The background declaration went with the rule it belonged to, so there is no longer a stuck header whose background could mismatch anything. Do not carry this question forward as an open item; if D7 reintroduces a sticky header it will be a new rule making a fresh choice, not a resumption of this one.
+  - **Phase 23 IS D7, and it considered re-adding this and did NOT — the sentence above ("sticky day headers are Phase 23") is therefore SUPERSEDED as a forward pointer, in place, with its outcome.** The structural ground Phase 22 recorded has not changed: making a sticky header engage still means giving the Flights table a bounded-height scroll region of its own, which is a layout decision with the measured width and density budget in this file behind it, and it interacts with the phone card list, which is a different rendering entirely. But **that is no longer the deciding reason**, and the better one was found by rendering rather than by arguing: both variants were put on the real page with seeded data and scrolled to the same offset, and **every flight row already carries its own date** (`1 août 21:41`), so a pinned title would repeat what is already on every line — while the sticky variant shrinks the list to a ~7-row box inside a half-empty page and leaves a clipped row peeking under the pinned header. **Declined by the developer on 2026-09-13 (option A), on that evidence.** Nothing sticky was added: `grep -cE 'position: *sticky' companion/static/style.css` is **3**, its pre-phase value, of which two occurrences are prose. **The revisit condition is narrow and specific: only if the per-row date is ever removed** — for phone density, say — which would make the title non-redundant. This entry is now a settled decision, not a deferral, and it should not be re-proposed as an unexamined idea.
 
 ## CSS Patterns
 
@@ -154,7 +451,7 @@ Below 960px, `_history_cards_html()` renders the same merged data as `<li class=
 - **Variant A ("Stacked cells")** — still rejected as a whole-table pattern. Two-line cells increase row height, working against the goal of scanning many rows quickly on a small screen. **Narrow exception (Phase 21, D-15; a second measured consumer added Phase 22, B12):** the Flights table's own When/Flight columns ARE stacked, and Health's registry table joined them — but each only because measurement proved the inline shape overflowed that table's real width budget, the second time in French at 1280px. See "Flights table recompacted…" above. Do not generalize this exception to Route/State/Corroboration on the same table, or to any other table's merged cells, without the same measure-first discipline that justified it both times. **A third table (Health's battery readings table) was measured against this exception in quick task 260913-cz6 and deliberately NOT admitted** — stacking was measured to clear its 390px target by exactly zero and still overflow at 360px, so it took the floor-release remedy instead; the consumer count stays at **two**. See the "third table" paragraph above.
 - **Writing `minmax(0, 1fr)` for a text column that sits beside a content-sized `auto` track** — that pair hands the flexible track every pixel of shortfall and explicitly floors it at zero, which is how Home's recent-flight callsign ended up with a 10.9px box for 57.8px of content and painted over the time beside it (quick task 260913-dgh). If the row genuinely cannot shed width, it needs somewhere for the overflow to GO — a wrapping flex line, not a wider floor, which only moves the overflow onto the page.
 - **Reaching for a container query the moment a media query cannot express the condition** — right instinct, and it was measured here rather than assumed. It still lost, because its threshold has to be a fixed number and the content it must clear (the relative-age string) has no upper bound. Prefer a mechanism that reads the content instead of a width, when one exists; if you do reach for a container query, measure the growth of the content first.
-- **Reintroducing `position: sticky` on a table header inside `.data-table-wrap`** — Phase 22 (T4) removed the app's one sticky-header declaration because the wrap has no height and it could never engage. A sticky header needs a real scroll container with a constrained height first; that is D7, Phase 23, not a token swap.
+- **Reintroducing `position: sticky` on a table header inside `.data-table-wrap`** — Phase 22 (T4) removed the app's one sticky-header declaration because the wrap has no height and it could never engage. A sticky header needs a real scroll container with a constrained height first. **The trailing clause of this entry used to read "that is D7, Phase 23, not a token swap" — SUPERSEDED (Phase 23): D7 ran, put both variants on the real page, and DECLINED it**, because every flight row already carries its own date. Revisit only if that per-row date is removed. See the sticky-header entry above for the full record; do not re-propose this as an open idea.
 - **Calling `strftime` (or any direct date-formatting call) inside `history_page.py`** to shape a day-separator label — the label's shape is the Paris-day formatter's own output, composed from `layout.month_abbr()`. A second date path in this module is exactly what the one-formatter rule exists to prevent, and a harness check counts it.
 - **Variant C ("Max density", 6 columns, merges State into Route too)** — still explicitly not part of locked scope. Do not implement it without a fresh discuss-phase decision extending the merge further. (Phase 21's own 5-visible-column table is a *different* reduction — it moved data OUT of the table into a detail row, it did not merge State into Route — so it does not retroactively authorize Variant C.)
 - Reaching for the sketch's SUPERSEDED `--color-text-muted` token for any secondary/muted text in this file — it does not exist; use `opacity` on `--color-text` (matching `.cell-secondary`) or `color-mix(in srgb, var(--color-text) 70%, transparent)` (matching `.data-table th`/`.filter-bar__count`), whichever this file's existing precedent for that specific element already uses.
@@ -163,5 +460,5 @@ Below 960px, `_history_cards_html()` renders the same merged data as `<li class=
 - Keying the Flights detail row's collapse off a page-wide `.js` class instead of `flight-rows.js`'s own scoped class-at-load — that would hide detail data on a page where a stricter CSP blocks only that one script, per the reasoning above.
 
 ## Origin
-Synthesized from sketch: 003 (history-table-density), winner: Variant B. Corrected against the shipped implementation (`companion/pages/history_page.py`, `companion/static/style.css`) per 06.6.3 (D-07, mobile card list, table restyle) and `companion/layout.py`'s `concise_timestamp_html()` (06.6.3, resolving this file's own former open timestamp-format risk) — quick task 260901-t00. Updated Phase 21 (21-03-PLAN.md, D-15, CFG-22): the desktop table recompacted from 7 to 5 visible columns plus a detail-row toggle column, the When/Flight cells' scoped stacked-line exception (measured, not assumed), the dot-only Corroboration column (`status_dot(visually_hide_label=True)`), the scoped 8px cell-padding register, and `flight-rows.js`'s own no-JS floor for the new detail row. Updated Phase 22 (22-companion-audit-round-4, T4/X5/B12, CFG-31): the sticky-header entry SUPERSEDED outright (the wrap has no height, so it could never engage) with its never-live-validated `--color-canvas` background note recorded as **moot** rather than deferred; the Flights day separators, grouped by Paris calendar day and shaped by the Paris-day formatter rather than a direct date call, and explicitly not sticky; and Health's registry table recorded as the stacked-cell exception's **second measured consumer**, with its own numbers, leaving the do-not-generalise warning verbatim. Updated quick task 260913-cz6: Health's battery readings table measured against the same cause at 390px behind a closed `<details>`, the stacked treatment measured and REJECTED on its own numbers, the floor-release remedy (`table.data-table--readings { min-width: 0 }`) taken instead — the stacked-cell exception's consumer count deliberately stays at **two** — plus the new general lesson that a scrolling WRAPPER is invisible to `document.documentElement.scrollWidth` and must be measured against its own `clientWidth` with every disclosure forced open. Updated quick task 260913-dgh: a FOURTH site of the same content-sized-track cause, this one outside a table — Home's `.recent-flight` grid row, whose `minmax(0, 1fr)` callsign track was starved to 10.9px (FR) / 18.6px (EN) for 57.8px of content at 320px and 50.9px (FR) at 360px by a rigid `auto` time track; a container query was measured, worked, and was rejected because its threshold cannot track an unbounded relative-age string (the same defect reaches the 1280px desktop row once the age grows), and a wrapping flex line was taken as a THIRD distinct remedy — plus the new general lesson that a box can be wrong against its own CONTENT while correct against every container it sits in, so it must be measured with a `Range` over its own contents rather than against a parent or against integer-rounded `scrollWidth`.
+Synthesized from sketch: 003 (history-table-density), winner: Variant B. Corrected against the shipped implementation (`companion/pages/history_page.py`, `companion/static/style.css`) per 06.6.3 (D-07, mobile card list, table restyle) and `companion/layout.py`'s `concise_timestamp_html()` (06.6.3, resolving this file's own former open timestamp-format risk) — quick task 260901-t00. Updated Phase 21 (21-03-PLAN.md, D-15, CFG-22): the desktop table recompacted from 7 to 5 visible columns plus a detail-row toggle column, the When/Flight cells' scoped stacked-line exception (measured, not assumed), the dot-only Corroboration column (`status_dot(visually_hide_label=True)`), the scoped 8px cell-padding register, and `flight-rows.js`'s own no-JS floor for the new detail row. Updated Phase 22 (22-companion-audit-round-4, T4/X5/B12, CFG-31): the sticky-header entry SUPERSEDED outright (the wrap has no height, so it could never engage) with its never-live-validated `--color-canvas` background note recorded as **moot** rather than deferred; the Flights day separators, grouped by Paris calendar day and shaped by the Paris-day formatter rather than a direct date call, and explicitly not sticky; and Health's registry table recorded as the stacked-cell exception's **second measured consumer**, with its own numbers, leaving the do-not-generalise warning verbatim. Updated quick task 260913-cz6: Health's battery readings table measured against the same cause at 390px behind a closed `<details>`, the stacked treatment measured and REJECTED on its own numbers, the floor-release remedy (`table.data-table--readings { min-width: 0 }`) taken instead — the stacked-cell exception's consumer count deliberately stays at **two** — plus the new general lesson that a scrolling WRAPPER is invisible to `document.documentElement.scrollWidth` and must be measured against its own `clientWidth` with every disclosure forced open. Updated quick task 260913-dgh: a FOURTH site of the same content-sized-track cause, this one outside a table — Home's `.recent-flight` grid row, whose `minmax(0, 1fr)` callsign track was starved to 10.9px (FR) / 18.6px (EN) for 57.8px of content at 320px and 50.9px (FR) at 360px by a rigid `auto` time track; a container query was measured, worked, and was rejected because its threshold cannot track an unbounded relative-age string (the same defect reaches the 1280px desktop row once the age grows), and a wrapping flex line was taken as a THIRD distinct remedy — plus the new general lesson that a box can be wrong against its own CONTENT while correct against every container it sits in, so it must be measured with a `Range` over its own contents rather than against a parent or against integer-rounded `scrollWidth`. Updated Phase 23 (23-companion-dynamism, D7/D14, CFG-34/CFG-37, 23-03/23-08/23-11): the Flights list joining the shared refresh loop with both renderings as swap regions, identity-before-position as a transferable rule, the one-shot arrival wash and why its known set must never start empty, the detail row's `grid-template-rows` height with its `min-height: 0` and its `.flight-rows-live` scope and the written argument against `allow-discrete`, the enumeration of every relative age that deliberately stays static (with a correction of record: the unconverted site is the DESKTOP When cell, not the phone card), and sticky day headers **declined** on rendered evidence with their revisit condition — every value re-read from `companion/pages/history_page.py`, `companion/pages/config_page.py`, `companion/pages/health_page.py` and `companion/static/style.css` at execution time.
 Source file available in: `sources/003-history-table-density.html` (historical artifact, byte-identical, not current-reality documentation).

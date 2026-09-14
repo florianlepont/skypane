@@ -663,6 +663,71 @@ EXPECTED_CHECK_COUNT = 232
 # recomputed directly against the real on-disk check(...) call count at
 # execution time (233/233 pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 233
+# 23-06-PLAN.md Task 2 (D1/CFG-35): +2 — the Display scope joins the
+# refresh loop D1 puts on Home and Health. One check pins the line it
+# renders as layout.freshness_line_html()'s own output verbatim (one
+# builder, three call sites), exactly one data-loaded-at and one
+# data-refresh-pill, the page key on <body>, and the degrade for a
+# caller with no render instant: no marker at all rather than an element
+# carrying an invented one. One pins what the loop must never touch —
+# no Display swap region may name a form, a dirty marker or a save
+# control, and the settings form, its cross-DOM form= attachment and the
+# fallback Save must all still render, with the freshness line above
+# them in the header. That second one is 22-01/B1 kept closed: a swap
+# landing on this page's form is the P0 Phase 22 existed to fix.
+# 233 + 2 = 235, recomputed directly against the real on-disk check(...)
+# call count at execution time, not trusted from arithmetic alone.
+# 23-07-PLAN.md Task 2 (D2/CFG-36, X1/D-04): +2. One pins that the
+# Diagnostic LED group renders exactly ONE control — a server-rendered
+# role=switch whose aria-checked is the stored value in both directions,
+# with no input[name="led_enabled"] checkbox surviving beside it. One
+# pins its cross-DOM form: an EMPTY sibling of #settings-form carrying
+# the inverted posted state, placed outside the settings form on Device
+# and not rendered at all on Display. The eight-combination absent-field
+# guard was EXTENDED in place rather than duplicated, so it contributes
+# nothing to this count. 235 + 2 = 237, recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 237
+# 23-09-PLAN.md Task 1 (D3/CFG-32): +1 — the save bar's entrance, and
+# every decision that made the bar what it is asserted to have survived
+# it in the same check: an animation (not a transition out of display:
+# none, which would animate only where @starting-style is supported)
+# built from transform and opacity on var(--motion-fast) with no fill
+# mode, declaring no size, box or display value anywhere in its
+# keyframes; the [hidden] override still hiding by display: none, after
+# the base rule, on a base rule that still declares display — B1's own
+# collision class, asserted rather than reasoned about; and the z-index
+# declared at both breakpoints, the fit-content width, the resting
+# shadow and BOTH of T7's MEASURED clearance figures unchanged.
+# 237 + 1 = 238, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 238
+# 23-09-PLAN.md Task 2 (D3/CFG-32, closing T14's deferred label): +1 —
+# the in-flight word, and the argument that makes relabelling a
+# submitter safe. The word is a server-rendered, translated data-*
+# attribute on the same bar element the five connector words already
+# ride on, with a byte-identical English fallback in dirty-state.js; the
+# relabel runs only for a <button> carrying no name, because a control
+# with no name contributes no entry to the form data set at all and an
+# <input type="submit">'s label IS its submitted value; it writes
+# textContent and never `value`, never `disabled` (submit-guard.js owns
+# the one disable in the app) and never preventDefault. The same check
+# asserts no companion/static/*.js reaches for client storage, on
+# comment-stripped source — a "Saved" flag carried across the save's own
+# navigation is precisely what would have introduced the first one.
+# 238 + 1 = 239, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 239
+# 23-10-PLAN.md Task 2 (D3/CFG-32): +1 — the live theme preview
+# crossfades rather than cuts, held as the same cross-file DOM contract
+# the dirty-state.js checks above already use: one class literal written
+# out here, declared in style.css and driven from theme-preview.js, with
+# neither file importing the other. The mechanism must be event-driven
+# (transitionend plus the image's own load/error) and never timed — a
+# timed crossfade lets the swap and the fade drift apart and the preview
+# settles on whichever won, which is the spoofing disposition T-23-38
+# names. T8's window.SkyPaneLivePreview.refresh() is asserted to survive
+# in the same check, because Cancel's restore has to come through the
+# crossfade rather than around it.
+# 239 + 1 = 240, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 240
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -887,38 +952,39 @@ def main():
         "runway-card labels, and a Save settings submit button",
         _render_shape_theme_chip_grid_runway_cards_groups_and_save_button)
 
-    def _led_group_carries_classed_label_and_unchanged_input_attrs():
-        # quick task 260901-qif: pins the settings-checkbox label class
-        # (renamed from led-checkbox by 10-05-PLAN.md Task 2) and guards
-        # the input's name/value/checked attribute sequence against a
-        # future markup edit silently reordering it - the two live-HTTP
-        # LED checks further down this file match on that exact sequence.
+    def _led_group_carries_the_switch_and_its_state_attribute_sequence():
+        # quick task 260901-qif used to pin the settings-checkbox label
+        # class and the input's name/value/checked attribute sequence.
+        # 23-07-PLAN.md Task 2 (D2/CFG-36) RETARGETS it in place: that
+        # checkbox is gone and its label class with it, because the LED
+        # is now a role="switch" applying instantly over /quick/led.
+        # The property this check is actually about — that the control's
+        # state-bearing attribute sequence cannot be reordered silently
+        # by a later markup edit, since the live-HTTP LED checks further
+        # down this file match on it — survives verbatim; only the
+        # sequence itself has changed.
         checked_html = config_page.led_group(True)
         unchecked_html = config_page.led_group(False)
-        label_open = '<label class="settings-checkbox">'
-        if checked_html.count(label_open) != 1:
-            return False, "expected led_group(True) to carry exactly one <label class=\"settings-checkbox\"> occurrence"
-        if unchecked_html.count(label_open) != 1:
-            return False, "expected led_group(False) to carry exactly one <label class=\"settings-checkbox\"> occurrence"
-        led_value = escape_html(config_page.LED_CHECKBOX_VALUE)
-        expected_checked = 'name="led_enabled" value="%s" checked' % led_value
-        if expected_checked not in checked_html:
-            return False, "expected led_group(True) to carry %r" % (expected_checked,)
-        # 19-11-PLAN.md Task 3 (D-12/A-30): retargeted in place - with no
-        # error, the input now carries a bare aria-describedby pointing
-        # at LED_SECTION_CAPTION_ID (via _field_error_attrs()'s hint_id)
-        # before the closing '>', not a bare closing '>' any more.
-        expected_unchecked = (
-            'name="led_enabled" value="%s" aria-describedby="%s">'
-            % (led_value, escape_html(config_page.LED_SECTION_CAPTION_ID)))
-        if expected_unchecked not in unchecked_html:
-            return False, "expected led_group(False) to carry %r with no checked flag" % (expected_unchecked,)
-        if "checked" in unchecked_html:
-            return False, "expected led_group(False) to carry no checked flag at all"
+        if 'class="settings-checkbox"' in checked_html:
+            return False, (
+                "the settings-checkbox label is retired with the checkbox it wrapped — the LED "
+                "has ONE control now (X1/D-04)")
+        for name, rendered, expected_state in (
+                ("led_group(True)", checked_html, "true"),
+                ("led_group(False)", unchecked_html, "false")):
+            expected = 'class="switch" role="switch" aria-checked="%s"' % expected_state
+            if rendered.count(expected) != 1:
+                return False, "expected %s to carry exactly one %r" % (name, expected)
+            if rendered.count('class="switch__thumb"') != 1:
+                return False, "expected %s to carry exactly one switch thumb" % name
+        if 'aria-checked="true"' in unchecked_html:
+            return False, "expected led_group(False) to claim no on state at all"
         return True, ""
     check(
-        "led_group() emits the settings-checkbox label class and preserves the input's name/value/checked attribute sequence",
-        _led_group_carries_classed_label_and_unchanged_input_attrs)
+        "led_group() emits the switch and preserves its class/role/aria-checked attribute sequence "
+        "in both states, with the retired settings-checkbox label gone (retargeted in place from "
+        "the checkbox's own sequence by 23-07-PLAN.md Task 2)",
+        _led_group_carries_the_switch_and_its_state_attribute_sequence)
 
     # ------------------------------------------------------------------
     # 10-05-PLAN.md Task 3: quiet_hours_group() markup/field-order/
@@ -1374,17 +1440,31 @@ def main():
         "and leaves a pre-existing device_config.json byte-identical",
         _handle_post_display_enabled_three_shapes)
 
-    def _handle_post_theme_only_save_never_flips_display_or_quiet_hours_off():
+    def _handle_post_theme_only_save_never_flips_display_quiet_hours_or_led_off():
         # T-22-16 / 22-RESEARCH.md Pitfall 1: THE named regression this
-        # plan exists to prevent — a settings save that touches only an
-        # unrelated field (theme) must never silently switch the screen
-        # or quiet hours off, in ANY of their four starting combinations.
-        for start_display, start_quiet in (
-                (True, True), (True, False), (False, True), (False, False)):
+        # check exists to prevent — a settings save that touches only an
+        # unrelated field (theme) must never silently switch the screen,
+        # quiet hours or the diagnostic LED off, in ANY of their starting
+        # combinations.
+        #
+        # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1) EXTENDS this check
+        # rather than adding a sibling beside it. led_enabled is the
+        # third flag whose control leaves the settings form, and the
+        # asymmetry that made its absence mean False was correct only
+        # while its checkbox was still rendered. One check, one place,
+        # three flags: a fourth flag joining them later has exactly one
+        # obvious place to go, and the three can never drift into
+        # disagreeing about what an absent field means.
+        for start_display, start_quiet, start_led in (
+                (True, True, True), (True, True, False),
+                (True, False, True), (True, False, False),
+                (False, True, True), (False, True, False),
+                (False, False, True), (False, False, False)):
             tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-regression-")
             try:
                 device_config.save_device_config(
-                    tmpdir, display_enabled=start_display, quiet_hours_enabled=start_quiet)
+                    tmpdir, display_enabled=start_display, quiet_hours_enabled=start_quiet,
+                    led_enabled=start_led)
                 ctx = {"state_dir": tmpdir}
                 flash_key = config_page.handle_post({"theme": "white"}, ctx)
                 if flash_key != config_page.FLASH_SAVED:
@@ -1398,16 +1478,24 @@ def main():
                     return False, (
                         "REGRESSION (T-22-16): a theme-only save flipped quiet_hours_enabled from "
                         "%r to %r" % (start_quiet, on_disk["quiet_hours_enabled"]))
+                if on_disk["led_enabled"] is not start_led:
+                    return False, (
+                        "REGRESSION (T-22-16/T-23-25): a theme-only save flipped led_enabled from "
+                        "%r to %r — the LED's control is a /quick/led switch now, so its absence "
+                        "from a settings body means 'this form never had a way to change it', not "
+                        "'the user unticked a box' (D-12.1, 23-07-PLAN.md Task 2)"
+                        % (start_led, on_disk["led_enabled"]))
                 if on_disk["theme"] != "white":
                     return False, "expected the theme change itself to still persist, got %r" % (on_disk["theme"],)
             finally:
                 shutil.rmtree(tmpdir, ignore_errors=True)
         return True, ""
     check(
-        "REGRESSION GUARD (T-22-16, 22-RESEARCH.md Pitfall 1): a settings save that only changes the "
-        "theme leaves display_enabled and quiet_hours_enabled EXACTLY as they were, across all four "
-        "starting True/False combinations — the frame can never go dark after an unrelated save",
-        _handle_post_theme_only_save_never_flips_display_or_quiet_hours_off)
+        "REGRESSION GUARD (T-22-16/T-23-25, 22-RESEARCH.md Pitfall 1): a settings save that only "
+        "changes the theme leaves display_enabled, quiet_hours_enabled AND led_enabled EXACTLY as "
+        "they were, across all eight starting True/False combinations — extended in place from the "
+        "two-flag/four-combination version 22-05 landed, never duplicated beside it",
+        _handle_post_theme_only_save_never_flips_display_quiet_hours_or_led_off)
 
     def _every_settings_group_is_named_exactly_once():
         # heading-color-consistency debug session, extended by 06.6.4.1
@@ -1438,6 +1526,12 @@ def main():
         # on this legacy SCOPE_ALL render.
         heading_ids = {
             "Runway": config_page.RUNWAY_GROUP_HEADING_ID,
+            # 23-07-PLAN.md Task 2 (D2/CFG-36): the LED heading gained an
+            # id for the same reason Runway's has one — it is now the
+            # accessible NAME of a control (this group's role="switch",
+            # through aria-labelledby) rather than only a heading. The
+            # heading role, its level and its text are untouched.
+            "Diagnostic LED": config_page.QUICK_LED_LABEL_ID,
         }
         for name in ("Runway", "Diagnostic LED", config_page.POLL_SECTION_HEADING):
             heading_id = heading_ids.get(name)
@@ -1488,6 +1582,142 @@ def main():
     check(
         "Settings opens with the shared layout.page_header() component, not a bare <h1>",
         _render_opens_with_shared_page_header)
+
+    def _the_save_control_says_what_it_is_doing_without_changing_what_it_posts():
+        # 23-09-PLAN.md Task 2 (D3/CFG-32). T14 (22-15-PLAN.md Task 3)
+        # deliberately left this label change for this phase, in as many
+        # words: "Disable only — do NOT change any label to a progress
+        # word; that is D3, Phase 23." This is that plan, and this check
+        # is the source-level half of it.
+        #
+        # The whole risk lives in one sentence of submit-guard.js's own
+        # header: a submit button's name/value pair joins the form data
+        # set AFTER the submit event's listeners return, which is why
+        # THAT file disables from a zero-delay timer instead of inline.
+        # A relabel has to answer the same question, and the answer here
+        # is a property of the control rather than of the timing — so the
+        # check asserts the property.
+        #
+        # Read directly rather than through this file's own _read_static()
+        # helper: that helper is defined further down the same enclosing
+        # function, so its name is unbound at the moment this check runs.
+        static_dir = os.path.join(os.path.dirname(__file__), "static")
+        with open(os.path.join(static_dir, "dirty-state.js")) as fh:
+            source = fh.read()
+
+        # (a) THE WORD IS THE SERVER'S, not a JS literal. Same
+        # attribute-with-an-English-fallback idiom the bar's five
+        # connector words already use, so the French is a catalogue
+        # entry and the two can never silently disagree about what a
+        # missing attribute degrades to.
+        if not hasattr(config_page, "DIRTY_SAVING_TEXT"):
+            return False, "expected config_page to name the in-flight word as its own constant"
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        marker = 'data-dirty-saving="%s"' % config_page.DIRTY_SAVING_TEXT
+        if marker not in rendered:
+            return False, (
+                "expected the bar to carry %r — the in-flight word belongs on the same element "
+                "the other five translated words already ride on" % (marker,))
+        if "data-dirty-saving" not in source:
+            return False, "expected dirty-state.js to read the in-flight word off the bar"
+        if ('"%s"' % config_page.DIRTY_SAVING_TEXT) not in source:
+            return False, (
+                "expected dirty-state.js's English fallback literal for the in-flight word to "
+                "match the server constant byte for byte, or a bar rendered without the "
+                "attribute says something different from one rendered with it")
+        try:
+            prefs.set_request_prefs(lang="fr")
+            fr_rendered = config_page.render({
+                "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+                "poll_cooldown_remaining": 0,
+            })
+        finally:
+            prefs.set_request_prefs(lang="en")
+        fr_word = layout.i18n.t_lang(config_page.DIRTY_SAVING_TEXT, "fr")
+        if fr_word == config_page.DIRTY_SAVING_TEXT:
+            return False, (
+                "expected a French entry for %r — every new visible word is a catalogue entry"
+                % (config_page.DIRTY_SAVING_TEXT,))
+        if ('data-dirty-saving="%s"' % fr_word) not in fr_rendered:
+            return False, "expected a French render to carry the French in-flight word"
+
+        # (b) THE RELABEL IS SAFE BY THE CONTROL'S OWN SHAPE, not by
+        # timing. It runs only for a <button> carrying no name, and a
+        # control with no name contributes no entry to the form data set
+        # at all — so there is nothing the label could displace. The
+        # <input type="submit"> case is excluded by the same clause and
+        # for a sharper reason: that element's label IS its submitted
+        # value, so relabelling one would genuinely change the payload.
+        if "function relabelSubmitter(" not in source:
+            return False, "expected dirty-state.js to name its relabel"
+        body_at = source.index("function relabelSubmitter(")
+        body = source[body_at:source.index("\n  }", body_at)]
+        if '"BUTTON"' not in body:
+            return False, (
+                "expected the relabel to run only for a <button> — an <input type=\"submit\">'s "
+                "label is its submitted value, so relabelling one would change the payload")
+        if 'getAttribute("name")' not in body:
+            return False, (
+                "expected the relabel to stand down for a NAMED submitter: a named control's "
+                "name/value pair is part of the form data set, and companion/layout.py's theme "
+                "and language pickers are exactly that shape")
+        if ".value" in body:
+            return False, (
+                "expected the relabel to write only textContent — writing `value` on a submitter "
+                "is writing the form data set itself")
+        for forbidden in ("preventDefault", "return false", "disabled"):
+            if forbidden in body:
+                return False, (
+                    "the relabel found %r — it adds a label and nothing else: it must never "
+                    "cancel the submission, and the disable is submit-guard.js's, once, for "
+                    "every form in the app" % (forbidden,))
+
+        # (c) NO SECOND DISABLE anywhere in this file. submit-guard.js
+        # already owns that for every form, from a zero-delay timer, and
+        # two files writing the same property is how they start
+        # disagreeing about who re-enables it.
+        if "disabled" in source:
+            return False, (
+                "dirty-state.js must not write or read `disabled` at all — submit-guard.js owns "
+                "the double-submit guard for every form in the app")
+
+        # (d) NO CLIENT STATE, in any script. The completed state is
+        # NOT persisted across the save's navigation: the POST replaces
+        # the document, so the bar that said the in-flight word does not
+        # exist when the save finishes, and carrying a flag across that
+        # navigation would mean browser storage. This app holds none, on
+        # purpose — a second source of truth beside the server is the
+        # one thing its whole discipline excludes. The completed state
+        # is the existing save-confirmation flash, on the page the
+        # browser actually lands on.
+        #
+        # Measured on COMMENT-STRIPPED source, the way 23-01's own motion
+        # guard measures its bans, so a script may still write down WHY
+        # it holds no client state without failing the rule.
+        for name in sorted(os.listdir(static_dir)):
+            if not name.endswith(".js"):
+                continue
+            with open(os.path.join(static_dir, name)) as fh:
+                live = re.sub(r"/\*.*?\*/", "", fh.read(), flags=re.DOTALL)
+            live = re.sub(r"^\s*//.*$", "", live, flags=re.MULTILINE)
+            for store in ("sessionStorage", "localStorage", "indexedDB"):
+                if store in live:
+                    return False, (
+                        "companion/static/%s reaches for %s — this app holds no client state at "
+                        "all, deliberately, and a 'Saved' flag carried across the save's own "
+                        "navigation is exactly the thing that would introduce one" % (name, store))
+        return True, ""
+    check(
+        "the save bar's in-flight word is a server-rendered, translated data-* attribute with a "
+        "byte-identical English fallback in dirty-state.js, and the relabel is safe by the "
+        "control's own shape rather than by timing — a <button> with no name contributes nothing "
+        "to the form data set, so the relabel writes textContent only, never `value`, never "
+        "`disabled`, never preventDefault — while no script anywhere reaches for client storage "
+        "(D3/CFG-32, T14's deferred label, 23-09-PLAN.md Task 2)",
+        _the_save_control_says_what_it_is_doing_without_changing_what_it_posts)
 
     def _settings_form_carries_config_form_class_hook():
         # D-01 stable class hook: the settings form (POST /config) needs a
@@ -1827,7 +2057,12 @@ def main():
         led_rendered = config_page.led_group(True)
         groups = (
             ("runway_fieldset()", runway_rendered, "</h2>", "runway-row", 1),
-            ("led_group()", led_rendered, "</h2>", "settings-checkbox", 1),
+            # 23-07-PLAN.md Task 2 (D2/CFG-36): the control marker is
+            # retargeted in place from "settings-checkbox" to the
+            # switch's own class — the LED's control changed, the
+            # heading-then-caption-then-control ORDER this row is about
+            # did not.
+            ("led_group()", led_rendered, "</h2>", 'class="switch"', 1),
         )
         for name, rendered, heading_close_marker, control_marker, expected_p_count in groups:
             if rendered.count("<p") != expected_p_count:
@@ -2248,7 +2483,13 @@ def main():
             # reason now: its own absence also means "leave unchanged",
             # and DEFAULT_QUIET_HOURS_ENABLED already IS False, so the
             # value is coincidentally unchanged from the pre-22-05 fixture.
-            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": True, "wake_interval_s": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}:
+            # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1): led_enabled is
+            # True here, not the pre-23-07 False, for exactly the reason
+            # display_enabled already was — this posted form omits it and
+            # that absence now means "leave unchanged" unconditionally,
+            # so on a fresh state directory it falls through to
+            # DEFAULT_LED_ENABLED rather than to a hard-coded False.
+            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": True, "wake_interval_s": None, "screen_id": "plane-frame", "notifications": {"topic_url": None, "battery_low": False, "frame_silent": False, "lang": "en"}}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -2400,24 +2641,40 @@ def main():
     # re-covering is already exercised by the bullet-per-behaviour checks
     # below (_handle_post_empty_form_persists_led_false and its
     # siblings), so no coverage gap is left behind.
-    def _handle_post_empty_form_persists_led_false():
+    def _handle_post_empty_form_leaves_led_unchanged():
         # Bullet 1: the shape a browser sends when nothing is checked and
         # nothing is selected.
-        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
-        try:
-            ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_post({}, ctx)
-            if flash_key != config_page.FLASH_SAVED:
-                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
-            on_disk = device_config.load_device_config(tmpdir)
-            if on_disk["led_enabled"] is not False:
-                return False, "expected led_enabled False on disk, got %r" % (on_disk["led_enabled"],)
-            return True, ""
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+        #
+        # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1, T-23-25): RETARGETED IN
+        # PLACE, and made two-directional. It used to assert this empty
+        # body persists led_enabled False, which was the correct reading
+        # while the LED checkbox was still rendered in this form. It is
+        # not any more: absence now means "leave unchanged", so the honest
+        # assertion is that BOTH a stored True and a stored False survive.
+        # Asserting only the False direction would pass on a handler that
+        # hard-codes False, which is the very behaviour this change
+        # removes.
+        for stored in (True, False):
+            tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+            try:
+                device_config.save_device_config(tmpdir, led_enabled=stored)
+                ctx = {"state_dir": tmpdir}
+                flash_key = config_page.handle_post({}, ctx)
+                if flash_key != config_page.FLASH_SAVED:
+                    return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+                on_disk = device_config.load_device_config(tmpdir)
+                if on_disk["led_enabled"] is not stored:
+                    return False, (
+                        "expected an empty body to LEAVE the stored led_enabled %r unchanged, "
+                        "got %r" % (stored, on_disk["led_enabled"]))
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        return True, ""
     check(
-        "handle_post({}, ctx) - the shape a browser sends when nothing is checked and nothing is selected - persists led_enabled False and returns the saved flash key",
-        _handle_post_empty_form_persists_led_false)
+        "handle_post({}, ctx) - the shape a browser sends when nothing is checked and nothing is "
+        "selected - LEAVES the stored led_enabled unchanged in both directions and returns the "
+        "saved flash key (retargeted in place from absent-means-False by 23-07-PLAN.md Task 2)",
+        _handle_post_empty_form_leaves_led_unchanged)
 
     def _handle_post_led_checkbox_value_persists_led_true():
         # Bullet 2.
@@ -3259,6 +3516,119 @@ def main():
         "dirty-state.js's first dirty-ready occurrence comes after its first data-dirty-bar occurrence (D-09: set "
         "only after the bar guard passes)",
         _dirty_state_js_sets_dirty_ready_only_after_bar_guard)
+
+    def _live_preview_crossfades_through_one_class_shared_by_css_and_js():
+        """23-10-PLAN.md Task 2 (D3/CFG-32): the live theme preview
+        crossfades instead of cutting.
+
+        The same cross-file DOM-contract shape the checks above already
+        hold: one class literal, declared in style.css and driven from
+        theme-preview.js, with neither file importing the other. The
+        literal is written out here rather than imported, which is the
+        point — if either side renames it, this check is what says so.
+
+        The mechanism must be EVENT-DRIVEN, never timed. theme-preview.js
+        carries a standing no-timer rule in its own header (and
+        test_companion_app.py enforces it), and a crossfade on a timer is
+        the specific way this goes wrong: the swap and the fade drift
+        apart, and the preview settles on whichever the timer happened to
+        win. `transitionend` is when the fade-out is genuinely over, and
+        the image's own `load`/`error` is when the new frame is genuinely
+        there.
+        """
+        fade_class = "theme-live-preview__image--swapping"
+        css = _read_static("style.css")
+        # Comment-stripped, and this was NOT a precaution: the first
+        # version of the timer ban below was answered by this file's own
+        # new paragraph explaining that the crossfade must never use a
+        # timer. A scan over raw source is satisfied by a comment that
+        # promises a rule nobody wrote, and broken by a comment that
+        # explains one correctly - the same idiom test_companion_app.py's
+        # motion-budget guard already records for style.css.
+        js = re.sub(
+            r"/\*.*?\*/|//[^\n]*", "", _read_static("theme-preview.js"), flags=re.DOTALL)
+
+        base_marker = "\n.theme-live-preview__image {"
+        if base_marker not in css:
+            return False, "expected style.css to declare .theme-live-preview__image"
+        base_idx = css.index(base_marker) + len(base_marker)
+        base = css[base_idx:css.index("}", base_idx)]
+        if "transition:" not in base:
+            return False, (
+                "expected .theme-live-preview__image to declare the crossfade transition on its "
+                "own base rule, so the fade runs in BOTH directions from one declaration")
+        decl = base[base.index("transition:"):]
+        decl = decl[:decl.index(";") + 1]
+        if "opacity" not in decl:
+            return False, (
+                "expected the live preview's transition to name opacity, got %r" % (decl,))
+        if "var(--motion-fast)" not in decl:
+            return False, (
+                "expected the live preview crossfade to spend var(--motion-fast) — somebody just "
+                "clicked a chip and is watching for the preview to answer, got %r" % (decl,))
+
+        fade_marker = "\n.%s {" % fade_class
+        if fade_marker not in css:
+            return False, "expected style.css to declare .%s" % (fade_class,)
+        fade_idx = css.index(fade_marker) + len(fade_marker)
+        fade_body = css[fade_idx:css.index("}", fade_idx)]
+        if "opacity: 0" not in fade_body:
+            return False, (
+                "expected .%s to be the opacity-0 half of the crossfade, got %r"
+                % (fade_class, fade_body.strip()))
+
+        if fade_class not in js:
+            return False, (
+                "theme-preview.js must drive the crossfade through the same %r class style.css "
+                "declares — neither file imports the other, and this literal is the only thing "
+                "keeping them in step" % (fade_class,))
+        for token in ("transitionend", '"load"', '"error"'):
+            if token not in js:
+                return False, (
+                    "expected theme-preview.js to listen for %s — the crossfade must be driven "
+                    "by the events that actually mark the fade-out ending and the new frame "
+                    "arriving, never by a timer" % (token,))
+        # The one stall an event-driven crossfade can have, pinned as a
+        # structural fact because its browser-level reproduction is
+        # probabilistic (measured 4 stalls in 14 runs before the fix, 0
+        # in 14 after). A transitionend only arrives if a transition
+        # actually RAN, and it does not run when the image is already
+        # invisible, nor when the class is removed and re-added without a
+        # style recalculation in between - an image load and a click
+        # landing in the same frame does exactly that. The preview then
+        # sits at opacity 0 on the discarded theme forever. Consulting
+        # the COMPUTED opacity is what lets the script tell "a fade is
+        # about to run" from "there is nothing left to fade", so a swap
+        # can never be waiting on an event that will not come.
+        if "getComputedStyle" not in js:
+            return False, (
+                "theme-preview.js must consult the COMPUTED opacity before waiting on "
+                "transitionend: a transition that never runs never ends, and the preview then "
+                "sits invisible on the discarded theme forever (measured: 4 stalls in 14 runs "
+                "without this)")
+        for banned in ("setTimeout", "setInterval", "requestAnimationFrame"):
+            if banned in js:
+                return False, (
+                    "theme-preview.js must stay timer-free (%r found): a timed crossfade lets the "
+                    "swap and the fade drift apart, and the preview settles on whichever won"
+                    % (banned,))
+        # T8 survives: dirty-state.js's Cancel handler calls this, and a
+        # crossfade that bypassed refresh() would leave Cancel showing
+        # the discarded theme again — the exact defect T8 closed.
+        if "SkyPaneLivePreview" not in js or "refresh" not in js:
+            return False, (
+                "expected theme-preview.js to keep exposing window.SkyPaneLivePreview.refresh() "
+                "— dirty-state.js's Cancel handler calls it after form.reset(), and T8 exists "
+                "because reset() fires no change event")
+        return True, ""
+    check(
+        "the live theme preview CROSSFADES rather than cuts: .theme-live-preview__image declares an "
+        "opacity transition at var(--motion-fast) on its own base rule, a .theme-live-preview__image--swapping "
+        "class carries the opacity-0 half, theme-preview.js drives that same class literal from transitionend "
+        "and the image's own load/error (never a timer) while consulting the computed opacity so a swap can "
+        "never wait on a transition that never runs, and T8's window.SkyPaneLivePreview.refresh() survives "
+        "(D3/CFG-32, 23-10-PLAN.md Task 2)",
+        _live_preview_crossfades_through_one_class_shared_by_css_and_js)
 
     # ------------------------------------------------------------------
     # 19-10-PLAN.md Task 2 (D-10/A-28): a beforeunload guard, keyed on
@@ -4135,11 +4505,182 @@ def main():
             if selector not in source:
                 return False, "expected the pre-existing fallback rule %r to survive verbatim" % (selector,)
 
+        # --- 23-10-PLAN.md Task 1 (D3/CFG-32): SELECTION ANSWERS -----
+        # D3's clause is that selecting a chip or a card answers with a
+        # small scale and a wash that fades in, rather than switching
+        # state instantly. The entire risk in that sentence is the
+        # feature-query block count above: the live treatment lives
+        # inside @supports, so the obvious way to animate it is a second
+        # @supports block, which is what Phase 15's D-05 did and had
+        # retired, and what 23-RESEARCH.md names as the single largest
+        # threat to this count in the whole phase.
+        #
+        # It is not needed, and this is the assertion that keeps the
+        # next editor from reaching for it anyway: a `transition` is a
+        # property of the ELEMENT, not of the state. Declared on the
+        # BASE rule it animates the property however the state that
+        # changes it is reached — live `:has(input:checked)` inside the
+        # query, and the server-rendered `--selected` fallback outside
+        # it, from one declaration. So this check asserts BOTH halves in
+        # one place: the transitions exist on the base rules (outside
+        # the query), AND the query itself contains no `transition` at
+        # all. Both live in this ONE check function on purpose, so that
+        # "helpfully" moving a transition inside the block fails exactly
+        # once rather than twice.
+        def _base_rule_body(selector):
+            # Newline-anchored, not a bare substring search:
+            # ".theme-chip__body {" also occurs inside
+            # ".theme-chip--selected .theme-chip__body {", which sits
+            # EARLIER in the file, so str.index() on the bare selector
+            # would silently measure the wrong rule.
+            anchored = "\n" + selector
+            if anchored not in source:
+                return None, "expected style.css to declare the base rule %r" % (selector,)
+            idx = source.index(anchored)
+            if idx > supports_idx:
+                return None, (
+                    "expected the base rule %r to be declared BEFORE (outside) the one "
+                    "@supports selector(:has(*)) block" % (selector,))
+            start = idx + len(anchored)
+            return source[start:source.index("}", start)], ""
+
+        def _carries_transition(body, label, properties):
+            if "transition:" not in body:
+                return (
+                    "%s must declare the selection transition on its OWN base rule — a "
+                    "transition declared on the base rule animates the property however the "
+                    "state is reached, which is why the live :has() treatment needs no second "
+                    "feature query (D3, 23-10-PLAN.md Task 1)" % (label,))
+            decl = body[body.index("transition:"):]
+            decl = decl[:decl.index(";") + 1] if ";" in decl else decl
+            for prop in properties:
+                if prop not in decl:
+                    return (
+                        "%s's transition must name %r — it is one of the properties that "
+                        "actually changes on selection, and a property absent from the list "
+                        "switches instantly (got %r)" % (label, prop, decl.strip()))
+            if "var(--motion-fast)" not in decl:
+                return (
+                    "%s's transition must spend var(--motion-fast), the phase's REACTION token "
+                    "— a selection is a state change the user just caused and is watching for "
+                    "confirmation of (got %r)" % (label, decl.strip()))
+            return None
+
+        for selector, properties in (
+            (".theme-chip {", ("transform", "border-color", "box-shadow")),
+            (".theme-chip__body {", ("background-color",)),
+            (".runway-card {",
+             ("transform", "border-color", "box-shadow", "background-color")),
+        ):
+            body, err = _base_rule_body(selector)
+            if body is None:
+                return False, err
+            err = _carries_transition(body, selector.rstrip(" {"), properties)
+            if err:
+                return False, err
+
+        # The scale itself, and the fallback parity that is the whole
+        # reason one transition declaration is enough: the live rule and
+        # the --selected fallback must carry the SAME transform, or a
+        # browser without :has() gets a differently-sized selected card
+        # — the identical contract T6 already holds for the border and
+        # the ring.
+        def _scale_of(selector, inside):
+            if selector not in source:
+                return None, "expected style.css to declare %r" % (selector,)
+            idx = source.index(selector)
+            if inside and idx < supports_idx:
+                return None, "expected %r to live inside the feature query" % (selector,)
+            if not inside and idx > supports_idx:
+                return None, "expected %r to live outside the feature query" % (selector,)
+            start = idx + len(selector)
+            body = source[start:source.index("}", start)]
+            match = re.search(r"transform:\s*scale\(([^)]+)\)", body)
+            if not match:
+                return None, (
+                    "expected %r to carry the selection scale (`transform: scale(...)`) — the "
+                    "wash's fade is the primary signal and the scale is its punctuation, and a "
+                    "transform changes no layout box so T6 cannot recur through it" % (selector,))
+            return match.group(1).strip(), ""
+
+        scales = {}
+        for selector, inside in (
+            (".theme-chip:has(input:checked) {", True),
+            (".theme-chip--selected {", False),
+            (".runway-card:has(input:checked) {", True),
+            (".runway-card--selected {", False),
+        ):
+            value, err = _scale_of(selector, inside)
+            if value is None:
+                return False, err
+            scales[selector] = value
+        if len(set(scales.values())) != 1:
+            return False, (
+                "the live :has(input:checked) rules and their --selected fallbacks must carry "
+                "the SAME scale, or a browser without :has() renders a different-sized selected "
+                "card — the identical parity contract T6 already holds for the border and the "
+                "ring, got %r" % (scales,))
+
+        # Saved-but-not-live must CLEAR the scale, exactly as it already
+        # clears the accent ring and the wash: a chip can be saved while
+        # its neighbour is the live choice, and two scaled chips would
+        # claim two selections.
+        for selector in (
+            ".theme-chip--selected:not(:has(input:checked)) {",
+            ".runway-card--selected:not(:has(input:checked)) {",
+        ):
+            if selector not in source:
+                return False, "expected style.css to declare %r" % (selector,)
+            start = source.index(selector) + len(selector)
+            body = source[start:source.index("}", start)]
+            if "transform: none;" not in body:
+                return False, (
+                    "%s must clear the selection scale with `transform: none;` — it already "
+                    "clears the accent ring and the wash for the same reason, and a saved-but-"
+                    "not-live chip that stays scaled claims a selection it does not have"
+                    % (selector,))
+
+        # And the block itself carries NO transition. Measured on
+        # comment-stripped source, because the paragraphs inside that
+        # block (and the one this plan adds above it) discuss the very
+        # word this scan counts — a raw scan would be tripped by the
+        # comment that explains why the rule is not there.
+        stripped = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        if stripped.count(supports_marker) != 1:
+            return False, (
+                "expected exactly one %r block in comment-stripped source, got %d"
+                % (supports_marker, stripped.count(supports_marker)))
+        open_idx = stripped.index(supports_marker) + len(supports_marker) - 1
+        depth = 0
+        close_idx = None
+        for pos in range(open_idx, len(stripped)):
+            if stripped[pos] == "{":
+                depth += 1
+            elif stripped[pos] == "}":
+                depth -= 1
+                if depth == 0:
+                    close_idx = pos
+                    break
+        if close_idx is None:
+            return False, "the @supports selector(:has(*)) block is never closed"
+        if "transition" in stripped[open_idx:close_idx]:
+            return False, (
+                "the ONE @supports selector(:has(*)) block declares a `transition` — it must "
+                "not. A transition belongs on each selectable surface's BASE rule, where it "
+                "animates the live :has() treatment and the --selected fallback identically "
+                "from one declaration; moving it inside the query is the first step toward the "
+                "second feature-query block Phase 15's D-05 already had retired (D3, "
+                "23-10-PLAN.md Task 1)")
+
         return True, ""
     check(
         "the strong selected-card treatment (border, wash, check glyph, and a D-03a hover restore) is keyed to "
         "live :has(input:checked) state inside one @supports selector(:has(*)) block, for both .theme-chip and "
-        ".runway-card, with every pre-existing --selected fallback rule surviving verbatim (quick task 260904-bbi)",
+        ".runway-card, with every pre-existing --selected fallback rule surviving verbatim (quick task 260904-bbi) "
+        "— and, since 23-10-PLAN.md Task 1 (D3/CFG-32), selection ANSWERS: a fast transition naming the transform, "
+        "the border colour, the shadow and the wash is declared on each selectable surface's BASE rule, the live "
+        "rules and their --selected fallbacks carry the SAME scale, saved-but-not-live clears it, and the ONE "
+        "feature-query block declares no transition at all — asserted together so moving one inside fails once",
         _strong_selected_treatment_is_keyed_to_the_live_checked_radio)
 
     def _destructive_disconnect_is_secondary_and_selection_is_free_and_focusable():
@@ -4482,6 +5023,144 @@ def main():
     check(
         "style.css declares .section-caption (70% muted color-mix), the restyled base .dirty-bar as a floating rounded card (full border, radius token, surrounding token-based shadow, no --color-secondary), and the fixed-not-sticky >=960px .dirty-bar rule: inset by var(--space-md)/var(--space-lg) with a correspondingly reduced max-width, no corner-squaring, and width: fit-content so it sizes to its own content instead of stretching the full column (quick task 260901-re6, quick task 260901-s5o, 260901-s5o direct follow-up)",
         _style_css_carries_section_caption_and_restyled_fixed_dirty_bar)
+
+    def _style_css_gives_the_dirty_bar_an_entrance_and_keeps_every_decision_that_made_it():
+        # 23-09-PLAN.md Task 1 (D3/CFG-32). The save bar is this app's
+        # most-iterated component: four recorded design iterations, a P0
+        # (B1) when its hiding gate was keyed to a proxy, a z-index
+        # reversal argued through its own escape clause and a content
+        # clearance MEASURED at both breakpoints in both languages. This
+        # plan adds motion to that shape; this check is the machine that
+        # says the shape survived.
+        #
+        # Same index-plus-window / anchored-regex technique the
+        # neighbouring guard above uses, never a regex CSS parser.
+        source = _read_static("style.css")
+
+        # (a) THE ENTRANCE EXISTS, and it is an animation rather than a
+        # transition: an animation runs for every visitor, whereas a
+        # transition out of `display: none` needs an @starting-style
+        # entry value and therefore animates only where that at-rule is
+        # supported. "It moves for some visitors and silently does
+        # nothing for the rest" is the exact failure 23-01's
+        # interpolate-size ban exists to stop, and it is not less of a
+        # failure when the property involved is Baseline-newer rather
+        # than Chromium-only.
+        keyframes_marker = "@keyframes skypane-bar-arrive {"
+        if source.count(keyframes_marker) != 1:
+            return False, (
+                "expected exactly one %s block, got %d — 23-01's guard fails a second "
+                "definition of any name" % (keyframes_marker, source.count(keyframes_marker)))
+        kf_start = source.index(keyframes_marker)
+        kf_body = source[kf_start:source.index("\n}", kf_start)]
+        for prop in ("opacity", "transform"):
+            if prop + ":" not in kf_body:
+                return False, (
+                    "expected the save bar's entrance to be built from %r — transform and "
+                    "opacity are the two properties the global reduced-motion override handles "
+                    "cleanly and the only two that cost no layout" % (prop,))
+        # THE BAN, stated on the entrance itself rather than only on the
+        # component: a bar stranded at an intermediate SIZE is a blocked
+        # save, and this app has shipped a blocked save once already.
+        for banned in ("height:", "max-height:", "grid-template-rows:", "width:",
+                       "display:", "visibility:", "padding:", "margin:"):
+            if banned in kf_body:
+                return False, (
+                    "the save bar's entrance keyframes declare %r — an entrance that "
+                    "interpolates a size, a box or a display value can strand the bar at an "
+                    "intermediate value, and a stranded save bar is a blocked save "
+                    "(style.css's own `.js .mobile-nav` transition:none precedent)" % (banned,))
+
+        # (b) IT IS DECLARED ON THE BAR, spending the phase's fast token
+        # and no third duration. A user caused this and is watching for
+        # the confirmation, which is 23-01's REACTION category by its own
+        # definition.
+        base_match = re.search(r'^\.dirty-bar \{(.*?)^\}', source, re.MULTILINE | re.DOTALL)
+        if not base_match:
+            return False, "expected a top-level (non-media-query) .dirty-bar rule"
+        base_body = base_match.group(1)
+        if "animation: skypane-bar-arrive var(--motion-fast)" not in base_body:
+            return False, (
+                "expected the base .dirty-bar rule to declare its entrance from "
+                "var(--motion-fast) — a save bar's arrival is something the user is waiting on, "
+                "and a bare duration literal fails 23-01's motion guard outright")
+        if "animation-fill-mode" in base_body or "forwards" in base_body:
+            return False, (
+                "expected NO fill mode on the save bar's entrance: an animation that holds its "
+                "final frame keeps overriding the element's own computed style, which is how a "
+                "bar gets stranded. With no fill the element is handed back to its own style the "
+                "instant the animation ends, which is the whole reason an animation was chosen "
+                "over a size interpolation")
+
+        # (c) THE [hidden] OVERRIDE STILL WINS. The base rule declares
+        # `display`, and an author `display` beats the user-agent
+        # `[hidden] { display: none }` regardless of source order — the
+        # collision this file's own comment documents and that Phase 22
+        # found on the login card, where it produced a visible control
+        # that did nothing. The entrance must not have quietly
+        # reintroduced it.
+        if "display:" not in base_body:
+            return False, (
+                "expected the base .dirty-bar rule to still declare a display value — if it ever "
+                "stops, the [hidden] override below becomes the dead code this check would then "
+                "be guarding")
+        hidden_marker = ".dirty-bar[hidden] {"
+        if source.count(hidden_marker) != 1:
+            return False, (
+                "expected exactly one %s rule, got %d" % (hidden_marker, source.count(hidden_marker)))
+        hidden_start = source.index(hidden_marker)
+        hidden_body = source[hidden_start:source.index("}", hidden_start)]
+        if "display: none" not in hidden_body:
+            return False, (
+                "expected .dirty-bar[hidden] to hide by display: none — without it the base "
+                "rule's own display beats the user-agent [hidden] rule and the save bar renders "
+                "permanently visible on every page load, including a scripts-blocked one. This "
+                "is B1's own collision class")
+        if hidden_start < base_match.start():
+            return False, (
+                "expected .dirty-bar[hidden] to stay AFTER the base .dirty-bar rule in source "
+                "order, the placement its own comment relies on")
+
+        # (d) NOTHING ELSE MOVED. The bar's geometry, stacking, width,
+        # clearance and resting shadow are Phase 22's, argued through
+        # four design iterations and an escape clause, and this plan
+        # reopens none of them.
+        media_match = re.search(r'^  \.dirty-bar \{(.*?)^  \}', source, re.MULTILINE | re.DOTALL)
+        if not media_match:
+            return False, "expected an indented (media-query) .dirty-bar rule"
+        for body, where in ((base_body, "the base .dirty-bar rule"),
+                            (media_match.group(1), "the >=960px .dirty-bar rule")):
+            for banned in ("height:", "max-height:", "grid-template-rows:"):
+                if banned in body:
+                    return False, (
+                        "%s declares %r — no size-interpolating property belongs on this "
+                        "component at all" % (where, banned))
+        if source.count("z-index: 30") < 2:
+            return False, (
+                "expected the save bar to still declare z-index: 30 at BOTH breakpoints — one "
+                "value for the component, argued through 22-14's own escape clause")
+        if "width: fit-content" not in source:
+            return False, "expected the >=960px bar to still size itself to its own content"
+        if "box-shadow: var(--shadow-card-hover)" not in base_body:
+            return False, "expected the bar's resting shadow to be untouched"
+        if ".dirty-ready .dashboard-main {" not in source or ".dirty-ready .page-content {" not in source:
+            return False, (
+                "expected BOTH of T7's measured content-clearance rules to survive — the desktop "
+                "one scoped to .dirty-ready .dashboard-main and the phone one to "
+                ".dirty-ready .page-content, declared next to the rule it supersedes")
+        for measured in ("var(--space-2xl) + 88px", "56px + 144px"):
+            if measured not in source:
+                return False, (
+                    "expected T7's MEASURED clearance figure %r to be unchanged — both were "
+                    "measured on a real render in both languages, not reasoned about" % (measured,))
+        return True, ""
+    check(
+        "style.css gives the save bar an entrance built from transform and opacity on "
+        "var(--motion-fast) with no fill mode and no size, box or display interpolation anywhere "
+        "in it, while its [hidden] override still declares display: none after the base rule and "
+        "its z-index, fit-content width, resting shadow and BOTH measured clearance figures are "
+        "untouched (D3/CFG-32, 23-09-PLAN.md Task 1)",
+        _style_css_gives_the_dirty_bar_an_entrance_and_keeps_every_decision_that_made_it)
 
     def _dirty_state_js_has_no_hardcoded_section_names():
         source = _read_static("dirty-state.js")
@@ -6136,6 +6815,118 @@ def main():
         "fall back to the default screen",
         _scope_groups_follow_the_screen_registry)
 
+    # --- 23-07-PLAN.md Task 2 (D2/CFG-36, X1/D-04): the Diagnostic LED
+    # becomes the third real switch. ONE control for the setting
+    # afterwards — a switch beside a surviving checkbox is exactly the
+    # defect X1/D-04 was written to remove.
+
+    def _the_led_group_renders_one_switch_and_no_surviving_checkbox():
+        for stored in (True, False):
+            rendered = config_page.led_group(stored)
+            if 'name="led_enabled"' in rendered:
+                return False, (
+                    "stored=%r: an input named led_enabled still renders in the LED group — the "
+                    "switch and a surviving checkbox would be TWO controls for one setting, the "
+                    "exact defect X1/D-04 exists to remove" % (stored,))
+            expected = (
+                '<button type="submit" class="switch" role="switch" aria-checked="%s"'
+                ' aria-labelledby="%s" aria-describedby="%s %s" %s form="%s">'
+                % ("true" if stored else "false",
+                   config_page.QUICK_LED_LABEL_ID, config_page.QUICK_LED_STATE_ID,
+                   config_page.LED_SECTION_CAPTION_ID, layout.QUICK_SWITCH_CONTROL_ATTR,
+                   config_page.QUICK_LED_FORM_ID))
+            if expected not in rendered:
+                return False, (
+                    "stored=%r: expected the server-rendered switch %r — aria-checked is the "
+                    "SAVED value, the name is the setting, and the group's own caption stays "
+                    "reachable as a description; got %r"
+                    % (stored, expected, rendered))
+            if rendered.count('role="switch"') != 1:
+                return False, (
+                    "stored=%r: expected exactly ONE control in the LED group, got %d role=switch "
+                    "elements" % (stored, rendered.count('role="switch"')))
+            # The button is attached ACROSS the DOM to a form that is a
+            # sibling of #settings-form: the group renders INSIDE the
+            # settings form, and a <form> can never nest inside another.
+            if ('form="%s"' % config_page.QUICK_LED_FORM_ID) not in rendered:
+                return False, (
+                    "stored=%r: the switch must reach its own form through a form= attribute — "
+                    "the cross-DOM idiom the Send-a-test button already uses, because this card "
+                    "renders inside <form id=\"settings-form\">" % (stored,))
+            if config_page.LED_SECTION_CAPTION_ID not in rendered:
+                return False, "stored=%r: the group's caption id is gone" % (stored,)
+            # The pending-marker host and both translated state wordings.
+            if layout.QUICK_SWITCH_REGION_ATTR not in rendered:
+                return False, (
+                    "stored=%r: the LED card carries no %s — quick-switch.js has nothing to mark "
+                    "pending" % (stored, layout.QUICK_SWITCH_REGION_ATTR))
+            if (layout.QUICK_STATE_ON_ATTR not in rendered
+                    or layout.QUICK_STATE_OFF_ATTR not in rendered):
+                return False, "stored=%r: expected both state wordings server-rendered" % (stored,)
+        return True, ""
+    check(
+        "config_page.led_group() renders exactly ONE control for the setting — a server-rendered "
+        "role=switch whose aria-checked is the stored value in both directions, named by the "
+        "setting, described by its state span AND the group's own caption, attached across the DOM "
+        "to its own /quick/led form — and no input[name=\"led_enabled\"] checkbox survives beside "
+        "it (D2/CFG-36, X1/D-04, 23-07-PLAN.md Task 2)",
+        _the_led_group_renders_one_switch_and_no_surviving_checkbox)
+
+    def _the_quick_led_form_is_a_sibling_of_the_settings_form():
+        # The <form> must never nest inside <form id="settings-form">:
+        # HTML forbids it and the browser silently drops the inner one,
+        # which would make the switch post the SETTINGS route instead —
+        # a partial settings save, the exact shape T-23-25 is about.
+        section = config_page.quick_led_form_html(True)
+        if not section.startswith('<form method="post" action="/quick/led" '):
+            return False, (
+                "expected the LED quick form to open with its own literal method/action, got %r"
+                % (section[:120],))
+        if ('id="%s"' % config_page.QUICK_LED_FORM_ID) not in section:
+            return False, "expected the form to carry the id the switch's form= attribute names"
+        if "data-quick-switch" not in section:
+            return False, (
+                "expected the D-04 handshake attribute on the form — dirty-state.js and "
+                "quick-switch.js both key on it")
+        for token in ('<input type="hidden" name="state" value="off">',
+                      '<input type="hidden" name="return_to" value="/device">'):
+            if token not in section:
+                return False, "expected %r in the LED quick form, got %r" % (token, section)
+        if config_page.quick_led_form_html(False).count('name="state" value="on"') != 1:
+            return False, (
+                "the posted state must be the OPPOSITE of the stored one, or pressing the switch "
+                "with scripts blocked re-asserts the state it is already in")
+        if "<button" in section:
+            return False, (
+                "the form stays EMPTY — its button lives in the LED card and reaches it across "
+                "the DOM, mirroring notifications_test_section()'s own shape")
+        # And on a real Device render it is a sibling, not a descendant.
+        tmp = tempfile.mkdtemp(prefix="skypane-quick-led-")
+        try:
+            device_config.save_device_config(tmp, led_enabled=True)
+            ctx = {"state_dir": tmp, "device_config": device_config.load_device_config(tmp)}
+            device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+            form_open = device.index('<form class="config-form"')
+            form_close = device.index("</form>", form_open)
+            quick_at = device.index('action="/quick/led"')
+            if form_open < quick_at < form_close:
+                return False, (
+                    "the LED quick form renders INSIDE <form id=\"settings-form\"> — a nested "
+                    "<form> is dropped by every browser and the switch would post /settings "
+                    "instead, which is a partial settings save (T-23-25)")
+            display = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+            if "/quick/led" in display:
+                return False, "expected no LED quick form on the Display scope, which has no LED group"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "config_page.quick_led_form_html() is an EMPTY form carrying its own method/action/id, the "
+        "D-04 handshake attribute and the two hidden fields with the posted state inverted from the "
+        "stored one — and render() places it as a SIBLING of the settings form on the Device scope "
+        "and not at all on Display (D2/CFG-36, 23-07-PLAN.md Task 2)",
+        _the_quick_led_form_is_a_sibling_of_the_settings_form)
+
     def _display_scope_carries_runway_and_calendar_device_carries_neither():
         # 20-07-PLAN.md Task 1 (D-10/D-11): the group move itself, at the
         # registry level.
@@ -6719,8 +7510,18 @@ def main():
             cfg = device_config.load_device_config(tmp)
             if cfg["led_enabled"] is not True or cfg["theme"] != "black":
                 return False, "expected led_enabled carried forward and theme persisted, got %r" % (cfg,)
-            # Device-page save: no display/quiet fields -> both stay True;
-            # its own absent LED box -> False.
+            # Device-page save: no display/quiet fields -> both stay True.
+            # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1, T-23-25):
+            # RETARGETED IN PLACE. This clause used to read "its own
+            # absent LED box -> False", which was the correct reading
+            # while the Device page still rendered an led_enabled
+            # checkbox. It does not any more — the LED's control is a
+            # role="switch" posting to /quick/led — so an absent
+            # led_enabled here means the same thing display_enabled's
+            # absence has meant since 22-05: leave it alone. The LED is
+            # seeded True above and must still be True after a Device
+            # save that never mentions it; the pre-23-07 handler would
+            # have switched the physical LED off on this exact call.
             key = config_page.handle_post(
                 {"scope": "device", "tracked_runway": "06-24"}, {"state_dir": tmp})
             if key != config_page.FLASH_SAVED:
@@ -6728,8 +7529,19 @@ def main():
             cfg = device_config.load_device_config(tmp)
             if cfg["display_enabled"] is not True or cfg["quiet_hours_enabled"] is not True:
                 return False, "expected display/quiet-hours carried forward on a device-page save, got %r" % (cfg,)
-            if cfg["led_enabled"] is not False or cfg["tracked_runway"] != "06-24":
-                return False, "expected the device-page save's own fields to persist, got %r" % (cfg,)
+            if cfg["led_enabled"] is not True or cfg["tracked_runway"] != "06-24":
+                return False, (
+                    "expected a Device save that names no led_enabled to LEAVE it True and to "
+                    "persist its own runway, got %r" % (cfg,))
+            # And the explicit value is still honoured, which is what
+            # makes the clause above a statement about ABSENCE rather
+            # than about led_enabled having stopped being writable here.
+            key = config_page.handle_post(
+                {"scope": "device", "led_enabled": config_page.LED_CHECKBOX_VALUE},
+                {"state_dir": tmp})
+            if key != config_page.FLASH_SAVED or device_config.load_device_config(
+                    tmp)["led_enabled"] is not True:
+                return False, "expected an explicit led_enabled value to still be honoured"
             # 20-07-PLAN.md Task 1 (D-11): Calendar moved from Device to
             # Display's everyday_groups this phase — a device-page
             # submission now ignores even a stray calendar_disconnect
@@ -6764,10 +7576,11 @@ def main():
     check(
         "handle_post() treats a checkbox absent from an out-of-scope group as 'leave unchanged' (a "
         "Display save never flips the LED, a Device save never flips the screen or quiet hours), "
-        "keeps absent-means-False for led_enabled whenever it IS in scope, leaves display_enabled/"
-        "quiet_hours_enabled unchanged even in-scope and on the legacy unscoped form (D-12.1, "
-        "22-05-PLAN.md Task 1), and a scoped submission without the Calendar group always carries "
-        "the calendar forward",
+        "leaves display_enabled/quiet_hours_enabled/led_enabled unchanged even in-scope and on the "
+        "legacy unscoped form while still honouring an explicit value, and a scoped submission "
+        "without the Calendar group always carries the calendar forward (D-12.1, 22-05-PLAN.md "
+        "Task 1; the led_enabled half retargeted in place from absent-means-False by "
+        "23-07-PLAN.md Task 2)",
         _handle_post_scope_carries_out_of_scope_checkboxes_forward)
 
     # --- 19-12-PLAN.md Task 2 (D-23/D-22): the conditional screen selector
@@ -7226,6 +8039,12 @@ def main():
             # SETTINGS_ROUTE with nothing submitted at all (the shape a
             # browser sends when nothing is checked/selected). Same
             # persisted outcome, same redirect-with-flash shape.
+            # Seeded rather than assumed: this check is about an empty
+            # body LEAVING the stored value alone, so it needs a known
+            # starting value it can then read back, and the follow-up GET
+            # below asserts the rendered control agrees with it.
+            device_config.save_device_config(harness.tmpdir, led_enabled=False)
+            led_before = False
             status, headers, _ = http_request(
                 base + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
                 data=b"")
@@ -7234,9 +8053,16 @@ def main():
             location = headers.get("Location", "")
             if "flash=saved" not in location:
                 return False, "expected the saved flash key in the redirect, got %r" % location
+            # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1, T-23-25):
+            # RETARGETED IN PLACE from "persists led_enabled False". The
+            # field's absence now means "leave unchanged", so what this
+            # live round trip must show is that whatever was stored
+            # BEFORE the empty POST is still stored after it.
             on_disk = device_config.load_device_config(harness.tmpdir)
-            if on_disk["led_enabled"] is not False:
-                return False, "expected on-disk led_enabled False after an empty-body POST, got %r" % (on_disk["led_enabled"],)
+            if on_disk["led_enabled"] is not led_before:
+                return False, (
+                    "expected an empty-body POST to LEAVE the stored led_enabled %r unchanged, "
+                    "got %r" % (led_before, on_disk["led_enabled"]))
             get_status, _get_headers, body = http_request(
                 base + companion_app.DEVICE_ROUTE, cookie=session_cookie)
             if get_status != 200:
@@ -7247,7 +8073,9 @@ def main():
             return True, ""
         check(
             "a live authenticated POST %s with an empty body 303-redirects to %s?flash=saved, "
-            "persists led_enabled False, and a follow-up GET renders the control unchecked"
+            "LEAVES the stored led_enabled exactly as it was, and a follow-up GET renders the "
+            "control in that same off state (retargeted in place from absent-means-False by "
+            "23-07-PLAN.md Task 2)"
             % (config_page.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE),
             _settings_post_empty_body_persists_led_false_and_renders_unchecked)
 
@@ -7546,20 +8374,39 @@ def main():
         rendered = config_page.render(
             _TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE,
             errors={"led_enabled": "msg"}, submitted={})
-        input_match = re.search(r'<input type="checkbox" name="led_enabled"[^>]*>', rendered)
+        # 23-07-PLAN.md Task 2 (D2/CFG-36): retargeted in place from the
+        # led_enabled CHECKBOX to the role="switch" that replaced it. The
+        # contract is unchanged and now has a third id to keep in order:
+        # the switch's own state span, then the group's caption (the hint
+        # the checkbox carried through _field_error_attrs()'s hint_id),
+        # then the error anchor — hint still before error, and none of
+        # the three overwriting another.
+        input_match = re.search(r'<button type="submit" class="switch"[^>]*>', rendered)
         if not input_match:
-            return False, "expected the led_enabled checkbox to still render"
+            return False, "expected the led_enabled switch to render"
         describedby_match = re.search(r'aria-describedby="([^"]+)"', input_match.group(0))
         if not describedby_match:
-            return False, "expected an aria-describedby on the errored led_enabled checkbox"
+            return False, "expected an aria-describedby on the errored led_enabled switch"
         ids = describedby_match.group(1).split(" ")
-        if ids != [config_page.LED_SECTION_CAPTION_ID, "led-enabled-error"]:
-            return False, "expected the hint id first, then the error id, got %r" % (ids,)
+        if ids != [config_page.QUICK_LED_STATE_ID, config_page.LED_SECTION_CAPTION_ID,
+                   "led-enabled-error"]:
+            return False, (
+                "expected the state id, then the hint id, then the error id, got %r" % (ids,))
+        # And with no error the third id simply is not there — so the
+        # clause above is about the ERROR rather than about a constant
+        # three-id string.
+        clean = config_page.render(
+            _TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE, errors={}, submitted={})
+        clean_match = re.search(r'<button type="submit" class="switch"[^>]*>', clean)
+        if not clean_match or "led-enabled-error" in clean_match.group(0):
+            return False, (
+                "expected no error id on the switch's aria-describedby when there is no error")
         return True, ""
     check(
-        "a control carrying both a hint and an error (led_enabled, rendered with an errors dict) has "
-        "BOTH ids in its aria-describedby, hint first then error, never one overwriting the other "
-        "(D-12/A-30)",
+        "a control carrying both a hint and an error (led_enabled's switch, rendered with an errors "
+        "dict) has its state, hint and error ids in its aria-describedby, hint still before error, "
+        "never one overwriting another, and no error id at all when there is no error (D-12/A-30; "
+        "retargeted in place from the retired checkbox by 23-07-PLAN.md Task 2)",
         _control_with_both_hint_and_error_carries_both_ids_in_order)
 
     # ==================================================================
@@ -8250,6 +9097,102 @@ def main():
         "never reads '1 upcoming flights', in both languages (D-06/B16/CFG-29, 22-10-PLAN.md "
         "Task 3 — found by 22-08, landed here because this plan owns config_page.py)",
         _the_calendar_status_detail_has_a_singular_form)
+
+    # --- 23-06-PLAN.md Task 2 (D1/CFG-35): the Display scope joins the
+    # refresh loop, and its form does not move ---------------------------
+
+    def _display_ctx(now=None):
+        ctx = {
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True,
+                              "wake_interval_s": 900, "display_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+            "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+        }
+        if now is not None:
+            ctx["now"] = now
+        return ctx
+
+    def _the_display_scope_refreshes_itself_from_the_same_builder():
+        now = "2026-08-27T12:00:00+00:00"
+        rendered = config_page.render(_display_ctx(now), scope=config_page.SCOPE_DISPLAY)
+        built = layout.freshness_line_html(now)
+        if built not in rendered:
+            return False, (
+                "expected the Display scope's freshness line to be layout.freshness_line_html()'s "
+                "own output verbatim — the same builder Health and Home call, so the three pages "
+                "cannot disagree about what a freshness line is. Built:\n%r" % (built,))
+        for attr, want in (("data-loaded-at", 1), ("data-refresh-pill", 1)):
+            if rendered.count(attr) != want:
+                return False, (
+                    "expected exactly %d %s on the Display scope — freshness.js reads the first "
+                    "with a single querySelector and a second would silently win, got %d"
+                    % (want, attr, rendered.count(attr)))
+        # The loop's own gate: without the marker there is no loop, and
+        # with a page key that declares no regions there is no swap.
+        if layout.REFRESH_PAGE_DISPLAY not in layout.REFRESH_SWAP_SELECTORS_BY_PAGE:
+            return False, "expected the Display scope to declare its own swap regions"
+        shell = layout.page_shell(
+            title="Display", active=layout.REFRESH_PAGE_DISPLAY, body=rendered)
+        if ('%s="%s"' % (layout.REFRESH_PAGE_ATTR, layout.REFRESH_PAGE_DISPLAY)) not in shell:
+            return False, "expected the Display document to carry its own page key on <body>"
+        # A ctx with no render instant renders no freshness line at all
+        # rather than an element carrying an empty or invented one — the
+        # same degrade frame_strip_html() applies to a missing next wake.
+        bare = config_page.render(_display_ctx(), scope=config_page.SCOPE_DISPLAY)
+        if "data-loaded-at" in bare:
+            return False, (
+                "expected no freshness marker at all when the caller has no render instant — an "
+                "element carrying an empty instant reads as a correct time to a script and is "
+                "worse than no element")
+        return True, ""
+    check(
+        "the Display scope renders layout.freshness_line_html()'s own output verbatim with exactly "
+        "one data-loaded-at and one data-refresh-pill, declares its own swap regions, carries its "
+        "page key on <body>, and renders no freshness marker at all when the caller has no render "
+        "instant (D1/CFG-35, 23-06-PLAN.md Task 2)",
+        _the_display_scope_refreshes_itself_from_the_same_builder)
+
+    def _the_display_form_is_untouched_by_the_refresh_loop():
+        # The one thing a swap must never touch. Display is a settings
+        # page, and 22-01/B1 — this page rendered unsaveable with JS on —
+        # is the defect of record this clause exists to keep closed.
+        now = "2026-08-27T12:00:00+00:00"
+        rendered = config_page.render(_display_ctx(now), scope=config_page.SCOPE_DISPLAY)
+        for selector in layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_DISPLAY]:
+            for banned in ("form", config_page.SETTINGS_FORM_ID, "dirty", "save"):
+                if banned in selector:
+                    return False, (
+                        "the Display scope declares the swap region %r, which names %r — a swap "
+                        "that lands on this page's form is the P0 Phase 22 existed to fix"
+                        % (selector, banned))
+        # The form, its cross-DOM attachment and the fallback Save are
+        # all still rendered, unchanged by this plan's header edit.
+        if ('<form class="config-form" method="post" id="%s"' % config_page.SETTINGS_FORM_ID) \
+                not in rendered and ('id="%s"' % config_page.SETTINGS_FORM_ID) not in rendered:
+            return False, "expected the settings form to still render on the Display scope"
+        if ('form="%s"' % config_page.SETTINGS_FORM_ID) not in rendered:
+            return False, (
+                "expected the cross-DOM form= attachment B1 depends on to survive — every saved "
+                "theme radio submits through it")
+        if config_page.STATIC_SAVE_FALLBACK_ATTR not in rendered:
+            return False, (
+                "expected the fallback Save button to stay reachable — with scripts blocked it "
+                "is the ONLY way to save this page")
+        # The freshness line is in the page HEADER, above the form, and
+        # the form is not inside it.
+        header_at = rendered.index("page-header__freshness")
+        form_at = rendered.index('id="%s"' % config_page.SETTINGS_FORM_ID)
+        if header_at > form_at:
+            return False, (
+                "expected the freshness line in the page header, above the settings form, got "
+                "it at %d with the form at %d" % (header_at, form_at))
+        return True, ""
+    check(
+        "no Display swap region names a form, a dirty marker or a save control, and the settings "
+        "form, its cross-DOM form= attachment and the fallback Save all still render with the "
+        "freshness line above them in the page header — a swap landing on this page's form is the "
+        "P0 Phase 22 existed to fix (B1/D1, 23-06-PLAN.md Task 2)",
+        _the_display_form_is_untouched_by_the_refresh_loop)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

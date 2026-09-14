@@ -204,6 +204,11 @@
   var dirtyListAnd = bar.getAttribute("data-dirty-list-and") || ", and ";
   var dirtyUnsavedSingular = bar.getAttribute("data-dirty-unsaved-singular") || "1 unsaved change";
   var dirtyUnsavedPlural = bar.getAttribute("data-dirty-unsaved-plural") || " unsaved changes";
+  // 23-09-PLAN.md Task 2 (D3/CFG-32): the sixth word, same idiom, same
+  // reason — see this file's own header and config_page.py's own
+  // DIRTY_SAVING_TEXT comment. The fallback literal is byte-identical
+  // to the server constant; a check fails if the two ever drift.
+  var dirtySavingText = bar.getAttribute("data-dirty-saving") || "Saving…";
 
   // D-09/A-27: the bar is now proven present — set the marker
   // style.css's fallback-hide rule keys on. Mirrors nav-dropdown.js's
@@ -309,6 +314,52 @@
     return labels;
   }
 
+  // 23-09-PLAN.md Task 1 (D3/CFG-32): the stylesheet's EXISTING
+  // changed-value animation, not a fourth keyframes block. Its own rule
+  // comment says it names the motion rather than the component so the
+  // next thing that changes under the reader spends it, and 23-08's own
+  // notes hand it to this plan by name. The bar's ENTRANCE is a
+  // different motion and has its own block; this is only the count.
+  var COUNT_CHANGED_CLASS = "is-fading-in";
+
+  // The count's ONE write site (there were four, one per branch of
+  // updateBar() below), and the whole reason it is one.
+  //
+  // The bar is role="status" and this element is its content, so every
+  // write to it is a potential announcement. updateBar() runs on every
+  // change AND every input event — which is every keystroke in the
+  // wake-interval and quiet-hours fields — and most of those produce the
+  // same sentence again. Re-writing identical text into a live region is
+  // how a screen reader ends up reading the same number twice, and
+  // animating it would be motion carrying no information, which is the
+  // one thing a motion budget exists to stop. So: nothing happens at all
+  // unless the sentence genuinely differs.
+  //
+  // The TEXT is written first and the CLASS second. What animates is the
+  // element's presentation; the number itself is never tweened, so the
+  // displayed value is the real one at every instant including the
+  // animation's first frame. An animation that had to rewrite the text
+  // mid-transition would be the wrong animation, not a reason to accept
+  // a partial announcement.
+  //
+  // Removed, reflowed, re-added: a class that is already present runs
+  // nothing on the next change, because the browser coalesces a remove
+  // and an add in the same frame into no change at all. Reading a layout
+  // property in between is what forces the removal to take effect first
+  // — and it is a READ, not a timer: this file's own header makes "never
+  // a timer" a standing constraint, and a live check enforces it.
+  function setCountText(text) {
+    if (countEl.textContent === text) {
+      return;
+    }
+    countEl.textContent = text;
+    if (countEl.classList) {
+      countEl.classList.remove(COUNT_CHANGED_CLASS);
+      void countEl.offsetWidth;
+      countEl.classList.add(COUNT_CHANGED_CLASS);
+    }
+  }
+
   function updateBar() {
     var count = countDifferences();
     // T1: re-arm the leave-guard the moment a real edit exists again —
@@ -336,17 +387,17 @@
       // section wrapper. Falls back to the raw-count copy this file
       // shipped before D-03's section-naming so the bar can never go
       // silent while unsaved edits exist.
-      countEl.textContent = count === 1
+      setCountText(count === 1
         ? dirtyUnsavedSingular
-        : count + dirtyUnsavedPlural;
+        : count + dirtyUnsavedPlural);
       return;
     }
     if (labels.length === 1) {
-      countEl.textContent = labels[0] + dirtyChangedSuffix;
+      setCountText(labels[0] + dirtyChangedSuffix);
       return;
     }
     if (labels.length === 2) {
-      countEl.textContent = labels[0] + dirtyAnd + labels[1] + dirtyChangedSuffix;
+      setCountText(labels[0] + dirtyAnd + labels[1] + dirtyChangedSuffix);
       return;
     }
     // Three or more: every label but the last joined with ", " (a
@@ -354,7 +405,7 @@
     // read identically), the last one prefixed with the final joiner —
     // UI-SPEC §5.1's table.
     var head = labels.slice(0, labels.length - 1).join(", ");
-    countEl.textContent = head + dirtyListAnd + labels[labels.length - 1] + dirtyChangedSuffix;
+    setCountText(head + dirtyListAnd + labels[labels.length - 1] + dirtyChangedSuffix);
   }
 
   var suppressGuard = false;
@@ -403,8 +454,94 @@
   // out-of-form Save button. Do not add a second click handler on the
   // bar's Save button for this; there is nothing to hook, it is a plain
   // native submit.
-  form.addEventListener("submit", function () {
+  form.addEventListener("submit", function (evt) {
     suppressGuard = true;
+    relabelSubmitter(evt);
+  });
+
+  // 23-09-PLAN.md Task 2 (D3/CFG-32): the in-flight label. T14
+  // (22-15-PLAN.md Task 3) left this to D3 explicitly; submit-guard.js
+  // deliberately changes no label at all, and still does not.
+  //
+  // --- WHY THIS MAY RUN INLINE, WHICH IS THE WHOLE QUESTION ----------
+  //
+  // submit-guard.js's own header is the model for this register, and it
+  // asks one question of anything that touches a submitting control: a
+  // submit button's own name/value pair is contributed to the form data
+  // set by the SUBMITTER, and that set is built AFTER the submit event's
+  // listeners return. That is why THAT file switches the control off
+  // from a zero-delay timer rather than inline — inline, it would drop
+  // the field that says what the user asked for, which would have made
+  // every theme and language switch a silent no-op.
+  //
+  // The answer for this control is a property of the control, not of the
+  // timing. The bar's own Save and the bottom fallback Save are both
+  // <button type="submit"> carrying NO name attribute (see
+  // config_page.py's dirty_bar_html and its bottom Save), and a submitter
+  // with no name contributes NO entry to the form data set at all — so
+  // there is nothing a label could displace, whenever this runs. The
+  // clause below re-checks that on the live control rather than trusting
+  // it: if a later plan ever gives either Save button a name, the
+  // relabel stands down on its own instead of quietly rewriting a
+  // payload.
+  //
+  // The <button> clause is the sharper half of the same argument. An
+  // <input type="submit"> has no text content: its LABEL IS ITS VALUE,
+  // so relabelling one genuinely does change what is posted. That
+  // element is excluded by shape, not by a comment.
+  //
+  // --- ORDER AGAINST submit-guard.js, WHICH IS FIXED, NOT LUCKY ------
+  //
+  // This listener is registered on the FORM; submit-guard.js's is on
+  // document. A submit event dispatched at the form bubbles to the
+  // form's own listeners before it reaches document, so this one runs
+  // first, synchronously, every time. submit-guard.js then only SCHEDULES
+  // its own write, from a zero-delay timer, which cannot run until the
+  // whole dispatch has finished. So the sequence is relabel, then the
+  // shared guard, and it is guaranteed by event propagation plus a
+  // queued task rather than by either file knowing about the other.
+  //
+  // Neither file cancels anything, and neither writes the other's
+  // property: this one writes text content and never the property that
+  // makes a control unusable, and submit-guard.js writes that property
+  // and never text. That guard belongs to that file, once, for every
+  // form in the app; two owners of one property is how they start
+  // disagreeing about who undoes it.
+  //
+  // evt.submitter absent (an older browser, or a submission with no
+  // submitter at all) simply means no relabel. That degrades to exactly
+  // what this control did before this plan, which is the right degrade
+  // for a label: guessing at the submitter would risk relabelling a
+  // control whose name/value IS the request.
+
+  // The one control this file has relabelled, so a back/forward-cache
+  // restore can put it back. A page restored from bfcache comes back
+  // with the DOM exactly as it was left — including a Save button still
+  // reading the in-flight word for a request that finished, or never
+  // finished, a navigation ago. submit-guard.js restores the controls it
+  // wrote on the same event and for the same reason; this is that
+  // pattern applied to the property this file writes, and only to a
+  // control this file wrote it on.
+  var relabelled = null;
+
+  function relabelSubmitter(evt) {
+    var control = evt.submitter;
+    if (!control || !control.tagName || control.tagName.toUpperCase() !== "BUTTON") {
+      return;
+    }
+    if (control.getAttribute("name")) {
+      return;
+    }
+    relabelled = { el: control, text: control.textContent };
+    control.textContent = dirtySavingText;
+  }
+
+  window.addEventListener("pageshow", function (evt) {
+    if (!evt.persisted || !relabelled) {
+      return;
+    }
+    relabelled.el.textContent = relabelled.text;
+    relabelled = null;
   });
 
   // 22-05-PLAN.md Task 3 (D-04): a Frame strip switch is its own,

@@ -1061,12 +1061,190 @@ Plans:
 - [x] 22-15-PLAN.md — The verified CSS/JS defects: T2, T3, T4, T6, T13, T14, T15 (wave 11)
 - [x] 22-16-PLAN.md — sketch-findings-skypane updated in step (UI-SPEC §4's 20 rows) and the phase-closing sweep (wave 12)
 
-### Phase 23: Companion dynamism: live updates, real switches, motion budget and modern controls
+### Phase 23: Companion dynamism I — "Alive": the pages you already have, moving
 
-**Goal:** Make the companion feel alive, using the dynamism suggestions the developer validated in 22-AUDIT.md (D1–D24) — a `/events` SSE stream from the stdlib server feeding a self-refreshing Home and Frame strip with a live countdown (D9, D1, D14, D22), real `role="switch"` controls over `fetch` with optimistic state and toasts, no-JS forms intact (D2), native multi-page View Transitions and a motion budget under `prefers-reduced-motion` (D10, D3), a Home hero built around the frame picture with a day timeline (D4, D13), and the modern controls that replace bare fields: runway map, 24 h quiet-hours dial, wake-interval slider with a battery-life readout, theme carousel, battery ring and wake-punctuality grid (D16, D17, D18, D5, D21, D20), plus the app finishes — prefetch and gzip, offline shell and manifest, share, drag-and-drop artwork, command palette, guided first run (D11, D12, D6, D15, D19, D23, D24). Framework-free, build-free, no external dependency, no-JS fallback intact.
-**Requirements**: TBD (assign at planning; audit handles D1–D24)
+**Goal:** Make the existing pages feel alive without adding a single new component. D3 (a motion budget honoured under `prefers-reduced-motion`, **minus its overlay-drawer clause — struck, see below**), D10 (native multi-page View Transitions), D14 (one script ticking every `<time data-relative>`), D1 (Home and the Frame strip refreshing themselves), D22 (an honest live/paused/reconnecting indicator), D2 (real `role="switch"` controls over `fetch`, optimistic, rolling back on error, no-JS forms intact) and D7 (the live flights list). Framework-free, build-free, dependency-free, no-JS floor intact.
+**Requirements**: CFG-32 (D3 motion budget), CFG-33 (D10 view transitions), CFG-34 (D14 live counters + D22's remainder), CFG-35 (D1 self-refreshing Home and Frame strip), CFG-36 (D2 real switches), CFG-37 (D7 live flights list), CFG-38 (the phase's regression floor: the no-JS floor, the harness helpers and the design system updated in step)
 **Depends on:** Phase 22
-**Plans:** 0 plans
+**Plans:** 11/11 plans complete
+
+Three decisions taken before planning, on 23-RESEARCH.md's evidence (developer, 2026-09-13):
+
+- **D9 (SSE) is REJECTED, not deferred.** The events it would emit originate in `server/poll_loop.py`, which runs `Type=oneshot` under a 30 s timer (`deploy/skypane-poll.service:12`, `deploy/skypane-poll.timer:6-8`) — a process that exits each cycle, so there is no hook to register and an SSE endpoint would have to poll the DB itself. The thread cost was measured (0/5/20/50/200 held connections: ~29–46 KB RSS each, returning to baseline on disconnect) and is NOT the reason; the ~1 s burst-latency tail is the `request_queue_size = 5` accept backlog and is present at N=0. Note also that the research corrected a premise of the brief: the device's poll is served by a **separate** unit (`stub-server/byos_server.py`, port 8642, its own Caddy block), so companion streaming could never starve the frame. `freshness.js` already implements a better polling client (retry ladder, in-flight guard, visibility gate, focus-preserving targeted swaps) and is extended instead.
+- **D12 (service worker / offline shell) is OUT OF SCOPE.** Verified in the project's own harness Chromium: `cache.put()` stores a `Cache-Control: no-store` body verbatim. Every HTML response here is `no-store` by a deliberate Phase 18 decision because every page is session-gated (`companion/app.py:1197-1200`), so a service worker would persist authenticated content past sign-out. Retirement is also not deletion — a 404 leaves the registration live. If it is ever revisited, two things must land first: a **tested** de-registration path (the harness can do this; `127.0.0.1` is a secure context) and an explicit answer on authenticated content.
+- **D3's overlay-drawer clause is STRUCK.** It contradicts `22-CONTEXT.md` D-10 and three recorded rejections in `sketch-findings-skypane`, one established by real-device testing; `references/mobile-navigation.md:126` already warns that this exact reopening happened once before. It also targets a component Phase 22 retired — `.mobile-nav` is now a preferences panel and the tab bar is the navigation. The rest of D3 lands unchanged.
+- **D2's fourth switch (notifications) is NOT built — option A** (developer, 2026-09-13). Its two checkboxes share a card with a Save-governed topic-URL field. Converting only the checkboxes makes a card where some controls apply instantly and one waits for Save; converting the field too means an instant-apply text input the save bar exists to avoid; keeping the checkboxes *and* adding switches is two controls for one setting, the X1/D-04 defect Phase 22 fixed. Screen, Quiet hours and LED get real switches; Notifications keeps checkboxes + Save. The mechanism remains available (`save_device_config` takes `notifications` as a whole-dict replacement) if the card is ever split.
+- **D7's sticky day headers are NOT built — option A** (developer, 2026-09-13), and the reason found by the sketch is better than the cost argument that preceded it. Both variants were rendered on the real page with seeded data and scrolled to the same offset. The current page shows no day title once scrolled — but **every row already carries its own date** (`1 août 21:41`, `1 août 21:13`, …), so a sticky title would display information that is already on every line. The sticky variant also turns the list into a ~7-row box inside a half-empty page and leaves a clipped row peeking under the pinned header. Phase 22's T4 had already deleted the app's one sticky rule as inert; this decision is not a repeat of that, it is a separate finding on the same feature. **Revisit only if the per-row date is ever removed** — for phone density, say — which would make the title non-redundant.
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 23 to break down)
+- [x] 23-01-PLAN.md — wave 1: the motion vocabulary (two duration tokens, the app's first `@keyframes`) and the executable guard every later plan is measured against
+- [x] 23-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — one no-JS helper, a 360 px viewport constant, and the disclosure sweep made motion-proof (zero net checks)
+- [x] 23-03-PLAN.md — wave 1: the `<time data-relative>` server convention and the future form, wrapping the one existing ladder rather than copying it
+- [x] 23-04-PLAN.md — wave 2: D10 native cross-document view transitions, media-wrapped for reduced motion, with per-route name-uniqueness proven in a browser
+- [x] 23-05-PLAN.md — wave 3: the thirteenth script — the one-second ticker — plus the breathing dot and D22's remaining 20%
+- [x] 23-06-PLAN.md — wave 4: D1 — Home and the Frame strip refresh themselves, from a per-page registry with three swap skips (focus, pending, dirty form)
+- [x] 23-07-PLAN.md — wave 5: D2 — three real `role="switch"` controls over fetch, `led_enabled`'s absent-field semantics fixed first; the fourth switch is a written finding
+- [x] 23-08-PLAN.md — wave 6: D7 — the live flights list, the detail-row height animation and the chevron; sticky day headers are a written finding
+- [x] 23-09-PLAN.md — wave 7: D3's save bar — an entrance, an animated count and a translated in-flight label
+- [x] 23-10-PLAN.md — wave 8: D3's remainder — selection scale and wash fade, preview crossfade, `<dialog>` entrances via `@starting-style`, and skeletons at final size
+- [x] 23-11-PLAN.md — wave 9: the design system updated in step, the coverage ledger, and the phase gate including the human sweep
+
+### Phase 24: Companion dynamism II — "Drawn": server-rendered SVG from the history
+
+**Goal:** The charts and pictures the data already supports, rendered server-side as SVG from `history.db`, sharing one battery estimator: D21 (battery ring gauge, reused small in Home's tile), D8 (battery chart with gradient area, marked last point, low-battery threshold), D13 (Home's day timeline), D20 (wake-punctuality grid) and D4 (the Home hero the others feed). **D20 carries a known blocker to settle at planning:** `device_health` records observed check-ins only, so "honoured-wake rate" needs historical expected intervals that are nowhere stored — either the schema grows or the metric changes.
+**Requirements**: CFG-39 (one shared battery estimator + one SVG drawing contract, machine-enforced), CFG-40 (D21 ring gauge, one emitter, two sizes), CFG-41 (D8 battery chart: area, marked last point, low-battery threshold), CFG-42 (D13 Home day timeline), CFG-43 (D20, reported only as far as the stored data can prove it), CFG-44 (D4 Home hero), CFG-45 (the phase's regression floor: no-JS, 360 px, both themes, motion budget, design system updated in step)
+**Depends on:** Phase 23
+**Plans:** 9/9 plans executed
+
+Three decisions were taken at planning, on `24-RESEARCH.md`'s evidence, and are
+PROVISIONAL — the developer was unavailable and every one is collected in
+`24-RESEARCH.md`'s "Open decisions" section for confirmation:
+
+- **D20's blocker is settled by CHANGING THE METRIC, not by growing the schema.** `device_health` rows turn out to be real per-wake check-ins (`ingest_caddy_battery_log()` keeps one row per Caddy access-log entry for the device's display fetch), so observed cadence IS measurable. But the expected interval is not merely unstored: `wake.effective_wake_interval_s()` switches to `DISPLAY_OFF_SLEEP_S` whenever the screen is off and quiet hours hold the frame on top of that, and `device_config.json` is a current-state file whose no-migration/no-rewrite contract is pinned by three named checks in `server/test_config_history.py`. Decisively, **a log rotation the ingest missed leaves a hole indistinguishable from a missed wake, and no schema change recovers it** — so even a new column could not support the phrase "honoured-wake rate". The grid therefore reports **observed check-in regularity**, judged against the cadence currently in force via `wake.device_staleness_thresholds()` (the same function the Frame tile uses), with a caption carrying the cadence, that it is today's cadence, and that a gap is not proof of a missed wake.
+- **A forward-looking epoch table lands anyway, read by nothing in this phase (24-03 Task 3, droppable whole).** The project has no SQLite migration mechanism at all — `init_schema()` is `CREATE TABLE IF NOT EXISTS` only, with no `PRAGMA user_version` and no `ALTER TABLE` anywhere — but that path already covers a brand-new TABLE, created on next connect by both processes. A new COLUMN would have needed the project's first migration, in its most concurrency-sensitive file. So true interval epochs start accruing at the cost of one table and one deduped write, and a later phase can upgrade the metric honestly. No drawing in this phase reads it.
+- **The grid is named "Check-in regularity", not "wake punctuality"**, and the words "honoured"/"punctual" are asserted absent from the new code and the rendered pages. Two smaller decisions travel with it: the day timeline plots check-ins and the quiet-hours span only (two mark vocabularies in ~330 px at 360 px is unreadable — detections deferred), and D8's gradient-area geometry is resolved by a recorded experiment inside 24-05, with "keep the line, no area" an honest outcome rather than a silent omission, because the outer canvas must keep its no-`viewBox` percentage scheme or every stroke and hit target shrinks at 360 px.
+
+One structural finding shapes the whole phase: **the shared battery estimator already exists.** `companion/battery.py` was created by 19-01 for exactly this problem and is already called by both pages, so the goal's "five drawings share one battery estimator" is met by extending and enforcing it, not by creating a second shared module. Likewise `health_page.battery_sparkline_svg()` already server-renders SVG with a deliberate no-`viewBox` percentage coordinate scheme and HTML labels outside the canvas — the phase generalises that into `companion/draw.py` rather than inventing a scheme.
+
+Plans:
+
+**Wave 1** *(parallel — three plans, disjoint files)*
+- [ ] 24-01-PLAN.md — wave 1: the one battery estimator (extended) and `companion/draw.py`, plus the executable drawing contract every later plan is measured against
+- [ ] 24-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — a theme switch (this harness has never once measured dark mode), a computed-paint reader and a 360 px body-overflow assertion; zero net checks
+- [ ] 24-03-PLAN.md — wave 1: D20's data question settled in code — the check-in gap reader, verdicts from the one existing threshold function, and the migration-free epoch table nothing reads yet
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 24-04-PLAN.md — wave 2: D21 — one ring emitter, two sizes (Health's battery section and Home's tile), proven one function by mutating it and watching both pages change
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 24-05-PLAN.md — wave 3: D8 — the chart's area, marked last point and low-battery threshold, all from the one filtered pair list, with the coordinate scheme intact
+
+**Wave 4** *(blocked on Wave 2 completion)*
+- [ ] 24-06-PLAN.md — wave 4: D13 — Home's day band on a time-domain scale, the wrapping quiet-hours window as two spans, and a caption that never claims a count the band collapsed
+
+**Wave 5** *(blocked on Waves 1 and 3)*
+- [ ] 24-07-PLAN.md — wave 5: D20 — the check-in regularity grid, four states including "no observation", and a caption whose three clauses are each separately asserted
+
+**Wave 6** *(blocked on Waves 2 and 4)*
+- [ ] 24-08-PLAN.md — wave 6: D4 — the Home hero assembled from calls, with "fed by" proven behaviourally and the frame verdict still rendered exactly once
+
+**Wave 7** *(blocked on all prior waves)*
+- [ ] 24-09-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's decision list, and the phase gate including the human sweep
+
+Cross-cutting constraints (appearing in two or more plans' `must_haves`):
+- Server-rendered SVG is chosen because **D-09's no-JS floor is absolute**: the drawing arrives complete in the first response, so it paints with scripts blocked and needs no measurement pass. **This phase adds zero static scripts**, so the deferred-script pin in `companion/test_companion_app.py` must not move.
+- Every drawing takes its colour from a theme token through a CSS class (`currentColor` + token, the `.sparkline*` idiom). A colour literal, an unpainted shape, or a class that resolves to no selector each fails 24-01's guard. **A drawing correct only in light mode is a defect, not a polish item.**
+- One scale places marks, ticks and labels; every label names a value the drawing actually reaches, derived from the same single-pass filtered list as the marks.
+- Every drawing fits 360 px with no horizontal scrollbar on the page body, and stacks rather than shrinking.
+- Where a `viewBox` exists it must contain its own outermost label, proven by real browser measurement; the preferred escape is keeping labels outside the SVG entirely.
+- Every check is mutation-tested and must survive the vacuity question; `EXPECTED_CHECK_COUNT` is re-derived by RUNNING, never by arithmetic; the sandbox baseline is exactly 5 failing checks verified by NAME.
+
+### Phase 25: Companion dynamism III — "Controls": the modern controls that replace bare fields
+
+**Goal:** Five new controls, each with a no-JS fallback and a 360 px touch obligation: D16 (runway picked on one SVG map of Orly), D17 (24 h dial for quiet hours), D18 (wake-interval slider with freshness and battery-life gauges), D5 (theme carousel over the chip grid — this is also X6's deferred half, the reason Phase 22's Display page misses its height target) and D19 (drag-and-drop artwork with client-side crop).
+**Requirements**: CFG-46, CFG-47, CFG-48, CFG-49, CFG-50, CFG-51, CFG-52
+**Depends on:** Phase 23 (and inherits facts from Phase 24, which is planned but NOT executed)
+**Plans:** 8 plans across 7 waves
+
+**Planned 2026-09-13, and planning ONLY — this phase must not be executed before the developer has seen Phases 23 and 24 on screen.** That is the developer's own instruction and it is sound: this phase creates five new components, and a new component built on an unreviewed foundation is the expensive kind of rework.
+
+Planned with **no CONTEXT.md and no UI-SPEC** (the precedent Phases 23 and 24 both set), so **eight decisions were taken PROVISIONALLY** and every one is collected in `25-RESEARCH.md`'s "Open decisions" section for the developer:
+
+- **The phase spends exactly ONE new static script**, not the six-to-eight 23-RESEARCH.md predicted. D16 needs none (the runway radios are already a native radiogroup); D17 and D18 share one file because they are one behaviour — steer a continuous value, write it into the native input the form posts; D5 grows `theme-preview.js`, which already owns that radio group; D19 grows `panel-lookup.js`, which already owns those upload forms. 25-01 pays the three taxes (the deferred-script pin fourteen→fifteen, the French catalogue, the route and forbidden-sink guard) once, and no later plan moves the pin.
+- **The no-JS floor has exactly one safe shape here and it already exists four times over**: the server renders the submitting control unconditionally, and the enhancement writes into it. `.runway-card`/`.theme-chip`/`.frame-colours__row` are three live instances; `dirty-state.js`'s quiet-hours presets are the fourth. The converse defect — an affordance that renders but silently does nothing — is defeated by the **already-shipped `.js` class** (`nav-dropdown.js` sets it, `.js .mobile-nav` consumes it), used hide-by-default and reveal-under-`.js`, never the reverse.
+- **D18's "estimated battery life ≈ 38 days" cannot honestly be computed and is narrowed.** The per-wake energy cost has never been measured — DEVICE-05's multi-day discharge run is still deferred at the end of the project — so an absolute figure from an assumed cost would be the dishonest-state defect Phase 22's X2/B2/B3 arc spent a phase removing. The gauge derives from this device's own observed slope, states the slider's effect relatively, and prints an absolute figure only where the observed history supports one, with a named "not enough history yet" state otherwise. **The alternative, and a legitimate one, is to drop the battery gauge entirely and ship freshness alone.**
+- **D5's "full grid behind a dialog" is a native `<details>` instead** — a `<dialog>` cannot be opened without script, which would put eighteen themes behind a dead control with scripts blocked. Recorded as a deliberate deviation from the audit's wording, not a silent substitution.
+- **D19 sheds three clauses**, each with its ground: no client-side canvas crop (`illustration_normalize.py`'s own docstring records that a second, differently-thresholded measurement drifting from the first is the debug session that created it), no progress bar (`submit-guard.js` already disables on submit), and no hover-only aircraft types (hover is unreachable by touch — CFG-28's own ground).
+- **Two re-scopes, not builds.** D17's "fixes B14" describes work already shipped in 22-10 (`_normalised_time_html()`'s visible 24 h sibling) and must be PRESERVED. D5 is X6's deferred half, and 22-10 already recorded that the page-height target "is NOT met and cannot be by density alone" — so D5's success criterion is a **measured** Display height, reported honestly either way, not the carousel's existence.
+- **D16 redraws rather than embeds.** The three `runway-*.png` files are 338-371 KB photographs, not vectors. The map's bearings derive from the designators already in `device_config.RUNWAYS` (a designator IS its bearing to the nearest ten degrees, by ICAO convention), so the drawing cannot contradict its own labels. The photographs and their session-gated route stay served.
+
+Plans:
+
+**Wave 1** *(parallel — two plans, disjoint files)*
+- [ ] 25-01-PLAN.md — wave 1: the phase's one new script with its three taxes paid once, the `.js`-gate control vocabulary, the shared battery-life arithmetic, and the executable no-JS control contract. Builds no control.
+- [ ] 25-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — operate-submit-**persist** under blocked scripts, keyboard-only operation with zero pointer events, real hit-tested area measurement, and the two-direction gate assertion; zero net checks
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 25-03-PLAN.md — wave 2: D16 — the runway picked on one drawn schematic of Orly, adding zero scripts because the three radios were always the control
+
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 25-04-PLAN.md — wave 3: D17 — the server-drawn 24 h arc, the two gated handles, and the wrapping-midnight arithmetic settled before anything is drawn
+
+**Wave 4** *(blocked on Wave 3)*
+- [ ] 25-05-PLAN.md — wave 4: D18 — the gated range input beside an untouched number input, and two gauges of which only one can currently be absolute
+
+**Wave 5** *(blocked on Wave 4)*
+- [ ] 25-06-PLAN.md — wave 5: D5 — the carousel around the one chip renderer, the full grid behind a native disclosure, and Display's height measured before and after
+
+**Wave 6** *(blocked on Wave 1)*
+- [ ] 25-07-PLAN.md — wave 6: D19 — the drop zone and framing preview over two byte-identical upload forms, with the normaliser untouched and picked-vs-dropped proven equivalent
+
+**Wave 7** *(blocked on all prior waves)*
+- [ ] 25-08-PLAN.md — wave 7: the design system updated in step, the clause-by-clause coverage ledger, the developer's eight-decision list with each one's reversal cost, and the phase gate including the required real-device sweep
+
+*The waves are serial after wave 1 because `companion/pages/config_page.py` is written by four plans and `companion/static/style.css` by six, and this project's rule is one writer per file per wave — the same reason Phase 23 needed 9 waves for 11 plans and Phase 24 needs 7 for 9. 25-07 touches neither the settings page nor its form and is serialised only by the stylesheet.*
+
+Cross-cutting constraints (appearing in two or more plans' `must_haves`):
+- **The no-JS floor (D-09) is absolute and this is the phase most at risk from it.** Every control's fallback is an **executable check, not a promise**, and the proof is **operate → submit → reload → assert persisted**. A check asserting only that the control renders would pass against a control that saves nothing — the exact defect Phase 22 found.
+- CSP is `script-src 'self'`; the deferred-script pin moves ONCE, in 25-01, fourteen → fifteen, retargeted in place with a stated reason.
+- **Exactly ONE `@supports selector(:has(*))` block**, pinned by two named checks, with specificity arithmetic marked "verified, not to be re-derived". D5 is the largest threat to it in the whole phase and D16 the second.
+- Minimum viewport 360 px, no horizontal body scrollbar; every hit area ≥ 44 px in both axes **measured in a real browser**, or a named design-system register entry with a stated argument.
+- Every control is keyboard-operable with **zero pointer events**, and announces through the native control's own `aria-valuetext` — **never a `role="status"` region**, which re-announces identical text on every keystroke (Phase 23 learned this with its three switches).
+- Motion tokens only; `interpolate-size` and `calc-size(` banned; no new `@keyframes`; no per-rule `prefers-reduced-motion` block (the global one already covers plain transitions and a per-rule copy is recorded as dead code).
+- **Two standing refusals stay refused and unreversed:** the **overlay drawer** (three recorded rejections plus locked decision D-10, one from real-device testing) and **sticky day headers** (struck twice; every flight row already carries its date).
+- Every check mutation-tested and must survive the vacuity question; `EXPECTED_CHECK_COUNT` re-derived by RUNNING, never by arithmetic; the sandbox baseline is exactly 5 failing checks verified by NAME. A `SKIP` from `test_browser_ux.py` is a **failed phase gate**, not a caveat — this phase is entirely interaction.
+
+### Phase 26: Companion dynamism IV — "App": the finishes
+
+**Goal:** D23 (keyboard shortcuts and a ⌘K command palette), D24 (guided first run and drawn empty states) and D15 (share the picture of the day). **D6 is already shipped** — its bottom tab bar landed in 22-14 — so only its manifest/theme-color half remains, if wanted. **D11 is partly excluded**: hashed filenames imply a build step, which this milestone's framework-free/build-free constraint forbids; prefetch-on-hover and gzip are still open. **D12 is excluded entirely** (see Phase 23).
+**Requirements**: CFG-53, CFG-54, CFG-55, CFG-56, CFG-57, CFG-58, CFG-59, CFG-60, CFG-61
+**Depends on:** Phase 23 **and Phase 24** — corrected at planning. 26-06's drawn empty states are emitted through `companion/draw.py`, which 24-01 creates; the plan enforces it as an executable precondition rather than forking a second drawing path. The entry previously said Phase 23 alone.
+**Plans:** 9 plans across 7 waves
+
+**Planned 2026-09-13, and planning ONLY.** This phase inherits facts from Phases 24 and 25, both of which are planned but NOT executed.
+
+Planned with **no CONTEXT.md and no UI-SPEC** (the precedent Phases 23, 24 and 25 all set), so **eight decisions were taken PROVISIONALLY** and every one is collected in `26-RESEARCH.md`'s "Open decisions" section for the developer:
+
+- **The phase spends exactly ONE new static script** — the palette — and the shell's deferred-script pin moves once, 15 → 16, re-derived by running. 23-RESEARCH.md predicted six to eight new files across the remaining D-items; the reason it was wrong is the same reason Phase 25 delivered five controls for one script: the shipped platform primitives do more than the audit's framing assumed. **D24 costs zero scripts** (the checklist is server-rendered from live-derived signals; the illustrations are server-rendered SVG) and **D15 costs zero** (a plain `download` anchor is the floor, and the share enhancement grows `panel-lookup.js`, which already owns the lightbox).
+- **The palette NAVIGATES; it does not act.** The audit's "switch screen off" becomes a destination, not a POST. Grounds: the CSRF posture is `SameSite=Strict` with no token anywhere, Phase 25 has just built the real controls, and a second way to mutate config would have to be kept in agreement with the first. The alternatives (hidden mirror forms in the shell; page-scoped action commands) are priced in the research and not taken.
+- **D15's privacy question is answered by creating no public URL at all.** Every page is session-gated and every HTML response is `no-store` by a deliberate Phase 18 decision, and since Phase 16 a calendar match repaints the panel — so the picture's colour can encode "a flight from my private calendar is departing now". Sharing hands over the image BYTES the viewer is already authorised to see: nothing becomes publicly reachable, nothing expires, nothing needs revoking. The executable proof is that **the set of routes reachable without a session is asserted unchanged**.
+- **D6's manifest half is NOT worth building; its theme-color half is.** Five grounds, recorded in the code: the install prompt depends on the service worker D12 excluded; there are no 192/512 icons and 22-13 deliberately declined a brand mark; `theme_color` per theme cannot come from a static file with eighteen runtime themes; a manifest behind auth needs `crossorigin="use-credentials"`; and an installed icon on a 12-hour session would frequently open on `/login`.
+- **D11's prefetch half is structurally dead and is not built.** A `no-store` response is not stored and cannot be reused, so prefetch-on-hover buys a duplicate request to a single-threaded stdlib server and zero speedup; hover is also unreachable by touch. **gzip is built, at Caddy**, scoped to public static asset types — `style.css` is 417 KB and is served before `require_session()` — which keeps BREACH structurally out of scope. Its check is a file-content assertion, weaker than this project's norm, because the harness never runs Caddy; that is reported rather than implied away.
+- **The audit's "password set ✓" checklist item is vacuous and is replaced.** `auth.py:153` fails CLOSED, so anyone who can see the checklist has a password by construction and the tick can never be absent — a right implementation and a wrong one are indistinguishable. It becomes "the shared password is not `deploy/skypane.env.example`'s placeholder", compared in constant time, with neither the value nor any prefix of it ever rendered.
+- **"Frame paired" describes a concept this companion does not have** — provisioning is BLE, in the firmware. The signal is `frame_state.resolve_state()` not being `STATE_UNKNOWN`, whose own docstring already names that state "no check-in recorded yet". No second definition of "has the device ever been seen" is invented, and no new persistence, no state file and **no client storage** are added — 23-RESEARCH.md predicted this checklist would be the first feature in this codebase tempted to reach for `localStorage`.
+- **Three accessibility traps are closed by NOT writing code.** `<dialog>.showModal()` already supplies the focus trap, the top layer, Escape and focus restoration, and `panel-lookup.js:316-318` already records why this codebase chose `<dialog>` over a hand-rolled overlay. The fourth trap — announcing on every keystroke — is Phase 23's own lesson from its three switches, and is answered with a live region carrying only the result COUNT.
+
+Plans:
+
+**Wave 1** *(parallel — two plans, disjoint files)*
+- [ ] 26-01-PLAN.md — wave 1: the phase's one new script with its three taxes paid once, the nav-derived command index, the `<dialog>` and the `.js`-gated trigger, and the two executable structural contracts. Builds no search and no shortcut.
+- [ ] 26-02-PLAN.md — wave 1: the browser-harness helpers this phase runs on — focus-restoration reading, announcement read-back that can tell a repeat from a change, the unauthenticated-route enumerator, and the exhaustive destination sweep; zero net checks
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 26-03-PLAN.md — wave 2: D23's palette — filtering over the server's own index, the combobox relationship, the count-only announcement, and the three traps the platform closes
+
+**Wave 3** *(parallel — two plans, disjoint files; blocked on Wave 2)*
+- [ ] 26-04-PLAN.md — wave 3: D23's shortcuts, the typing guard, the bounded chord, and the check the whole feature's legitimacy rests on — every destination reachable with scripts blocked, per destination, every run
+- [ ] 26-05-PLAN.md — wave 3: D24's guided first run — three signals that can actually fail, derived live, disappearing by construction, with no script and no storage
+
+**Wave 4** *(blocked on Wave 3)*
+- [ ] 26-06-PLAN.md — wave 4: D24's drawn empty states — the `empty_state()` extension whose default is byte-identical for all six callers, and illustrations emitted through Phase 24's one drawing module
+
+**Wave 5** *(blocked on Wave 4)*
+- [ ] 26-07-PLAN.md — wave 5: adoption across all six empty states, with every next action a real destination or an href-less span
+
+**Wave 6** *(blocked on Wave 5)*
+- [ ] 26-08-PLAN.md — wave 6: D15 — the download anchor that needs no script, the capability-gated share built without a network call, and the privacy proof that no route became public
+
+**Wave 7** *(blocked on all prior waves)*
+- [ ] 26-09-PLAN.md — wave 7: D6's theme-color half and D11's gzip half built, their other halves refused in writing; the design system updated in step, the coverage ledger, the eight-decision list, and the phase gate including the human sweep
+
+*The waves are serial after wave 1 because `companion/static/style.css` is written by five plans and `companion/static/command-palette.js` by three, and this project's rule is one writer per file per wave — the same reason Phase 23 needed 9 waves for 11 plans, Phase 24 7 for 9, and Phase 25 7 for 8.*
+
+Cross-cutting constraints (appearing in two or more plans' `must_haves`):
+- **The no-JS floor (D-09) is absolute, and this is the phase most structurally at odds with it.** A palette and a keystroke are script-only by nature; that is acceptable ONLY because everything they reach is reachable without them, and that is made true by construction (the index is the fourth consumer of the ONE `_nav_links()` iteration) and proven **exhaustively, per destination, every run** — never as a sample, because a single hand-added command is the entire failure mode.
+- CSP is `script-src 'self'`; there is no catch-all `/static/` handler, so the one new script needs its own route constant pair and its own dispatch line. The deferred-script pin moves ONCE, in 26-01, re-derived by RUNNING.
+- Minimum viewport 360 px, no horizontal body scrollbar; hit areas ≥ 44 px in both axes **measured in a real browser**. Keyboard shortcuts reach nobody on a phone and **no touch equivalent is invented** — the bottom tab bar (22-14) already is one.
+- Motion tokens only (`--motion-fast` 180 ms / `--motion-slow` 2 s); `interpolate-size` and `calc-size(` banned; no new `@keyframes`; no per-rule `prefers-reduced-motion` block; the palette reuses the existing `<dialog>` `@starting-style` entrance rather than inventing a third. `style.css` stays at zero stray comment terminators and exactly one `@supports selector(:has(*))` block.
+- **Two standing refusals stay refused and unreversed:** the **overlay drawer** (three recorded rejections plus locked decision D-10) and **sticky day headers** (struck twice; every flight row already carries its date).
+- Every check is mutation-tested and must survive the vacuity question; `EXPECTED_CHECK_COUNT` is re-derived by RUNNING, never by arithmetic; the sandbox baseline is exactly 5 failing checks verified by NAME (4 × WR-11 read-only, 1 × `anomaly_active()`). A `SKIP` from `test_browser_ux.py` is a **failed phase gate**, not a caveat — this phase's central claim is a claim about a browser with scripts blocked.

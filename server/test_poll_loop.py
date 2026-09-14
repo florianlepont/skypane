@@ -143,7 +143,14 @@ if REPO_ROOT not in sys.path:
 # calls _notify_silence_transition() - a display_off hold with a stale
 # device_health check-in still raises exactly one frame_silent push,
 # driven through the real run_once() call site) - 96 + 1.
-EXPECTED_CHECK_COUNT = 97
+# 24-03-PLAN.md Task 3 (CFG-43, PROVISIONAL): +2 (the wake_epochs write
+# on _record_history()'s existing path: three consecutive cycles at an
+# unchanged effective interval writing exactly one row and a fourth at a
+# changed interval writing a second - the Type=oneshot unit runs ~2,880
+# cycles a day, so an undeduped write would be 2,880 informationless rows
+# a day; and a write raising sqlite3.Error contained by the existing
+# handler, the cycle completing and the panel still written) - 97 + 2.
+EXPECTED_CHECK_COUNT = 99
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -4041,6 +4048,100 @@ def main():
                 "last_silent_sent=True",
                 _silence_transition_fires_during_display_off_hold,
             )
+
+            # --- 24-03-PLAN.md Task 3 (CFG-43, PROVISIONAL per
+            # 24-RESEARCH.md open decision 2): the wake_epochs write on the
+            # existing history-write path. Nothing in phase 24 READS this
+            # table; these two checks pin that it accrues correctly and
+            # that it can never cost a poll cycle. -----------------------
+
+            def _wake_epoch_rows(state_dir):
+                with poll_loop.history_db.open_db(state_dir) as conn:
+                    return [
+                        (row["ts"], row["wake_interval_s"])
+                        for row in conn.execute(
+                            "SELECT ts, wake_interval_s FROM wake_epochs ORDER BY id ASC"
+                        ).fetchall()
+                    ]
+
+            # 84. The poll unit is Type=oneshot under a 30 s timer - ~2,880
+            # cycles a day. A row per cycle would be 2,880 rows a day
+            # carrying no information; only a CHANGE is an epoch.
+            def _wake_epochs_accrue_only_when_the_effective_interval_changes():
+                epoch_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-wake-epochs-")
+                try:
+                    device_config.save_device_config(epoch_dir, wake_interval_s=600)
+                    CLOCK["t"] = CLOCK_BASE
+                    for _ in range(3):
+                        poll_loop.run_once(
+                            snapshot=_empty_snapshot(), state_dir=epoch_dir, geofence=GEOFENCE_PATH,
+                        )
+                        CLOCK["t"] += 30
+                    after_three = _wake_epoch_rows(epoch_dir)
+                    if len(after_three) != 1:
+                        return False, (
+                            "three cycles at an unchanged 600 s cadence wrote %d wake_epochs rows, "
+                            "expected exactly 1: %r" % (len(after_three), after_three)
+                        )
+                    if after_three[0][1] != 600:
+                        return False, "the first epoch recorded %r, expected 600" % (after_three[0],)
+
+                    device_config.save_device_config(epoch_dir, wake_interval_s=900)
+                    poll_loop.run_once(
+                        snapshot=_empty_snapshot(), state_dir=epoch_dir, geofence=GEOFENCE_PATH,
+                    )
+                    after_change = _wake_epoch_rows(epoch_dir)
+                    if [value for _ts, value in after_change] != [600, 900]:
+                        return False, (
+                            "a fourth cycle at a CHANGED cadence must add exactly one row, got %r"
+                            % (after_change,)
+                        )
+                    return True, ""
+                finally:
+                    shutil.rmtree(epoch_dir, ignore_errors=True)
+            check(
+                "three consecutive poll cycles at an unchanged effective wake interval write exactly one "
+                "wake_epochs row, and a fourth at a changed interval writes a second (CFG-43 Task 3)",
+                _wake_epochs_accrue_only_when_the_effective_interval_changes,
+            )
+
+            # 85. The epoch write sits INSIDE _record_history()'s existing
+            # `except (sqlite3.Error, OSError)` containment, so its failure
+            # mode is identical to every other history write's: history is
+            # an accessory to the panel, never a dependency of it
+            # (T-06-10-05). Asserted through the real run_once() call site.
+            def _a_raising_epoch_write_cannot_break_a_poll_cycle():
+                raise_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-wake-epochs-raise-")
+                try:
+                    device_config.save_device_config(raise_dir, wake_interval_s=600)
+                    CLOCK["t"] = CLOCK_BASE
+
+                    def _boom(*args, **kwargs):
+                        raise sqlite3.Error("wake_epochs write exploded")
+
+                    original = poll_loop.history_db.record_wake_epoch
+                    poll_loop.history_db.record_wake_epoch = _boom
+                    try:
+                        result = poll_loop.run_once(
+                            snapshot=_empty_snapshot(), state_dir=raise_dir, geofence=GEOFENCE_PATH,
+                        )
+                    finally:
+                        poll_loop.history_db.record_wake_epoch = original
+                    if result is None or result.get("panel_changed") is None:
+                        return False, "run_once() did not return its normal result dict: %r" % (result,)
+                    if not os.path.exists(os.path.join(raise_dir, "panel.bin")):
+                        return False, "the panel was left unwritten by a failing history write"
+                    if _wake_epoch_rows(raise_dir) != []:
+                        return False, "the failing write left a row behind: %r" % (_wake_epoch_rows(raise_dir),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(raise_dir, ignore_errors=True)
+            check(
+                "a wake_epochs write raising sqlite3.Error is contained by _record_history()'s existing "
+                "handler - the poll cycle completes and the panel is still written (T-24-03-B)",
+                _a_raising_epoch_write_cannot_break_a_poll_cycle,
+            )
+
 
         finally:
             enrich.default_transport = original_transport

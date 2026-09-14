@@ -26,6 +26,54 @@ CATALOG = {
     "just now": "à l’instant",
     "%s ago": "il y a %s",
 
+    # 23-03-PLAN.md Task 1 (D14/CFG-34): the same ladder read FORWARDS,
+    # for layout.relative_future_text(). The connector and the
+    # under-a-minute collapse sit here, beside the past form's own, and
+    # NOT as a literal in the script that will tick these elements
+    # (plan 23-05) — which is what lets that script carry no French at
+    # all. "dans un instant" mirrors "à l’instant"'s own collapse of the
+    # whole sub-minute bucket into one phrase rather than a literal
+    # second count; the quantity strings carry the same real U+00A0
+    # between the number and the unit (D-09, e.g. "dans 4 min").
+    "in a moment": "dans un instant",
+    "in %s": "dans %s",
+
+    # 23-05-PLAN.md Task 1 (D14/CFG-34): the SAME ladder again, this
+    # time as nine complete wordings rather than as a connector plus a
+    # unit. companion/static/relative-time.js rewrites these elements
+    # once a second, so the wordings have to exist client-side; they are
+    # rendered onto <body> by layout.page_shell() and read back with
+    # getAttribute(), which is what lets that script carry no French at
+    # all — the four English forms above it are its no-attribute
+    # fallbacks and nothing more.
+    #
+    # "#" is where the number goes. It is NOT "%s": these strings reach
+    # the browser as attribute values on a rendered page, and this
+    # harness's own Check 3 scans every French render for a stray
+    # "%s"/"%d"/"{}". A wording with no "#" in it takes no number at all
+    # — which is how French collapsing its whole sub-minute bucket into
+    # a phrase ("à l’instant", "dans un instant", repeated here from the
+    # entries above) stays DATA rather than becoming a branch in the
+    # script.
+    #
+    # These cannot drift from layout.relative_age_text()/
+    # relative_future_text(): companion/test_companion_app.py fills each
+    # one with the quantity _age_bucket() picks and asserts equality
+    # against those functions, in both languages, for every bucket.
+    "#s ago": "à l’instant",
+    "#m ago": "il y a # min",
+    "#h ago": "il y a # h",
+    "#d ago": "il y a # j",
+    "in #s": "dans un instant",
+    "in #m": "dans # min",
+    "in #h": "dans # h",
+    "in #d": "dans # j",
+
+    # What a countdown reads once its instant has passed — neutral, and
+    # never a warning word. See layout.RELATIVE_WAITING_TEXT's own
+    # comment.
+    "waiting…": "en attente…",
+
     # --- Page header / purpose / freshness (health_page.py) -----------
     "Screen status and server data quality, in one place.":
         "L’état de l’écran et la qualité des données du serveur, au même endroit.",
@@ -117,6 +165,12 @@ CATALOG = {
     "%s — daily average (%d reading)": "%s — moyenne quotidienne (%d relevé)",
     "%s — daily average (%d readings)": "%s — moyenne quotidienne (%d relevés)",
     "%s — daily average": "%s — moyenne quotidienne",
+    # 24-05-PLAN.md Task 2 (CFG-41): the drawn low-battery threshold's
+    # legend. The connector stays the "—" every other label in this
+    # section uses, and D-09's real U+00A0 sits before the "%%" exactly
+    # as "%.1f %% résolus" above already does.
+    "Low battery \u2014 %d mV (\u2248 %d%%)":
+        "Batterie faible \u2014 %d mV (\u2248 %d\u00a0%%)",
     "Latest %d readings": "%d derniers relevés",
     "No battery readings yet.": "Aucun relevé de batterie pour l’instant.",
     "No battery telemetry recorded yet — check back after the "
@@ -231,6 +285,57 @@ CATALOG = {
     "companion web interface.":
         "L’opérateur a résolu à la main le préfixe de cet indicatif, "
         "depuis l’interface web companion.",
+
+    # --- 24-07-PLAN.md Task 2 (CFG-43): the check-in regularity grid ----
+    #
+    # The heading is 24-RESEARCH.md open decision 3's own wording:
+    # "Régularité des relevés", never "ponctualité". The English source
+    # already refuses the roadmap's own phrasing for this drawing because
+    # the expected interval is not recoverable from the record, and a
+    # French sibling that reintroduced the claim would put it back in
+    # half the app's pages. A check scans the rendered page in BOTH
+    # languages for exactly that word.
+    #
+    # "relevé" rather than "réveil" throughout, and that is the same
+    # distinction the English keeps: a check-in is something the SERVER
+    # recorded, a wake is something the FRAME did, and this grid can
+    # only report the first.
+    "Check-in regularity": "Régularité des relevés",
+    "Each cell is one day of observed check-in regularity, oldest first.":
+        "Chaque case correspond à un jour de régularité observée des "
+        "relevés, du plus ancien au plus récent.",
+    "Judged against the cadence configured now — a check-in every %s — not "
+    "necessarily the cadence in force on an earlier day.":
+        "Évaluée selon la cadence configurée actuellement — un relevé "
+        "toutes les %s — pas nécessairement celle en vigueur les jours "
+        "précédents.",
+    "This frame's cadence cannot be determined, so the grid is judged against "
+    "the fallback staleness floors rather than against a configured cadence.":
+        "La cadence de ce cadre ne peut pas être déterminée : la grille est "
+        "donc évaluée selon les seuils de repli, et non selon une cadence "
+        "configurée.",
+    "A day with no record is not proof the frame did not wake: a log rotation "
+    "this server missed leaves exactly the same gap.":
+        "Un jour sans relevé ne prouve pas que le cadre ne s’est pas "
+        "réveillé : une rotation de journal manquée par ce serveur laisse "
+        "exactement le même trou.",
+    "No check-in intervals are recorded yet, so every day below is a day the "
+    "record says nothing about.":
+        "Aucun intervalle entre relevés n’est encore enregistré : chaque jour "
+        "ci-dessous est donc un jour sur lequel l’enregistrement ne dit rien.",
+    # The four state words, and the two tooltip shapes they appear in.
+    # "Aucun relevé" is the absence of an observation, never a verdict —
+    # which is why it is not "Manquant" with a qualifier.
+    "On cadence": "Dans la cadence",
+    "Late": "En retard",
+    "Missing": "Manquant",
+    "No record": "Aucun relevé",
+    "%s — %s: longest observed gap %s": "%s — %s : plus long écart observé %s",
+    "Observed check-in regularity, one cell per day over the last %d days: "
+    "%d on cadence, %d late, %d missing, %d with no record.":
+        "Régularité observée des relevés, une case par jour sur les %d "
+        "derniers jours : %d dans la cadence, %d en retard, %d manquants, "
+        "%d sans relevé.",
 
     # --- Degrade-not-raise fallback --------------------------------------
     "Health history is temporarily unavailable — check the companion "

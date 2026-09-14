@@ -37,6 +37,16 @@
  * 0.5, not-allowed cursor), already defined and already correctly
  * ordered after button:active. No new disabled styling anywhere.
  *
+ * 23-09-PLAN.md Task 2: D3 has since landed, and this paragraph still
+ * governs THIS file. The settings form's Save controls do now wear an
+ * in-flight word — written by companion/static/dirty-state.js, on the
+ * form's own submit listener, and only for a <button> carrying no name
+ * (a control with no name contributes no entry to the form data set, so
+ * its label cannot displace anything). This file still writes exactly
+ * one property, disabled, on exactly one element per submit, and a live
+ * check in companion/test_companion_app.py fails it if that ever stops
+ * being true. Do not move the label change here.
+ *
  * --- Why the disable is DEFERRED, which is the whole subtlety --------
  *
  * The submit control is disabled from a zero-delay timer, not inline in
@@ -63,12 +73,23 @@
  *
  *   1. dirty-state.js has TWO submit listeners — one on the settings
  *      form, one delegated at document level for [data-quick-switch].
- *      Both do exactly one thing: set suppressGuard = true so the
- *      leave-page dialog does not fire for a navigation the app itself
- *      is performing. Neither reads, writes or cancels anything this
- *      file touches, and neither calls preventDefault(). They run to
- *      completion before this file's timer fires, so ordering between
- *      them is not merely safe, it is fixed.
+ *      Both set suppressGuard = true so the leave-page dialog does not
+ *      fire for a navigation the app itself is performing. Neither
+ *      reads, writes or cancels anything this file touches, and neither
+ *      calls preventDefault(). They run to completion before this
+ *      file's timer fires, so ordering between them is not merely safe,
+ *      it is fixed.
+ *
+ *      RESTATED 23-09-PLAN.md Task 2, because this paragraph used to say
+ *      "both do exactly one thing" and that stopped being true: the
+ *      form-level listener now also writes the in-flight label onto the
+ *      submitting control. The conclusion is unchanged and the reason is
+ *      the same sentence — that listener is on the FORM, this file's is
+ *      on document, so the event reaches it first and synchronously,
+ *      while this file only queues a task. Relabel then disable, every
+ *      time, by propagation order rather than by luck. The two do not
+ *      contend for a property either: that file writes text content and
+ *      never disabled, and this file writes disabled and never text.
  *   2. The Frame strip's quick switches are ordinary forms that navigate
  *      (companion/layout.py's frame_strip_html()). Disabling their
  *      button after the navigation has started changes nothing about

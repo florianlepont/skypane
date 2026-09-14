@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import sys
 import tempfile
 
@@ -82,6 +83,50 @@ EXPECTED_CHECK_COUNT = 69
 # CET-to-CEST jump and the repeated hour at the October CEST-to-CET
 # fallback - re-derived by running the harness, not by arithmetic)
 EXPECTED_CHECK_COUNT = 72
+# 24-03-PLAN.md Task 1 (CFG-43): 72 -> 78, +6 (check_in_gaps(), the
+# OBSERVED check-in gap reader D20's grid draws from - 24-RESEARCH.md
+# Risk 1 settles that the expected interval is unrecoverable, so the
+# metric changed rather than the schema: three check-ins 30 minutes apart
+# yield two 1800 s intervals oldest-first carrying both timestamps and
+# their Paris day; a NULL-battery_mv row is still a real check-in (the
+# `battery_mv IS NOT NULL` filter the chart uses would invent a missed
+# wake out of a missing HTTP header); an undatable ts reports the spans it
+# bounds as unknown rather than merging them into one false long interval;
+# an empty table, a single row and an empty window each return [] without
+# raising; the docstring carries both "cannot know" caveats plus the
+# 60-second bound; and history_db.py still has no ALTER TABLE and no
+# PRAGMA user_version - re-derived by running the harness, not by
+# arithmetic)
+EXPECTED_CHECK_COUNT = 78
+# 24-03-PLAN.md Task 2 (CFG-43): 78 -> 83, +5 (wake.classify_check_in_gap(),
+# the ONE definition of "late" applied to those intervals - it landed in
+# wake.py rather than history_db.py not because of an import cycle (there
+# is none) but because history_db.py's own docstring declares it
+# stdlib-only and forbids importing device_config, which wake.py imports:
+# the boundaries proven EXACTLY at warn_s and error_s for a non-default
+# 777 s cadence; a None cadence degrading to the bare floors rather than
+# refusing, asserted on interior values so a >= / > mutation fails exactly
+# one check; an unknowable gap (None, a string, a bool, a negative, NaN)
+# reported unknown and never on-cadence; the function's own source proven
+# to derive its thresholds from device_staleness_thresholds(), to re-type
+# none of the four multipliers/floors and to read no config, with
+# history_db.py proven to hold no second copy; and the four-term observed
+# vocabulary with "honoured"/"punctual" absent from both modules -
+# re-derived by running the harness, not by arithmetic)
+EXPECTED_CHECK_COUNT = 83
+# 24-03-PLAN.md Task 3 (CFG-43, PROVISIONAL): 83 -> 87, +4 (wake_epochs,
+# the forward-looking interval table nothing in this phase reads - a NEW
+# table needs no migration because init_schema() runs CREATE TABLE IF NOT
+# EXISTS on every connection from both processes, where a new COLUMN would
+# have needed this project's first migration mechanism: every CREATE TABLE
+# proven guarded and now exactly four; a hand-seeded pre-Task-3 history.db
+# opening cleanly, gaining the table and keeping every pre-existing
+# device_health/meta row intact with no epoch row written merely by
+# opening; record_wake_epoch() inserting only on a change and treating an
+# undeterminable cadence as a distinct value rather than a continuation of
+# the last one; and no file under companion/ so much as mentioning the
+# table - re-derived by running the harness, not by arithmetic)
+EXPECTED_CHECK_COUNT = 87
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -1947,6 +1992,487 @@ def main():
         "daily_battery_averages() buckets correctly across the CEST-to-CET October transition "
         "(the repeated hour), counting each instant once on the correct Paris day (D-12.3)",
         _daily_battery_averages_crosses_the_october_dst_back_transition,
+    )
+
+    # --- 24-03-PLAN.md Task 1 (CFG-43): check_in_gaps(), the OBSERVED
+    # check-in gap reader behind D20's grid.
+    #
+    # The metric is observed check-in regularity, never an "honoured-wake
+    # rate" (24-RESEARCH.md Risk 1): `wake.effective_wake_interval_s()`
+    # switches to DISPLAY_OFF_SLEEP_S whenever the screen is off,
+    # device_config.json is a current-state file with a pinned
+    # no-migration/no-rewrite contract (the three checks above), and a log
+    # rotation the ingest missed leaves a hole indistinguishable from a
+    # missed wake. No schema change recovers any of that, which is why the
+    # metric changed instead of the schema. -------------------------------
+
+    _GAP_T0 = "2026-09-02T10:00:00+00:00"
+    _GAP_T1 = "2026-09-02T10:30:00+00:00"
+    _GAP_T2 = "2026-09-02T11:00:00+00:00"
+
+    def _check_in_gaps_returns_consecutive_intervals_oldest_first():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_device_health(conn, _GAP_T0, battery_mv=4200)
+                history_db.record_device_health(conn, _GAP_T1, battery_mv=4190)
+                history_db.record_device_health(conn, _GAP_T2, battery_mv=4180)
+                gaps = history_db.check_in_gaps(conn)
+            if len(gaps) != 2:
+                return False, "expected exactly two intervals across three check-ins, got %r" % (gaps,)
+            if [gap["gap_s"] for gap in gaps] != [1800, 1800]:
+                return False, "expected two 1800 s intervals, got %r" % (gaps,)
+            if gaps[0]["from_ts"] != _GAP_T0 or gaps[0]["ts"] != _GAP_T1:
+                return False, "the first interval must span t0 -> t1 oldest-first, got %r" % (gaps[0],)
+            if gaps[1]["from_ts"] != _GAP_T1 or gaps[1]["ts"] != _GAP_T2:
+                return False, "the second interval must span t1 -> t2, got %r" % (gaps[1],)
+            if [gap["day"] for gap in gaps] != ["2026-09-02", "2026-09-02"]:
+                return False, "each interval must carry its Europe/Paris day, got %r" % (gaps,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "check_in_gaps() returns the observed intervals between consecutive device_health check-ins, "
+        "oldest-first, each carrying both timestamps, its length in seconds and its Paris day",
+        _check_in_gaps_returns_consecutive_intervals_oldest_first,
+    )
+
+    def _check_in_gaps_counts_a_null_battery_row_as_a_real_check_in():
+        # A device_health row with battery_mv NULL is a REAL check-in whose
+        # X-Battery-Mv header was absent or unparseable. Applying the
+        # `battery_mv IS NOT NULL` filter daily_battery_averages()
+        # legitimately uses would invent a missed wake out of a missing
+        # HTTP header - the specific defect this check exists to prevent.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_device_health(conn, _GAP_T0, battery_mv=4200)
+                history_db.record_device_health(conn, _GAP_T1)  # no X-Battery-Mv header
+                history_db.record_device_health(conn, _GAP_T2, battery_mv=4180)
+                gaps = history_db.check_in_gaps(conn)
+            if any(gap["gap_s"] == 3600 for gap in gaps):
+                return False, (
+                    "the NULL-battery check-in was filtered out of the series, merging the two "
+                    "30-minute intervals into one 3600 s gap that would render as a missed wake "
+                    "the device never missed: %r" % (gaps,)
+                )
+            if len(gaps) != 2:
+                return False, "expected two intervals across three check-ins, got %r" % (gaps,)
+            if [gap["gap_s"] for gap in gaps] != [1800, 1800]:
+                return False, "expected two 1800 s intervals, got %r" % (gaps,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "check_in_gaps() reads EVERY device_health row, including one whose battery_mv is NULL - a "
+        "missing X-Battery-Mv header is not a missed wake (CFG-43)",
+        _check_in_gaps_counts_a_null_battery_row_as_a_real_check_in,
+    )
+
+    def _check_in_gaps_reports_an_undatable_span_as_unknown_not_merged():
+        # `ts` is TEXT NOT NULL but otherwise unvalidated, and
+        # tail_caddy_battery_log() stores whatever string sits in a Caddy
+        # access-log entry's own `ts` field - so an unparseable value can
+        # reach this column. Dropping such a row and moving on would merge
+        # the two intervals either side into one long, false interval.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_device_health(conn, _GAP_T0, battery_mv=4200)
+                history_db.record_device_health(conn, "not-a-timestamp", battery_mv=4190)
+                history_db.record_device_health(conn, _GAP_T2, battery_mv=4180)
+                gaps = history_db.check_in_gaps(conn)
+            if any(gap["gap_s"] == 3600 for gap in gaps):
+                return False, (
+                    "the undatable check-in was dropped and the spans either side of it silently "
+                    "merged into one 3600 s interval - a missed wake that never happened: %r" % (gaps,)
+                )
+            if len(gaps) != 2:
+                return False, "expected two spans around the undatable check-in, got %r" % (gaps,)
+            if [gap["gap_s"] for gap in gaps] != [None, None]:
+                return False, "both spans bounded by an undatable check-in must be unknown, got %r" % (gaps,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "check_in_gaps() reports the spans an undatable ts bounds as UNKNOWN rather than merging them "
+        "into one false long interval",
+        _check_in_gaps_reports_an_undatable_span_as_unknown_not_merged,
+    )
+
+    def _check_in_gaps_degenerate_windows_return_empty_without_raising():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                if history_db.check_in_gaps(conn) != []:
+                    return False, "an empty device_health table must yield no intervals"
+                history_db.record_device_health(conn, _GAP_T0, battery_mv=4200)
+                if history_db.check_in_gaps(conn) != []:
+                    return False, "a single check-in bounds no interval and must yield none"
+                history_db.record_device_health(conn, _GAP_T1, battery_mv=4190)
+                if history_db.check_in_gaps(conn, since="2099-01-01T00:00:00+00:00") != []:
+                    return False, "a window containing no rows must yield no intervals"
+                if len(history_db.check_in_gaps(conn, since=_GAP_T0)) != 1:
+                    return False, "a window containing both rows must yield their one interval"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "check_in_gaps() returns an empty list - never raising - for an empty table, a single check-in, "
+        "and a window containing no rows, while an inclusive window still yields its interval",
+        _check_in_gaps_degenerate_windows_return_empty_without_raising,
+    )
+
+    def _check_in_gaps_docstring_states_what_it_cannot_know():
+        # A future reader who finds this function and not the plan must
+        # learn the same limits the plan's caption carries.
+        doc = (history_db.check_in_gaps.__doc__ or "")
+        low = doc.lower()
+        if "cannot know" not in low:
+            return False, "the docstring never says what this reader cannot know"
+        if "rotat" not in low:
+            return False, "the docstring omits the rotation hole (an ingest-missed log range reads as a missed wake)"
+        if "unique(ts, battery_mv)" not in low:
+            return False, "the docstring omits the UNIQUE(ts, battery_mv) collapse caveat"
+        if "60" not in doc:
+            return False, "the docstring omits the provable WAKE_INTERVAL_MIN_S = 60 bound on that collapse"
+        if "x-battery-mv" not in low:
+            return False, "the docstring never says WHY battery_mv is not filtered (the missing-header failure)"
+        return True, ""
+    check(
+        "check_in_gaps()'s docstring carries both 'cannot know' caveats - the ingest-missed log range and "
+        "the UNIQUE(ts, battery_mv) collapse with its 60-second bound - plus why battery_mv is unfiltered",
+        _check_in_gaps_docstring_states_what_it_cannot_know,
+    )
+
+    def _history_db_introduces_no_migration_mechanism():
+        src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
+        with open(src_path) as fh:
+            src = fh.read()
+        if re.search(r"ALTER\s+TABLE", src, re.IGNORECASE):
+            return False, "history_db.py grew an ALTER TABLE - this project has no migration mechanism"
+        if re.search(r"PRAGMA\s+user_version", src, re.IGNORECASE):
+            return False, "history_db.py grew a PRAGMA user_version - this project has no schema version stamp"
+        return True, ""
+    check(
+        "server/history_db.py still contains no ALTER TABLE and no PRAGMA user_version - the whole "
+        "migration story remains CREATE TABLE IF NOT EXISTS on every connection (CFG-43)",
+        _history_db_introduces_no_migration_mechanism,
+    )
+
+    # --- 24-03-PLAN.md Task 2 (CFG-43): classify_check_in_gap(), the ONE
+    # definition of "late" applied to the intervals above.
+    #
+    # It landed in server/wake.py, NOT in history_db.py, and not because of
+    # an import cycle - there is none, `import server.history_db,
+    # server.wake` succeeds either way. history_db.py's own module
+    # docstring declares it stdlib-only and forbids it from importing
+    # device_config; `import server.wake` would break the first directly
+    # and the second transitively (wake.py imports device_config). Putting
+    # the classifier beside device_staleness_thresholds() instead means the
+    # Frame tile and anything drawn from check_in_gaps() share one
+    # function, not two consistent copies. These checks live in this
+    # harness because it is this plan's harness for the reader they judge.
+
+    import server.wake as wake
+
+    def _classify_check_in_gap_boundaries_on_the_multiplier_path():
+        # 777 s is off both the 60/300 round numbers a hand-typed default
+        # might resemble and the STALE_WARN_FLOOR_S=300 floor, so the
+        # multiplier path - not the floor - is what fires. The boundaries
+        # are derived from the shared function, never re-typed here.
+        warn_s, error_s = wake.device_staleness_thresholds(777)
+        cases = (
+            (warn_s - 1, wake.CHECK_IN_ON_CADENCE, "one second BELOW warn_s"),
+            (warn_s, wake.CHECK_IN_LATE, "exactly AT warn_s"),
+            (error_s - 1, wake.CHECK_IN_LATE, "one second BELOW error_s"),
+            (error_s, wake.CHECK_IN_MISSING, "exactly AT error_s"),
+        )
+        for gap_s, expected, where in cases:
+            got = wake.classify_check_in_gap(gap_s, 777)
+            if got != expected:
+                return False, (
+                    "at the boundary %s (warn_s=%r, error_s=%r): a %r s gap classified %r, expected %r"
+                    % (where, warn_s, error_s, gap_s, got, expected)
+                )
+        return True, ""
+    check(
+        "classify_check_in_gap() is on-cadence below warn_s, late EXACTLY AT warn_s, still late below "
+        "error_s and missing EXACTLY AT error_s, for a non-default 777 s cadence (CFG-43)",
+        _classify_check_in_gap_boundaries_on_the_multiplier_path,
+    )
+
+    def _classify_check_in_gap_none_cadence_uses_the_bare_floors():
+        # A cadence that cannot be determined must still classify - it
+        # degrades to the bare floors exactly as device_staleness_
+        # thresholds(None) already does, rather than refusing. Interior
+        # values only: the boundary discipline is check above's job, so a
+        # >= / > mutation fails exactly one check, not two.
+        floors = wake.device_staleness_thresholds(None)
+        if floors != (wake.STALE_WARN_FLOOR_S, wake.STALE_ERROR_FLOOR_S):
+            return False, "device_staleness_thresholds(None) is no longer the bare floors: %r" % (floors,)
+        warn_s, error_s = floors
+        cases = (
+            (warn_s // 2, wake.CHECK_IN_ON_CADENCE),
+            ((warn_s + error_s) // 2, wake.CHECK_IN_LATE),
+            (error_s * 4, wake.CHECK_IN_MISSING),
+        )
+        for gap_s, expected in cases:
+            got = wake.classify_check_in_gap(gap_s, None)
+            if got != expected:
+                return False, (
+                    "a %r s gap against an undetermined cadence classified %r, expected %r "
+                    "(bare floors %r)" % (gap_s, got, expected, floors)
+                )
+        return True, ""
+    check(
+        "classify_check_in_gap() with a None cadence degrades to the bare floors rather than refusing to "
+        "classify - the same degradation device_staleness_thresholds(None) already performs",
+        _classify_check_in_gap_none_cadence_uses_the_bare_floors,
+    )
+
+    def _classify_check_in_gap_reports_an_unknowable_gap_as_unknown():
+        # check_in_gaps() reports gap_s=None for a span bounded by an
+        # undatable timestamp. Classifying that as on-cadence (the naive
+        # falsy reading) would claim the device checked in on time during a
+        # span whose duration is not knowable at all.
+        for gap_s in (None, "1800", -60, True, float("nan")):
+            got = wake.classify_check_in_gap(gap_s, 300)
+            if got != wake.CHECK_IN_UNKNOWN:
+                return False, "gap_s=%r classified %r, expected %r" % (gap_s, got, wake.CHECK_IN_UNKNOWN)
+        return True, ""
+    check(
+        "classify_check_in_gap() reports an unknowable gap (None, a non-number, a bool, a negative, NaN) "
+        "as unknown - never as on-cadence",
+        _classify_check_in_gap_reports_an_unknowable_gap_as_unknown,
+    )
+
+    def _classify_check_in_gap_reuses_the_one_threshold_function():
+        # Read off the COMPILED function, not its source text: co_names is
+        # exactly the set of global names the body references, so a prose
+        # mention in the docstring cannot pass or fail this, and co_consts
+        # catches a re-typing that inlined the literals instead of the
+        # names.
+        code = wake.classify_check_in_gap.__code__
+        names = set(code.co_names)
+        if "device_staleness_thresholds" not in names:
+            return False, (
+                "classify_check_in_gap()'s body never calls device_staleness_thresholds() - it "
+                "references %r" % (sorted(names),)
+            )
+        for name in ("MISSED_WAKES_WARN", "MISSED_WAKES_ERROR", "STALE_WARN_FLOOR_S", "STALE_ERROR_FLOOR_S"):
+            if name in names:
+                return False, "classify_check_in_gap() re-references %s instead of reusing the shared pair" % (name,)
+        inlined = {
+            value for value in code.co_consts
+            if value in (wake.MISSED_WAKES_WARN, wake.MISSED_WAKES_ERROR,
+                         wake.STALE_WARN_FLOOR_S, wake.STALE_ERROR_FLOOR_S)
+        }
+        if inlined:
+            return False, (
+                "classify_check_in_gap() inlines the multipliers/floors as literals %r instead of "
+                "reusing the shared pair" % (sorted(inlined),)
+            )
+        if "device_config" in names or "load_device_config" in names:
+            return False, (
+                "classify_check_in_gap() reads the config itself - the cadence must be an argument so a "
+                "caller can state WHICH cadence its drawing was judged against"
+            )
+        hdb_path = os.path.join(REPO_ROOT, "server", "history_db.py")
+        with open(hdb_path) as fh:
+            hdb_src = fh.read()
+        for name in ("MISSED_WAKES_WARN", "MISSED_WAKES_ERROR", "STALE_WARN_FLOOR_S", "STALE_ERROR_FLOOR_S"):
+            if name in hdb_src:
+                return False, "server/history_db.py holds a second copy of %s" % (name,)
+        return True, ""
+    check(
+        "classify_check_in_gap()'s own source derives its thresholds from device_staleness_thresholds(), "
+        "re-types none of the multipliers or floors, reads no config, and history_db.py holds no second copy",
+        _classify_check_in_gap_reuses_the_one_threshold_function,
+    )
+
+    def _the_verdict_vocabulary_is_observed_never_honoured():
+        # 24-RESEARCH.md Risk 1: the data cannot support the phrase an
+        # "honoured-wake rate" names, even with a new column, because a
+        # rotation the ingest missed is indistinguishable from a missed
+        # wake. A name chosen here is the name every caption inherits.
+        verdicts = (
+            wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
+            wake.CHECK_IN_MISSING, wake.CHECK_IN_UNKNOWN,
+        )
+        if len(set(verdicts)) != 4:
+            return False, "the four verdicts must be four distinct strings, got %r" % (verdicts,)
+        for verdict in verdicts:
+            if not isinstance(verdict, str) or not verdict:
+                return False, "each verdict must be a non-empty string, got %r" % (verdicts,)
+        for rel in ("server/history_db.py", "server/wake.py"):
+            with open(os.path.join(REPO_ROOT, *rel.split("/"))) as fh:
+                body = fh.read().lower()
+            for banned in ("honoured", "punctual"):
+                if banned in body:
+                    return False, "%s uses the word %r, which this data cannot support" % (rel, banned)
+        return True, ""
+    check(
+        "the verdict vocabulary is four distinct observed terms and neither history_db.py nor wake.py "
+        "uses the words 'honoured' or 'punctual' anywhere (24-RESEARCH.md Risk 1)",
+        _the_verdict_vocabulary_is_observed_never_honoured,
+    )
+
+    # --- 24-03-PLAN.md Task 3 (CFG-43, PROVISIONAL per 24-RESEARCH.md open
+    # decision 2): `wake_epochs`, the forward-looking interval table.
+    #
+    # A NEW TABLE needs no migration: init_schema() runs CREATE TABLE IF
+    # NOT EXISTS on every connection from BOTH processes (the Type=oneshot
+    # poll unit and the long-lived companion), so it simply exists on the
+    # next connect. A new COLUMN on an existing table would have needed
+    # this project's first migration mechanism, in its most
+    # concurrency-sensitive file. NOTHING IN PHASE 24 READS THIS TABLE.
+
+    def _every_create_table_is_guarded_and_there_are_exactly_four():
+        src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
+        with open(src_path) as fh:
+            src = fh.read()
+        guarded = len(re.findall(r"CREATE TABLE IF NOT EXISTS", src))
+        total = len(re.findall(r"CREATE TABLE", src))
+        if guarded != total:
+            return False, (
+                "%d of history_db.py's %d CREATE TABLE statements are not guarded by IF NOT EXISTS - "
+                "an unguarded one raises on the second connection" % (total - guarded, total)
+            )
+        if total != 4:
+            return False, (
+                "expected exactly four CREATE TABLE IF NOT EXISTS statements (runway_events, "
+                "device_health, meta, wake_epochs), found %d" % (total,)
+            )
+        return True, ""
+    check(
+        "every CREATE TABLE in history_db.py is guarded by IF NOT EXISTS and there are exactly four - "
+        "the fourth (wake_epochs) is the whole migration story for this phase",
+        _every_create_table_is_guarded_and_there_are_exactly_four,
+    )
+
+    def _an_old_schema_database_gains_wake_epochs_without_losing_a_row():
+        # Hand-seed a database in the PRE-Task-3 shape, bypassing
+        # init_schema() entirely so this genuinely models a history.db the
+        # old code created and left behind, then open it with the current
+        # code.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            db_path = history_db.history_db_path(tmpdir)
+            old = sqlite3.connect(db_path)
+            try:
+                old.execute(
+                    "CREATE TABLE device_health (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, "
+                    "battery_mv INTEGER, fw_version TEXT, boot_reason TEXT, rssi TEXT, "
+                    "UNIQUE(ts, battery_mv))"
+                )
+                old.execute(
+                    "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL)"
+                )
+                old.execute(
+                    "INSERT INTO device_health (ts, battery_mv, fw_version) VALUES (?, ?, ?)",
+                    ("2026-09-02T10:00:00+00:00", 4200, "1.2.3"),
+                )
+                old.execute(
+                    "INSERT INTO meta (key, value, updated_at) VALUES (?, ?, ?)",
+                    (history_db.META_CADDY_LOG_OFFSET, "4096", "2026-09-02T10:00:01+00:00"),
+                )
+                old.commit()
+            finally:
+                old.close()
+
+            with history_db.open_db(tmpdir) as conn:
+                tables = {
+                    row[0] for row in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type = 'table'"
+                    ).fetchall()
+                }
+                if "wake_epochs" not in tables:
+                    return False, "opening a pre-Task-3 database did not create wake_epochs: %r" % (sorted(tables),)
+                rows = history_db.recent_device_health(conn)
+                if len(rows) != 1 or rows[0]["battery_mv"] != 4200 or rows[0]["fw_version"] != "1.2.3":
+                    return False, "the pre-existing device_health row did not survive intact: %r" % (rows,)
+                if history_db.get_meta(conn, history_db.META_CADDY_LOG_OFFSET) != "4096":
+                    return False, "the pre-existing meta row did not survive intact"
+                if conn.execute("SELECT COUNT(*) FROM wake_epochs").fetchone()[0] != 0:
+                    return False, "merely opening a database must not write a wake_epochs row"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "a history.db created BEFORE wake_epochs existed opens cleanly, gains the table from the existing "
+        "CREATE TABLE IF NOT EXISTS bootstrap, and keeps every pre-existing row intact (no migration needed)",
+        _an_old_schema_database_gains_wake_epochs_without_losing_a_row,
+    )
+
+    def _record_wake_epoch_writes_only_when_the_interval_changes():
+        # The poll unit is Type=oneshot under a 30 s timer - ~2,880 cycles
+        # a day. An unconditional write would add 2,880 rows a day carrying
+        # no information at all (Pitfall 1's rule, applied to a fourth
+        # table).
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                wrote = [
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:00:00+00:00", 300),
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:00:30+00:00", 300),
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:01:00+00:00", 300),
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:01:30+00:00", 600),
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:02:00+00:00", 600),
+                    # The cadence became undeterminable - a DISTINCT value,
+                    # not a continuation of 600. Recording it is the honest
+                    # reading: a later phase must not be told the frame was
+                    # still on a 600 s cadence when nothing said so.
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:02:30+00:00", None),
+                    history_db.record_wake_epoch(conn, "2026-09-02T10:03:00+00:00", None),
+                ]
+                if wrote != [1, 0, 0, 1, 0, 1, 0]:
+                    return False, "expected inserts only on a change, got %r" % (wrote,)
+                rows = conn.execute(
+                    "SELECT ts, wake_interval_s FROM wake_epochs ORDER BY id ASC"
+                ).fetchall()
+            values = [row["wake_interval_s"] for row in rows]
+            if values != [300, 600, None]:
+                return False, "expected one row per change in order, got %r" % (values,)
+            if rows[0]["ts"] != "2026-09-02T10:00:00+00:00" or rows[1]["ts"] != "2026-09-02T10:01:30+00:00":
+                return False, "each epoch must carry the instant the new interval took effect, got %r" % ([dict(r) for r in rows],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "record_wake_epoch() inserts only when the effective interval differs from the newest stored row, "
+        "treating an undeterminable cadence as a distinct value rather than a continuation",
+        _record_wake_epoch_writes_only_when_the_interval_changes,
+    )
+
+    def _nothing_under_companion_reads_the_epoch_table():
+        # 24-RESEARCH.md Risk 1, Option C: if any plan lets a DRAWING read
+        # this table, the drawing goes back to being blank until the
+        # epochs accrue. No plan in phase 24 may read it.
+        offenders = []
+        companion_root = os.path.join(REPO_ROOT, "companion")
+        for dirpath, dirnames, filenames in os.walk(companion_root):
+            dirnames[:] = [d for d in dirnames if d not in ("__pycache__", ".venv")]
+            for filename in filenames:
+                if not filename.endswith((".py", ".html", ".css", ".js")):
+                    continue
+                full = os.path.join(dirpath, filename)
+                try:
+                    with open(full) as fh:
+                        if "wake_epochs" in fh.read():
+                            offenders.append(os.path.relpath(full, REPO_ROOT))
+                except OSError:
+                    continue
+        if offenders:
+            return False, (
+                "wake_epochs is read by %r - it accrues data for a FUTURE phase and nothing in this one "
+                "may draw from it" % (offenders,)
+            )
+        return True, ""
+    check(
+        "no file under companion/ so much as mentions wake_epochs - the table accrues data for a later "
+        "phase and nothing in phase 24 reads it (24-RESEARCH.md Risk 1, Option C)",
+        _nothing_under_companion_reads_the_epoch_table,
     )
 
     def _all_sql_uses_placeholders_not_string_formatting():

@@ -31,11 +31,13 @@ tempfile, time, urllib). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_companion_app.py
 """
+import ast
 import hashlib
 import hmac
 import html
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -45,6 +47,7 @@ import sys
 import tempfile
 import threading
 import time
+import tokenize
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -57,7 +60,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth, layout, theme_preview  # noqa: E402
+from companion import auth, draw, layout, theme_preview  # noqa: E402
 from companion.pages import health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import calendar_rules  # noqa: E402
@@ -574,6 +577,195 @@ EXPECTED_CHECK_COUNT = 271
 # time (270/272 pass — the two documented WR-11 root-sandbox failures,
 # unrelated to this plan), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 272
+# 23-01-PLAN.md Task 2 (D3/CFG-32): +1 — the motion-budget guard. Phase 23
+# adds motion to eight surfaces across nine plans, and before this check
+# nothing in the tree would have noticed a second near-identical
+# @keyframes block, a hard-coded 400ms animation duration, a third
+# reduced-motion block, or an interpolate-size declaration copied out of a
+# blog post. One check now reads companion/static/style.css, strips its
+# comments and asserts all four, plus the two reduced-motion block counts
+# below. No pre-existing check was retargeted. 272 + 1 = 273, recomputed
+# directly against the real on-disk check(...) call count at execution
+# time (271/273 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 273
+# 23-05-PLAN.md Task 1 (D14/CFG-34): +8 — relative-time.js, the
+# thirteenth deferred script on the authenticated shell. Five of the
+# eight are the registration block every static script here carries
+# (public-route smoke, ES5-safety/required-token scan, route==src
+# agreement, exactly-one-script-tag, a real GET proving the served
+# body), mirroring flight-rows.js's and submit-guard.js's own. The
+# other three are this plan's specific risks: the ladder pin (the
+# script's three bucket boundaries must equal layout._age_bucket()'s
+# own, each appearing exactly once in the script's code, with the array
+# proven consumed — 23-RESEARCH.md's Pitfall 4, which is a promise
+# without it); the wording pin (each of the nine <body> copy attributes,
+# filled with the quantity _age_bucket() picks, must EQUAL
+# relative_age_text()/relative_future_text()'s own output in both
+# languages, so the ticker's copy can never become a second wording);
+# and the countdown pin (relative_time_html(countdown=True) marks the
+# element and reads a neutral, translated waiting phrase once its
+# instant has passed, never an age and never a warn/error/alert token).
+# ONE pre-existing check was retargeted in place with no count
+# contribution: the deferred-script count, twelve -> THIRTEEN, forced by
+# this plan's own registration, and now also pinning that the login
+# shell still emits exactly one. 273 + 8 = 281, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (279/281 pass — the two documented WR-11 root-sandbox failures,
+# unrelated to this plan), not trusted from arithmetic alone.
+# 23-07-PLAN.md Task 1 (D2/CFG-36): +7 — quick-switch.js, the fourteenth
+# deferred script, gains the five-check registration block every static
+# script here carries (public route, ES5/sink scan + the rollback's own
+# shape, route==src, exactly one tag and no bare inline script, and a
+# REAL GET of the served body); plus the cross-file pin that
+# quick-switch.js's PENDING_ATTR, freshness.js's PENDING_ATTR and
+# layout.REFRESH_PENDING_ATTR are one name (23-06's contract, asserted
+# from the setter's side too); plus the content-negotiation check (a
+# form post still gets today's 303-and-flash, a request carrying the
+# fetch header gets a 204 with an empty body and no Location, the write
+# happens either way, and a crafted state value is never a 204).
+# ONE pre-existing check was retargeted in place with no count
+# contribution: the deferred-script count, thirteen -> FOURTEEN, forced
+# by this plan's own registration. 281 + 7 = 288, recomputed directly
+# against the real on-disk check(...) call count at execution time (the
+# two documented WR-11 root-sandbox failures are unrelated to this
+# plan), not trusted from arithmetic alone.
+# 23-07-PLAN.md Task 2 (D2/CFG-36): +2 — the /quick/led route's own
+# round trip (one explicit keyword, every other flag carried forward,
+# 303-with-flash for a form post, 204 for a fetch, generic failure flash
+# and no write for a crafted state, every non-member return_to falling
+# back to /device by MEMBERSHIP, and no write reachable by GET) and its
+# unauthenticated-POST gate. 288 + 2 = 290, recomputed by RUNNING.
+EXPECTED_CHECK_COUNT = 290
+# 23-09-PLAN.md Task 1 (D3/CFG-32): +1 — the save bar's change count
+# animates its ELEMENT and never its number. The bar is role="status"
+# and the count is its content, so the check pins exactly ONE text write
+# site (there were four, one per branch of updateBar()), gated on the
+# text having genuinely changed, written BEFORE the class is added, and
+# spending the stylesheet's existing .is-fading-in rule through a
+# remove/reflow/re-add — with no timer, which is this file's own
+# standing constraint rather than a property of one version.
+# 290 + 1 = 291, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 291
+# 24-01-PLAN.md Task 4 (CFG-39): +8 — Section 2.8, the executable
+# drawing contract this whole phase is measured against. The battery
+# estimate's exclusivity (one home for the millivolt constants, one
+# percentage function, and no third module naming both endpoints under
+# new names); no colour literal in any emitted markup; every drawn shape
+# carrying a class or an explicit fill route; every class draw.py can
+# emit resolving to a real selector in style.css on a SELECTOR BOUNDARY
+# (a plain substring test reports `.drawing-axis` as resolved by
+# `.drawing-axis-label`); draw.py's import rules; draw.py emitting no
+# script, no external reference and no inline style (D-09); its one
+# escaping helper covering all five dangerous characters in content and
+# in attributes alike (T-24-01); and its scales clamping at exactly the
+# domain floor and ceiling while no helper raises on a hostile input
+# (T-24-04). Every scan strips comments and docstrings first — this
+# phase's own prose quotes the tokens being measured, so a raw scan would
+# be satisfied, or broken, by an explanatory paragraph.
+# NO pre-existing check was retargeted: the deferred-script count is
+# still fourteen and this phase adds no script.
+# 291 + 8 = 299, re-derived by RUNNING the harness (297/299 pass — the
+# two documented WR-11 root-sandbox failures, unrelated to this plan),
+# never by arithmetic.
+EXPECTED_CHECK_COUNT = 299
+# 24-04-PLAN.md Task 1 (CFG-40): +1 — draw.ring_gauge(), the ONE battery
+# ring emitter. It lands HERE rather than in a page harness on purpose:
+# Section 2.8 is already this phase's single home for the drawing
+# contract, and a second home for "what draw.py must emit" is the exact
+# two-copies-that-drift failure CFG-40 itself names. The check measures
+# the size parameter moving the RADIUS and the STROKE WIDTH together (a
+# size that only swapped a class is the CSS-only "small variant" the
+# requirement forbids), both degenerate fractions asserted exactly (no
+# value arc at 0, a dash-free complete circle at 1), the drawn length at
+# 0.5 recomputed from the EMITTED radius and dash array rather than from
+# the input, an explicit fill route and a class on every arc with no
+# colour literal, the viewBox-plus-intrinsic-size route, aria-hidden,
+# and totality against None/a bool/a negative/an out-of-range fraction
+# (T-24-04-A).
+# 299 + 1 = 300, re-derived by RUNNING the harness (298/300 pass here —
+# the two documented WR-11 root-sandbox failures), never by arithmetic.
+EXPECTED_CHECK_COUNT = 300
+
+# 23-01-PLAN.md Task 2 (D3/CFG-32): the reduced-motion floor, expressed as
+# two numbers a plan has to edit deliberately rather than drift past.
+#
+# EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS pins the LIVE (comment-stripped)
+# `@media (prefers-reduced-motion: reduce)` block count in
+# companion/static/style.css. The two are style.css's global
+# `*, *::before, *::after` override (D-19) and `.js .mobile-nav`'s narrow
+# `transition: none`, the one documented case where 0.01ms is not good
+# enough because a size-interpolating transition still running at 0.01ms
+# can strand an intermediate computed value. THIS NUMBER STAYS AT TWO FOR
+# THE WHOLE OF PHASE 23: `references/accessibility-contrast.md`'s "What to
+# Avoid" records a per-rule reduced-motion block for a plain colour,
+# border, shadow or transform transition as dead code, not a safety net,
+# and the global override already covers every one of them for free. No
+# plan in this phase is permitted to move it; a plan that believes it has
+# the third genuine case must argue it the way `.js .mobile-nav` was
+# argued, in its own SUMMARY, before touching this line.
+EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
+# EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS pins the opposite wrapper.
+# It stood at ZERO for exactly one plan, because the gap it exists for was
+# not yet closed: `*, *::before, *::after` matches ELEMENTS, and the
+# view-transition pseudo-element tree is not an element tree, so the
+# global reduce block does not disable a cross-document view transition
+# (23-RESEARCH.md's Risk 3, confirmed in this project's own harness
+# Chromium). 23-04-PLAN.md Task 1 is the ONE plan 23-01 permitted to move
+# this constant, and it moved it to exactly 1 — the media wrapper around
+# style.css's one navigation at-rule, which prevents the transition being
+# SET UP at all rather than setting one up and running it fast. That is
+# the whole of the licence: the number is back to being frozen, and any
+# plan raising it to 2 has to argue its own case first, in its own
+# SUMMARY, the way `.js .mobile-nav` argued the reduce side.
+EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
+
+# 23-01-PLAN.md Task 2: every non-custom identifier the `animation`
+# shorthand may legally carry BESIDES the keyframes name. Anything in an
+# animation value that is not one of these, not a `--custom-property` and
+# not a time literal is taken to be a keyframes reference and must
+# resolve to a block defined in the same stylesheet.
+_ANIMATION_VALUE_KEYWORDS = frozenset((
+    "var", "none", "infinite", "normal", "reverse", "alternate", "alternate-reverse",
+    "forwards", "backwards", "both", "running", "paused", "auto",
+    "linear", "ease", "ease-in", "ease-out", "ease-in-out",
+    "step-start", "step-end", "steps", "cubic-bezier",
+    "jump-start", "jump-end", "jump-none", "jump-both", "start", "end",
+    "inherit", "initial", "unset", "revert", "revert-layer",
+))
+
+
+def _without_reduced_motion_blocks(css_source):
+    """`css_source` with every `@media (prefers-reduced-motion: ...)` block
+    (query and body) removed, by brace matching rather than by regex.
+
+    23-01-PLAN.md Task 2. These blocks are the one place in the file where
+    a bare duration literal is correct: the global override's
+    `animation-duration: 0.01ms !important` exists to CANCEL motion, so
+    binding it to a motion token would invert its purpose. Their counts
+    are asserted separately, before this removal.
+    """
+    out = ""
+    pos = 0
+    for match in re.finditer(r"@media[^{]*prefers-reduced-motion", css_source):
+        if match.start() < pos:
+            continue
+        open_brace = css_source.find("{", match.start())
+        if open_brace < 0:
+            continue
+        depth = 0
+        index = open_brace
+        while index < len(css_source):
+            if css_source[index] == "{":
+                depth += 1
+            elif css_source[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            index += 1
+        out += css_source[pos:match.start()]
+        pos = index + 1
+    return out + css_source[pos:]
 
 
 def _ago_iso(seconds):
@@ -3396,6 +3588,628 @@ def main():
         _page_context_supplies_resolve_prefix_and_manual_resolutions)
 
     # ==================================================================
+    # Section 2.8: the drawing contract (CFG-39, 24-01-PLAN.md Task 4) —
+    # pure in-process source scans over companion/draw.py,
+    # companion/battery.py, companion/pages/*.py and
+    # companion/static/style.css. No subprocess and no password env
+    # needed: none of those modules imports auth or app.py.
+    #
+    # Phase 24 adds four server-rendered SVG drawings across five plans.
+    # These checks are what makes the contract those plans are measured
+    # against a TEST rather than a review comment: a later plan that types
+    # a colour, forgets a fill, names a class that exists in no
+    # stylesheet, copies the battery constants or reaches into a page
+    # module from the geometry layer fails here, before review.
+    #
+    # Every scan below strips comments and docstrings BEFORE measuring,
+    # and that is load-bearing rather than tidy. This phase's own
+    # explanatory paragraphs quote the very tokens being counted:
+    # health_page.py's docstring contains the text `<line class="sparkline-`
+    # and three separate prose mentions of `<polyline>` with no class at
+    # all, and draw.py's module docstring names every rule it enforces. A
+    # scan over raw source would be BROKEN by that prose, and — worse —
+    # could be SATISFIED by it, which is the failure mode this project has
+    # hit repeatedly: fourteen-plus earlier plans tripped a count on their
+    # own comments.
+    # ==================================================================
+
+    def _python_source_parts(path):
+        """`(code, literals)` for the Python file at `path`: its source
+        with every comment and docstring removed, and the list of
+        `(line_number, raw_text)` of every string literal that is NOT a
+        docstring.
+
+        Two products from one tokenisation because the scans below need
+        both halves. `code` is what a "is this symbol defined here" scan
+        measures, so a paragraph of prose naming the symbol cannot satisfy
+        it. `literals` is what a "what does this module actually emit"
+        scan measures: emitted markup lives in string literals and
+        nowhere else, so scanning literals alone is both narrower and
+        more honest than scanning the file.
+
+        A docstring is recognised structurally — a string token standing
+        alone as its own statement — rather than by position, so a
+        helper's explanatory docstring halfway down a module is stripped
+        exactly like the module's own.
+        """
+        with open(path) as fh:
+            source = fh.read()
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+        code_parts = []
+        literals = []
+        previous = tokenize.NEWLINE
+        for index, token in enumerate(tokens):
+            if token.type == tokenize.COMMENT:
+                continue
+            if token.type == tokenize.STRING and previous in (
+                    tokenize.NEWLINE, tokenize.NL, tokenize.INDENT,
+                    tokenize.DEDENT, tokenize.ENCODING):
+                following = None
+                for later in tokens[index + 1:]:
+                    if later.type != tokenize.COMMENT:
+                        following = later
+                        break
+                if following is not None and following.type in (
+                        tokenize.NEWLINE, tokenize.NL):
+                    previous = token.type
+                    continue
+            if token.type == tokenize.STRING:
+                literals.append((token.start[0], token.string))
+            code_parts.append(token.string)
+            if token.type not in (tokenize.COMMENT,):
+                previous = token.type
+        return "\n".join(code_parts), literals
+
+    def _python_files_under(*roots):
+        """Every non-harness `*.py` file under `roots`, as repo-relative
+        paths with forward slashes, sorted. Harnesses are excluded because
+        a test file legitimately names anything it asserts about.
+        """
+        found = []
+        for root in roots:
+            for dirpath, dirnames, filenames in os.walk(os.path.join(REPO_ROOT, root)):
+                dirnames[:] = [d for d in dirnames
+                               if d not in (".venv", "__pycache__", "node_modules")]
+                for name in filenames:
+                    if not name.endswith(".py") or name.startswith("test_"):
+                        continue
+                    full = os.path.join(dirpath, name)
+                    found.append(os.path.relpath(full, REPO_ROOT).replace(os.sep, "/"))
+        return sorted(found)
+
+    # companion/battery.py is the ONE home for the companion's battery
+    # estimate (19-01, extended by 24-01). server/poll_loop.py carries a
+    # private, DOCUMENTED copy under different names, and that copy is
+    # architectural rather than accidental: the server package must never
+    # import the web-app package (D-27, the constraint server/wake.py's
+    # own docstring also states), so the poll oneshot genuinely cannot
+    # call companion/battery.py. The allow-list below is therefore an
+    # allow-list of exactly two entries with two different justifications,
+    # not a licence — any THIRD definition, anywhere, fails.
+    _BATTERY_CONSTANT_HOMES = {
+        "companion/battery.py": ("BATTERY_FULL_MV", "BATTERY_EMPTY_MV"),
+        "server/poll_loop.py": ("_NOTIFY_BATTERY_FULL_MV", "_NOTIFY_BATTERY_EMPTY_MV"),
+    }
+    _BATTERY_FUNCTION_HOMES = {
+        "companion/battery.py": ("battery_percent", "battery_fraction"),
+        "server/poll_loop.py": ("_battery_percent_estimate",),
+    }
+
+    def _battery_estimate_has_exactly_one_home():
+        constant_tail = re.compile(r"BATTERY_(FULL|EMPTY)_MV$")
+        for path in _python_files_under("companion", "server"):
+            code, _literals = _python_source_parts(os.path.join(REPO_ROOT, path))
+            for match in re.finditer(r"(?m)^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)", code):
+                name = match.group(1)
+                if not constant_tail.search(name):
+                    continue
+                if name not in _BATTERY_CONSTANT_HOMES.get(path, ()):
+                    return False, (
+                        "%s defines %s — the companion's battery millivolt constants have "
+                        "exactly one home (companion/battery.py), plus server/poll_loop.py's "
+                        "documented private copy that exists only because the server package "
+                        "may never import the web-app package. A third copy is how two "
+                        "surfaces come to show two different percentages for one reading."
+                        % (path, name))
+            for match in re.finditer(r"(?m)^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)", code):
+                name = match.group(1)
+                if "battery_percent" not in name and "battery_fraction" not in name:
+                    continue
+                if name not in _BATTERY_FUNCTION_HOMES.get(path, ()):
+                    return False, (
+                        "%s defines %s() — a second battery estimate. Every companion-side "
+                        "caller reaches the one estimate through companion/battery.py."
+                        % (path, name))
+            # The third net, and the only one that catches a copy made
+            # under NEW names: the two millivolt endpoints appearing
+            # TOGETHER in one module is the signature of a copied
+            # estimate, whatever the copy calls itself. 4200 alone is
+            # innocent — health_page.SPARKLINE_Y_MAX_MV is legitimately
+            # the same number, being the same battery's full charge —
+            # which is exactly why the pair, not either literal, is what
+            # is measured.
+            if path in _BATTERY_CONSTANT_HOMES:
+                continue
+            if "4200" in code and "3300" in code:
+                return False, (
+                    "%s names both 4200 and 3300 — the signature of a re-derived battery "
+                    "percentage. The estimate lives in companion/battery.py." % path)
+        return True, ""
+    check(
+        "the battery millivolt constants are defined in exactly one companion module "
+        "(companion/battery.py) plus server/poll_loop.py's documented private copy, no other "
+        "module defines a second battery_percent()/battery_fraction(), and no module outside "
+        "those two names both millivolt endpoints — comments and docstrings stripped first, so "
+        "the prose that explains the rule can neither satisfy nor break it (CFG-39, T-24-03)",
+        _battery_estimate_has_exactly_one_home)
+
+    def _drawing_emitter_files():
+        """companion/draw.py plus every page module — the modules that
+        actually emit drawing markup. Deliberately not companion/layout.py:
+        its icon sprite is a different convention (an <svg><use> against
+        one defs block), and this contract is about DRAWINGS.
+        """
+        files = ["companion/draw.py"]
+        files += [p for p in _python_files_under("companion/pages")]
+        return files
+
+    _COLOUR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(")
+
+    def _no_colour_literal_in_emitted_markup():
+        for path in _drawing_emitter_files():
+            _code, literals = _python_source_parts(os.path.join(REPO_ROOT, path))
+            for line_number, text in literals:
+                found = _COLOUR_LITERAL.search(text)
+                if found is not None:
+                    return False, (
+                        "%s:%d emits the colour %r — a colour decided in Python is correct in "
+                        "ONE theme. Every drawn shape takes its colour from a class bound to a "
+                        "theme token, which is redefined under the dark theme so the shape "
+                        "follows for free. A literal is also invisible to "
+                        "companion/test_contrast_check.py."
+                        % (path, line_number, found.group(0)))
+        return True, ""
+    check(
+        "no string literal in companion/draw.py or any companion/pages/*.py module carries a "
+        "colour value into emitted SVG markup — docstrings excluded, so a paragraph explaining "
+        "the rule cannot break the scan (CFG-39 contract rule 3)",
+        _no_colour_literal_in_emitted_markup)
+
+    _SHAPE_ELEMENT = re.compile(
+        r"<(rect|circle|line|path|polygon|polyline|ellipse)\b([^>]*)")
+
+    def _every_drawn_shape_has_a_fill_route():
+        for path in _drawing_emitter_files():
+            _code, literals = _python_source_parts(os.path.join(REPO_ROOT, path))
+            for line_number, text in literals:
+                for match in _SHAPE_ELEMENT.finditer(text):
+                    attributes = match.group(2)
+                    if ("class=" in attributes or "fill=" in attributes
+                            or "stroke=" in attributes):
+                        continue
+                    return False, (
+                        "%s:%d emits a <%s> with neither a class nor an explicit fill/stroke — "
+                        "it takes the SVG default fill, which is black: correct against a light "
+                        "card, invisible against a dark one, and invisible to the contrast "
+                        "harness too" % (path, line_number, match.group(1)))
+        return True, ""
+    check(
+        "every <rect>/<circle>/<line>/<path>/<polygon>/<polyline>/<ellipse> emitted by "
+        "companion/draw.py or a page module carries a class attribute or an explicit "
+        "fill/stroke — a shape with neither paints SVG-default black and is invisible in one "
+        "of the two themes (CFG-39 contract rule 4)",
+        _every_drawn_shape_has_a_fill_route)
+
+    def _every_emitted_class_resolves_in_the_stylesheet():
+        # Collected from draw.py's own named constants rather than
+        # scraped from its string literals, which is why the emitters take
+        # their class names from constants at all: a scrape would miss a
+        # class built by concatenation and would pick up every unrelated
+        # word in the file.
+        with open(os.path.join(HERE, "static", "style.css")) as fh:
+            css = fh.read()
+        css = re.sub(r"/\*.*?\*/", " ", css, flags=re.S)
+        for class_name in draw.DRAWING_CLASSES:
+            # The negative lookahead is not decoration. `.drawing-axis` is
+            # a SUBSTRING of `.drawing-axis-label`, and `.drawing` is a
+            # substring of both plus `.drawing__canvas` — a plain `in`
+            # test would report every one of them as resolved on the
+            # strength of one selector, which is the substring collision
+            # that has silently redirected checks in this codebase before.
+            pattern = r"\.%s(?![-\w])" % re.escape(class_name)
+            if re.search(pattern, css) is None:
+                return False, (
+                    "companion/draw.py can emit class %r and companion/static/style.css "
+                    "carries no selector for it — a class that exists in Python and nowhere "
+                    "in CSS paints NOTHING at all, and nothing else in this codebase would "
+                    "notice" % (class_name,))
+        return True, ""
+    check(
+        "every class name companion/draw.py can emit (DRAWING_CLASSES, its own constants) "
+        "resolves to at least one selector in companion/static/style.css, matched on a "
+        "selector boundary so `.drawing-axis` is not reported as resolved by "
+        "`.drawing-axis-label` (CFG-39)",
+        _every_emitted_class_resolves_in_the_stylesheet)
+
+    def _draw_module_imports_no_page_and_no_server():
+        # Read off the ABSTRACT SYNTAX TREE rather than the token stream:
+        # an AST carries no comments and no docstrings at all, so the
+        # comment-stripping claim is structural here rather than
+        # something this check has to do itself — and a dotted module
+        # name survives intact, which a token scan cannot promise.
+        with open(os.path.join(HERE, "draw.py")) as fh:
+            tree = ast.parse(fh.read())
+        imported = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    imported.add(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                base = node.module or ""
+                for alias in node.names:
+                    imported.add("%s.%s" % (base, alias.name) if base else alias.name)
+        for name in sorted(imported):
+            root = name.split(".")[0]
+            if root in ("server", "stub-server"):
+                return False, (
+                    "companion/draw.py imports %r — a geometry module must not depend on the "
+                    "server package" % (name,))
+            if "companion.pages" in name or name.endswith("_page"):
+                return False, (
+                    "companion/draw.py imports the page module %r — draw.py exists so pages "
+                    "can share geometry WITHOUT any page-to-page dependency; importing one "
+                    "here inverts that" % (name,))
+            if name in ("companion.layout", "layout", "companion.layout.escape_html"):
+                return False, (
+                    "companion/draw.py imports companion/layout.py — layout.py owns the page "
+                    "shell, nav, tiles and timestamps, and pulling it in would make every "
+                    "drawing depend on the shell it is drawn inside")
+        if not imported <= {"html", "math"}:
+            return False, (
+                "companion/draw.py is stdlib-only; unexpected imports %r"
+                % (sorted(imported - {"html", "math"}),))
+        return True, ""
+    check(
+        "companion/draw.py imports no page module, nothing from the server package and not "
+        "companion/layout.py — read off the module's abstract syntax tree, which carries no "
+        "comment and no docstring at all, so the paragraph stating the rule cannot satisfy it "
+        "and a dotted module name survives intact (CFG-39)",
+        _draw_module_imports_no_page_and_no_server)
+
+    def _draw_module_emits_no_script_and_no_external_reference():
+        # D-09's no-JS floor is why this phase server-renders its SVG at
+        # all: the drawing arrives complete in the first response and
+        # paints with scripts blocked. The page shell's own deferred-script
+        # count is pinned separately and unchanged by this phase — see
+        # _fourteen_deferred_scripts_before_closing_body() below, which
+        # this phase does not move.
+        samples = [
+            draw.rect(draw.DRAWING_AXIS_CLASS, 0, "100%", 1, 4),
+            draw.line(draw.DRAWING_LINE_CLASS, "0.00%", "1.00%", "2.00%", "3.00%"),
+            draw.circle(draw.DRAWING_MARK_CLASS, "50.00%", "50.00%", 3),
+            draw.path(draw.DRAWING_LINE_CLASS, "M0 0 L10 10", attrs={"fill": "none"}),
+            draw.title("a reading"),
+            draw.label_span("4200 mV"),
+            draw.percent_canvas(draw.DRAWING_CANVAS_CLASS, "", label="chart"),
+            draw.unit_canvas(draw.DRAWING_FIGURE_CLASS, "", 48, 48, hidden=True),
+        ]
+        for markup in samples:
+            for banned in ("<script", "url(", "href=", "src=", "onload", "<image",
+                           "javascript:", "style="):
+                if banned in markup:
+                    return False, (
+                        "companion/draw.py emitted %r, which contains %r — a drawing that "
+                        "needs a script, an external reference or an inline style has left "
+                        "the no-JS floor (D-09) or the app's script-src 'self' policy"
+                        % (markup, banned))
+        for attempt, label in (
+                ({"fill": "url(#gradient)"}, "an external reference"),
+                ({"href": "/static/x.svg"}, "a loaded reference"),
+                ({"style": "fill: currentColor"}, "an inline style")):
+            try:
+                draw.rect(draw.DRAWING_AXIS_CLASS, 0, 0, 1, 1, attrs=attempt)
+            except ValueError:
+                continue
+            return False, (
+                "companion/draw.py accepted %s (%r) instead of refusing it" % (label, attempt))
+        return True, ""
+    check(
+        "every companion/draw.py emitter returns complete markup with no script tag, no "
+        "external reference and no inline style, and refuses an attribute carrying one — the "
+        "no-JS floor (D-09) is why this phase server-renders its SVG",
+        _draw_module_emits_no_script_and_no_external_reference)
+
+    def _draw_module_escapes_every_interpolated_value():
+        # T-24-01: history.db values — timestamps, firmware strings,
+        # airline names — are interpolated into <title> elements and
+        # attributes and served to a browser. One escaping helper, used by
+        # every emitter, with no "this value is always safe" exception.
+        hostile = "<img src=x>&\"'"
+        escaped = draw.escape(hostile)
+        for character, entity in (("<", "&lt;"), (">", "&gt;"), ("&", "&amp;"),
+                                  ('"', "&quot;"), ("'", "&#x27;")):
+            if entity not in escaped:
+                return False, (
+                    "draw.escape() left %r unescaped: %r" % (character, escaped))
+        if "<img" in escaped:
+            return False, "draw.escape() let a tag through: %r" % (escaped,)
+        if draw.escape(None) != "":
+            return False, "draw.escape(None) must be the empty string, got %r" % (
+                draw.escape(None),)
+        for markup, origin in (
+                (draw.title(hostile), "title()"),
+                (draw.label_span(hostile), "label_span()"),
+                (draw.percent_canvas(draw.DRAWING_CANVAS_CLASS, "", label=hostile),
+                 "percent_canvas(label=)"),
+                (draw.circle(draw.DRAWING_MARK_CLASS, 0, 0, 3,
+                             attrs={"data-when": 'a"b&c'}), "circle(attrs=)")):
+            if "<img" in markup or 'a"b' in markup:
+                return False, (
+                    "draw.%s did not route its value through escape(): %r" % (origin, markup))
+        if "&quot;" not in draw.circle(draw.DRAWING_MARK_CLASS, 0, 0, 3,
+                                      attrs={"data-when": 'a"b&c'}):
+            return False, "an attribute value reached the markup unescaped"
+        return True, ""
+    check(
+        "companion/draw.py escapes every interpolated value through its one escape() helper — "
+        "all five dangerous characters, in element content and in attribute values alike, with "
+        "no 'this value is always safe' exception (T-24-01)",
+        _draw_module_escapes_every_interpolated_value)
+
+    def _draw_module_scales_clamp_and_never_raise():
+        # T-24-04: a drawing emitter reached with a hostile or absent
+        # series. Asserted AT both boundaries rather than near them,
+        # because a scale that rescales itself to its own data is the
+        # defect D-04/A-22 removed from this app once already.
+        low, high, inset = 3000, 4200, 3.75
+        if draw.percent_y(low - 1, low, high, inset) != draw.percent_y(low, low, high, inset):
+            return False, "percent_y() below the domain floor must pin at exactly the floor"
+        if draw.percent_y(high + 1, low, high, inset) != draw.percent_y(high, low, high, inset):
+            return False, "percent_y() above the domain ceiling must pin at exactly the ceiling"
+        if draw.percent_y(high, low, high, 0.0) != 0.0:
+            return False, "percent_y() must invert for SVG's downward y axis"
+        if draw.percent_y(low, low, high, 0.0) != 100.0:
+            return False, "percent_y() must place the domain floor at the bottom"
+        if draw.percent_x(-1, 6) != 0.0 or draw.percent_x(99, 6) != 100.0:
+            return False, "percent_x() must pin an out-of-range index at exactly 0/100"
+        if draw.percent_x(0, 1) != 0.0:
+            return False, "percent_x() must not divide by zero for a one-point series"
+        if draw.unit_circle_dash_array(0.0, 10).split()[0] != "0.0000":
+            return False, "a zero-fraction ring must draw no arc at all"
+        if draw.unit_circle_dash_array(5, 10) != draw.unit_circle_dash_array(1.0, 10):
+            return False, "a fraction above 1 must pin at a full ring, never wrap"
+        # The pair filter, at the shape that actually breaks a chart: the
+        # NEWEST row carries no reading, so a "mark the latest point"
+        # drawing must mark the newest row that HAS one, with that row's
+        # own label attached.
+        rows = [{"battery_mv": None, "ts": "unusable-newest"},
+                {"battery_mv": 3900, "ts": "real-newest"},
+                {"battery_mv": True, "ts": "a-bool-is-not-a-reading"},
+                {"battery_mv": 3800, "ts": "older"}]
+        pairs = draw.usable_pairs(rows, "battery_mv")
+        if [value for value, _row in pairs] != [3800, 3900]:
+            return False, (
+                "usable_pairs() must keep only usable readings, chronologically: %r" % (pairs,))
+        if pairs[-1][1]["ts"] != "real-newest":
+            return False, (
+                "a dropped row must drop its own label — the last pair's label source is %r"
+                % (pairs[-1][1]["ts"],))
+        for hostile in (None, True, False, -1, 0, "", "abc", {}, [], float("nan")):
+            try:
+                draw.percent_x(hostile, hostile)
+                draw.percent_y(hostile, 3000, 4200, hostile)
+                draw.percent_attr(hostile)
+                draw.unit_circle_dash_array(hostile, hostile)
+                draw.unit_point_on_circle(hostile, hostile, hostile, hostile)
+                draw.usable_pairs(hostile, "battery_mv")
+                draw.escape(hostile)
+                draw.is_number(hostile)
+            except Exception as exc:
+                return False, (
+                    "a draw.py helper raised %r on the input %r — every helper here states "
+                    "'never raises', because a drawing that crashes has broken the whole page "
+                    "rather than just itself" % (exc, hostile))
+        return True, ""
+    check(
+        "companion/draw.py's scales clamp into their caller-supplied FIXED domain and pin at "
+        "exactly the floor and ceiling positions, usable_pairs() drops a row's label with the "
+        "row itself, and no helper raises on None/a bool/a negative/a string/a NaN (T-24-04, "
+        "D-04/A-22)",
+        _draw_module_scales_clamp_and_never_raise)
+
+    def _ring_gauge_is_one_emitter_whose_size_drives_the_geometry():
+        """CFG-40 (24-04-PLAN.md Task 1): the battery ring gauge.
+
+        The requirement is ONE emitter called at two sizes, so what is
+        measured here is exactly what makes a second, drifting copy
+        unavailable — and what makes a "CSS-only small variant"
+        (identical geometry, a thinner class) fail.
+
+        The SIZE PARAMETER MUST MOVE THE GEOMETRY. Two sizes have to
+        produce a different radius AND a different stroke width in the
+        emitted markup. A size that only swapped a class would leave the
+        small ring's stroke proportionally twice as thick as the large
+        one's, and the two would read as different components — which is
+        the drift CFG-40 names, arriving through the back door.
+
+        THE TWO DEGENERATE FRACTIONS. 0 and 1 are where BOTH arc
+        mechanisms fail and are therefore asserted exactly, not near:
+        a zero-length dash renders as a DOT under a round line cap, so
+        "empty" would read as a few percent; and an <path> arc whose
+        sweep is the whole circle is degenerate in SVG and draws
+        NOTHING, so "full" would read as empty — the worst possible
+        value to be wrong at. The emitter answers the first by emitting
+        no value arc at all at 0, and the second by emitting a plain
+        complete circle with no dash pattern at 1.
+
+        The drawn length at 0.5 is recomputed FROM THE EMITTED
+        ATTRIBUTES (the radius and the dash array the markup actually
+        carries), never from the input fraction — a check that reads the
+        input back is a check that passes for an emitter that ignores it.
+        """
+        def _arc(markup, class_name):
+            # An EXACT class-attribute match, not a substring test: this
+            # file has been bitten by `.drawing-axis` matching inside
+            # `.drawing-axis-label`, and the same trap is one rename away
+            # here ("drawing-ring-value" / "drawing-ring-value--full").
+            for element in re.findall(r"<circle[^>]*/>", markup):
+                if re.search(r'class="%s"' % re.escape(class_name), element):
+                    return element
+            return None
+
+        def _attr(element, name):
+            found = re.search(r'\b%s="([^"]*)"' % re.escape(name), element or "")
+            return found.group(1) if found else None
+
+        for constant in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
+            if constant not in draw.DRAWING_CLASSES:
+                return False, (
+                    "the ring's class %r is not in draw.DRAWING_CLASSES, so the "
+                    "class-resolution guard above never checks it against style.css — "
+                    "a class that exists in Python and nowhere in CSS paints nothing"
+                    % (constant,))
+
+        large = draw.ring_gauge(0.5, 72)
+        small = draw.ring_gauge(0.5, 36)
+
+        # 1. The size parameter drives geometry, both halves of it.
+        for name in ("r", "stroke-width"):
+            big_value = _attr(_arc(large, draw.DRAWING_RING_VALUE_CLASS), name)
+            small_value = _attr(_arc(small, draw.DRAWING_RING_VALUE_CLASS), name)
+            if big_value is None or small_value is None:
+                return False, (
+                    "the ring's value arc carries no %r attribute at one of the two "
+                    "sizes (%r / %r)" % (name, big_value, small_value))
+            if big_value == small_value:
+                return False, (
+                    "two sizes emitted the same %r (%r) — the size parameter is not "
+                    "driving the geometry, which is the CSS-only 'small variant' "
+                    "CFG-40 forbids" % (name, big_value))
+
+        # 2. Fraction 0: NO value arc at all, not a zero-length one.
+        empty = draw.ring_gauge(0.0, 72)
+        if _arc(empty, draw.DRAWING_RING_VALUE_CLASS) is not None:
+            return False, (
+                "a fraction of 0 emitted a value arc: %r — a zero-length dash renders "
+                "as a dot under a round cap, so empty would read as a few percent"
+                % (_arc(empty, draw.DRAWING_RING_VALUE_CLASS),))
+        if _arc(empty, draw.DRAWING_RING_TRACK_CLASS) is None:
+            return False, "a fraction of 0 must still draw the full track"
+
+        # 3. Fraction 1: a complete circle, carrying no dash pattern.
+        full_arc = _arc(draw.ring_gauge(1.0, 72), draw.DRAWING_RING_VALUE_CLASS)
+        if full_arc is None:
+            return False, "a fraction of 1 emitted no value arc at all"
+        if _attr(full_arc, "stroke-dasharray") is not None:
+            return False, (
+                "a fraction of 1 emitted a dash pattern (%r) — a complete circle is "
+                "emitted complete, so no rounding of the circumference can leave a "
+                "seam at 100%%" % (_attr(full_arc, "stroke-dasharray"),))
+
+        # 4. Fraction 0.5: half the circumference, recomputed from the
+        #    emitted radius and dash array.
+        half_arc = _arc(draw.ring_gauge(0.5, 72), draw.DRAWING_RING_VALUE_CLASS)
+        dash = _attr(half_arc, "stroke-dasharray")
+        radius = _attr(half_arc, "r")
+        if dash is None or radius is None:
+            return False, "the half-full ring carries no dash array / radius: %r" % (half_arc,)
+        drawn = float(dash.split()[0])
+        circumference = 2 * math.pi * float(radius)
+        if abs(drawn - circumference / 2) > 0.01:
+            return False, (
+                "the half-full ring draws %.4f of its own %.4f circumference, not half"
+                % (drawn, circumference))
+
+        # 5. Every arc: an explicit fill route, a class, and no colour
+        #    literal anywhere in the emitted markup.
+        for markup, label in ((large, "0.5"), (empty, "0.0"),
+                              (draw.ring_gauge(1.0, 72), "1.0")):
+            for element in re.findall(r"<circle[^>]*/>", markup):
+                # A BOUNDARY match, not `'fill="none"' in element`. Found
+                # by mutation: renaming the attribute to `data-fill` left
+                # the plain substring test green, because `data-fill=
+                # "none"` CONTAINS `fill="none"`. This file has the same
+                # trap recorded from the other direction for
+                # `.drawing-axis` inside `.drawing-axis-label`.
+                if not re.search(r'(?<![-\w])fill="none"', element):
+                    return False, (
+                        "a ring arc at fraction %s carries no explicit fill=\"none\": %r "
+                        "— a stroked shape with no fill route takes the SVG default "
+                        "black, correct in one theme and invisible in the other"
+                        % (label, element))
+                if not re.search(r'class="[^"]+"', element):
+                    return False, "a ring arc at fraction %s carries no class: %r" % (label, element)
+            literals = re.findall(r"#[0-9a-fA-F]{3,8}|rgb\(", markup)
+            if literals:
+                return False, (
+                    "the ring emitted colour literals %r at fraction %s — every colour "
+                    "comes from a class bound to a theme token" % (literals, label))
+
+        # 5b. THE DIRECTION, MEASURED RATHER THAN MERELY DOCUMENTED.
+        #     Found by mutation: the docstring states "twelve o'clock,
+        #     clockwise", and mirroring the arc with an extra
+        #     `scale(-1 1)` left every other assertion here green — so
+        #     the one property a later caller is most likely to get
+        #     silently wrong was the one property nothing measured. The
+        #     transform IS the mechanism: <circle>'s own dash origin is
+        #     three o'clock and its direction is clockwise, so exactly
+        #     one rotation about the ring's own centre, and nothing
+        #     else, puts the start at the top without mirroring it.
+        for markup, centre in ((large, "36.00"), (small, "18.00")):
+            arc = _arc(markup, draw.DRAWING_RING_VALUE_CLASS)
+            expected = "rotate(-90 %s %s)" % (centre, centre)
+            if _attr(arc, "transform") != expected:
+                return False, (
+                    "the value arc's transform is %r, not %r — that one attribute is "
+                    "what puts the arc's start at twelve o'clock and leaves it running "
+                    "clockwise, so anything else here is a silently mirrored or "
+                    "re-based gauge" % (_attr(arc, "transform"), expected))
+
+        # 6. The size route: a viewBox AND intrinsic width/height, so the
+        #    SVG default 300x150 (layout.icon_html()'s recorded trap) is
+        #    unreachable even with no stylesheet at all.
+        opening = large[:large.index(">") + 1]
+        for name in ("viewBox", "width", "height"):
+            if _attr(opening, name) is None:
+                return False, (
+                    "the ring's <svg> carries no %r — with neither a size attribute nor "
+                    "a CSS rule an <svg> renders at the SVG default 300x150 and blows "
+                    "the layout apart" % (name,))
+        if 'aria-hidden="true"' not in opening:
+            return False, (
+                "the ring must be aria-hidden: the percentage is already text beside it "
+                "at both call sites, so a labelled graphic would be read twice")
+
+        # 7. Total. The fraction reaches this emitter from a stored
+        #    millivolt reading (T-24-04-A), so every shape of junk has to
+        #    produce a DEFINED drawing rather than an exception that
+        #    takes the whole page down with it.
+        for hostile in (None, True, False, -0.5, 1.5, float("nan"), "", "abc", {}, []):
+            try:
+                junk = draw.ring_gauge(hostile, 72)
+                draw.ring_gauge(0.5, hostile)
+            except Exception as exc:
+                return False, (
+                    "draw.ring_gauge() raised %r on the fraction %r — a drawing that "
+                    "crashes has broken the whole page rather than just itself"
+                    % (exc, hostile))
+            if _arc(junk, draw.DRAWING_RING_TRACK_CLASS) is None:
+                return False, (
+                    "the fraction %r produced no track at all: %r" % (hostile, junk))
+        if _arc(draw.ring_gauge(-0.5, 72), draw.DRAWING_RING_VALUE_CLASS) is not None:
+            return False, "a negative fraction must pin at empty, drawing no value arc"
+        if draw.ring_gauge(1.5, 72) != draw.ring_gauge(1.0, 72):
+            return False, "a fraction above 1 must pin at exactly a full ring, never wrap"
+        return True, ""
+    check(
+        "draw.ring_gauge() is ONE size-parameterised emitter whose size moves the radius AND "
+        "the stroke width (never a CSS-only small variant), draws no value arc at all at 0 and "
+        "a complete dash-free circle at 1, draws half its own emitted circumference at 0.5, "
+        "gives every arc an explicit fill route and a class with no colour literal, carries a "
+        "viewBox plus intrinsic width/height and aria-hidden, and never raises (CFG-40, "
+        "T-24-04-A)",
+        _ring_gauge_is_one_emitter_whose_size_drives_the_geometry)
+    # ==================================================================
     # Section 3: companion/app.py (plan 06-05) — a real companion/app.py
     # subprocess, launched on a free local port, driven with
     # urllib.request. This section owns its own harness lifecycle
@@ -3696,6 +4510,101 @@ def main():
             "from the dirty-bar element's own data-dirty-* attributes, and each removed "
             "hardcoded literal survives only as its own documented fallback (D-06)",
             _dirty_state_script_es5_safe_reads_five_connector_attributes)
+
+        def _dirty_state_animates_the_counts_element_and_never_its_number():
+            # 23-09-PLAN.md Task 1 (D3/CFG-32). The save bar is
+            # role="status" and the count is its content, so an
+            # animation that rewrote the text more than once per change
+            # would make a screen reader announce the same number twice
+            # — or announce a partial one. The rule this check enforces
+            # is the one 23-08 established on the filter count: animate
+            # the ELEMENT, write the number exactly once, and only when
+            # it genuinely differs.
+            js_path = os.path.join(HERE, "static", "dirty-state.js")
+            with open(js_path) as fh:
+                src = fh.read()
+
+            # ONE write site. Before this plan the count's text was
+            # assigned in four branches of updateBar(); four write sites
+            # is four places a later plan can forget the gate below.
+            #
+            # The negative lookahead is load-bearing, not decoration: a
+            # plain substring search for the assignment also matches the
+            # GATE's own `=== ` comparison one line above it, so the
+            # count would read one higher than the truth and this check
+            # would have been failing on the very implementation it
+            # exists to require. Same substring-collision class 23-08
+            # hit on a selector that ended in another selector.
+            write_sites = [m.start() for m in re.finditer(
+                r"countEl\.textContent =(?!=)", src)]
+            if len(write_sites) != 1:
+                return False, (
+                    "expected exactly ONE assignment to the count's textContent in "
+                    "dirty-state.js, got %d — the count lives in a role=\"status\" region, so "
+                    "every extra write site is another way for the same number to be announced "
+                    "twice" % (len(write_sites),))
+
+            # THE GATE. Without it the text is rewritten on every
+            # keystroke — the live region re-announces a number that did
+            # not change, and the animation fires carrying no
+            # information, which is the one thing a motion budget exists
+            # to stop.
+            if "countEl.textContent === text" not in src:
+                return False, (
+                    "expected the count's write to be gated on the text having actually changed "
+                    "— an unrelated re-render must write nothing at all, not the same string "
+                    "again")
+
+            # TEXT FIRST, CLASS SECOND. The displayed value has to be
+            # correct at every instant, including the animation's first
+            # frame: what animates is the element's presentation, never
+            # the number itself.
+            if "is-fading-in" not in src:
+                return False, (
+                    "expected the count to spend the stylesheet's EXISTING changed-value "
+                    "animation (.is-fading-in), whose own rule comment says it names the motion "
+                    "rather than the component so the next thing that changes under the reader "
+                    "spends it — not a fourth keyframes block")
+            write_at = write_sites[0]
+            add_at = src.index("classList.add(")
+            if add_at < write_at:
+                return False, (
+                    "expected the count's text to be written BEFORE the animation class is "
+                    "added, so the displayed number is the real one from the first frame")
+            # Removed, reflowed, re-added — or a second change in a row
+            # runs nothing at all, because the browser coalesces a
+            # remove and an add in one frame into no change.
+            for token in ("classList.remove(", "offsetWidth"):
+                if token not in src:
+                    return False, (
+                        "expected %r — a class that is already present animates nothing on the "
+                        "next change unless it is removed, a layout property is read, and it is "
+                        "re-added" % (token,))
+            remove_at = src.index("classList.remove(")
+            if not (write_at < remove_at < add_at):
+                return False, (
+                    "expected the order write-text, remove-class, re-add-class, got offsets "
+                    "%d/%d/%d" % (write_at, remove_at, add_at))
+
+            # And the reflow is NOT a timer. This file's standing
+            # constraint (its own header, and a live check in
+            # companion/test_config_page.py) is that it introduces no
+            # network call, no timer and no persistent state, ever.
+            for forbidden in ("setTimeout", "setInterval", "requestAnimationFrame"):
+                if forbidden in src:
+                    return False, (
+                        "dirty-state.js must not contain %r — its own header makes "
+                        "no-timer a standing constraint, not a description of one version"
+                        % (forbidden,))
+            return True, ""
+        check(
+            "dirty-state.js animates the change count's ELEMENT and never its number: exactly one "
+            "text write site, gated on the text having genuinely changed, written before the "
+            "class is added, spending the stylesheet's existing .is-fading-in rule through a "
+            "remove/reflow/re-add with no timer anywhere — so the role=\"status\" region "
+            "announces each change once and never a partial number (D3/CFG-32, 23-09-PLAN.md "
+            "Task 1)",
+            _dirty_state_animates_the_counts_element_and_never_its_number)
 
         # --- 19-09-PLAN.md Task 3: freshness.js's own named guard (D-02) ---
 
@@ -4150,7 +5059,7 @@ def main():
             "=>/ let / const  (21-03-PLAN.md Task 2)",
             _real_get_flight_rows_route_serves_expected_body)
 
-        def _twelve_deferred_scripts_before_closing_body():
+        def _fourteen_deferred_scripts_before_closing_body():
             # Retargeted in place from _ten_deferred_scripts_before_
             # closing_body() (21-03-PLAN.md Task 2, D-15/R-12):
             # flight-rows.js was the eleventh unconditional script.
@@ -4161,22 +5070,40 @@ def main():
             # which is why a single shell registration covers the lot and
             # why a per-page include would be the per-page handler it
             # exists to replace.
+            # Retargeted a THIRD time, in place, by 23-05-PLAN.md Task 1
+            # (D14/CFG-34): relative-time.js is the thirteenth, and it is
+            # served everywhere for the same shape of reason rather than
+            # per page — the <time data-relative> elements it ticks come
+            # from ONE shared builder (layout.relative_time_html(),
+            # reached by most callers through concise_timestamp_html()),
+            # so no page module knows whether it has one and a per-page
+            # include would have to enumerate a set the pages do not own.
+            # Retargeted a FOURTH time, in place, by 23-07-PLAN.md Task 1
+            # (D2/CFG-36): quick-switch.js is the fourteenth. It is
+            # served everywhere for the third distinct shape of the same
+            # reason — its listener is DELEGATED at document level over
+            # every [data-quick-switch] form in the app, and those forms
+            # live on three different pages (Home and Display carry the
+            # Frame strip's two; Device carries the LED switch's own
+            # sibling form), so a per-page include would enumerate a set
+            # that is already going to grow.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 12:
-                return False, "expected exactly 12 deferred <script src= tags before </body>, got %d" % count
+            if count != 14:
+                return False, "expected exactly 14 deferred <script src= tags before </body>, got %d" % count
             for src_const in (
                     layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
                     layout.POLL_COOLDOWN_SCRIPT_SRC, layout.CONFIRM_SUBMIT_SCRIPT_SRC,
                     layout.THEME_PREVIEW_SCRIPT_SRC, layout.FLIGHT_ROWS_SCRIPT_SRC,
-                    layout.SUBMIT_GUARD_SCRIPT_SRC):
+                    layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
+                    layout.QUICK_SWITCH_SCRIPT_SRC):
                 if ('<script src="%s" defer></script>' % src_const) not in doc:
                     return False, "expected a deferred <script> tag for %r" % src_const
-            # 22-13-PLAN.md Task 2 (X3): the app has THIRTEEN static
-            # scripts as of 22-15, but an authenticated page still loads
-            # exactly the twelve above — login-card.js is emitted by
+            # 22-13-PLAN.md Task 2 (X3): the app has FIFTEEN static
+            # scripts as of 23-07, but an authenticated page still loads
+            # exactly the fourteen above — login-card.js is emitted by
             # login_shell() alone. Asserted here, in the check that
             # already owns this count, so "the authenticated page's
             # script count is unchanged" is pinned by the same machine
@@ -4190,18 +5117,28 @@ def main():
             # plan deliberately registers on the authenticated shell
             # only, so the login form keeps exactly today's behaviour.
             login = layout.login_shell("<p>login</p>")
-            if layout.SUBMIT_GUARD_SCRIPT_SRC in login:
+            for shell_only in (layout.SUBMIT_GUARD_SCRIPT_SRC,
+                               layout.RELATIVE_TIME_SCRIPT_SRC,
+                               layout.QUICK_SWITCH_SCRIPT_SRC):
+                if shell_only in login:
+                    return False, (
+                        "%s is registered on the authenticated shell only — the login shell "
+                        "keeps emitting exactly one deferred script (22-15-PLAN.md Task 3, "
+                        "23-05-PLAN.md Task 1, 23-07-PLAN.md Task 1)" % shell_only)
+            if login.count('<script src=') != 1:
                 return False, (
-                    "submit-guard.js is registered on the authenticated shell only — the login "
-                    "shell keeps emitting exactly one deferred script (22-15-PLAN.md Task 3)")
+                    "expected the login shell to keep emitting exactly one deferred script, "
+                    "got %d" % login.count('<script src='))
             return True, ""
         check(
-            "a rendered authenticated page contains exactly twelve deferred <script src= tags "
+            "a rendered authenticated page contains exactly fourteen deferred <script src= tags "
             "before the closing body tag, including panel-lookup.js, flash-cleanup.js, "
-            "poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js and "
-            "submit-guard.js — and NOT login-card.js, which login_shell() alone emits, nor "
-            "submit-guard.js on that login shell (retargeted in place by 22-15-PLAN.md Task 3)",
-            _twelve_deferred_scripts_before_closing_body)
+            "poll-cooldown.js, confirm-submit.js, theme-preview.js, flight-rows.js, "
+            "submit-guard.js, relative-time.js and quick-switch.js — and NOT login-card.js, which "
+            "login_shell() alone emits, nor submit-guard.js/relative-time.js/quick-switch.js on "
+            "that login shell, which still emits exactly one (retargeted in place by "
+            "23-07-PLAN.md Task 1)",
+            _fourteen_deferred_scripts_before_closing_body)
 
         def _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard():
             # T14 (22-AUDIT.md, 22-15-PLAN.md Task 3). One shared guard
@@ -4287,6 +5224,610 @@ def main():
             "the ONE existing button:disabled rule still ordered after button:active, and changes no CSP "
             "(T14, 22-15-PLAN.md Task 3)",
             _real_get_submit_guard_route_serves_one_shared_disable_on_submit_guard)
+
+        # --- 23-05-PLAN.md Task 1 (D14/CFG-34): relative-time.js, the
+        # thirteenth deferred script on this shell. The same registration
+        # block theme-preview.js and flight-rows.js already carry, plus
+        # the two cross-file pins that stop the ladder and its wording
+        # drifting away from the Python that defines them
+        # (23-RESEARCH.md's Pitfall 4).
+
+        check(
+            "GET /static/relative-time.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/relative-time.js"))
+
+        def _relative_time_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "relative-time.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(", "fetch(",
+                "XMLHttpRequest", "setTimeout(")
+            for token in banned:
+                if token in src:
+                    return False, "relative-time.js must not contain %r" % token
+            # setInterval IS permitted here and is this file's whole
+            # point. freshness.js is the only other script in the tree
+            # with a timer; this is a second, deliberate, reviewed
+            # instance of the same exception, not a precedent anyone may
+            # copy without a new argument.
+            required = (
+                "setInterval", "clearInterval", "visibilitychange",
+                "document.hidden", "textContent", "data-relative",
+                "querySelectorAll", "getAttribute")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in relative-time.js" % token
+            # This file FORMATS. It must never acquire a verdict
+            # vocabulary — those words are frame_state's and stay
+            # server-rendered, which is the rule
+            # companion/static/freshness.js states for the whole app.
+            for verdict in ("warn", "late", "held", "overdue"):
+                if verdict in src:
+                    return False, (
+                        "relative-time.js must carry no verdict vocabulary, found %r — this "
+                        "file measures a distance and picks a wording for it; it never decides "
+                        "that anything is at fault" % verdict)
+            return True, ""
+        check(
+            "relative-time.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/fetch/XHR/setTimeout), "
+            "carries the ticker contract (setInterval+clearInterval, visibilitychange+"
+            "document.hidden, textContent, data-relative, querySelectorAll, getAttribute) and "
+            "no verdict vocabulary at all (D14/CFG-34, 23-05-PLAN.md Task 1)",
+            _relative_time_script_es5_safe_and_no_html_write)
+
+        def _relative_time_script_route_src_agree():
+            import companion.app as app_module
+            if layout.RELATIVE_TIME_SCRIPT_SRC != app_module.RELATIVE_TIME_SCRIPT_ROUTE:
+                return False, "relative-time script route drift: %r vs %r" % (
+                    layout.RELATIVE_TIME_SCRIPT_SRC, app_module.RELATIVE_TIME_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.RELATIVE_TIME_SCRIPT_SRC equals companion.app.RELATIVE_TIME_SCRIPT_ROUTE",
+            _relative_time_script_route_src_agree)
+
+        def _relative_time_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.RELATIVE_TIME_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one relative-time.js <script> tag "
+            "and no inline <script> without a src (D-32)",
+            _relative_time_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _real_get_relative_time_route_serves_the_ticker():
+            # Served over real HTTP, because a registration whose route
+            # 404s is a feature that does not exist — and the deferred-
+            # script count check above would still pass. There is no
+            # catch-all /static/ handler in companion/app.py; each of the
+            # fourteen static scripts needs its own branch and its own
+            # serve method.
+            status, headers, body = http_request(base + "/static/relative-time.js")
+            if status != 200:
+                return False, "expected 200 from GET /static/relative-time.js, got %d" % status
+            text = body.decode("utf-8")
+            for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
+                           "=>", " let ", " const ", "`"):
+                if banned in text:
+                    return False, "did not expect %r in the served relative-time.js body" % banned
+            if "data-relative" not in text or "querySelectorAll" not in text:
+                return False, (
+                    "expected the served body to query the data-relative hook "
+                    "layout.relative_time_html() renders")
+            if "document.hidden" not in text or "visibilitychange" not in text:
+                return False, (
+                    "expected the served body to gate its timer on page visibility — a "
+                    "once-a-second interval running in every background tab forever is the one "
+                    "real cost this file carries (T-23-14)")
+            return True, ""
+        check(
+            "a real GET of /static/relative-time.js returns 200 with the served ticker body — "
+            "the data-relative hook present, the visibility gate present, and none of "
+            "innerHTML/document.write/=>/ let / const  (23-05-PLAN.md Task 1)",
+            _real_get_relative_time_route_serves_the_ticker)
+
+        def _relative_time_ladder_mirrors_layouts_own_boundaries():
+            # 23-RESEARCH.md's Pitfall 4, mitigated rather than promised.
+            # companion/layout.py's _age_bucket() owns the s/m/h/d ladder
+            # and its three boundaries have exactly one site there. The
+            # script is a SECOND implementation of that arithmetic — the
+            # only way to tick a counter in a browser — so this check
+            # reads both and fails if they disagree.
+            #
+            # 23-03-SUMMARY.md's own note, followed: read _age_bucket(),
+            # NOT relative_age_text(), which no longer holds the numbers.
+            import inspect
+            py_source = inspect.getsource(layout._age_bucket)
+            py_bounds = [int(n) for n in re.findall(r"age_seconds < (\d+)", py_source)]
+            if len(py_bounds) != 3:
+                return False, (
+                    "expected three boundaries in layout._age_bucket()'s own source, found %r "
+                    "— this check reads the Python as the definition site and cannot work if "
+                    "the ladder moved out of it" % (py_bounds,))
+            js_path = os.path.join(HERE, "static", "relative-time.js")
+            with open(js_path) as fh:
+                js = fh.read()
+            m = re.search(r"var BUCKET_BOUNDARIES = \[([^\]]*)\];", js)
+            if not m:
+                return False, (
+                    "expected a var BUCKET_BOUNDARIES = [...] array in relative-time.js — the "
+                    "mirror of layout._age_bucket()'s three boundaries")
+            js_bounds = [int(n.strip()) for n in m.group(1).split(",") if n.strip()]
+            if js_bounds != py_bounds:
+                return False, (
+                    "relative-time.js's ladder is %r but layout._age_bucket()'s is %r — the "
+                    "script mirrors the Python and must never lead it; a boundary added, "
+                    "removed or reordered in one is a deliberate edit in both"
+                    % (js_bounds, py_bounds))
+            # Each boundary must appear EXACTLY ONCE in the script's own
+            # code. Without this the check is vacuous in the way that
+            # matters: an array agreeing with the Python while a second,
+            # hard-coded ladder elsewhere in the file does the real work
+            # would satisfy every assertion above. Comments are stripped
+            # first, for the reason 23-01's motion guard strips them —
+            # this file's own header explains the ladder in prose.
+            stripped = re.sub(r"/\*.*?\*/", " ", js, flags=re.S)
+            stripped = re.sub(r"//[^\n]*", " ", stripped)
+            for bound in py_bounds:
+                hits = len(re.findall(r"\b%d\b" % bound, stripped))
+                if hits != 1:
+                    return False, (
+                        "the boundary %d appears %d time(s) in relative-time.js's own code "
+                        "(comments stripped), expected exactly 1 — the array is the single "
+                        "site, and a second occurrence is a second ladder" % (bound, hits))
+            if stripped.count("BUCKET_BOUNDARIES") < 2:
+                return False, (
+                    "BUCKET_BOUNDARIES is declared in relative-time.js but never read — an "
+                    "array that agrees with the Python and is not consumed proves nothing")
+            return True, ""
+        check(
+            "relative-time.js's BUCKET_BOUNDARIES equals layout._age_bucket()'s own three "
+            "boundaries, in order, with each number appearing exactly once in the script's code "
+            "and the array actually read (23-RESEARCH.md Pitfall 4, 23-05-PLAN.md Task 1)",
+            _relative_time_ladder_mirrors_layouts_own_boundaries)
+
+        def _relative_time_wordings_equal_the_ladders_own_output():
+            # The nine wordings layout.relative_copy_attrs() renders onto
+            # <body> are NOT a second ladder: they are the same ladder's
+            # own output with the number lifted out. Filled with the
+            # quantity _age_bucket() picks, each must EQUAL
+            # relative_age_text()/relative_future_text() for a
+            # representative instant in every bucket, in BOTH languages.
+            #
+            # One sample per bucket, each well inside it, so French's
+            # sub-minute collapse — a wording with no place to substitute
+            # into — is exercised in both directions.
+            samples = (
+                (0, "seconds"), (240, "minutes"), (7200, "hours"), (172800, "days"))
+            mark = layout.RELATIVE_QUANTITY_MARK
+            for lang in ("en", "fr"):
+                pairs = dict(layout.relative_copy_attrs(lang=lang))
+                for index, (seconds, bucket_name) in enumerate(samples):
+                    quantity, _unit = layout._age_bucket(seconds)
+                    for attrs, filler, direction in (
+                            (layout.RELATIVE_PAST_ATTRS, layout.relative_age_text, "past"),
+                            (layout.RELATIVE_FUTURE_ATTRS, layout.relative_future_text,
+                             "future")):
+                        attr = attrs[index]
+                        if attr not in pairs:
+                            return False, (
+                                "lang=%s: relative_copy_attrs() renders no %r attribute"
+                                % (lang, attr))
+                        wording = pairs[attr]
+                        filled = (wording.replace(mark, str(quantity), 1)
+                                  if mark in wording else wording)
+                        expected = filler(seconds, lang=lang)
+                        if filled != expected:
+                            return False, (
+                                "lang=%s %s %s bucket: the wording on %s fills to %r but "
+                                "layout.%s() renders %r — the ticker's copy is the ladder's own "
+                                "output with the number lifted out, never a second wording"
+                                % (lang, direction, bucket_name, attr, filled,
+                                   filler.__name__, expected))
+            # The waiting phrase is the one string here that is NOT the
+            # ladder's output. It must still be translated.
+            for lang in ("en", "fr"):
+                pairs = dict(layout.relative_copy_attrs(lang=lang))
+                waiting = pairs.get(layout.RELATIVE_WAITING_ATTR)
+                if not waiting:
+                    return False, "lang=%s: relative_copy_attrs() renders no waiting wording" % lang
+                if lang == "fr" and waiting == layout.RELATIVE_WAITING_TEXT:
+                    return False, (
+                        "the waiting wording is untranslated under lang=fr — it reads %r in "
+                        "both languages" % (waiting,))
+            # Every attribute name the Python renders must appear as a
+            # literal in the script that reads it. A rename on one side
+            # alone is silent: the script falls back to its English
+            # constant and the page quietly stops speaking French.
+            js_path = os.path.join(HERE, "static", "relative-time.js")
+            with open(js_path) as fh:
+                js = fh.read()
+            for attr, _text in layout.relative_copy_attrs(lang="en"):
+                if ('"%s"' % attr) not in js:
+                    return False, (
+                        "layout.py renders the %r attribute but relative-time.js never names "
+                        "it — a rename on one side alone degrades the page to English with no "
+                        "error anywhere" % attr)
+            if ('"%s"' % layout.RELATIVE_COUNTDOWN_ATTR) not in js:
+                return False, (
+                    "relative-time.js never names %r — the marker relative_time_html() puts on "
+                    "a countdown, and the only way the script can tell one from an age"
+                    % layout.RELATIVE_COUNTDOWN_ATTR)
+            # Rendered onto <body> by page_shell(), escaped, and present
+            # on a real page rather than merely returned by a helper.
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            body_tag = doc[doc.index("<body"):doc.index(">", doc.index("<body")) + 1]
+            for attr, text in layout.relative_copy_attrs():
+                if ('%s="%s"' % (attr, layout.escape_html(text))) not in body_tag:
+                    return False, (
+                        "expected %s on the rendered <body> tag, got %r" % (attr, body_tag))
+            return True, ""
+        check(
+            "every one of relative-time.js's nine wordings, filled with the quantity "
+            "layout._age_bucket() picks, EQUALS relative_age_text()/relative_future_text()'s own "
+            "output for every bucket in both languages; the waiting phrase is translated; and "
+            "every attribute name reaches both the rendered <body> and the script that reads it "
+            "(D14/CFG-34, 23-05-PLAN.md Task 1)",
+            _relative_time_wordings_equal_the_ladders_own_output)
+
+        def _relative_time_html_countdown_keyword_is_marked_and_neutral():
+            # A countdown that has run out is still a countdown. Without
+            # the marker the element would silently become "0s ago" —
+            # changing what it is about halfway through its own life —
+            # and the script would have no way to tell one from an age.
+            now = "2026-08-01T12:00:00+00:00"
+            soon = "2026-08-01T12:04:00+00:00"
+            gone = "2026-08-01T11:58:00+00:00"
+            plain = layout.relative_time_html(soon, now, lang="en")
+            if layout.RELATIVE_COUNTDOWN_ATTR in plain:
+                return False, (
+                    "the default rendering must be byte-identical to the element 23-03 shipped "
+                    "— no marker unless countdown=True, got %r" % plain)
+            ahead = layout.relative_time_html(soon, now, lang="en", countdown=True)
+            if layout.RELATIVE_COUNTDOWN_ATTR not in ahead:
+                return False, "expected the countdown marker on a countdown element, got %r" % ahead
+            if ">in 4m<" not in ahead:
+                return False, (
+                    "a countdown that has NOT run out still reads the future form, got %r" % ahead)
+            for lang, expected in (("en", layout.RELATIVE_WAITING_TEXT),
+                                   ("fr", "en attente…")):
+                expired = layout.relative_time_html(gone, now, lang=lang, countdown=True)
+                if (">%s<" % layout.escape_html(expected)) not in expired:
+                    return False, (
+                        "lang=%s: an expired countdown must read the waiting wording %r, got %r"
+                        % (lang, expected, expired))
+                if " ago" in expired or "il y a" in expired:
+                    return False, (
+                        "lang=%s: an expired countdown must not turn itself into an age, got %r"
+                        % (lang, expired))
+                for verdict in ("warn", "error", "alert"):
+                    if verdict in expired:
+                        return False, (
+                            "lang=%s: an expired countdown carries no status vocabulary and no "
+                            "warn class — a wake that has not happened yet is not a fault (the "
+                            "false alarm X2 removed), got %r" % (lang, expired))
+            return True, ""
+        check(
+            "layout.relative_time_html(countdown=True) marks the element, keeps the future form "
+            "while the instant is ahead, reads the translated waiting wording once it has passed "
+            "— never an age and never a warn/error/alert token — and the default rendering is "
+            "byte-identical to the element 23-03 shipped (D14/CFG-34, 23-05-PLAN.md Task 1)",
+            _relative_time_html_countdown_keyword_is_marked_and_neutral)
+
+        # --- 23-07-PLAN.md Task 1 (D2/CFG-36): quick-switch.js, the
+        # fourteenth deferred script on this shell and the fifteenth
+        # static script in the tree. The same registration block
+        # relative-time.js already carries, plus the two pins that make
+        # this file's contract with the SERVER and with plan 23-06's
+        # refresh loop machine-checked rather than promised.
+
+        check(
+            "GET /static/quick-switch.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/quick-switch.js"))
+
+        def _quick_switch_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "quick-switch.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            # fetch( is NOT banned here — it is this file's whole point,
+            # and the third reviewed exception in the tree after
+            # freshness.js's loop and relative-time.js's timer. Every
+            # other sink stays banned exactly as it is everywhere else.
+            banned = (
+                "let ", "const ", "=>", "`", "innerHTML", "outerHTML",
+                "insertAdjacentHTML", "document.write", "eval(",
+                "XMLHttpRequest", "setInterval", "location.href", "location.assign",
+                "location.replace")
+            for token in banned:
+                if token in src:
+                    return False, "quick-switch.js must not contain %r" % token
+            required = (
+                "aria-checked", "preventDefault", "stopPropagation", "textContent",
+                "credentials", "same-origin", "redirect", "manual",
+                "X-Requested-With", "encodeURIComponent")
+            for token in required:
+                if token not in src:
+                    return False, "expected %r in quick-switch.js" % token
+            # THE ROLLBACK, pinned by shape rather than by hope.
+            # 23-RESEARCH.md's Pitfall 5 names a .then() with no .catch()
+            # as the warning sign, and `catch` is a reserved word in ES3,
+            # so the bracket form is the one that is safe to ship.
+            if '["catch"]' not in src:
+                return False, (
+                    "quick-switch.js must reach its network-failure branch through the bracket "
+                    "form promise[\"catch\"](...) — a .then() with no catch at all is "
+                    "23-RESEARCH.md's Pitfall 5 by shape, and the dotted form is a reserved "
+                    "word in ES3")
+            # Two terminal branches, two rollbacks. A file that restores
+            # the previous state in the network branch only still lies
+            # on every 500 the server returns.
+            if src.count("rollBack(") < 3:
+                return False, (
+                    "expected quick-switch.js to define one rollback and CALL it from BOTH "
+                    "terminal branches (a non-OK/opaque-redirect response AND a network "
+                    "failure), found %d references to rollBack( in total — a rollback wired to "
+                    "only one of the two is the optimistic switch that lies"
+                    % src.count("rollBack("))
+            return True, ""
+        check(
+            "quick-switch.js stays ES5-safe and sink-free (no let/const/arrow/backtick/"
+            "innerHTML/outerHTML/insertAdjacentHTML/document.write/eval/XHR/setInterval and no "
+            "URL-taking navigation), carries the optimistic-switch contract (aria-checked, "
+            "preventDefault, stopPropagation, textContent, credentials same-origin, "
+            "redirect manual, X-Requested-With, encodeURIComponent) and reaches its rollback "
+            "from BOTH terminal branches through the ES3-safe bracket form (D2/CFG-36, "
+            "23-07-PLAN.md Task 1)",
+            _quick_switch_script_es5_safe_and_no_html_write)
+
+        def _quick_switch_script_route_src_agree():
+            import companion.app as app_module
+            if layout.QUICK_SWITCH_SCRIPT_SRC != app_module.QUICK_SWITCH_SCRIPT_ROUTE:
+                return False, "quick-switch script route drift: %r vs %r" % (
+                    layout.QUICK_SWITCH_SCRIPT_SRC, app_module.QUICK_SWITCH_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.QUICK_SWITCH_SCRIPT_SRC equals companion.app.QUICK_SWITCH_SCRIPT_ROUTE",
+            _quick_switch_script_route_src_agree)
+
+        def _quick_switch_script_tag_exactly_once_and_no_bare_inline_script():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            expected_tag = '<script src="%s" defer></script>' % layout.QUICK_SWITCH_SCRIPT_SRC
+            if doc.count(expected_tag) != 1:
+                return False, "expected exactly one %r, got %d" % (
+                    expected_tag, doc.count(expected_tag))
+            for match in re.finditer(r"<script(?![^>]*\bsrc=)[^>]*>", doc):
+                return False, "expected no inline <script> without a src, found %r" % match.group(0)
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly one quick-switch.js <script> tag "
+            "and no inline <script> without a src (D-32)",
+            _quick_switch_script_tag_exactly_once_and_no_bare_inline_script)
+
+        def _real_get_quick_switch_route_serves_the_optimistic_switch():
+            # Served over real HTTP, because a registration whose route
+            # 404s is a control that renders and does nothing — the exact
+            # defect Phase 22 found on the login page — and the
+            # deferred-script count check above would still pass.
+            status, headers, body = http_request(base + "/static/quick-switch.js")
+            if status != 200:
+                return False, "expected 200 from GET /static/quick-switch.js, got %d" % status
+            text = body.decode("utf-8")
+            for banned in ("innerHTML", "insertAdjacentHTML", "document.write", "eval(",
+                           "=>", " let ", " const ", "`"):
+                if banned in text:
+                    return False, "did not expect %r in the served quick-switch.js body" % banned
+            if '"%s"' % layout.REFRESH_PENDING_ATTR not in text:
+                return False, (
+                    "expected the served body to name layout.REFRESH_PENDING_ATTR (%r) — the "
+                    "marker plan 23-06's swap already skips, and the ONE thing this file has to "
+                    "set for the D1-races-D2 rule to hold"
+                    % layout.REFRESH_PENDING_ATTR)
+            if '"%s"' % layout.QUICK_SWITCH_FAILED_ATTR not in text:
+                return False, (
+                    "expected the served body to read the translated failure copy off <body> "
+                    "(%r) rather than carrying a user-facing sentence of its own"
+                    % layout.QUICK_SWITCH_FAILED_ATTR)
+            return True, ""
+        check(
+            "a real GET of /static/quick-switch.js returns 200 with the served optimistic-switch "
+            "body — layout.REFRESH_PENDING_ATTR and layout.QUICK_SWITCH_FAILED_ATTR both named, "
+            "and none of innerHTML/document.write/=>/ let / const  (23-07-PLAN.md Task 1)",
+            _real_get_quick_switch_route_serves_the_optimistic_switch)
+
+        def _quick_switch_pending_marker_is_layouts_own_name():
+            # 23-06-SUMMARY.md's one-line contract: "set
+            # layout.REFRESH_PENDING_ATTR on the region (or anything
+            # inside it) and nothing else". A rename on one side alone is
+            # a skip that silently never fires and an optimistic control
+            # that bounces back under the user's finger — with no error
+            # anywhere. Pinned from THIS side too, which is what makes
+            # the two plans' agreement machine-checked rather than
+            # documented twice.
+            js_path = os.path.join(HERE, "static", "quick-switch.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            match = re.search(r'var PENDING_ATTR = "([^"]+)";', src)
+            if not match:
+                return False, (
+                    "expected quick-switch.js to declare `var PENDING_ATTR = \"...\";` — the "
+                    "same shape freshness.js's own constant is pinned by")
+            if match.group(1) != layout.REFRESH_PENDING_ATTR:
+                return False, (
+                    "quick-switch.js's PENDING_ATTR is %r but layout.REFRESH_PENDING_ATTR is %r "
+                    "— the setter and the skip must name the same attribute"
+                    % (match.group(1), layout.REFRESH_PENDING_ATTR))
+            fresh_path = os.path.join(HERE, "static", "freshness.js")
+            with open(fresh_path) as fh:
+                fresh = fh.read()
+            if ('var PENDING_ATTR = "%s";' % layout.REFRESH_PENDING_ATTR) not in fresh:
+                return False, (
+                    "freshness.js no longer names %r as its own PENDING_ATTR — the skip this "
+                    "file sets its marker for is gone or renamed"
+                    % layout.REFRESH_PENDING_ATTR)
+            return True, ""
+        check(
+            "quick-switch.js's PENDING_ATTR, freshness.js's PENDING_ATTR and "
+            "layout.REFRESH_PENDING_ATTR are the same attribute name — the setter, the skip and "
+            "the Python that defines it, pinned in one place so a rename on any one side fails "
+            "rather than silently disabling the D1-races-D2 rule (T-23-26, 23-07-PLAN.md Task 1)",
+            _quick_switch_pending_marker_is_layouts_own_name)
+
+
+        # --- 23-01-PLAN.md Task 2 (D3/CFG-32): the motion budget, made
+        # executable. A budget that is only a document is a budget a
+        # reviewer has to remember; this is the machine that remembers
+        # for them, and every later Phase 23 plan is measured against it.
+
+        def _motion_budget_is_enforced_in_the_stylesheet():
+            # WHY THE COMMENTS ARE STRIPPED FIRST, AND WHY THAT IS THE
+            # WHOLE POINT: style.css's comments quote the very tokens
+            # this check counts. 23-01's own explanatory paragraphs name
+            # the keyframes block, both --motion-* tokens, the
+            # reduced-motion media features and the view-transition
+            # pseudo-elements in prose, and later plans will add more of
+            # the same. A scan over raw source would therefore be
+            # SATISFIED by a comment that promises a rule nobody wrote,
+            # and BROKEN by a comment that explains a rule correctly.
+            # Measuring the stripped source is what makes this check a
+            # statement about the stylesheet rather than about its
+            # documentation. (This is the same idiom test_status_pages.py
+            # already uses for its own style.css scans.)
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path, "r", encoding="utf-8") as fh:
+                css = fh.read()
+            # Non-greedy on purpose: a greedy match would swallow
+            # everything between the FIRST "/*" and the LAST "*/",
+            # i.e. almost the entire file.
+            stripped = re.sub(r"/\*.*?\*/", "", css, flags=re.DOTALL)
+
+            # --- 1. every keyframes name is defined exactly once -------
+            names = re.findall(r"@keyframes\s+([A-Za-z_-][\w-]*)", stripped)
+            seen = []
+            for name in names:
+                if name in seen:
+                    return False, (
+                        "@keyframes %r is defined %d times in companion/static/style.css — the "
+                        "motion budget is ONE shared definition per animation (D14's breathing "
+                        "dot and D22's pulse are the same animation and share one block); two "
+                        "near-identical keyframe blocks is the specific failure this check "
+                        "exists to catch" % (name, names.count(name)))
+                seen.append(name)
+
+            # --- reduced-motion block counts ---------------------------
+            # Counted BEFORE the animation scan below, because the next
+            # step deletes these blocks from the source it measures.
+            reduce_blocks = re.findall(
+                r"@media[^{]*prefers-reduced-motion\s*:\s*reduce", stripped)
+            if len(reduce_blocks) != EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS:
+                return False, (
+                    "companion/static/style.css carries %d live "
+                    "`@media (prefers-reduced-motion: reduce)` block(s), expected %d "
+                    "(EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS). The global override plus "
+                    "`.js .mobile-nav`'s narrow `none` are the only two; a per-rule block for a "
+                    "plain colour/border/shadow/transform transition is dead code, not a safety "
+                    "net, and the global block already covers it for free. Moving this number is "
+                    "a deliberate two-file edit, never a side effect"
+                    % (len(reduce_blocks), EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS))
+            no_pref_blocks = re.findall(
+                r"@media[^{]*prefers-reduced-motion\s*:\s*no-preference", stripped)
+            if len(no_pref_blocks) != EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS:
+                return False, (
+                    "companion/static/style.css carries %d live "
+                    "`@media (prefers-reduced-motion: no-preference)` wrapper(s), expected %d "
+                    "(EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS). 23-04 is the one plan "
+                    "permitted to raise this to 1, for the view-transition at-rule the global "
+                    "reduce block genuinely cannot reach; any other change here needs its own "
+                    "argument first"
+                    % (len(no_pref_blocks), EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS))
+
+            # --- 2/3. animation declarations: resolved names, token
+            # durations. The reduced-motion blocks are REMOVED from the
+            # source scanned below, and the exemption is the point of
+            # those blocks: their `animation-duration: 0.01ms !important`
+            # is a bare literal ON PURPOSE — it exists to CANCEL motion,
+            # so binding it to a motion token would be backwards.
+            live = _without_reduced_motion_blocks(stripped)
+            for match in re.finditer(
+                    r"(?<![\w-])(animation(?:-name|-duration)?)\s*:([^;}]*)", live):
+                prop, value = match.group(1), match.group(2).strip()
+                if prop in ("animation", "animation-name"):
+                    idents = [
+                        ident for ident in re.findall(r"(?<![\w-])(-?[A-Za-z_][\w-]*)", value)
+                        if ident.lower() not in _ANIMATION_VALUE_KEYWORDS
+                    ]
+                    for ident in idents:
+                        if ident not in names:
+                            return False, (
+                                "`%s: %s` names %r, which no @keyframes block in "
+                                "companion/static/style.css defines — a dangling animation "
+                                "reference renders as no animation at all and no browser "
+                                "reports it" % (prop, value, ident))
+                    if not idents:
+                        return False, (
+                            "`%s: %s` resolves to no keyframes name at all" % (prop, value))
+                if prop in ("animation", "animation-duration"):
+                    # The token rule binds `animation` ONLY, and the
+                    # asymmetry is a decision rather than an omission:
+                    # the file's fifteen `transition:` declarations
+                    # predate this phase with bare literals, and
+                    # converting them would open exactly the
+                    # stylesheet-wide refactor 22-CONTEXT.md's D-08/T16
+                    # forbids. Every `animation` declaration, by
+                    # contrast, is new by construction — there is no
+                    # legacy to grandfather, so the rule can be absolute.
+                    literal = re.search(r"(?<![\w-])\d+(?:\.\d+)?m?s(?![\w-])", value)
+                    if literal or "var(--motion-" not in value:
+                        return False, (
+                            "`%s: %s` takes its duration from %s — every animation duration in "
+                            "this file must come from var(--motion-fast) or var(--motion-slow), "
+                            "the whole of the phase's two-token motion budget. A plan that needs "
+                            "a third duration states why in its own SUMMARY instead of inlining "
+                            "one" % (prop, value,
+                                     ("the bare literal %r" % literal.group(0)) if literal
+                                     else "no --motion-* token"))
+
+            # --- 4. the two Chromium-only sizing primitives ------------
+            # Banned by this check rather than by a comment, because a
+            # comment is what a plan copying a blog post skips.
+            # `grid-template-rows: 0fr -> 1fr` is the sanctioned
+            # height-animation mechanism (23-08's and 23-10's to use).
+            # Measured on the STRIPPED source so a future plan may still
+            # write down WHY they are banned without failing the ban.
+            for banned in ("interpolate-size", "calc-size("):
+                if banned in live:
+                    return False, (
+                        "companion/static/style.css declares %r — Chromium-only and Baseline "
+                        "limited, so it animates for some visitors and silently does nothing for "
+                        "the rest. Use `grid-template-rows: 0fr -> 1fr`, which 23-RESEARCH.md's "
+                        "own Baseline table picks for exactly this job" % (banned,))
+            return True, ""
+        check(
+            "companion/static/style.css honours the phase's motion budget: every @keyframes name "
+            "is defined exactly once, every animation reference resolves to a block in the same "
+            "file, every animation duration comes from a var(--motion-*) token rather than a bare "
+            "literal, the live prefers-reduced-motion reduce/no-preference block counts equal "
+            "EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS/EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS, "
+            "and neither interpolate-size nor calc-size() appears — all measured on "
+            "COMMENT-STRIPPED source, because this stylesheet's comments quote every token the "
+            "check counts (D3/CFG-32, 23-01-PLAN.md Task 2)",
+            _motion_budget_is_enforced_in_the_stylesheet)
 
         # --- 22-13-PLAN.md Task 2 (X3): login-card.js, the twelfth
         # static script and the first one this app loads pre-auth ---
@@ -5077,6 +6618,157 @@ def main():
             "the invalid-state early return honours return_to too (D-01/R-02)",
             _make_quick_toggle_return_to_check(app_module.QUICK_QUIET_HOURS_ROUTE, app_module.FLASH_KEY_QUIET_ON))
 
+        def _quick_routes_answer_204_for_a_fetch_and_303_for_a_form():
+            # D2's "JSON/204" clause, honoured as 204 because there is
+            # nothing to send. CONTENT-NEGOTIATED on the request's own
+            # header, so the no-JS redirect is byte-identical to today's
+            # — a browser form post never sends X-Requested-With, so the
+            # floor cannot be taken away by this branch existing.
+            for route, state, field, expected_value, flash_key in (
+                    (app_module.QUICK_DISPLAY_ROUTE, "off", "display_enabled", False,
+                     app_module.FLASH_KEY_DISPLAY_OFF),
+                    (app_module.QUICK_QUIET_HOURS_ROUTE, "on", "quiet_hours_enabled", True,
+                     app_module.FLASH_KEY_QUIET_ON)):
+                # 1. the form shape, unchanged
+                status, headers, body = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": state, "return_to": "/"}).encode())
+                if status != 303 or headers.get("Location") != "/?flash=%s" % flash_key:
+                    return False, (
+                        "%s: a form POST must still answer 303 to /?flash=%s, got %d/%r"
+                        % (route, flash_key, status, headers.get("Location")))
+                if device_config.load_device_config(harness.tmpdir)[field] is not expected_value:
+                    return False, "%s: expected %s %r on disk after the form post" % (
+                        route, field, expected_value)
+                # 2. the fetch shape: 204, empty body, NO Location
+                status, headers, body = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode(
+                        {"state": "on" if state == "off" else "off", "return_to": "/"}).encode(),
+                    extra_headers={
+                        "X-Requested-With": app_module.QUICK_FETCH_HEADER_VALUE})
+                if status != 204:
+                    return False, (
+                        "%s: a POST identifying itself as a fetch must answer 204, got %d"
+                        % (route, status))
+                if body:
+                    return False, "%s: expected an empty 204 body, got %r" % (route, body[:120])
+                if headers.get("Location"):
+                    return False, (
+                        "%s: a 204 must carry no Location — fetch() follows a same-origin "
+                        "redirect silently by default, and a redirect read as success is the "
+                        "expired-session hole freshness.js already documents" % route)
+                if device_config.load_device_config(harness.tmpdir)[field] is expected_value:
+                    return False, (
+                        "%s: the 204 branch must still SAVE — content negotiation picks the "
+                        "response shape, never whether the write happens" % route)
+                # 3. an invalid state under the fetch header is still a
+                # failure the client can SEE. It must not be a 204.
+                status, headers, _ = http_request(
+                    base + route, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": "toggle", "return_to": "/"}).encode(),
+                    extra_headers={
+                        "X-Requested-With": app_module.QUICK_FETCH_HEADER_VALUE})
+                if status == 204:
+                    return False, (
+                        "%s: a crafted state value must never answer 204 — the client reads 204 "
+                        "as confirmation and would leave the switch showing a state the frame is "
+                        "not in" % route)
+            return True, ""
+        check(
+            "POST /quick/display and POST /quick/quiet-hours answer a form post with exactly "
+            "today's 303-and-flash and a request carrying the fetch header with a 204, empty "
+            "body and no Location — the same write either way, and a crafted state value is "
+            "never a 204 (D2/CFG-36, T-23-26, 23-07-PLAN.md Task 1)",
+            _quick_routes_answer_204_for_a_fetch_and_303_for_a_form)
+
+        def _quick_led_route_saves_redirects_and_negotiates():
+            # 23-07-PLAN.md Task 2 (D2/CFG-36, T-23-23/24/25). The third
+            # quick route, following _handle_quick_toggle()'s shape
+            # exactly: one explicit led_enabled keyword to
+            # save_device_config(), never a partial POST /settings.
+            device_config.save_device_config(
+                harness.tmpdir, led_enabled=True, display_enabled=True,
+                quiet_hours_enabled=True)
+            # 1. a form post: stores False and redirects with its flash
+            status, headers, _ = http_request(
+                base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"state": "off", "return_to": "/device"}).encode())
+            if status != 303 or headers.get("Location") != "/device?flash=%s" % (
+                    app_module.FLASH_KEY_LED_OFF):
+                return False, "expected a 303 to /device?flash=led_off, got %d/%r" % (
+                    status, headers.get("Location"))
+            on_disk = device_config.load_device_config(harness.tmpdir)
+            if on_disk["led_enabled"] is not False:
+                return False, "expected led_enabled False on disk, got %r" % (on_disk["led_enabled"],)
+            # The sibling flags must be untouched — this route writes ONE
+            # explicit keyword and carries everything else forward.
+            if on_disk["display_enabled"] is not True or on_disk["quiet_hours_enabled"] is not True:
+                return False, (
+                    "expected /quick/led to carry every other flag forward untouched, got %r"
+                    % (on_disk,))
+            # 2. the fetch shape: 204, empty, no Location, and it saves
+            status, headers, body = http_request(
+                base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"state": "on", "return_to": "/device"}).encode(),
+                extra_headers={"X-Requested-With": app_module.QUICK_FETCH_HEADER_VALUE})
+            if status != 204 or body or headers.get("Location"):
+                return False, (
+                    "expected an empty 204 with no Location for the fetch shape, got %d/%r/%r"
+                    % (status, body[:80], headers.get("Location")))
+            if device_config.load_device_config(harness.tmpdir)["led_enabled"] is not True:
+                return False, "expected the 204 branch to still save led_enabled True"
+            # 3. an invalid state: the generic failure flash, nothing stored
+            status, headers, _ = http_request(
+                base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({"state": "toggle", "return_to": "/device"}).encode())
+            if status != 303 or headers.get("Location") != "/device?flash=%s" % (
+                    app_module.FLASH_KEY_QUICK_FAILED):
+                return False, (
+                    "expected a crafted state value to redirect with the generic quick_failed "
+                    "flash, got %d/%r" % (status, headers.get("Location")))
+            if device_config.load_device_config(harness.tmpdir)["led_enabled"] is not True:
+                return False, "expected a rejected quick action to write nothing"
+            # 4. T-23-24: the return_to whitelist is a MEMBERSHIP test
+            # against this route's OWN allowed set, never a prefix and
+            # never a URL parse. /device is the only member; the strip's
+            # own two pages are deliberately NOT members, so a crafted
+            # return_to cannot send a Device switch somewhere else.
+            for hostile in ("https://evil.example/", "//evil.example", "/flights",
+                            "/device/../flights", "/", "/display"):
+                status, headers, _ = http_request(
+                    base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
+                    data=urllib.parse.urlencode({"state": "on", "return_to": hostile}).encode())
+                if status != 303 or headers.get("Location") != "/device?flash=%s" % (
+                        app_module.FLASH_KEY_LED_ON):
+                    return False, (
+                        "return_to=%r: expected a fall back to /device, got %d/%r"
+                        % (hostile, status, headers.get("Location")))
+            # 5. T-23-23: no state change is reachable by GET. SameSite=
+            # Strict is this app's only CSRF control, so a GET-reachable
+            # write would have no defence at all.
+            device_config.save_device_config(harness.tmpdir, led_enabled=False)
+            status, _headers, _body = http_request(
+                base + app_module.QUICK_LED_ROUTE + "?state=on", cookie=session_cookie)
+            if status != 404:
+                return False, "expected GET /quick/led to 404, got %d" % status
+            if device_config.load_device_config(harness.tmpdir)["led_enabled"] is not False:
+                return False, "a GET must never write"
+            return True, ""
+        check(
+            "POST /quick/led stores one explicit led_enabled keyword and carries every other flag "
+            "forward, redirects to /device with its own flash for a form post, answers 204 with an "
+            "empty body for a fetch, redirects with the generic failure flash and writes nothing "
+            "for a crafted state, falls back to /device for every non-member return_to, and is not "
+            "reachable by GET at all (D2/CFG-36, T-23-23/T-23-24/T-23-25, 23-07-PLAN.md Task 2)",
+            _quick_led_route_saves_redirects_and_negotiates)
+
+        check(
+            "unauthenticated POST /quick/led redirects to /login without page content",
+            _unauth_redirects_to_login(
+                "POST", app_module.QUICK_LED_ROUTE,
+                data=urllib.parse.urlencode({"state": "off"}).encode()))
+
         check(
             "unauthenticated POST /quick/display redirects to /login without page content",
             _unauth_redirects_to_login(
@@ -5108,7 +6800,16 @@ def main():
             if on_disk["led_enabled"] is not True:
                 return False, "expected a Display-page save to leave led_enabled True (out of scope), got %r" % (on_disk["led_enabled"],)
             # A Device-page save carries no display_enabled field — the
-            # screen must stay ON; its own absent LED box means off.
+            # screen must stay ON.
+            # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1, T-23-25): the LED
+            # clause below is RETARGETED IN PLACE. It used to read "its
+            # own absent LED box means off", which was true only while
+            # the Device page rendered an led_enabled checkbox; that
+            # checkbox is now a role="switch" on its own /quick/led
+            # route, so an absent led_enabled means "this form never had
+            # a control for it" — the same reading display_enabled has
+            # had since 22-05, and the reason a Device save can no longer
+            # switch the physical LED off behind the user.
             status, headers, _ = http_request(
                 base + "/settings", method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode({
@@ -5122,8 +6823,11 @@ def main():
                 return False, "expected the Device-page save to persist tracked_runway=06-24"
             if on_disk["display_enabled"] is not True:
                 return False, "expected a Device-page save to leave display_enabled True (out of scope)"
-            if on_disk["led_enabled"] is not False:
-                return False, "expected the Device-page save's absent LED box to persist led_enabled False"
+            if on_disk["led_enabled"] is not True:
+                return False, (
+                    "expected a Device-page save that names no led_enabled to LEAVE it True, got "
+                    "%r — an unrelated save must never switch the diagnostic LED off (D-12.1, "
+                    "T-23-25)" % (on_disk["led_enabled"],))
             if on_disk["theme"] != "black":
                 return False, "expected the Device-page save to leave the theme untouched"
             # A crafted return_to never becomes the redirect target.

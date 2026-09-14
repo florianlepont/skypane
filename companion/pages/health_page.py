@@ -50,11 +50,16 @@ import a page module, the constraint `companion/pages/__init__.py`
 states.
 """
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone  # 24-07-PLAN.md
+# Task 2: `date` joins the three for the regularity grid's own window walk,
+# which is ORDINAL calendar arithmetic (date.toordinal()/fromordinal()) and
+# deliberately carries no duration anywhere in it — see
+# _check_in_regularity_cells()'s own docstring.
 from zoneinfo import ZoneInfo
 
 from companion.layout import escape_html
 import companion.battery as battery
+import companion.draw as draw
 import companion.i18n as i18n  # D-05, 20-03-PLAN.md Task 3: every
 # user-visible string on this page renders through i18n.t() — a
 # shared, page-independent module (see its own module docstring),
@@ -387,7 +392,14 @@ CORROBORATION_STATE_TEXT = {
 # ellipsis ("…"), matching this file's own sibling precedent for a
 # short in-flight verb (companion/pages/config_page.py's
 # POLL_SUBMIT_PENDING_TEXT = "Polling…"), not three periods.
-REFRESH_PILL_TEXT = "Updating…"
+REFRESH_PILL_TEXT = layout.REFRESH_PILL_TEXT
+
+# 23-05-PLAN.md Task 2 (D22's remainder): the hook
+# companion/static/freshness.js toggles its breathing class on.
+# Duplicated rather than imported — freshness.js is a static asset, not
+# a Python module — matching the BATTERY_READOUT_ID/SPARKLINE_HIT_CLASS
+# cross-file contract below and REFRESH_SWAP_SELECTORS' own.
+REFRESH_LIVE_DOT_ATTR = layout.REFRESH_LIVE_DOT_ATTR
 
 # 19-09-PLAN.md (D-02, A-20): SUPERSEDED — PERSISTENT_FRESHNESS_PREFIX_TEXT
 # used to read "Live — refreshed ", prefixing a
@@ -402,46 +414,29 @@ REFRESH_PILL_TEXT = "Updating…"
 # assembly in render()), and the line only ever advances again because
 # companion/static/freshness.js re-renders the whole freshness wrapper
 # from a fresh fetch — never a client-side clock tick.
-FRESHNESS_PREFIX_TEXT = "Updated "
+FRESHNESS_PREFIX_TEXT = layout.FRESHNESS_PREFIX_TEXT
 
 # 21-02-PLAN.md (D-18): the Pause/Resume control that used to live here
 # is deleted — the freshness loop in companion/static/freshness.js now
 # always runs, unconditionally, with no client-side pause state to label.
 
-# 19-09-PLAN.md (D-02): the single, greppable definition of every DOM
-# region companion/static/freshness.js swaps wholesale, replacing each
-# node with its own equivalent from a fetched copy of this same page.
-# Duplicated rather than imported — freshness.js is a static asset, not
-# a Python module — matching the BATTERY_READOUT_ID/SPARKLINE_HIT_CLASS
-# cross-file contract immediately below. Any change to the script's own
-# swap-target list must change this tuple too;
-# companion/test_status_pages.py pins the two in agreement.
+# 19-09-PLAN.md (D-02): the DOM regions companion/static/freshness.js
+# swaps wholesale on this page, replacing each node with its own
+# equivalent from a fetched copy of this same page.
 #
-# Deliberately excludes the sparkline <svg>/.sparkline-hit, the registry
-# card and its filter bar, and every <details> disclosure — swapping any
-# of those would leave companion/static/battery-trend.js's chart or
-# companion/static/list-filter.js's filter permanently dead (each
-# captures its DOM once, with no re-init hook) or would silently discard
-# an in-progress filter query. See freshness.js's own header for the
-# fuller record of this trade.
-#
-# `a[href="/health"]` — not a ".dot"/".nav-notification" selector — is
-# the nav-severity swap target on purpose: the severity dot only exists
-# in the DOM when severity is "warn"/"error" (companion/layout.py's
-# _health_alert_markup() renders nothing at all for "ok"), so a dot-only
-# selector would have nothing to replace on the far more common
-# transition where severity newly clears. The whole nav link is always
-# present in both documents regardless of severity, in both nav
-# renderings (sidebar_nav() and _mobile_nav_html()), so swapping it
-# whole is what keeps the swap correct across every severity
-# transition, not just a fixed dot.
-REFRESH_SWAP_SELECTORS = (
-    ".dashboard-grid",
-    "div.banner--anomaly, div.banner--warn",
-    "section.banner",
-    ".page-header__freshness",
-    'a[href="/health"]',
-)
+# 23-06-PLAN.md Task 1 (D1/CFG-35): MOVED, not copied. The tuple that
+# stood here is now one entry in companion/layout.py's own
+# REFRESH_SWAP_SELECTORS_BY_PAGE — the per-page registry Home and the
+# Display scope join — and this name resolves FROM it. The name survives
+# because every existing reader and every shipped pin uses it; the
+# second definition site does not, because three hand-kept tuples is the
+# shape scope_groups()'s SCOPE_ALL already taught this codebase not to
+# build. Every word of the reasoning that lived here — the per-entry
+# comments, the deliberate exclusions, and why the whole nav link rather
+# than a dot is the severity target — moved WITH the tuple and is in
+# layout.py beside it, unabridged.
+REFRESH_SWAP_SELECTORS = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[
+    layout.REFRESH_PAGE_HEALTH]
 
 # D-02: per-point interactive hit-target contract. BATTERY_READOUT_ID and
 # SPARKLINE_HIT_CLASS are looked up by companion/static/battery-trend.js
@@ -465,6 +460,37 @@ SPARKLINE_DOT_CLASS = "sparkline-dot"
 # convenience, not a JS cross-file contract like the two above.
 SPARKLINE_LINE_CLASS = "sparkline-line"
 SPARKLINE_AXIS_CLASS = "sparkline-axis"
+# 24-05-PLAN.md Task 1 (CFG-41/CFG-45): the area under the trend line,
+# in two classes because it is two elements — a nested <svg> LAYER that
+# owns the coordinate system, and the filled <polygon> inside it.
+# `sparkline__area` follows this chart's BEM-ish element convention
+# (`sparkline__canvas`, `sparkline__y`, `sparkline__x`) because it is a
+# structural part of the drawing; `sparkline-area` follows the shape
+# convention (`sparkline-line`, `sparkline-dot`, `sparkline-axis`)
+# because it is ink. Neither name is a substring of the other, or of any
+# class above — several harness checks count a class's occurrences with
+# a plain `str.count()`, and `sparkline-dot--mark` (say) would have been
+# counted as a `sparkline-dot`.
+SPARKLINE_AREA_LAYER_CLASS = "sparkline__area"
+SPARKLINE_AREA_CLASS = "sparkline-area"
+# 24-05-PLAN.md Task 2 (CFG-41): the marked current reading, the drawn
+# low-battery threshold, and the threshold's own legend. Same two
+# conventions as above (`__` for a structural part of the grid, `-` for
+# ink), and again no name is a substring of another — `sparkline-swatch`
+# rather than `sparkline-legend__swatch` for exactly that reason.
+#
+# SPARKLINE_MARK_CLASS is NOT a modifier on SPARKLINE_DOT_CLASS, and that
+# is the density rule's exception expressed as a class name: above
+# `_SPARKLINE_DENSE_POINT_THRESHOLD` the cosmetic dots stop being
+# emitted, and the mark must not stop with them — marking the current
+# reading is the whole reason it is drawn. A `sparkline-dot
+# sparkline-mark` pair would have made "suppress the dots" and "keep the
+# mark" the same instruction.
+SPARKLINE_MARK_CLASS = "sparkline-mark"
+SPARKLINE_THRESHOLD_CLASS = "sparkline-threshold"
+SPARKLINE_LEGEND_ROW_CLASS = "sparkline__legend"
+SPARKLINE_LEGEND_CLASS = "sparkline-legend"
+SPARKLINE_LEGEND_SWATCH_CLASS = "sparkline-swatch"
 # Must equal companion/app.py's SCRIPT_ROUTE — duplicated, not imported,
 # because companion/pages/__init__.py's contract forbids a page module
 # importing companion.app (app.py imports pages, so importing back would
@@ -504,6 +530,102 @@ BATTERY_SECTION_CLASS = "battery-trend-section"
 ICON_DEVICE = "icon-device"
 ICON_PIPELINE = "icon-pipeline"
 ICON_CORROBORATION = "icon-corroboration"
+
+# --- 24-07-PLAN.md Task 2 (CFG-43): the check-in regularity grid -------
+#
+# THE NAME IS THE FIRST DECISION AND IT IS NOT A STYLE CHOICE.
+# .planning/ROADMAP.md asked for a grid of how reliably the frame kept
+# its wakes — naming it with a word this codebase now refuses — and flagged
+# that the data might not support it. 24-03 settled that it does not:
+# `device_health` rows are real check-ins, so the OBSERVED cadence is
+# measurable, but the interval the device was EXPECTED to keep is nowhere
+# in history — it is not even a constant (wake.effective_wake_interval_s()
+# switches to DISPLAY_OFF_SLEEP_S whenever the screen is off, and quiet
+# hours hold the frame on top of that), and a log range
+# history_db.ingest_caddy_battery_log() missed leaves a hole
+# indistinguishable from a device that did not wake. No schema change
+# recovers any of it.
+#
+# So this section reports what IS observable — the regularity of the
+# record of check-ins — and says in its own caption what it is not
+# claiming. Every verdict comes from wake.classify_check_in_gap(), which
+# derives from the same wake.device_staleness_thresholds() the Frame tile
+# consumes, so this grid and that tile can never disagree about "late".
+# Nothing here computes an interval, a threshold or a duration boundary.
+CHECK_IN_SECTION_HEADING = "Check-in regularity"
+
+# One cell per Europe/Paris calendar day. 30 is this page's existing
+# "a month" window (RESOLUTION_WINDOW_DAYS above uses the same number for
+# the same reason), and it is inside draw.regularity_grid()'s own bound:
+# ten columns at the measured 278px card width by six rows is 60 cells,
+# so the window can never be the thing the drawing truncates. If it ever
+# grows past that, the emitter reports the overflow and the scale labels
+# below stop being able to name the window honestly — which is why this
+# constant and that bound are checked against each other rather than
+# merely chosen to agree.
+CHECK_IN_WINDOW_DAYS = 30
+
+CHECK_IN_GRID_CLASS = "check-in-grid"
+CHECK_IN_SCALE_CLASS = "check-in-grid__scale"
+CHECK_IN_KEY_CLASS = "check-in-key"
+CHECK_IN_KEY_ITEM_CLASS = "check-in-key__item"
+CHECK_IN_KEY_SWATCH_CLASS = "check-in-key__swatch"
+
+# The four states' own words, keyed on the classifier's own vocabulary.
+# Colour is not a reading: four squares in four colours need their four
+# names in text beside them, which is what the key below the grid is.
+CHECK_IN_STATE_TEXT = {
+    wake.CHECK_IN_ON_CADENCE: "On cadence",
+    wake.CHECK_IN_LATE: "Late",
+    wake.CHECK_IN_MISSING: "Missing",
+    wake.CHECK_IN_UNKNOWN: "No record",
+}
+
+# THE CAPTION'S THREE CLAUSES, one constant each, because they are three
+# separate claims and each is asserted by its own named check.
+#
+# 1. What the grid shows.
+CHECK_IN_CAPTION_OBSERVED = (
+    "Each cell is one day of observed check-in regularity, oldest first.")
+# 2. What it was judged against — and that this is TODAY'S cadence. The
+#    cadence actually in force on an earlier day is not recoverable
+#    (device_config.json is a current-state file), so naming it without
+#    this qualifier would be a claim about the past made from a value
+#    read in the present.
+CHECK_IN_CAPTION_CADENCE = (
+    "Judged against the cadence configured now — a check-in every %s — not "
+    "necessarily the cadence in force on an earlier day.")
+# 2b. And when there is no cadence to name at all: a deployment with no
+#     wake_interval_s and no SKYPANE_SLEEP_S gets
+#     device_staleness_thresholds()' bare floors, and the caption has to
+#     say THAT rather than silently print an assumed default.
+CHECK_IN_CAPTION_CADENCE_FALLBACK = (
+    "This frame's cadence cannot be determined, so the grid is judged against "
+    "the fallback staleness floors rather than against a configured cadence.")
+# 3. What a gap is NOT. KEEP THIS CLAUSE. It is the one a later editor
+#    will trim as noise, and it is the difference between reporting an
+#    observation and accusing the device: the record cannot tell a wake
+#    the frame missed from a log range this server lost, so a grid
+#    without this sentence is a picture making a claim its own data
+#    cannot support (T-24-07-A).
+CHECK_IN_CAPTION_NOT_PROOF = (
+    "A day with no record is not proof the frame did not wake: a log rotation "
+    "this server missed leaves exactly the same gap.")
+# The empty deployment. A real case, and it renders as an honest grid of
+# no-observation cells rather than as a missing section.
+CHECK_IN_CAPTION_EMPTY = (
+    "No check-in intervals are recorded yet, so every day below is a day the "
+    "record says nothing about.")
+
+# The per-cell tooltip and the grid's own accessible name. The gap is
+# named as a DURATION in the app's own form (layout.duration_text()) and
+# the day as a local date — every visible instant in this app is
+# Europe/Paris and a raw ISO string survives only behind a copy control.
+CHECK_IN_CELL_TITLE = "%s — %s: longest observed gap %s"
+CHECK_IN_CELL_TITLE_NONE = "%s — %s"
+CHECK_IN_GRID_LABEL = (
+    "Observed check-in regularity, one cell per day over the last %d days: "
+    "%d on cadence, %d late, %d missing, %d with no record.")
 
 # --- 06.6.4.1-04 (D-10): the two id-anchored sections Health's body is
 # now split into. SERVER_DATA_SECTION_ID is a cross-page coupling:
@@ -902,6 +1024,18 @@ _SPARKLINE_Y_SPAN_MV = SPARKLINE_Y_MAX_MV - SPARKLINE_Y_MIN_MV  # no `or 1`
 _SPARKLINE_DOT_RADIUS_PX = 3
 _SPARKLINE_HIT_RADIUS_PX = 8
 
+# 24-05-PLAN.md Task 2 (CFG-41): the marked current reading's own radius.
+# Bounded from both sides rather than chosen: it must be strictly larger
+# than `_SPARKLINE_DOT_RADIUS_PX` or the mark does not read as a mark,
+# and no larger than the canvas's vertical inset in CSS pixels
+# (`_SPARKLINE_VERTICAL_INSET_PERCENT` of `_SPARKLINE_CANVAS_HEIGHT_PX`
+# = 6px) or a mark on a full or flat-empty battery would be clipped at
+# the canvas edge — the same reasoning that derived the inset against the
+# 3px dot in the first place. 5 sits inside both bounds with a pixel to
+# spare; re-derive it if either the inset or the canvas height changes.
+# A harness check asserts both bounds rather than the value.
+_SPARKLINE_MARK_RADIUS_PX = 5
+
 # The point count at which the 90-day daily chart's cosmetic dots stop
 # reading as separate marks and start reading as a continuous caterpillar
 # — a different visual language from the thin line the developer asked
@@ -981,11 +1115,59 @@ _SPARKLINE_DENSE_POINT_THRESHOLD = _sparkline_dense_threshold(_SPARKLINE_NARROWE
 # human-verification list.
 _SPARKLINE_DENSE_HIT_RADIUS_PX = 4
 
+
+def sparkline_point_y(value):
+    """The y position `value` gets on the battery chart, as a percentage
+    of the canvas height.
+
+    24-05-PLAN.md Task 1 PROMOTED this out of `battery_sparkline_svg()`'s
+    own local closure, unchanged in behaviour, for one reason: the chart
+    now draws things that are not readings — an area baseline and a
+    low-battery threshold — and every one of them must be placed by the
+    SAME function the readings are, or it will sit at a different level
+    from the readings it is drawn to be compared against. A threshold
+    with its own arithmetic drifts from the plotted line by exactly the
+    vertical inset, which is the class of defect this promotion makes
+    unavailable rather than merely unlikely. It is also what lets
+    companion/test_status_pages.py compute the expected position from
+    the same function rather than hard-coding a number.
+
+    D-04 (A-22): every value is clamped into the fixed
+    [SPARKLINE_Y_MIN_MV, SPARKLINE_Y_MAX_MV] range before its y position
+    is computed, so an out-of-range reading draws pinned at the canvas
+    edge rather than escaping it or silently rescaling the axis (there is
+    no axis left to rescale — the range is a constant, not derived from
+    `value` at all). `_SPARKLINE_VERTICAL_INSET_PERCENT` on both top and
+    bottom keeps every marker's radius fully inside the canvas (see that
+    constant's own derivation above); the y-axis is inverted (higher mV
+    -> smaller y%) to match SVG's top-down coordinate direction.
+    """
+    inset = _SPARKLINE_VERTICAL_INSET_PERCENT
+    clamped = max(SPARKLINE_Y_MIN_MV, min(SPARKLINE_Y_MAX_MV, value))
+    return inset + (
+        1 - (clamped - SPARKLINE_Y_MIN_MV) / _SPARKLINE_Y_SPAN_MV
+    ) * (100 - 2 * inset)
+
+
 # Phase 21 polish: the hover/tap readout's own text, as constants so the
 # French catalogue (companion/i18n_fr/health.py) carries them.
 BATTERY_AVERAGE_WHEN_ONE_TEMPLATE = "%s — daily average (%d reading)"
 BATTERY_AVERAGE_WHEN_MANY_TEMPLATE = "%s — daily average (%d readings)"
 BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = "%s — daily average"
+
+# 24-05-PLAN.md Task 2 (CFG-41, T-24-05-B): the drawn low-battery
+# threshold's own label. It names what the line MEANS and only then what
+# it is worth — a bare millivolt number floating on a chart says nothing
+# about why that level is drawn, and this line is a judgement about the
+# device, not a second axis tick.
+#
+# It prints the percentage beside the level on purpose: the level IS the
+# millivolt reading at which `companion/battery.py`'s estimate returns
+# that percentage (see LOW_BATTERY_DISPLAY_MV's own derivation), so the
+# label ties the drawn line to the "≈ NN%" the readout and the ring
+# already print above the chart, instead of introducing a number the rest
+# of the section never mentions.
+BATTERY_THRESHOLD_LABEL_TEMPLATE = "Low battery — %d mV (≈ %d%%)"
 
 # Phase 21 polish: the chart's month abbreviation now comes from
 # layout.month_abbr() — the same fixed, locale-independent tables
@@ -993,31 +1175,23 @@ BATTERY_AVERAGE_WHEN_BARE_TEMPLATE = "%s — daily average"
 # language), replacing this module's former private English-only table
 # (260902-l0b) that 20-03-PLAN.md Task 2 had left out of D-07's scope.
 
-# 22-06-PLAN.md Task 2 (D-05, B4): a `now_parsed` guaranteed to fall on a
-# DIFFERENT Europe/Paris calendar day than any real device reading (no
-# SkyPane device predates this constant), so passing it to
-# `layout.local_clock_text()` forces that function's own cross-day
-# "D Mon HH:MM" branch. This is what `_full_local_timestamp_text()` below
-# uses to build a full local timestamp — reusing `local_clock_text()`
-# itself (D-05's "one formatter" rule) rather than re-deriving a second,
-# competing day-plus-clock format.
-_FULL_TIMESTAMP_SENTINEL_NOW = datetime(1970, 1, 1, tzinfo=timezone.utc)
+# 22-06-PLAN.md Task 2 (D-05, B4), PROMOTED to companion/layout.py by
+# 23-06-PLAN.md Task 2: the sentinel and the helper both live there now,
+# because the freshness line this page shared with Home and the Display
+# scope needs the same full local timestamp and a page module is not a
+# place two other page modules can reach. This name survives because
+# every battery `title`/`aria-label`/`data-when` on this page calls it
+# and one shipped harness check names it; it is a delegate and nothing
+# else, and the behaviour — including the raw-string fallback for an
+# unparseable value — is unchanged.
+_FULL_TIMESTAMP_SENTINEL_NOW = layout.FULL_TIMESTAMP_SENTINEL_NOW
 
 
 def _full_local_timestamp_text(ts):
-    """"D Mon HH:MM" in Europe/Paris — the full local timestamp every
-    `title`/`aria-label`/`data-when` this page emits for a battery
-    reading now carries (D-05, B4), via `layout.local_clock_text()`'s own
-    cross-day branch (forced by `_FULL_TIMESTAMP_SENTINEL_NOW` above),
-    never a bare clock and never the raw UTC ISO this finding replaces.
-    Falls back to the raw `ts` string (never raising) when it fails to
-    parse — the same graceful-degradation precedent `_axis_clock_label()`
-    already sets.
+    """"D Mon HH:MM" in Europe/Paris — see
+    `layout.full_local_timestamp_text()`, of which this is the delegate.
     """
-    parsed = layout.parse_iso(ts)
-    if parsed is None:
-        return ts or ""
-    return layout.local_clock_text(parsed, now_parsed=_FULL_TIMESTAMP_SENTINEL_NOW)
+    return layout.full_local_timestamp_text(ts)
 
 
 def _as_paris(parsed):
@@ -1224,6 +1398,20 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     reference guarantee (asserted directly against its return value by
     `companion/test_status_pages.py`) stays true unweakened.
 
+    24-05-PLAN.md (CFG-41/CFG-45) adds three things and removes none.
+    An AREA under the line, filled from the same plotted coordinates, in
+    a nested `<svg>` that owns its own viewBox so the outer canvas's
+    percentage scheme is untouched (see the emission site for the full
+    geometry experiment and the two candidates it ruled out). A MARK on
+    the newest plotted point — the same element in the same loop, one
+    class and one radius different, exempt from the density rule because
+    it is not a cosmetic dot. And a low-battery THRESHOLD, a filled rect
+    placed by the same `_point_y()` the readings are, whose value is read
+    from `companion/battery.py` and whose label is a `<span>` legend in
+    the grid below the canvas rather than a fifth axis tick. All three
+    derive from the SAME single-pass filtered `pairs` list the points and
+    the X-axis labels already come from; none of them re-reads `rows`.
+
     Returns `""` (no sparkline at all) when fewer than two rows carry a
     numeric `battery_mv` — a single point cannot show a trend. Rows with
     a missing/non-numeric `battery_mv` are dropped rather than plotted,
@@ -1276,11 +1464,21 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     if len(pairs) < 2:
         return ""
     point_count = len(pairs)
-    inset = _SPARKLINE_VERTICAL_INSET_PERCENT
     # 260902-l0b: the density rule — see _SPARKLINE_DENSE_POINT_THRESHOLD's
     # own derivation for why 50. Keyed on point_count alone (never on
     # `daily`), so the same protection would apply to any future dense
     # non-daily series too.
+    #
+    # 24-05-PLAN.md Task 2 (CFG-41) — THE RULE'S ONE EXCEPTION, written
+    # here beside the rule itself so the two cannot be read as
+    # contradicting each other: the rule suppresses COSMETIC dots, and
+    # the newest plotted point's MARK is not a cosmetic dot. It is the
+    # chart's statement of the current reading, which is exactly what a
+    # 90-day daily series most needs to keep — the denser the series, the
+    # harder "where is it now" is to find. So the mark is emitted at
+    # every density (and carries SPARKLINE_MARK_CLASS, not
+    # SPARKLINE_DOT_CLASS, so "suppress the dots" and "keep the mark"
+    # cannot become the same instruction).
     dense = point_count >= _SPARKLINE_DENSE_POINT_THRESHOLD
     hit_radius = _SPARKLINE_DENSE_HIT_RADIUS_PX if dense else _SPARKLINE_HIT_RADIUS_PX
 
@@ -1289,21 +1487,14 @@ def battery_sparkline_svg(rows, now=None, daily=False):
         # its card" is a property of this formula, not a tuned margin.
         return index / (point_count - 1) * 100
 
-    def _point_y(value):
-        # D-04 (A-22): every value is clamped into the fixed
-        # [SPARKLINE_Y_MIN_MV, SPARKLINE_Y_MAX_MV] range before its y
-        # position is computed, so an out-of-range reading draws pinned
-        # at the canvas edge rather than escaping it or silently
-        # rescaling the axis (there is no axis left to rescale — the
-        # range is now a constant, not derived from `value` at all).
-        # `inset` on both top and bottom keeps every marker's 3-unit
-        # radius fully inside the canvas (see _SPARKLINE_VERTICAL_INSET_
-        # PERCENT's own derivation above); the y-axis is inverted (higher
-        # mV -> smaller y%) to match SVG's top-down coordinate direction.
-        clamped = max(SPARKLINE_Y_MIN_MV, min(SPARKLINE_Y_MAX_MV, value))
-        return inset + (
-            1 - (clamped - SPARKLINE_Y_MIN_MV) / _SPARKLINE_Y_SPAN_MV
-        ) * (100 - 2 * inset)
+    # 24-05-PLAN.md Task 1: the module-level `sparkline_point_y()` IS
+    # this function — promoted out of here, behaviour unchanged, so the
+    # area's baseline, the low-battery threshold and the harness can all
+    # place a level with the same arithmetic the readings use. See its
+    # own docstring for the D-04/A-22 clamp reasoning that used to live
+    # in this comment. The local name is kept because every call below
+    # reads better as `_point_y(...)` beside `_point_x(...)`.
+    _point_y = sparkline_point_y
 
     # Axis chrome first (paint order — see the note below the point loop
     # for why order matters at all). Filled <rect> elements, not stroked
@@ -1348,22 +1539,47 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     # file's own prior comment already established here.
     line_segments = []
     circles = []
+    plotted = []
     prev_x = prev_y = None
     for index, (value, ts, reading_count) in enumerate(pairs):
         x = _point_x(index)
         y = _point_y(value)
+        plotted.append((x, y))
         if prev_x is not None:
             line_segments.append(
                 '<line class="%s" x1="%.2f%%" y1="%.2f%%" x2="%.2f%%" y2="%.2f%%"/>'
                 % (SPARKLINE_LINE_CLASS, prev_x, prev_y, x, y))
         prev_x, prev_y = x, y
 
+        # D-13/UXA-11 (and 24-05's mark): `pairs` is already in
+        # chronological order and _point_x() places the last index
+        # rightmost, so this one condition identifies "chronologically
+        # latest", "rightmost" and "the current reading" simultaneously.
+        # It is computed from `pairs` — the SAME single-pass filtered
+        # list every point, the area and the X-axis labels come from —
+        # and never from `rows`: the newest stored row may carry no
+        # battery_mv at all, and a mark derived from it would point at a
+        # reading the chart never plotted.
+        is_latest = index == point_count - 1
+
         # 260902-l0b: above the density threshold, the cosmetic marker is
         # not emitted at all (see _SPARKLINE_DENSE_POINT_THRESHOLD's own
         # derivation) — the hit target below still is, at its own reduced
         # radius, so every point stays reachable even though it is no
         # longer individually visible as a dot.
-        if not dense:
+        # 24-05-PLAN.md Task 2: the latest point gets the MARK instead of
+        # a cosmetic dot — a different class and a larger radius, emitted
+        # at every density (see the density rule's own exception note
+        # above). It is the same element in the same place in the same
+        # loop, not a second circle appended afterwards: a separate
+        # marker circle would double the point's ink, and any element
+        # emitted after the loop would land outside the roving-tabindex
+        # sequence the hit targets below establish.
+        if is_latest:
+            circles.append(
+                '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" aria-hidden="true"/>'
+                % (SPARKLINE_MARK_CLASS, x, y, _SPARKLINE_MARK_RADIUS_PX))
+        elif not dense:
             circles.append(
                 '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" aria-hidden="true"/>'
                 % (SPARKLINE_DOT_CLASS, x, y, _SPARKLINE_DOT_RADIUS_PX))
@@ -1398,11 +1614,11 @@ def battery_sparkline_svg(rows, now=None, daily=False):
         # (rightmost) point is a normal Tab stop; every other point is
         # removed from the natural Tab order (tabindex="-1") and instead
         # reachable via companion/static/battery-trend.js's arrow-key
-        # moveFocusTo() handler. `pairs` is already in chronological
-        # order and the x-coordinate math above already places the last
-        # index rightmost, so this one condition identifies both
-        # "latest" and "rightmost" simultaneously.
-        is_latest = index == point_count - 1
+        # moveFocusTo() handler. `is_latest` is computed once above (it
+        # was computed here before 24-05-PLAN.md Task 2 needed it
+        # earlier in the same iteration), so the point that is MARKED and
+        # the point that is the Tab stop are the same point by
+        # construction rather than by two matching expressions.
         tabindex = "0" if is_latest else "-1"
         circles.append(
             '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" tabindex="%s" '
@@ -1410,6 +1626,158 @@ def battery_sparkline_svg(rows, now=None, daily=False):
             "<title>%s</title></circle>"
             % (SPARKLINE_HIT_CLASS, x, y, hit_radius, tabindex, value, escape_html(ts),
                escaped_when, escaped_when, escaped_when))
+
+    # THE LOW-BATTERY THRESHOLD (24-05-PLAN.md Task 2, CFG-41,
+    # T-24-05-A/T-24-05-B).
+    #
+    # The value is READ from companion/battery.py and never re-typed
+    # here. That module's LOW_BATTERY_DISPLAY_MV is the COMPANION's
+    # DISPLAY threshold — where this app draws a line on a chart — and it
+    # is a different number from server/poll_loop.py's
+    # BATTERY_LOW_THRESHOLD_MV, which is the DEVICE's own hysteretic
+    # decision about when the frame warns on glass. They are two numbers
+    # for two jobs; battery.py's own comment says so at length, and a
+    # millivolt literal typed into this file would be the start of them
+    # quietly becoming one.
+    #
+    # Placed by `_point_y()` — the same function every reading is placed
+    # by. A threshold with its own arithmetic would sit
+    # `_SPARKLINE_VERTICAL_INSET_PERCENT` away from the readings it
+    # exists to be compared against, which is a chart that lies by 3.75%
+    # of its own height.
+    #
+    # Drawn as a filled <rect>, not a stroked <line>, for the reason the
+    # axis chrome above already records: an axis-aligned integer-width
+    # filled rect has no stroke-centring or half-pixel rounding to reason
+    # about, and a rect can pair a percentage position with an absolute
+    # size. Its own class, not SPARKLINE_AXIS_CLASS: the axis is
+    # structure and is painted with the structural border token; this is
+    # a judgement about the device and is painted with the app's existing
+    # status-warn token (style.css). Accent stays reserved.
+    #
+    # SUPPRESSED ENTIRELY when the value falls outside the chart's fixed
+    # range. `_point_y()` clamps, so an out-of-range threshold would draw
+    # pinned to the axis edge and read as "low starts at the bottom of
+    # the chart", which is a false statement rather than a clipped one.
+    # 24-01 chose a value strictly inside the range on purpose, so this
+    # is a guard against a later change rather than a case expected
+    # today — and the legend below goes with it, because a label for a
+    # line that is not drawn is worse than neither.
+    threshold_mv = battery.LOW_BATTERY_DISPLAY_MV
+    threshold_visible = (
+        isinstance(threshold_mv, int) and not isinstance(threshold_mv, bool)
+        and SPARKLINE_Y_MIN_MV < threshold_mv < SPARKLINE_Y_MAX_MV)
+    threshold_rect = ""
+    legend_html = ""
+    if threshold_visible:
+        threshold_rect = (
+            '<rect class="%s" x="0" y="%.2f%%" width="100%%" height="1" aria-hidden="true"/>'
+        ) % (SPARKLINE_THRESHOLD_CLASS, _point_y(threshold_mv))
+        # The label is a <span> in the chart's own grid, OUTSIDE the
+        # canvas, exactly as the four axis labels are — an SVG <text>
+        # node inside a canvas with no viewBox is the overflow defect the
+        # wrapper grid was built to remove.
+        #
+        # It is a LEGEND in its own full-width row, not a third entry in
+        # the Y-label column, and that is a deliberate choice rather than
+        # the easy one: `.sparkline__y` is a flex column with
+        # `justify-content: space-between`, which can only place labels
+        # at the top, the bottom and (for three) the middle — the
+        # threshold sits at 59.25% of the canvas, so a third label there
+        # would name a level it does not sit beside. Pinning it to its
+        # real level instead would need an inline `style` attribute on a
+        # drawing element, which this codebase's drawing vocabulary
+        # refuses outright (companion/draw.py's REFUSED_ATTRIBUTES). A
+        # legend claims no position, so it cannot claim a wrong one; the
+        # swatch beside it carries the same paint as the drawn line, so
+        # the connection is made by colour rather than by proximity.
+        #
+        # NOT aria-hidden, unlike every axis label. Those are hidden
+        # because each point's own aria-label already announces its
+        # value, so reading them too would say the chart's extremes
+        # twice. Nothing anywhere on this page announces where "low"
+        # starts — this label is the only statement of it, and hiding it
+        # would be information sighted users get and screen-reader users
+        # do not.
+        legend_html = (
+            '<div class="%s">'
+            '<span class="%s"><span class="%s" aria-hidden="true"></span>%s</span>'
+            "</div>"
+        ) % (
+            SPARKLINE_LEGEND_ROW_CLASS, SPARKLINE_LEGEND_CLASS,
+            SPARKLINE_LEGEND_SWATCH_CLASS,
+            escape_html(i18n.t(BATTERY_THRESHOLD_LABEL_TEMPLATE)
+                        % (threshold_mv, battery.LOW_BATTERY_DISPLAY_PERCENT)),
+        )
+
+    # THE AREA UNDER THE LINE (24-05-PLAN.md Task 1, CFG-41/CFG-45),
+    # and the geometry experiment that produced it, recorded here because
+    # the obvious simplification is unavailable rather than merely worse:
+    #
+    # Percentages are not permitted inside a <polygon>/<polyline>
+    # `points` list, or inside a <path> `d` — the SAME rule this
+    # function's own docstring already records as the reason the trend
+    # line is n - 1 <line> segments rather than one polyline. So the area
+    # cannot be a sibling <polygon> of those segments. It cannot be a
+    # stack of per-segment quadrilaterals either: nothing but <rect>
+    # accepts percentage geometry, and a trapezoid is not a rect. And the
+    # outer canvas's no-viewBox scheme is not available to trade away for
+    # an easier area — a viewBox there would reintroduce a scale factor
+    # and shrink every stroke, marker radius and hit target at 360px,
+    # which is the regression the scheme exists to prevent.
+    #
+    # What is left, and what is used: a NESTED <svg> carrying its own
+    # viewBox="0 0 100 100" and preserveAspectRatio="none". A nested svg
+    # establishes its own viewport; with that viewBox and that
+    # preserveAspectRatio, user unit N maps to exactly N% of the same box
+    # in each axis INDEPENDENTLY — so the polygon's plain user-unit
+    # vertices land on the identical coordinates the outer scheme's
+    # percentage attributes produce, and the area's top edge follows the
+    # line exactly. Nothing outside this element changes coordinate
+    # system. Verified in Chromium at 360px before it was built on.
+    #
+    # The layer carries NO size attributes and NO CSS rule of its own:
+    # style.css's `.battery-trend-section svg:not(.icon)` matches EVERY
+    # <svg> in the section, including this one, so the layer's box comes
+    # from the same single width/height declaration the canvas's does and
+    # the two cannot be sized differently. A rule on
+    # SPARKLINE_AREA_LAYER_CLASS would be a second size route — and at
+    # (0,1,0) one that silently loses to that selector's (0,2,1) besides.
+    #
+    # The baseline is the SCALE's own floor — `_point_y(
+    # SPARKLINE_Y_MIN_MV)`, the level the "3000 mV" label names — never
+    # y=100 (the canvas edge, where the drawn X axis sits). Closing at
+    # the edge would add the vertical inset to every reading as a
+    # constant, so the filled height would no longer BE the value above
+    # the axis minimum, which is the only thing an area under a line
+    # means.
+    #
+    # The fill is `currentColor` at a `fill-opacity` (style.css), the
+    # line's own colour reduced — so the area is correct in dark mode by
+    # the same mechanism the line already is, and no colour value is
+    # introduced. A <linearGradient> would have been the nicer fade and
+    # is deliberately NOT used: it can only be referenced as
+    # `fill="url(#id)"`, and this function's own no-external-reference
+    # guarantee (asserted against its return value in
+    # companion/test_status_pages.py) forbids the substring `url(`
+    # outright. That guarantee is D-09's, and weakening a security-shaped
+    # assertion to buy a gradient is not a trade this plan is willing to
+    # make.
+    #
+    # Paint order: SVG paints in document order, so the area is emitted
+    # FIRST — before the axis chrome, the line segments and the points —
+    # and can therefore never cover any of them. (See the point loop's
+    # own paint-order note above, which this extends.)
+    area_baseline_y = _point_y(SPARKLINE_Y_MIN_MV)
+    area_points = " ".join(
+        "%.2f,%.2f" % (x, y) for x, y in plotted
+    ) + " %.2f,%.2f %.2f,%.2f" % (
+        plotted[-1][0], area_baseline_y, plotted[0][0], area_baseline_y)
+    area_layer = (
+        '<svg class="%s" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">'
+        '<polygon class="%s" points="%s"/>'
+        "</svg>"
+    ) % (SPARKLINE_AREA_LAYER_CLASS, SPARKLINE_AREA_CLASS, area_points)
 
     # Y-axis pair: max label first, min label second — .sparkline__y
     # (style.css) is a flex column with justify-content: space-between,
@@ -1441,10 +1809,11 @@ def battery_sparkline_svg(rows, now=None, daily=False):
 
     svg_html = (
         '<svg class="sparkline__canvas" role="group" aria-label="%s">'
-        "%s%s%s"
+        "%s%s%s%s%s"
         "</svg>"
     ) % (escape_html(i18n.t(BATTERY_SECTION_HEADING)),
-         axis_chrome, "".join(line_segments), "".join(circles))
+         area_layer, axis_chrome, threshold_rect,
+         "".join(line_segments), "".join(circles))
 
     # Grid document order: the Y-label column first (grid column 1, row
     # 1), then the canvas (auto-placed into column 2, row 1 — the only
@@ -1452,7 +1821,13 @@ def battery_sparkline_svg(rows, now=None, daily=False):
     # X-label row last (explicitly column 2 in style.css, which the grid
     # auto-places into row 2, the only open cell in that column). See
     # style.css's `.sparkline` rule for the full grid contract.
-    return '<div class="sparkline">%s%s%s</div>' % (y_labels_html, svg_html, x_labels_html)
+    # 24-05-PLAN.md Task 2: the threshold's legend is the grid's fourth
+    # and last child — `grid-column: 1 / -1` in style.css puts it in its
+    # own full-width row beneath the X-label row, the only cell left. It
+    # is "" when no threshold is drawn, so the row simply does not exist
+    # rather than collapsing to an empty one.
+    return '<div class="sparkline">%s%s%s%s</div>' % (
+        y_labels_html, svg_html, x_labels_html, legend_html)
 
 
 def battery_status(rows):
@@ -1659,8 +2034,16 @@ def compute_health_state(state_dir, now=None):
     # deployed SKYPANE_SLEEP_S) resolves to this device's own staleness
     # thresholds — computed once here, never independently re-derived by
     # _device_section() or any harness fixture that omits them.
-    warn_s, error_s = wake.device_staleness_thresholds(
-        wake.effective_wake_interval_s(inputs["device_config"]))
+    #
+    # 24-07-PLAN.md Task 2 (CFG-43): the resolved cadence is now held in
+    # its own local and published below, rather than being computed
+    # inline as an argument here. The check-in regularity grid has to
+    # judge its cells against the SAME cadence this tile's thresholds
+    # come from and has to be able to NAME it in its caption — a second
+    # effective_wake_interval_s() call at another instant would be two
+    # reads of a file that can change between them.
+    wake_interval_s = wake.effective_wake_interval_s(inputs["device_config"])
+    warn_s, error_s = wake.device_staleness_thresholds(wake_interval_s)
     # 22-04-PLAN.md Task 3 (D-03/CFG-26): the SAME triple
     # companion/layout.py's frame_strip_html() consumes, computed from
     # the SAME two facts (the device's own last check-in and its device
@@ -1722,6 +2105,12 @@ def compute_health_state(state_dir, now=None):
         "now": now,
         "source_fault_raw": inputs["source_fault_raw"],
         "registry_rows": inputs["registry_rows"],
+        # CFG-43: the cadence the Device tile's own thresholds were
+        # derived from, published so render()'s regularity grid judges
+        # its cells against that one value and can say which it was.
+        # The grid's gap ROWS are deliberately NOT read here — see
+        # render()'s own call site for why that read is Health's alone.
+        "wake_interval_s": wake_interval_s,
         "device_html": device_html,
         "device_state": device_state,
         "device_detail_html": device_detail_html,
@@ -2385,6 +2774,78 @@ def _battery_readout_block(latest_reading, now):
         escape_html(when_text), escape_html(when_text))
 
 
+# 24-04-PLAN.md Task 2 (CFG-40): the LARGE ring's box side, in CSS
+# pixels. The number lives here and the small one lives in
+# home_page.py, because a single "sizes" table in draw.py would be one
+# rename away from reading as two named variants of one drawing — which
+# is the thing CFG-40 forbids. What must be shared is the EMITTER, and
+# it is: both pages call draw.ring_gauge(), and a change inside it moves
+# both rings.
+#
+# 72 against this card's own 312px content width at the 360px floor
+# leaves roughly 190px for the readout beside it, which still fits the
+# "≈ NN% · NNNN mV — D Mon HH:MM (Nx ago)" string on the same number of
+# lines its reserved min-height already allows for.
+BATTERY_RING_SIZE = 72
+
+
+def _battery_ring_html(latest_reading, state):
+    """The battery ring for `latest_reading`, or "" when there is
+    nothing honest to draw.
+
+    RETURNS "" RATHER THAN AN EMPTY RING when there is no reading, or
+    when the reading is one `companion/battery.py` refuses (non-numeric,
+    or non-positive — a broken sensor rather than a flat battery). An
+    empty ring reads as "0%", which is a false statement about a device
+    that has simply not checked in; `_status_tiles_html()` already
+    avoids the identical error by rendering a "no reading" verdict
+    instead of a zero.
+
+    THE RING AND THE READOUT BESIDE IT ARE ONE NUMBER IN TWO RENDERINGS.
+    The fraction handed to the emitter is the PRINTED PERCENTAGE divided
+    by 100 — not a second, finer-grained estimate — so the arc cannot
+    draw 43.4% while the text says 43%. `battery.battery_percent()` is
+    the app's ONE battery estimator (D-01/A-19, CFG-39) and this is a
+    second invocation of that same pure function on the same millivolt
+    value `_battery_reading_parts()` renders, never a second estimate;
+    companion/test_status_pages.py measures the two against each other
+    in the rendered page rather than trusting that sentence.
+
+    The colour comes from `state` — `battery_status()`'s verdict, which
+    this section has ALREADY computed for its own card edge — through
+    draw.status_class(). Never a second judgement about the same number.
+    """
+    if not latest_reading:
+        return ""
+    mv, _ts = latest_reading
+    percent = battery.battery_percent(mv)
+    if percent is None:
+        return ""
+    return draw.ring_gauge(
+        percent / 100.0, BATTERY_RING_SIZE, draw.status_class(state))
+
+
+def _battery_readout_row_html(latest_reading, now, state):
+    """The readout, with the ring beside it when there is one.
+
+    With no ring this returns `_battery_readout_block()`'s own markup
+    UNWRAPPED and therefore byte-identical to what this section rendered
+    before the ring existed — the no-reading page is not a slightly
+    different page, it is the same page.
+
+    The ring comes first in document order because it is the thing the
+    eye lands on; `companion/static/battery-trend.js` finds the readout
+    by `getElementById` and has never depended on its position in the
+    document (its own docstring records that), so wrapping it costs
+    nothing there.
+    """
+    readout_html = _battery_readout_block(latest_reading, now)
+    ring_html = _battery_ring_html(latest_reading, state)
+    if not ring_html:
+        return readout_html
+    return '<div class="battery-readout-row">%s%s</div>' % (ring_html, readout_html)
+
+
 def _battery_trend_section_html(battery_html, state, caption=None):
     """Wrap `_battery_section()`'s already-built markup in the full-width
     `BATTERY_SECTION_CLASS` card section (D-02) that replaces its old
@@ -2620,8 +3081,11 @@ def _battery_section(trend_rows, daily_rows=None):
         # last regardless, so "exactly one script tag, and zero on the
         # no-chart path" stays true unweakened.
         latest_reading = _latest_numeric_battery_reading(trend_rows)
+        # 24-04-PLAN.md Task 2 (CFG-40): the readout gained the ring
+        # beside it. With no drawable reading this is byte-identical to
+        # the _battery_readout_block() call it replaces.
         chart_block = (
-            _battery_readout_block(latest_reading, now)
+            _battery_readout_row_html(latest_reading, now, state)
             + sparkline_html
             + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
     # D-08: the chart (when present) comes before the collapsed table in
@@ -3351,6 +3815,178 @@ def _resolution_rate_tile_html(stats):
     )
 
 
+def _check_in_regularity_cells(gap_rows, wake_interval_s, now):
+    """`(cells, counts, day_labels)` for the check-in regularity grid —
+    one entry per Europe/Paris calendar day of the CHECK_IN_WINDOW_DAYS
+    ending on `now`'s own day, oldest first (24-07-PLAN.md Task 2).
+
+    `gap_rows` is `history_db.check_in_gaps()`'s own output and is read,
+    never recomputed. `cells` is `draw.regularity_grid()`'s own
+    `(state, title)` shape.
+
+    EVERY VERDICT IS `wake.classify_check_in_gap()`'s, INCLUDING THE
+    EMPTY ONES, and that is a property rather than a convenience: a day
+    the record says nothing about is passed to the classifier as a gap of
+    `None`, which it answers `CHECK_IN_UNKNOWN` for — so there is no
+    branch anywhere in this page that decides a day's colour, not even
+    for the absent case. One function decides what "late" means for this
+    deployment and it is the same one the Frame tile consumes.
+
+    A DAY IS JUDGED BY ITS LONGEST OBSERVED GAP. The alternative — an
+    average, or the newest gap — would hide exactly the event a reader
+    opens this page for: forty ordinary check-ins and one six-hour hole
+    is a day with a six-hour hole in it, and the cell's own title names
+    that duration so the colour is checkable rather than merely asserted.
+    `max()` over values the reader already computed is not a second
+    interval computation; nothing here subtracts two instants.
+
+    THE CALENDAR ARITHMETIC IS ORDINAL, and the day-offset type this
+    module imports for other purposes is deliberately not used here. The
+    reason is narrow: this function must contain no duration arithmetic
+    at all — a check reads its own source for exactly that, and it reads
+    it bluntly enough that this paragraph has to talk around the names it
+    bans — and walking a window of days by `date.toordinal()` /
+    `date.fromordinal()` is calendar arithmetic with no duration
+    anywhere in it. It is also correct across a DST boundary for free,
+    where adding a fixed number of seconds per day is not.
+
+    Never raises: an unparseable `now` falls back to the wall clock's own
+    Paris day, and a row of any other shape is skipped.
+    """
+    worst = {}
+    for row in gap_rows or ():
+        try:
+            day, gap = row.get("day"), row.get("gap_s")
+        except AttributeError:
+            continue
+        if not isinstance(day, str) or not draw.is_number(gap):
+            continue
+        if day not in worst or gap > worst[day]:
+            worst[day] = gap
+
+    parsed = layout.parse_iso(now)
+    if parsed is None:
+        parsed = datetime.now(timezone.utc)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    last = parsed.astimezone(layout.LOCAL_TZ).date().toordinal()
+
+    cells = []
+    labels = []
+    counts = dict.fromkeys(CHECK_IN_STATE_TEXT, 0)
+    for ordinal in range(last - CHECK_IN_WINDOW_DAYS + 1, last + 1):
+        day = date.fromordinal(ordinal)
+        gap = worst.get(day.isoformat())
+        state = wake.classify_check_in_gap(gap, wake_interval_s)
+        counts[state] = counts.get(state, 0) + 1
+        day_text = "%d %s" % (day.day, layout.month_abbr(day.month))
+        labels.append(day_text)
+        verdict_text = i18n.t(CHECK_IN_STATE_TEXT.get(
+            state, CHECK_IN_STATE_TEXT[wake.CHECK_IN_UNKNOWN]))
+        if gap is None:
+            title = i18n.t(CHECK_IN_CELL_TITLE_NONE) % (day_text, verdict_text)
+        else:
+            title = i18n.t(CHECK_IN_CELL_TITLE) % (
+                day_text, verdict_text, layout.duration_text(gap))
+        cells.append((state, title))
+    return cells, counts, labels
+
+
+def _check_in_regularity_section_html(gap_rows, wake_interval_s, now):
+    """The whole "Check-in regularity" card: heading, the three-clause
+    caption, the grid, its two date labels and the four-state key.
+
+    `wake_interval_s` is `wake.effective_wake_interval_s()`'s answer for
+    the config in force RIGHT NOW, and the caption says so in as many
+    words. `None` — a deployment with no `wake_interval_s` and no
+    `SKYPANE_SLEEP_S` — is not silently replaced with a default: the
+    classifier degrades to `device_staleness_thresholds()`' bare floors
+    for it, and the caption names those floors instead of naming a
+    cadence nobody configured.
+    """
+    if gap_rows is _DB_UNAVAILABLE:
+        body = _unavailable_block()
+    else:
+        cells, counts, labels = _check_in_regularity_cells(
+            gap_rows, wake_interval_s, now)
+        observed = sum(
+            counts.get(state, 0) for state in (
+                wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE, wake.CHECK_IN_MISSING))
+        grid_html, dropped = draw.regularity_grid(
+            cells,
+            label=i18n.t(CHECK_IN_GRID_LABEL) % (
+                CHECK_IN_WINDOW_DAYS,
+                counts.get(wake.CHECK_IN_ON_CADENCE, 0),
+                counts.get(wake.CHECK_IN_LATE, 0),
+                counts.get(wake.CHECK_IN_MISSING, 0),
+                counts.get(wake.CHECK_IN_UNKNOWN, 0)))
+        # The oldest label is read PAST anything the drawing dropped, so
+        # the two labels can only ever name cells that are on screen. The
+        # window is inside the emitter's own bound today, so `dropped` is
+        # 0 — this line is what keeps the labels honest if that ever
+        # stops being true, rather than a caption quietly naming a day
+        # the grid no longer draws.
+        oldest = labels[dropped] if dropped < len(labels) else labels[-1]
+        clauses = [i18n.t(CHECK_IN_CAPTION_OBSERVED)]
+        if not observed:
+            clauses.append(i18n.t(CHECK_IN_CAPTION_EMPTY))
+        if draw.is_number(wake_interval_s) and wake_interval_s > 0:
+            clauses.append(
+                i18n.t(CHECK_IN_CAPTION_CADENCE) % layout.duration_text(wake_interval_s))
+        else:
+            clauses.append(i18n.t(CHECK_IN_CAPTION_CADENCE_FALLBACK))
+        clauses.append(i18n.t(CHECK_IN_CAPTION_NOT_PROOF))
+        body = (
+            '<p class="text-label section-caption">%s</p>'
+            '<div class="%s">%s<div class="%s">%s%s</div></div>'
+            '%s'
+        ) % (
+            escape_html(" ".join(clauses)),
+            escape_html(CHECK_IN_GRID_CLASS), grid_html,
+            escape_html(CHECK_IN_SCALE_CLASS),
+            draw.label_span(oldest, hidden=False),
+            draw.label_span(labels[-1], hidden=False),
+            _check_in_key_html())
+    # A plain `.page-section` card and deliberately NOT
+    # `page-section--nested`. The nested modifier is carried by exactly
+    # the two cards migrated into Server & data, and three checks pin
+    # that count; this card is the Screen section's SECOND full-width
+    # card, and the first one (battery trend) carries its own class
+    # rather than that modifier too. Following the precedent already
+    # inside this section is the right call on its merits and leaves
+    # those three pins measuring what they were written to measure.
+    return (
+        '<section class="page-section">'
+        '<h2 class="text-heading">%s</h2>%s</section>'
+    ) % (escape_html(i18n.t(CHECK_IN_SECTION_HEADING)), body)
+
+
+def _check_in_key_html():
+    """The grid's key: four swatches, four names, in the classifier's own
+    order from best to worst and then absence.
+
+    THE SWATCH TAKES THE CELL'S OWN CLASS, not a copy of its colour. The
+    `.drawing-cell--*` modifiers set `color` and nothing else, so the
+    same declaration paints the SVG cell (through `fill: currentColor`)
+    and this HTML swatch (through `background: currentColor`) — a key
+    that could disagree with the cells it explains is worse than no key.
+    The swatch is aria-hidden because the word beside it IS the reading;
+    a screen reader announcing a coloured box adds nothing.
+    """
+    items = []
+    for state in (wake.CHECK_IN_ON_CADENCE, wake.CHECK_IN_LATE,
+                  wake.CHECK_IN_MISSING, wake.CHECK_IN_UNKNOWN):
+        items.append(
+            '<span class="%s"><span class="%s %s" aria-hidden="true"></span>'
+            '<span class="drawing-axis-label">%s</span></span>'
+            % (escape_html(CHECK_IN_KEY_ITEM_CLASS),
+               escape_html(CHECK_IN_KEY_SWATCH_CLASS),
+               escape_html(draw.cell_class(state)),
+               escape_html(i18n.t(CHECK_IN_STATE_TEXT[state]))))
+    return '<div class="%s">%s</div>' % (
+        escape_html(CHECK_IN_KEY_CLASS), "".join(items))
+
+
 def _read_health_inputs(state_dir, now):
     """The nine reads `render()` and `anomaly_active()` both need,
     single-sourced into one dict.
@@ -3525,6 +4161,39 @@ def render(ctx):
     stats = _safe_query(
         state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
 
+    # 24-07-PLAN.md Task 2 (CFG-43): the regularity grid's own read, made
+    # HERE and deliberately not in _read_health_inputs(). That dict
+    # exists so render() and anomaly_active() cannot see different
+    # values, and this read has no second consumer: the nav dot computes
+    # no verdict from it and never will, because the grid reports an
+    # observation rather than a fault. Putting it in the shared snapshot
+    # would charge every authenticated page in the app for a read only
+    # Health uses — the same reasoning, and the same shape, as the
+    # `stats` read directly above.
+    #
+    # The window is one day wider than the grid draws, because `since` is
+    # compared raw against a UTC-ish stored `ts` while the grid buckets
+    # by EUROPE/PARIS day: a Paris day begins an hour or two before the
+    # UTC one, so a cutoff exactly at the window's first day would drop
+    # that day's first hours. Extra rows outside the window simply bucket
+    # to days the grid does not draw.
+    regularity_rows = _safe_query(
+        state_dir,
+        lambda conn: history_db.check_in_gaps(
+            conn, since=_cutoff_iso(now, CHECK_IN_WINDOW_DAYS + 1)))
+    # Reuse the cadence compute_health_state() already resolved — the
+    # same "reuse the precomputed state, fall back to a fresh read" shape
+    # this function already uses for `health_state` itself and for
+    # `registry_rows`. Membership, not `.get()` with a default: `None` is
+    # a LEGITIMATE value here (a deployment whose cadence cannot be
+    # determined), and a default would turn a hand-built ctx's missing
+    # key into that same honest answer by accident.
+    if "wake_interval_s" in state:
+        wake_interval_s = state["wake_interval_s"]
+    else:
+        wake_interval_s = wake.effective_wake_interval_s(
+            device_config.load_device_config(state_dir))
+
     # 19-06-PLAN.md Task 2 (D-06): DEVICE_FRESHNESS_LABEL is already
     # plain language ("Device last checked in") — there is no genuine
     # technical term to demote to a tooltip here, so no `caption_title`
@@ -3568,125 +4237,19 @@ def render(ctx):
             caption_title=i18n.t(RESOLUTION_RATE_TITLE))
     )
 
-    # 260902-chc: SUPERSEDED — this used to be a manual Refresh link
-    # (D-12/UXA-13, see the reversal record above this function). It is
-    # now the hidden-by-default "Updating…" pill companion/static/
-    # freshness.js reveals just before each visibility-gated reload.
-    # `data-loaded-at` survives the reversal unchanged — `now` is
-    # already computed once per request by companion/app.py's
-    # page_context() — and gains a second job there (a tab returning
-    # from a long hidden stretch uses it to decide whether it owes an
-    # immediate catch-up refresh; see freshness.js's own header).
-    # escape_html() is required on `now` only: it used to be the sole
-    # requester, back when REFRESH_PILL_TEXT was a static module
-    # constant needing none. 20-03-PLAN.md Task 3 (D-05/T-20-03): a
-    # translated string is not pre-escaped, so i18n.t(REFRESH_PILL_TEXT)
-    # now goes through escape_html() too, like every other t() result.
-    #
-    # No ARIA role on the pill: a live region announces on content
-    # mutation, not on a visibility change, so a role="status" pill whose
-    # text never changes would announce nothing anyway — and the page
-    # load this pill precedes is itself announced as a navigation by
-    # every screen reader, making a second announcement redundant. The
-    # real accessibility cost this mechanism carries and does not solve:
-    # a reload that fires while a screen-reader user is reading with
-    # focus on the document body returns their virtual cursor to the
-    # top, and freshness.js's interaction-skip guard cannot detect that
-    # state. Accepted in writing, not left as an omission: the lever if
-    # this bites is the refresh interval, not the announcement, and a
-    # live screen-reader pass is named in this task's SUMMARY.
-    pill_html = (
-        '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
-        % (escape_html(now), layout.icon_html("icon-refresh"), escape_html(i18n.t(REFRESH_PILL_TEXT))))
-    # 19-09-PLAN.md (D-02, A-20): the clock-only rendering that replaces
-    # concise_timestamp_html(now, now)'s dishonest "(0s ago)" suffix (see
-    # FRESHNESS_PREFIX_TEXT's own comment above for why). Parses `now`
-    # once and formats it with layout.local_clock_text(parsed,
-    # now_parsed=parsed) — passing the SAME parsed value as both
-    # arguments always takes that function's "same local day as now"
-    # branch, so the visible text is always a bare "HH:MM", never the
-    # "D Mon HH:MM" cross-day form, exactly mirroring
-    # concise_timestamp_html()'s own span shape (a `mono` class, the full
-    # ISO string demoted to `title`) but with no relative-age half.
-    # Degrades exactly like concise_timestamp_html() does: an
-    # unparseable `now` renders the raw value in both the title and
-    # visible-text slots rather than raising. `data-refresh-clock` is
-    # this span's own hook for companion/static/freshness.js — it reads
-    # nothing from this span itself (the whole wrapper is swapped
-    # instead), but the attribute keeps this element easy to find from a
-    # future edit or a live DOM inspection.
-    _now_parsed = layout.parse_iso(now)
-    _clock_text = (
-        layout.local_clock_text(_now_parsed, now_parsed=_now_parsed)
-        if _now_parsed is not None else now)
-    # 22-12-PLAN.md Task 3 (C5): `mono` -> `time-value`. This page's own
-    # "Updated HH:MM" was the last of the four treatments C5 replaces
-    # here, and it was the one that most plainly broke the rule:
-    # monospace is reserved for IDENTIFIERS — the callsign, the ICAO24
-    # hex, the masked calendar URL — and a wall-clock time is not one.
-    # `.time-value` is the single time-value role (sans, tabular
-    # numerals, so the digits still hold their column as the clock
-    # ticks), which is exactly what the monospace family was being used
-    # for here. The base shape, not `--primary`: this is a caption under
-    # the page title, not a headline.
-    #
-    # 22-16-PLAN.md's closing sweep (D-05/CFG-28). The `title` used to
-    # carry the raw UTC ISO instant verbatim, and 22-12-PLAN.md left it
-    # standing with a note saying why: 19-09-PLAN.md (D-02/A-20) put it
-    # there deliberately and companion/test_status_pages.py pinned it by
-    # name, so converting it meant deliberately re-targeting another
-    # plan's pin. That is exactly what this plan owns.
-    #
-    # It fails two of D-05/CFG-28's own clauses at once: "every `title`
-    # tooltip carries a local full timestamp", and "raw ISO survives
-    # only behind a copy control" — a `title` is a tooltip, and this one
-    # sits behind no `.copy-btn` at all, so the requirement could not be
-    # honestly ticked while it stood.
-    #
-    # The conversion is the pattern 22-06-PLAN.md Task 3 already proved
-    # on `layout.concise_timestamp_html()`: the full Europe/Paris local
-    # timestamp from `local_clock_text()`'s own cross-day branch, forced
-    # by `_FULL_TIMESTAMP_SENTINEL_NOW`. This module already exposes it
-    # as `_full_local_timestamp_text()`, which every battery `title`/
-    # `aria-label`/`data-when` on this page has used since that plan —
-    # so this is a fourth caller of an existing helper, not a second
-    # date path, and it degrades identically (an unparseable value falls
-    # back to the raw string rather than raising).
-    #
-    # What is NOT lost with the ISO: `data-loaded-at` on the refresh
-    # pill still carries the real machine-readable instant, which is
-    # what companion/static/freshness.js actually reads. The `title` was
-    # only ever a human-facing tooltip.
-    clock_html = (
-        '<span class="time-value" data-refresh-clock title="%s">%s</span>'
-        % (escape_html(_full_local_timestamp_text(now)), escape_html(_clock_text)))
-    # 21-02-PLAN.md (D-18): the Pause/Resume button that used to sit here
-    # is deleted outright — no replacement control, no placeholder. The
-    # freshness line is now just the prefix, the clock and the pill.
-    #
-    # Quick task 260903-peo (UIR-18): the pill and the clock still join
-    # inside ONE block-level wrapper — load-bearing, not decorative.
-    # `.page-header` is a plain block box; 260902-ep7 (BUG 1) fixed a
-    # measured 28px title-to-purpose gap caused by a stranded inline-level
-    # child (the bare pill span) forcing an anonymous block box between
-    # the block <h1> and the block <p class="page-header__purpose">. The
-    # pill escapes that only because `.page-header .refresh-pill` is
-    # absolutely positioned; a second bare inline node next to it would
-    # recreate the exact same condition. Wrapping both in one block-level
-    # <p> keeps `.page-header`'s children all block-level, and
-    # `.page-header .refresh-pill` — a descendant selector — still
-    # matches straight through the wrapper, so the pill's `top: 8px;
-    # right: 0` offsets (anchored to `.page-header`, the nearest
-    # positioned ancestor, never the wrapper) are unchanged.
-    #
-    # This whole `<p class="page-header__freshness">` element is one of
-    # REFRESH_SWAP_SELECTORS' own entries — freshness.js replaces it
-    # wholesale from its own fetch, so a render-time value here is
-    # honest for exactly as long as it takes the next successful swap to
-    # replace it, never longer.
-    freshness_html = (
-        '<p class="page-header__freshness text-label">%s%s%s</p>'
-        % (escape_html(i18n.t(FRESHNESS_PREFIX_TEXT)), clock_html, pill_html))
+    # 23-06-PLAN.md Task 2 (D1/CFG-35): the whole freshness line — the
+    # neutral dot, the "Updated " prefix, the clock element and the
+    # hidden pill carrying data-loaded-at — is now built by
+    # companion/layout.py's freshness_line_html(). ONE definition site,
+    # three call sites (Health, Home, the Display scope), which is the
+    # same contract frame_strip_html() and sidebar_nav() already state in
+    # their own docstrings. Every word of this block's reasoning moved
+    # with it, unabridged: why the pill carries no ARIA role, why the dot
+    # is neutral and rendered still, why the clock and not an age is what
+    # the server writes, and why all of it sits in ONE block-level
+    # wrapper. This page's rendered output is byte-identical to what it
+    # was before the move.
+    freshness_html = layout.freshness_line_html(now)
 
     # §5.2 (D-10): two id-anchored sections. Screen holds the
     # Device-freshness tile wrapped in its own single-tile dashboard-grid
@@ -3711,6 +4274,11 @@ def render(ctx):
             SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), i18n.t(SCREEN_SECTION_DESCRIPTION))
         + '<div class="dashboard-grid">' + device_tile_html + '</div>'
         + _battery_trend_section_html(battery_html, battery_state, battery_caption)
+        # CFG-43: the regularity grid belongs to Screen and not to Server
+        # & data — it is a picture of what the FRAME did, drawn from the
+        # frame's own check-ins, and it sits under the Device tile whose
+        # definition of "late" it shares.
+        + _check_in_regularity_section_html(regularity_rows, wake_interval_s, now)
     )
     # quick task 260902-gjj (ISSUE 2): the registry card's own class
     # attribute composes the same three pieces in the same order every

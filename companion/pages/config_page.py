@@ -587,6 +587,33 @@ DIRTY_LIST_AND = ", and "
 DIRTY_UNSAVED_SINGULAR = "1 unsaved change"
 DIRTY_UNSAVED_PLURAL = " unsaved changes"
 
+# 23-09-PLAN.md Task 2 (D3/CFG-32): the SIXTH word on the same element,
+# and the one T14 (22-15-PLAN.md Task 3) deliberately left for this
+# phase — "Disable only — do NOT change any label to a progress word;
+# that is D3, Phase 23."
+#
+# It rides the identical data-*-attribute-with-an-English-fallback idiom
+# as the five connectors above, for the identical reason: the French is
+# a catalogue entry rather than a JS literal, and this constant's own
+# English value is also companion/static/dirty-state.js's documented
+# fallback, so the two can never silently disagree about what a bar
+# rendered WITHOUT the attribute says.
+#
+# There is deliberately no "Saved" counterpart here, and its absence is
+# a decision rather than an omission. Saving is a full form POST that
+# replaces the document: the bar that shows this word does not exist any
+# more when the save completes. Reporting the finished state on the bar
+# would mean carrying a flag across that navigation, which would mean
+# browser storage, and this app holds no client state at all — a second
+# source of truth beside the server is the one thing its whole
+# discipline excludes. The completed state is companion/app.py's
+# existing FLASH_KEY_SAVED confirmation, delivered on the page the
+# browser actually lands on, which is where the reader's eyes are.
+#
+# The ellipsis is the single U+2026 character, matching this module's
+# own "Polling…" and layout.py's "Reconnecting…" — never three periods.
+DIRTY_SAVING_TEXT = "Saving…"
+
 # Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
 # row verbatim (D-17); "{n}" is filled in with a server-computed
 # remaining-seconds figure, never anything client-supplied. This text is
@@ -1190,8 +1217,17 @@ def _theme_chip_grid_html(
         chips.append(
             '<label class="%s" data-preview-src="%s%s.png?live=1"%s>'
             '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
+            # 23-10-PLAN.md Task 3 (D3/CFG-32): background-COLOR, not
+            # the `background` shorthand it used to be. Same rendered
+            # placeholder, same value, and the change is load-bearing:
+            # the shorthand resets background-image to none, and an
+            # inline style beats every author rule, so style.css's
+            # skeleton sheen for this band was unreachable while this
+            # said `background`. The band's own box is already reserved
+            # (width: 100%, height: 56px, both definite), so this is the
+            # decoration half only.
             '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
-            'width="320" height="120" loading="lazy" style="background:%s">'
+            'width="320" height="120" loading="lazy" style="background-color:%s">'
             '<span class="theme-chip__body">'
             '<span class="theme-chip__name">%s</span>'
             '<span class="theme-chip__swatches" aria-hidden="true">'
@@ -1820,28 +1856,93 @@ def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=
     combined with any error id in one space-separated value (hint
     first), never a second, competing `aria-describedby`.
     """
-    checked = _submitted_checkbox_checked(
-        submitted, "led_enabled", LED_CHECKBOX_VALUE, current_led_enabled)
-    error_attrs = _field_error_attrs(
-        errors, "led_enabled", "led-enabled", hint_id=LED_SECTION_CAPTION_ID)
+    is_on = current_led_enabled is True
     error_html = _field_error_html(errors, "led_enabled", "led-enabled")
+    # D-12/A-30's hint-then-error order, preserved across the conversion.
+    # The switch describes itself with its own state span first, then the
+    # group's caption (the hint the checkbox used to carry through
+    # _field_error_attrs()'s hint_id), then the error anchor when there
+    # is one — three ids on one attribute, never one overwriting another.
+    described_by = QUICK_LED_STATE_ID + " " + LED_SECTION_CAPTION_ID
+    if errors and errors.get("led_enabled"):
+        described_by = described_by + " led-enabled-error"
     return (
-        '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">%s</h2>'
+        '<div class="theme-status" %s="%s" %s>'
+        '<h2 class="text-heading" id="%s">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        '<label class="settings-checkbox">'
-        '<input type="checkbox" name="led_enabled" value="%s"%s%s> %s'
-        "</label>"
+        '<div class="settings-switch-row">%s%s</div>'
         "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(LED_SECTION_HEADING)),
-        escape_html(i18n.t(LED_SECTION_HEADING)),
+        layout.QUICK_SWITCH_REGION_ATTR,
+        escape_html(QUICK_LED_LABEL_ID), escape_html(i18n.t(LED_SECTION_HEADING)),
         escape_html(LED_SECTION_CAPTION_ID),
         escape_html(_with_next_wake(i18n.t(LED_SECTION_CAPTION), next_wake_clock)),
-        escape_html(LED_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
-        escape_html(i18n.t("Enable diagnostic LED")),
+        layout.quick_switch_state_html(
+            QUICK_LED_STATE_ID,
+            i18n.t(layout.QUICK_ACTION_ON_TEXT), i18n.t(layout.QUICK_ACTION_OFF_TEXT), is_on),
+        layout.quick_switch_html(
+            "", "", is_on, QUICK_LED_LABEL_ID,
+            described_by, form_id=QUICK_LED_FORM_ID),
         error_html,
+    )
+
+
+QUICK_LED_FORM_ID = "quick-led"
+QUICK_LED_LABEL_ID = "quick-switch-led-label"
+QUICK_LED_STATE_ID = "quick-switch-led-state"
+
+
+def quick_led_form_html(current_led_enabled):
+    """The Diagnostic LED switch's own `<form method="post"
+    action="/quick/led">` (D2/CFG-36, 23-07-PLAN.md Task 2) — EMPTY, and
+    a sibling of `<form id="{SETTINGS_FORM_ID}">`.
+
+    Exactly `notifications_test_section()`'s shape, for exactly its
+    reason: `led_group()` renders INSIDE the settings form, and a
+    `<form>` can never nest inside another `<form>` — a browser silently
+    drops the inner one, and the switch would then submit the SETTINGS
+    form instead. That is not a cosmetic failure: a fetch-driven partial
+    `POST /settings` is the precise shape T-23-25/D-12.1 is about. The
+    button therefore stays in the card and reaches this element across
+    the DOM through `form="{QUICK_LED_FORM_ID}"`, the same cross-DOM
+    idiom the save bar and the Send-a-test button already use.
+
+    The action attribute is written as literal path text, not a `%s`
+    interpolation of a route constant, matching the established
+    convention of every other immediate-action form in this module
+    (this module's acceptance gate greps the literal form-action text).
+
+    `return_to` is `layout.DEVICE_ROUTE`: the LED switch renders on the
+    Device page and nowhere else. `companion/app.py` validates it by
+    MEMBERSHIP against that route's own single-member whitelist before
+    ever using it as a redirect target (T-21-12/T-23-24) — this function
+    has no opinion on validity, exactly like `frame_strip_html()`.
+
+    The posted `state` is the OPPOSITE of the stored one, so a press with
+    scripts blocked switches the LED rather than re-asserting the state
+    it is already in. `companion/static/quick-switch.js` keeps that field
+    inverted after an optimistic flip; with the script absent, this
+    server-rendered value is the whole mechanism.
+
+    `data-quick-switch` is the D-04 handshake both
+    `companion/static/dirty-state.js` and
+    `companion/static/quick-switch.js` key on. Do not delete it as
+    apparently unused from this module's own perspective.
+    """
+    next_state = (
+        layout.QUICK_STATE_OFF if current_led_enabled is True else layout.QUICK_STATE_ON)
+    return (
+        '<form method="post" action="/quick/led" id="%s" '
+        'class="quick-action__form" data-quick-switch>'
+        '<input type="hidden" name="state" value="%s">'
+        '<input type="hidden" name="return_to" value="%s">'
+        "</form>"
+    ) % (
+        escape_html(QUICK_LED_FORM_ID),
+        escape_html(next_state),
+        escape_html(layout.DEVICE_ROUTE),
     )
 
 
@@ -3361,7 +3462,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         '<div class="dirty-bar" data-dirty-bar hidden role="status" '
         'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
         'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
-        'data-dirty-unsaved-plural="%s">'
+        'data-dirty-unsaved-plural="%s" data-dirty-saving="%s">'
         "<span data-dirty-count>%s</span>"
         '<button type="submit" class="dirty-bar__save" form="%s">%s</button>'
         '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
@@ -3369,7 +3470,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     ) % (
         escape_html(i18n.t(DIRTY_CHANGED_SUFFIX)), escape_html(i18n.t(DIRTY_AND)),
         escape_html(i18n.t(DIRTY_LIST_AND)), escape_html(i18n.t(DIRTY_UNSAVED_SINGULAR)),
-        escape_html(i18n.t(DIRTY_UNSAVED_PLURAL)),
+        escape_html(i18n.t(DIRTY_UNSAVED_PLURAL)), escape_html(i18n.t(DIRTY_SAVING_TEXT)),
         escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT)), SETTINGS_FORM_ID,
         escape_html(i18n.t("Save settings")), escape_html(i18n.t("Cancel")),
     )
@@ -3439,13 +3540,35 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     # "" on both of those scopes.
     notifications_test_html = (
         notifications_test_section() if screens.GROUP_NOTIFICATIONS in groups else "")
+    # 23-07-PLAN.md Task 2 (D2/CFG-36): the LED switch's own form, for
+    # the identical reason and in the identical position as the
+    # Send-a-test form above — an immediate-action <form> can never nest
+    # inside <form id="settings-form">, so it renders after </form>
+    # closes and its button reaches it across the DOM. "" on every scope
+    # that does not render the LED group.
+    quick_led_html = (
+        quick_led_form_html(current_led_enabled) if screens.GROUP_LED in groups else "")
     # 19-12-PLAN.md Task 2 (D-23): the conditional selector joins the
     # screen caption in BOTH scoped headers' action_html slot — with
     # today's single-member registry it renders as "", so both headers
     # stay byte-identical to their pre-D-23 output.
     if scope == SCOPE_DISPLAY:
+        # 23-06-PLAN.md Task 2 (D1/CFG-35): the Display scope refreshes
+        # itself, because it renders the Frame strip and a stale claim
+        # about the frame's state costs most there. The freshness line is
+        # the shared builder's — the same one Health and Home call — and
+        # it carries `data-loaded-at`, which companion/static/
+        # freshness.js requires before it does anything.
+        #
+        # What this page declares as swappable is the strip and this line
+        # and nothing else (layout.REFRESH_SWAP_SELECTORS_BY_PAGE's own
+        # comment says why): everything below is a <form>, and a swap
+        # that lands on a half-edited form is B1 with a new cause. The
+        # loop additionally stands the whole cycle down while the save
+        # bar reports unsaved edits.
         header = layout.page_header(
             i18n.t(DISPLAY_PAGE_TITLE), purpose=i18n.t(DISPLAY_PAGE_PURPOSE),
+            freshness_html=layout.freshness_line_html(ctx.get("now")),
             action_html=_screen_caption_html(screen) + _screen_selector_html(screen_id, errors=errors))
         # 21-04-PLAN.md Task 1 (D-02/R-01): the shared Frame strip, once,
         # directly after the page header and before the "Look"
@@ -3601,6 +3724,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "%s"
         "%s"
+        "%s"
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
@@ -3639,6 +3763,10 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # positioned right after the Notifications card's own in-form
         # content (inside groups_html above) and before Manual refresh.
         notifications_test_html,
+        # 23-07-PLAN.md Task 2 (D2/CFG-36): the LED switch's own empty
+        # form, a sibling of the settings form for the same reason the
+        # Send-a-test form above is one. "" on Display/SCOPE_ALL.
+        quick_led_html,
         # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): "When it is on"'s own
         # header plus the Screen on/off and Quiet hours cards — always ""
         # on the Device/SCOPE_ALL paths (both set it to "" explicitly
@@ -3923,18 +4051,21 @@ def handle_post(form, ctx, errors=None):
 
     Three properties are load-bearing here, not incidental:
 
-    First (rewritten by 22-05-PLAN.md Task 1, X1/D-04/D-12.1, T-22-16):
-    `led_enabled` keeps its historical absent-means-False semantics —
-    its checkbox is still rendered on the Device page, so an *unchecked*
-    box genuinely means the user unticked it, and an absent field means
-    the same thing an unchecked checkbox always has: `False`, never
-    "leave unchanged". `display_enabled` and `quiet_hours_enabled` are
-    DIFFERENT as of this plan: NEITHER settings page renders a checkbox
-    for either field any more (the Frame strip's own quick-toggle route,
-    `companion/app.py`'s `_handle_quick_toggle()`, is the sole normal
-    writer of both now), so this field's absence from a `/settings` POST
-    body no longer means "the user unticked a box that was on the
-    page" — it means "this form never had a control for it at all".
+    First (rewritten by 22-05-PLAN.md Task 1, X1/D-04/D-12.1, T-22-16;
+    EXTENDED to the third flag by 23-07-PLAN.md Task 2, D2/CFG-36,
+    T-23-25): all three checkbox flags now resolve absent -> `None`
+    (leave unchanged), and the asymmetry this paragraph used to describe
+    is GONE. `led_enabled` was the last field still resolving absent to
+    `False`, which was correct only while its checkbox was still
+    rendered on the Device page; that checkbox is replaced by a
+    `role="switch"` posting to `/quick/led`, so no settings page renders
+    a control for any of the three. `display_enabled` and
+    `quiet_hours_enabled` reached the same place first (the Frame
+    strip's own quick-toggle route, `companion/app.py`'s
+    `_handle_quick_toggle()`, is the sole normal writer of both), so a
+    field's absence from a `/settings` POST body no longer means "the
+    user unticked a box that was on the page" — it means "this form
+    never had a control for it at all".
     Resolving that to `False` (the pre-22-05 behaviour) was a real,
     severe bug hiding behind a since-retired UI affordance: it silently
     switched the physical screen and quiet hours OFF on every settings
@@ -3950,12 +4081,14 @@ def handle_post(form, ctx, errors=None):
     submission that still names the field) is still validated by exact
     equality against `DISPLAY_CHECKBOX_VALUE`/`QUIET_HOURS_CHECKBOX_VALUE`
     and still honoured when it matches, and an unexpected value still
-    rejects the whole submission exactly as `led_enabled`'s own third
-    shape always has. So, for all three checkboxes: `led_enabled`
-    resolves absent -> `False`, equal to `LED_CHECKBOX_VALUE` -> `True`,
-    anything else -> reject; `display_enabled`/`quiet_hours_enabled`
-    resolve absent -> `None` (unchanged), equal to their own
-    `*_CHECKBOX_VALUE` -> `True`, anything else -> reject.
+    rejects the whole submission exactly as the third shape always has.
+    So, for all three checkboxes, now symmetrically: absent -> `None`
+    (unchanged), equal to the field's own `*_CHECKBOX_VALUE` -> `True`,
+    anything else -> reject. The two notification checkboxes below are
+    the only fields left with the in-scope-absent-means-False
+    resolution, and they keep it because their checkboxes are still
+    rendered — which is exactly the condition that made it correct for
+    `led_enabled` until now.
 
     Second, an explicit `quiet_hours_start`/`quiet_hours_end` value still
     persists even when `quiet_hours_enabled` itself is absent or resolves
@@ -4093,13 +4226,17 @@ def handle_post(form, ctx, errors=None):
     20-11-PLAN.md Task 1 (D-26/D-28) adds a fourth group,
     `screens.GROUP_NOTIFICATIONS`, and three more form fields:
     `notifications_topic_url`, `notifications_battery`,
-    `notifications_silent`. The two checkboxes follow the identical
-    in-scope-absent-means-False resolution `led_enabled` above already
-    uses (22-05-PLAN.md Task 1 narrows this to `led_enabled` alone —
-    `display_enabled`/`quiet_hours_enabled` resolve absent to `None`,
-    unconditionally, per this docstring's own First paragraph above) — a
-    crafted value rejects the whole save, same as every sibling checkbox
-    gate. The
+    `notifications_silent`. The two checkboxes keep the
+    in-scope-absent-means-False resolution `led_enabled` used to share
+    (23-07-PLAN.md Task 2 narrows it to these two alone: all three of
+    `display_enabled`/`quiet_hours_enabled`/`led_enabled` now resolve
+    absent to `None` unconditionally, per this docstring's own First
+    paragraph above). They keep it because their checkboxes are STILL
+    RENDERED — 23-07 deliberately did not convert them, since they share
+    a card with a Save-governed topic-URL field and no locked decision
+    covers a card where some controls apply instantly and one waits for
+    Save. A crafted value rejects the whole save, same as every sibling
+    checkbox gate. The
     topic URL is genuinely different from every scalar field above: an
     empty (stripped) submission means "leave the stored URL unchanged"
     (this codebase's established empty-numeric-input convention,
@@ -4233,10 +4370,34 @@ def handle_post(form, ctx, errors=None):
         theme_arriving = device_config.CLEAR_THEME_ARRIVING
     else:
         theme_arriving = submitted_theme_arriving
-    if screens.GROUP_LED not in in_scope:
+    # 23-07-PLAN.md Task 2 (D2/CFG-36, D-12.1, T-23-25): led_enabled now
+    # resolves absent -> None (leave unchanged) UNCONDITIONALLY, the
+    # identical shape quiet_hours_enabled below already has, and for the
+    # identical reason. The Diagnostic LED's control is about to become
+    # the Frame-strip-style switch on its own /quick/led route, so no
+    # settings form renders a checkbox for this field any more —
+    # absence from THIS body therefore means "this form never had a
+    # control for it", not "the user unticked a box".
+    #
+    # THIS COMMIT LANDS BEFORE THE CONTROL MOVES, deliberately, so that
+    # no commit in this repository's history has an LED checkbox absent
+    # from the form while an absent field still means False. The reverse
+    # order is not untidy, it is the live defect: every unrelated
+    # settings save — a theme change, a wake-interval edit — would carry
+    # no led_enabled and would silently switch the LED off. That is the
+    # regression D-12.1 records and 22-05 already fixed twice, and the
+    # eight-combination guard in companion/test_config_page.py now
+    # covers all three flags rather than two.
+    #
+    # The scope test is gone with it: it was load-bearing only while the
+    # absent branch resolved to False (it stopped a Display-scope save,
+    # which never rendered the LED checkbox, from switching the LED off).
+    # With absent meaning "unchanged" the scope makes no difference to
+    # the outcome, so keeping the branch would be a condition that can
+    # never change an answer — exactly the shape a later reader mistakes
+    # for a live rule.
+    if submitted_led is None:
         led_enabled = None
-    elif submitted_led is None:
-        led_enabled = False
     elif submitted_led == LED_CHECKBOX_VALUE:
         led_enabled = True
     else:

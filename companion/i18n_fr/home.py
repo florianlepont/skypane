@@ -109,4 +109,32 @@ CATALOG = {
         "Le premier avion détecté par le cadre sur la piste surveillée "
         "apparaîtra ici.",
     "%s illustration": "Illustration %s",
+
+    # --- The day band (CFG-42, 24-06-PLAN.md Task 2) --------------------
+    #
+    # "heures calmes" and "reveil" are BOTH pre-existing terms in this
+    # catalogue's own vocabulary, reused rather than re-coined:
+    # companion/i18n_fr/display.py and nav.py render "Quiet hours" as
+    # "Heures calmes", and companion/i18n_fr/frame_state.py already calls
+    # the device's wake a "reveil" ("Prochain reveil vers %s"). A band
+    # that invented a third word for the event the frame strip above it
+    # already names would read as a different event.
+    # "Today" is NOT redefined here: companion/i18n_fr/flights.py already
+    # owns that exact key ("Aujourd’hui") and the auto-merge package
+    # raises on a duplicate. i18n.t() resolves it from the one shared
+    # catalogue whichever page calls it — the same reuse this module's
+    # own header records for "Home".
+    "The frame's check-ins through the day, midnight to midnight":
+        "Les réveils du cadre au fil de la journée, de minuit à minuit",
+    "No check-ins recorded on %s.": "Aucun réveil enregistré le %s.",
+    "1 check-in on %s.": "1 réveil le %s.",
+    # The placeholders stay in the English order (count, then day): both
+    # languages say the number first.
+    "%s check-ins on %s.": "%s réveils le %s.",
+    "Some marks are merged — check-ins closer together than the band can "
+    "separate are drawn as one.":
+        "Certaines marques sont fusionnées : les réveils trop rapprochés pour "
+        "que la bande puisse les séparer sont dessinés comme un seul.",
+    "Shaded: quiet hours, %s to %s.":
+        "Zone grisée : heures calmes, de %s à %s.",
 }
