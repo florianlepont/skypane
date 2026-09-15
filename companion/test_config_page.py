@@ -2852,23 +2852,73 @@ def main():
 
         # THE READOUT SAYS WHAT THE ARC DRAWS, asserted against BOTH at
         # once: the two times it names and the duration the span implies.
+        #
+        # 27-02-PLAN.md Task 3 (CFG-62): the readout is now THREE
+        # children (two `data-value-readout` endpoints plus a duration
+        # span), not one text node — so "at rest, byte-identical" is
+        # checked against the STRIPPED text (what a visitor reads), and
+        # the structural seam is checked separately.
         markup = config_page.quiet_hours_group("23:00", "07:00")
         readout = re.search(
-            r'<p class="time-value %s"([^>]*)>([^<]*)</p>'
-            % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), markup)
+            r'<p class="time-value %s"([^>]*)>(.*?)</p>'
+            % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), markup, re.DOTALL)
         if not readout:
             return False, "the card renders no dial readout"
         span = config_page.quiet_window_span("23:00", "07:00")
         expected_text = "23:00 → 07:00 · %s" % layout.duration_text(span.minutes * 60)
-        if readout.group(2) != expected_text:
+        stripped_text = re.sub(r"<[^>]*>", "", readout.group(2))
+        if stripped_text != expected_text:
             return False, (
-                "the readout says %r; the span it is drawn from is %d minutes, which this app's "
-                "one duration ladder names %r"
-                % (readout.group(2), span.minutes, expected_text))
+                "the readout reads %r at rest; the span it is drawn from is %d minutes, which "
+                "this app's one duration ladder names %r — AT REST this must be byte-identical "
+                "to what shipped before the pair seam (27-02-PLAN.md Task 3's own acceptance "
+                "bar)" % (stripped_text, span.minutes, expected_text))
         if 'aria-hidden="true"' not in readout.group(1):
             return False, (
                 "the readout is not aria-hidden — both time inputs already announce their own "
                 "values natively and this would say the same thing twice (%r)" % readout.group(1))
+
+        # THE THREE CHILDREN, EACH WIRED THROUGH THE EXISTING READOUT
+        # SEAM. The two endpoints carry a bare token template (they
+        # substitute one number, the value-controls.js contract every
+        # other readout in this app already follows); the duration
+        # carries data-value-readout-base AND an EMPTY template — so
+        # paintReadouts()'s own blank-on-equal rule and its
+        # substitute-otherwise rule both resolve to "" once this element
+        # is next painted, which is the safe side of a rule built to
+        # blank a sentence when NOTHING changed (see the function's own
+        # docstring for why the shipped rule's polarity does not fit a
+        # duration that must blank the moment something DOES change).
+        for field, value in (("quiet_hours_start", "23:00"), ("quiet_hours_end", "07:00")):
+            endpoint = re.search(
+                r'<span %s="%s" %s="%s">%s</span>'
+                % (re.escape(layout.VALUE_CONTROL_READOUT_ATTR), re.escape(field),
+                   re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR),
+                   re.escape(layout.VALUE_CONTROL_TEXT_TOKEN), re.escape(value)),
+                readout.group(2))
+            if not endpoint:
+                return False, (
+                    "no %s readout span carrying the bare token template and %r: %r"
+                    % (field, value, readout.group(2)))
+        duration_span = re.search(
+            r'<span %s="quiet_hours_start" %s="" %s="(\d+)">([^<]*)</span>'
+            % (re.escape(layout.VALUE_CONTROL_READOUT_ATTR),
+               re.escape(layout.VALUE_CONTROL_READOUT_TEXT_ATTR),
+               re.escape(layout.VALUE_CONTROL_READOUT_BASE_ATTR)),
+            readout.group(2))
+        if not duration_span:
+            return False, (
+                "no duration span carrying an EMPTY readout template and a "
+                "data-value-readout-base: %r" % readout.group(2))
+        if int(duration_span.group(1)) != config_page.quiet_window_minute_of_day("23:00"):
+            return False, (
+                "the duration span's data-value-readout-base is %s minutes; the saved window's "
+                "own start is %d" % (duration_span.group(1),
+                                      config_page.quiet_window_minute_of_day("23:00")))
+        if duration_span.group(2) != layout.duration_text(span.minutes * 60):
+            return False, (
+                "the duration span's own text is %r at rest, not this app's one duration ladder's "
+                "%r" % (duration_span.group(2), layout.duration_text(span.minutes * 60)))
 
         # CFG-52: NOTHING ON THIS CARD IS A LIVE REGION. Dragging fires
         # continuously and a role="status" here would re-announce the
@@ -3073,8 +3123,19 @@ def main():
                 "submission, the same D-07 rule the two inputs already follow"
                 % (drawn / (2 * math.pi * float(arc["r"])), submitted_span.sweep_fraction,
                    config_page.quiet_window_span("23:00", "07:00").sweep_fraction))
-        if "09:00 → 17:00" not in echoed:
-            return False, "the rejected-save readout does not echo the submitted window"
+        # 27-02-PLAN.md Task 3 (CFG-62): the readout is now three
+        # children, not one text node, so the echo is checked per span
+        # rather than as one contiguous substring.
+        echoed_readout = re.search(
+            r'<p class="time-value %s"[^>]*>(.*?)</p>'
+            % re.escape(config_page.QUIET_DIAL_READOUT_CLASS), echoed, re.DOTALL)
+        if not echoed_readout:
+            return False, "the rejected-save render carries no dial readout at all"
+        if (">09:00<" not in echoed_readout.group(1)
+                or ">17:00<" not in echoed_readout.group(1)):
+            return False, (
+                "the rejected-save readout does not echo the submitted window: %r"
+                % echoed_readout.group(1))
         return True, ""
     check(
         "the ring is an ADDITION: both native <input type=\"time\"> fields keep their value/"
