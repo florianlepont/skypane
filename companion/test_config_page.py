@@ -950,6 +950,18 @@ EXPECTED_CHECK_COUNT = 258
 # + 3 = 259, re-derived by RUNNING (259/259).
 EXPECTED_CHECK_COUNT = 259
 
+# 27-05-PLAN.md Task 3 (CFG-66): CFG-47's schematic runway map RETIRED.
+# Removed, named: _runway_map_is_drawn_from_the_registry_never_a_typed_
+# list, _runway_strip_bearings_come_from_the_designators,
+# _runway_map_paint_resolves_and_joins_the_one_feature_query (-3).
+# Mutated in place (map-only assertion dropped, non-map subject kept,
+# no count change): _runway_map_paints_through_classes_and_announces_
+# nothing_twice -> _runway_fieldset_escapes_a_hostile_registry_label;
+# _the_map_changed_the_presentation_and_not_the_control ->
+# _the_controls_semantics_and_the_photographs_survive_the_map_s_removal.
+# Net: 259 - 3 = 256, re-derived by RUNNING (256/256).
+EXPECTED_CHECK_COUNT = 256
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -2079,15 +2091,14 @@ def main():
         _runway_fieldset_cards_image_rendering_per_card)
 
     # ------------------------------------------------------------------
-    # 25-03-PLAN.md Task 1 (CFG-47): the schematic Orly runway map.
-    #
-    # Four checks, and the thing they are collectively defending is that
-    # the DRAWING cannot disagree with the LABELS a visitor reads beside
-    # it. Every number in the geometry is derived from a runway
-    # designator that is already in the registry, so there is no second
-    # list of coordinates to fall out of step — and the checks below
-    # assert the derivation rather than the resulting angles, because a
-    # pinned angle is exactly the second list wearing a harness costume.
+    # 27-05-PLAN.md Task 3 (CFG-66): CFG-47's schematic Orly runway map
+    # was RETIRED — the drawing came out, the three native radios and
+    # the three photographs did not. `_temporary_registry()`/
+    # `_runway_entry()` below survive because the escaping check just
+    # past them still needs a hostile registry entry to swap in; every
+    # check that asserted the map's own classes, geometry or bearing
+    # derivation (four of them, plus their `_MAP_STRIP_ATTR` helper) is
+    # gone, named in 27-05-SUMMARY.md.
     # ------------------------------------------------------------------
 
     def _temporary_registry(entries):
@@ -2116,214 +2127,16 @@ def main():
     def _runway_entry(label):
         return {"label": label, "tag_text": label, "empty_heading": label}
 
-    _MAP_STRIP_ATTR = 'class="%s' % config_page.RUNWAY_MAP_STRIP_CLASS
-
-    def _runway_map_is_drawn_from_the_registry_never_a_typed_list():
-        # Every count here is len(RUNWAY_IDS), never the literal 3. The
-        # registry has held exactly three entries since Phase 6 and a
-        # harness that pinned the 3 would pass forever while the drawing
-        # silently stopped following the registry.
-        ids = device_config.RUNWAY_IDS
-        n = len(ids)
-        rendered = config_page.runway_fieldset("3")
-        radios = rendered.count('name="tracked_runway"')
-        if radios != n:
-            return False, (
-                "expected one radio per registry entry (%d), got %d" % (n, radios))
-        if rendered.count('class="visually-hidden"') < n:
-            return False, (
-                "expected every radio to keep class=\"visually-hidden\" — display:none "
-                "would drop it from the tab order and break keyboard selection")
-        if rendered.count('form="%s"' % config_page.SETTINGS_FORM_ID) < n:
-            return False, "expected every radio to keep its explicit form= association"
-        maps = rendered.count('<svg class="%s"' % config_page.RUNWAY_MAP_CLASS)
-        if maps != n:
-            return False, "expected one map per card (%d), got %d" % (n, maps)
-        # Every card draws the WHOLE airfield — n strips on each of n
-        # maps — which is what makes this a map rather than n unrelated
-        # single-strip marks. Counted on the class ATTRIBUTE prefix
-        # because "runway-map__strip--this" contains "runway-map__strip".
-        strips = rendered.count(_MAP_STRIP_ATTR)
-        if strips != n * n:
-            return False, (
-                "expected %d strips (%d cards x %d registry entries), got %d"
-                % (n * n, n, n, strips))
-        this = rendered.count(config_page.RUNWAY_MAP_THIS_STRIP_CLASS)
-        if this != n:
-            return False, (
-                "expected exactly one own-runway strip per card (%d), got %d"
-                % (n, this))
-
-        # THE MUTATION: a fourth entry, added to the registry only. If
-        # the drawing followed a typed list, this produces a fourth radio
-        # and no fourth strip.
-        grown = dict(device_config.RUNWAYS)
-        grown["09-27"] = _runway_entry("Runway 5 (09/27)")
-        with _temporary_registry(grown):
-            after = config_page.runway_fieldset("3")
-            if after.count('name="tracked_runway"') != n + 1:
-                return False, (
-                    "a fourth registry entry produced %d radios, expected %d"
-                    % (after.count('name="tracked_runway"'), n + 1))
-            if after.count('<svg class="%s"' % config_page.RUNWAY_MAP_CLASS) != n + 1:
-                return False, "a fourth registry entry produced no fourth map"
-            if after.count(_MAP_STRIP_ATTR) != (n + 1) * (n + 1):
-                return False, (
-                    "a fourth registry entry produced %d strips, expected %d — the "
-                    "drawing is following something other than the registry"
-                    % (after.count(_MAP_STRIP_ATTR), (n + 1) * (n + 1)))
-            if "rotate(90" not in after:
-                return False, (
-                    "the fourth entry's label says 09/27 and no strip is drawn at 090 — "
-                    "the drawing is not reading the designator it was given")
-        if device_config.RUNWAY_IDS != ids:
-            return False, "the registry mutation did not restore itself"
-        return True, ""
-    check(
-        "the runway map is drawn from device_config.RUNWAY_IDS and nothing else — one map per "
-        "card, one strip per registry entry on EVERY map, exactly one own-runway strip per card, "
-        "and a fourth entry added to the registry alone produces a fourth radio AND a fourth "
-        "strip on every map with no edit to runway_fieldset() (CFG-47, 25-03-PLAN.md Task 1)",
-        _runway_map_is_drawn_from_the_registry_never_a_typed_list)
-
-    def _runway_strip_bearings_come_from_the_designators():
-        # A designator IS a bearing in tens of degrees, so the drawing's
-        # angles are ASSERTED AGAINST THE LABELS rather than against
-        # pinned numbers. Both sides of every comparison below are read
-        # out of the registry at run time.
-        def designator(runway_id):
-            found = re.search(
-                r"\((\d{1,2})/(\d{1,2})\)", device_config.runway_label(runway_id))
-            if found is None:
-                return None
-            return int(found.group(1)) * 10 % 180
-
-        for runway_id in device_config.RUNWAY_IDS:
-            stated = designator(runway_id)
-            if stated is None:
-                continue
-            drawn = config_page.runway_bearing_deg(runway_id)
-            if drawn != stated:
-                return False, (
-                    "%r is labelled %r — its designator states %d degrees and the strip "
-                    "is drawn at %d"
-                    % (runway_id, device_config.runway_label(runway_id), stated, drawn))
-
-        # The relationship, not a magic number: two runways whose
-        # designators differ by 4 tens are drawn 40 degrees apart.
-        a, b = "06-24", "02-20"
-        if a in device_config.RUNWAY_IDS and b in device_config.RUNWAY_IDS:
-            expected_gap = designator(a) - designator(b)
-            drawn_gap = (config_page.runway_bearing_deg(a)
-                         - config_page.runway_bearing_deg(b))
-            if drawn_gap != expected_gap or expected_gap == 0:
-                return False, (
-                    "%r and %r are labelled %r and %r, a %d-degree difference, and are "
-                    "drawn %d degrees apart"
-                    % (a, b, device_config.runway_label(a),
-                       device_config.runway_label(b), expected_gap, drawn_gap))
-
-        # THE TRAP THIS PARSE EXISTS FOR. Orly's first entry is keyed
-        # "3" — an ADP runway NUMBER — and labelled "Runway 3 (07/25)".
-        # An id-first parse draws it at 030 while its own label says
-        # 07/25. The label is read first precisely so this cannot happen.
-        if "3" in device_config.RUNWAY_IDS:
-            if config_page.runway_bearing_deg("3") == 3 * 10:
-                return False, (
-                    "runway '3' is drawn at 030 — that is its ADP NUMBER parsed as a "
-                    "designator, and its own label says 07/25")
-        # ...and the clause above is NOT on its own enough to pin the
-        # label-before-id order, which is why this second case exists.
-        # Measured on the shipped registry: swapping the two sources
-        # changes no angle at all, because "3" parses as nothing under
-        # either order and the other two ids carry the same designators
-        # their labels do. So the order is proven on a registry where
-        # the two sources DISAGREE — a label of 07/25 against an id
-        # reading 31-13 — and the label has to win, because the label is
-        # what a visitor reads beside the drawing.
-        with _temporary_registry({"31-13": _runway_entry("Runway 9 (07/25)")}):
-            from_label = designator("31-13")
-            drawn = config_page.runway_bearing_deg("31-13")
-            if drawn != from_label:
-                return False, (
-                    "an entry keyed %r and labelled %r is drawn at %d — its LABEL states "
-                    "%d, and a drawing that contradicts the label printed beside it is "
-                    "the whole defect this parse exists to make unreachable"
-                    % ("31-13", "Runway 9 (07/25)", drawn, from_label))
-
-        # T-25-03-D: an entry carrying no parseable designator anywhere
-        # falls back to a stated angle and renders, rather than raising
-        # and taking the whole Display page down with it.
-        with _temporary_registry({"north-field": _runway_entry("The north field")}):
-            fallback = config_page.runway_bearing_deg("north-field")
-            if fallback != config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG:
-                return False, (
-                    "an unparseable entry gave %r, expected the stated fallback %r"
-                    % (fallback, config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG))
-            rendered = config_page.runway_fieldset("north-field")
-            if _MAP_STRIP_ATTR not in rendered:
-                return False, "an unparseable entry rendered no strip at all"
-        # A pair that is not reciprocal is not a designator pair: 12/2024
-        # would otherwise parse as 120 degrees.
-        with _temporary_registry({"x": _runway_entry("Rebuilt 12/19")}):
-            if config_page.runway_bearing_deg("x") != config_page.RUNWAY_MAP_FALLBACK_BEARING_DEG:
-                return False, (
-                    "12/19 is not a reciprocal designator pair (they differ by 7, not 18) "
-                    "and was parsed as a bearing anyway")
-        return True, ""
-    check(
-        "every runway strip's bearing is DERIVED from the designator in its own registry label "
-        "(a designator is a magnetic bearing in tens of degrees) — asserted against the labels "
-        "rather than against pinned angles, with the id read only second so Orly's ADP-numbered "
-        "'3' cannot be drawn at 030 while its label says 07/25, a non-reciprocal pair refused, "
-        "and an unparseable entry falling back to a stated angle rather than raising (T-25-03-D)",
-        _runway_strip_bearings_come_from_the_designators)
-
-    def _runway_map_paints_through_classes_and_announces_nothing_twice():
-        svg = config_page.runway_map_svg("3")
-        found = re.search(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", svg)
-        if found is not None:
-            return False, (
-                "the map emits the colour %r — a colour decided in Python is correct in "
-                "ONE theme and is invisible to companion/test_contrast_check.py"
-                % (found.group(0),))
-        shapes = re.findall(
-            r"<(rect|circle|line|path|polygon|polyline|ellipse)\b([^>]*)", svg)
-        if not shapes:
-            return False, "the map emits no drawn shape at all"
-        for tag, attributes in shapes:
-            if ("class=" not in attributes and "fill=" not in attributes
-                    and "stroke=" not in attributes):
-                return False, (
-                    "the map emits a <%s> with neither a class nor an explicit "
-                    "fill/stroke — it paints SVG-default black, which is invisible "
-                    "against a dark card" % (tag,))
-        # EVERY ATTRIBUTE ASSERTION BELOW IS SCOPED TO THE OPENING <svg>
-        # TAG, and that is not tidiness. Measured on this tree: a scan
-        # over the whole markup for "width=" passes against an <svg>
-        # carrying no size at all, because every <rect> child declares
-        # its own width — so the unscoped form of this check reported a
-        # size route that was not there.
-        opening = svg[:svg.index(">") + 1]
-        # The accessible names come from the three labels, exactly as
-        # before this drawing existed; a labelled graphic would announce
-        # the runways a second time.
-        for attribute in ('aria-hidden="true"', 'focusable="false"'):
-            if attribute not in opening:
-                return False, (
-                    "expected the map's own <svg> tag to carry %s, got %r"
-                    % (attribute, opening))
-        # The size route. companion/layout.py's icon_html() docstring
-        # records what an <svg> with neither an attribute nor a CSS rule
-        # does: 300x150 and a blown layout.
-        for attribute in ("viewBox=", "width=", "height="):
-            if attribute not in opening:
-                return False, (
-                    "expected the map's own <svg> tag to carry an explicit size route "
-                    "(%s), got %r" % (attribute, opening))
-        # T-25-03-B: registry text reaching the page. The map itself
-        # interpolates no registry string at all — only integers derived
-        # from it — and the card's label text goes through escape_html().
+    def _runway_fieldset_escapes_a_hostile_registry_label():
+        # T-25-03-B, MUTATED IN PLACE by 27-05-PLAN.md Task 3 (CFG-66):
+        # this check used to also assert runway_map_svg("h") never
+        # interpolated the hostile label unescaped, alongside every
+        # colour/paint-route/aria/size assertion the now-retired map's
+        # own <svg> carried. The map is gone; the registry-text-reaching-
+        # the-page threat it was ALSO defending against is not — a
+        # runway's plain-text label still renders on this card, so the
+        # escaping proof stays, narrowed to the surface that still
+        # exists.
         hostile = 'Runway <script>"x"</script> (07/25)'
         with _temporary_registry({"h": _runway_entry(hostile)}):
             rendered = config_page.runway_fieldset("h")
@@ -2333,21 +2146,24 @@ def main():
             if "&lt;script&gt;" not in rendered:
                 return False, (
                     "expected the hostile registry label to render escaped, not dropped")
-            if "<script>" in config_page.runway_map_svg("h"):
-                return False, "the map itself interpolated a registry label unescaped"
         return True, ""
     check(
-        "the runway map takes every colour from a class bound to a theme token (no literal "
-        "anywhere in its emitted markup), gives every drawn shape a paint route, carries "
-        "aria-hidden/focusable=\"false\" plus an explicit size route so it neither announces the "
-        "runways a second time nor renders at the SVG default 300x150, and escapes registry text "
-        "that reaches the page (CFG-47, T-25-03-B)",
-        _runway_map_paints_through_classes_and_announces_nothing_twice)
+        "runway_fieldset() escapes a hostile registry label rather than dropping or "
+        "interpolating it unescaped (T-25-03-B, narrowed from the retired map's own "
+        "coverage by 27-05-PLAN.md Task 3, CFG-66)",
+        _runway_fieldset_escapes_a_hostile_registry_label)
 
-    def _the_map_changed_the_presentation_and_not_the_control():
-        # The radiogroup's semantics are the control. This check is the
-        # one that fails if a later edit "tidies" the map by moving,
-        # renaming or re-wrapping any of them.
+    def _the_controls_semantics_and_the_photographs_survive_the_map_s_removal():
+        # MUTATED IN PLACE by 27-05-PLAN.md Task 3 (CFG-66): this check
+        # used to be titled "the map changed the presentation and not
+        # the control" and additionally asserted that
+        # RUNWAY_MAP_THIS_STRIP_CLASS survived a current_runway_id=None
+        # render — the one assertion in this function whose subject was
+        # the now-retired drawing itself, removed with it. Everything
+        # below it is the radiogroup's OWN semantics and the
+        # photographs' own presence, neither of which the map's removal
+        # may touch, so both stay and both are re-asserted here rather
+        # than lost when the check that used to carry them was renamed.
         rendered = config_page.runway_fieldset("3")
         for fragment in (
                 'role="radiogroup"',
@@ -2355,23 +2171,15 @@ def main():
                 'aria-describedby="%s"' % config_page.RUNWAY_SECTION_CAPTION_ID):
             if fragment not in rendered:
                 return False, "expected the row to keep %s" % (fragment,)
-        # Nothing selected means nothing marked. A map that defaulted to
-        # highlighting one runway would be stating a saved value the
-        # config does not hold.
+        # Nothing selected means nothing marked.
         none_selected = config_page.runway_fieldset(None)
         if "runway-card--selected" in none_selected:
             return False, (
                 "current_runway_id=None still marked a card selected")
         if " checked" in none_selected:
             return False, "current_runway_id=None still left a radio checked"
-        # ...but every card still draws its OWN runway, because that
-        # class says "this card's runway", not "the chosen runway".
-        if none_selected.count(config_page.RUNWAY_MAP_THIS_STRIP_CLASS) != len(
-                device_config.RUNWAY_IDS):
-            return False, (
-                "with nothing selected the own-runway strips vanished — that class "
-                "marks which runway a card IS, never which one is chosen")
-        # The photographs are an addition's neighbour, not its casualty.
+        # The photographs are the map's former neighbour, not its
+        # casualty.
         empty = config_page.runway_fieldset("3", images_available=())
         if "<img" in empty:
             return False, "images_available=() still rendered an <img>"
@@ -2388,176 +2196,18 @@ def main():
             path = os.path.join(HERE, "static", "runway-%s.png" % runway_id)
             if not os.path.exists(path):
                 return False, (
-                    "%s is gone from disk — the map is an ADDITION, and deleting real "
-                    "imagery for a schematic is irreversible in a way adding is not"
-                    % (path,))
+                    "%s is gone from disk — the developer objected to the drawn map, "
+                    "not to the photographs, and deleting real imagery here would be "
+                    "an unrelated, irreversible loss" % (path,))
         return True, ""
     check(
-        "the map changed the presentation and NOT the control — the row keeps role=\"radiogroup\" "
-        "with the same aria-labelledby/aria-describedby ids, current_runway_id=None marks nothing "
-        "selected and leaves no radio checked while every card still draws its own runway, and "
-        "the three runway photographs still render from the session-gated route and still exist "
-        "on disk (CFG-47, 25-03-PLAN.md Task 1)",
-        _the_map_changed_the_presentation_and_not_the_control)
-
-    def _runway_map_paint_resolves_and_joins_the_one_feature_query():
-        # Read directly rather than through _read_static(): that helper
-        # is defined further down this same main(), so it is unbound at
-        # the moment this check runs.
-        with open(os.path.join(HERE, "static", "style.css")) as fh:
-            source = fh.read()
-        rendered = config_page.runway_fieldset("3")
-        svg = rendered[rendered.index("<svg"):rendered.index("</svg>")]
-
-        # EVERY CLASS THE MAP EMITS MUST RESOLVE TO A REAL SELECTOR,
-        # scanned off the EMITTED markup rather than off a list of
-        # constants, because the failure being defended against is a
-        # class that exists in Python and nowhere in the stylesheet — it
-        # paints nothing at all and nothing else in this codebase would
-        # notice. The boundary is a negative lookahead, not a substring
-        # test: ".runway-map__strip" is a substring of
-        # ".runway-map__strip--this" and a plain `in` would report the
-        # first as resolved by the second's rule.
-        emitted = set()
-        for attribute in re.findall(r'class="([^"]*)"', svg):
-            emitted.update(attribute.split())
-        if not emitted:
-            return False, "the emitted map carries no class at all"
-        for class_name in sorted(emitted):
-            if not re.search(r"\.%s(?![\w-])" % re.escape(class_name), source):
-                return False, (
-                    "the map emits class %r and companion/static/style.css declares no "
-                    "selector for it — a class with no rule paints nothing at all"
-                    % (class_name,))
-
-        def _body(selector):
-            if selector not in source:
-                return None, "expected style.css to declare %r" % (selector,)
-            start = source.index(selector) + len(selector)
-            return source[start:source.index("}", start)], ""
-
-        # The paint route: a theme token, never a literal, so the
-        # drawing is correct in BOTH themes from one rule.
-        for selector, token in (
-                (".runway-map__strip {", "var(--color-text)"),
-                (".runway-map__strip--this {", "var(--color-text)"),
-                (".runway-map__field {", "var(--color-border)")):
-            body, err = _body(selector)
-            if body is None:
-                return False, err
-            if token not in body:
-                return False, (
-                    "%s must take its colour from %s — a literal is correct in one theme "
-                    "only and is invisible to companion/test_contrast_check.py"
-                    % (selector, token))
-            found = re.search(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(", body)
-            if found is not None:
-                return False, "%s carries the colour literal %r" % (selector, found.group(0))
-
-        # The overflow floor's DECLARED half. Three cards share one row
-        # at 360px and each content box is narrower than the map's own
-        # intrinsic 64 user units, so without these the drawing is wider
-        # than the card that holds it. The RENDERED half is measured in
-        # companion/test_browser_ux.py at 360px.
-        body, err = _body(".runway-map {")
-        if body is None:
-            return False, err
-        for declaration in ("max-width:", "height: auto;"):
-            if declaration not in body:
-                return False, (
-                    ".runway-map must declare %r — its intrinsic size is wider than a "
-                    "runway card at the 360px contract floor, and an SVG that overflows "
-                    "its card scrolls the page sideways" % (declaration,))
-
-        # The transition is on the BASE rule and nowhere else — the same
-        # discipline the card's own transition follows, and the reason
-        # the ONE feature query is separately asserted to declare none.
-        strip_body, _err = _body(".runway-map__strip {")
-        if "transition:" not in strip_body:
-            return False, (
-                ".runway-map__strip must declare the transition on its base rule, where "
-                "it animates the live selected state and its no-:has() fallback from one "
-                "declaration")
-        if "var(--motion-fast)" not in strip_body:
-            return False, (
-                "the strip's transition must spend from the existing motion tokens, not a "
-                "new duration")
-
-        # NO NEW ACCENT CONSUMER, anywhere in this component. The header
-        # comment's reservation list is exhaustive and this drawing is
-        # not on it.
-        for match in re.finditer(r"\.runway-map[^{]*\{([^}]*)\}", source):
-            if "var(--color-accent)" in match.group(1):
-                return False, (
-                    "a .runway-map rule paints accent — this component's accent budget is "
-                    "already spent on the card's border, ring, wash and check glyph, all "
-                    "four of which are on the header comment's reservation list, and a "
-                    "fifth would be a broadening of an exhaustive list: %r"
-                    % (match.group(0)[:120],))
-
-        # CFG-52: the live selected strip JOINS the one feature query;
-        # its no-:has() fallback stays outside it; the saved-but-not-live
-        # clear joins it too. Asserted by position against the block,
-        # which is the same mechanism this file's existing :has() checks
-        # use.
-        supports_marker = "@supports selector(:has(*)) {"
-        if source.count(supports_marker) != 1:
-            return False, (
-                "expected exactly one %r block, got %d — a second block fails two named "
-                "checks and forces re-derivation of specificity arithmetic marked "
-                "verified, not to be re-derived"
-                % (supports_marker, source.count(supports_marker)))
-        supports_idx = source.index(supports_marker)
-        for selector, inside in (
-                (".runway-card:has(input:checked) .runway-map__strip--this {", True),
-                (".runway-card--selected .runway-map__strip--this {", False),
-                (".runway-card--selected:not(:has(input:checked)) "
-                 ".runway-map__strip--this {", True)):
-            body, err = _body(selector)
-            if body is None:
-                return False, err
-            at = source.index(selector)
-            if inside and at < supports_idx:
-                return False, "expected %r to live inside the feature query" % (selector,)
-            if not inside and at > supports_idx:
-                return False, "expected %r to live outside the feature query" % (selector,)
-            if "var(--color-accent)" in body:
-                return False, "%r must stay accent-free" % (selector,)
-        # Parity: the live rule and its no-:has() fallback must paint the
-        # SAME thing, or a browser without :has() renders a different
-        # selected card — the identical contract T6 already holds for the
-        # border, the ring, the wash and the scale.
-        live, _err = _body(".runway-card:has(input:checked) .runway-map__strip--this {")
-        fallback, _err = _body(".runway-card--selected .runway-map__strip--this {")
-        if live.strip() != fallback.strip():
-            return False, (
-                "the live selected strip and its --selected fallback must declare the "
-                "same paint, got %r against %r" % (live.strip(), fallback.strip()))
-
-        # The motion budget, pinned by count. Both figures are the
-        # baselines measured on this tree before this plan touched the
-        # file; the map declares no keyframes and no per-rule
-        # reduced-motion block, which the design system records as dead
-        # code rather than a safety net.
-        keyframes = len(re.findall(r"^@keyframes\b", source, flags=re.MULTILINE))
-        if keyframes != 4:
-            return False, (
-                "expected the @keyframes count to stay at 4, got %d" % keyframes)
-        reduced = source.count("@media (prefers-reduced-motion: reduce)")
-        if reduced != 3:
-            return False, (
-                "expected the prefers-reduced-motion block count to stay at 3, got %d"
-                % reduced)
-        return True, ""
-    check(
-        "the runway map's paint resolves — every class the emitted markup carries has a real "
-        "selector, every colour comes from a theme token so both themes are correct from one "
-        "rule, the map declares the max-width/height pair that keeps its intrinsic size inside a "
-        "360px card, its transition sits on the base rule and spends an existing motion token, "
-        "and the live selected strip JOINS the one @supports selector(:has(*)) block with its "
-        "no-:has() fallback outside it declaring the identical paint — with no accent anywhere "
-        "in the component and the keyframe/reduced-motion counts unmoved (CFG-47/CFG-52)",
-        _runway_map_paint_resolves_and_joins_the_one_feature_query)
+        "the control's own semantics and the photographs survive the map's removal — the row "
+        "keeps role=\"radiogroup\" with the same aria-labelledby/aria-describedby ids, "
+        "current_runway_id=None marks nothing selected and leaves no radio checked, and the "
+        "three runway photographs still render from the session-gated route and still exist on "
+        "disk (CFG-66, retitled from CFG-47's retired 25-03-PLAN.md Task 1 check by "
+        "27-05-PLAN.md Task 3)",
+        _the_controls_semantics_and_the_photographs_survive_the_map_s_removal)
 
     # ------------------------------------------------------------------
     # 25-04-PLAN.md Task 1 (CFG-48): the wrapping-midnight arithmetic,
