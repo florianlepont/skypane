@@ -1008,6 +1008,17 @@ EXPECTED_CHECK_COUNT = 263
 # 263 + 1 = 264, re-derived by RUNNING (264/264).
 EXPECTED_CHECK_COUNT = 264
 
+# 28-04-PLAN.md Task 2 (CFG-72): +1 — the cheap structural guard
+# (_device_scope_wraps_all_four_settings_cards_with_the_nested_modifier),
+# asserting the Device scope's rendered output wraps all four of its
+# settings cards with the --nested modifier and carries zero unmodified
+# settings-card wrappers. Task 1's own two edits (the D-12 section-intro
+# check retargeted, and the title-form inventory reconciled) both
+# retargeted EXISTING check() calls in place — neither is a new
+# registration, so neither moves this count. Net: 264 + 1 = 265,
+# re-derived by RUNNING (265/265).
+EXPECTED_CHECK_COUNT = 265
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -8648,6 +8659,53 @@ def main():
         "enforced at the source level rather than only in today's rendered markup (CFG-65, "
         "27-06-PLAN.md Task 2 — Outcome 2, no conversion, see 27-06-SUMMARY.md)",
         _no_card_builder_function_ever_calls_section_intro_html)
+
+    # ==================================================================
+    # 28-04-PLAN.md Task 2 (CFG-72): the cheap structural guard. THIS IS
+    # NOT THE PROOF — companion/test_browser_ux.py's cross-page
+    # getComputedStyle comparator is, and that is stated here rather
+    # than left implicit, so nobody later mistakes this check for a
+    # substitute (that exact mistake is how 27-06 shipped in the first
+    # place). This only asserts that the Device scope's rendered markup
+    # wraps every one of its four settings cards with the --nested
+    # modifier and that zero unmodified settings-card wrappers of either
+    # base class survive on that page.
+    # ==================================================================
+
+    def _device_scope_wraps_all_four_settings_cards_with_the_nested_modifier():
+        ctx = {
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+        }
+        device = config_page.render(ctx, scope=config_page.SCOPE_DEVICE)
+        nested_theme_status = device.count('class="theme-status theme-status--nested"')
+        if nested_theme_status != 3:
+            return False, (
+                "expected exactly 3 theme-status--nested settings-card wrappers on Device "
+                "(LED, wake interval, notifications), got %d" % nested_theme_status)
+        nested_page_section = device.count('class="page-section page-section--nested"')
+        if nested_page_section != 1:
+            return False, (
+                "expected exactly 1 page-section--nested settings-card wrapper on Device "
+                "(Poll), got %d" % nested_page_section)
+        bare_theme_status = device.count('class="theme-status"')
+        if bare_theme_status != 0:
+            return False, (
+                "expected zero unmodified .theme-status settings-card wrappers on Device, "
+                "got %d" % bare_theme_status)
+        bare_page_section = device.count('class="page-section"')
+        if bare_page_section != 0:
+            return False, (
+                "expected zero unmodified .page-section settings-card wrappers on Device, "
+                "got %d" % bare_page_section)
+        return True, ""
+    check(
+        "the cheap structural guard, NOT the real proof (that is test_browser_ux.py's "
+        "cross-page getComputedStyle comparator): the Device scope's rendered output wraps "
+        "all four of its settings cards with the --nested modifier (three "
+        "theme-status--nested, one page-section--nested) and carries zero unmodified "
+        "settings-card wrappers of either base class (CFG-72, 28-04-PLAN.md Task 2)",
+        _device_scope_wraps_all_four_settings_cards_with_the_nested_modifier)
 
     # ==================================================================
     # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): the instant switches, and

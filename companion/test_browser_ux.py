@@ -73,6 +73,7 @@ path). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_browser_ux.py
 """
+import collections
 import contextlib
 import io
 import json
@@ -899,6 +900,14 @@ EXPECTED_CHECK_COUNT = 89
 # from the server-rendered reference — in both shipped languages, with
 # the preset step crossing midnight. 89 + 1 = 90, re-derived by RUNNING.
 EXPECTED_CHECK_COUNT = 90
+
+# 28-04-PLAN.md Task 2 (CFG-72): +1 —
+# _a_settings_card_title_renders_identically_on_both_settings_pages, THE
+# rendered proof: one probe loads both settings pages in one session,
+# addresses every settings-card title by structural position, and
+# asserts the combined getComputedStyle set across both pages has
+# cardinality 1. 90 + 1 = 91, re-derived by RUNNING.
+EXPECTED_CHECK_COUNT = 91
 
 # --- The view-transition names this app declares (23-04-PLAN.md Task 2,
 # D10/CFG-33) and, for each, the authenticated routes on which EXACTLY
@@ -14234,6 +14243,147 @@ def main():
                     "neither the summary nor the chevron is the canvas colour (CFG-50/CFG-52, "
                     "25-06-PLAN.md Task 4)",
                     _the_carousel_meets_its_floors_at_360px_in_both_themes)
+
+                # ==========================================================
+                # 28-04-PLAN.md Task 2 (CFG-72): THE real proof. 27-06's own
+                # markup-level inventory (test_config_page.py's structural
+                # check) is explicitly insufficient — that is CFG-72's whole
+                # lesson, and it is exactly how this defect shipped in the
+                # first place: 27-06 counted class names and never once
+                # rendered Display and Device side by side to read what the
+                # browser actually painted. This check does that: ONE probe
+                # loads both settings pages in one session, reads
+                # getComputedStyle on every settings-card title, and asserts
+                # the two pages' sets are equal.
+                # ==========================================================
+
+                _SETTINGS_CARD_TITLE_SELECTOR = (
+                    ".theme-status > h2.text-heading, .page-section > h2.text-heading")
+
+                def _settings_card_title_probe(page):
+                    """Every settings-card title on the CURRENTLY LOADED
+                    settings page, addressed by STRUCTURAL POSITION — the
+                    `<h2>` that is a direct child of a `.theme-status`/
+                    `.page-section` settings-card wrapper — never by class
+                    name. Addressing by class name is the exact move that
+                    let 27-06 miss this defect (its own inventory grouped
+                    by `.text-heading`, which every h2 on this page
+                    carries, card title and supersection intro alike).
+
+                    A supersection's own intro heading
+                    (`.section-intro > h2`) is EXCLUDED, structurally
+                    rather than by an explicit `:not()`: it lives under
+                    `.section-intro`, never directly under
+                    `.theme-status`/`.page-section`, so the selector above
+                    never reaches it. That exclusion is deliberate — a
+                    supersection intro is a different, generically-worded
+                    role (companion/test_config_page.py's own title-form
+                    inventory, 27-06-PLAN.md Task 1, and SKILL.md's
+                    three-rung heading ladder both document why) — not an
+                    oversight this check should "fix" into asserting the
+                    ladder away.
+                    """
+                    return page.evaluate(
+                        "sel => Array.from(document.querySelectorAll(sel)).map(h => {"
+                        "  var s = getComputedStyle(h);"
+                        "  return {text: h.textContent, fontSize: s.fontSize,"
+                        "          fontWeight: s.fontWeight, fontFamily: s.fontFamily};"
+                        "})", _SETTINGS_CARD_TITLE_SELECTOR)
+
+                def _a_settings_card_title_renders_identically_on_both_settings_pages():
+                    context = browser.new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+                    try:
+                        page = context.new_page()
+                        _login(page, harness.base_url())
+                        base_url = harness.base_url()
+
+                        # Every (page, theme) combination this app can
+                        # paint a settings-card title in, all folded into
+                        # ONE combined set below — never compared pairwise,
+                        # so a third, page-local variant cannot hide.
+                        entries = []
+                        by_page = {"/display": [], "/device": []}
+                        for theme in UI_THEMES_EXPLICIT:
+                            for route in ("/display", "/device"):
+                                page.goto(base_url + route)
+                                _set_ui_theme(page, theme)
+                                for title in _settings_card_title_probe(page):
+                                    triple = (
+                                        title["fontSize"], title["fontWeight"],
+                                        title["fontFamily"])
+                                    entry = {
+                                        "page": route, "theme": theme,
+                                        "text": title["text"], "triple": triple}
+                                    entries.append(entry)
+                                    by_page[route].append(entry)
+
+                        # Clause (a): BOTH sides non-empty, naming the
+                        # empty one — a comparator with an empty side
+                        # passes vacuously, which is how a grep-level
+                        # check misses a rendering defect.
+                        for route, side in by_page.items():
+                            if not side:
+                                return False, (
+                                    "expected at least one settings-card title on %s, got "
+                                    "NONE — a comparator with an empty side would pass "
+                                    "vacuously" % route)
+
+                        # Device must contribute exactly the four NAMED
+                        # cards — a probe that silently missed the Poll
+                        # card (which reaches the page by a different
+                        # route from the other three, outside `builders`
+                        # entirely) would pass this check while leaving
+                        # CFG-72 unmet on a card the developer can see.
+                        device_texts = sorted({e["text"] for e in by_page["/device"]})
+                        expected_device_texts = sorted([
+                            config_page.LED_SECTION_HEADING,
+                            config_page.WAKE_INTERVAL_SECTION_HEADING,
+                            config_page.NOTIFICATIONS_SECTION_HEADING,
+                            config_page.POLL_SECTION_HEADING])
+                        if device_texts != expected_device_texts:
+                            return False, (
+                                "expected Device to contribute exactly the four named "
+                                "settings-card titles %r, got %r" % (
+                                    expected_device_texts, device_texts))
+
+                        # Clause (b): the combined set's own cardinality is
+                        # 1 — one typographic form for a settings-card
+                        # title, CFG-72's literal wording.
+                        triples = sorted({e["triple"] for e in entries})
+                        if len(triples) != 1:
+                            majority = collections.Counter(
+                                e["triple"] for e in entries).most_common(1)[0][0]
+                            offender = next(
+                                e for e in entries if e["triple"] != majority)
+                            # Clause (c): the message names the offending
+                            # page, the offending title's text, and BOTH
+                            # triples — "titles differ" is not diagnostic.
+                            return False, (
+                                "expected exactly one (font-size, font-weight, font-family) "
+                                "triple across every settings-card title on both settings "
+                                "pages, got %d distinct triples — %r on %s (theme=%s) "
+                                "renders %r, while the rest render %r"
+                                % (len(triples), offender["text"], offender["page"],
+                                   offender["theme"], offender["triple"], majority))
+                        return True, ""
+                    finally:
+                        context.close()
+                check(
+                    "THE real proof, not a grep: ONE probe renders BOTH settings pages "
+                    "(Display and Device) in one session, addresses every settings-card title "
+                    "by STRUCTURAL POSITION rather than by class name, reads its "
+                    "getComputedStyle font-size/font-weight/font-family, and asserts the "
+                    "combined set across both pages has cardinality 1 — CFG-72's literal "
+                    "wording. Fails naming the empty side if either page contributes zero "
+                    "titles; Device must contribute exactly the four NAMED cards (Diagnostic "
+                    "LED, Wake interval, Notifications, Manual refresh); the failure message "
+                    "names the offending page, the offending title's text and BOTH triples. "
+                    "Supersection intro headings (.section-intro > h2) are excluded "
+                    "structurally, deliberately — a different, generically-worded tier "
+                    "(27-06-PLAN.md Task 1, SKILL.md's three-rung heading ladder), not an "
+                    "inconsistency this check should assert away. Both themes exercised via "
+                    "_set_ui_theme(), at the 360px floor (CFG-72, 28-04-PLAN.md Task 2)",
+                    _a_settings_card_title_renders_identically_on_both_settings_pages)
 
                 # ==========================================================
                 # 25-07-PLAN.md Task 3 (CFG-51/D19): THE ARTWORK DROP ZONE.
