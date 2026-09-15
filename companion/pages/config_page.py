@@ -221,7 +221,25 @@ FRAME_COLOURS_ROW_LABELS = {
 # one X6 reports. The words chosen instead are the usage panels' own
 # labels above, so the legend and the panel a user is looking at name
 # the same two things.
-THEME_CHIP_SWATCH_LEGEND = "Departures · Arrivals"
+#
+# 27-07-PLAN.md Task 3 (CFG-70): "Departures · Arrivals" — a middle dot
+# between the two words, the SAME separator the disclosure elsewhere on
+# this card would use to name two genuinely different things — reads as
+# a promise that the two dots are two different colours. They are not:
+# every one of the eighteen themes has `departing_index ==
+# arriving_index` (measured while writing `_theme_carousel_html()`,
+# 25-06-PLAN.md Task 2, and unchanged since), so the two dots are always
+# the same ink. A middle-dot legend over two identical swatches is X6's
+# OWN "unexplained swatches" defect wearing different words: it now
+# explains a distinction the registry does not carry. The copy is
+# joined into ONE phrase instead — no separator, naming what the single
+# shared colour is FOR rather than implying two colours to tell apart.
+# `companion/test_config_page.py`'s own check computes the expected
+# label count FROM THE REGISTRY at check time (never a restated
+# literal), so if a future theme ever does give departures and arrivals
+# different inks, that check starts demanding two labels again and
+# fails against this one-phrase copy until it is split back apart.
+THEME_CHIP_SWATCH_LEGEND = "Departures & arrivals"
 # 22-10-PLAN.md Task 1 (T10/B16/D-06): the "Current" badge's own text.
 # It used to be a hard-coded English `content: "Current"` literal inside
 # companion/static/style.css (twice), which no catalogue can reach; it is
@@ -1581,8 +1599,11 @@ def _theme_carousel_html(grid_html, strip_id):
     arriving_index`, and the eighteen resolve to only SEVEN distinct
     hexes. So this row is a palette overview, not an identifier of
     individual themes, and the chips' own two swatch dots — the ones the
-    "Departures · Arrivals" legend names — are the same colour as each
-    other in every theme this app ships. That is a registry fact, not a
+    "Departures & arrivals" legend names (27-07-PLAN.md Task 3, CFG-70:
+    joined into one phrase, since a middle-dot separator between two
+    identical swatches was itself naming a distinction that is not
+    there) — are the same colour as each other in every theme this app
+    ships. That is a registry fact, not a
     defect introduced here, and nothing in this plan changes it.
     """
     dots = "".join(

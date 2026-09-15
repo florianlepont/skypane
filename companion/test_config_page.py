@@ -992,6 +992,13 @@ EXPECTED_CHECK_COUNT = 261
 # by RUNNING (262/262).
 EXPECTED_CHECK_COUNT = 262
 
+# 27-07-PLAN.md Task 3 (CFG-70): +1 — the swatch-legend relationship
+# check (_the_swatch_legend_names_as_many_things_as_the_registry_
+# carries), which computes its expected label count from the registry
+# at check time rather than restating THEME_CHIP_SWATCH_LEGEND's own
+# literal. Net: 262 + 1 = 263, re-derived by RUNNING (263/263).
+EXPECTED_CHECK_COUNT = 263
+
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     """Same rationale as companion/test_companion_app.py's own copy: the
@@ -10186,6 +10193,48 @@ def main():
         "page, X6) and each grid is followed by exactly one swatch legend in .text-label "
         "section-caption's own declaration set, outside the radiogroup (22-10-PLAN.md Task 1)",
         _display_renders_one_chip_density_and_a_swatch_legend_under_every_grid)
+
+    # ------------------------------------------------------------------
+    # 27-07-PLAN.md Task 3 (CFG-70): the legend stops naming a
+    # distinction the registry does not carry.
+    # ------------------------------------------------------------------
+
+    def _the_swatch_legend_names_as_many_things_as_the_registry_carries():
+        # THE RELATIONSHIP, COMPUTED FROM THE REGISTRY AT CHECK TIME —
+        # never the literal string "Departures & arrivals". A literal
+        # check would go stale silently the day a theme makes departures
+        # and arrivals differ, pinning a lie in place exactly like the
+        # defect this task fixes wore a different hat. "·" is the
+        # separator the PREVIOUS copy used to name two things
+        # ("Departures · Arrivals"); splitting on it is how this check
+        # counts how many things the CURRENT copy names, whatever that
+        # copy's own wording turns out to be.
+        legend = config_page.THEME_CHIP_SWATCH_LEGEND
+        labels = [part.strip() for part in legend.split("·") if part.strip()]
+        label_count = len(labels)
+        for theme_id in device_config.THEME_IDS:
+            theme = device_config.THEMES[theme_id]
+            colours = {
+                config_page._palette_hex(theme["departing_index"]),
+                config_page._palette_hex(theme["arriving_index"]),
+            }
+            expected = len(colours)
+            if label_count != expected:
+                return False, (
+                    "theme=%r: the registry gives this theme %d distinct swatch colour(s) "
+                    "(departing_index=%r, arriving_index=%r) but the shared legend %r names "
+                    "%d label(s) — the legend is ONE line shown for every theme's chip, so it "
+                    "must name exactly as many things as the registry gives that theme"
+                    % (theme_id, expected, theme["departing_index"], theme["arriving_index"],
+                       legend, label_count))
+        return True, ""
+    check(
+        "the chip swatch legend names exactly as many things as the registry gives EVERY "
+        "theme — computed from _palette_hex(departing_index)/_palette_hex(arriving_index) at "
+        "check time, never a restated literal, so a future theme that DOES give departures "
+        "and arrivals different inks would make this check demand two labels on its own "
+        "(CFG-70, 27-07-PLAN.md Task 3)",
+        _the_swatch_legend_names_as_many_things_as_the_registry_carries)
 
     def _the_current_badge_reads_a_server_rendered_translated_attribute():
         # T10: the badge's text used to be hard-coded English inside

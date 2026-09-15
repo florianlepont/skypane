@@ -99,7 +99,12 @@ CATALOG = {
     # grid naming the two swatch dots. See config_page.py's
     # THEME_CHIP_SWATCH_LEGEND for why this names departures/arrivals
     # rather than 22-UI-SPEC.md's proposed "Background · Ink".
-    "Departures · Arrivals": "Départs · Arrivées",
+    #
+    # 27-07-PLAN.md Task 3 (CFG-70): joined into one phrase, no
+    # separator — see the English constant's own comment for why a
+    # middle-dot legend over two identical swatches was itself X6's
+    # defect wearing different words.
+    "Departures & arrivals": "Départs et arrivées",
     # 22-10-PLAN.md Task 1 (T10/B16): the "Current" badge on the saved
     # chip/runway card, which used to be a hard-coded English
     # `content: "Current"` in style.css that no catalogue could reach.
