@@ -14332,19 +14332,47 @@ def main():
                         # cards — a probe that silently missed the Poll
                         # card (which reaches the page by a different
                         # route from the other three, outside `builders`
-                        # entirely) would pass this check while leaving
-                        # CFG-72 unmet on a card the developer can see.
-                        device_texts = sorted({e["text"] for e in by_page["/device"]})
-                        expected_device_texts = sorted([
+                        # entirely, through a `.page-section` wrapper
+                        # rather than `.theme-status` like its siblings)
+                        # would pass this check while leaving CFG-72
+                        # unmet on a card the developer can see — the
+                        # shape of miss 27-06 made. Two properties, NOT
+                        # an exact-four-count: (i) every title found is
+                        # one of the four canonical names (no unrelated
+                        # heading — e.g. a supersection intro — leaked
+                        # in), and (ii) the Poll card's OWN title is
+                        # specifically among them, proving the probe's
+                        # reach extends past the three `.theme-status`
+                        # cards to the one `.page-section` card too.
+                        # Deliberately NOT "exactly four": M-C
+                        # (28-04-PLAN.md Task 2) removes one Device card
+                        # from `builders` on purpose and this check must
+                        # still PASS on the genuinely smaller set that
+                        # produces — proof the comparator is not
+                        # secretly COUNTING rather than comparing.
+                        allowed_device_texts = {
                             config_page.LED_SECTION_HEADING,
                             config_page.WAKE_INTERVAL_SECTION_HEADING,
                             config_page.NOTIFICATIONS_SECTION_HEADING,
-                            config_page.POLL_SECTION_HEADING])
-                        if device_texts != expected_device_texts:
+                            config_page.POLL_SECTION_HEADING}
+                        device_texts = {e["text"] for e in by_page["/device"]}
+                        unexpected = device_texts - allowed_device_texts
+                        if unexpected:
                             return False, (
-                                "expected Device to contribute exactly the four named "
-                                "settings-card titles %r, got %r" % (
-                                    expected_device_texts, device_texts))
+                                "expected every Device settings-card title to be one of %r, "
+                                "found unexpected title(s) %r — a probe addressing titles by "
+                                "class name rather than structural position would pick up "
+                                "supersection intro headings too, which is exactly the "
+                                "27-06-shaped mistake this check exists to avoid"
+                                % (sorted(allowed_device_texts), sorted(unexpected)))
+                        if config_page.POLL_SECTION_HEADING not in device_texts:
+                            return False, (
+                                "expected the Poll card's own title (%r) among Device's "
+                                "settings-card titles — it reaches the page through a "
+                                ".page-section wrapper, not .theme-status like the other "
+                                "three, and a probe that silently misses it would pass this "
+                                "check while leaving CFG-72 unmet on a card the developer "
+                                "can see" % config_page.POLL_SECTION_HEADING)
 
                         # Clause (b): the combined set's own cardinality is
                         # 1 — one typographic form for a settings-card
@@ -14375,14 +14403,19 @@ def main():
                     "getComputedStyle font-size/font-weight/font-family, and asserts the "
                     "combined set across both pages has cardinality 1 — CFG-72's literal "
                     "wording. Fails naming the empty side if either page contributes zero "
-                    "titles; Device must contribute exactly the four NAMED cards (Diagnostic "
-                    "LED, Wake interval, Notifications, Manual refresh); the failure message "
-                    "names the offending page, the offending title's text and BOTH triples. "
-                    "Supersection intro headings (.section-intro > h2) are excluded "
-                    "structurally, deliberately — a different, generically-worded tier "
-                    "(27-06-PLAN.md Task 1, SKILL.md's three-rung heading ladder), not an "
-                    "inconsistency this check should assert away. Both themes exercised via "
-                    "_set_ui_theme(), at the 360px floor (CFG-72, 28-04-PLAN.md Task 2)",
+                    "titles; every Device title must be one of the four named cards "
+                    "(Diagnostic LED, Wake interval, Notifications, Manual refresh) and the "
+                    "Poll card's own title specifically must be among them — proving the "
+                    "probe's reach extends to the one .page-section card, not just the three "
+                    ".theme-status ones — while a genuinely SMALLER set (one Device card "
+                    "removed from `builders`) still passes, proving the comparator is not "
+                    "secretly counting; the failure message names the offending page, the "
+                    "offending title's text and BOTH triples. Supersection intro headings "
+                    "(.section-intro > h2) are excluded structurally, deliberately — a "
+                    "different, generically-worded tier (27-06-PLAN.md Task 1, SKILL.md's "
+                    "three-rung heading ladder), not an inconsistency this check should assert "
+                    "away. Both themes exercised via _set_ui_theme(), at the 360px floor "
+                    "(CFG-72, 28-04-PLAN.md Task 2)",
                     _a_settings_card_title_renders_identically_on_both_settings_pages)
 
                 # ==========================================================
